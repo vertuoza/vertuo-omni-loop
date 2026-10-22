@@ -3,9 +3,9 @@ import { HOOK_WAIT_MS, type SessionRow } from '../ask/page/view';
 import type { ForMeRow } from '../ask/page/question';
 import type { TabRow } from '../ask/page/tabs';
 import { peopleOf } from '../people/load';
-import { EMPTY_WAITING, mergeQuestions, ownQuestions, sharedQuestions, titled, WAITING_MS, waitingCounts, type WaitingQuestion } from './waiting';
+import { EMPTY_WAITING, mergeQuestions, ownQuestions, reviewsOf, sharedQuestions, titled, WAITING_MS, waitingCounts, type WaitingQuestion } from './waiting';
 import { sure } from '../arcade/test/sure';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The waiting list (PRD 499), as pure functions: the Questions part merged from the person's own
 // sessions and the rounds shared with them, its counts, and the tab title's `(N) ` prefix.
@@ -43,8 +43,8 @@ describe('the Questions part', () => {
 
   it('counts the entries, the shared ones apart, and the outbox, empty for now', () => {
     const list = { ...EMPTY_WAITING, questions: mergeQuestions([q('a', MIN), q('b', MIN)], [q('b', MIN, 'Bob'), q('c', MIN, 'Bob')]) };
-    expect(waitingCounts(list)).toEqual({ questions: 3, shared: 2, outbox: 0, approvals: 0, runners: 0, total: 3 });
-    expect(waitingCounts(EMPTY_WAITING)).toEqual({ questions: 0, shared: 0, outbox: 0, approvals: 0, runners: 0, total: 0 });
+    expect(waitingCounts(list)).toEqual({ questions: 3, shared: 2, outbox: 0, approvals: 0, runners: 0, reviews: 0, total: 3 });
+    expect(waitingCounts(EMPTY_WAITING)).toEqual({ questions: 0, shared: 0, outbox: 0, approvals: 0, runners: 0, reviews: 0, total: 0 });
   });
 
   it('counts an outbox item in the total', () => {
@@ -53,12 +53,16 @@ describe('the Questions part', () => {
   });
 
   it('counts the approval requests waiting on the person in the total (PRD 1322)', () => {
-    expect(waitingCounts({ ...EMPTY_WAITING, questions: [q('a', MIN)] }, 2)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, runners: 0, total: 3 });
+    expect(waitingCounts({ ...EMPTY_WAITING, questions: [q('a', MIN)] }, 2)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, runners: 0, reviews: 0, total: 3 });
+  });
+
+  it('counts the reviews waiting on the person in the total, and apart (PRD 2377 s5)', () => {
+    expect(waitingCounts({ ...EMPTY_WAITING, questions: [q('a', MIN)] }, 2, 0, 3)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, runners: 0, reviews: 3, total: 6 });
   });
 
   it('keeps the runners waiting for an answer apart from the total: the sidebar\'s badge is their only signal (PRD 2255)', () => {
     const list = { ...EMPTY_WAITING, questions: [q('a', MIN)] };
-    expect(waitingCounts(list, 2, 4)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, runners: 4, total: 3 });
+    expect(waitingCounts(list, 2, 4)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, runners: 4, reviews: 0, total: 3 });
     expect(waitingCounts(EMPTY_WAITING, 0, 3)).toMatchObject({ runners: 3, total: 0 });
   });
 });
@@ -122,5 +126,26 @@ describe('the tab title', () => {
   it('is the page\'s own title at 0', () => {
     expect(titled('(5) PRDs · OMNI LOOP', 0)).toBe('PRDs · OMNI LOOP');
     expect(titled('PRDs · OMNI LOOP', 0)).toBe('PRDs · OMNI LOOP');
+  });
+});
+
+describe('reviewsOf (PRD 2377 s5)', () => {
+  const wait = (id: string, turn: string[], since: string, kind: 'review' | 'merge' | 'law' = 'review') =>
+    ({ id, repo: 'acme/widgets', prd: parsePrd(7), pr: parsePr(70), kind, turn, since });
+
+  it('keeps the waits whose turn names the login, case ignored, oldest first, a tie by id', () => {
+    const waits = [
+      wait('c', ['Ada'], '2026-10-02T09:00:00Z', 'merge'), wait('b', ['bob'], '2026-10-01T09:00:00Z'),
+      wait('a', ['ada', 'bob'], '2026-10-03T09:00:00Z', 'law'), wait('z', ['ada'], '2026-10-02T09:00:00Z'),
+    ];
+    expect(reviewsOf(waits, 'ada').map((r) => [r.id, r.kind, r.since])).toEqual([
+      ['c', 'merge', Date.parse('2026-10-02T09:00:00Z')], ['z', 'review', Date.parse('2026-10-02T09:00:00Z')], ['a', 'law', Date.parse('2026-10-03T09:00:00Z')],
+    ]);
+  });
+
+  it('never counts a team, an empty turn, or a person with no login', () => {
+    const waits = [wait('t', ['acme/reviewers'], '2026-10-01T09:00:00Z'), wait('e', [], '2026-10-01T09:00:00Z')];
+    expect(reviewsOf(waits, 'ada')).toEqual([]);
+    expect(reviewsOf([wait('a', ['ada'], '2026-10-01T09:00:00Z')], null)).toEqual([]);
   });
 });

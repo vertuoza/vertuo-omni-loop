@@ -2282,6 +2282,47 @@ export type Database = {
           },
         ]
       }
+      prd_milestones: {
+        Row: {
+          lane: string
+          milestone: string
+          pr: number | null
+          prd: number
+          reached_at: string
+          repository: string
+          synced_at: string
+          workspace_id: string
+        }
+        Insert: {
+          lane: string
+          milestone: string
+          pr?: number | null
+          prd: number
+          reached_at: string
+          repository: string
+          synced_at?: string
+          workspace_id: string
+        }
+        Update: {
+          lane?: string
+          milestone?: string
+          pr?: number | null
+          prd?: number
+          reached_at?: string
+          repository?: string
+          synced_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_milestones_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prd_outbox: {
         Row: {
           open_questions: number
@@ -3893,6 +3934,53 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sectors"
             referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
+      waits: {
+        Row: {
+          ended_at: string | null
+          id: string
+          kind: string
+          pr: number | null
+          prd: number | null
+          repo: string
+          seen_at: string
+          since: string
+          turn: string[]
+          workspace_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          kind: string
+          pr?: number | null
+          prd?: number | null
+          repo: string
+          seen_at: string
+          since: string
+          turn?: string[]
+          workspace_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          kind?: string
+          pr?: number | null
+          prd?: number | null
+          repo?: string
+          seen_at?: string
+          since?: string
+          turn?: string[]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waits_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
           },
         ]
       }

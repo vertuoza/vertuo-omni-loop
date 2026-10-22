@@ -75,17 +75,8 @@ ready PR into `main`, run the full `pnpm test` and the full `pnpm lint` (verific
 
 ## Never
 
-The briefing has the full text of each.
-
-- Merge into `main` (a person does), or make a `chore(release): v0.0.N` commit by hand.
-- Decide what the spec leaves open without reading the knowledge it touches; take the most
-  reversible option and record it as an outbox item.
-- Lower a coverage floor or add a suppression to turn a check green.
-- Mark a PR ready whose new migration is dated at or before the newest on `main`.
-- Reformat files you did not change.
-- Leave a red check on your PR: it is yours to fix (comment after 3 attempts).
-- Leave a PR you own without `omni:in-progress` and a current status comment.
-- Bypass push protection: rotate a real secret, build a fixture's at runtime.
+The Never rules live in one place, the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`
+prints them, and the session start prints them too. Read them before you change anything.
 
 ## The loop
 

@@ -66,6 +66,8 @@
 // PRD 1299, s3: a PRD born on the server (◆) carries its approval (./approval.ts): waiting for approval,
 // approved with who and when, or drifted · approve again; any other dossier carries none.
 import type { FixPageView } from '../../fixes/timeline';
+import type { MilestoneRow } from '../../timeline/store';
+import { pageTimeline, type TimelineView } from '../../timeline/view';
 import type { Face } from '../../people/face';
 import { peopleOf, type People } from '../../people/load';
 import type { Person } from '../../people/types';
@@ -104,7 +106,7 @@ export const TABS: readonly (DossierKind | 'questions')[] = ['questions', 'befor
 
 /** Every tab of the page, in order: the dossier's, the User voice beside them (PRD 822), then what
  * GitHub holds (PRD 426). */
-export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'voice', 'outbox', 'care', 'retro'];
+export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'timeline', 'voice', 'outbox', 'care', 'retro'];
 
 /** Each kind's tabs, in order (PRD 627): a PRD's every tab; a fix's own artifacts, then its questions. */
 export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
@@ -218,6 +220,8 @@ export type DossierRead = {
   stages?: readonly StageRow[] | null | undefined;
   /** The PRD's fix job while it is queued or running (PRD 2270); null or left out when none is, or it could not be read. */
   fixing?: Fixing | null | undefined;
+  /** The PRD's stored milestones (PRD 2370, s5): null when they could not be read, left out when not asked for. */
+  milestones?: readonly MilestoneRow[] | null | undefined;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
@@ -331,6 +335,10 @@ export type DossierView = {
   care: CareView | null;
   /** A fix's state, links and Timeline (PRD 627, s5); null for a PRD, and for a fix the route read none of. */
   fix: FixPageView | null;
+  /** A PRD's Timeline tab (PRD 2370, s5); null for a fix and a draft. */
+  timeline: TimelineView | null;
+  /** The line under the stage words (PRD 2370, s5); null with no milestone, for a fix and a draft. */
+  timelineLine: string | null;
   /** What the User voice tab's Rework with this feedback copies (PRD 822); null for a draft or a fix. */
   rework: string | null;
   /** The Proof tab's run (PRD 798): null with no run, and on a fix. */
@@ -698,6 +706,8 @@ function headerOf(page: Page, questions: QuestionsView): DossierHeader {
 type Badges = {
   retro: string | null; care: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null };
   count: (kind: ArtifactKind) => number; runs: number; pitches: number;
+  /** How many milestones the PRD holds (PRD 2370); null on a fix, and when they were not read. */
+  milestones: number | null;
 };
 
 /** The Retro tab's badge: whether the retro PR is open or merged; null with none, or GitHub unread. */
@@ -728,6 +738,7 @@ const EMPTY_WHEN: Partial<Record<DossierTab, (badges: Badges, retro: RetroView, 
   retro: (_badges, retro) => retro.state !== 'text',
   care: (_badges, _retro, care) => care?.state !== 'care',
   voice: (badges) => badges.count('voice') === 0,
+  timeline: (badges) => badges.milestones === 0,
 };
 
 function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: RetroView, care: CareView | null): TabEntry {
@@ -742,6 +753,9 @@ function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: 
   };
 }
 
+/** A PRD's stored milestones (PRD 2370); undefined for a fix and a draft, which have no timeline. */
+const ownMilestones = (page: Page, read: DossierRead) => (page.work === 'prd' && read.dossier.prd !== null ? read.milestones : undefined);
+
 export function dossierView(read: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now()): DossierView {
   const page = pageOf(read, me, pick);
   const questions = questionsView(read.rounds, read.members, read.dossier.id, read.answerable ?? [], now, page.people);
@@ -752,7 +766,8 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
   const count = (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length;
   const runs = page.tabs.includes('proof') ? read.proofs?.runs.length ?? 0 : 0;
   const pitches = page.tabs.includes('pitch') ? read.pitches?.runs.length ?? 0 : 0;
-  const badges: Badges = { retro: retroBadge(page.numbered), care: careBadge(care), outbox, counted: questionsCount(questions), count, runs, pitches };
+  const own = pageTimeline(ownMilestones(page, read), now);
+  const badges: Badges = { retro: retroBadge(page.numbered), care: careBadge(care), outbox, counted: questionsCount(questions), count, runs, pitches, milestones: own.count };
   const versions = versionEntries(page, pick.version);
   const railSpec = page.tab === 'outbox' && context === 'spec' ? railSpecOf(page) : null;
   return {
@@ -766,6 +781,8 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     retro,
     care,
     fix: page.work === 'prd' ? null : read.fix ?? null,
+    timeline: own.view,
+    timelineLine: own.line,
     rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
     proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
     pitch: pitches && read.pitches ? pitchView(read.pitches, pick.pitch ?? null, read.members) : null,

@@ -3,6 +3,8 @@ import { periodWindow, type Period } from '../dashboard/board/period';
 import { peopleOf } from '../people/load';
 import { withPeople } from './faced';
 import type { EngineeringBoard } from './load';
+import type { WorkspaceMilestone } from '../timeline/store';
+import { parsePrd, parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
 // The demo's Engineering board (PRD 612 s3), for development and OMNI_LOOP_DEMO=1: two tracked
@@ -106,11 +108,41 @@ function reviewOf(i: number, now: Date): ReviewRow {
   return { repo: tracked(i), number: 100 + i, reviewer: person(i + 1), firstAt: new Date(openedAt(i, now).getTime() + HOUR).toISOString() };
 }
 
-function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[] } {
+/** Twelve PRDs done in the last weeks, one lane each, their steps taking more or less the same: Review
+ * the slowest. A thirteenth is still being built, so it counts nowhere (PRD 2370 s6). */
+function milestonesOf(now: Date): WorkspaceMilestone[] {
+  const DAY = 24 * HOUR;
+  const rows: WorkspaceMilestone[] = [];
+  for (let i = 0; i < 13; i++) {
+    const repository = tracked(i);
+    const prd = parsePrd(1000 + i);
+    const merged = i === 12 ? null : now.getTime() - (i * 2 + 1) * DAY;
+    const review = (1 + (i % 3)) * DAY;
+    const finishing = (4 + (i % 4)) * HOUR;
+    const building = (1 + (i % 4)) * DAY;
+    const starting = (2 + (i % 5)) * HOUR;
+    const ready = merged === null ? now.getTime() - 3 * HOUR : merged - review;
+    const last = ready - finishing;
+    const first = last - building;
+    const opened = first - starting;
+    const times: [WorkspaceMilestone['milestone'], number][] = [
+      ['idea', opened - 4 * DAY], ['plan', opened - 3 * DAY], ['approved', opened - DAY], ['opened', opened],
+      ['first-slice', first], ['last-slice', last], ['ready', ready],
+    ];
+    if (merged !== null) times.push(['merged', merged]);
+    for (const [milestone, at] of times) {
+      const own = milestone === 'idea' || milestone === 'plan' || milestone === 'approved';
+      rows.push({ repository, prd, lane: repository, milestone, pr: own ? null : parsePr(200 + i), reached_at: new Date(at).toISOString() });
+    }
+  }
+  return rows;
+}
+
+function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[]; milestones: WorkspaceMilestone[] } {
   const all = Array.from({ length: 90 }, (_, i) => i);
   const subs = Array.from({ length: 200 }, (_, i) => subPrOf(i, now));
   const promotions = Array.from({ length: 7 }, (_, i) => promotionOf(i, now));
-  return { pullRequests: [...all.map((i) => pullRequestOf(i, now)), ...subs, ...promotions, ...stuckOf(now)], reviews: all.map((i) => reviewOf(i, now)) };
+  return { pullRequests: [...all.map((i) => pullRequestOf(i, now)), ...subs, ...promotions, ...stuckOf(now)], reviews: all.map((i) => reviewOf(i, now)), milestones: milestonesOf(now) };
 }
 
 export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date): EngineeringBoard;

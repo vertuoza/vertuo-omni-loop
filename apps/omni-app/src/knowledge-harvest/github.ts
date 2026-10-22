@@ -11,7 +11,8 @@ import { createContext } from 'omni-loop/kit/lib/context.ts';
 import { PullFilesSchema } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
 import { readKnowledge } from 'omni-loop/kit/lib/knowledge/registers.ts';
 import { readDecisions } from 'omni-loop/kit/lib/playbook/decisions.ts';
-import type { IssueNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import type { ChangedFile, LawIssue } from 'omni-loop/kit/lib/knowledge/write.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { ListSchema } from '../retro/github.schema.ts';
@@ -82,18 +83,38 @@ export function loopPaths(config: LoopPathsConfig): string[] {
 }
 
 /**
+ * Whether a harvest of PRD `prd` fetches the file at `path` (issue 2400): a file outside the
+ * `delivery` folder, or directly under one of its areas, always is; one in a folder of an area
+ * (`<delivery>/<area>/<folder>/…`) only when that folder is the PRD's own (`<nnnn>-<topic>`), in
+ * whichever area it sits. Every other folder is listed, written empty and never counted against the
+ * snapshot's bound, as the outbox check reads a PR's own folder alone (issue 1968): a repository's
+ * delivery history grows with every PRD, and past the bound no harvest ran at all.
+ */
+export function harvestFetched(delivery: string, prd: PrdNumber): (path: string) => boolean {
+  const root = `${delivery.replace(/\/+$/, '')}/`;
+  return (path) => {
+    if (!path.startsWith(root)) return true;
+    const [, folder, ...rest] = path.slice(root.length).split('/');
+    return folder === undefined || rest.length === 0 || parseFolderName(folder)?.prd === prd;
+  };
+}
+
+/**
  * Runs `fn` with a kit context over the loop's paths at `sha`, and the `also` paths beside them,
  * snapshotted into a scratch folder that is removed afterwards. The context's config is the one at
- * `sha`; `config` only names what to read.
+ * `sha`; `config` only names what to read. Given `prd`, only that PRD's delivery folders are fetched
+ * (`harvestFetched`); the others are there, empty.
  */
 export async function withTreeAt<T>(
   octokit: RequestOctokit,
-  { owner, repo, sha, config, also = [] }: { owner: string; repo: string; sha: string; config: LoopPathsConfig; also?: readonly string[] },
+  { owner, repo, sha, config, also = [], prd }: { owner: string; repo: string; sha: string; config: LoopPathsConfig; also?: readonly string[]; prd?: PrdNumber },
   fn: (ctx: Context, root: string) => T | Promise<T>,
 ): Promise<T> {
   const root = mkdtempSync(join(tmpdir(), 'omni-harvest-tree-'));
+  const delivery = config.paths.delivery;
+  const fetchIf = prd === undefined || !delivery ? () => true : harvestFetched(delivery, prd);
   try {
-    await snapshot(octokit, { owner, repo, ref: sha, paths: [...new Set([...loopPaths(config), ...also])], dest: root });
+    await snapshot(octokit, { owner, repo, ref: sha, paths: [...new Set([...loopPaths(config), ...also])], dest: root, fetchIf });
     return await fn(createContext(root, loadConfig(root)), root);
   } finally {
     rmSync(root, { recursive: true, force: true });

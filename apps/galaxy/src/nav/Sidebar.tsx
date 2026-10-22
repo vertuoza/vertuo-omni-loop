@@ -55,7 +55,8 @@ const NEW_TAB = (
 /** The spoken name of an item: said to open a new tab, or with its waiting count, or its own label. */
 function spokenLabel(item: SidebarItem, waiting: number | null): string | undefined {
   if (item.leavesApp) return `${item.label} (opens in a new tab)`;
-  return waiting !== null ? `${item.label}: ${waiting} waiting` : undefined;
+  if (waiting === null) return undefined;
+  return item.id === 'waiting' ? `${item.label}: ${waiting} yours` : `${item.label}: ${waiting} waiting`;
 }
 
 /** An item that leaves the app opens in a new tab and is never prefetched. */

@@ -27,14 +27,17 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   a runner may run, Send to terminal, which opens a picker of the runners the viewer may send to and
   says `Queued for <target>` once sent, shown only when the workspace has one; Copy link, Delete
   draft for a draft's opener); the
-  facts strip (Stage, Approval for a PRD born on the server, Repo or Repos, On GitHub with when
+  facts strip (Stage, with its time line under the stage words: `Idea → merged: <total> · Longest: <step>, <duration>`,
+  or `Running for <total> · Now: <step>, <duration>` (PRD 2370); Approval for a PRD born on the server, Repo or Repos, On GitHub with when
   GitHub was last read, Opened, with the opener's face); then the tabs. From 900 × 700 px the box
   is pinned while the page scrolls (`PinnedHead.tsx`).
 - **The approve screen,** under the head, for a viewer allowed to approve while the PRD waits or
   drifted: each changed file's diff, the spec's Problem and Solution, then Approve.
 - **The pane** of the tab shown (`?tab=`, its version by `?v=`): the before/after page framed on its
   sandboxed route; the spec and the plan rendered from Markdown with raw HTML off; Questions with the
-  rounds that shaped it and an `N to answer` badge; Outbox (`OutboxPane.tsx`), PR care
+  rounds that shaped it and an `N to answer` badge; Timeline (PRD 2370), the PRD's milestones, then one
+  lane per repository it lands in, each step between two with its duration and who it waits on, the
+  longest marked; Outbox (`OutboxPane.tsx`), PR care
   (`CarePane.tsx`), Proof, Launch (its own screen, `launch`), Retro; each artifact tab with a version picker.
 - **The play dock** in the page's corner when the agent works on the dossier, saying "▶ Play while the agent works" (`LiveRefresh`).
 
@@ -55,7 +58,7 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 
 ## Words
 
-Tabs, in order: Questions, Before/after, Spec, Plan, User voice, Outbox, PR care, Proof, Launch,
+Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbox, PR care, Proof, Launch,
 Retro (`dossier/page/view.ts`). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval,
 Repo, Repos, On GitHub, Opened.
@@ -94,3 +97,4 @@ Repo, Repos, On GitHub, Opened.
 - /omni:brainstorm, PRD 1915: .omni-loop/delivery/shipped/1915-agent-words-website/before-after.html
 - /omni:think-big, concept #2024, crowned L on 2026-10-15: .omni-loop/delivery/inbox/concepts/2024-launch/vision.html (Launch replaces Pitch)
 - /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
+- /omni:brainstorm, PRD 2370: .omni-loop/delivery/shipped/2370-prd-timeline/before-after.html (the time line and the Timeline tab)

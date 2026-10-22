@@ -3,7 +3,8 @@ import { BUSINESS_HREF } from '../waiting/business';
 import { faceOf } from '../people/face';
 import type { Person } from '../people/types';
 import type { DocumentGroup, DocumentKind } from '../waiting/documents';
-import type { WaitingApproval, WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
+import { ageWords, workingDays } from '../waiting-board/board';
+import type { WaitingApproval, WaitingList, WaitingOutbox, WaitingQuestion, WaitingReview } from '../waiting/waiting';
 
 // The top bar's bell (PRD 499), as pure functions. The bell carries the waiting list's count; its panel
 // lists two groups, Questions then Outbox, each only when it has something to show, each oldest first
@@ -19,10 +20,13 @@ import type { WaitingApproval, WaitingList, WaitingOutbox, WaitingQuestion } fro
 // gone. Like New documents it never adds to the bell's count or its name.
 // PRD 1322 (s2) adds an Approvals group after Questions: one line per ◆ PRD whose approval is asked of
 // the person, oldest first, opening its page. It is a wait: it adds to the bell's count.
+// PRD 2377 (s5) adds a Reviews group after Approvals: one line per open review, merge or law wait whose turn
+// names the person by login, oldest first, `PRD <n>` (or the pull request of a fix), what it waits on and its
+// age in working days, opening the pull request on GitHub. It adds to the bell's count.
 
 /** What the list's parts could not read: a part whose last read failed, and PRDs whose outbox the
  * last read could not reach. */
-export type BellUnread = { questions?: boolean; outbox?: boolean; outboxPrds?: number; documents?: boolean; business?: boolean; approvals?: boolean };
+export type BellUnread = { questions?: boolean; outbox?: boolean; outboxPrds?: number; documents?: boolean; business?: boolean; approvals?: boolean; reviews?: boolean };
 
 /** The two alert switches at the panel's foot, and what flipping one asks. */
 export type BellAlerts = {
@@ -36,7 +40,7 @@ export type BellAlerts = {
  * ("· shared by", PRD 652). */
 export type BellLine = { id: string; href: string; head: string; text: string; meta: string; sharedBy?: Pick<Person, 'name' | 'face'> };
 
-export type BellGroup = { label: 'Questions' | 'Approvals' | 'Outbox' | 'New documents' | 'Business'; problem: string | null; lines: BellLine[] };
+export type BellGroup = { label: 'Questions' | 'Approvals' | 'Reviews' | 'Outbox' | 'New documents' | 'Business'; problem: string | null; lines: BellLine[] };
 
 export type BellPanel = { groups: BellGroup[]; empty: boolean };
 
@@ -73,6 +77,16 @@ const approvalLine = (item: WaitingApproval, now: number): BellLine => ({
   head: `PRD ${item.prd} · ${item.title}`,
   text: 'Waits for your approval',
   meta: waitedFor(now - item.askedAt),
+});
+
+const REVIEW_WORDS = { review: 'Review', merge: 'Merge', law: 'Law' } as const;
+
+const reviewLine = (item: WaitingReview, now: number): BellLine => ({
+  id: item.id,
+  href: `https://github.com/${item.repo}/pull/${item.pr}`,
+  head: item.prd === null ? `Pull request #${item.pr}` : `PRD ${item.prd}`,
+  text: REVIEW_WORDS[item.kind],
+  meta: ageWords(workingDays(new Date(item.since), new Date(now))),
 });
 
 const outboxLine = (item: WaitingOutbox): BellLine => ({
@@ -115,15 +129,17 @@ function outboxProblem(unread: BellUnread): string | null {
 
 /** The panel: its groups, each only when it has items or a problem to say, and whether nothing waits.
  * `documents` are the New documents part's groups, newest first; `business`, how many things wait to
- * be checked on Settings › Business; `approvals`, the approval requests waiting on the person. */
+ * be checked on Settings › Business; `approvals`, the approval requests waiting on the person; `reviews`, the review, merge and law waits
+ * whose turn names the person (PRD 2377 s5). */
 export function bellPanel(
-  list: WaitingList, unread: BellUnread, now: number, documents: readonly DocumentGroup[] = [], business = 0, approvals: readonly WaitingApproval[] = [],
+  list: WaitingList, unread: BellUnread, now: number, documents: readonly DocumentGroup[] = [], business = 0, approvals: readonly WaitingApproval[] = [], reviews: readonly WaitingReview[] = [],
 ): BellPanel {
   // Questions oldest first; the outbox as the route ordered it (by PRD, then as its outbox holds them).
   const questions = [...list.questions].sort((a, b) => a.askedAt - b.askedAt || a.id.localeCompare(b.id));
   const all: BellGroup[] = [
     { label: 'Questions', problem: unread.questions ? retrying('Questions') : null, lines: questions.map((q) => questionLine(q, now)) },
     { label: 'Approvals', problem: unread.approvals ? retrying('Approvals') : null, lines: approvals.map((a) => approvalLine(a, now)) },
+    { label: 'Reviews', problem: unread.reviews ? retrying('Reviews') : null, lines: [...reviews].sort((a, b) => a.since - b.since || a.id.localeCompare(b.id)).map((r) => reviewLine(r, now)) },
     { label: 'Outbox', problem: outboxProblem(unread), lines: list.outbox.map(outboxLine) },
     { label: 'New documents', problem: unread.documents ? retrying('New documents') : null, lines: documents.map((g) => documentLine(g, now)) },
     { label: 'Business', problem: unread.business ? retrying('Business') : null, lines: business > 0 ? [businessLine(business)] : [] },

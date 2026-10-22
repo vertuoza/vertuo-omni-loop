@@ -5,7 +5,7 @@ kind: shared
 mock: app-shell.html
 implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css]
 reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/(shell)/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/app/ideas/layout.tsx, apps/galaxy/src/ideas/IdeasFrame.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
-routes: [/app, /app/runners, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual, /ideas/<owner>/<repo>]
+routes: [/app, /app/runners, /app/waiting, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual, /ideas/<owner>/<repo>]
 supersedes: null
 ---
 
@@ -24,9 +24,10 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
 - **The sidebar** (`nav/Sidebar.tsx`, `nav/sidebar.ts`): the OMNI LOOP logo (the crest and the
   wordmark, `nav/BrandLogo.tsx`) linked to /app, « to fold it, the workspace's name; the
   **Dashboard** group (Home, Fleet, Loop, Runners, Workspace, Engineering) and the **Work** group (Products,
-  Roadmaps, Ideas, Concepts, PRDs, Bug Fixes, Visual Updates, Questions, Knowledge), each entry with
+  Roadmaps, Ideas, Concepts, PRDs, Waiting, Bug Fixes, Visual Updates, Questions, Knowledge), each entry with
   its 16 px sprite, the current one marked; Questions and PRDs carry a count badge, and Runners one
-  for the workspace's jobs waiting for an answer, spoken `Runners: <n> waiting` (PRD 2255); at the foot
+  for the workspace's jobs waiting for an answer, spoken `Runners: <n> waiting` (PRD 2255); Waiting
+  one for the reviews, merges and laws whose turn is yours, spoken `Waiting: <n> yours` (PRD 2377); at the foot
   Settings, then Docs · Release notes (each opening a new tab), then `Omni Loop v<version>`.
 - **The top bar** (`nav/AppBar.tsx`): the section's sprite at 2× in a tile and the trail to the page
   (`Work › PRDs`); then the theme switch (Omni, Light, Dark), Game mode, the bell (its own shared
@@ -51,9 +52,9 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
 ## Words
 
 OMNI LOOP · Dashboard · Home · Fleet · Loop · Runners · Workspace · Engineering · Work · Products · Roadmaps ·
-Ideas · Concepts · PRDs · Bug Fixes · Visual Updates · Questions · Knowledge · Settings · Docs ·
+Ideas · Concepts · PRDs · Waiting · Bug Fixes · Visual Updates · Questions · Knowledge · Settings · Docs ·
 Release notes · Omni Loop v<version> · Collapse the menu · Expand the menu · Menu · Omni · Light ·
-Dark · Game mode · My profile · Sign out · Sign in with GitHub · Runners: <n> waiting.
+Dark · Game mode · My profile · Sign out · Sign in with GitHub · Runners: <n> waiting · Waiting: <n> yours.
 
 ## Refusals
 
@@ -87,3 +88,4 @@ Dark · Game mode · My profile · Sign out · Sign in with GitHub · Runners: <
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (the Runners entry)
 - /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html (the Runners badge)
 - /omni:visual-fix #1996, pick B by @pierrederval on 2026-10-15: .omni-loop/delivery/visual/1996-ideas-keeps-menu/before-after.html
+- /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html (the Waiting entry and its badge)

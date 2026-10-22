@@ -10,7 +10,8 @@ const CONFIG = syncConfig('kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch:
 const SYNC = '2026-09-29T12:00:00.000Z';
 
 const pull = (number: number, head: string, more: Partial<SnapshotPull> = {}): SnapshotPull => ({
-  number: parsePr(number), head, base: 'trunk', state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', ready_at: null, ...more,
+  number: parsePr(number), head, base: 'trunk', state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', ready_at: null,
+  labels: [], body: null, requested: [], requested_at: null, reviews: null, lawLocked: null, checksRed: null, ...more,
 });
 const merged = (number: number, head: string, at: string, more: Partial<SnapshotPull> = {}) => pull(number, head, { state: 'closed', merged_at: at, ...more });
 
@@ -25,6 +26,10 @@ describe('the stages a repository shows', () => {
     expect(CONFIG).toEqual({
       defaultBranch: 'trunk', delivery: 'loop/delivery', prdLabel: 'product',
       branches: { phase0: 'docs/phase-0-{topic}', slice: 'feat/{topic}--{slice}', feature: 'feature/{topic}', retro: 'docs/retro-{topic}' },
+      labels: { bug: 'omni:bug', visual: 'omni:visual' },
+      prLinks: { feature: 'Closes #{prd}', phase0: 'Refs #{prd}' },
+      outboxCheck: 'outbox',
+      lawOwners: [],
     });
   });
 

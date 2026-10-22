@@ -8,13 +8,15 @@ import { PeriodSwitch } from '../dashboard/board/PeriodSwitch';
 import type { Period } from '../dashboard/board/period';
 import { faceOf } from '../people/face';
 import { PersonChip } from '../people/PersonChip';
-import { durationWords, SORTS, type EngineeringValue, type HealthKind, type LoopHealth, type MergedDay, type NeedsFixRate, type Ranked, type SortKey } from './tally';
+import { durationWords } from './duration';
+import { SORTS, type EngineeringValue, type HealthKind, type LoopHealth, type MergedDay, type NeedsFixRate, type Ranked, type SortKey } from './tally';
+import type { TimePerStep } from './steps';
 import '../dashboard/board/board.css';
 import './engineering.css';
 
 // The Engineering board (PRD 612 s3), drawn on the server, top to bottom: the period switch (the
 // other boards' 7 days / 30 days / Season), the six tiles, the Omni Loop panel beside the chart of
-// merged PRs per day, the per-repository table (each column heading a link that sorts by it, kept in
+// merged PRs per day, the Time per step panel (PRD 2370 s6), the per-repository table (each column heading a link that sorts by it, kept in
 // the URL as `?sort=`; the Omni Loop panel ends with the loop's sub-PRs merged into feature branches,
 // which count nowhere else, PRD 714; beside it the Loop health panel, PRD 714 s2: the loop's pull
 // requests stuck right now, each linking to it on GitHub, then, s4, how many of the sub-PRs merged in
@@ -116,6 +118,34 @@ function LoopHealthPanel({ health, rate }: { health: LoopHealth; rate: NeedsFixR
       {health.more > 0 ? <p className="eng-health-more">{`and ${n(health.more)} more`}</p> : null}
       <h3 className="eng-health-part">In the period</h3>
       <NeedsFixLine rate={rate} />
+    </section>
+  );
+}
+
+// ── Time per step (PRD 2370 s6) ──────────────────────────────────────────
+
+function TimePerStepPanel({ steps }: { steps: TimePerStep }) {
+  return (
+    <section className="board-chart board-card eng-steps" aria-labelledby="eng-steps">
+      <h2 id="eng-steps">Time per step</h2>
+      {steps.done === 0 ? <p className="dash-note">No PRD was done in this period</p> : (
+        <>
+          <p className="eng-steps-done">
+            <b>{n(steps.done)}</b>{` PRD${steps.done === 1 ? '' : 's'} done in this period`}
+          </p>
+          {steps.slowest ? <p className="eng-steps-slowest">{`Slowest step: ${steps.slowest.label}, median ${durationWords(steps.slowest.median)}`}</p> : null}
+          <ol className="eng-steps-rows">
+            {steps.steps.map((s) => (
+              <li key={s.id} className="eng-steps-row">
+                <span className="eng-steps-name">{s.label}</span>
+                <span className="eng-steps-waits">{`waits on ${s.waitsOn}`}</span>
+                <b className="eng-steps-median">{durationWords(s.median)}</b>
+                <span className="eng-steps-covers">{`${n(s.covers)} ${s.covers === 1 ? 'value' : 'values'}`}</span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
     </section>
   );
 }
@@ -243,6 +273,7 @@ export function EngineeringBoard({ board, period, query, repo }: EngineeringBoar
             <LoopHealthPanel health={board.health} rate={board.needsFixRate} />
             <PerDay days={board.perDay} period={period} />
           </div>
+          <TimePerStepPanel steps={board.steps} />
           {repo ? null : <Repositories value={board} period={period} query={query} />}
           <div className="eng-people">
             <TopFive kind="opened" title="Most opened" people={board.people.opened} />

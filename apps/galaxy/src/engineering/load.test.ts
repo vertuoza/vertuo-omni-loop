@@ -13,6 +13,7 @@ import { UNREADABLE } from '../dashboard/part';
 import { peopleOf } from '../people/load';
 import { loadEngineering, loadEngineeringBoard, loadEngineeringRepository, loadEngineeringRepositoryBoard, supabaseEngineeringReads, type EngineeringReads } from './load';
 import { sure } from '../arcade/test/sure';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /app/engineering's read (PRD 612 s3), on fakes: no test calls Supabase.
 
@@ -34,6 +35,7 @@ function reads(over: Partial<EngineeringReads> = {}): EngineeringReads & { asked
     tracked: () => { asked.push('tracked'); return Promise.resolve(['acme/widgets']); },
     pullRequests: (from, repos) => { asked.push(['prs', from.toISOString(), repos]); return Promise.resolve([PR]); },
     reviews: (from, to, repos) => { asked.push(['reviews', from.toISOString(), to.toISOString(), repos]); return Promise.resolve([]); },
+    milestones: () => Promise.resolve([]),
     people: () => {
       asked.push('people');
       return Promise.resolve(peopleOf(
@@ -77,6 +79,19 @@ describe('loadEngineering', () => {
     expect(board.people.merged[0]).toEqual({ login: 'bob', count: 1, face: { kind: 'photo', url: 'https://github.com/bob.png?size=48' } });
   });
 
+  it('draws Time per step from the workspace\'s PRD milestones, the PRDs done in the period (PRD 2370 s6)', async () => {
+    const at = (iso: string, milestone: 'opened' | 'first-slice' | 'last-slice' | 'ready' | 'merged') =>
+      ({ repository: 'acme/widgets', prd: parsePrd(7), lane: 'acme/widgets', milestone, pr: parsePr(9), reached_at: iso });
+    const milestones = [
+      at('2026-09-24T00:00:00Z', 'opened'), at('2026-09-24T02:00:00Z', 'first-slice'), at('2026-09-24T06:00:00Z', 'last-slice'),
+      at('2026-09-24T08:00:00Z', 'ready'), at('2026-09-24T10:00:00Z', 'merged'),
+    ];
+    const board = await loadEngineering(reads({ milestones: () => Promise.resolve(milestones) }), REQUEST);
+    if (board === UNREADABLE || board.kind !== 'board') throw new Error('no board');
+    expect(board.steps.done).toBe(1);
+    expect(board.steps.slowest).toEqual({ label: 'Building', median: 4 * 3_600_000 });
+  });
+
   it('when the faces cannot be read: the board still, every face the GitHub photo, the error logged', async () => {
     const board = await loadEngineering(reads({ people: () => Promise.reject(new Error('players down')) }), REQUEST);
     if (board === UNREADABLE || board.kind !== 'board') throw new Error('no board');
@@ -98,7 +113,7 @@ describe('loadEngineering', () => {
     expect(r.asked).toEqual([]);
   });
 
-  it.each(['tracked', 'pullRequests', 'reviews'] as const)('when %s cannot be read: could not load, its error logged', async (which) => {
+  it.each(['tracked', 'pullRequests', 'reviews', 'milestones'] as const)('when %s cannot be read: could not load, its error logged', async (which) => {
     const board = await loadEngineering(reads({ [which]: () => Promise.reject(new Error('boom')) }), REQUEST);
     expect(board).toBe(UNREADABLE);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('boom'));

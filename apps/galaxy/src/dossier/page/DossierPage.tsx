@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
+import { PrdTimelinePane } from '../../timeline/TimelineView';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import type { ApprovalView, ApproveScreen } from './approval';
@@ -119,7 +120,7 @@ const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactN
     : <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
   care: ({ view }) => <CarePane care={view.care} />,
   retro: ({ view }) => <RetroPane retro={view.retro} />,
-  timeline: ({ view }) => <TimelinePane fix={view.fix} />,
+  timeline: ({ view }) => (view.kind === 'prd' ? <PrdTimelinePane timeline={view.timeline} /> : <TimelinePane fix={view.fix} />),
   proof: ({ view }) => <ProofPane proof={view.proof} action={view.link} />,
   pitch: ({ view }) => <PitchPane pitch={view.pitch} action={view.link} />,
   voice: VoiceTab,
@@ -272,7 +273,10 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
           {stage && (
             <div className="dossier-fact dossier-fact-stage">
               <dt>Stage</dt>
-              <dd><StageTrack stage={stage} /></dd>
+              <dd>
+                <StageTrack stage={stage} />
+                {view.timelineLine && <p className="ask-hint prd-timeline-line">{view.timelineLine}</p>}
+              </dd>
             </div>
           )}
           {approval && <ApprovalFact approval={approval} />}

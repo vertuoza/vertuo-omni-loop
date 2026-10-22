@@ -233,7 +233,7 @@ export function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudg
         const octokit = await github();
         const changed = await pullFiles(octokit, { owner, repo, prNumber });
         const tip = await tipOf(octokit, { owner, repo, branch: base });
-        const prepared = await withTreeAt(octokit, { owner, repo, sha: tip, config }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
+        const prepared = await withTreeAt(octokit, { owner, repo, sha: tip, config, prd: prd.number }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
         if (!prepared.ok) {
           throw new NonRetriableError(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared.errors.join('; ')}`);
         }
@@ -256,7 +256,7 @@ export function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudg
         laws: config.laws.source === 'knowledge',
         classified,
         questions: async (replies) =>
-          withTreeAt(await github(), { owner, repo, sha: tip, config, also }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
+          withTreeAt(await github(), { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
         repo: `${owner}/${repo}`,
         prd: prd.number,
       });
@@ -266,7 +266,7 @@ export function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudg
           savedStep(step, id, WrittenSchema, async () => {
             const octokit = await github();
             const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
-            return withTreeAt(octokit, { owner, repo, sha: tip, config, also }, (ctx, root) => {
+            return withTreeAt(octokit, { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx, root) => {
               const result = finishHarvest({ ctx, prepared, classified: answered, merge, taken, date: now(), lawIssues });
               return { ...result, commit: toCommit(result.edits, filesIn(root)), taken: taken.branches };
             });

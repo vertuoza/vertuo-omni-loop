@@ -647,6 +647,12 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.ellipse(8, 6.5, 1.4, 1.4, 'E').rect(6, 11, 4, 1, 'L');
     d.poly([[6, 12], [10, 12], [8, 15 + f]], 'O').rect(7, 12, 2, 1 + f, 'Y', 0);
   } },
+  // The Waiting entry (PRD 2377): an hourglass, its sand falling grain by grain.
+  'menu-waiting': { w: 16, h: 16, draw(d, f) { // an hourglass on two steel plates, a grain in the neck
+    d.poly([[4, 3], [12, 3], [8, 8]], 'C').poly([[8, 8], [4, 13], [12, 13]], 'C');
+    d.poly([[5, 3], [11, 3], [8, 6 + f]], 'Y').rect(6, 12, 4, 1, 'Y').rect(7, 11, 2, 1, 'Y');
+    d.px(8, 8 + f, 'Y').rect(3, 1, 10, 2, 'L').rect(3, 13, 10, 2, 'L');
+  } },
   'menu-bugs': { w: 16, h: 16, draw(d, f) { // an alien bug: Entropy's cousin, six legs and feelers
     d.line(5, 3, 3, 0 + f, 'Z').line(10, 3, 12, 0 + f, 'Z');
     for (const y of [7, 10, 13]) { d.line(3, y, 1, y - 1 + f, 'Z').line(12, y, 14, y - 1 + f, 'Z'); }

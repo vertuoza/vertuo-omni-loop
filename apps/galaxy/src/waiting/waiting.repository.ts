@@ -6,7 +6,7 @@
 // ask.repository.ts): the controller and the server's first paint pass the viewer's.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../data/parse-rows';
 
 /** What the waiting reads need: the tables and the database's functions. */
@@ -55,6 +55,24 @@ export const openQuestionRows = (db: Pick<SupabaseClient, 'from'>) =>
 export const jobStateRows = (db: Pick<SupabaseClient, 'from'>) =>
   db.from('runner_jobs').select(JOB_STATE_COLUMNS).not('outcome', 'is', null).limit(50);
 
+const REVIEW_COLUMNS = 'id, repo, prd, pr, kind, turn, since';
+/** An open review, merge or law wait, as the Reviews part reads it (PRD 2377 s5): a pull request's, so `pr` is set. */
+export const ReviewWaitRead = z.strictObject({
+  id: z.string(),
+  repo: z.string(),
+  prd: PrdNumberSchema.nullable(),
+  pr: PrNumberSchema,
+  kind: z.enum(['review', 'merge', 'law']),
+  turn: z.array(z.string()),
+  since: z.string(),
+});
+type ReviewWaitRow = z.infer<typeof ReviewWaitRead>;
+
+/** The open review, merge and law waits the caller reads: the read `pnpm schemas:verify` checks
+ * (src/waiting/reviews.boundary.ts). */
+export const openReviewWaits = (db: Pick<SupabaseClient, 'from'>) =>
+  db.from('waits').select(REVIEW_COLUMNS).is('ended_at', null).in('kind', ['review', 'merge', 'law']);
+
 export function waitingRepository(db: WaitingDb) {
   return {
     /** These rounds' questions. */
@@ -75,6 +93,13 @@ export function waitingRepository(db: WaitingDb) {
         .limit(DOCS_LIMIT);
       if (error) throw new Error(`read the new documents: ${error.message}`);
       return orThrow(parseRows(DocumentRead, data, 'waiting/documents: dossier_versions'));
+    },
+
+    /** The workspace's open review, merge and law waits (PRD 2377 s5). */
+    async openReviewWaits(workspace: string): Promise<ReviewWaitRow[]> {
+      const { data, error } = await openReviewWaits(db).eq('workspace_id', workspace);
+      if (error) throw new Error(`read the review waits: ${error.message}`);
+      return orThrow(parseRows(ReviewWaitRead, data, 'waiting/reviews: waits'));
     },
 
     /** The ids of the workspace's jobs whose questions nobody has answered or dismissed (PRD 2255). */
