@@ -122,10 +122,11 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
   now?: () => Date;
 } = {}) {
   const calls: string[] = [];
+  const minted: string[] = [];
   const state = {
     runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), lines: lines.map((row) => ({ ...row })),
     samples: samples.map((row) => ({ ...row })), questions: questions.map((row) => ({ ...row })), skills: skills.map((row) => ({ ...row })), calls,
-    keys: keys.map((row) => ({ ...row })), needsApp: new Set(needsApp), minted: [] as string[],
+    keys: keys.map((row) => ({ ...row })), needsApp: new Set(needsApp), minted,
   };
   const stamp = () => now().toISOString();
   const keyOf = (id: string | null): KeyState | undefined => state.keys.find((k) => k.id === id);
