@@ -29,6 +29,7 @@ describe('the stages a repository shows', () => {
       labels: { bug: 'omni:bug', visual: 'omni:visual' },
       prLinks: { feature: 'Closes #{prd}', phase0: 'Refs #{prd}' },
       outboxCheck: 'outbox',
+      lawOwners: [],
     });
   });
 

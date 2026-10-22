@@ -38,7 +38,7 @@ import { log as runLog } from 'omni-loop/kit/lib/log/log.ts';
 // PRD 1299 (s6): each repository's PRDs born on the server are read with their first approval, as the
 // service role (./approvals.ts), so their inbox is dated at it.
 // PRD 1723 (s7): each run's one `stages-sync` line goes to stdout as JSON, through kit/lib/log.
-// PRD 2377 (s1): each repository's waits are kept in public.waits, as the service role (./waits.repository.ts).
+// PRD 2377 (s1, s2): each repository's waits are kept in public.waits, as the service role (./waits.repository.ts).
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -72,6 +72,9 @@ function waitDeps(): WaitStore {
     openWaits: (workspace, repository) => waitsRepository(serviceDb()).openWaits(workspace, repository),
     applyWaits: (workspace, repository, changes, at) => waitsRepository(serviceDb()).applyWaits(workspace, repository, changes, at),
     owners: (workspace, repository, prds) => waitsRepository(serviceDb()).owners(workspace, repository, prds),
+    approvers: (workspace, repository) => waitsRepository(serviceDb()).approvers(workspace, repository),
+    outboxes: (workspace, repository, prds) => waitsRepository(serviceDb()).outboxes(workspace, repository, prds),
+    reached: (workspace, repository, prds) => waitsRepository(serviceDb()).reached(workspace, repository, prds),
   };
 }
 

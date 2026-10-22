@@ -73,6 +73,46 @@ describe('the stored waits, on Supabase', () => {
     ]);
   });
 
+  it('reads the approvers a repository\'s product asks: its products, those asked, their logins', async () => {
+    const { calls, db } = recording(
+      { data: [{ product_id: 'p1' }], error: null },
+      { data: [{ user_id: 'u-rita' }, { user_id: 'u-anon' }], error: null },
+      { data: [{ user_id: 'u-rita', github_login: 'rita' }], error: null },
+    );
+    expect(await waitsRepository(db).approvers('w-acme', 'Acme/Widgets')).toEqual(['rita']);
+    expect(calls).toEqual([
+      ['product_repositories', ['select', 'product_id'], ['eq', 'workspace_id', 'w-acme'], ['eq', 'repository', 'acme/widgets']],
+      ['product_approvers', ['select', 'user_id'], ['eq', 'state', 'asked'], ['eq', 'workspace_id', 'w-acme'], ['in', 'product_id', ['p1']]],
+      ['players', ['select', 'user_id, github_login'], ['not', 'github_login', 'is', null], ['eq', 'workspace_id', 'w-acme'], ['in', 'user_id', ['u-rita', 'u-anon']]],
+    ]);
+  });
+
+  it('reads no approver for a repository of no product, or a product that asks nobody', async () => {
+    const none = recording({ data: [], error: null });
+    expect(await waitsRepository(none.db).approvers('w-acme', 'acme/widgets')).toEqual([]);
+    expect(none.calls).toHaveLength(1);
+    const nobody = recording({ data: [{ product_id: 'p1' }], error: null }, { data: [], error: null });
+    expect(await waitsRepository(nobody.db).approvers('w-acme', 'acme/widgets')).toEqual([]);
+    expect(nobody.calls).toHaveLength(2);
+    await expect(waitsRepository(recording({ data: null, error: { message: 'no access' } }).db).approvers('w-acme', 'acme/widgets')).rejects.toThrow(/no access/);
+  });
+
+  it('reads each PRD\'s stored open items, and when it reached stage prd', async () => {
+    const item = { id: 'q1', rank: 'high', question: 'Which?', asked: ['sam'] };
+    const outboxes = recording({ data: [{ prd: 42, waiting: [item, { nonsense: true }] }], error: null });
+    expect(await waitsRepository(outboxes.db).outboxes('w-acme', 'Acme/Widgets', [parsePrd(42)])).toEqual(new Map([[42, [item]]]));
+    expect(outboxes.calls).toEqual([['prd_outbox', ['select', 'prd, waiting'], ['eq', 'workspace_id', 'w-acme'], ['eq', 'repository', 'acme/widgets'], ['in', 'prd', [42]]]]);
+    const stages = recording({ data: [{ prd: 7, reached_at: '2026-10-02T00:00:00+00:00' }], error: null });
+    expect(await waitsRepository(stages.db).reached('w-acme', 'Acme/Widgets', [parsePrd(7)])).toEqual(new Map([[7, '2026-10-02T00:00:00+00:00']]));
+    expect(stages.calls).toEqual([['prd_stages', ['select', 'prd, reached_at'], ['eq', 'stage', 'prd'], ['eq', 'workspace_id', 'w-acme'], ['eq', 'repository', 'acme/widgets'], ['in', 'prd', [7]]]]);
+    const none = recording();
+    expect(await waitsRepository(none.db).outboxes('w-acme', 'acme/widgets', [])).toEqual(new Map());
+    expect(await waitsRepository(none.db).reached('w-acme', 'acme/widgets', [])).toEqual(new Map());
+    expect(none.calls).toEqual([]);
+    await expect(waitsRepository(recording({ data: null, error: { message: 'no access' } }).db).outboxes('w-acme', 'acme/widgets', [parsePrd(42)])).rejects.toThrow(/no access/);
+    await expect(waitsRepository(recording({ data: null, error: { message: 'no access' } }).db).reached('w-acme', 'acme/widgets', [parsePrd(7)])).rejects.toThrow(/no access/);
+  });
+
   it('reads nothing for no PRD, and no player when no dossier was opened by someone', async () => {
     const none = recording();
     expect(await waitsRepository(none.db).owners('w-acme', 'acme/widgets', [])).toEqual(new Map());

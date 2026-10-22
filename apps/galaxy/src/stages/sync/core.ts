@@ -13,7 +13,7 @@
 // branch until it ships. Its inbox is dated at its first approval, read from the database beside the
 // snapshot, never at a phase-0 merge nor at the sync's time; while it waits for approval it has no
 // inbox. Every stage after inbox is read from GitHub as for any PRD.
-import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { lawOwnerParts, parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
@@ -32,6 +32,8 @@ export type SyncConfig = {
   labels: Pick<Config['labels'], 'bug' | 'visual'>;
   prLinks: Pick<Config['prLinks'], 'feature' | 'phase0'>;
   outboxCheck: string;
+  /** PRD 2377 (s2): the owners and delegates `laws.owners` names (logins and `org/team`s), each once. */
+  lawOwners: string[];
 };
 
 /** A review of a pull request: who gave it, what it said and when. */
@@ -94,6 +96,7 @@ export function syncConfig(text: string, repository: string): SyncConfig {
     labels: { bug: config.labels.bug, visual: config.labels.visual },
     prLinks: { feature: config.prLinks.feature, phase0: config.prLinks.phase0 },
     outboxCheck: config.ci.outboxContext,
+    lawOwners: [...new Set(config.laws.owners.flatMap((entry) => { const { owner, delegate } = lawOwnerParts(entry); return delegate === null ? [owner] : [owner, delegate]; }))],
   };
 }
 
