@@ -218,8 +218,8 @@ var SECRETS = Object.freeze([
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
-function maskSecrets(text15) {
-  let out = plainText(text15);
+function maskSecrets(text16) {
+  let out = plainText(text16);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -375,9 +375,9 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text15) => {
-    if (!text15.startsWith("data:")) return false;
-    const data = text15.slice(5).trim();
+  const line = (text16) => {
+    if (!text16.startsWith("data:")) return false;
+    const data = text16.slice(5).trim();
     if (data === "[DONE]") return true;
     let raw;
     try {
@@ -396,9 +396,9 @@ async function readContent(response) {
     buffer += decoder.decode(value, { stream: true });
     let newline = buffer.indexOf("\n");
     while (newline !== -1) {
-      const text15 = buffer.slice(0, newline).replace(/\r$/, "");
+      const text16 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text15)) {
+      if (line(text16)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -409,12 +409,12 @@ async function readContent(response) {
   line(buffer + decoder.decode());
   return content;
 }
-function parseJson(text15) {
-  const start = text15.indexOf("{");
-  const end = text15.lastIndexOf("}");
+function parseJson(text16) {
+  const start = text16.indexOf("{");
+  const end = text16.lastIndexOf("}");
   if (start === -1 || end < start) return void 0;
   try {
-    return JSON.parse(text15.slice(start, end + 1));
+    return JSON.parse(text16.slice(start, end + 1));
   } catch {
     return void 0;
   }
@@ -722,10 +722,10 @@ var CREDENTIALS = [
   [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK2}`],
   [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK2}`]
 ];
-function maskCredentials(text15) {
-  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text15);
+function maskCredentials(text16) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text16);
 }
-var cut = (text15) => text15.length > MAX_TEXT ? text15.slice(0, MAX_TEXT) : text15;
+var cut = (text16) => text16.length > MAX_TEXT ? text16.slice(0, MAX_TEXT) : text16;
 function errorOf(value) {
   if (value instanceof Error) {
     return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
@@ -852,10 +852,10 @@ var CANON_SPEC_LIMIT = 4e4;
 var MAX_QUOTE = 300;
 var CACHE_LIMIT = 200;
 var JUDGE_NOT_CONFIGURED = "no-secret";
-var plain = (text15) => (text15 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-function quoted2(text15, quote) {
+var plain = (text16) => (text16 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+function quoted2(text16, quote) {
   const q = plain(quote);
-  return q.length > 0 && plain(text15).includes(q);
+  return q.length > 0 && plain(text16).includes(q);
 }
 var SYSTEM = [
   "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), its Legal entries (what the law requires of it), the business claims its team confirmed, and its personas.",
@@ -1104,8 +1104,8 @@ function keysOf(record) {
 var NAME = String.raw`[A-Za-z_][\w-]*`;
 var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
 var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
-function parseCompound(text15) {
-  const compound = COMPOUND.exec(text15.trim());
+function parseCompound(text16) {
+  const compound = COMPOUND.exec(text16.trim());
   if (!compound || compound[0] === "") return null;
   const [, tag, parts = ""] = compound;
   const matched = [...parts.matchAll(new RegExp(PART, "g"))];
@@ -1398,8 +1398,8 @@ var target = z8.object({
   // PRD 1162: the short names of the targets whose default-branch packages this one installs.
   consumes: z8.array(z8.string()).optional()
 }).strict();
-function targetShortName(slug) {
-  return slug.slice(slug.indexOf("/") + 1);
+function targetShortName(slug2) {
+  return slug2.slice(slug2.indexOf("/") + 1);
 }
 var planSection = z8.object({
   guide: nullableText.default(null),
@@ -1684,6 +1684,11 @@ var ConfigSchema = z8.object({
   // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
   // lesson worth a guard names it for a person to take up. A repository opts in.
   retro: section({ guards: z8.boolean().default(false) }),
+  // PRD 2410: whether the GitHub App watches main for seven days after a feature PR merges, marking
+  // the PRD broke on a red job on the merge commit, a revert or a traced regression, and queueing
+  // `/omni:rewind` on the first break. On by default; read at the merge commit, so `false` there
+  // opens no watch and queues no rewind.
+  mainWatch: section({ enabled: z8.boolean().default(true) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
@@ -2381,14 +2386,14 @@ function readHead(head) {
   return { title: head[at4]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
-  const text15 = raw.replace(COMMENT, "").trim();
-  const lines = text15.split("\n").map((line) => line.trim()).filter(Boolean);
+  const text16 = raw.replace(COMMENT, "").trim();
+  const lines = text16.split("\n").map((line) => line.trim()).filter(Boolean);
   const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text15, see: null, questions };
+  if (questions.length === lines.length) return { kind: "holes", text: text16, see: null, questions };
   const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
-  if (see) return { kind: "pointer", text: text15, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text15, see: null, questions };
+  if (see) return { kind: "pointer", text: text16, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
+  return { kind: "text", text: text16, see: null, questions };
 }
 function readSection(heading, lines) {
   const at4 = lines.findIndex((line) => line.trim() !== "");
@@ -2430,8 +2435,8 @@ function readSlots(sections, { file, errors, oldSpellings }) {
   }
   return { slots, unmarked };
 }
-function parseForm(text15, { file = null } = {}) {
-  const block = text15.match(FRONT_MATTER_BLOCK);
+function parseForm(text16, { file = null } = {}) {
+  const block = text16.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
@@ -2567,7 +2572,7 @@ function foldersLayout(root, paths) {
 }
 
 // kit/lib/markers.ts
-var escape = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var escape = (text16) => text16.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape(prefix);
   return Object.freeze({
@@ -2684,8 +2689,8 @@ var FIELD_KEY = {
   "Glossary term": "glossaryTerm"
 };
 var FIELD_NAMES = keysOf(FIELD_KEY);
-function idsCitedIn(text15) {
-  return [...new Set(text15.match(ID_TOKEN) ?? [])];
+function idsCitedIn(text16) {
+  return [...new Set(text16.match(ID_TOKEN) ?? [])];
 }
 function codeOf(name) {
   return name.replace(/-/g, "").toUpperCase();
@@ -2797,10 +2802,10 @@ function readPending(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
   };
 }
-function splitEntries(text15) {
+function splitEntries(text16) {
   const entries = [];
   let current = null;
-  for (const line of text15.split("\n")) {
+  for (const line of text16.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries.push(current);
@@ -2815,8 +2820,8 @@ function splitEntries(text15) {
   if (current) entries.push(current);
   return entries;
 }
-function parseEntryFile(file, text15, place) {
-  return splitEntries(text15).map(({ id, lines }) => {
+function parseEntryFile(file, text16, place) {
+  return splitEntries(text16).map(({ id, lines }) => {
     const { fields, counts, fieldAt } = readFields(lines);
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
@@ -2869,8 +2874,8 @@ function diskSource(root) {
     read: (file) => readFileSync4(join7(root, file), "utf8")
   };
 }
-function glossaryTermOf(text15) {
-  return readFields(text15.split("\n")).fields.glossaryTerm ?? null;
+function glossaryTermOf(text16) {
+  return readFields(text16.split("\n")).fields.glossaryTerm ?? null;
 }
 function productDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/product`;
@@ -3036,9 +3041,9 @@ var PUNCHLINES = Object.freeze([
   "Small print, big relief once it is settled."
 ]);
 var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
-function stableHash(text15) {
+function stableHash(text16) {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(text15)) {
+  for (const byte of new TextEncoder().encode(text16)) {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
@@ -3303,8 +3308,8 @@ function validateSections(body) {
   );
   return { errors, sections };
 }
-function parseOutboxItem(text15, { file = null } = {}) {
-  const read = readFrontMatterBlock(text15, file, OutboxItemFrontMatterSchema);
+function parseOutboxItem(text16, { file = null } = {}) {
+  const read = readFrontMatterBlock(text16, file, OutboxItemFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const errors = [...read.errors];
   const { errors: sectionErrors, sections } = validateSections(read.body);
@@ -3336,8 +3341,8 @@ function parseOutboxItem(text15, { file = null } = {}) {
   };
   return { ok: true, item };
 }
-function readFrontMatterBlock(text15, file, schema) {
-  const blockMatch = text15.match(FRONT_MATTER_BLOCK2);
+function readFrontMatterBlock(text16, file, schema) {
+  const blockMatch = text16.match(FRONT_MATTER_BLOCK2);
   if (!blockMatch) {
     return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
@@ -3393,17 +3398,17 @@ var REGISTER_OR_ADR_ID = /\bN\d+\b|\bBR-[A-Z0-9]+-\d+\b|\bADR-\d{4}\b/g;
 var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
-function countSentences(text15) {
-  const trimmed2 = (text15 ?? "").trim();
+function countSentences(text16) {
+  const trimmed2 = (text16 ?? "").trim();
   if (!trimmed2) return 0;
   const matches = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
-function uniqueMatches(text15, pattern) {
-  return [...new Set(text15.match(pattern) ?? [])];
+function uniqueMatches(text16, pattern) {
+  return [...new Set(text16.match(pattern) ?? [])];
 }
-function plainWordsProblems(text15) {
-  const value = text15 ?? "";
+function plainWordsProblems(text16) {
+  const value = text16 ?? "";
   const problems = [];
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -3440,8 +3445,8 @@ function plainWordsProblems(text15) {
   }
   return problems;
 }
-function funLineProblems(text15) {
-  const value = (text15 ?? "").trim();
+function funLineProblems(text16) {
+  const value = (text16 ?? "").trim();
   const problems = plainWordsProblems(value);
   const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
@@ -3491,8 +3496,8 @@ function outboxItemFiles({ ctx }) {
 import { existsSync as existsSync8, mkdirSync, readFileSync as readFileSync6, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute as isAbsolute2, join as join10, relative } from "node:path";
 import { z as z16 } from "zod";
-function parseItem(text15, file) {
-  return parseOutboxItem(text15, { file });
+function parseItem(text16, file) {
+  return parseOutboxItem(text16, { file });
 }
 var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
@@ -3573,14 +3578,14 @@ var AFFIRMATIONS = /* @__PURE__ */ new Set([
   "thats right"
 ]);
 var STATED_VERDICT_LINE = /^[ \t]*verdict:[ \t]*(agreed|drifted)[ \t]*$/im;
-function normalizeApostrophes(text15) {
-  return text15.replace(/[‘’ʼ]/g, "'");
+function normalizeApostrophes(text16) {
+  return text16.replace(/[‘’ʼ]/g, "'");
 }
-function normalizeWhole(text15) {
-  return normalizeApostrophes(text15).toLowerCase().replace(/\s+/g, " ").trim();
+function normalizeWhole(text16) {
+  return normalizeApostrophes(text16).toLowerCase().replace(/\s+/g, " ").trim();
 }
-function openingClause(text15) {
-  const [first] = normalizeApostrophes(text15).split(/[,.;:!?\n]|—|–|--/);
+function openingClause(text16) {
+  const [first] = normalizeApostrophes(text16).split(/[,.;:!?\n]|—|–|--/);
   return (first ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function markerFound(haystack, marker2) {
@@ -3703,8 +3708,8 @@ function renderSettledEntry({
   );
   return lines.join("\n");
 }
-function parseSettledEntries(text15, markers) {
-  return latestPerId(rawSettledEntries(text15, markers));
+function parseSettledEntries(text16, markers) {
+  return latestPerId(rawSettledEntries(text16, markers));
 }
 function latestPerId(entries) {
   const byId = /* @__PURE__ */ new Map();
@@ -3720,8 +3725,8 @@ function closedEntry({ id, fields, blocks }) {
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
-function rawSettledEntries(text15, markers) {
-  const lines = text15.split("\n");
+function rawSettledEntries(text16, markers) {
+  const lines = text16.split("\n");
   const entries = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
@@ -3898,9 +3903,9 @@ function patternMatcher(pattern) {
   const regex = new RegExp(`^${anchored ? "" : "(?:.*/)?"}${globSource(body)}${under}$`);
   return (path) => regex.test(path);
 }
-function parseCodeowners(text15) {
+function parseCodeowners(text16) {
   const rules = [];
-  for (const line of text15.split("\n")) {
+  for (const line of text16.split("\n")) {
     const [pattern, ...rest] = line.trim().split(/\s+/);
     if (pattern === void 0 || pattern === "" || pattern.startsWith("#")) continue;
     const comment = rest.findIndex((token) => token.startsWith("#"));
@@ -3911,8 +3916,8 @@ function parseCodeowners(text15) {
 }
 function readCodeowners(read) {
   for (const file of CODEOWNERS_FILES) {
-    const text15 = read(file);
-    if (text15 !== null) return { file, rules: parseCodeowners(text15) };
+    const text16 = read(file);
+    if (text16 !== null) return { file, rules: parseCodeowners(text16) };
   }
   return { file: null, rules: [] };
 }
@@ -3974,8 +3979,8 @@ function blockSpan(lines) {
   }
   return { begin, end };
 }
-function ownersBlockIn(text15) {
-  const lines = text15.split("\n");
+function ownersBlockIn(text16) {
+  const lines = text16.split("\n");
   const span = blockSpan(lines);
   return span === null ? null : lines.slice(span.begin, span.end + 1).map((line) => line.replace(/\r$/, "")).join("\n");
 }
@@ -4201,8 +4206,8 @@ function validateBody(body) {
   errors.push(...entryErrors);
   return { errors, entries };
 }
-function parseAccount(text15, { file = null } = {}) {
-  const read = readFrontMatterBlock(text15, file, AccountFrontMatterSchema);
+function parseAccount(text16, { file = null } = {}) {
+  const read = readFrontMatterBlock(text16, file, AccountFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const { errors: bodyErrors, entries } = validateBody(read.body);
   const errors = [...read.errors, ...bodyErrors.map((message) => withFile2(file, message))];
@@ -4237,8 +4242,8 @@ function readAccounts(prd, { ctx }) {
   const names = readdirSync5(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text15 = readRepoFile(ctx, file);
-    const parsed2 = parseAccount(text15, { file });
+    const text16 = readRepoFile(ctx, file);
+    const parsed2 = parseAccount(text16, { file });
     if (!parsed2.ok) return parsed2;
     const unresolved = parsed2.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
@@ -4307,8 +4312,8 @@ function openItemFiles(prd, { ctx }) {
   return outboxItemFiles({ ctx }).filter((file) => file.startsWith(prefix));
 }
 function describeItem(file, { ctx }) {
-  const text15 = readRepoFile(ctx, file);
-  const parsed2 = parseOutboxItem(text15, { file });
+  const text16 = readRepoFile(ctx, file);
+  const parsed2 = parseOutboxItem(text16, { file });
   return parsed2.ok ? { file, id: parsed2.item.id, rank: parsed2.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
@@ -4632,8 +4637,8 @@ function readSettledEntries(prd, { ctx }) {
 function adoptedEntriesForPrd(prd, { ctx }) {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
-function firstSentence(text15) {
-  const trimmed2 = (text15 ?? "").trim();
+function firstSentence(text16) {
+  const trimmed2 = (text16 ?? "").trim();
   const match = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match ? match[0] : trimmed2).trim();
 }
@@ -4649,8 +4654,8 @@ function answeredOutcome(entry) {
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
-function quoteReply(text15) {
-  const oneLine4 = (text15 ?? "").replace(/\s+/g, " ").trim();
+function quoteReply(text16) {
+  const oneLine4 = (text16 ?? "").replace(/\s+/g, " ").trim();
   const truncated = oneLine4.length > 120 ? `${oneLine4.slice(0, 117)}\u2026` : oneLine4;
   return `"${truncated}"`;
 }
@@ -4674,14 +4679,14 @@ function formatApprovedAt(approvedAt) {
   const [, , month, day3] = match;
   return `${Number(day3)} ${MONTH_NAMES[Number(month) - 1]}`;
 }
-function tableCell(text15) {
-  return (text15 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
+function tableCell(text16) {
+  return (text16 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
-function quoted3(text15) {
-  return (text15 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+function quoted3(text16) {
+  return (text16 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
-function funLine(text15) {
-  return `_${(text15 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+function funLine(text16) {
+  return `_${(text16 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
 }
 function formatOptionsTable(options, mark) {
   return [
@@ -5156,16 +5161,16 @@ function numericReference(ref) {
   const code2 = Number.parseInt(ref.slice(hex ? 2 : 1), hex ? 16 : 10);
   return code2 > 0 && code2 <= 1114111 ? String.fromCodePoint(code2) : null;
 }
-function decodeEntities(text15) {
-  return text15.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
+function decodeEntities(text16) {
+  return text16.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
 }
 function past(html, marker2, from) {
   const at4 = html.indexOf(marker2, from);
   return at4 === -1 ? html.length : at4 + marker2.length;
 }
 var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
-function addText(reader, text15) {
-  if (text15 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text15) });
+function addText(reader, text16) {
+  if (text16 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text16) });
 }
 function skipDeclaration(html, lt) {
   if (html.startsWith("<!--", lt)) return past(html, "-->", lt + 4);
@@ -5321,8 +5326,8 @@ function unrecognizedKeyMessage(key) {
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
   return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
-function parseSpec(text15, { file = null } = {}) {
-  const blockMatch = text15.match(FRONT_MATTER_BLOCK3);
+function parseSpec(text16, { file = null } = {}) {
+  const blockMatch = text16.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
@@ -5549,10 +5554,10 @@ function cardOf(lines) {
   const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
   let field4 = null;
   for (const line of lines) {
-    const labelled = CARD_LINE.exec(line);
-    if (labelled) {
-      field4 = cardField(group(labelled, 1));
-      if (field4 !== null) card[field4] = group(labelled, 2).trim();
+    const labelled2 = CARD_LINE.exec(line);
+    if (labelled2) {
+      field4 = cardField(group(labelled2, 1));
+      if (field4 !== null) card[field4] = group(labelled2, 2).trim();
     } else if (line.trim() === "") {
       field4 = null;
     } else if (field4 !== null) {
@@ -5612,8 +5617,8 @@ function prerequisitesOf(section4) {
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
 }
-function parseRoadmap(text15) {
-  const block = FRONT_MATTER_BLOCK4.exec(text15);
+function parseRoadmap(text16) {
+  const block = FRONT_MATTER_BLOCK4.exec(text16);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
   const front = frontMatter(raw, FrontMatterSchema2);
@@ -5646,7 +5651,7 @@ function roadmapWaves(roadmap) {
 }
 
 // kit/lib/roadmap/grade.ts
-var shortName = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName = (slug2) => slug2.slice(slug2.indexOf("/") + 1);
 var PREREQUISITE_BASE_CHECKS = ["gh-auth", "node", "pnpm", "npm", "yarn", "install", "registry", "docker", "labels", "env-file", "omni-signin"];
 var PREREQUISITE_BASE_FIXES = ["install", "labels", "env-file"];
 var BASE = /^base:(.*)$/;
@@ -5882,8 +5887,8 @@ var VoiceRoundSchema = z22.object({
 var VoiceSchema = z22.object({ rounds: z22.array(VoiceRoundSchema) });
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
-function countSentences2(text15) {
-  return text15.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+function countSentences2(text16) {
+  return text16.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
 function citationProblems(citations, field4) {
   if (!Array.isArray(citations) || citations.length === 0) {
@@ -5893,9 +5898,9 @@ function citationProblems(citations, field4) {
     (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field4}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text15, field4) {
-  if (!isText(text15)) return [`${field4} must be a sentence.`];
-  const count2 = countSentences2(text15);
+function lineProblems(text16, field4) {
+  if (!isText(text16)) return [`${field4} must be a sentence.`];
+  const count2 = countSentences2(text16);
   return count2 > MAX_SENTENCES ? [`${field4} holds ${count2} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
@@ -5939,10 +5944,10 @@ function roundProblems(round) {
     ...fitProblems(round.fit)
   ];
 }
-function parseVoice(text15) {
+function parseVoice(text16) {
   let voice;
   try {
-    voice = JSON.parse(text15);
+    voice = JSON.parse(text16);
   } catch {
     return { ok: false, voice: null, errors: ["not valid JSON."] };
   }
@@ -5975,8 +5980,8 @@ function knownAreas(ctx) {
     readdirSync7(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
 }
-function violationsForFile(file, folder, text15, ctx) {
-  const parsed2 = parseSpec(text15, { file });
+function violationsForFile(file, folder, text16, ctx) {
+  const parsed2 = parseSpec(text16, { file });
   if (!parsed2.ok) {
     return { record: null, violations: parsed2.errors };
   }
@@ -6034,8 +6039,8 @@ function gradeFolder(specFile, ctx) {
   if (!existsSync16(join17(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
-    const text15 = readRepoFile(ctx, specFile);
-    const graded = violationsForFile(specFile, folder, text15, ctx);
+    const text16 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text16, ctx);
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
@@ -6189,12 +6194,12 @@ function prdOfTopic(topic, folderNames2, config) {
 }
 var CLOSES = /Closes #\d+/;
 var PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/;
-function planPrdOf(body, slug) {
+function planPrdOf(body, slug2) {
   if (CLOSES.test(body)) return null;
   const match = proseLines(body).map((line) => PART_OF.exec(line)).find((found) => found !== null);
   if (!match) return null;
   const [, repo = "", prd = ""] = match;
-  if (repo.toLowerCase() === slug.toLowerCase()) return null;
+  if (repo.toLowerCase() === slug2.toLowerCase()) return null;
   return { repo, prd: parsePrd(prd) };
 }
 function deferredOutput(plan, planPr) {
@@ -6686,14 +6691,14 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
-  let text15;
+  let text16;
   try {
-    text15 = readFileSync15(join22(folder, CONFIG_FILE), "utf8");
+    text16 = readFileSync15(join22(folder, CONFIG_FILE), "utf8");
   } catch {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text15, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
+    return { folder, config: parseConfig(text16, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -6864,12 +6869,12 @@ import { join as join23 } from "node:path";
 import { z as z24 } from "zod";
 
 // apps/omni-app/src/approved-check/subject.ts
-function partOf(body, slug) {
-  return body.trimStart().startsWith("Part of ") ? planPrdOf(body, slug) : null;
+function partOf(body, slug2) {
+  return body.trimStart().startsWith("Part of ") ? planPrdOf(body, slug2) : null;
 }
-function subjectOf(pr, config, slug) {
+function subjectOf(pr, config, slug2) {
   if (pr.baseRef !== config.repo.defaultBranch) return { skip: `The base \`${pr.baseRef}\` is not the default branch.` };
-  const target2 = partOf(pr.body, slug);
+  const target2 = partOf(pr.body, slug2);
   if (target2) return { kind: "target", ...target2 };
   const kind = pullKind(pr, config);
   if ("skip" in kind) return kind;
@@ -6914,8 +6919,8 @@ async function openPulls(octokit, { owner, repo }) {
   );
 }
 var closes = (prd) => new RegExp(`Closes #${Number(prd)}(?!\\d)`);
-async function featurePullOf(octokit, { slug, prd }) {
-  const [owner = "", repo = ""] = slug.split("/");
+async function featurePullOf(octokit, { slug: slug2, prd }) {
+  const [owner = "", repo = ""] = slug2.split("/");
   try {
     for (const { number, body } of await openPulls(octokit, { owner, repo })) {
       if (!closes(prd).test(body ?? "")) continue;
@@ -6925,25 +6930,25 @@ async function featurePullOf(octokit, { slug, prd }) {
     }
   } catch (error) {
     const status = statusOf(error);
-    if (status === 403 || status === 404) return { held: `${slug} cannot be read from this installation (${status})` };
+    if (status === 403 || status === 404) return { held: `${slug2} cannot be read from this installation (${status})` };
     throw error;
   }
-  return { held: `${slug} has no open feature PR for PRD ${Number(prd)}` };
+  return { held: `${slug2} has no open feature PR for PRD ${Number(prd)}` };
 }
 var SearchSchema = z24.looseObject({
   items: z24.array(z24.looseObject({ number: z24.number(), body: z24.string().nullish(), repository_url: z24.string(), pull_request: z24.unknown().optional() }))
 });
 async function openPullsOfPrd(octokit, { owner, repo, prd }) {
-  const slug = `${owner}/${repo}`;
+  const slug2 = `${owner}/${repo}`;
   const here = (await openPulls(octokit, { owner, repo })).filter((pull) => closes(prd).test(pull.body ?? "")).map((pull) => ({ owner, repo, prNumber: parsePr(pull.number) }));
   const { data } = await octokit.request("GET /search/issues", {
-    q: `"Part of ${slug}#${Number(prd)}" is:pr is:open user:${owner}`,
+    q: `"Part of ${slug2}#${Number(prd)}" is:pr is:open user:${owner}`,
     per_page: PER_PAGE
   });
   const targets = SearchSchema.parse(data).items.flatMap((item) => {
     const [targetRepo = "", targetOwner = ""] = item.repository_url.split("/").reverse();
     const part = partOf(item.body ?? "", `${targetOwner}/${targetRepo}`);
-    if (item.pull_request === void 0 || !part || part.repo.toLowerCase() !== slug.toLowerCase() || part.prd !== prd) return [];
+    if (item.pull_request === void 0 || !part || part.repo.toLowerCase() !== slug2.toLowerCase() || part.prd !== prd) return [];
     return [{ owner: targetOwner, repo: targetRepo, prNumber: parsePr(item.number) }];
   });
   return [...here, ...targets];
@@ -8031,10 +8036,10 @@ import { existsSync as existsSync23, mkdirSync as mkdirSync5, readFileSync as re
 import { dirname as dirname7, join as join33 } from "node:path";
 import { z as z30 } from "zod";
 var CeilingsSchema = z30.record(z30.string().min(1), z30.number().int().nonnegative());
-function parseCeilings(text15, file) {
+function parseCeilings(text16, file) {
   let raw;
   try {
-    raw = JSON.parse(text15);
+    raw = JSON.parse(text16);
   } catch (error) {
     throw new Error(`${file}: not valid JSON \u2014 ${messageOf2(error)}`);
   }
@@ -8258,8 +8263,8 @@ var LAW_LINE = /^(?:[-*]\s+)?`?([A-Z0-9-]+)`?\s+[—–-]\s+(.+)$/;
 function thesisPath(ctx) {
   return `${productDir(ctx)}/${THESIS_FILE}`;
 }
-function parseThesis(file, text15) {
-  const lines = text15.split("\n");
+function parseThesis(file, text16) {
+  const lines = text16.split("\n");
   const start = lines.findIndex((line) => LAWS_HEADING.test(line.trim()));
   if (start === -1) return { file, lawsSection: null, laws: [] };
   const rest = lines.slice(start + 1);
@@ -8324,22 +8329,22 @@ var TITLE2 = /^#\s+(.+?)\s*$/m;
 var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
 var LAYERS_HEADER = /\*\*Layers:\*\*[ \t]*([^·\n]*)/;
 var DOMAIN_HEADER = /\*\*Domain:\*\*[ \t]*([^·\s]*)/;
-var headerOf = (text15) => text15.split(/^##\s/m)[0] ?? "";
-function headerLayers(text15) {
-  const value = LAYERS_HEADER.exec(headerOf(text15))?.[1] ?? "";
+var headerOf = (text16) => text16.split(/^##\s/m)[0] ?? "";
+function headerLayers(text16) {
+  const value = LAYERS_HEADER.exec(headerOf(text16))?.[1] ?? "";
   return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
 }
-function headerDomain(text15) {
-  const value = (DOMAIN_HEADER.exec(headerOf(text15))?.[1] ?? "").replace(/`/g, "");
+function headerDomain(text16) {
+  const value = (DOMAIN_HEADER.exec(headerOf(text16))?.[1] ?? "").replace(/`/g, "");
   return value === "" ? null : value;
 }
-function headerPrd(text15) {
-  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text15))?.[1]));
+function headerPrd(text16) {
+  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text16))?.[1]));
   return prd.success ? prd.data : null;
 }
-function tagsOf(text15) {
-  const layers = headerLayers(text15);
-  const domain = headerDomain(text15);
+function tagsOf(text16) {
+  const layers = headerLayers(text16);
+  const domain = headerDomain(text16);
   return { ...layers.length > 0 ? { layers } : {}, ...domain === null ? {} : { domain } };
 }
 function readDecisions({ ctx }) {
@@ -8348,13 +8353,13 @@ function readDecisions({ ctx }) {
   const names = existsSync25(absolute) ? readdirSync11(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
   const records = names.map((name) => {
     const file = `${dir}/${name}`;
-    const text15 = readFileSync24(join35(ctx.root, file), "utf8");
+    const text16 = readFileSync24(join35(ctx.root, file), "utf8");
     return {
       number: name.match(RECORD)?.[1] ?? "",
       file,
-      title: text15.match(TITLE2)?.[1] ?? null,
-      prd: headerPrd(text15),
-      ...tagsOf(text15)
+      title: text16.match(TITLE2)?.[1] ?? null,
+      prd: headerPrd(text16),
+      ...tagsOf(text16)
     };
   });
   const byNumber = /* @__PURE__ */ new Map();
@@ -8381,9 +8386,9 @@ function configValue(config, key) {
   if (value === null) return { ok: false, reason: "is not set in the config" };
   return { ok: false, reason: "holds no single value" };
 }
-function fillConfig(text15, config) {
+function fillConfig(text16, config) {
   const unresolved = [];
-  const filled = text15.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
+  const filled = text16.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
     const value = configValue(config, key);
     if (value.ok) return value.text;
     unresolved.push({ key, reason: value.reason });
@@ -8413,8 +8418,8 @@ function headingsOf(lines) {
   }
   return headings;
 }
-function sectionOf(text15, anchor) {
-  const lines = text15.split("\n");
+function sectionOf(text16, anchor) {
+  const lines = text16.split("\n");
   const headings = headingsOf(lines);
   const start = headings.find((heading) => heading.anchor === anchor);
   if (!start) return null;
@@ -8737,7 +8742,7 @@ function fixLines(verdict, { prd, growth, ceilingsFile }) {
   const skill = prd === null ? "" : `\`/omni:pr-care\` (or \`/omni:yolo-fix ${prd}\`) handles it by itself. Or `;
   return [`Fix it for me: ${skill}${skill ? "paste" : "Paste"} this into Claude: ${prompt}`];
 }
-var capitalised = (text15) => `${text15.charAt(0).toUpperCase()}${text15.slice(1)}`;
+var capitalised = (text16) => `${text16.charAt(0).toUpperCase()}${text16.slice(1)}`;
 function roomLines({ target: target2, bytes, ceiling }, { prd, ceilingsFile }) {
   if (prd === null) {
     return [
@@ -8818,8 +8823,8 @@ import { join as join42 } from "node:path";
 import { existsSync as existsSync29, readdirSync as readdirSync15, readFileSync as readFileSync29 } from "node:fs";
 import { join as join41 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text15, heading) {
-  const lines = text15.split("\n");
+function invariantAdrs(text16, heading) {
+  const lines = text16.split("\n");
   const start = lines.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
@@ -8894,8 +8899,8 @@ var FUN_SECTION_FIELDS = [
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
-function checkItemText(file, text15, { laws }) {
-  const parsed2 = parseItem(text15, file);
+function checkItemText(file, text16, { laws }) {
+  const parsed2 = parseItem(text16, file);
   if (!parsed2.ok) return parsed2.errors;
   const { item } = parsed2;
   const violations = [];
@@ -9010,9 +9015,9 @@ function markdownFiles(dir) {
 function spendFolder(ids, dir) {
   for (const name of markdownFiles(dir)) ids.add(basename8(name, ".md"));
 }
-function writeInto(out, id, text15) {
+function writeInto(out, id, text16) {
   mkdirSync6(out.abs, { recursive: true });
-  writeFileSync9(join43(out.abs, `${id}.md`), text15);
+  writeFileSync9(join43(out.abs, `${id}.md`), text16);
   return join43(out.shown, `${id}.md`);
 }
 
@@ -9036,12 +9041,12 @@ function itemRefusal({
   prd,
   file,
   name,
-  text: text15,
+  text: text16,
   taken
 }) {
-  const violations = checkItemText(file, text15, { laws });
+  const violations = checkItemText(file, text16, { laws });
   if (violations.length > 0) return violations.join("; ");
-  const parsed2 = parseOutboxItem(text15, { file });
+  const parsed2 = parseOutboxItem(text16, { file });
   if (!parsed2.ok) return parsed2.errors.join("; ");
   const { item } = parsed2;
   if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
@@ -9053,9 +9058,9 @@ function accountRefusal({
   prd,
   destination,
   name,
-  text: text15
+  text: text16
 }) {
-  const parsed2 = parseAccount(text15, { file: name });
+  const parsed2 = parseAccount(text16, { file: name });
   if (!parsed2.ok) return parsed2.errors.join("; ");
   if (parsed2.account.prd !== prd) return `it belongs to PRD ${parsed2.account.prd}, not PRD ${prd}`;
   if (existsSync32(destination)) return `an account of that name is already in the outbox of PRD ${prd}`;
@@ -9149,10 +9154,10 @@ function parseReplyLines(body) {
   return lines;
 }
 function interpretAnswer({
-  text: text15,
+  text: text16,
   options
 }) {
-  const trimmed2 = plainText(text15).trim();
+  const trimmed2 = plainText(text16).trim();
   if (RECOMMENDATION_RE.test(trimmed2)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
@@ -9460,9 +9465,9 @@ function gitOutboxStore(ctx) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     }),
-    writeItem: ({ prd, id, text: text15 }, out) => promised(() => {
+    writeItem: ({ prd, id, text: text16 }, out) => promised(() => {
       const outboxDir = outboxDirOf(ctx, repoPrd(prd));
-      return writeInto(out ?? { abs: join46(ctx.root, outboxDir), shown: outboxDir }, id, text15);
+      return writeInto(out ?? { abs: join46(ctx.root, outboxDir), shown: outboxDir }, id, text16);
     }),
     adopt: (itemText) => promised(() => adoptItem({ ctx, itemText })),
     settle: (ref, answer) => promised(() => settleItem({ ctx, file: ref, answer })),
@@ -9569,13 +9574,13 @@ function serverOutboxStore({ ctx, connect, now }) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     },
-    async writeItem({ prd, id, text: text15 }, out) {
+    async writeItem({ prd, id, text: text16 }, out) {
       const product = productPrd(prd);
-      if (out !== null) return writeInto(out, id, text15);
+      if (out !== null) return writeInto(out, id, text16);
       const ref = refOf(product, id);
-      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text15, taken: /* @__PURE__ */ new Set() });
+      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text16, taken: /* @__PURE__ */ new Set() });
       if (refusal4 !== null) throw new Error(`${ref}: ${refusal4}`);
-      await put2(product, text15, false);
+      await put2(product, text16, false);
       return ref;
     },
     async adopt(itemText) {
@@ -9598,16 +9603,16 @@ function serverOutboxStore({ ctx, connect, now }) {
       const row = named === null ? void 0 : (await openRows(named.prd)).find((open) => open.item === named.id);
       const item = named === null || row === void 0 ? null : parsedRow(named.prd, row);
       if (named === null || row === void 0 || item === null) return { ok: false, errors: [`${ref}: no such open item.`] };
-      const { text: text15, statedVerdict = null } = given.data;
-      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text15, statedVerdict });
+      const { text: text16, statedVerdict = null } = given.data;
+      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text16, statedVerdict });
       const { verdict } = judgement;
       if (verdict === null) {
         return { ok: false, errors: [`${ref}: the verdict is undetermined \u2014 ${judgement.reason}. Say it outright: add a "Verdict: agreed" or "Verdict: drifted" line to the answer, or pass --verdict.`] };
       }
       const { key, seq } = productPrdParts(named.prd);
       return answered(async () => {
-        await ask3((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text15 }));
-        const entryAnswer = { text: text15, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now()).toISOString(), channel: null };
+        await ask3((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text16 }));
+        const entryAnswer = { text: text16, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now()).toISOString(), channel: null };
         const entry = renderSettledEntry({ item, itemText: row.body, answer: entryAnswer, judgement, markers: ctx.markers });
         return { ok: true, verdict, basis: judgement.basis, entry, settledFile: ledgerOf2(named.prd), removedFile: ref };
       });
@@ -9620,14 +9625,14 @@ function serverOutboxStore({ ctx, connect, now }) {
       const refused5 = [];
       for (const name of markdownFiles(dir)) {
         const from = join47(dir, name);
-        const text15 = readFileSync33(from, "utf8");
+        const text16 = readFileSync33(from, "utf8");
         const id = name.slice(0, -".md".length);
-        const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text15, taken });
+        const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text16, taken });
         if (reason2 !== null) {
           refused5.push({ file: from, reason: reason2 });
           continue;
         }
-        await put2(product, text15, false);
+        await put2(product, text16, false);
         unlinkSync2(from);
         taken.add(id);
         moved.push({ from, to: refOf(product, id) });
@@ -10387,7 +10392,7 @@ function readFolderFlow(repo, { root, config }) {
   };
   return { folder, config: flow, readHook };
 }
-var shortName2 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName2 = (slug2) => slug2.slice(slug2.indexOf("/") + 1);
 function targetFlows({ root, config }) {
   const flows = /* @__PURE__ */ new Map();
   for (const { repo } of config.plan?.targets ?? []) {
@@ -10403,20 +10408,20 @@ function targetFlows({ root, config }) {
 
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text15) {
-  const id = WorkSliceIdSchema.safeParse(text15);
-  if (!id.success) throw new Error(`This plan's slice table names "${text15}", which is no slice id like s1.`);
+function sliceIdOf(text16) {
+  const id = WorkSliceIdSchema.safeParse(text16);
+  if (!id.success) throw new Error(`This plan's slice table names "${text16}", which is no slice id like s1.`);
   return id.data;
 }
 function blockedByCell(cell3) {
-  const text15 = (cell3 ?? "").trim();
-  if (NOTHING.test(text15)) return [];
-  return text15.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+  const text16 = (cell3 ?? "").trim();
+  if (NOTHING.test(text16)) return [];
+  return text16.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell3) {
-  const text15 = (cell3 ?? "").trim();
-  if (NOTHING.test(text15)) return [];
-  return [...text15.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
+  const text16 = (cell3 ?? "").trim();
+  if (NOTHING.test(text16)) return [];
+  return [...text16.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -10490,12 +10495,12 @@ function sliceTable(markdown) {
   return { column: (name) => header.indexOf(name), rows: bodyRows(lines, headerIndex) };
 }
 var TIERS2 = ["deep", "build", "light"];
-function isTier(text15) {
-  return TIERS2.some((tier) => tier === text15);
+function isTier(text16) {
+  return TIERS2.some((tier) => tier === text16);
 }
 function tierCell(cell3) {
-  const text15 = plainCell(cell3);
-  return isTier(text15) ? text15 : null;
+  const text16 = plainCell(cell3);
+  return isTier(text16) ? text16 : null;
 }
 function unknownTiers(markdown) {
   let table;
@@ -10515,13 +10520,13 @@ function unknownTiers(markdown) {
   return unknown;
 }
 function landingCell(cell3) {
-  const text15 = plainCell(cell3);
-  return NOTHING.test(text15) ? 1 : Number(text15);
+  const text16 = plainCell(cell3);
+  return NOTHING.test(text16) ? 1 : Number(text16);
 }
 function contractCell(cell3) {
-  const text15 = plainCell(cell3);
-  if (NOTHING.test(text15)) return null;
-  const kinds = text15.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  const text16 = plainCell(cell3);
+  if (NOTHING.test(text16)) return null;
+  const kinds = text16.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
   if (kinds.length === 0) return null;
   return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
@@ -10710,8 +10715,8 @@ function repositoryFlowViolations(slices, { config, targets }) {
     return [...unreadable, ...named];
   });
 }
-function shortName3(slug) {
-  return slug.slice(slug.indexOf("/") + 1);
+function shortName3(slug2) {
+  return slug2.slice(slug2.indexOf("/") + 1);
 }
 function repositoryViolations(slices, repositories, { planSlug, targets }) {
   if (slices.every((slice) => slice.repo === null)) {
@@ -10727,9 +10732,9 @@ function repositoryViolations(slices, repositories, { planSlug, targets }) {
 }
 function ownersByShortName(slugs) {
   const owners = /* @__PURE__ */ new Map();
-  for (const slug of slugs) {
-    const name = shortName3(slug);
-    owners.set(name, [...owners.get(name) ?? [], slug]);
+  for (const slug2 of slugs) {
+    const name = shortName3(slug2);
+    owners.set(name, [...owners.get(name) ?? [], slug2]);
   }
   return owners;
 }
@@ -11510,7 +11515,7 @@ var FORBIDDEN = [
   { pattern: /`/, what: () => "a backtick" },
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), what: () => `a path under ${KIT_FOLDER}` }
 ];
-var characters = (text15) => Array.from(text15).length;
+var characters = (text16) => Array.from(text16).length;
 function unquote(value) {
   const trimmed2 = value.trim();
   const first = trimmed2[0];
@@ -11538,8 +11543,8 @@ ${line.trim()}`;
   }
   return { fields, errors };
 }
-function splitNote(text15) {
-  const match = text15.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
+function splitNote(text16) {
+  const match = text16.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
@@ -11556,8 +11561,8 @@ function notePrd(fields, errors) {
   errors.push(`prd "${prd}" is not a PRD number`);
   return null;
 }
-function parseReleaseNote(text15) {
-  const parts = splitNote(text15);
+function parseReleaseNote(text16) {
+  const parts = splitNote(text16);
   if (!parts) return { ok: false, errors: ['no front matter \u2014 a release note opens with a "---" fenced header holding prd and title'] };
   const { fields, errors } = readFields2(parts.front);
   for (const key of Object.keys(fields)) {
@@ -11599,14 +11604,14 @@ function descriptionViolations(lines, description) {
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
-function contentViolations(name, text15) {
+function contentViolations(name, text16) {
   return FORBIDDEN.flatMap(({ pattern, what }) => {
-    const match = text15.match(pattern);
+    const match = text16.match(pattern);
     return match ? [`${name} holds ${what(match[0])}`] : [];
   });
 }
-function gradeReleaseNote(text15, { prd }) {
-  const parsed2 = parseReleaseNote(text15);
+function gradeReleaseNote(text16, { prd }) {
+  const parsed2 = parseReleaseNote(text16);
   if (!parsed2.ok) return parsed2.errors;
   const { note } = parsed2;
   const out = [];
@@ -11615,7 +11620,7 @@ function gradeReleaseNote(text15, { prd }) {
     out.push(`version ${note.version === "" ? '""' : note.version} is not ${INITIAL_VERSION} \u2014 only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text15)?.body ?? ""), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text16)?.body ?? ""), note.description));
   out.push(...contentViolations("title", note.title), ...contentViolations("description", note.description));
   return out;
 }
@@ -11807,10 +11812,10 @@ function codeownersFile(ctx) {
 }
 function ownersBlockProblems(ctx, knowledge = readKnowledge({ ctx })) {
   if ((ctx.config.laws?.owners ?? []).length === 0) return [];
-  const { file, text: text15 } = codeownersFile(ctx);
+  const { file, text: text16 } = codeownersFile(ctx);
   let current;
   try {
-    current = text15 === null ? null : ownersBlockIn(text15);
+    current = text16 === null ? null : ownersBlockIn(text16);
   } catch (error) {
     return [`${file}: ${messageOf2(error)}.`];
   }
@@ -11828,8 +11833,8 @@ var DEFAULT_LAWS_MAX = 20;
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail, text: text15 }) {
-  return text15 ?? `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text16 }) {
+  return text16 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -11980,11 +11985,11 @@ function idShapeViolations(entry) {
     )
   ];
 }
-function headingAnchors(text15) {
+function headingAnchors(text16) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line of text15.split("\n")) {
+  for (const line of text16.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
@@ -12253,14 +12258,14 @@ function findDecisionTagViolations(ctx, knowledge) {
 }
 function findThesisViolations(ctx, entries) {
   if (ctx.copyOf) return [];
-  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text15) => ({ text: text15 }));
+  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text16) => ({ text: text16 }));
 }
 function findOwnersBlockViolations(ctx, knowledge) {
   if (ctx.copyOf) return [];
-  return ownersBlockProblems(ctx, knowledge).map((text15) => ({ text: text15 }));
+  return ownersBlockProblems(ctx, knowledge).map((text16) => ({ text: text16 }));
 }
-function findUnresolvedCitations(file, text15, resolve3) {
-  return idsCitedIn(text15).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text16, resolve3) {
+  return idsCitedIn(text16).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries) {
   return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
@@ -12283,9 +12288,9 @@ function gradeKnowledge({
 }) {
   const knowledge = readKnowledge({ ctx });
   const resolve3 = (id) => knowledge.entries.find((entry) => entry.id === id);
-  const text15 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
+  const text16 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
-    ...findLayoutViolations(ctx, knowledge, { glossaryText: text15 }),
+    ...findLayoutViolations(ctx, knowledge, { glossaryText: text16 }),
     ...findOwningLibraryViolations(ctx, knowledge),
     ...findCrossDomainFileViolations(knowledge),
     ...findReusedIds(knowledge.entries),
@@ -12456,9 +12461,9 @@ function classificationJsonSchema(summary2) {
   };
 }
 function section2(heading, body) {
-  const text15 = plainText(body).trim();
-  if (text15 === "") return [];
-  return [`### ${heading}`, "", text15, ""];
+  const text16 = plainText(body).trim();
+  if (text16 === "") return [];
+  return [`### ${heading}`, "", text16, ""];
 }
 function itemSections(candidate) {
   const sections = candidate.item?.sections;
@@ -12566,8 +12571,8 @@ function toCandidate(entry, ledgerFile) {
     rank: entry.fields.Rank ?? (parsed2.ok ? parsed2.item.rank : null) ?? null
   };
 }
-function candidatesFromLedger(text15, { markers, ledgerFile = null }) {
-  const entries = parseSettledEntries(text15, markers);
+function candidatesFromLedger(text16, { markers, ledgerFile = null }) {
+  const entries = parseSettledEntries(text16, markers);
   return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd }) {
@@ -12611,9 +12616,9 @@ function mergedLine(merge) {
   return `${handle(merge.by)}, ${day(merge.at)}, PR #${merge.pr}`;
 }
 function slugOf(title) {
-  const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  if (slug.length <= SLUG_MAX) return slug;
-  const cut2 = slug.slice(0, SLUG_MAX + 1);
+  const slug2 = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (slug2.length <= SLUG_MAX) return slug2;
+  const cut2 = slug2.slice(0, SLUG_MAX + 1);
   return cut2.slice(0, cut2.lastIndexOf("-") > 0 ? cut2.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
@@ -12682,8 +12687,8 @@ function makeFiles(ctx) {
       }
       return texts.get(path) ?? null;
     },
-    write(path, text15) {
-      texts.set(path, text15);
+    write(path, text16) {
+      texts.set(path, text16);
       this.changed.add(path);
     },
     changed: /* @__PURE__ */ new Set(),
@@ -12692,8 +12697,8 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text15, entry, { heading }) {
-  let base = text15 ?? `# ${heading}
+function appendEntry(text16, entry, { heading }) {
+  let base = text16 ?? `# ${heading}
 `;
   if (!/^## /m.test(base)) {
     const lines = base.split("\n");
@@ -12752,8 +12757,8 @@ function renderRecord2({
     ""
   ].join("\n");
 }
-function addLedgerLine(text15, { id, line, markers }) {
-  const lines = text15.split("\n");
+function addLedgerLine(text16, { id, line, markers }) {
+  const lines = text16.split("\n");
   const open = lines.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
   const close = lines.indexOf(markers.settledClose(id), open);
@@ -13011,15 +13016,15 @@ function applyHarvestEdits({ root, edits }) {
     mkdirSync12(dirname14(join62(root, to)), { recursive: true });
     renameSync3(join62(root, from), join62(root, to));
   }
-  for (const { path, text: text15 } of edits.writes) {
+  for (const { path, text: text16 } of edits.writes) {
     mkdirSync12(dirname14(join62(root, path)), { recursive: true });
-    writeFileSync17(join62(root, path), text15);
+    writeFileSync17(join62(root, path), text16);
   }
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
   for (const write2 of writes) byPath.set(write2.path, write2.text);
-  return [...byPath].map(([path, text15]) => ({ path, text: text15 }));
+  return [...byPath].map(([path, text16]) => ({ path, text: text16 }));
 }
 function prepareHarvest({
   ctx,
@@ -13045,7 +13050,7 @@ function prepareHarvest({
       const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync46(join62(scratch.root, file), "utf8") });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
-      rewrites = plan.rewrites.map(({ file, text: text15 }) => ({ path: movedPath(moves, file), text: text15 }));
+      rewrites = plan.rewrites.map(({ file, text: text16 }) => ({ path: movedPath(moves, file), text: text16 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
@@ -13412,9 +13417,9 @@ function parseSaved(schema, value, id) {
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
 import { z as z45 } from "zod";
-async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text15 }) {
+async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text16 }) {
   const body = `${marker2}
-${String(text15).trimEnd()}
+${String(text16).trimEnd()}
 `;
   const comments = await listComments(octokit, { owner, repo, prNumber });
   const existing = comments.find((comment) => comment.body.includes(marker2));
@@ -13706,7 +13711,7 @@ ${commitMarker(merge.pr)} Merged by @${bare2(merge.by)}.`;
 }
 var bare2 = (who) => (who ?? "").replace(/^@/, "");
 var day2 = (value) => (value ?? "").slice(0, 10);
-var cell = (text15) => (text15 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+var cell = (text16) => (text16 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
@@ -13714,9 +13719,9 @@ function landedAs(entry) {
   return `${entry.landedAs.join(", ")} (new, ${standing})`;
 }
 function decidedShort(decided) {
-  const text15 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
-  if (text15.startsWith("nobody")) return "nobody \u2014 adopted";
-  return text15;
+  const text16 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
+  if (text16.startsWith("nobody")) return "nobody \u2014 adopted";
+  return text16;
 }
 function enforcedText(paths, issue) {
   if (issue !== null) return `pending #${issue}`;
@@ -13794,7 +13799,7 @@ function toCommit(edits, filesBefore) {
     }
   }
   return {
-    files: edits.writes.map(({ path, text: text15 }) => ({ path, content: text15 })),
+    files: edits.writes.map(({ path, text: text16 }) => ({ path, content: text16 })),
     moves,
     deletes
   };
@@ -13989,9 +13994,9 @@ function createHarvestFailureHandler({ octokitFor }) {
     const { installationId, owner, repo, prNumber } = failed2.success ? failed2.data : {};
     if (!installationId || !prNumber) return { skipped: "not a merge" };
     const reason2 = firstLine(error?.message ?? event.data.error?.message);
-    const text15 = `The knowledge harvest could not run: ${reason2}`;
+    const text16 = `The knowledge harvest could not run: ${reason2}`;
     return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
-      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text15 });
+      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text: text16 });
       return { ...posted, reason: reason2 };
     });
   };
@@ -14010,13 +14015,13 @@ function sha256Of(bytes) {
 var utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 function textOf(bytes) {
   if (bytes.length > MAX_FILE_BYTES) return { why: "over 1 MiB" };
-  let text15;
+  let text16;
   try {
-    text15 = utf8.decode(bytes);
+    text16 = utf8.decode(bytes);
   } catch {
     return { why: "not UTF-8 text" };
   }
-  return text15.includes("\0") ? { why: "holds a NUL character" } : { text: text15 };
+  return text16.includes("\0") ? { why: "holds a NUL character" } : { text: text16 };
 }
 function packFiles(read) {
   const files = [];
@@ -15123,8 +15128,8 @@ var REFUSED_PATTERNS = REFUSED_WORDS.map((word) => ({
   word,
   pattern: new RegExp(`\\b${word.replaceAll(" ", "[\\s-]*")}\\b`, "i")
 }));
-function refusedWordsIn(text15) {
-  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text15)).map(({ word }) => word);
+function refusedWordsIn(text16) {
+  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text16)).map(({ word }) => word);
 }
 function rankOf(kind) {
   const index = FINDING_ORDER.findIndex((rank) => rank.includes(kind));
@@ -15474,15 +15479,15 @@ function linksPrd(body, prd) {
 var REFERENCE = /([\w.-]+\/[\w.-]+)#(\d+)|github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
 function rowPr(line) {
   const match = line.match(REFERENCE);
-  const slug = match?.[1] ?? match?.[3];
+  const slug2 = match?.[1] ?? match?.[3];
   const number = match?.[2] ?? match?.[4];
-  return slug && number ? { slug, pr: parsePr(number) } : null;
+  return slug2 && number ? { slug: slug2, pr: parsePr(number) } : null;
 }
 function fixPlanRows(body) {
-  const text15 = body ?? "";
-  if (!text15.includes(FIX_PLAN_MARKER)) return [];
+  const text16 = body ?? "";
+  if (!text16.includes(FIX_PLAN_MARKER)) return [];
   const rows = [];
-  for (const line of text15.split("\n")) {
+  for (const line of text16.split("\n")) {
     const found = line.trim().startsWith("|") ? rowPr(line) : null;
     if (found && !rows.some((row) => row.slug === found.slug && row.pr === found.pr)) rows.push(found);
   }
@@ -15543,15 +15548,15 @@ function mergeAfterOf(kept3, index) {
 }
 
 // apps/omni-app/src/retro/targets.ts
-var shortName4 = (slug) => slug.split("/").at(-1) ?? slug;
+var shortName4 = (slug2) => slug2.split("/").at(-1) ?? slug2;
 function planTargets({ config, plan, planSlug, topic }) {
   const targets = config.plan?.targets ?? [];
   if (targets.length === 0 || plan === null) return [];
   const own = shortName4(planSlug);
   return parsePlanRepositories(plan).filter((row) => shortName4(row.repo) !== own).map((row) => {
     const name = shortName4(row.repo);
-    const slug = targets.find((target2) => target2.repo === row.repo || shortName4(target2.repo) === name)?.repo ?? null;
-    return { name, slug, branches: featureBranches({ config, plan, topic, name }) };
+    const slug2 = targets.find((target2) => target2.repo === row.repo || shortName4(target2.repo) === name)?.repo ?? null;
+    return { name, slug: slug2, branches: featureBranches({ config, plan, topic, name }) };
   });
 }
 function featureBranches({ config, plan, topic, name }) {
@@ -15649,21 +15654,21 @@ async function plannedFixes(octokit, { plan, bug }, unread) {
   }
   return planned;
 }
-async function readFix(octokit, { bug, slug, number }, unread) {
-  const [owner, repo] = slug.split("/");
+async function readFix(octokit, { bug, slug: slug2, number }, unread) {
+  const [owner, repo] = slug2.split("/");
   const pull = await readOrRefused(async () => ClosedPullSchema.parse((await octokit.request(PULL2, { owner, repo, pull_number: number })).data));
   if (pull.status !== null) {
-    unread.push({ read: "fix", repo: slug, number, status: pull.status });
+    unread.push({ read: "fix", repo: slug2, number, status: pull.status });
     return null;
   }
   const mergedAt = pull.value.merged_at ?? null;
   let files = null;
   if (mergedAt) {
     const read = await readOrRefused(() => listFiles(octokit, { owner, repo, number }));
-    if (read.status) unread.push({ read: "files", repo: slug, number, status: read.status });
+    if (read.status) unread.push({ read: "files", repo: slug2, number, status: read.status });
     files = read.value;
   }
-  return { bug, repo: slug, number, url: pull.value.html_url, mergedAt, files };
+  return { bug, repo: slug2, number, url: pull.value.html_url, mergedAt, files };
 }
 function targetRanges(atMerge, repo) {
   const facts = atMerge?.repositories?.find((entry) => entry.repo === repo);
@@ -15902,16 +15907,16 @@ function overlaps([oldStart, oldCount], { from, to }) {
   if (oldCount === 0) return from < oldStart && oldStart <= to;
   return oldStart <= to && oldStart + oldCount - 1 >= from;
 }
-function namesPrd(prd, slug) {
-  const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape2(slug)})#${prd}(?!\\d)`, "i");
-  return (text15) => pattern.test(text15);
+function namesPrd(prd, slug2) {
+  const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape2(slug2)})#${prd}(?!\\d)`, "i");
+  return (text16) => pattern.test(text16);
 }
-function closedBy(text15, slug) {
+function closedBy(text16, slug2) {
   const numbers = [];
-  for (const match of text15.matchAll(CLOSING)) {
+  for (const match of text16.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match;
     const repo = urlRepo ?? refRepo;
-    if (repo && repo.toLowerCase() !== slug.toLowerCase()) continue;
+    if (repo && repo.toLowerCase() !== slug2.toLowerCase()) continue;
     const closed = IssueNumberSchema.safeParse(Number(urlNumber ?? refNumber ?? number));
     if (closed.success) numbers.push(closed.data);
   }
@@ -15955,8 +15960,8 @@ function plural5(count2, noun) {
 function and(items, last = " and ") {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}${last}${items.at(-1)}`;
 }
-function escape2(text15) {
-  return text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape2(text16) {
+  return text16.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/kinds/churn-generated.ts
@@ -16354,16 +16359,16 @@ var COUNT_KEYS = Object.freeze({
   errors: "errors",
   total: "total"
 });
-function cleanLog(text15) {
-  return plainText(text15).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
+function cleanLog(text16) {
+  return plainText(text16).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
-function tailOf(text15, count2) {
-  const lines = plainText(text15).split("\n");
+function tailOf(text16, count2) {
+  const lines = plainText(text16).split("\n");
   if (lines.at(-1) === "") lines.pop();
   return lines.slice(-count2).join("\n");
 }
-function readTestLog(text15) {
-  const lines = cleanLog(text15).split("\n");
+function readTestLog(text16) {
+  const lines = cleanLog(text16).split("\n");
   for (const reader of READERS) {
     if (!reader.detects(lines)) continue;
     const { tests, counts } = reader.read(lines);
@@ -16465,13 +16470,13 @@ function vitestCrosses(lines) {
   return tests;
 }
 var READERS = Object.freeze([pytest, playwright, jest, vitest]);
-function countsIn(text15) {
+function countsIn(text16) {
   const counts = {};
-  for (const [, number, word] of text15.matchAll(/(\d+) ([a-z]+)/g)) {
+  for (const [, number, word] of text16.matchAll(/(\d+) ([a-z]+)/g)) {
     const key = word === void 0 ? void 0 : COUNT_KEYS[word];
     if (key && !(key in counts)) counts[key] = Number(number);
   }
-  const total = /\((\d+)\)\s*$/.exec(text15.trim());
+  const total = /\((\d+)\)\s*$/.exec(text16.trim());
   if (total && !("total" in counts)) counts.total = Number(total[1]);
   return Object.keys(counts).length > 0 ? counts : null;
 }
@@ -16755,8 +16760,8 @@ function short(sha) {
 function count(n, noun) {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
-function cell2(text15) {
-  return text15.replaceAll("|", "\\|");
+function cell2(text16) {
+  return text16.replaceAll("|", "\\|");
 }
 function uniqueBy(items, key) {
   const seen = /* @__PURE__ */ new Set();
@@ -17442,9 +17447,9 @@ function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) })
 var LINE_MAX = 240;
 var BOLD_HEAD = /^\*\*(.+?)\*\*\s*/;
 var NOT_PROSE = /^[|`#>]/;
-function firstSentence2(text15) {
-  const end = text15.search(/[.?!]\s/);
-  return end === -1 ? text15 : text15.slice(0, end + 1);
+function firstSentence2(text16) {
+  const end = text16.search(/[.?!]\s/);
+  return end === -1 ? text16 : text16.slice(0, end + 1);
 }
 function lineOf3(item) {
   const flat = item.replace(/\s+/g, " ").trim();
@@ -17545,7 +17550,7 @@ function modelInput({
       }))
     })),
     knowledge: knowledgeLines(knowledge),
-    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text15) => typeof text15 === "string").map((text15) => maskSecrets(text15))
+    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text16) => typeof text16 === "string").map((text16) => maskSecrets(text16))
   };
   capInput(input, findings.map((finding) => finding.source), LIMITS.modelInputTokens * CHARS_PER_TOKEN - SYSTEM2.length);
   return { system: SYSTEM2, user: JSON.stringify(input) };
@@ -17561,8 +17566,8 @@ function knowledgeLines(summary2) {
   }));
   return [...entries, ...playbook, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
-function firstLineOf(text15) {
-  return text15.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+function firstLineOf(text16) {
+  return text16.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 }
 var EXCERPT_KEY = ',"excerpt":';
 var CUT_MARK = "[earlier lines cut]\n";
@@ -17571,7 +17576,7 @@ var HUNKS = "churn";
 function capInput(input, sources, budget) {
   let size = JSON.stringify(input).length;
   if (size <= budget) return;
-  const cost = (text15) => EXCERPT_KEY.length + JSON.stringify(text15).length;
+  const cost = (text16) => EXCERPT_KEY.length + JSON.stringify(text16).length;
   const excerpts = input.findings.flatMap(
     (finding, i) => finding.evidence.flatMap((item, j) => item.excerpt === void 0 ? [] : [{ i, j, item, source: sources[i] }])
   );
@@ -17590,14 +17595,14 @@ function capInput(input, sources, budget) {
   }
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
-    const text15 = entry.item.excerpt ?? "";
-    let keep = Math.max(0, text15.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text15, keep);
-    while (keep > 0 && size - cost(text15) + cost(next) > budget) {
-      keep = Math.max(0, keep - (size - cost(text15) + cost(next) - budget));
-      next = lastLines(text15, keep);
+    const text16 = entry.item.excerpt ?? "";
+    let keep = Math.max(0, text16.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text16, keep);
+    while (keep > 0 && size - cost(text16) + cost(next) > budget) {
+      keep = Math.max(0, keep - (size - cost(text16) + cost(next) - budget));
+      next = lastLines(text16, keep);
     }
-    size += cost(next) - cost(text15);
+    size += cost(next) - cost(text16);
     entry.item.excerpt = next;
   }
   while (size > budget && input.earlierLessons.length > 0) {
@@ -17614,8 +17619,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text15, keep) {
-  let tail = keep > 0 ? text15.slice(-keep) : "";
+function lastLines(text16, keep) {
+  let tail = keep > 0 ? text16.slice(-keep) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -17635,9 +17640,9 @@ function checkReply2(value) {
       const kept3 = {};
       findings[id] = kept3;
       for (const name of ["title", "whyItMatters", "lesson"]) {
-        const text15 = words[name];
-        if (text15 === void 0) continue;
-        if (typeof text15 === "string") kept3[name] = text15;
+        const text16 = words[name];
+        if (text16 === void 0) continue;
+        if (typeof text16 === "string") kept3[name] = text16;
         else errors.push(`findings[${JSON.stringify(id)}].${name} must be a string`);
       }
       if (words.keep !== void 0) {
@@ -17971,15 +17976,15 @@ function refusal3(value, cap, evidence, { digits = false } = {}) {
   if (!digits && /\d/.test(setAside(value, evidence))) return DROPPED.digit;
   return null;
 }
-function setAside(text15, evidence) {
-  const spans = text15.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
+function setAside(text16, evidence) {
+  const spans = text16.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
   return spans.replace(LINK, (link) => evidence.urls.has(link.replace(TRAILING, "")) ? " " : link);
 }
-function linksIn(text15) {
-  return (text15.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
+function linksIn(text16) {
+  return (text16.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
 }
-function findingIdsIn(text15) {
-  return (text15.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
+function findingIdsIn(text16) {
+  return (text16.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
 }
 function evidenceOf(sheet) {
   const findings = isList(sheet?.findings) ? sheet.findings : [];
@@ -17989,16 +17994,16 @@ function evidenceOf(sheet) {
   for (const finding of findings) {
     for (const item of finding.evidence ?? []) {
       if (typeof item?.url === "string") urls.add(item.url);
-      for (const text15 of [item?.label, item?.url, item?.excerpt]) if (typeof text15 === "string") texts.push(text15);
+      for (const text16 of [item?.label, item?.url, item?.excerpt]) if (typeof text16 === "string") texts.push(text16);
     }
   }
-  return { ids, urls, holds: (span) => texts.some((text15) => text15.includes(span)) };
+  return { ids, urls, holds: (span) => texts.some((text16) => text16.includes(span)) };
 }
 function isObject2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function escape4(text15) {
-  return text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape4(text16) {
+  return text16.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/issues.ts
@@ -18117,8 +18122,8 @@ function field2(value) {
 var PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
 var RESERVED = /^(?:true|false|yes|no|on|off|null|[-+]?\.?\d|\.inf|\.nan)/i;
 function scalar(value) {
-  const text15 = String(value);
-  return PLAIN.test(text15) && !RESERVED.test(text15) ? text15 : JSON.stringify(text15);
+  const text16 = String(value);
+  return PLAIN.test(text16) && !RESERVED.test(text16) ? text16 : JSON.stringify(text16);
 }
 async function listLabelled(octokit, { owner, repo, label: label2 }) {
   const items = await paginate(
@@ -18252,8 +18257,8 @@ function field3(value) {
   return value;
 }
 function summary(prose, latest) {
-  const text15 = field3(prose?.summary);
-  if (text15) return text15;
+  const text16 = field3(prose?.summary);
+  if (text16) return text16;
   return `Facts only: ${latest.narration?.reason ?? "no prose"}`;
 }
 function titleOf3(finding, prose) {
@@ -18431,8 +18436,8 @@ function minutesBetween2(from, to) {
   const ms2 = Date.parse(to) - Date.parse(from);
   return Number.isFinite(ms2) ? Math.round(ms2 / 6e4) : null;
 }
-function oneLine3(text15) {
-  return text15.replace(/\s+/g, " ").trim() || "no reason given";
+function oneLine3(text16) {
+  return text16.replace(/\s+/g, " ").trim() || "no reason given";
 }
 
 // apps/omni-app/src/retro/publish.ts
@@ -18509,11 +18514,11 @@ async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
   return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: parseGitHub(RefSchema2, data, REF).object.sha };
 }
 function withRuns(existing, records) {
-  let text15 = existing;
+  let text16 = existing;
   let doc = null;
   for (const record of records) {
-    doc = mergeRuns(text15, record);
-    text15 = JSON.stringify(doc);
+    doc = mergeRuns(text16, record);
+    text16 = JSON.stringify(doc);
   }
   return defined(doc, "the retro.json of the records published");
 }
@@ -18643,12 +18648,12 @@ function targetComment({
     ...lines.length > 0 ? lines : ["No finding for this repository."]
   ].join("\n");
 }
-async function commentTargets({ step, octokitFor, id, targets, prefix, ...text15 }) {
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text16 }) {
   const out = {};
   for (const target2 of targets) {
     if (!target2.read) continue;
     const [owner = "", repo = ""] = target2.repo.split("/");
-    const body = targetComment({ ...text15, repo: target2.repo });
+    const body = targetComment({ ...text16, repo: target2.repo });
     out[target2.name] = await savedStep(
       step,
       id(`comment-target-${target2.name}`),
@@ -18906,10 +18911,10 @@ async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
 function lessonsIn(texts) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
-  for (const text15 of texts) {
+  for (const text16 of texts) {
     let doc = null;
     try {
-      doc = text15 ? JSON.parse(text15) : null;
+      doc = text16 ? JSON.parse(text16) : null;
     } catch {
       doc = null;
     }
@@ -18990,19 +18995,449 @@ function runnerQueue(connection) {
   };
 }
 
+// apps/omni-app/src/main-watch/events.ts
+import { z as z64 } from "zod";
+var MAIN_WATCH_EVENT = "omni-loop/main-watch.requested";
+var MAIN_WATCH_CI_EVENT = "omni-loop/main-watch.ci-red";
+var slug = z64.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
+var MainWatchDataSchema = z64.looseObject({
+  installationId: z64.number(),
+  owner: z64.string().min(1),
+  repo: z64.string().min(1),
+  repository: slug,
+  prNumber: PrNumberSchema,
+  mergeSha: z64.string().min(1),
+  mergedAt: z64.string().nullish()
+});
+
+// apps/omni-app/src/main-watch/main-watch.schema.ts
+import { z as z65 } from "zod";
+var text14 = z65.string().min(1);
+var BreakSchema = z65.object({
+  kind: z65.enum(["ci-red", "revert", "regression"]),
+  source: text14,
+  url: text14,
+  title: text14,
+  parent: z65.enum(["green", "red", "unknown"]).nullable(),
+  at: text14
+});
+var ReadSchema = z65.object({ breaks: z65.array(BreakSchema), unread: z65.array(z65.enum(["ci", "reverts", "regressions"])) });
+var OpenedSchema = z65.object({ workspace: text14.nullable(), reason: text14.nullable(), opened: z65.number().int().min(0) });
+var RecordedSchema = z65.object({ added: z65.number().int().min(0) });
+var ClosedSchema = z65.object({ closed: z65.boolean() });
+var TickSchema2 = z65.looseObject({ ts: z65.number().exactOptional() }).nullable();
+
+// apps/omni-app/src/main-watch/signals.ts
+import { z as z66 } from "zod";
+var RUNS3 = "GET /repos/{owner}/{repo}/actions/runs";
+var COMMIT2 = "GET /repos/{owner}/{repo}/commits/{ref}";
+var COMMITS = "GET /repos/{owner}/{repo}/commits";
+var ISSUES4 = "GET /repos/{owner}/{repo}/issues";
+var COMMENTS2 = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
+var GREEN3 = /* @__PURE__ */ new Set(["success"]);
+var RED3 = /* @__PURE__ */ new Set(["failure", "timed_out", "startup_failure"]);
+var TRIAGE_MARKER = "<!-- omni-bug:triage -->";
+var RunSchema2 = z66.looseObject({
+  id: z66.number(),
+  name: z66.string().nullish(),
+  html_url: z66.string().nullish(),
+  created_at: z66.string().nullish(),
+  updated_at: z66.string().nullish()
+});
+var RunsPageSchema = z66.looseObject({ workflow_runs: z66.array(RunSchema2).nullish() });
+var ParentsSchema = z66.looseObject({ parents: z66.array(z66.looseObject({ sha: z66.string() })).nullish() });
+var CommitSchema2 = z66.looseObject({
+  sha: z66.string(),
+  html_url: z66.string(),
+  commit: z66.looseObject({
+    message: z66.string(),
+    committer: z66.looseObject({ date: z66.string().nullish() }).nullish(),
+    author: z66.looseObject({ date: z66.string().nullish() }).nullish()
+  })
+});
+var LabelSchema = z66.union([z66.string(), z66.looseObject({ name: z66.string() })]);
+var IssueSchema3 = z66.looseObject({
+  number: z66.number(),
+  title: z66.string().nullish(),
+  body: z66.string().nullish(),
+  html_url: z66.string(),
+  created_at: z66.string(),
+  pull_request: z66.unknown().optional(),
+  user: z66.looseObject({ type: z66.string().nullish() }).nullish(),
+  labels: z66.array(LabelSchema).nullish()
+});
+var CommentSchema = z66.looseObject({ body: z66.string().nullish() });
+async function readSignals(octokit, lane2, scope) {
+  const unread = [];
+  const breaks = [...await ciBreaks(octokit, lane2, unread), ...await revertBreaks(octokit, lane2, unread), ...await regressionBreaks(octokit, lane2, scope, unread)];
+  return { breaks, unread: [...new Set(unread)] };
+}
+function runsOn(octokit, { owner, repo }, sha) {
+  return readOrRefused(
+    () => paginate(
+      (page) => octokit.request(RUNS3, { owner, repo, head_sha: sha, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(RunsPageSchema, data, RUNS3).workflow_runs ?? [])
+    )
+  );
+}
+async function ciBreaks(octokit, lane2, unread) {
+  const runs = await runsOn(octokit, lane2, lane2.mergeSha);
+  if (runs.status !== null) {
+    unread.push("ci");
+    return [];
+  }
+  const red = [];
+  for (const run of runs.value) red.push(...await redJobsOf(octokit, lane2, run, unread));
+  if (red.length === 0) return [];
+  const parent = await parentResults(octokit, lane2);
+  return red.map((job) => ciBreak(lane2, job, parent.get(jobKey(job.run.name, job.name)) ?? "unknown"));
+}
+async function redJobsOf(octokit, lane2, run, unread) {
+  const jobs = await readOrRefused(() => runJobs(octokit, { owner: lane2.owner, repo: lane2.repo, runId: run.id, filter: "all" }));
+  if (jobs.status !== null) {
+    unread.push("ci");
+    return [];
+  }
+  const red = /* @__PURE__ */ new Map();
+  for (const job of jobs.value.filter((one) => RED3.has(one.conclusion))) {
+    if (!red.has(job.name)) red.set(job.name, { run, name: job.name, url: job.html_url ?? null, at: job.completed_at ?? null });
+  }
+  return [...red.values()];
+}
+function ciBreak(lane2, { run, name, url, at: at4 }, parent) {
+  return {
+    kind: "ci-red",
+    source: `${String(run.id)}/${name}`.slice(0, 200),
+    url: https(url) ?? https(run.html_url) ?? `https://github.com/${lane2.lane}/commit/${lane2.mergeSha}`,
+    title: `${run.name ?? "workflow"} \u203A ${name}`.slice(0, 300),
+    parent,
+    at: at4 ?? run.updated_at ?? run.created_at ?? lane2.mergedAt
+  };
+}
+var jobKey = (workflow, job) => `${workflow ?? ""}\0${job}`;
+async function parentResults(octokit, lane2) {
+  const results = /* @__PURE__ */ new Map();
+  const commit = await readOrRefused(async () => parseGitHub(ParentsSchema, (await octokit.request(COMMIT2, { owner: lane2.owner, repo: lane2.repo, ref: lane2.mergeSha })).data, COMMIT2));
+  const parent = commit.value?.parents?.[0]?.sha;
+  if (!parent) return results;
+  const runs = await runsOn(octokit, lane2, parent);
+  for (const run of runs.value ?? []) {
+    const jobs = await readOrRefused(() => runJobs(octokit, { owner: lane2.owner, repo: lane2.repo, runId: run.id, filter: "latest" }));
+    for (const job of jobs.value ?? []) {
+      results.set(jobKey(run.name, job.name), GREEN3.has(job.conclusion) ? "green" : RED3.has(job.conclusion) ? "red" : "unknown");
+    }
+  }
+  return results;
+}
+function https(url) {
+  return url && /^https:\/\/\S+$/.test(url) ? url : null;
+}
+async function revertBreaks(octokit, lane2, unread) {
+  const { owner, repo, base, mergedAt, watchUntil } = lane2;
+  const commits = await readOrRefused(
+    () => paginate(
+      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z66.array(CommitSchema2), data, COMMITS))
+    )
+  );
+  if (commits.status !== null) {
+    unread.push("reverts");
+    return [];
+  }
+  return commits.value.filter((commit) => commit.sha !== lane2.mergeSha && revertsLane(commit.commit.message, lane2)).map((commit) => ({
+    kind: "revert",
+    source: commit.sha,
+    url: commit.html_url,
+    title: (commit.commit.message.split("\n")[0] ?? commit.sha).slice(0, 300),
+    parent: null,
+    at: commit.commit.committer?.date ?? commit.commit.author?.date ?? mergedAt
+  }));
+}
+function revertsLane(message, lane2) {
+  const numbers = new Set(lane2.pulls.map((pull) => pull.number));
+  return revertsCommit(message, lane2.mergeSha) || revertsTitle(message, lane2.pulls, numbers) || revertsNumber(message, lane2.lane, numbers);
+}
+function revertsCommit(message, mergeSha) {
+  return [...message.matchAll(/This reverts commit ([0-9a-f]{7,40})\b/gi)].some(([, sha = ""]) => mergeSha.toLowerCase().startsWith(sha.toLowerCase()));
+}
+function revertsTitle(message, pulls, numbers) {
+  const inner = /^Revert "(.+)"/.exec(message.split("\n")[0] ?? "")?.[1];
+  if (inner === void 0) return false;
+  const numbered = /\s*\(#(\d+)\)$/.exec(inner);
+  if (numbered && numbers.has(Number(numbered[1]))) return true;
+  const title = numbered ? inner.slice(0, numbered.index) : inner;
+  return pulls.some((pull) => pull.title === title);
+}
+function revertsNumber(message, slug2, numbers) {
+  return [...message.matchAll(/\bReverts (?:([\w.-]+\/[\w.-]+))?#(\d+)\b/g)].some(
+    ([, repo, number]) => (repo === void 0 || repo.toLowerCase() === slug2) && numbers.has(Number(number))
+  );
+}
+async function regressionBreaks(octokit, lane2, scope, unread) {
+  const { owner, repo, mergedAt, watchUntil } = lane2;
+  const issues = await readOrRefused(
+    () => paginate(
+      (page) => octokit.request(ISSUES4, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z66.array(IssueSchema3), data, ISSUES4))
+    )
+  );
+  if (issues.status !== null) {
+    unread.push("regressions");
+    return [];
+  }
+  const window = { from: mergedAt, to: watchUntil };
+  const candidates = issues.value.filter((issue) => isReport(issue, window, scope)).sort((a, b) => a.number - b.number);
+  const trace = tracer(octokit, lane2, scope, unread);
+  const breaks = [];
+  for (const issue of candidates) {
+    if (await trace(issue)) breaks.push(regressionBreak(issue));
+  }
+  return breaks;
+}
+function isReport(issue, window, scope) {
+  return issue.pull_request === void 0 && within3(window, issue.created_at) && issue.user?.type !== "Bot" && !labelled(issue, scope.retroLabel);
+}
+function tracer(octokit, lane2, scope, unread) {
+  const namesThePrd = namesPrd2(scope.prd, scope.planSlug, { bare: lane2.lane === scope.planSlug.toLowerCase() });
+  const namesAPull = namesPull(lane2);
+  return async (issue) => {
+    if (namesThePrd(`${issue.title ?? ""}
+${issue.body ?? ""}`)) return true;
+    if (!labelled(issue, scope.regressionLabel)) return false;
+    if (namesAPull(issue.body ?? "")) return true;
+    const triage = await triageOf(octokit, lane2, issue);
+    if (triage === void 0) unread.push("regressions");
+    return typeof triage === "string" && namesAPull(triage);
+  };
+}
+function regressionBreak(issue) {
+  const title = issue.title?.trim() || `Issue #${String(issue.number)}`;
+  return { kind: "regression", source: String(issue.number), url: issue.html_url, title: title.slice(0, 300), parent: null, at: issue.created_at };
+}
+function labelled(issue, label2) {
+  return (issue.labels ?? []).some((one) => (typeof one === "string" ? one : one.name) === label2);
+}
+async function triageOf(octokit, { owner, repo }, issue) {
+  const comments = await readOrRefused(
+    () => paginate(
+      (page) => octokit.request(COMMENTS2, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z66.array(CommentSchema), data, COMMENTS2))
+    )
+  );
+  if (comments.status !== null) return void 0;
+  for (const comment of comments.value) {
+    const line = triageRegression(comment.body ?? "");
+    if (line !== null) return line;
+  }
+  return null;
+}
+function triageRegression(body) {
+  if (!body.trimStart().startsWith(TRIAGE_MARKER)) return null;
+  return /^- \*\*Regression:\*\*\s*(.+)$/m.exec(body)?.[1]?.trim() ?? null;
+}
+function namesPrd2(prd, slug2, { bare: bare3 }) {
+  const s = escape5(slug2);
+  const forms = [`${s}#${String(prd)}(?!\\d)`, `github\\.com/${s}/issues/${String(prd)}(?!\\d)`];
+  if (bare3) forms.push(`(?:^|[^\\w&/.-])#${String(prd)}(?!\\d)`);
+  const pattern = new RegExp(forms.join("|"), "i");
+  return (text16) => pattern.test(text16);
+}
+function namesPull(lane2) {
+  const numbers = new Set(lane2.pulls.map((pull) => pull.number));
+  const s = escape5(lane2.lane);
+  const pattern = new RegExp(`(?:github\\.com/${s}/pull/|${s}#|(?:^|[^\\w&/.-])#)(\\d+)(?!\\d)`, "gi");
+  return (text16) => [...text16.matchAll(pattern)].some(([, number]) => numbers.has(Number(number)));
+}
+function escape5(text16) {
+  return text16.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// apps/omni-app/src/main-watch/main-watch.ts
+var MAIN_WATCH_FUNCTION_ID = "main-watch";
+var DAY_MS5 = 24 * 60 * 60 * 1e3;
+var WATCH_DAYS = 7;
+var CI_WAIT = DAY_MS5;
+var CI_STEP = "wait-ci";
+var WAIT_STEP = "wait-day";
+var CLOCK_STEP2 = "clock";
+var REWIND_STEP = "queue-rewind";
+var MAX_TURNS = 21;
+function createMainWatch({ client, octokitFor, appOctokit = null, store, queue }) {
+  return client.createFunction(
+    { id: MAIN_WATCH_FUNCTION_ID, name: "omni-loop \xB7 main watch", triggers: [{ event: MAIN_WATCH_EVENT }], retries: 3 },
+    async ({ event, step }) => {
+      const data = parseOrThrow(MainWatchDataSchema, event.data, `The ${MAIN_WATCH_EVENT} event carries an unexpected shape`);
+      if (!store) return { skipped: "no database to keep the watch in" };
+      const github = async () => octokitFor(data.installationId);
+      const qualified = await savedStep(step, "qualify", QualifiedSchema3, async () => qualify(await github(), data));
+      if (qualified.skip !== null) return { skipped: qualified.skip };
+      const { pr, prd, config } = qualified;
+      if (!config.mainWatch.enabled) return { prd: prd.number, skipped: "mainWatch.enabled is false at the merge" };
+      const pulls = await savedStep(step, "gather-pulls", PullsIntoSchema, async () => listPullsInto(await github(), { owner: data.owner, repo: data.repo, base: pr.headRef }));
+      const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${data.owner}/${data.repo}`, scope: { config, prd } });
+      const { lanes, unreadTargets } = lanesOf({ data, pr, pulls, targets });
+      const repository = `${data.owner}/${data.repo}`.toLowerCase();
+      const opened = await savedStep(step, "open", OpenedSchema, () => store.open({ installationId: data.installationId, repository, prd: prd.number, lanes }));
+      if (opened.workspace === null) return { prd: prd.number, skipped: opened.reason };
+      const watch = {
+        step,
+        octokitFor,
+        store,
+        queue,
+        workspace: opened.workspace,
+        installationId: data.installationId,
+        repository,
+        prd: prd.number,
+        lanes,
+        unreadTargets,
+        scope: scopeOf(config, prd.number, repository)
+      };
+      return { prd: prd.number, ...await watchLanes(watch) };
+    }
+  );
+}
+function lanesOf({ data, pr, pulls, targets }) {
+  const mergedAt = data.mergedAt ?? pr.mergedAt;
+  if (!mergedAt) throw new Error(`#${String(pr.number)} names no time it merged`);
+  const own = lane({ slug: `${data.owner}/${data.repo}`, installationId: data.installationId, pr: { ...pr, mergeSha: data.mergeSha, mergedAt }, pulls: [pr, ...pulls] });
+  const lanes = [own];
+  const unreadTargets = [];
+  for (const target2 of targets) {
+    if (!target2.read) {
+      unreadTargets.push(`target ${target2.name}`);
+      continue;
+    }
+    const merged = target2.featurePrs.filter((one) => one.merged && one.mergedAt).at(-1);
+    if (merged) lanes.push(lane({ slug: target2.repo, installationId: target2.installationId, pr: merged, pulls: [...target2.featurePrs, ...target2.pulls] }));
+  }
+  return { lanes, unreadTargets };
+}
+function lane({ slug: slug2, installationId, pr, pulls }) {
+  const [owner = "", repo = ""] = slug2.split("/");
+  const mergedAt = new Date(pr.mergedAt ?? "").toISOString();
+  return {
+    lane: slug2.toLowerCase(),
+    owner,
+    repo,
+    installationId,
+    base: pr.baseRef,
+    mergeSha: pr.mergeSha,
+    mergedAt,
+    watchUntil: new Date(Date.parse(mergedAt) + WATCH_DAYS * DAY_MS5).toISOString(),
+    pulls: pulls.map(({ number, title }) => ({ number, title }))
+  };
+}
+function scopeOf(config, prd, repository) {
+  return { prd, planSlug: repository, regressionLabel: config.labels.regression, retroLabel: config.labels.retro };
+}
+async function watchLanes(watch) {
+  const { step, lanes } = watch;
+  const shas = lanes.map((one) => one.mergeSha).filter((sha) => /^[0-9a-f]{7,64}$/i.test(sha));
+  if (shas.length > 0) await step.waitForEvent(CI_STEP, { event: MAIN_WATCH_CI_EVENT, timeout: CI_WAIT, if: shas.map((sha) => `async.data.sha == '${sha}'`).join(" || ") });
+  const found = { done: /* @__PURE__ */ new Map(), broke: /* @__PURE__ */ new Set(), queued: null };
+  let now = await savedStep(step, `${CLOCK_STEP2}-0`, ClockSchema, () => Date.now());
+  for (let turn = 0; turn < MAX_TURNS && found.done.size < lanes.length; turn += 1) {
+    if (turn > 0) now = await nextDay(step, turn);
+    await look(watch, found, turn, now);
+  }
+  return { lanes: lanes.map((one) => found.done.get(one.lane) ?? { lane: one.lane, status: found.broke.has(one.lane) ? "broke" : "watching", unread: [] }), queued: found.queued };
+}
+async function nextDay(step, turn) {
+  const wait2 = `${WAIT_STEP}-${String(turn)}`;
+  const tick = parseSaved(TickSchema2, await step.waitForEvent(wait2, { event: DAY_EVENT, timeout: DAY_WAIT }), wait2);
+  return tick?.ts ?? await savedStep(step, `${CLOCK_STEP2}-${String(turn)}`, ClockSchema, () => Date.now());
+}
+async function look(watch, found, turn, now) {
+  const { step, octokitFor, store, lanes } = watch;
+  const open = lanes.filter((one) => !found.done.has(one.lane));
+  const reads = /* @__PURE__ */ new Map();
+  for (const one of open) {
+    const read = await savedStep(step, `read-${String(turn)}-${one.lane}`, ReadSchema, async () => readSignals(await octokitFor(one.installationId), one, watch.scope));
+    reads.set(one.lane, { breaks: read.breaks, unread: [...read.unread, ...one === lanes[0] ? watch.unreadTargets : []] });
+  }
+  await savedStep(step, `record-${String(turn)}`, RecordedSchema, async () => {
+    let added = 0;
+    for (const one of open) {
+      const read = reads.get(one.lane) ?? { breaks: [], unread: [] };
+      added += (await store.mark({ workspace: watch.workspace, repository: watch.repository, prd: watch.prd, lane: one.lane, breaks: read.breaks, unread: read.unread })).added;
+    }
+    return { added };
+  });
+  for (const [name, read] of reads) if (read.breaks.length > 0) found.broke.add(name);
+  if (found.broke.size > 0 && found.queued === null) found.queued = await queueRewind(watch);
+  for (const one of open) if (now >= Date.parse(one.watchUntil)) found.done.set(one.lane, await finish(watch, found, one, reads.get(one.lane)));
+}
+async function queueRewind({ step, queue, installationId, repository, prd }) {
+  if (!queue) return null;
+  return savedStep(step, REWIND_STEP, QueuedSchema, () => queue({ installationId, repository, line: `/omni:rewind ${String(prd)}` }));
+}
+async function finish(watch, found, one, read) {
+  const unread = read?.unread ?? [];
+  if (found.broke.has(one.lane)) return { lane: one.lane, status: "broke", unread };
+  if (unread.length > 0) return { lane: one.lane, status: "watching", unread };
+  await savedStep(
+    watch.step,
+    `close-${one.lane}`,
+    ClosedSchema,
+    () => watch.store.close({ workspace: watch.workspace, repository: watch.repository, prd: watch.prd, lane: one.lane })
+  );
+  return { lane: one.lane, status: "clean", unread };
+}
+
+// apps/omni-app/src/main-watch/store.ts
+import { z as z67 } from "zod";
+var LaneRowSchema = z67.object({ lane: z67.string().min(1) });
+var SourceRowSchema = z67.object({ source: z67.string().min(1) });
+function mainWatchStore(connection) {
+  const db = serviceDb(connection);
+  const watchOf = ({ workspace, repository, prd, lane: lane2 }) => ({ workspace_id: workspace, repository: repository.toLowerCase(), prd, lane: lane2.toLowerCase() });
+  return {
+    async open({ installationId, repository, prd, lanes }) {
+      const [workspace] = rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1));
+      if (!workspace) return { workspace: null, reason: `no workspace holds the installation ${String(installationId)}`, opened: 0 };
+      const rows = lanes.map(({ lane: lane2, mergeSha, mergedAt, watchUntil }) => ({
+        ...watchOf({ workspace: workspace.id, repository, prd, lane: lane2 }),
+        merge_sha: mergeSha,
+        merged_at: mergedAt,
+        watch_until: watchUntil
+      }));
+      const made = rowsOf(LaneRowSchema, await db.from("prd_main_watch").upsert(rows, { onConflict: "workspace_id,repository,prd,lane", ignoreDuplicates: true }).select("lane"));
+      return { workspace: workspace.id, reason: null, opened: made.length };
+    },
+    async mark({ breaks, unread, ...key }) {
+      const watch = watchOf(key);
+      let added = 0;
+      if (breaks.length > 0) {
+        const rows = breaks.map(({ kind, source, url, title, parent, at: at4 }) => ({ ...watch, kind, source, url, title, parent, at: at4 }));
+        added = rowsOf(SourceRowSchema, await db.from("prd_main_breaks").upsert(rows, { onConflict: "workspace_id,repository,prd,lane,kind,source", ignoreDuplicates: true }).select("source")).length;
+      }
+      const change2 = breaks.length > 0 ? { status: "broke", unread: [...unread] } : { unread: [...unread] };
+      rowsOf(
+        LaneRowSchema,
+        await db.from("prd_main_watch").update(change2).eq("workspace_id", watch.workspace_id).eq("repository", watch.repository).eq("prd", watch.prd).eq("lane", watch.lane).neq("status", "clean").select("lane")
+      );
+      return { added };
+    },
+    async close(key) {
+      const watch = watchOf(key);
+      const closed = rowsOf(
+        LaneRowSchema,
+        await db.from("prd_main_watch").update({ status: "clean", unread: [] }).eq("workspace_id", watch.workspace_id).eq("repository", watch.repository).eq("prd", watch.prd).eq("lane", watch.lane).eq("status", "watching").select("lane")
+      );
+      return { closed: closed.length > 0 };
+    }
+  };
+}
+
 // apps/omni-app/src/server-event/recheck.ts
 import { RetryAfterError as RetryAfterError4 } from "inngest";
 
 // apps/omni-app/src/server-event/server-event.ts
 import { createHmac as createHmac3, timingSafeEqual } from "node:crypto";
-import { z as z64 } from "zod";
+import { z as z68 } from "zod";
 var SERVER_EVENT = "omni-loop/server.event.received";
 var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var ServerEventSchema = z64.object({
-  event: z64.enum(SERVER_EVENT_KINDS),
-  dossier: z64.string().regex(UUID2),
-  at: z64.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
+var ServerEventSchema = z68.object({
+  event: z68.enum(SERVER_EVENT_KINDS),
+  dossier: z68.string().regex(UUID2),
+  at: z68.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 
 // apps/omni-app/src/server-event/recheck.ts
@@ -19065,13 +19500,13 @@ function createServerEventRecheck({
 }
 
 // apps/omni-app/src/server-event/targets.ts
-import { z as z65 } from "zod";
-var text14 = z65.string().min(1);
-var DossierRowSchema4 = z65.object({ workspace_id: text14, product_id: text14.nullable(), product_seq: z65.number().int().positive().nullable() });
-var ProductRowSchema = z65.object({ key: text14.nullable() });
-var WorkspaceRowSchema = z65.object({ github_installation_id: z65.number().int().positive().nullable() });
-var LinkRowSchema = z65.object({ repository: text14 });
-var PullRowSchema = z65.object({ repo: text14, number: z65.number().int().positive() });
+import { z as z69 } from "zod";
+var text15 = z69.string().min(1);
+var DossierRowSchema4 = z69.object({ workspace_id: text15, product_id: text15.nullable(), product_seq: z69.number().int().positive().nullable() });
+var ProductRowSchema = z69.object({ key: text15.nullable() });
+var WorkspaceRowSchema = z69.object({ github_installation_id: z69.number().int().positive().nullable() });
+var LinkRowSchema = z69.object({ repository: text15 });
+var PullRowSchema = z69.object({ repo: text15, number: z69.number().int().positive() });
 function targetsReader(connection) {
   const db = serviceDb(connection);
   return async (dossier) => {
@@ -19128,7 +19563,14 @@ function appFunctions(env, {
     serverEvent: createServerEventRecheck({ client: inngest2, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null }),
     escalation: createEscalation({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
     fixRowStamp: createFixRowStamp({ client: inngest2, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
-    knowledgePack: createKnowledgePack({ client: inngest2, octokitFor, store: env.supabase ? knowledgePackStore(env.supabase) : null })
+    knowledgePack: createKnowledgePack({ client: inngest2, octokitFor, store: env.supabase ? knowledgePackStore(env.supabase) : null }),
+    mainWatch: createMainWatch({
+      client: inngest2,
+      octokitFor,
+      appOctokit: appOctokitFor(env.githubApp),
+      store: env.supabase ? mainWatchStore(env.supabase) : null,
+      queue: env.supabase ? runnerQueue(env.supabase) : null
+    })
   };
 }
 
