@@ -4,9 +4,14 @@ import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
 import { fakeSupabase as askFake } from '../../ask/store.fake';
-import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
+import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed, startListScope } from './source';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { createTimings } from './timing';
+import { createElement, type ReactElement } from 'react';
+import { prerender } from 'react-dom/static';
+import { WithLateParts, shellOf } from './DossierRoute';
+import { approvalView } from './approval';
+import { DEMO_VIEWER, demoDossier } from './demo';
 
 vi.mock('server-only', () => ({}));
 
@@ -581,5 +586,126 @@ describe('the plan\'s slice count, for the stage (PRD 426)', () => {
     await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan\n\nNo table.\n' }] });
     expect(await readPlanSlices(as('bob'), await versions())).toBeNull();
     vi.restoreAllMocks();
+  });
+});
+
+describe('the answerable rounds start beside the other reads (PRD 2401 s4)', () => {
+  it('are read while the dossier\'s other reads are still pending', async () => {
+    const BOBBY = { id: '00000000-0000-4000-8000-0000000000b2', email: 'bobby@example.com' };
+    const fake = fakeSupabase({ ada: ADA, bobby: BOBBY }, { [FAKE_WORKSPACE]: 'acme' });
+    const pushed = await fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'spec', content: SPEC }],
+    });
+    const id = (pushed.data as { id: string }).id;
+    const [round] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [{ created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7) }]).rounds;
+    assertDefined(round, 'the round');
+    fake.seedShare(round.id, BOBBY.id, ADA.id);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let sharesRead = false;
+    const client = fake.client('bobby');
+    // The directory's roster waits on the gate: the shares must be read while it does.
+    const slow = {
+      rpc: (fn: string, args: Record<string, unknown>) => (fn === 'workspace_roster'
+        ? gate.then(() => client.rpc(fn as 'workspace_roster', args as never))
+        : client.rpc(fn, args)),
+      from: (table: string) => {
+        if (table === 'ask_shares') sharesRead = true;
+        return client.from(table as 'dossiers');
+      },
+    } as never;
+    const reading = readDossier(slow, id, BOBBY.id);
+    await vi.waitFor(() => { expect(sharesRead).toBe(true); });
+    release();
+    expect((await reading)?.answerable).toEqual([round.id]);
+  });
+});
+
+describe('a PRD\'s shell streams without its approval, send and runners (PRD 2401 s4)', () => {
+  const html = async (element: ReactElement, within?: number) => {
+    const stop = new AbortController();
+    if (within) setTimeout(() => { stop.abort(); }, within);
+    return new Response((await prerender(element, { signal: stop.signal, onError: () => {} })).prelude).text();
+  };
+
+  it('is sent while the late parts are pending, and replaced by the page with them once they settle', async () => {
+    const late = Promise.resolve(['approved']);
+    const never = new Promise<string[]>(() => {});
+    const page = (parts: string[]) => createElement('p', null, `with ${parts.join(',')}`);
+    const element = (pending: Promise<string[]>) => createElement('main', null, createElement(WithLateParts<string[]>, { late: pending, shell: createElement('p', null, 'the shell'), children: page }));
+    expect(await html(element(never), 30)).toContain('the shell');
+    expect(await html(element(never), 30)).not.toContain('with ');
+    const done = await html(element(late));
+    expect(done).toContain('with approved');
+  });
+
+  it('leaves out of its shell what a server-born PRD\'s approval says, never the rest', () => {
+    const read = demoDossier(Date.parse('2026-09-29T10:00:00Z'));
+    const server = { ...read, dossier: { ...read.dossier, birthplace: 'server' as const } };
+    expect(approvalView(server, DEMO_VIEWER)).not.toBeNull();
+    expect(approvalView(shellOf(server), DEMO_VIEWER)).toBeNull();
+    expect(shellOf(server)).toMatchObject({ dossier: { id: server.dossier.id, prd: server.dossier.prd, title: server.dossier.title }, versions: server.versions });
+    expect(shellOf(read)).toBe(read);
+  });
+});
+
+describe('the list\'s scope reads, started beside dossier_list (PRD 2401 s4)', () => {
+  const WS = '00000000-0000-4000-8000-0000000000e1';
+  const OTHER_WS = '00000000-0000-4000-8000-0000000000e2';
+
+  /** A client that records every table read and rpc, answering the viewer's workspaces and one product. */
+  function recording(workspaces: string[] | 'down') {
+    const calls: string[] = [];
+    const answer = (table: string): { data: unknown; error: { message: string } | null } => {
+      if (table === 'workspace_members') return workspaces === 'down' ? { data: null, error: { message: 'down' } } : { data: workspaces.map((workspace_id) => ({ workspace_id })), error: null };
+      if (table === 'products') return { data: [{ id: 'p1', name: 'Mobile', workspace_id: WS, key: 'mobile' }, { id: 'p2', name: 'Web', workspace_id: OTHER_WS, key: 'web' }], error: null };
+      return { data: [], error: null };
+    };
+    const chain = (table: string): unknown => new Proxy({}, {
+      get: (_, key: string) => (key === 'then'
+        ? (resolve: (value: unknown) => unknown) => resolve(answer(table))
+        : () => chain(table)),
+    });
+    const db = {
+      from: (table: string) => { calls.push(table); return chain(table); },
+    } as never;
+    const roster = (workspace: string) => {
+      calls.push(`workspace_roster:${workspace}`);
+      return Promise.resolve([{ user_id: 'u1', github_login: 'Mo' }]);
+    };
+    return { db, calls, roster };
+  }
+
+  it('reads the products, their dossiers and numbers, and the rosters of the viewer\'s workspaces at once', async () => {
+    const { db, calls, roster } = recording([WS, OTHER_WS]);
+    const early = startListScope(db, 'u1', 'mo', roster);
+    expect(calls).toEqual(['workspace_members']);
+    expect(await early.scope.products([WS])).toEqual([{ id: 'p1', name: 'Mobile', workspace_id: WS, key: 'mobile' }]);
+    await early.scope.dossierProducts([WS]);
+    await early.scope.dossierNumbers([WS, OTHER_WS]);
+    expect(await early.roster(WS)).toEqual([{ user_id: 'u1', github_login: 'Mo' }]);
+    expect(calls.filter((call) => call === 'products')).toHaveLength(1);
+    expect(calls.sort()).toEqual(['dossiers', 'dossiers', 'products', 'workspace_members', `workspace_roster:${OTHER_WS}`, `workspace_roster:${WS}`].sort());
+  });
+
+  it('reads no roster without a login', async () => {
+    const { db, calls, roster } = recording([WS]);
+    const early = startListScope(db, 'u1', null, roster);
+    await early.scope.products([WS]);
+    expect(calls.some((call) => call.startsWith('workspace_roster'))).toBe(false);
+  });
+
+  it('reads as it was, after the list, a workspace it did not read or when the viewer\'s workspaces cannot be read', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const covering = recording([WS]);
+    const early = startListScope(covering.db, 'u1', null, covering.roster);
+    await early.scope.products([WS, OTHER_WS]);
+    expect(covering.calls.filter((call) => call === 'products')).toHaveLength(2);
+    const down = recording('down');
+    const none = startListScope(down.db, 'u1', 'mo', down.roster);
+    expect(await none.scope.products([WS])).not.toHaveLength(0);
+    expect(down.calls.filter((call) => call === 'products')).toHaveLength(1);
+    expect(await none.roster(WS)).toEqual([{ user_id: 'u1', github_login: 'Mo' }]);
+    quiet.mockRestore();
   });
 });
