@@ -21,7 +21,7 @@ const NOW = T0 + 20 * DAY;
 describe('the gaps of a one-lane PRD', () => {
   it('are the six of the spec, with their durations and who they wait on', () => {
     const t = timeline(oneLane(), NOW);
-    const all = [...t.gaps, ...t.lanes[0]!.gaps];
+    const all = [...t.gaps, ...t.lanes[0]?.gaps ?? []];
     expect(all.map((g) => g.id)).toEqual([...GAPS]);
     expect(all.map(days)).toEqual([1, 2, 1, 2, 1, 5]);
     expect(all.map((g) => g.waitsOn)).toEqual(GAPS.map((g) => GAP_WAITS_ON[g]));
@@ -31,9 +31,9 @@ describe('the gaps of a one-lane PRD', () => {
 
   it('starts Starting at the later of approved and opened', () => {
     const t = timeline(oneLane(), NOW);
-    expect(t.lanes[0]!.gaps[0]).toMatchObject({ from: 'approved', start: at(3), ms: DAY });
+    expect(t.lanes[0]?.gaps[0]).toMatchObject({ from: 'approved', start: at(3), ms: DAY });
     const late = oneLane().map((m) => (m.milestone === 'opened' ? ms(REPO, 'opened', 3.5, 10) : m));
-    expect(timeline(late, NOW).lanes[0]!.gaps[0]).toMatchObject({ from: 'opened', ms: 0.5 * DAY });
+    expect(timeline(late, NOW).lanes[0]?.gaps[0]).toMatchObject({ from: 'opened', ms: 0.5 * DAY });
   });
 
   it('totals from the first milestone to the merge, and names the longest gap', () => {
@@ -47,7 +47,7 @@ describe('the gaps of a one-lane PRD', () => {
 describe('a running gap and a gap not recorded', () => {
   it('counts a gap with a start and no end up to now', () => {
     const t = timeline(oneLane().filter((m) => m.milestone !== 'merged'), NOW);
-    expect(t.lanes[0]!.gaps[3]).toMatchObject({ id: 'review', state: 'running', end: null, ms: 13 * DAY });
+    expect(t.lanes[0]?.gaps[3]).toMatchObject({ id: 'review', state: 'running', end: null, ms: 13 * DAY });
     expect(t.total).toEqual({ ms: 20 * DAY, running: true });
     expect(t.now).toMatchObject({ id: 'review' });
     expect(t.longest).toMatchObject({ id: 'review', ms: 13 * DAY });
@@ -57,7 +57,7 @@ describe('a running gap and a gap not recorded', () => {
     const t = timeline(oneLane().filter((m) => m.milestone !== 'plan' && m.milestone !== 'ready'), NOW);
     expect(t.gaps[0]).toMatchObject({ id: 'writing', state: 'not-recorded', ms: null });
     expect(t.gaps[1]).toMatchObject({ id: 'approval', state: 'not-recorded', ms: null });
-    const lane = t.lanes[0]!.gaps;
+    const lane = t.lanes[0]?.gaps ?? [];
     expect(lane[2]).toMatchObject({ id: 'finishing', state: 'not-recorded', ms: null, start: at(6) });
     expect(lane[3]).toMatchObject({ id: 'review', state: 'not-recorded', ms: null, start: null });
     expect(t.longest?.id).toBe('building');
@@ -78,14 +78,14 @@ describe('a running gap and a gap not recorded', () => {
 describe('a rework slice after ready', () => {
   it('lengthens Building, not Finishing', () => {
     const rework = oneLane().map((m) => (m.milestone === 'last-slice' ? ms(REPO, 'last-slice', 9, 13) : m));
-    const gaps = timeline(rework, NOW).lanes[0]!.gaps;
+    const gaps = timeline(rework, NOW).lanes[0]?.gaps ?? [];
     expect(gaps.map(days)).toEqual([1, 5, 0, 5]);
     expect(gaps[1]).toMatchObject({ id: 'building' });
   });
 
   it('keeps the first time of a milestone but the latest of last-slice', () => {
     const rows = [...oneLane(), ms(REPO, 'first-slice', 5), ms(REPO, 'last-slice', 5.5)];
-    const gaps = timeline(rows, NOW).lanes[0]!.gaps;
+    const gaps = timeline(rows, NOW).lanes[0]?.gaps ?? [];
     expect(gaps[1]).toMatchObject({ start: at(4), end: at(6) });
   });
 });
