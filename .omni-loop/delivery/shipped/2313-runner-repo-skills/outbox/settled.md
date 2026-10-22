@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-21
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off split of work between two slices of this PRD; nothing lasting about how the product behaves or is built.
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Low either way: the change is a few lines in the service and two test files, und
 - Raised: 2026-10-21
 - Slice: s2
 - Wave: 2
+- Became: N-PRODUCT-19
 
 ### The answer, as it was given
 
@@ -176,6 +178,7 @@ Low: one function in kit/lib/runner/job.ts; option B adds a flag to the job's co
 - Raised: 2026-10-21
 - Slice: s3
 - Wave: 2
+- Stays here: A local, easily reversed placement choice for one slice's helper methods; no lasting product guarantee or architecture decision to keep.
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ Undone by deleting the two methods and moving them into the repositories folder,
 - Raised: 2026-10-21
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-123, P-PRODUCT-101
 
 ### The answer, as it was given
 

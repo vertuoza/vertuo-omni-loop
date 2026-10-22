@@ -836,3 +836,12 @@ Why: A person should be able to combine their choices, such as a PRD and a repos
 Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, entry s2-01-filter-and-star-together, PRD #2129
 Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-17, PR #2130
+
+## P-PRODUCT-101
+
+The app only offers a skill to allow when a runner can actually find it and allowing it is possible; it never offers a choice that would be refused.
+
+Why: Showing skills that cannot be found or allowed would invite choices that silently fail or are refused by the database.
+Source: .omni-loop/delivery/shipped/2313-runner-repo-skills/outbox/settled.md, entry s3-02-s3-which-folders-are-skills, PRD #2313
+Merged: @pierrederval, 2026-10-21, PR #2316
+Proposed: harvest 2026-10-22
