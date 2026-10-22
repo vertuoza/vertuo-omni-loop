@@ -81,3 +81,314 @@ A person reading the page sees a pull request number instead of the PRD number u
 ```
 
 <!-- /omni-outbox-settled: s2-01-retro-job-prd-number -->
+
+<!-- omni-outbox-settled: s3-01-help-count-test-follows-new-command -->
+
+## s3-01-help-count-test-follows-new-command — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-help-count-test-follows-new-command
+prd: 2338
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+Adding the retro command made a test that counts the kit's commands fail, and that test sits outside this slice's list of files: is bumping its count by one the right way to keep it green?
+
+## The decision, in plain words
+
+The count in the help test went from 62 to 63 commands, nothing else in that file changed.
+
+## The intro, for fun
+
+A new command walked in and the headcount noticed.
+
+## The punchline, for fun
+
+The counter now says 63 and has no further comment.
+
+## The options, in plain words
+
+A. A. Bump the count in the help test, which is the smallest change that keeps it green.
+B. B. Leave the help test alone and let the wave change it once, after merging all slices.
+
+## What I had to decide
+
+Keep the one-number change in kit/lib/help/entries.test.ts (A), or leave the test red and let another slice change it (B).
+
+Decided by: Jev (hardToRevert 0.80) · agent said false
+
+## What I did meanwhile
+
+The count is bumped on this slice's branch, so its preflight is green.
+
+## What it costs to change later
+
+Reverting is changing three numbers back in one test file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for this slice lists the help entries file but not its test, and the spec does not say who owns the count.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-help-count-test-follows-new-command -->
+
+<!-- omni-outbox-settled: s4-01-retro-queue-wired-outside-territory -->
+
+## s4-01-retro-queue-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-retro-queue-wired-outside-territory
+prd: 2338
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+To make the live app queue the settling job, one line had to change in the file that wires every background task of the GitHub app, which the plan did not give this slice. Is it fine that this slice changed it?
+
+## The decision, in plain words
+
+The slice added the one line that hands the database to the retro, so the live app queues the job; without it, only the pull request text would carry the line.
+
+## The intro, for fun
+
+The queue was built, but nobody had plugged it in.
+
+## The punchline, for fun
+
+One line of wiring later, the lamp turns on.
+
+## The options, in plain words
+
+A. Keep the one wiring line, so the live app queues the job (built)
+B. Drop it here and add it in a change that owns the wiring file
+
+## What I had to decide
+
+Keep the one wiring line in the app's list of background tasks (A), or move it to a follow-up change that owns that file (B).
+
+## What I did meanwhile
+
+The wiring line is in place: with the database set, the retro queues the job; without it, the retro still writes the line in its pull request.
+
+## What it costs to change later
+
+B is the removal of one line, and the app then queues nothing until a later change adds it back.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan's territory for this slice names only the retro folder and the app's test folder, not the file that wires the app's tasks. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-retro-queue-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s4-02-one-job-per-retro-pull-request -->
+
+## s4-02-one-job-per-retro-pull-request — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-one-job-per-retro-pull-request
+prd: 2338
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+The retro asks a runner to settle a retro pull request's lessons at most once for that pull request, even when the check two weeks after the merge adds new lessons to the same pull request after the first job has finished. Should it ask again in that case?
+
+## The decision, in plain words
+
+The retro looks for any job already sent for that pull request, whatever its state, and sends none if it finds one. New lessons added two weeks later to the same open pull request are then settled by a person running the line the pull request shows.
+
+## The intro, for fun
+
+Two weeks later, the retro remembers one more thing to say.
+
+## The punchline, for fun
+
+It does not ring the runner twice; the note is on the door.
+
+## The options, in plain words
+
+A. One job per retro pull request, whatever its state (built)
+B. Ask again once the earlier job ended and a kept lesson still has no outcome
+
+## What I had to decide
+
+Keep one job per retro pull request ever (A), or ask again when the earlier job has ended and a kept lesson still has no outcome (B).
+
+## What I did meanwhile
+
+One job per retro pull request: a replay never sends a second one, and the pull request text keeps the line while a lesson waits.
+
+## What it costs to change later
+
+B changes the lookup to ignore ended jobs: a few words in one query, and no stored shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec asks for exactly one job and no second one on a replay, but says nothing of new lessons the day-14 run adds to a retro pull request whose job already ran. (author)
+- Asking again after a job that posted a question would repeat that question to the same person. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-one-job-per-retro-pull-request -->
+
+<!-- omni-outbox-settled: s4-03-retro-body-rewrite-keeps-outcomes-not-quotes -->
+
+## s4-03-retro-body-rewrite-keeps-outcomes-not-quotes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-retro-body-rewrite-keeps-outcomes-not-quotes
+prd: 2338
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+When the retro writes its pull request again, on a replay or two weeks after the merge, its new text keeps each lesson's outcome but not the exact rule words the settling skill quoted. Is that enough for the reviewer?
+
+## The decision, in plain words
+
+The rewritten text shows, under each finding, where the lesson went or why it stays, and closes the issue of each settled lesson. The rule's own words stay in the change itself, where the reviewer reads them, but not in the text.
+
+## The intro, for fun
+
+The retro came back two weeks later and tidied the notes.
+
+## The punchline, for fun
+
+It kept every verdict, just not the quotes.
+
+## The options, in plain words
+
+A. Rewrite the text, keeping each outcome and closing each settled lesson's issue (built)
+B. Leave the text alone once the settling skill has written it
+
+## What I had to decide
+
+Keep the rewrite as built (A), or leave the pull request's text alone once the settling skill has written it (B).
+
+## What I did meanwhile
+
+The rewrite shows each outcome and closes each settled lesson's issue; the quoted rule is in the diff.
+
+## What it costs to change later
+
+B is a check in the publish step before it rewrites the text: no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The settling skill, built in a later slice, writes the quoted rules into the pull request's text, and the spec does not say what a later rewrite by the retro keeps of them. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-03-retro-body-rewrite-keeps-outcomes-not-quotes -->
