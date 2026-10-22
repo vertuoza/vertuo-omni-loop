@@ -1,3 +1,4 @@
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { People } from '../people/load';
 import type { Person } from '../people/types';
 
@@ -15,8 +16,8 @@ export type WaitKind = 'approval' | 'outbox' | 'law' | 'review' | 'merge';
 export interface StoredWait {
   id: string;
   repo: string;
-  prd: number | null;
-  pr: number | null;
+  prd: PrdNumber | null;
+  pr: PrNumber | null;
   kind: WaitKind;
   /** GitHub logins and `org/team`s; empty for "any approver" / "anyone who can merge". */
   turn: readonly string[];
@@ -41,7 +42,7 @@ export interface BoardInput {
 }
 
 /** The key of a PRD in a workspace. */
-export const prdKey = (repo: string, prd: number): string => `${repo.toLowerCase()}#${prd}`;
+export const prdKey = (repo: string, prd: PrdNumber): string => `${repo.toLowerCase()}#${prd}`;
 
 /** A wait older than this many working days reads red: `limits.escalationWorkingDays`'s default. */
 const ESCALATION_WORKING_DAYS = 2;
@@ -124,7 +125,7 @@ function turnOf(logins: readonly string[], people: People): Turn[] {
 }
 
 /** The pull request's address on GitHub. */
-const pullHref = (repo: string, pr: number): string => `https://github.com/${repo}/pull/${pr}`;
+const pullHref = (repo: string, pr: PrNumber): string => `https://github.com/${repo}/pull/${pr}`;
 
 /** The page of a PRD's dossier. */
 const prdHref = (dossier: string): string => `/prd/${encodeURIComponent(dossier)}`;

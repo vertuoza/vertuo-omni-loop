@@ -1,3 +1,4 @@
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { peopleOf } from '../people/load';
@@ -18,11 +19,11 @@ const PEOPLE = peopleOf(
 );
 
 const wait = (n: number, over: Partial<StoredWait> = {}): StoredWait => ({
-  id: `w-${n}`, repo: 'acme/widgets', prd: 7, pr: 100 + n, kind: 'review', turn: ['ada'], since: '2026-10-19T08:00:00Z', ...over,
+  id: `w-${n}`, repo: 'acme/widgets', prd: parsePrd(7), pr: parsePr(100 + n), kind: 'review', turn: ['ada'], since: '2026-10-19T08:00:00Z', ...over,
 });
 
 const input = (waits: StoredWait[], over: Partial<BoardInput> = {}): BoardInput => ({
-  waits, dossiers: new Map<string, PrdPage>([[prdKey('acme/widgets', 7), { id: 'd-7', title: 'Seven' }]]), questions: new Map(), synced: new Map(), now: MON, ...over,
+  waits, dossiers: new Map<string, PrdPage>([[prdKey('acme/widgets', parsePrd(7)), { id: 'd-7', title: 'Seven' }]]), questions: new Map(), synced: new Map(), now: MON, ...over,
 });
 
 describe('working days', () => {
@@ -74,7 +75,7 @@ describe('the Workspace tab', () => {
   });
 
   it('keeps a PRD with no dossier unlinked, and a bug fix with no PRD', () => {
-    const rows = boardOf(input([wait(1, { prd: 9 }), wait(2, { prd: null })]), PEOPLE).rows;
+    const rows = boardOf(input([wait(1, { prd: parsePrd(9) }), wait(2, { prd: null })]), PEOPLE).rows;
     expect(rows.map((r) => r.prd)).toEqual([{ number: 9, title: null, href: null }, null]);
   });
 
@@ -103,7 +104,7 @@ describe('the Workspace tab', () => {
     expect(whatWords('law', 0)).toBe('law');
     expect(whatWords('outbox', 1)).toBe('outbox · 1 question');
     expect(whatWords('outbox', 2)).toBe('outbox · 2 questions');
-    const [row] = boardOf(input([wait(1, { kind: 'outbox' })], { questions: new Map([[prdKey('acme/widgets', 7), 2]]) }), PEOPLE).rows;
+    const [row] = boardOf(input([wait(1, { kind: 'outbox' })], { questions: new Map([[prdKey('acme/widgets', parsePrd(7)), 2]]) }), PEOPLE).rows;
     expect(row?.what).toBe('outbox · 2 questions');
   });
 

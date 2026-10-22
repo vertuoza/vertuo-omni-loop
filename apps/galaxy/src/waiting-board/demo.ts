@@ -1,3 +1,4 @@
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { peopleOf } from '../people/load';
 import { boardOf, prdKey, type PrdPage, type StoredWait } from './board';
 import type { WaitingBoardData } from './waiting-board.service';
@@ -29,17 +30,17 @@ export function demoWaitingBoard(now: Date): WaitingBoardData {
   const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
   const wait = (n: number, w: Omit<StoredWait, 'id'>): StoredWait => ({ id: `demo-wait-${n}`, ...w });
   const waits: StoredWait[] = [
-    wait(1, { repo: 'acme/widgets', prd: 41, pr: 310, kind: 'review', turn: ['ada'], since: ago(9 * DAY) }),
-    wait(2, { repo: 'acme/widgets', prd: 44, pr: 318, kind: 'merge', turn: ['dora'], since: ago(5 * DAY) }),
-    wait(3, { repo: 'acme/gears', prd: 12, pr: 77, kind: 'outbox', turn: ['dora'], since: ago(3 * DAY + 2 * HOUR) }),
-    wait(4, { repo: 'acme/gears', prd: 15, pr: null, kind: 'approval', turn: ['ada', 'dora'], since: ago(DAY + HOUR) }),
-    wait(5, { repo: 'acme/widgets', prd: null, pr: 322, kind: 'review', turn: ['acme/maintainers'], since: ago(4 * HOUR) }),
-    wait(6, { repo: 'acme/gears', prd: 12, pr: 79, kind: 'law', turn: [], since: ago(2 * HOUR) }),
+    wait(1, { repo: 'acme/widgets', prd: parsePrd(41), pr: parsePr(310), kind: 'review', turn: ['ada'], since: ago(9 * DAY) }),
+    wait(2, { repo: 'acme/widgets', prd: parsePrd(44), pr: parsePr(318), kind: 'merge', turn: ['dora'], since: ago(5 * DAY) }),
+    wait(3, { repo: 'acme/gears', prd: parsePrd(12), pr: parsePr(77), kind: 'outbox', turn: ['dora'], since: ago(3 * DAY + 2 * HOUR) }),
+    wait(4, { repo: 'acme/gears', prd: parsePrd(15), pr: null, kind: 'approval', turn: ['ada', 'dora'], since: ago(DAY + HOUR) }),
+    wait(5, { repo: 'acme/widgets', prd: null, pr: parsePr(322), kind: 'review', turn: ['acme/maintainers'], since: ago(4 * HOUR) }),
+    wait(6, { repo: 'acme/gears', prd: parsePrd(12), pr: parsePr(79), kind: 'law', turn: [], since: ago(2 * HOUR) }),
   ];
-  const dossiers = new Map(PRDS.map(([repo, prd, title], i): [string, PrdPage] => [prdKey(repo, prd), { id: `demo-dossier-${i + 1}`, title }]));
+  const dossiers = new Map(PRDS.map(([repo, prd, title], i): [string, PrdPage] => [prdKey(repo, parsePrd(prd)), { id: `demo-dossier-${i + 1}`, title }]));
   const synced = new Map<string, string | null>([['acme/widgets', ago(5 * 60_000)], ['acme/gears', ago(50 * 60_000)]]);
   return {
-    board: boardOf({ waits, dossiers, questions: new Map([[prdKey('acme/gears', 12), 2]]), synced, now }, DEMO_PEOPLE),
+    board: boardOf({ waits, dossiers, questions: new Map([[prdKey('acme/gears', parsePrd(12)), 2]]), synced, now }, DEMO_PEOPLE),
     filter: null,
     productsUnreadable: false,
   };
