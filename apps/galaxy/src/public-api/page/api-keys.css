@@ -16,7 +16,7 @@
 .api-keys-field > span:first-child { font-size: 14px; color: var(--ask-muted); }
 .api-keys-form-title { margin: 0; }
 .api-keys-file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
-.api-keys-choose { display: inline-block; cursor: pointer; }
+.api-keys-choose { position: relative; display: inline-block; cursor: pointer; }
 .api-keys-choose:has(input:focus-visible) { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
 .api-keys-file-name { font-size: 14px; overflow-wrap: anywhere; }
 .api-keys-field input {
@@ -59,6 +59,7 @@
 .api-keys-acts .ask-button { padding: 6px 12px; font-size: 14px; }
 .api-keys-label { display: none; }
 .api-keys-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.api-keys-field input.api-keys-hidden { width: 1px; padding: 0; border: 0; }
 .api-keys-empty { margin: 0; padding: 26px 16px; text-align: center; color: var(--ask-muted); border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
 
 @media (max-width: 700px) {
@@ -69,5 +70,7 @@
   .api-keys-table td:first-child { grid-column: 1 / -1; }
   .api-keys-label { display: inline; }
   .api-keys-app { grid-column: 1 / -1; }
+  .api-keys-acts { gap: 8px; }
+  .api-keys-acts .ask-button { min-height: 44px; }
   .api-keys-revoke { grid-column: 1 / -1; text-align: left; white-space: normal; }
 }
