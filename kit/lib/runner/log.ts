@@ -4,7 +4,8 @@
 // after the runner's cursor, each numbered by its 1-based line number in the log, sent at most 2,000
 // lines and 256 KB per report.
 
-import type { PrdNumber } from '../ids.ts';
+import { parseIssue } from '../ids.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 /** The most lines a log tail carries. */
 export const TAIL_LINES = 200;
@@ -123,9 +124,9 @@ function lastLine(log: string): string {
 }
 
 /** The plan repository's issue a `/omni:mega-bug-fix` job's arguments name (`612`, `#612` or its URL), or `null` for a description. */
-export function fixIssueOf(args: string): number | null {
+export function fixIssueOf(args: string): IssueNumber | null {
   const match = /^(?:#?|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)([1-9]\d*)$/.exec(args.trim());
-  return match?.[1] === undefined ? null : Number(match[1]);
+  return match?.[1] === undefined ? null : parseIssue(match[1]);
 }
 
 /**
@@ -134,7 +135,7 @@ export function fixIssueOf(args: string): number | null {
  * can finish it (a target stuck at `limits.attempts`, or one that could not be reached); `null` for any
  * other line, so a fix that ended, or stopped for a person to decide, keeps reading Done.
  */
-export function fixOutcome(log: string, issue: number): RunOutcome | null {
+export function fixOutcome(log: string, issue: IssueNumber): RunOutcome | null {
   return lastLine(log) === `/omni:mega-bug-fix #${String(issue)}` ? 'stopped' : null;
 }
 

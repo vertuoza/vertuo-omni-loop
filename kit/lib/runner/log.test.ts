@@ -2,7 +2,7 @@
 // the `--timeout` it is held to.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from '../ids.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
 import { fixIssueOf, fixOutcome, LINE_CHARS, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, runOutcome, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
 
 describe('logTail', () => {
@@ -158,6 +158,8 @@ describe('runOutcome of a yolo job (PRD 2375)', () => {
 });
 
 describe('a mega bug fix that a rerun can finish', () => {
+  const issue = parseIssue(381);
+
   it('reads the issue a job names, by number or URL, and none for a description', () => {
     expect(fixIssueOf('381')).toBe(381);
     expect(fixIssueOf('#381')).toBe(381);
@@ -169,18 +171,18 @@ describe('a mega bug fix that a rerun can finish', () => {
   });
 
   it('is stopped when the hand-off ends on the line that resumes the issue, the stamp and a failed hook after it ignored', () => {
-    expect(fixOutcome('The fix stopped short.\n\n/omni:mega-bug-fix #381\n', 381)).toBe('stopped');
-    expect(fixOutcome('x\n17:28:28 /omni:mega-bug-fix #381\nStop hook [x] failed: exit 1\n', 381)).toBe('stopped');
+    expect(fixOutcome('The fix stopped short.\n\n/omni:mega-bug-fix #381\n', issue)).toBe('stopped');
+    expect(fixOutcome('x\n17:28:28 /omni:mega-bug-fix #381\nStop hook [x] failed: exit 1\n', issue)).toBe('stopped');
   });
 
   it('stays null for a fix that ended, another issue, or the line said in passing', () => {
-    expect(fixOutcome('> Review the PRs and merge them in this order, the record PR last.\n', 381)).toBeNull();
-    expect(fixOutcome('/omni:mega-bug-fix #382\n', 381)).toBeNull();
-    expect(fixOutcome('/omni:mega-bug-fix #3810\n', 381)).toBeNull();
-    expect(fixOutcome('/omni:mega-brainstorm the total is wrong\n', 381)).toBeNull();
-    expect(fixOutcome('resume with /omni:mega-bug-fix #381 later\n', 381)).toBeNull();
-    expect(fixOutcome('/omni:mega-bug-fix #381\nNothing was merged.\n', 381)).toBeNull();
-    expect(fixOutcome('', 381)).toBeNull();
+    expect(fixOutcome('> Review the PRs and merge them in this order, the record PR last.\n', issue)).toBeNull();
+    expect(fixOutcome('/omni:mega-bug-fix #382\n', issue)).toBeNull();
+    expect(fixOutcome('/omni:mega-bug-fix #3810\n', issue)).toBeNull();
+    expect(fixOutcome('/omni:mega-brainstorm the total is wrong\n', issue)).toBeNull();
+    expect(fixOutcome('resume with /omni:mega-bug-fix #381 later\n', issue)).toBeNull();
+    expect(fixOutcome('/omni:mega-bug-fix #381\nNothing was merged.\n', issue)).toBeNull();
+    expect(fixOutcome('', issue)).toBeNull();
   });
 });
 

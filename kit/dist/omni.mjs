@@ -61819,7 +61819,7 @@ function lastLine3(log) {
 }
 function fixIssueOf(args) {
   const match = /^(?:#?|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)([1-9]\d*)$/.exec(args.trim());
-  return match?.[1] === void 0 ? null : Number(match[1]);
+  return match?.[1] === void 0 ? null : parseIssue(match[1]);
 }
 function fixOutcome(log, issue2) {
   return lastLine3(log) === `/omni:mega-bug-fix #${String(issue2)}` ? "stopped" : null;
