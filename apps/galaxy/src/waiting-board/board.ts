@@ -219,14 +219,14 @@ export function staleRepositories(synced: ReadonlyMap<string, string | null>, no
     .sort((a, b) => a.localeCompare(b));
 }
 
-/** The stale line, or null when every repository was read in time. */
-export function staleLine(stale: readonly string[]): string | null {
-  const [first, ...rest] = stale;
-  if (first === undefined) return null;
-  if (rest.length === 0) return `${first} was last synced more than 30 minutes ago, so its waits may be out of date.`;
-  const last = rest[rest.length - 1];
-  return `${[first, ...rest.slice(0, -1)].join(', ')} and ${last} were last synced more than 30 minutes ago, so their waits may be out of date.`;
+/** The stale pill's words (visual #2408): how many repositories are out of date, never their names,
+ * which open behind it; null when every repository was read in time. */
+export function staleSummary(stale: readonly string[]): string | null {
+  return stale.length === 0 ? null : `${String(stale.length)} out of date`;
 }
+
+/** What the pill says on hover, and to a screen reader, beside its count. */
+export const STALE_TITLE = 'Repositories last synced more than 30 minutes ago: their waits may be out of date';
 
 const EMPTY_WORKSPACE = 'Nothing waits on a person.';
 const EMPTY_MINE = 'None of your PRDs waits on anyone.';

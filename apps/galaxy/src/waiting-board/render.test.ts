@@ -55,10 +55,10 @@ describe('the Waiting board, with waits', () => {
     expect(html.match(/class="is-overdue"/g)?.length).toBe(2);
   });
 
-  it('names the repository last synced more than 30 minutes ago', () => {
-    expect(html).toContain('role="status"');
-    expect(t).toContain('acme/gears was last synced more than 30 minutes ago');
-    expect(t).not.toContain('acme/widgets was last synced');
+  it('counts the repositories last synced more than 30 minutes ago in a pill, their names behind it (visual #2408)', () => {
+    expect(html).toMatch(/<details class="wait-stale" role="status"><summary title="Repositories last synced more than 30 minutes ago: their waits may be out of date">1 out of date<\/summary>/);
+    expect(html).toMatch(/<ul class="wait-stale-list"><li>acme\/gears<\/li><\/ul><\/details>/);
+    expect(html).not.toContain('<li>acme/widgets</li>');
   });
 });
 
