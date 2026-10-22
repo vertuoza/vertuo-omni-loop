@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engineering board</title>
+<style>
+:root { --o-ground:#07061c; --o-surface:#120f3a; --o-sunk:#0e0d33; --o-line:#1a2170; --o-strong:#5a60c4; --o-ink:#f2f4ff; --o-muted:#8a90d6; --o-plasma:#ffd84a; }
+body { margin:0; padding:24px 16px; background:var(--o-ground); color:var(--o-ink); font:15px/1.6 "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+.board { max-width:1040px; margin:0 auto; }
+h1 { font-size:22px; margin:0 0 8px; }
+h2 { font-size:16px; margin:0 0 8px; }
+.muted { color:var(--o-muted); }
+.tiles { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 16px; }
+.tile { background:var(--o-sunk); border:1px solid var(--o-line); border-radius:6px; padding:6px 12px; font-size:12px; color:var(--o-muted); }
+.tile b { display:block; font-size:18px; color:var(--o-ink); }
+.card { background:var(--o-surface); border:1px solid var(--o-line); border-radius:8px; padding:12px 16px; margin:0 0 12px; }
+table { width:100%; border-collapse:collapse; }
+th, td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--o-line); font-size:14px; }
+th { color:var(--o-muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+.slowest { margin:8px 0 0; color:var(--o-plasma); font-weight:700; }
+.switch { border:1px solid var(--o-strong); border-radius:999px; padding:2px 10px; font-size:13px; color:var(--o-ink); background:none; }
+</style>
+</head>
+<body>
+<main class="board" data-screen="engineering-board">
+<h1>Engineering</h1>
+<p><button class="switch" data-primary>Last 30 days ▾</button></p>
+<div class="tiles"><div class="tile">Merged<b>212</b></div><div class="tile">Median time to merge<b>3.4 h</b></div><div class="tile">Needs fix<b>4%</b></div></div>
+<section class="card"><h2>Omni Loop</h2><p class="muted">Signed share, median time to merge.</p></section>
+<section class="card"><h2>Loop health</h2><p class="muted">Needs-fix and stuck slices.</p></section>
+<section class="card"><h2>Time per step</h2>
+<table><thead><tr><th>Step</th><th>Median</th><th>PRDs</th></tr></thead><tbody>
+<tr><td>Writing it</td><td>1.2 h</td><td>31</td></tr>
+<tr><td>Approval</td><td>14 h</td><td>38</td></tr>
+<tr><td>Starting</td><td>35 min</td><td>40</td></tr>
+<tr><td>Building</td><td>6.1 h</td><td>40</td></tr>
+<tr><td>Finishing</td><td>9.8 h</td><td>40</td></tr>
+<tr><td>Review</td><td>2.0 d</td><td>40</td></tr>
+</tbody></table>
+<p class="slowest">Slowest step: Review, median 2.0 d</p></section>
+</main>
+</body>
+</html>
