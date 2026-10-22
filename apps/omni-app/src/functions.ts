@@ -4,7 +4,7 @@
 // the approved check (PRD 1548), reading a product PRD's record as the service role and, for a ◆ PRD of a repository,
 // asking galaxy's judge signed with `STAGE_EVENT_SECRET` (PRD 1612), with its rerun on the approved label (PRD 1612), the budgets
 // check (PRD 1679), reading a product PRD's raises as the service role,
-// the retro with its day-14 run (PRD 72), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
+// the retro with its day-14 run (PRD 72), queueing `/omni:retro-apply` as the service role (PRD 2338), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
 // the pr-stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), which re-checks
 // a product PRD's open target pull requests, read from the database, once galaxy says it was approved or voided,
 // the hourly escalation sweep (PRD 1794), which lists the App's installations as the App itself, the fix row stamp
@@ -43,6 +43,7 @@ import { productOutboxReader } from './outbox-check/product-outbox.ts';
 import { createEscalation } from './escalation/sweep.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
+import { runnerQueue } from './retro/runner-queue.ts';
 import { loggedClient, noteTo } from './run-log/run-log.ts';
 import { createServerEventRecheck } from './server-event/recheck.ts';
 import { targetsReader } from './server-event/targets.ts';
@@ -71,7 +72,14 @@ export function appFunctions(
     }),
     approvedRerun: createApprovedRerun({ client: inngest, octokitFor }),
     budgetsCheck: createBudgetsCheck({ client: inngest, octokitFor, readOutboxRows: env.supabase ? outboxRowsReader(env.supabase) : null }),
-    retro: createRetro({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
+    retro: createRetro({
+      client: inngest,
+      octokitFor,
+      appOctokit: appOctokitFor(env.githubApp),
+      openrouter: env.openrouter,
+      followUp: true,
+      queue: env.supabase ? runnerQueue(env.supabase) : null,
+    }),
     knowledgeHarvest: createKnowledgeHarvest({
       client: inngest,
       octokitFor,
