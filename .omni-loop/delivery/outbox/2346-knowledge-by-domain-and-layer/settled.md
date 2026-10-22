@@ -548,3 +548,165 @@ One line of a test to change back or rewrite; nothing a person sees depends on i
 ```
 
 <!-- /omni-outbox-settled: s7-02-chart-test-reads-product-domain-only -->
+
+<!-- omni-outbox-settled: s1-02-config-test-law-proof -->
+
+## s1-02-config-test-law-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-22T09:09:03Z
+- Channel: feature pull request #2348
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2348#issuecomment-6337062546
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s1
+- Stays here: where a few config tests sit is a choice for this PRD's files only; no lasting product rule or decision.
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+A. A. Keep the new tests and the two updated expectations in the config test file (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-config-test-law-proof
+prd: 2346
+slice: s1
+rank: high
+bears-on: none
+raised: 2026-10-21
+wave: 1
+---
+
+## The question, in plain words
+
+The config test file also proves a locked rule, and this slice added tests to it and changed two old expectations for the new alias tables. Are you fine with that file changing?
+
+## The decision, in plain words
+
+The slice put its new config tests in the existing config test file and updated the two expectations that held the old, unaliased words, as the spec says an alias reads as its canonical word.
+
+## The intro, for fun
+
+The old words got new names, so two old expectations had to learn them.
+
+## The punchline, for fun
+
+Same rule, same test, a few more words.
+
+## The options, in plain words
+
+A. A. Keep the new tests and the two updated expectations in the config test file (built).
+B. B. Move the new tests to a file of their own and leave only the two updated expectations in the config test file.
+
+## What I had to decide
+
+Keep the new tests and the two updated expectations in the existing config test file; the law's own assertions are untouched.
+
+## What I did meanwhile
+
+A kind written rest reads as api, and a role written back-end reads as api, in every config the kit parses.
+
+## What it costs to change later
+
+Moving the new tests to a file of their own is a copy of those blocks; the two updated expectations stay either way.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which locked rule the config test file proves, and whether its owner wants the tests of other behaviour kept out of it (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-02-config-test-law-proof -->
+
+<!-- omni-outbox-settled: s2-01-knowledge-test-law-proof -->
+
+## s2-01-knowledge-test-law-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-22T09:09:03Z
+- Channel: feature pull request #2348
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2348#issuecomment-6337062546
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-95
+- Raised: 2026-10-21
+- Slice: s2
+- Stays here: where a few knowledge-check tests sit is a choice for this PRD's files only; the rule it changed (a law needs no Governs:) is already the spec's and PRD 2346's.
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+A. A. Keep the new tests and the changed expectation in the existing knowledge check test file (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-knowledge-test-law-proof
+prd: 2346
+slice: s2
+rank: high
+bears-on: BR-PRODUCT-95
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+The knowledge check's test file also proves a locked rule, and this slice replaced one of its expectations: a locked law with no list of paths is now accepted instead of refused, as the spec asks. Are you fine with that file changing?
+
+## The decision, in plain words
+
+The spec says a locked law no longer needs a list of paths, so the old expectation that refused one became one that accepts it. The new tests for layers and decision tags sit in the same file, and the rule's own assertions are untouched.
+
+## The intro, for fun
+
+A law lost its mandatory address, so the test that demanded one had to move on.
+
+## The punchline, for fun
+
+The check now asks where a law lives only if it knows.
+
+## The options, in plain words
+
+A. A. Keep the new tests and the changed expectation in the existing knowledge check test file (built).
+B. B. Move the new tests to a file of their own and keep only the changed expectation in the existing file.
+
+## What I had to decide
+
+Keep the new tests and the one changed expectation in the existing knowledge check test file; the proof of the locked rule itself is untouched.
+
+Decided by: Jev (hardToRevert 0.56) · agent said true
+
+## What I did meanwhile
+
+A locked law with no path list passes the knowledge check and is global or reached through its domain or layers.
+
+## What it costs to change later
+
+Moving the new tests to a file of their own is a small edit; restoring the old refusal is one expectation and one check.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the owner wants the new tests beside the rule's proof or apart from it (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-knowledge-test-law-proof -->
