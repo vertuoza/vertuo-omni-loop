@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { askJudge, judgePath, signJudge } from './judge-client.ts';
 
 const SECRET = 'stage-secret';

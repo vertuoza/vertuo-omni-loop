@@ -164,7 +164,7 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 });
 
-const CONTINUES = read('supabase/migrations/20261219090000_fix_when_answered.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+const CONTINUES = read('supabase/migrations/20261220090000_fix_when_answered.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 
 describe('the fix-when-answered migration (PRD 2270)', () => {
   it('adds the job a job continues, empty for any other job, and holds each job continued once', () => {

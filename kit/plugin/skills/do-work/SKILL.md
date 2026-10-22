@@ -3,7 +3,7 @@ name: do-work
 description: Build ONE slice of a PRD to standard — grounded in the repository's own context, test-first through red-green-refactor, inside the slice's territory only, every decision taken without asking recorded as an outbox item — then ship it as a sub-PR. The job every /omni:wave subagent does; a person may also run it on one slice. Under --target, a product PRD (<key>-<n>) takes its plan through omni dossier get and its items go to the server. Triggers on "do the slice", "build s3", "/omni:do-work".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-do-work/SKILL.md — changes in kit/porting/plugin--do-work.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-do-work/SKILL.md — changes in kit/porting/plugin--do-work.md -->
 
 # Do work: one slice, to standard
 
@@ -67,8 +67,11 @@ never overrides this skill's rules.
    outbox item and account files, and the ceilings file `budgets.context.file` names, for a budget
    raise, step 5), what blocks it, its wave. Read the plan's "done when" for it.
 3. The spec, in full.
-4. Every file in `paths.context`, the glossary at `paths.glossary` when set, and — when
-   `laws.source` is `knowledge` — only the knowledge this slice touches, never the whole folder at
+4. Every file in `paths.context`, the glossary at `paths.glossary` when set, `node .omni-loop/bin/omni.mjs kb glossary`
+   (the product's glossary, read where the slice's words come from: where a term is in both, the page
+   wins; offline or product-less it prints its copy or one line, and you carry on with what you have),
+   `node .omni-loop/bin/omni.mjs kb legal` when the slice touches personal data, keys, logs or licences,
+   and — when `laws.source` is `knowledge` — only the knowledge this slice touches, never the whole folder at
    `paths.knowledge`:
 
    ```bash

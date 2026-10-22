@@ -24,10 +24,10 @@ vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),
 }));
-// Crew is membership of a workspace: here, the vertuoza workspace holds every @vertuoza.com account.
+// Crew is membership of a workspace: here, the vertuoza workspace holds every @example.com account.
 vi.mock('../data/workspace', () => ({
   memberWorkspace: (_db: unknown, id: string) =>
-    Promise.resolve(given.user?.id === id && given.user.email.endsWith('@vertuoza.com') ? { id: 'w1', slug: 'vertuoza', name: 'Vertuoza', theme: {} } : null),
+    Promise.resolve(given.user?.id === id && given.user.email.endsWith('@example.com') ? { id: 'w1', slug: 'vertuoza', name: 'Vertuoza', theme: {} } : null),
   brandOf: ({ name, theme }: { name: string; theme: Record<string, string> }) => ({ name, theme }),
 }));
 vi.mock('../data/load-galaxy', () => ({
@@ -60,7 +60,7 @@ describe('the arcade page and the star chart', () => {
   });
 
   it('gives a crew member signed in the galaxy and no star chart: the game reads it when the chart opens', async () => {
-    Object.assign(given, { mode: 'supabase', user: user('ada@vertuoza.com') });
+    Object.assign(given, { mode: 'supabase', user: user('ada@example.com') });
     const props = await propsOf();
     // The galaxy with its planets' logs left out (PRD 1808): the planet's overlay reads them when opened.
     expect(props.view).toEqual(given.view);
@@ -74,7 +74,7 @@ describe('the arcade page and the star chart', () => {
   it.each([
     ['a closed build', { mode: 'closed', user: null }],
     ['a visitor signed out', { mode: 'supabase', user: null }],
-    ['an account in no workspace', { mode: 'supabase', user: user('eve@example.com') }],
+    ['an account in no workspace', { mode: 'supabase', user: user('eve@elsewhere.example') }],
   ] as const)('gives %s no knowledge, and never reads it', async (_, state) => {
     Object.assign(given, state);
     const props = await propsOf();
@@ -84,7 +84,7 @@ describe('the arcade page and the star chart', () => {
   });
 
   it('gives the crew no knowledge when the galaxy itself is out of reach', async () => {
-    Object.assign(given, { mode: 'supabase', user: user('ada@vertuoza.com'), galaxyDown: true });
+    Object.assign(given, { mode: 'supabase', user: user('ada@example.com'), galaxyDown: true });
     const props = await propsOf();
     expect(props.view).toBeNull();
     expect(props.knowledge).toBeUndefined();
@@ -98,9 +98,9 @@ describe('the arcade page and the app', () => {
     ['the demo', { mode: 'demo', user: null }],
     ['a closed build', { mode: 'closed', user: null }],
     ['a visitor signed out', { mode: 'supabase', user: null }],
-    ['an account in no workspace', { mode: 'supabase', user: user('eve@example.com') }],
-    ['a crew member signed in', { mode: 'supabase', user: user('ada@vertuoza.com') }],
-    ['a crew member whose galaxy is out of reach', { mode: 'supabase', user: user('ada@vertuoza.com'), galaxyDown: true }],
+    ['an account in no workspace', { mode: 'supabase', user: user('eve@elsewhere.example') }],
+    ['a crew member signed in', { mode: 'supabase', user: user('ada@example.com') }],
+    ['a crew member whose galaxy is out of reach', { mode: 'supabase', user: user('ada@example.com'), galaxyDown: true }],
   ] as const)('hands %s\'s arcade the app, at /app', async (_, state) => {
     Object.assign(given, state);
     expect((await propsOf()).app).toBe('/app');

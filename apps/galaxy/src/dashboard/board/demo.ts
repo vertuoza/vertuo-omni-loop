@@ -3,7 +3,7 @@ import type { StageId } from '../../stages/stage';
 import { boardOf, type AnsweredCount, type BoardRequest, type BoardValue } from './load';
 import { brusselsDay, brusselsMidnight } from './period';
 import type { Activity, Member, PrdNow } from './tally';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 
 // The board in the demo (PRD 572: development, or OMNI_LOOP_DEMO=1), on the demo world: its roster is
 // the demo galaxy's heroes, *you* (DAM-DEV) playing solo as on the demo's Home, and two members with
@@ -23,7 +23,7 @@ const NEWCOMERS: Member[] = [
   { userId: 'demo:new-hire', name: 'NEWBIE', login: 'new-hire', avatarUrl: null, fleet: null },
 ];
 
-const REPOS = ['vertuo-core', 'vertuo-api', 'vertuo-ai-domain', 'vertuo-web', 'vertuo-mobile'];
+const REPOS = ['nimbus-core', 'nimbus-api', 'nimbus-brain', 'nimbus-web', 'nimbus-app'];
 const OUTSIDER = 'build-bot';
 const DAYS = 35;
 const HOUR = 3_600_000;
@@ -60,13 +60,13 @@ export function demoActivity(roster: readonly Member[], now: Date): Activity[] {
       const merges = login === 'paul-e' ? (back % 3 === 0 ? 0 : 1) : login === 'new-hire' ? 0 : (back * 7 + k * 3) % 11 < 2 ? 1 : 0;
       for (let i = 0; i < merges; i++) rows.push({ kind: 'pr-merged', repo: at(REPOS, (back + k) % REPOS.length, 'the demo repository'), number: ++number, login, at: noon(back) });
     });
-    if (back % 4 === 1) rows.push({ kind: 'pr-merged', repo: 'vertuo-core', number: ++number, login: OUTSIDER, at: noon(back) });
+    if (back % 4 === 1) rows.push({ kind: 'pr-merged', repo: 'nimbus-core', number: ++number, login: OUTSIDER, at: noon(back) });
     if (back % 3 === 0) {
       const prd = 500 + back;
       const author = at(logins, back % logins.length, 'the demo author');
-      rows.push({ kind: 'prd-opened', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back) });
-      if (back >= 2) rows.push({ kind: 'prd-started', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back - 2) });
-      if (back >= 5) rows.push({ kind: 'prd-shipped', repo: 'vertuo-omni-plan', number: prd, login: author, at: noon(back - 5) });
+      rows.push({ kind: 'prd-opened', repo: 'nimbus-plan', number: prd, login: author, at: noon(back) });
+      if (back >= 2) rows.push({ kind: 'prd-started', repo: 'nimbus-plan', number: prd, login: author, at: noon(back - 2) });
+      if (back >= 5) rows.push({ kind: 'prd-shipped', repo: 'nimbus-plan', number: prd, login: author, at: noon(back - 5) });
     }
   }
   return rows;

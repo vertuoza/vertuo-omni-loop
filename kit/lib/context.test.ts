@@ -7,7 +7,7 @@ import { loadContext, slugFromRemote } from './context.ts';
 
 describe('slugFromRemote', () => {
   it.each([
-    ['git@github.com:vertuoza/some-repo.git', 'vertuoza/some-repo'],
+    ['git@github.com:demo-org/some-repo.git', 'demo-org/some-repo'],
     ['https://github.com/acme/widgets.git', 'acme/widgets'],
     ['https://github.com/acme/widgets', 'acme/widgets'],
     ['ssh://git@github.com/acme/widgets.git', 'acme/widgets'],

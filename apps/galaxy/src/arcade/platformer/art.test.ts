@@ -4,7 +4,7 @@ import { enemyTint, SKY, tileData, tileFrame } from './art';
 import { STAGES } from './stages';
 import { sure } from '../test/sure';
 
-// What Super Omni World draws each stage with (PRD 817): the tile each cell wears, the sky, and the
+// What Starhop draws each stage with (PRD 817): the tile each cell wears, the sky, and the
 // blobs' colour, one look per stage. The canvases themselves are drawn in the browser.
 
 describe('tileFrame', () => {

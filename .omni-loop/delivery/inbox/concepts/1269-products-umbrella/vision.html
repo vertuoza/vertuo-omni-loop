@@ -497,7 +497,7 @@ svg .breathe{animation:breathe 2.2s ease-in-out infinite;transform-box:fill-box;
     <button class="btn sm ghost" id="replay5">↺ replay</button>
   </div>
   <div class="hs">
-    <div class="term" id="term5"><div class="tb"><i></i><i></i><i></i><span style="margin-left:6px">claude · ~/vertuo-mobile · Paul's terminal</span></div><div class="hud" id="hud"></div><div class="out" id="out5"></div></div>
+    <div class="term" id="term5"><div class="tb"><i></i><i></i><i></i><span style="margin-left:6px">claude · ~/nimbus-app · Paul's terminal</span></div><div class="hud" id="hud"></div><div class="out" id="out5"></div></div>
     <div class="wire" id="wire"><div class="ln2"></div><div class="puck">◆</div></div>
     <div class="phone" aria-label="Irisa's phone"><div class="pscr"><div class="notch"></div><div class="sbar"><span id="ptime">14:01</span><span>▴ ◔ ▮</span></div><div class="pv" id="pv"></div><div class="homebar"></div></div></div>
   </div>
@@ -549,7 +549,7 @@ var CAPS=[
  ["An idea becomes a PRD","Paul's idea goes through /omni:brainstorm and comes back as dossier 918, born on the server. No phase-0 PR is opened. The approve screen shows what each repository will get.","walk the three steps, then send it to the approvers"],
  ["The handshake","Paul's terminal parks on omni wait approval. Irisa gets a push notification on her phone, taps it, and approves. The seal prints, the session HUD shows a toast, and wave 1 starts. A later push to a pinned file voids the seal, and she approves again.","tap the notification on the phone"],
  ["The check and its attestation","Every target feature PR carries omni/approved. Its details link to the attestation: who signed, when, and the pinned hashes. It shows the same three states everywhere.","switch building / held / drifted · try restore and ask again"],
- ["Rollout, through to the archive","Each repository climbs the ladder one step at a time. Once all of them are at step 5, the plan repository is archived.","climb vertuo-api and vertuo-web, then archive"]
+ ["Rollout, through to the archive","Each repository climbs the ladder one step at a time. Once all of them are at step 5, the plan repository is archived.","climb nimbus-api and nimbus-web, then archive"]
 ];
 var cur=1,seen={1:1};
 function toast(h,ms){var t=$("#toast");t.innerHTML=h;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove("on")},ms||2800)}
@@ -584,7 +584,7 @@ function chrome(){
  $("#capNo").innerHTML=(cur<10?"0":"")+cur+"<small>/07</small>";$("#capT").textContent=C[0];$("#capP").textContent=C[1];$("#capTry").textContent=C[2];
  $("#prev").disabled=cur===1;$("#next").disabled=cur===7;
  $("#ptabs").style.display=cur===1?"none":"flex";
- var crumbs={1:'vertuoza › <b>Products</b>',2:'vertuoza › <a data-go="1">Products</a> › <b>Mobile</b>',3:'vertuoza › <a data-go="1">Products</a> › Mobile › <b>Constellation</b>',4:'Mobile › PRDs › <b>918</b> <span class="chip srv">◆ server</span>',5:'Mobile › PRD <b>918</b> › handshake',6:'github.com/vertuoza/vertuo-api/pull/<b>446</b> › checks',7:'Mobile › <b>Repos &amp; rollout</b>'};
+ var crumbs={1:'vertuoza › <b>Products</b>',2:'vertuoza › <a data-go="1">Products</a> › <b>Mobile</b>',3:'vertuoza › <a data-go="1">Products</a> › Mobile › <b>Constellation</b>',4:'Mobile › PRDs › <b>918</b> <span class="chip srv">◆ server</span>',5:'Mobile › PRD <b>918</b> › handshake',6:'github.com/demo-org/nimbus-api/pull/<b>446</b> › checks',7:'Mobile › <b>Repos &amp; rollout</b>'};
  $("#crumbs").innerHTML=crumbs[cur];
  var w=cur===4||cur===5?["p","P","Paul · PM"]:viewer==="paul"&&cur===2?["p","P","Paul · PM"]:["i","I","Irisa · PM"];
  $("#who").innerHTML='<span class="tag">viewing as</span><span class="av '+w[0]+'">'+w[1]+'</span>'+(cur===2?'<button class="btn sm ghost" id="swv">switch</button>':w[2]);
@@ -612,11 +612,11 @@ function mini(stars,edges,seed){var r=seed,s='<svg viewBox="0 0 200 84" preserve
 
 /* ---------- 1 products ---------- */
 var PRODUCTS=[
- {n:"Mobile",you:2,repos:[["vertuo-mobile","srv"],["vertuo-api","srv"],["vertuo-web","rep"],["vertuo-auth","vis"]],b:2,w:2,d:1,lad:4,people:"Irisa · Paul",
+ {n:"Mobile",you:2,repos:[["nimbus-app","srv"],["nimbus-api","srv"],["nimbus-web","rep"],["nimbus-auth","vis"]],b:2,w:2,d:1,lad:4,people:"Irisa · Paul",
   sky:mini([[50,52,"",'#4ee08a'],[110,30,"",'#4ee08a'],[80,20,"d"],[170,48,"v"]],[[0,1],[2,1],[1,3,"#a45cff",1]],5),go:2},
- {n:"Platform",you:0,repos:[["vertuo-auth","rep"],["vertuo-infra","rep"]],b:1,w:0,d:0,lad:1,people:"Jonas",
+ {n:"Platform",you:0,repos:[["nimbus-auth","rep"],["nimbus-infra","rep"]],b:1,w:0,d:0,lad:1,people:"Jonas",
   sky:mini([[70,40,""],[140,50,"",'#4ee08a']],[[0,1]],11)},
- {n:"Estimates",you:0,repos:[["vertuo-quotes","srv"],["vertuo-pdf","srv"],["vertuo-api","vis"]],b:3,w:1,d:0,lad:6,people:"Paul · Lea",
+ {n:"Estimates",you:0,repos:[["nimbus-quotes","srv"],["nimbus-pdf","srv"],["nimbus-api","vis"]],b:3,w:1,d:0,lad:6,people:"Paul · Lea",
   sky:mini([[40,30,"",'#4ee08a'],[100,58,"",'#4ee08a'],[165,30,"v"]],[[0,1],[1,2,"#a45cff",1]],23)}
 ];
 function r1(){
@@ -629,7 +629,7 @@ function r1(){
   '<div class="lad">rollout '+lad+' <span style="margin-left:4px">'+p.lad+'/6</span></div>'+
   '<div class="dim" style="font-size:12px">approvers: '+p.people+'</div></button>'}).join("")+
   '<button class="newp" id="newp">+ New product<br><span class="dim" style="font-weight:400;font-size:12px">pick repositories · Omni infers the edges · name it</span></button>';
- $("#ones").innerHTML=["vertuo-docs","vertuo-design-tokens","vertuo-scripts"].map(function(r){return '<button class="one"><span style="color:var(--yel)">●</span>'+r+'<span class="dim" style="font-size:11px">1 PRD</span></button>'}).join("");
+ $("#ones").innerHTML=["nimbus-docs","nimbus-design-tokens","nimbus-scripts"].map(function(r){return '<button class="one"><span style="color:var(--yel)">●</span>'+r+'<span class="dim" style="font-size:11px">1 PRD</span></button>'}).join("");
 }
 
 /* ---------- 2 product home ---------- */
@@ -638,14 +638,14 @@ function prds(){
  var who=viewer==="irisa"?"Irisa":"Paul",L=[];
  L.push({n:918,t:"Offline photo upload",born:"srv",lane:approved918?"agent":"you",seal:approved918?"9c41…e07b":null,
   st:approved918?["b","building · wave 1"]:["w","waits on Irisa or Paul"],meta:approved918?"approved by Irisa · seal 918":"phase 0 ready · Paul waits in a terminal",
-  prs:approved918?[["vertuo-api","#446","ok","✓ approved","0"],["vertuo-mobile","#93","ok","✓ approved","0"]]:[],go:4});
+  prs:approved918?[["nimbus-api","#446","ok","✓ approved","0"],["nimbus-app","#93","ok","✓ approved","0"]]:[],go:4});
  L.push({n:905,t:"Invoice reminders",born:"srv",lane:restored905?"agent":"you",seal:"f02a…11c9",st:restored905?["b","building · wave 2"]:["d","drifted"],
   meta:restored905?"plan.md restored to the pinned version":"≠ plan.md in f02a · content · ✗ refuse",
-  prs:[["vertuo-api","#440",restored905?"ok":"no",restored905?"✓ approved":"✗ drifted","3"],["vertuo-mobile","#91",restored905?"ok":"no",restored905?"✓ approved":"✗ drifted","1"]],go:6});
+  prs:[["nimbus-api","#440",restored905?"ok":"no",restored905?"✓ approved":"✗ drifted","3"],["nimbus-app","#91",restored905?"ok":"no",restored905?"✓ approved":"✗ drifted","1"]],go:6});
  L.push({n:912,t:"Quotes on the phone",born:"srv",lane:"agent",seal:"a5d2…77f0",st:["b","building · wave 3"],meta:"approved by Irisa · 7 Oct · 2 open outbox items",
-  prs:[["vertuo-api","#431","ok","✓ approved","2"],["vertuo-mobile","#88","ok","✓ approved","1"],["vertuo-web","#207","ok","✓ approved","0"]],go:3});
- L.push({n:899,t:"Dark mode tokens",born:"rep",lane:"gh",seal:null,st:["o","phase-0 PR in review"],meta:"born in vertuo-web, flag off · keeps its phase-0 PR for life",prs:[["vertuo-web","#201","wt","◇ review requested","—"]],go:7});
- L.push({n:"B-77",t:"Crash on quote PDF",born:"srv",lane:"agent",seal:null,st:["b","building · fix"],meta:"bug fix · shows in vertuo-mobile, cause in vertuo-api",prs:[["vertuo-api","#447","ok","✓ red→green","0"],["vertuo-mobile","#94","wt","merge after #447","0"]]});
+  prs:[["nimbus-api","#431","ok","✓ approved","2"],["nimbus-app","#88","ok","✓ approved","1"],["nimbus-web","#207","ok","✓ approved","0"]],go:3});
+ L.push({n:899,t:"Dark mode tokens",born:"rep",lane:"gh",seal:null,st:["o","phase-0 PR in review"],meta:"born in nimbus-web, flag off · keeps its phase-0 PR for life",prs:[["nimbus-web","#201","wt","◇ review requested","—"]],go:7});
+ L.push({n:"B-77",t:"Crash on quote PDF",born:"srv",lane:"agent",seal:null,st:["b","building · fix"],meta:"bug fix · shows in nimbus-app, cause in nimbus-api",prs:[["nimbus-api","#447","ok","✓ red→green","0"],["nimbus-app","#94","wt","merge after #447","0"]]});
  return L;
 }
 function youCount(){return prds().filter(function(p){return p.lane==="you"}).length}
@@ -660,8 +660,8 @@ function vLedger(){
  return '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap"><div><div class="tag">Mobile · Ledger</div><h1>What waits on whom</h1></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip srv">◆ born on the server</span><span class="chip rep">◇ born in a repo</span></div></div>'+
  '<div class="sum"><div><b style="color:var(--grn)">'+L.filter(function(p){return p.st[0]==="b"}).length+'</b><span>building</span></div><div><b style="color:var(--yel)">'+L.filter(function(p){return p.st[0]==="w"||p.st[0]==="o"}).length+'</b><span>waiting on a person</span></div><div><b style="color:var(--red)">'+L.filter(function(p){return p.st[0]==="d"}).length+'</b><span>drifted</span></div><div><b>0</b><span>phase-0 PRs this week <s style="color:var(--red)">was 6</s></span></div></div>'+
  '<div class="g2"><div>'+lh+'</div><aside><div class="panel"><h3>Repositories</h3>'+
- repoRow("vertuo-mobile","read at 3e9a1c0 · own knowledge","srv")+repoRow("vertuo-api","read at b71d2f4 · own knowledge · also visits Estimates","srv")+repoRow("vertuo-web","read at 92c04aa · imported pack","rep")+
- '<div class="repo visit"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#a45cff"/></svg><div><div class="nm">vertuo-auth</div><div class="sub">visiting · home: Platform · co-sign on the edge</div></div><span class="chip vis">↗ visits</span></div>'+
+ repoRow("nimbus-app","read at 3e9a1c0 · own knowledge","srv")+repoRow("nimbus-api","read at b71d2f4 · own knowledge · also visits Estimates","srv")+repoRow("nimbus-web","read at 92c04aa · imported pack","rep")+
+ '<div class="repo visit"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#a45cff"/></svg><div><div class="nm">nimbus-auth</div><div class="sub">visiting · home: Platform · co-sign on the edge</div></div><span class="chip vis">↗ visits</span></div>'+
  '<div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap"><a data-go="3">See it as a constellation →</a><a data-go="7">Rollout →</a></div></div>'+
  '<div class="panel" style="margin-top:16px"><h3>Approvers</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="chip" style="font-size:13px;padding:3px 10px 3px 3px"><span class="av i">I</span>Irisa</span><span class="chip" style="font-size:13px;padding:3px 10px 3px 3px"><span class="av p">P</span>Paul</span></div><p class="dim" style="font-size:12px;margin:8px 0 0">Narrowed from the workspace members. Every repository inherits this list.</p></div></aside></div>';
 }
@@ -670,9 +670,9 @@ function vRoadmap(){
  function c(n,t,b,blk){return '<div class="card'+(blk?" blk":"")+'"><b>'+n+'</b>'+t+(b?'<div class="dim" style="font-size:11px">'+b+'</div>':"")+'</div>'}
  return '<div class="tag">Mobile · Roadmap</div><h1>Q4 · Field work</h1><p class="lede">One roadmap per goal, stored with the product, with no roadmap.md in any repository. Blockers come from the plan of each PRD.</p>'+
  '<div class="panel"><div class="rm"><div></div><div class="h">Wave 1 · now</div><div class="h">Wave 2 · next</div><div class="h">Wave 3 · later</div>'+
- '<div class="lane2">vertuo-api</div><div class="cell">'+c(912,"Quotes on the phone","building")+c(918,"Offline photos","waits on approval")+'</div><div class="cell">'+c(905,"Invoice reminders","drifted",1)+'</div><div class="cell"></div>'+
- '<div class="lane2">vertuo-mobile</div><div class="cell">'+c(912,"Quotes on the phone")+'</div><div class="cell">'+c(918,"Offline photos","after api s1")+'</div><div class="cell">'+c(921,"Site check-in","idea → PRD")+'</div>'+
- '<div class="lane2">vertuo-web</div><div class="cell">'+c(899,"Dark mode tokens","◇ phase-0 PR")+'</div><div class="cell"></div><div class="cell">'+c(918,"Gallery by taken-at")+'</div></div></div>';
+ '<div class="lane2">nimbus-api</div><div class="cell">'+c(912,"Quotes on the phone","building")+c(918,"Offline photos","waits on approval")+'</div><div class="cell">'+c(905,"Invoice reminders","drifted",1)+'</div><div class="cell"></div>'+
+ '<div class="lane2">nimbus-app</div><div class="cell">'+c(912,"Quotes on the phone")+'</div><div class="cell">'+c(918,"Offline photos","after api s1")+'</div><div class="cell">'+c(921,"Site check-in","idea → PRD")+'</div>'+
+ '<div class="lane2">nimbus-web</div><div class="cell">'+c(899,"Dark mode tokens","◇ phase-0 PR")+'</div><div class="cell"></div><div class="cell">'+c(918,"Gallery by taken-at")+'</div></div></div>';
 }
 function vIdeas(){
  var I=[["Offline photo upload","Paul · from a site visit · 2 repos named","brainstorm"],["Site check-in by QR","Irisa · from 4 customer calls","brainstorm"],["Voice notes on a task","think-big concept · area 3 of 5","brainstorm"]];
@@ -686,14 +686,14 @@ function vPrds(){
 }
 function vBugs(){
  return '<div class="tag">Mobile · Bug fixes</div><h1>Bug fixes</h1><p class="lede">A bug that shows in one repository and is caused in another gets one record in the product, with one fix PR per repository. The Fixes table fills itself from merge webhooks.</p><div class="list">'+
- '<div class="item"><span class="k">B-77</span><div><div class="t">Crash on quote PDF</div><div class="s">shows in vertuo-mobile · cause in vertuo-api · merge order: api#447 then mobile#94</div></div><span class="st b"><i></i>building · fix</span></div>'+
- '<div class="item"><span class="k">B-74</span><div><div class="t">Photo upload stuck at 99%</div><div class="s">vertuo-mobile only · fixed, red→green proved · Fixes: mobile#86 ✓</div></div><span class="st o"><i></i>shipped</span></div></div>';
+ '<div class="item"><span class="k">B-77</span><div><div class="t">Crash on quote PDF</div><div class="s">shows in nimbus-app · cause in nimbus-api · merge order: api#447 then mobile#94</div></div><span class="st b"><i></i>building · fix</span></div>'+
+ '<div class="item"><span class="k">B-74</span><div><div class="t">Photo upload stuck at 99%</div><div class="s">nimbus-app only · fixed, red→green proved · Fixes: mobile#86 ✓</div></div><span class="st o"><i></i>shipped</span></div></div>';
 }
 function vVisual(){
  return '<div class="tag">Mobile · Visual fixes</div><h1>Visual fixes</h1><p class="lede">Small look changes, each with today next to its variations and the one that was picked.</p><div class="list">'+
- '<div class="item"><span class="k">V-12</span><div><div class="t">Darker task sidebar</div><div class="s">vertuo-mobile · picked variation 3 of 5 · PR #95 waits on review</div></div><div class="vf"><div style="background:#2a2e66" title="today"></div><div style="background:#14143c;border-color:var(--yel)" title="picked"></div></div></div></div>';
+ '<div class="item"><span class="k">V-12</span><div><div class="t">Darker task sidebar</div><div class="s">nimbus-app · picked variation 3 of 5 · PR #95 waits on review</div></div><div class="vf"><div style="background:#2a2e66" title="today"></div><div style="background:#14143c;border-color:var(--yel)" title="picked"></div></div></div></div>';
 }
-var QS=[{n:912,r:"vertuo-api",q:"Quote totals: round per line or on the total?",a:["per line","on the total"],to:"Irisa",done:null},{n:912,r:"vertuo-mobile",q:"Show the VAT number on the phone quote?",a:["yes","no"],to:"Irisa",done:null},{n:905,r:"vertuo-api",q:"Stop reminders on a disputed invoice?",a:["stop","keep sending"],to:"Paul",done:null}];
+var QS=[{n:912,r:"nimbus-api",q:"Quote totals: round per line or on the total?",a:["per line","on the total"],to:"Irisa",done:null},{n:912,r:"nimbus-app",q:"Show the VAT number on the phone quote?",a:["yes","no"],to:"Irisa",done:null},{n:905,r:"nimbus-api",q:"Stop reminders on a disputed invoice?",a:["stop","keep sending"],to:"Paul",done:null}];
 function qOpen(){return QS.filter(function(q){return !q.done}).length}
 function vQuestions(){
  return '<div class="tag">Mobile · Questions</div><h1>Questions</h1><p class="lede">Outbox questions from every repository\'s slices, gathered into one gate for the product. There is no plan PR to comment on; you answer here.</p><div class="list">'+
@@ -707,10 +707,10 @@ function r2(){
 /* ---------- 3 constellation ---------- */
 var P={mobile:[190,390],api:[540,270],web:[330,120],auth:[820,130],infra:[890,330]};
 var SM={
- mobile:{n:"vertuo-mobile",s:"React Native",kind:"own",flag:"◆ on",read:"3e9a1c0"},
- api:{n:"vertuo-api",s:"Node · provider",kind:"own",flag:"◆ on",read:"b71d2f4"},
- web:{n:"vertuo-web",s:"docked · flag off",kind:"dock",flag:"◇ off",read:"92c04aa"},
- auth:{n:"vertuo-auth",s:"visiting · home: Platform",kind:"vis",flag:"Platform's",read:"55e0c21"}
+ mobile:{n:"nimbus-app",s:"React Native",kind:"own",flag:"◆ on",read:"3e9a1c0"},
+ api:{n:"nimbus-api",s:"Node · provider",kind:"own",flag:"◆ on",read:"b71d2f4"},
+ web:{n:"nimbus-web",s:"docked · flag off",kind:"dock",flag:"◇ off",read:"92c04aa"},
+ auth:{n:"nimbus-auth",s:"visiting · home: Platform",kind:"vis",flag:"Platform's",read:"55e0c21"}
 };
 var EDG={ma:["mobile","api",40,"mobile → api · 27 merged PRs"],wa:["web","api",-40,"web → api · 41 merged PRs",[46,4]],mw:["mobile","web",50,"ui-kit · 9 PRs"],aa:["api","auth",-40,"api → auth · 12 PRs · co-sign",[-30,22]]};
 var CPRD={all:{t:"Everything",stars:null},"912":{t:"912 · Quotes on the phone",stars:["mobile","api","web"],edges:["ma","wa"],col:"#4ee08a",st:"building"},918:{t:"918 · Offline photo upload",stars:["mobile","api","web"],edges:["ma","wa"],col:"#ffd84a",st:"waits"},905:{t:"905 · Invoice reminders",stars:["mobile","api"],edges:["ma"],col:"#ff3b5c",st:"drifted"},b77:{t:"B-77 · Crash on quote PDF",stars:["mobile","api"],edges:["ma"],col:"#4ee08a",st:"building"}};
@@ -766,8 +766,8 @@ function cside(){
  '<div class="pulse-card"><span class="st b"><i></i></span><div><b>912</b> building · 3 stars lit · wave 3 of 3</div></div>'+
  '<div class="pulse-card"><span class="st w"><i></i></span><div><b>918</b> waits on you, Irisa · the only thing that pulses</div></div>'+
  '<div class="pulse-card"><span class="st d"><i></i></span><div><b>905</b> drifted · ≠ plan.md in f02a</div></div>'+
- '<div class="pulse-card"><span class="st o"><i></i></span><div><b>899</b> docked · ◇ phase-0 PR in vertuo-web</div></div>'+
- '<div class="pulse-card"><span style="color:#c8b4ef">↗</span><div><b>vertuo-auth</b> visits from Platform</div></div></div>'+
+ '<div class="pulse-card"><span class="st o"><i></i></span><div><b>899</b> docked · ◇ phase-0 PR in nimbus-web</div></div>'+
+ '<div class="pulse-card"><span style="color:#c8b4ef">↗</span><div><b>nimbus-auth</b> visits from Platform</div></div></div>'+
  '<p class="note">Edges are inferred from merged PRs and contracts. Nobody draws them by hand. Tap a star to see what it is.</p>';
 }
 function r3(){setTimeout(function(){var w=document.querySelector(".skyscroll");if(w&&w.scrollWidth>w.clientWidth&&!w._c){w._c=1;w.scrollLeft=(w.scrollWidth-w.clientWidth)/2}},50);
@@ -781,16 +781,16 @@ var PINS=[["spec.md","v4","9c41…e07b"],["plan.md","v3","41b0…0cd2"],["before
 function r4(){
  $("#steps4").innerHTML=["The idea","/omni:brainstorm","Approve screen"].map(function(t,i){return '<button data-s4="'+i+'" class="'+(i===s4?"on":i<s4?"done":"")+'"><b>'+(i+1)+'</b>'+t+'</button>'}).join("");
  var h="";
- if(s4===0){h='<div class="g2"><div class="idea"><div class="tag">Mobile · Ideas · from Paul, 8 Oct</div><div class="q" style="margin:8px 0">“Site managers lose photos taken in basements with no signal. Queue them on the phone and upload when signal is back.”</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"><span class="chip">vertuo-mobile</span><span class="chip">vertuo-api</span><span class="chip">vertuo-web</span></div><button class="btn y" data-s4="1">Brainstorm it →</button></div>'+
-  '<div class="panel"><h3>Where it will live</h3><dl class="kv"><dt>product</dt><dd>Mobile</dd><dt>birthplace</dt><dd><span class="chip srv">◆ server</span>, because vertuo-mobile and vertuo-api have phase 0 on</dd><dt>vertuo-web</dt><dd><span class="chip rep">◇ flag off</span>, so its slice still needs a docs-only phase-0 PR there</dd><dt>approvers</dt><dd>Irisa or Paul, from Mobile</dd></dl></div></div>'}
+ if(s4===0){h='<div class="g2"><div class="idea"><div class="tag">Mobile · Ideas · from Paul, 8 Oct</div><div class="q" style="margin:8px 0">“Site managers lose photos taken in basements with no signal. Queue them on the phone and upload when signal is back.”</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"><span class="chip">nimbus-app</span><span class="chip">nimbus-api</span><span class="chip">nimbus-web</span></div><button class="btn y" data-s4="1">Brainstorm it →</button></div>'+
+  '<div class="panel"><h3>Where it will live</h3><dl class="kv"><dt>product</dt><dd>Mobile</dd><dt>birthplace</dt><dd><span class="chip srv">◆ server</span>, because nimbus-app and nimbus-api have phase 0 on</dd><dt>nimbus-web</dt><dd><span class="chip rep">◇ flag off</span>, so its slice still needs a docs-only phase-0 PR there</dd><dt>approvers</dt><dd>Irisa or Paul, from Mobile</dd></dl></div></div>'}
  else if(s4===1){h='<div class="g2b"><div class="term"><div class="tb"><i></i><i></i><i></i><span style="margin-left:6px">claude · Paul</span></div><div class="out" id="out4"></div></div><div class="panel"><h3>Dossier 918 · Mobile</h3><ul class="files" id="files4"></ul><p class="dim" style="font-size:12px;margin:10px 0 0" id="f4note">writing…</p></div></div>';}
  else{h='<div class="g2"><div class="panel"><div class="tag">PRD 918 · phase 0 · v4 <span class="chip srv">◆ server</span></div><h1 style="font-size:34px">Offline photo upload</h1>'+
   '<div class="ba1"><span class="k1">BEFORE</span><span>No signal: “Upload failed”, the photo is gone.</span><span class="k2">AFTER</span><span>“3 photos waiting for signal”, uploaded later with their taken-at time.</span></div>'+
   '<div class="plbl" style="font-size:11px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin:14px 0 6px">What gets built, per repository · provider first</div><div class="targets">'+
-  '<div class="t"><div class="tt"><span>1 · vertuo-api</span><span class="chip srv">◆ 2 slices · wave 1</span></div><ul><li><code class="c">POST /photos/batch</code>, idempotent by client id</li><li>photos keep their taken-at time</li></ul></div>'+
-  '<div class="t"><div class="tt"><span>2 · vertuo-mobile</span><span class="chip srv">◆ 3 slices · waves 1–2</span></div><ul><li>offline queue, count badge on the camera</li><li>retry on signal; Wi-Fi-only setting</li></ul></div>'+
-  '<div class="t"><div class="tt"><span>3 · vertuo-web</span><span class="chip rep">◇ flag off · 1 slice</span></div><ul><li>gallery sorts by taken-at · phase-0 PR web#214 in that repo</li></ul></div>'+
-  '<div class="t vis"><div class="tt"><span>vertuo-auth</span><span class="chip vis">↗ visiting · untouched</span></div><ul><li>read only; Platform\'s co-sign not needed</li></ul></div></div></div>'+
+  '<div class="t"><div class="tt"><span>1 · nimbus-api</span><span class="chip srv">◆ 2 slices · wave 1</span></div><ul><li><code class="c">POST /photos/batch</code>, idempotent by client id</li><li>photos keep their taken-at time</li></ul></div>'+
+  '<div class="t"><div class="tt"><span>2 · nimbus-app</span><span class="chip srv">◆ 3 slices · waves 1–2</span></div><ul><li>offline queue, count badge on the camera</li><li>retry on signal; Wi-Fi-only setting</li></ul></div>'+
+  '<div class="t"><div class="tt"><span>3 · nimbus-web</span><span class="chip rep">◇ flag off · 1 slice</span></div><ul><li>gallery sorts by taken-at · phase-0 PR web#214 in that repo</li></ul></div>'+
+  '<div class="t vis"><div class="tt"><span>nimbus-auth</span><span class="chip vis">↗ visiting · untouched</span></div><ul><li>read only; Platform\'s co-sign not needed</li></ul></div></div></div>'+
   '<div class="panel"><h3>Approve phase 0</h3><p style="font-size:13px;margin:0 0 8px">Approving pins these five files by hash, and <span class="mono">/omni:ultra-yolo</span> builds only while they match.</p><ul class="files">'+PINS.map(function(p){return '<li><span>'+p[0]+' <span class="dim">'+p[1]+'</span></span><span class="h">'+p[2]+'</span></li>'}).join("")+'</ul>'+
   '<div style="display:flex;gap:8px;align-items:center;margin:12px 0;font-size:13px"><span class="av i">I</span><span class="av p">P</span>Irisa or Paul · the first tap wins</div>'+
   '<button class="btn y" data-go="5" style="width:100%;justify-content:center">Ask Irisa or Paul to approve →</button><p class="dim" style="font-size:12px;margin:8px 0 0">Approvers can also tap Approve right here; on the next screen Irisa does it from her phone.</p></div></div>'}
@@ -798,7 +798,7 @@ function r4(){
  if(s4===1)play4();
 }
 function play4(){
- var L=['<span class="d">$</span> /omni:brainstorm --product mobile "offline photo upload"','<span class="c">●</span> reading Mobile · 3 repos · knowledge: 2 own, 1 imported pack','  asked Paul 4 questions · design approved','<span class="c">●</span> dossier 918 opened <span class="y">◆ server</span> · no phase-0 PR','  spec.md · plan.md (6 slices, 3 repos) · before-after · voice · 5 scenarios','  plan graded <span class="g">✓</span> · provider first','  <span class="d">vertuo-web flag off →</span> web#214 opened <span class="d">(docs-only, that repo only)</span>','<span class="g">✓</span> PRD 918 ready for approval · <span class="y">/omni:ultra-yolo 918</span>'];
+ var L=['<span class="d">$</span> /omni:brainstorm --product mobile "offline photo upload"','<span class="c">●</span> reading Mobile · 3 repos · knowledge: 2 own, 1 imported pack','  asked Paul 4 questions · design approved','<span class="c">●</span> dossier 918 opened <span class="y">◆ server</span> · no phase-0 PR','  spec.md · plan.md (6 slices, 3 repos) · before-after · voice · 5 scenarios','  plan graded <span class="g">✓</span> · provider first','  <span class="d">nimbus-web flag off →</span> web#214 opened <span class="d">(docs-only, that repo only)</span>','<span class="g">✓</span> PRD 918 ready for approval · <span class="y">/omni:ultra-yolo 918</span>'];
  var o=$("#out4"),i=0;o.innerHTML="";
  (function t(){if(i<L.length){o.insertAdjacentHTML("beforeend",'<div class="ln">'+L[i]+'</div>');
   if(i>=3&&i-3<PINS.length+1&&i<=7){var k=i-3;if(PINS[k])$("#files4").insertAdjacentHTML("beforeend",'<li><span>'+PINS[k][0]+' <span class="dim">'+PINS[k][1]+'</span></span><span class="h">'+PINS[k][2]+'</span></li>')}
@@ -829,7 +829,7 @@ function phLock(red){
  later(red?300:1100,function(){$("#nslot").innerHTML='<button class="notif'+(red?" red":"")+'" id="notif"><div class="nh">'+OMNI_IC+'OMNI · Mobile<time>now</time></div><div class="nt">'+(red?"Approve PRD 918 again?":"PRD 918 waits on your approval")+'</div><div class="nb">'+(red?"1 file changed since your tap: plan.md. Asked from Paul's terminal.":"Offline photo upload · 3 repos · Paul's session is parked on it. Paul can approve too.")+'</div></button>';$("#nhint").style.visibility="visible";if(!red)setHst(1)})}
 function phApprove(){
  pv('<div class="apphd"><span class="pc">Mobile</span>PRD 918 <span class="y">◆ server</span></div><div class="ptitle">Offline photo upload</div><div class="plbl">In one line</div><div style="font-size:12.5px"><span class="r">✗</span> “Upload failed” → <span class="c">◌</span> “3 photos waiting for signal”</div>'+
- '<div class="plbl">What gets built</div><div class="prow"><span class="nm">vertuo-api ◆</span><span class="dim">2 slices</span></div><div class="prow"><span class="nm">vertuo-mobile ◆</span><span class="dim">3 slices</span></div><div class="prow"><span class="nm">vertuo-web ◇</span><span class="dim">1 slice · PR</span></div>'+
+ '<div class="plbl">What gets built</div><div class="prow"><span class="nm">nimbus-api ◆</span><span class="dim">2 slices</span></div><div class="prow"><span class="nm">nimbus-app ◆</span><span class="dim">3 slices</span></div><div class="prow"><span class="nm">nimbus-web ◇</span><span class="dim">1 slice · PR</span></div>'+
  '<div class="plbl">Your tap pins 5 files</div><div class="pins2">'+PINS.map(function(p){return '<span>'+p[0]+'</span><b>'+p[2].slice(0,4)+'</b>'}).join("")+'</div>'+
  '<div class="plbl">Who waits</div><div style="font-size:12px">Paul\'s terminal, parked <span class="mono y" id="ptm">'+tmr()+'</span></div>'+
  '<button class="appr" id="appr" data-v="1">Approve PRD 918</button><button class="later">Not now · ask a question</button>');setHst(2)}
@@ -837,7 +837,7 @@ function phSealed(v,anim){
  $("#ptime").textContent=v===2?"14:21":"14:02";
  pv('<div class="apphd"><span class="pc">Mobile</span>PRD 918</div><div class="ptitle">Offline photo upload</div><div style="margin:6px 0"><span class="st b"><i></i>building · wave 1</span></div>'+
  '<div class="pseal'+(anim?" stamp-in":"")+'">'+seal(918,64,v===2?"7d3e":"9c41")+'<div class="tx"><b>SEAL 918·'+v+'</b><br>Irisa · '+(v===2?"14:21":"14:02")+'<br>root '+(v===2?"7d3e40aa":"9c41e07b")+'<br>5 files pinned</div></div>'+
- '<div class="plbl">Repositories</div><div class="prow"><span class="nm">vertuo-api #446</span><span class="g">✓ omni/approved</span></div><div class="prow"><span class="nm">vertuo-mobile #93</span><span class="g">✓ omni/approved</span></div><div class="prow"><span class="nm">vertuo-web #214</span><span class="pl">◇ phase-0 PR</span></div>')}
+ '<div class="plbl">Repositories</div><div class="prow"><span class="nm">nimbus-api #446</span><span class="g">✓ omni/approved</span></div><div class="prow"><span class="nm">nimbus-app #93</span><span class="g">✓ omni/approved</span></div><div class="prow"><span class="nm">nimbus-web #214</span><span class="pl">◇ phase-0 PR</span></div>')}
 function phVoided(){
  $("#ptime").textContent="14:18";
  pv('<div class="apphd"><span class="pc">Mobile</span>PRD 918</div><div class="pbanner red"><b class="r">✗ Approval voided</b><br>plan.md changed after you approved (content)</div><div class="ptitle">Offline photo upload</div><div style="margin:6px 0"><span class="st d"><i></i>drifted · ≠ plan.md in 7d3e</span></div>'+
@@ -850,7 +850,7 @@ function phReapprove(){
  '<button class="appr" id="appr" data-v="2">Approve again</button><button class="later">Not now · reply to Paul</button>')}
 function r5(){
  gen++;$("#out5").innerHTML="";setHst(0);hud("wait");$("#wire").className="wire";$("#term5").className="term";
- ['<span class="d">~/vertuo-mobile $</span> claude','<span class="y">&gt; /omni:ultra-yolo 918</span>','<span class="c">●</span> PRD 918 · Offline photo upload · product <span class="pl">Mobile</span>','  targets vertuo-api <span class="y">◆</span> · vertuo-mobile <span class="y">◆</span> · vertuo-web <span class="d">◇</span>','  feature PRs api<span class="d">#446</span> · mobile<span class="d">#93</span> <span class="d">(draft)</span>','<span class="d">$</span> omni wait approval 918'].forEach(put5);
+ ['<span class="d">~/nimbus-app $</span> claude','<span class="y">&gt; /omni:ultra-yolo 918</span>','<span class="c">●</span> PRD 918 · Offline photo upload · product <span class="pl">Mobile</span>','  targets nimbus-api <span class="y">◆</span> · nimbus-app <span class="y">◆</span> · nimbus-web <span class="d">◇</span>','  feature PRs api<span class="d">#446</span> · mobile<span class="d">#93</span> <span class="d">(draft)</span>','<span class="d">$</span> omni wait approval 918'].forEach(put5);
  put5('<span class="y" id="waitln">◐ Mobile · waiting for Irisa or Paul</span>  <span class="d tmr">'+tmr()+'</span>');
  put5('  <span class="d">safe to close this terminal · the approval also lands in your session HUD</span>');
  phLock(false);
@@ -862,7 +862,7 @@ function approve(btn,v){
  later(1100,function(){var w=$("#waitln");if(w){w.removeAttribute("id");w.parentNode.innerHTML='<span class="g">● '+(v===2?"re-approved":"approved")+' by Irisa · seal 918·'+v+' · root '+(v===2?"7d3e":"9c41")+'</span> <span class="d">· member ✓</span>'}
   var t=$("#term5");t.className="term";void t.offsetWidth;t.className="term flash";phSealed(v,true)});
  later(1700,function(){hud(v===2?"ok2":"ok",true);toast('<span class="y">● seal 918·'+v+'</span> · Irisa approved · wave 1 '+(v===2?"resumes":"starts"))});
- var W=['<span class="c">●</span> wave 1 '+(v===2?"resumes from its last green step":"starts")+' · <span class="d">provider first</span>','  s1 <span class="c">vertuo-api</span>    batch endpoint  <span class="pb" style="--w:64%"><b></b></span> <span class="g">building</span>','  s2 <span class="c">vertuo-api</span>    taken-at column <span class="pb" style="--w:41%"><b></b></span> <span class="g">building</span>','  s3 <span class="c">vertuo-mobile</span> offline queue   <span class="pb" style="--w:28%"><b></b></span> <span class="g">building</span>'];
+ var W=['<span class="c">●</span> wave 1 '+(v===2?"resumes from its last green step":"starts")+' · <span class="d">provider first</span>','  s1 <span class="c">nimbus-api</span>    batch endpoint  <span class="pb" style="--w:64%"><b></b></span> <span class="g">building</span>','  s2 <span class="c">nimbus-api</span>    taken-at column <span class="pb" style="--w:41%"><b></b></span> <span class="g">building</span>','  s3 <span class="c">nimbus-app</span> offline queue   <span class="pb" style="--w:28%"><b></b></span> <span class="g">building</span>'];
  W.forEach(function(h,i){later(2200+i*380,function(){put5(h);if(i===0)setHst(3)})});
  later(2200+W.length*380+300,function(){
   if(v===1)put5('<span class="d">$</span> <button class="tbtn" id="doPush">▸ edit plan.md and push</button>');
@@ -892,7 +892,7 @@ var s6="building",drift="content";
 function r6(){
  $$("#sseg button").forEach(function(b){b.classList.toggle("on",b.dataset.s===s6)});
  var chk={building:['<span class="v">✓</span>','building · 5 of 5 pinned hashes match · seal 918'],held:['<span class="hh">◌</span>','held · server unreachable since 14:05 · held, not failed'],drifted:['<span class="x">✗</span>','≠ plan.md in 7d3e · '+drift+' · ✗ refuse']}[s6];
- $("#ghbox").innerHTML='<div class="gh-top"><div class="rn">vertuoza / vertuo-api</div><div class="pt">Offline photo upload: batch endpoint <span>#446</span></div><span class="bdg">⑂ Draft</span> <span class="rn" style="margin-left:6px">feature/918-offline-photo-upload ← 3 sub-PRs</span></div>'+
+ $("#ghbox").innerHTML='<div class="gh-top"><div class="rn">vertuoza / nimbus-api</div><div class="pt">Offline photo upload: batch endpoint <span>#446</span></div><span class="bdg">⑂ Draft</span> <span class="rn" style="margin-left:6px">feature/918-offline-photo-upload ← 3 sub-PRs</span></div>'+
  '<div class="gh-r sel">'+chk[0]+'<span class="k"><b>omni/approved</b> <small>— '+chk[1]+'</small></span><a data-att>Details</a></div>'+
  '<div class="gh-r"><span class="v">✓</span><span class="k">ci / test <small>— 4m 12s</small></span></div>'+
  '<div class="gh-r">'+(s6==="building"?'<span class="v">✓</span>':s6==="held"?'<span class="hh">◌</span>':'<span class="x">✗</span>')+'<span class="k">omni/outbox <small>— '+(s6==="held"?"held · as of 14:02":"0 open · one gate on Mobile")+'</small></span></div>'+
@@ -912,14 +912,14 @@ function r6(){
   '<div class="ddiff">'+(ws?'<div class="dim">  ## s4 retry</div><div class="ws">- Retry when signal returns··</div><div class="ws">+ Retry when signal returns</div>':'<div class="dim">  ## wave 2</div><div class="del">- s4 mobile  retry + Wi-Fi only</div><div class="add">+ s4 mobile  retry on signal</div><div class="add">+ s5 mobile  Wi-Fi only setting</div>')+'</div>'+
   '<div class="refuse" style="margin-top:10px">≠ plan.md in 7d3e · '+drift+'<br><span class="r">✗ refuse</span> <span class="dim">· pushed by Paul\'s session, 9c41→7d3e</span><br><span class="st d"><i></i>drifted</span></div>'+
   '<div class="verbs"><button class="btn sm mono" id="restore6">restore</button><button class="btn sm y mono" id="ask6">ask again</button></div><p class="dim" style="font-size:12px;margin:8px 0 0">'+(ws?"Whitespace only: restore puts the pinned bytes back, and nobody needs to re-read.":"Content changed: restore drops the edit, or ask again to have Irisa or Paul sign the new plan.")+'</p>'}
- A+='<dl class="kv" style="margin-top:14px"><dt>policy</dt><dd>approvers of Mobile ⊂ members of vertuoza</dd><dt>targets</dt><dd>vertuo-api#446 · vertuo-mobile#93</dd></dl></div>';
+ A+='<dl class="kv" style="margin-top:14px"><dt>policy</dt><dd>approvers of Mobile ⊂ members of vertuoza</dd><dt>targets</dt><dd>nimbus-api#446 · nimbus-app#93</dd></dl></div>';
  $("#attest").innerHTML=A;chrome();
 }
 
 /* ---------- 7 rollout ---------- */
 var STEPS=["Approval on the page","omni/approved gate","Outbox on the server","Phase 0 born on the server","Roadmaps & bug records"];
-var LV={"vertuo-mobile":5,"vertuo-api":3,"vertuo-web":2},archived=false;
-var RSUB={"vertuo-mobile":"◆ flag on","vertuo-api":"◆ flag on","vertuo-web":"◇ flag off"};
+var LV={"nimbus-app":5,"nimbus-api":3,"nimbus-web":2},archived=false;
+var RSUB={"nimbus-app":"◆ flag on","nimbus-api":"◆ flag on","nimbus-web":"◇ flag off"};
 function r7(){
  var h='<div></div>'+STEPS.map(function(s,i){return '<div class="hd"><b class="disp" style="font-size:14px;color:var(--txt)">'+(i+1)+'</b><br>'+s+'</div>'}).join("");
  Object.keys(LV).forEach(function(r){var l=LV[r],flag=l>=4;
@@ -930,9 +930,9 @@ function r7(){
  $("#stepnames").innerHTML='<div><b>Click the ringed dot</b> to turn on a repository\'s next step. Click its highest ✓ to step back down.</div><div><b>Step 4 = the flag.</b> On: new PRDs are born ◆ on the server. Off: a docs-only phase-0 PR in that repository. A PRD keeps its birthplace for life.</div>';
  var all=Object.keys(LV).every(function(r){return LV[r]===5});
  var F=$("#final");F.className="final"+(archived?" done":all?" ready":"");
- F.innerHTML='<span class="num6">'+(archived?"✓":"6")+'</span><div><div style="font-weight:700">Plan repository archived</div><div class="dim" style="font-size:12px">'+(archived?"vertuoza/vertuo-plan is read-only on GitHub. Mobile holds its PRDs, roadmaps, bug records and knowledge packs.":all?"Every repository is at step 5. Nothing is left in vertuo-plan that Mobile doesn't hold.":"Waits until every repository is at step 5 · "+Object.keys(LV).filter(function(r){return LV[r]<5}).join(", ")+" still climbing")+'</div>'+
- '<div class="planrepo'+(archived?" archived":"")+'" style="margin-top:10px"><div class="pr-body"><div style="font-size:13px"><span style="color:#8b949e">vertuoza /</span> <b>vertuo-plan</b> <span style="border:1px solid #30363d;border-radius:999px;padding:0 7px;font-size:11px;color:#8b949e">'+(archived?"Public archive":"Private")+'</span></div><div style="font-size:12px;color:#8b949e;margin-top:4px">config.yml plan.targets[] · inbox/ · roadmaps/ · bugs/ · knowledge/repos/</div></div><span class="arch">ARCHIVED</span></div></div>'+
- (archived?'<button class="btn sm ghost" id="unarch">undo</button>':'<button class="btn y" id="arch" '+(all?"":"disabled")+'>Archive vertuo-plan</button>');
+ F.innerHTML='<span class="num6">'+(archived?"✓":"6")+'</span><div><div style="font-weight:700">Plan repository archived</div><div class="dim" style="font-size:12px">'+(archived?"demo-org/nimbus-plan is read-only on GitHub. Mobile holds its PRDs, roadmaps, bug records and knowledge packs.":all?"Every repository is at step 5. Nothing is left in nimbus-plan that Mobile doesn't hold.":"Waits until every repository is at step 5 · "+Object.keys(LV).filter(function(r){return LV[r]<5}).join(", ")+" still climbing")+'</div>'+
+ '<div class="planrepo'+(archived?" archived":"")+'" style="margin-top:10px"><div class="pr-body"><div style="font-size:13px"><span style="color:#8b949e">vertuoza /</span> <b>nimbus-plan</b> <span style="border:1px solid #30363d;border-radius:999px;padding:0 7px;font-size:11px;color:#8b949e">'+(archived?"Public archive":"Private")+'</span></div><div style="font-size:12px;color:#8b949e;margin-top:4px">config.yml plan.targets[] · inbox/ · roadmaps/ · bugs/ · knowledge/repos/</div></div><span class="arch">ARCHIVED</span></div></div>'+
+ (archived?'<button class="btn sm ghost" id="unarch">undo</button>':'<button class="btn y" id="arch" '+(all?"":"disabled")+'>Archive nimbus-plan</button>');
  var g=archived?[["0","was 11","phase-0 PRs / month"],["0","was 4","plan PRs / month"],["0","was 23","CI runs on .md"],["12%","was 61%","App API quota"]]:[["2","was 11","phase-0 PRs / month"],["1","was 4","plan PRs / month"],["3","was 23","CI runs on .md"],["24%","was 61%","App API quota"]];
  $("#gnums").innerHTML=g.map(function(x){return '<div><b>'+x[0]+'</b><s>'+x[1]+'</s><br><span>'+x[2]+'</span></div>'}).join("");
 }
@@ -965,7 +965,7 @@ document.addEventListener("click",function(e){
  if(t.closest("#ask6")){toast('<span class="y">◌ asked Irisa again</span> · push notification sent · diff only');setTimeout(function(){go(5)},900);return}
  var up=t.closest("[data-up]");if(up){var r=up.dataset.up;LV[r]++;r7();toast('<span class="y">'+r+' · step '+LV[r]+' on</span> · '+STEPS[LV[r]-1]+(LV[r]===4?" · new PRDs born ◆":""));return}
  var dn=t.closest("[data-down]");if(dn){var r2_=dn.dataset.down;LV[r2_]--;r7();toast(r2_+" · step "+(LV[r2_]+1)+" off · "+STEPS[LV[r2_]]+(LV[r2_]===3?" · new PRDs open a phase-0 PR again":""));return}
- if(t.closest("#arch")){archived=true;r7();toast('<span class="g">✓ vertuoza/vertuo-plan archived</span> · Mobile is the record now',3200);return}
+ if(t.closest("#arch")){archived=true;r7();toast('<span class="g">✓ demo-org/nimbus-plan archived</span> · Mobile is the record now',3200);return}
  if(t.closest("#unarch")){archived=false;r7();return}
 });
 document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.dataset&&e.target.dataset.star){e.target.dispatchEvent(new MouseEvent("click",{bubbles:true}))}

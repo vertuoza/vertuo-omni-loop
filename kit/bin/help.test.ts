@@ -84,6 +84,15 @@ describe('omni help', () => {
     expect(sentences.join(' ')).toMatch(/slices.*wave/);
   });
 
+  it('prints omni before-after: both verbs, run by the skills (PRD 2239)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'before-after'], root);
+    expect(code).toBe(0);
+    expect(out).toContain('omni before-after new <n> --services <name>,<name>… [--force]');
+    expect(out).toContain('omni before-after render <n>');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/new writes before-after\.html .* render replaces each <pre class="mermaid">/);
+  });
+
   it('prints omni next: its usage, for you, and its four verdicts (PRD 1139)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'next'], root);

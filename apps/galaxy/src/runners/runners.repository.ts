@@ -9,7 +9,7 @@
 // answers that do not match), so they are read by their code and answered, never thrown.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { JOB_OUTCOMES, QuestionSchema, RunnerHealthSchema, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
@@ -39,7 +39,9 @@ const JobRow = z.object({
   repo: z.string(),
   to_runner: z.string().nullable(),
   to_fleet: z.string().nullable(),
-  sent_by: z.string(),
+  /** Null for a job the Omni app sent (PRD 2338): then sent_by_app names the app. */
+  sent_by: z.string().nullable(),
+  sent_by_app: z.enum(['omni-app']).nullable(),
   sent_by_key: z.string().nullable(),
   status: z.enum(['queued', 'claimed', 'running', 'done', 'failed', 'cancelled']),
   runner_id: z.string().nullable(),
@@ -67,7 +69,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -245,6 +247,11 @@ export function runnersRepository(db: RunnersDb) {
     markLost: async (cutoff: string): Promise<number> =>
       parsed(db.rpc('runners_mark_lost', { p_cutoff: cutoff }), z.number(), 'runners_mark_lost()'),
 
+    /** The repository's own skills its workspace's owner allowed on the runners, in order (PRD 2313;
+     * repository_runner_skills_of(), supabase/migrations/20261222090000_repository_runner_skills.sql). */
+    allowedSkills: async (workspaceId: string, repo: string): Promise<string[]> =>
+      parsed(db.rpc('repository_runner_skills_of', { p_workspace: workspaceId, p_full_name: repo }), z.array(z.string()), 'repository_runner_skills_of()'),
+
     /** The oldest queued job the runner may run, claimed for it; null when none (runner_claim()). */
     claim: async (runnerId: string): Promise<JobRow | null> =>
       (await parsed(db.rpc('runner_claim', { p_runner: runnerId }), z.array(JobRow), 'runner_claim()'))[0] ?? null,
@@ -337,7 +344,7 @@ type NewContinuation = NewJob & { continues: string };
 
 const SwitchRow = z.object({ fix_when_answered: z.boolean() }).nullable();
 
-/** The continuation's storage (PRD 2270 s1; supabase/migrations/20261219090000_fix_when_answered.sql), a
+/** The continuation's storage (PRD 2270 s1; supabase/migrations/20261220090000_fix_when_answered.sql), a
  * port of its own beside the runners': the repository's switch, a PRD's jobs, and the continuation's
  * insert, which the unique runner_jobs.continues refuses a second time. */
 export function continuationsRepository(db: RunnersDb) {

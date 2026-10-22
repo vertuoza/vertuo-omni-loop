@@ -51,8 +51,8 @@ Use cases. In order:
 an SVG file under `docs/guide/diagrams/`, shown on a line of its own with alt text; its shapes and
 words carry the `dg-*` classes the app paints with the theme's tokens; its own `<style>` (light and
 dark, the same as `pull-requests.svg`'s), `<title>` and `<desc>` serve GitHub. The example is the
-same in all three: PRD 600 in `vertuo-automation-plan`, s1 in `vertuo-backend-php`, s2 and s3 in
-`vertuo-apps`.
+same in all three: PRD 600 in `nimbus-plan`, s1 in `nimbus-backend-php`, s2 and s3 in
+`nimbus-apps`.
 
 **3. The Invade page's "A plan repository" section** becomes two sentences and a link to the new
 page.

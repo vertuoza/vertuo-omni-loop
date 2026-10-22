@@ -1,5 +1,5 @@
 import 'server-only';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { supabaseAs, supabaseEnv } from '../data/supabase-server';
 import type { KnowledgePacksDeps } from './knowledge-packs.controller';
 import { knowledgePacksRepository } from './knowledge-packs.repository';

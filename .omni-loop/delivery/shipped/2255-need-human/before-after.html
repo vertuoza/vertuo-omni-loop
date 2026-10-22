@@ -96,7 +96,7 @@
   <h2 class="part">Functional</h2>
   <div class="pair">
     <div class="flow"><h3>Today</h3><ol>
-      <li>vertuo-cleaner sends <code>/omni:mega-bug-fix #314</code> for vertuo-automation-plan; a runner claims it.</li>
+      <li>nimbus-cleaner sends <code>/omni:mega-bug-fix #314</code> for nimbus-plan; a runner claims it.</li>
       <li>The agent finds the cause and three ways to fix it, but the right one is a decision about access.</li>
       <li>It posts a stop comment on #314 ending with <code>/omni:mega-brainstorm …</code>, and exits 0.</li>
       <li>The job reads <span class="good">Done</span>, like a fix that worked. <span class="bad">Nobody is told.</span></li>
@@ -150,7 +150,7 @@
             <h2>Jobs</h2>
             <div class="table jobs">
               <div class="row head"><span>Line</span><span>Repository</span><span>Status</span><span></span></div>
-              <div class="row"><code data-content>/omni:mega-bug-fix #314</code><span class="muted hide-s" data-content>vertuo-automation-plan</span><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button></span></div>
+              <div class="row"><code data-content>/omni:mega-bug-fix #314</code><span class="muted hide-s" data-content>nimbus-plan</span><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button></span></div>
               <div class="row"><code data-content>/omni:yolo 2213</code><span class="muted hide-s" data-content>vertuo-omni-loop</span><span class="status s-run">Running 8 min</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
             </div>
           </section>
@@ -166,7 +166,7 @@
             <h2>Jobs</h2>
             <div class="table jobs">
               <div class="row head"><span>Line</span><span>Repository</span><span>Status</span><span></span></div>
-              <div class="row"><code data-content>/omni:mega-bug-fix #314</code><span class="muted hide-s" data-content>vertuo-automation-plan</span><span class="status s-human">Need human</span><span class="acts"><button class="ghost primary" type="button" data-primary>Need human</button><button class="ghost" type="button">Terminal</button></span></div>
+              <div class="row"><code data-content>/omni:mega-bug-fix #314</code><span class="muted hide-s" data-content>nimbus-plan</span><span class="status s-human">Need human</span><span class="acts"><button class="ghost primary" type="button" data-primary>Need human</button><button class="ghost" type="button">Terminal</button></span></div>
               <div class="row"><code data-content>/omni:yolo 2213</code><span class="muted hide-s" data-content>vertuo-omni-loop</span><span class="status s-run">Running 8 min</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
             </div>
           </section>
@@ -213,15 +213,15 @@
         <div class="bar">Dashboard › <b>Runners</b></div>
         <div class="scrim"></div>
         <aside class="term" data-screen="runner-terminal" aria-label="Terminal">
-          <div class="term-head"><span class="t">/omni:mega-bug-fix #314 · vertuo-agents</span><span class="status s-done">Done</span><button class="x" type="button" aria-label="Close">×</button></div>
-<pre class="lines" data-content><span class="ts">11:42:08</span> Triage: risk high · cause in vertuo-backend-php
+          <div class="term-head"><span class="t">/omni:mega-bug-fix #314 · nimbus-agents</span><span class="status s-done">Done</span><button class="x" type="button" aria-label="Close">×</button></div>
+<pre class="lines" data-content><span class="ts">11:42:08</span> Triage: risk high · cause in nimbus-backend-php
 <span class="ts">11:42:08</span> WorkerAssignment.project is non-null, the use case returns null under the access check
 <span class="ts">11:42:09</span> Three ways to restore it, each a decision about access:
 <span class="ts">11:42:09</span>   1. make project nullable
 <span class="ts">11:42:09</span>   2. drop the access check
 <span class="ts">11:42:09</span>   3. filter out the assignments the user may not see
 <span class="ts">11:42:10</span> Stopped at the design boundary. Posted on #314.
-<span class="ts">11:42:10</span> /omni:mega-brainstorm vertuoza/vertuo-automation-plan#314
+<span class="ts">11:42:10</span> /omni:mega-brainstorm demo-org/nimbus-plan#314
 <span class="done">Done · exit 0</span></pre>
         </aside>
       </div>
@@ -232,7 +232,7 @@
         <div class="bar">Dashboard › <b>Runners</b></div>
         <div class="scrim"></div>
         <aside class="drawer" data-screen="runner-need-human" role="dialog" aria-modal="true" aria-labelledby="nh-title">
-          <div class="term-head"><span class="t" id="nh-title">Need human · <span data-content>vertuo-automation-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
+          <div class="term-head"><span class="t" id="nh-title">Need human · <span data-content>nimbus-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
           <div class="d-body">
             <p class="d-lead" data-content>The planning query fails for 31 tenants. A worker assignment points at a project the user may not open, and the schema says that project is never empty. Each fix changes what a user may see, so the agent stopped for a decision.</p>
             <fieldset class="q">

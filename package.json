@@ -1,7 +1,8 @@
 {
-  "name": "vertuo-omni-plan",
-  "version": "0.0.496",
+  "name": "omni-loop",
+  "version": "0.0.514",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "bin": {
     "omni": "kit/dist/omni.mjs"

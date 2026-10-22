@@ -1,5 +1,5 @@
 // `omni knowledge <id>` — one entry of the knowledge folder and every entry that serves it.
-// Ported from vertuo-ai-domain@c4a210122:scripts/knowledge.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/knowledge.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 //
 // `omni knowledge judge` — the sweep (PRD 1342). Each rule and invariant whose `Enforced by:` is
 // `unenforced` is asked "worth a law?": the model first (the classifier's answer), then `omni decide

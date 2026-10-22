@@ -83,7 +83,7 @@ import {
   askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
   type AskAnswers, type AskAttachmentFiles, type AskAttachments, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
 } from './store';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
 export const WAIT_MS = 50_000;

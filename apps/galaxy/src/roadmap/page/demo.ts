@@ -7,7 +7,7 @@
 // no prerequisite. Crew's human work (PRD 1217): its open person question, a missing secret, a
 // production variable, a park waiting on a migration run, and one clarification settled; Billing's has
 // none yet. Every time is counted back from `now`, so the same `now` draws the same page.
-import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapPrerequisiteRow, RoadmapRow } from '../store';
 import { detailOf, listOf, type Demo, type ProductRef, type RoadmapPageView, type RoadmapRead } from './model';
 import type { RoadmapTab } from './prerequisites';

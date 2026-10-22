@@ -18,7 +18,7 @@
 // `detect` and `describe` are pure. A fix is linked to churn when its change blocks, on the lines of
 // the file it changed, overlap a churn range of that file (or of the file it renamed), or when GitHub
 // sent it no patch for a file holding one: its lines cannot be placed, so the file is enough.
-import { IssueNumberSchema, type IssueNumber, type PrNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber, type PrNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, MAX_PAGES, paginate } from '../github.ts';
 import { runJobs } from './jobs.ts';
@@ -30,7 +30,7 @@ import { listFiles, readOrRefused, within, type Repo } from './after-merge.reads
 import { AfterMergeRecordsSchema, ChurnAtMergeSchema } from './records.ts';
 import { gatherMega, megaUnreadLines, MegaRecordsSchema, placeOf, plannedFor, refOf, type MegaUnread, type PlannedFact } from './after-merge.mega.ts';
 import type { z } from 'zod';
-import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
+import { parseOrThrow } from 'omni-loop/kit/lib/schema/parse-or-throw.ts';
 
 /** The after-merge kind's records: the plan repository's, and what a multi-repository PRD adds (PRD 1130). */
 const RecordsSchema = AfterMergeRecordsSchema.extend({ mega: MegaRecordsSchema.exactOptional() });

@@ -56,7 +56,7 @@ repositories of Settings → Repositories, and whether each is tracked), `sector
 of repositories), `teams` (the fleets) and `players` (the roster), each changed by a migration, the
 arcade or the app. `game:project` and `game:banner` refuse a workspace that names no `github_org` or
 `plan_repo`. The workspace is a storage column, never an event field: two workspaces may each hold a
-`planet:vertuoza/vertuo-omni-loop#12:charted`.
+`planet:demo-org/vertuo-omni-loop#12:charted`.
 
 ## What the game reads
 

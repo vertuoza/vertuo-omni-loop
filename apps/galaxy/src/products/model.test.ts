@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { defaultPitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { DEFAULT_LOOK, isPitchLook, lookLabel, lookOf, PITCH_LOOKS, pitchedOf, pitchOf, productHref, rowOf, type ProductRow } from './model';
 
 // A product's pitch look as pure data (PRD 859 s1): the two looks, Arcade poster first and by default;

@@ -14,7 +14,7 @@
 // the caller owns, with the App's install link after its hint), 413 a body over its cap, 503 no database
 // here or the sign-in service down, 500 the database failed. The kit ignores every one of them.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { WORK_KINDS } from '../dossier/store';
 import { workingStore, WorkingStoreError, type Heartbeat, type Work } from './store';

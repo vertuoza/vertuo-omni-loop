@@ -1,5 +1,5 @@
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { refuse, reply } from '../business-api/reply';
 import type { KnowledgeGraph } from '../data/knowledge';
 

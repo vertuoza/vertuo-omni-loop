@@ -8,7 +8,7 @@ import { GAMES } from '../games';
 import { cabinetDoor, cabinets, xpStatus } from '../games/room';
 import { allowed } from '../onboarding';
 import type { Session } from '../types';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { browserMic, createPong } from '../pong/index';
 import { fakeMic, settle } from '../pong/mic.fake';
 import { MATCH } from '../pong/rules';
@@ -20,7 +20,7 @@ import { PongOverlay } from './pong.tsx';
 import { loadedPong, pausedPong, pongDrawOf, pressedPong, steppedPong, withPongHud, type PongHooks } from './pong.live';
 import type { ScoreSend } from './invaders-score';
 
-// OMNI PONG's scene (PRD 2101, slices 4 and 5): the cabinet that opens it, the loader, the loading and
+// PULSAR VOLLEY's scene (PRD 2101, slices 4 and 5): the cabinet that opens it, the loader, the loading and
 // failure lines, the ready screen before and after the microphone, MIC REQUIRED and its reasons, the
 // pitch meter's three states, the microphone stopped when the scene is left; then the match's HUD, the
 // pause, MIC LOST, the game over and its score sent once, whichever way the match ended.
@@ -48,7 +48,7 @@ describe('the cabinet', () => {
   const row = (level: number, unlocked: string[]) => ({ xp: 500, level, unlocked });
 
   it('names the pong scene in the registry\'s fifth row', () => {
-    expect(GAMES[4]).toEqual({ id: 'pong', title: 'OMNI PONG', scene: 'pong', measure: 'points' });
+    expect(GAMES[4]).toEqual({ id: 'pong', title: 'PULSAR VOLLEY', scene: 'pong', measure: 'points' });
   });
 
   it('opens the pong scene at LV 5, and still refuses it at LV 4', () => {
@@ -169,25 +169,25 @@ describe('the text layer', () => {
   });
 
   it('reads the ready screen before the microphone: the title, the limit, how to steer and A to turn it on', () => {
-    expect(text('ready', READY)).toBe('OMNI PONG ◀ PITCH · MID ▶ HIGH ▲ · LOW ▼ A · TURN ON MIC B BACK');
-    expect(text('ready', hudWith('asking'))).toBe('OMNI PONG ◀ PITCH · MID ▶ HIGH ▲ · LOW ▼ A · TURN ON MIC B BACK');
+    expect(text('ready', READY)).toBe('PULSAR VOLLEY ◀ PITCH · MID ▶ HIGH ▲ · LOW ▼ A · TURN ON MIC B BACK');
+    expect(text('ready', hudWith('asking'))).toBe('PULSAR VOLLEY ◀ PITCH · MID ▶ HIGH ▲ · LOW ▼ A · TURN ON MIC B BACK');
     expect(text('ready', { ...READY, limit: 'HIGH', limitHz: 300 })).toContain('◀ PITCH · HIGH ▶');
   });
 
   it('reads the meter and START · PLAY once the microphone is on, the meter\'s sign as the steering reads', () => {
-    expect(text('ready', hudWith('on', { steer: 'up', hz: 240 }))).toBe('OMNI PONG ◀ PITCH · MID ▶ ▲ START · PLAY B BACK');
+    expect(text('ready', hudWith('on', { steer: 'up', hz: 240 }))).toBe('PULSAR VOLLEY ◀ PITCH · MID ▶ ▲ START · PLAY B BACK');
     expect(text('ready', hudWith('on', { steer: 'still', hz: 221 }))).toContain('· START · PLAY');
     expect(text('ready', hudWith('on', { steer: 'down', hz: 180 }))).toContain('▼ START · PLAY');
   });
 
   it('reads MIC REQUIRED with its reason, A to ask again and B back, when refused, missing or insecure', () => {
-    expect(text('ready', hudWith('blocked'))).toBe('OMNI PONG MIC REQUIRED MIC BLOCKED IN THE BROWSER A · ASK AGAIN B BACK');
-    expect(text('ready', hudWith('missing'))).toBe('OMNI PONG MIC REQUIRED NO MIC FOUND A · ASK AGAIN B BACK');
+    expect(text('ready', hudWith('blocked'))).toBe('PULSAR VOLLEY MIC REQUIRED MIC BLOCKED IN THE BROWSER A · ASK AGAIN B BACK');
+    expect(text('ready', hudWith('missing'))).toBe('PULSAR VOLLEY MIC REQUIRED NO MIC FOUND A · ASK AGAIN B BACK');
     expect(readyLines(hudWith('missing')).kind).toBe('refused');
   });
 
   it('reads the same on the tall grid, and names the Game Boy\'s buttons there', () => {
-    expect(text('ready', READY, TALL, 'handheld')).toBe('OMNI PONG ◀ PITCH · MID ▶ HIGH ▲ · LOW ▼ A · TURN ON MIC B BACK');
+    expect(text('ready', READY, TALL, 'handheld')).toBe('PULSAR VOLLEY ◀ PITCH · MID ▶ HIGH ▲ · LOW ▼ A · TURN ON MIC B BACK');
     expect(text('ready', hudWith('on'), TALL, 'handheld')).toContain('START · PLAY');
   });
 

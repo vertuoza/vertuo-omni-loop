@@ -1,7 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
+import { ENTRIES, SKILL_GROUPS } from 'omni-loop/kit/lib/help/entries.ts';
 import { fillGeneric, skillNames, skillPage, skillsOverview, type SkillEntry } from './skills';
 import { sure } from '../arcade/test/sure';
 

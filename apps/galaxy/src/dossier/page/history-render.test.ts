@@ -1,13 +1,13 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import type { DossierListRow } from '../store';
 import { DossierHistory } from './DossierHistory';
 import { DossierSignIn } from './DossierSignIn';
 import { DEMO_VIEWER, demoHistory } from './demo';
 import { historyChoices, historyItems, historyStageBar, stageKeyOf, type CurrentStages, type HistoryFilters } from './history';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd as the server renders it (PRD 216): what a person sees before any script runs — the filters and
 // the search, a GET form to the same page; the rows, newest activity first, each a link to its dossier;
@@ -24,7 +24,7 @@ const row = (id: string, more: Partial<DossierListRow> = {}): DossierListRow => 
 const ROWS = [
   row('00000000-0000-4000-8000-0000000000d1', {
     prd: parsePrd(216), title: 'PRD dossiers <b>shared</b>', numbered_at: '2026-09-27T10:00:00Z',
-    repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-core'],
+    repos: ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-core'],
     latest: {
       spec: { id: 's3', version: 3, source: 'github', created_at: '2026-09-28T08:00:00Z' },
       plan: { id: 'p1', version: 1, source: 'kit', created_at: '2026-09-27T11:00:00Z' },
@@ -53,7 +53,7 @@ describe('the filters', () => {
     expect(html).toMatch(/<input[^>]*type="search"[^>]*name="q"/);
     const repos = [...html.matchAll(/<option value="([^"]*)"[^>]*>([^<]+)<\/option>/g)].map((m) => [m[1], m[2]]);
     expect(repos).toEqual([
-      ['', 'Any'], ['vertuoza/vertuo-core', 'vertuoza/vertuo-core'], ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-omni-loop'],
+      ['', 'Any'], ['demo-org/nimbus-core', 'demo-org/nimbus-core'], ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-omni-loop'],
       ['', 'Drafts and PRDs'], ['draft', 'Drafts'], ['prd', 'PRDs'],
     ]);
     expect(html).toContain('>Filter</button>');
@@ -73,7 +73,7 @@ describe('the filters', () => {
 
   it('open the fold by itself when a filter it holds is set, so a set filter is never hidden (issue #703)', () => {
     const open = (filters: HistoryFilters) => history(filters).includes('<details class="dossier-history-more" open="">');
-    expect(open({ who: 'all', repo: 'vertuoza/vertuo-core' })).toBe(true);
+    expect(open({ who: 'all', repo: 'demo-org/nimbus-core' })).toBe(true);
     expect(open({ who: 'all', state: 'draft' })).toBe(true);
     expect(open({ who: 'all', needsAnswer: true })).toBe(true);
     expect(open(ALL)).toBe(false);
@@ -82,9 +82,9 @@ describe('the filters', () => {
   });
 
   it('keep what the address picked, and offer to clear it', () => {
-    const html = history({ who: 'mine', repo: 'vertuoza/vertuo-core', state: 'prd', search: 'dossiers' });
+    const html = history({ who: 'mine', repo: 'demo-org/nimbus-core', state: 'prd', search: 'dossiers' });
     expect(html).toMatch(/<input[^>]*name="q"[^>]*value="dossiers"/);
-    expect(html).toContain('<option value="vertuoza/vertuo-core" selected="">');
+    expect(html).toContain('<option value="demo-org/nimbus-core" selected="">');
     expect(html).toContain('<option value="prd" selected="">');
     expect(html).toContain('<a class="dossier-history-clear" href="/prd">Clear</a>');
   });
@@ -100,10 +100,10 @@ describe('Mine and All', () => {
   });
 
   it('keep the repository, the state and the search when switching', () => {
-    const html = history({ who: 'mine', repo: 'vertuoza/vertuo-core', state: 'prd', search: 'ask mode' });
+    const html = history({ who: 'mine', repo: 'demo-org/nimbus-core', state: 'prd', search: 'ask mode' });
     expect(toggle(html)).toEqual([
-      ['Mine', '/prd?repo=vertuoza%2Fvertuo-core&state=prd&q=ask+mode', true],
-      ['All', '/prd?repo=vertuoza%2Fvertuo-core&state=prd&q=ask+mode&who=all', false],
+      ['Mine', '/prd?repo=demo-org%2Fnimbus-core&state=prd&q=ask+mode', true],
+      ['All', '/prd?repo=demo-org%2Fnimbus-core&state=prd&q=ask+mode&who=all', false],
     ]);
   });
 
@@ -164,7 +164,7 @@ describe('the rows', () => {
     expect(html).toContain('<span class="dossier-number">#216</span>');
     expect(html).toContain('<span class="dossier-draft">DRAFT</span>');
     expect(html).toContain('PRD dossiers &lt;b&gt;shared&lt;/b&gt;');
-    expect(html).toContain('<span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">vertuoza/vertuo-core</span>');
+    expect(html).toContain('<span class="dossier-repo">vertuoza/vertuo-omni-loop</span><span class="dossier-repo">demo-org/nimbus-core</span>');
     expect(html).toContain('<span class="dossier-history-artifact">Spec <small>v3</small></span><span class="dossier-history-artifact">Plan <small>v1</small></span>');
     expect(html).toContain('no artifact yet');
     expect(html).toContain('11/12 answered');

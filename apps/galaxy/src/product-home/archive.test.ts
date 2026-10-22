@@ -10,9 +10,9 @@ describe('the confirm Archive asks', () => {
   it('says what archiving does, and names the repositories when the product has any', () => {
     expect(archiveConfirm('omni-loop', [])).toBe(
       'Archive omni-loop? It leaves every member\'s list, and its repositories stop reading its Legal entries and glossary.');
-    expect(archiveConfirm('omni-loop', ['vertuoza/vertuo-omni-loop', 'vertuoza/omni-docs'])).toBe(
+    expect(archiveConfirm('omni-loop', ['vertuoza/vertuo-omni-loop', 'demo-org/omni-docs'])).toBe(
       'Archive omni-loop? It leaves every member\'s list, and its repositories stop reading its Legal entries and glossary.'
-      + '\n\nRepositories: vertuoza/vertuo-omni-loop, vertuoza/omni-docs');
+      + '\n\nRepositories: vertuoza/vertuo-omni-loop, demo-org/omni-docs');
   });
 });
 

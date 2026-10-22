@@ -3,7 +3,7 @@
 // the grid the screen is drawn on (menu.css places each for `.grid-wide` and `.grid-tall`).
 import { xpForLevel, type GalaxyView, type XpRules } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
-import { defined, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, keysOf } from 'omni-loop/kit/lib/narrow.ts';
 import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { crewLook, fleet, WOUND_LOOK } from '../fleets';

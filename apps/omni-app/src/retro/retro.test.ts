@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { inngest, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { failing } from '../../test/github-replay.ts';
 import { savingRun, savingSteps } from '../../test/saved-steps.ts';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import {
   FEATURE,
   JUDGE_ENV,
@@ -561,7 +561,7 @@ describe('retro — judged not worth a pull request', () => {
 });
 
 describe('retro — what the judge is given', () => {
-  it('reads the knowledge summary and the earlier retros’ lessons at the merge commit, and hands them to the model', async () => {
+  it('reads the knowledge summary, the playbook’s rules and the earlier retros’ lessons at the merge commit, and hands them to the model', async () => {
     const scenario = widgetScenario({ files: { ...mergeFiles(), ...KNOWLEDGE_FILES } });
     const fetch = judge();
     const { error } = await engine(scenario, { fetch }).execute();
@@ -569,6 +569,7 @@ describe('retro — what the judge is given', () => {
     const asked = z.object({ knowledge: z.unknown(), earlierLessons: z.unknown() }).parse(fetch.asked[0]);
     expect(asked.knowledge).toEqual([
       { id: 'P-PRODUCT-1', line: 'A widget keeps what a person chose for it.' },
+      { id: 'playbook/conventions#naming', line: 'A migration stays the newest until it merges. A branch overtaken by `main` re-dates it.' },
       { id: 'ADR-0001', line: 'ADR-0001 — Colours are stored per widget' },
     ]);
     expect(asked.earlierLessons).toEqual(['Answer decisions before the wave that builds on them.']);
@@ -579,7 +580,7 @@ describe('retro — what the judge is given', () => {
     const config = mergeFiles()['.omni-loop/config.yml'];
     assertDefined(config, 'the scenario config');
     const out = await gatherKnowledge(scenario.github.octokit, { owner: 'acme', repo: 'widgets', sha: MERGE_SHA, config: parseConfig(config) });
-    expect(out).toEqual({ knowledge: { principles: [], laws: [], decisions: [] }, lessons: [] });
+    expect(out).toEqual({ knowledge: { principles: [], laws: [], decisions: [], playbook: [] }, lessons: [] });
   });
 
   it('lessonsIn: every run’s lessons, in order, each once; a file that is not JSON gives none', () => {

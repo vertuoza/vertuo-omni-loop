@@ -24,9 +24,9 @@ import {
 import type { AnswerChannel } from './settle.ts';
 import { parsePrd } from '../ids.ts';
 
-/** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
+/** The markers every ported test below renders and parses through — `nimbus-outbox`, matching
  * `flatCtx`'s own configured prefix (`kit/test/flat-layout.ts`). */
-const markers = makeMarkers('vertuo-outbox');
+const markers = makeMarkers('nimbus-outbox');
 
 /**
  * The item every settling test starts from. Written out in full, and asserted byte-for-byte later:

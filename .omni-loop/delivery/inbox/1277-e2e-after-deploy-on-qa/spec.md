@@ -17,7 +17,7 @@ A CI job replays the tests tagged `prd-*` with `--strict-cache` against QA after
 
 - **A mismatch is a failure, never healed on QA.**
 - **The job reads recordings from the plan repository** unless Q7 is answered otherwise.
-- **Q7 — recommended default, accepted when the phase-0 PR merges:** The plan repository (vertuo-automation-plan), which starts the environment they run against. (Where do the recordings of a product spanning several repositories live?)
+- **Q7 — recommended default, accepted when the phase-0 PR merges:** The plan repository (nimbus-plan), which starts the environment they run against. (Where do the recordings of a product spanning several repositories live?)
 - **Q8 — waits on a person:** For the job after each deploy on QA: which runner (Node 24.8 or newer) and which access to the target?
 
 ## User stories

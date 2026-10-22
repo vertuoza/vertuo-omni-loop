@@ -6,9 +6,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { prdKey, settle, type PrdRef, type StageKey } from '../store';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { numberOf, textOf } from '../../data/unparsed';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const TABLE = 'prd_outbox';
 

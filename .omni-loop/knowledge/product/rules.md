@@ -1151,7 +1151,6 @@ Governs: ^apps/galaxy/src/arcade/duet/run\., ^apps/galaxy/src/arcade/scenes/duet
 Stated: 2026-10-11
 Decided: nobody — adopted when raised (medium), 2026-10-11
 Merged: @martl-vertuoza, 2026-10-11, PR #1636
-Proposed: harvest 2026-10-11
 
 ## BR-PRODUCT-102
 
@@ -1164,7 +1163,6 @@ Governs: ^apps/galaxy/src/arcade/duet/waves\.
 Stated: 2026-10-11
 Decided: nobody — adopted when raised (medium), 2026-10-11
 Merged: @martl-vertuoza, 2026-10-11, PR #1636
-Proposed: harvest 2026-10-11
 
 ## BR-PRODUCT-103
 
@@ -1176,7 +1174,6 @@ Enforced by: supabase/checks/approval_requests.sql, apps/galaxy/src/waiting/appr
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
-Proposed: harvest 2026-10-09
 
 ## BR-PRODUCT-104
 
@@ -1188,7 +1185,6 @@ Enforced by: kit/lib/now/wait.test.ts, kit/plugin-hud/tests/hud.test.tsx
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
-Proposed: harvest 2026-10-09
 
 ## BR-PRODUCT-105
 
@@ -1200,7 +1196,6 @@ Enforced by: apps/galaxy/src/push/api.test.ts, apps/galaxy/src/profile/alerts.te
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
-Proposed: harvest 2026-10-09
 
 ## BR-PRODUCT-106
 
@@ -1212,7 +1207,6 @@ Enforced by: apps/galaxy/src/approvals/stream.service.test.ts, apps/galaxy/src/a
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
-Proposed: harvest 2026-10-09
 
 ## BR-PRODUCT-107
 
@@ -1224,7 +1218,6 @@ Enforced by: supabase/checks/approval_voiding.sql, apps/galaxy/src/approvals/voi
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
-Proposed: harvest 2026-10-09
 
 ## BR-PRODUCT-108
 
@@ -1236,7 +1229,6 @@ Enforced by: apps/galaxy/src/dossier/page/approval.test.ts, apps/galaxy/src/appr
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
-Proposed: harvest 2026-10-09
 
 ## BR-PRODUCT-109
 
@@ -1248,7 +1240,6 @@ Enforced by: kit/bin/design.test.ts, kit/lib/design/touched.test.ts, kit/lib/des
 Stated: 2026-10-11
 Decided: nobody — adopted when raised (medium), 2026-10-10
 Merged: @pierrederval, 2026-10-11, PR #1371
-Proposed: harvest 2026-10-11
 
 ## BR-PRODUCT-110
 
@@ -1260,7 +1251,6 @@ Enforced by: apps/galaxy/src/ask/kit-token.test.ts, supabase/checks/agent_tokens
 Stated: 2026-10-12
 Decided: nobody — adopted when raised (medium), 2026-10-11
 Merged: @pierrederval, 2026-10-12, PR #1629
-Proposed: harvest 2026-10-12
 
 ## BR-PRODUCT-111
 
@@ -1272,7 +1262,6 @@ Enforced by: supabase/checks/agent_tokens.sql, apps/galaxy/src/profile/terminal-
 Stated: 2026-10-12
 Decided: nobody — adopted when raised (medium), 2026-10-11
 Merged: @pierrederval, 2026-10-12, PR #1629
-Proposed: harvest 2026-10-12
 
 ## BR-PRODUCT-112
 
@@ -1295,7 +1284,6 @@ Enforced by: supabase/checks/product_knowledge.sql, kit/lib/knowledge/check-know
 Stated: 2026-10-16
 Decided: nobody — adopted when raised (medium), 2026-10-15
 Merged: @pierrederval, 2026-10-16, PR #2032
-Proposed: harvest 2026-10-16
 
 ## BR-PRODUCT-114
 
@@ -1307,7 +1295,6 @@ Enforced by: apps/galaxy/src/product-knowledge/product-knowledge.service.test.ts
 Stated: 2026-10-16
 Decided: nobody — adopted when raised (medium), 2026-10-15
 Merged: @pierrederval, 2026-10-16, PR #2032
-Proposed: harvest 2026-10-16
 
 ## BR-PRODUCT-115
 
@@ -1319,7 +1306,6 @@ Enforced by: apps/galaxy/src/product-knowledge/product-knowledge.service.test.ts
 Stated: 2026-10-16
 Decided: nobody — adopted when raised (medium), 2026-10-15
 Merged: @pierrederval, 2026-10-16, PR #2032
-Proposed: harvest 2026-10-16
 
 ## BR-PRODUCT-116
 
@@ -1331,7 +1317,6 @@ Enforced by: supabase/checks/product_knowledge.sql, supabase/migrations/20261212
 Stated: 2026-10-16
 Decided: nobody — adopted when raised (medium), 2026-10-15
 Merged: @pierrederval, 2026-10-16, PR #2032
-Proposed: harvest 2026-10-16
 
 ## BR-PRODUCT-119
 
@@ -1343,7 +1328,6 @@ Enforced by: apps/galaxy/src/product-home/constellation.test.ts, apps/galaxy/src
 Stated: 2026-10-17
 Decided: nobody — adopted when raised (medium), 2026-10-16
 Merged: @pierrederval, 2026-10-17, PR #2130
-Proposed: harvest 2026-10-17
 
 ## BR-PRODUCT-120
 
@@ -1365,3 +1349,14 @@ Enforced by: apps/galaxy/src/concepts/done.test.ts
 Governs: ^apps/galaxy/src/concepts/done
 Stated: 2026-10-20
 Decided: @pierrederval, 2026-10-20
+
+## BR-PRODUCT-122
+
+In the arcade duet game, each obstacle a player gets past scores once, the first moment all of it is below the lowest point the orbs reach: 1 in a chapter, 2 in endless mode, a gate counting as one obstacle; finishing a wave adds nothing more, and a hit gives back every point scored since the chapter began (in endless mode, since the wave began).
+
+Serves: P-PRODUCT-86
+Source: .omni-loop/delivery/shipped/2318-duet-obstacle-points/outbox/settled.md, entry s1-01-duet-obstacle-scored-once, PRD #2318
+Enforced by: apps/galaxy/src/arcade/duet/run.test.ts, apps/galaxy/src/arcade/duet/waves.test.ts
+Governs: ^apps/galaxy/src/arcade/duet/run\.
+Stated: 2026-10-21
+Decided: @mart-lej, 2026-10-21

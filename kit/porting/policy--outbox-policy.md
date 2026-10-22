@@ -1,6 +1,6 @@
 # `kit/lib/policy/outbox-policy.mjs`
 
-Source: `.claude/skills/vertuo-do-work/outbox-policy.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `.claude/skills/nimbus-do-work/outbox-policy.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -42,9 +42,9 @@ Source: `.claude/skills/vertuo-do-work/outbox-policy.mjs` @ `vertuo-ai-domain@c4
     below.
 - `unknowable`, `AUTHOR_MARK`, `SLICE_STATUSES`, `RECORDING_OUTCOMES`, `recordingDecision`: bodies
   unchanged.
-- `CONSULTATION_POLICIES` keyed by `'/vertuo-deliver'` / `'/vertuo-yolo'` → keyed by
+- `CONSULTATION_POLICIES` keyed by `'/nimbus-deliver'` / `'/nimbus-yolo'` → keyed by
   `COMMANDS.deliver` (`/omni-deliver`) / `COMMANDS.yolo` (`/omni-yolo`), per the task's own mapping
-  table row ("consultation keys `'/vertuo-deliver'`, `'/vertuo-yolo'` → `COMMANDS.deliver`,
+  table row ("consultation keys `'/nimbus-deliver'`, `'/nimbus-yolo'` → `COMMANDS.deliver`,
   `COMMANDS.yolo`"); every `command:` field inside each policy object uses the same constant.
 - `renderOutboxItem`: `const settledRank = floorRank(bearsOn, rank);` → `const settledRank =
   floorRank(bearsOn, rank, laws);`, and the function gained a required `laws` field on its input
@@ -74,12 +74,12 @@ Source: `.claude/skills/vertuo-do-work/outbox-policy.mjs` @ `vertuo-ai-domain@c4
   directory".
 - Module doc comment: reworded throughout to drop `scripts/outbox.mjs`, `scripts/outbox-settle.mjs`,
   `docs/outbox/<prd>/settled.md`, `docs/outbox/<prd>/accounts/<slice>.md`, `docs/outbox/README.md`,
-  `/vertuo-deliver`, `/vertuo-yolo`, `scripts/check-decision-coverage.mjs`,
+  `/nimbus-deliver`, `/nimbus-yolo`, `scripts/check-decision-coverage.mjs`,
   `scripts/outbox-status.mjs` and `.github/workflows/outbox.yml` literals/references in favour of
   `outbox.mjs`, `settle.mjs`, `laws.mjs`, `COMMANDS.deliver`/`COMMANDS.yolo`, "the item's own outbox
   directory's settled.md", "the outbox directory's own README", `decision-coverage.mjs` and
   `outbox/status.mjs`'s own `gateResult`.
-- No CLI half to remove: `.claude/skills/vertuo-do-work/outbox-policy.mjs` never had a
+- No CLI half to remove: `.claude/skills/nimbus-do-work/outbox-policy.mjs` never had a
   `process.argv[1] === fileURLToPath(...)` block, so rule 3 applies vacuously.
 
 ## Test (`outbox-policy.test.mjs`)
@@ -99,16 +99,16 @@ Source: `.claude/skills/vertuo-do-work/outbox-policy.mjs` @ `vertuo-ai-domain@c4
 - Every `decideRecording({ … })` / `proposeRank({ … })` call: gained `laws` (or `laws:
   noKnowledge` for the one new case below) as a new field, per Port Protocol rule 6 ("pass
   `markers`/`laws` where a signature grew"). No assertion's *value* changed by this addition alone.
-- `CONSULTATION_POLICIES['/vertuo-deliver']` / `CONSULTATION_POLICIES['/vertuo-yolo']` →
+- `CONSULTATION_POLICIES['/nimbus-deliver']` / `CONSULTATION_POLICIES['/nimbus-yolo']` →
   `CONSULTATION_POLICIES[COMMANDS.deliver]` / `CONSULTATION_POLICIES[COMMANDS.yolo]`, per the
-  mapping table; `consult({ command: '/vertuo-deliver', … })` / `'/vertuo-yolo'` →
-  `COMMANDS.deliver` / `COMMANDS.yolo`; `asksAbout('/vertuo-deliver', …)` /
-  `asksAbout('/vertuo-yolo', …)` → `asksAbout(COMMANDS.deliver, …)` / `asksAbout(COMMANDS.yolo,
+  mapping table; `consult({ command: '/nimbus-deliver', … })` / `'/nimbus-yolo'` →
+  `COMMANDS.deliver` / `COMMANDS.yolo`; `asksAbout('/nimbus-deliver', …)` /
+  `asksAbout('/nimbus-yolo', …)` → `asksAbout(COMMANDS.deliver, …)` / `asksAbout(COMMANDS.yolo,
   …)`. `const COMMANDS = Object.keys(CONSULTATION_POLICIES);` (a local const shadowing the
   imported module) → renamed to `COMMAND_NAMES` to avoid the shadow, values unchanged (now
   `['/omni-deliver', '/omni-yolo']`).
 - **Assertion changed, per the task's own mapping table** (command names): `expect(() =>
-  consultationPolicy('/vertuo-ship-it')).toThrow(/vertuo-ship-it/);` → `expect(() =>
+  consultationPolicy('/nimbus-ship-it')).toThrow(/nimbus-ship-it/);` → `expect(() =>
   consultationPolicy('/omni-ship-it')).toThrow(/omni-ship-it/);` (an arbitrary unknown-command
   string; the `/vertuo-*` shape only mattered for consistency with the other command names in the
   file — rewritten as `/omni-*`, per the brief's own allowance: "assertion changes allowed only for

@@ -1,7 +1,7 @@
 import { poll, type VisibilityDoc } from '../ask/page/poll';
 import type { WaitingOutbox } from './waiting';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 // The waiting list's Outbox part (PRD 499, s3): the open human-action and high outbox items of the PRDs
 // the person opened, read by the browser from GET /api/waiting/outbox (src/outbox-waiting/), never by

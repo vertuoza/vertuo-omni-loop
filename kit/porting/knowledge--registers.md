@@ -1,6 +1,6 @@
 # `kit/lib/knowledge/registers.mjs`
 
-Source: `scripts/registers.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/registers.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -14,7 +14,7 @@ Source: `scripts/registers.mjs` @ `vertuo-ai-domain@c4a210122`.
   the glossary file itself — only `glossaryTermOf` parses a domain README's own `Glossary term:`
   line, which needed no path).
 - `OLD_REGISTER_PATHS` constant: deleted — an upstream migration artefact (the two paths the
-  knowledge folder replaced in `vertuo-ai-domain`); the kit was never around for that migration.
+  knowledge folder replaced in `nimbus-brain`); the kit was never around for that migration.
 - `repoRoot` (resolved from `import.meta.url`) and the `{ root = repoRoot } = {}` default-parameter
   pattern: deleted. Every function that read the knowledge folder now takes `{ ctx }` and reads
   `ctx.root`.
@@ -25,7 +25,7 @@ Source: `scripts/registers.mjs` @ `vertuo-ai-domain@c4a210122`.
   `process.argv[1] === fileURLToPath(...)` block, so rule 3 of the Port Protocol applies vacuously.
 - The module doc comment: reworded to describe the folder generically (`ctx.layout.knowledgeRoot`
   instead of the literal `docs/knowledge/`), and its "who else reads this" paragraph updated to name
-  the kit's own modules (`check-knowledge.mjs`, `describe.mjs`) instead of `vertuo-ai-domain`'s
+  the kit's own modules (`check-knowledge.mjs`, `describe.mjs`) instead of `nimbus-brain`'s
   `decision-coverage.mjs` / `outbox.mjs`, which do not exist here.
 - Every other export (`ID_SHAPE`, `ID_TOKEN`, `PRODUCT_CODE`, `LAYER_FILES`, `idsCitedIn`,
   `codeOf`, `idParts`, `parseEntryFile`, `glossaryTermOf`, `servedBy`) is unchanged — none of them
@@ -48,7 +48,7 @@ Source: `scripts/registers.mjs` @ `vertuo-ai-domain@c4a210122`.
   folder this repo ships', …)` block (6 `it`s: the eight Core Invariants, `resolveId('N2')`, the two
   kept rule ids, the eleven domains, `servedBy` for `P-PRODUCT-1`, and the two "resolves to null"
   cases). Every one of them called `readKnowledge()` / `resolveId(id)` with no root, i.e. against
-  the real `vertuo-ai-domain` checkout's own `docs/knowledge/` — the case the Port Protocol names
+  the real `nimbus-brain` checkout's own `docs/knowledge/` — the case the Port Protocol names
   explicitly ("a test case that reads the real upstream repository … is deleted and listed"). None
   of their assertions could be ported without inventing a stand-in fixture that would test something
   else entirely, so they are deleted rather than rewritten.

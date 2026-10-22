@@ -122,7 +122,7 @@ Made in this spec, recorded here:
    editor's agent answers "Who is our customer?" with claim ids, without me typing anything.
 2. As Tom's agent, when nothing on file answers "Do we sell in Luxembourg?", I report it and tell Tom
    it is not known yet, instead of guessing.
-3. As Sophie, I see "Do we sell in Luxembourg? · asked by Tom's editor · vertuo-app ·
+3. As Sophie, I see "Do we sell in Luxembourg? · asked by Tom's editor · nimbus-app ·
    NewQuoteForm.tsx" on Settings › Business, answer it once, and every agent reads the answer.
 4. As Tom, I revoke "Tom's editor" when I change laptops, and the old link stops working on its next
    call.

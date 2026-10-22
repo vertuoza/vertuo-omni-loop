@@ -1,5 +1,5 @@
 import 'server-only';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { serverEnv } from '../env';

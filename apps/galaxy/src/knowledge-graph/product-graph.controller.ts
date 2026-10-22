@@ -1,4 +1,4 @@
-import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import { ProductNeighbourhoodSchema } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import { archivedMessage } from '../business-api/read';

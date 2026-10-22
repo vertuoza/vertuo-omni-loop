@@ -9,7 +9,7 @@ proof: video
 # Pitch scenes that tell the story
 
 **Date:** 2026-10-15 · **PRD:** #2030 · **Follows:** PRD 1108 (Pitch studio), whose settings, providers,
-filmed moments, check, studio, render and push stay. **Compared with:** `vertuoza/release-videos`, the
+filmed moments, check, studio, render and push stay. **Compared with:** `demo-org/release-videos`, the
 engine PRD 1108 names as its inspiration (its spec, "Inspired by"): the scene templates were brought
 into the kit, but part of what made its videos read well was left behind. **Touches:**
 `kit/lib/pitch/storyboard.ts`, `kit/lib/pitch/check.ts`, `kit/lib/pitch/render.ts`,
@@ -20,7 +20,7 @@ media the person brings instead of a filmed walk-through (a later PRD), the prod
 ## Problem
 
 A pitch made today shows the feature, but its scenes say little and its review shows the wrong frame.
-The same storyboard rendered by `vertuoza/release-videos` and by `omni pitch render --stills` shows
+The same storyboard rendered by `demo-org/release-videos` and by `omni pitch render --stills` shows
 the gap, scene by scene:
 
 - **No word carries the title.** A title is split on its spaces and drawn in one colour

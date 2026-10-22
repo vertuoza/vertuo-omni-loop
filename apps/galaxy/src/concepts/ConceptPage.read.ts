@@ -12,8 +12,8 @@
 //
 // PRD 2213: the stored stages of the PRDs its areas name come from one StageStore read for its workspace,
 // never GitHub, for the shipped state and the Areas tab.
-import { parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
-import { parseIssue, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConcept } from 'omni-loop/kit/lib/concept/parse.ts';
+import { parseIssue, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { ConceptFacts } from '../dossier/github/fix';
 import type { ArcadeMode } from '../data/mode';
 import { isDossierId, type Db } from '../dossier/page/source';

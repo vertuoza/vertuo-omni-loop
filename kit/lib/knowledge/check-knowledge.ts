@@ -45,7 +45,7 @@
  * confirmed: a principle may go without `Decided:`, and every other line is graded as for a law. Each
  * is reported once, never a violation; a malformed `Proposed:` line is one.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs — changes in kit/porting/knowledge--check-knowledge.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-registers.mjs — changes in kit/porting/knowledge--check-knowledge.md.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';

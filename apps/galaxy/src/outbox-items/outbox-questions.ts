@@ -1,5 +1,5 @@
-import { sortItems } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
-import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
+import { sortItems } from 'omni-loop/kit/lib/outbox/comment.ts';
+import { parseOutboxItem } from 'omni-loop/kit/lib/outbox/outbox.ts';
 import { outboxTabPath } from '../dossier/page/history-at';
 import { workPath } from '../dossier/page/work';
 import { productFilterOf, readProductChoice, type ProductChoice, type ProductFilterView } from '../product-filter/product-filter.service';

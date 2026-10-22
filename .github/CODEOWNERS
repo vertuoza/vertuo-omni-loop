@@ -1,48 +1,48 @@
 # BEGIN omni kb owners
 # Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines.
 # The thesis and the registers: what the product promises, and its laws.
-/.omni-loop/knowledge/product/thesis.md @pierrederval
-/.omni-loop/knowledge/product/principles.md @pierrederval
-/.omni-loop/knowledge/product/rules.md @pierrederval
-/.omni-loop/knowledge/product/invariants.md @pierrederval
+/.omni-loop/knowledge/product/thesis.md @pierrederval @dervalp
+/.omni-loop/knowledge/product/principles.md @pierrederval @dervalp
+/.omni-loop/knowledge/product/rules.md @pierrederval @dervalp
+/.omni-loop/knowledge/product/invariants.md @pierrederval @dervalp
 # The briefing: the rules every agent follows.
-/.omni-loop/knowledge/playbook/briefing.md @pierrederval
+/.omni-loop/knowledge/playbook/briefing.md @pierrederval @dervalp
 # law BR-PRODUCT-3: its test.
-/kit/test/plugin.test.ts @pierrederval
+/kit/test/plugin.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-6: its test.
-/apps/omni-app/src/outbox-check/outbox-check.test.ts @pierrederval
+/apps/omni-app/src/outbox-check/outbox-check.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-12: its test.
-/apps/galaxy/src/ask/rounds-sql.test.ts @pierrederval
+/apps/galaxy/src/ask/rounds-sql.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-28: its test.
-/apps/galaxy/src/data/link-github-sql.test.ts @pierrederval
+/apps/galaxy/src/data/link-github-sql.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-29: its test.
-/apps/galaxy/src/ask/workspace-gate-sql.test.ts @pierrederval
+/apps/galaxy/src/ask/workspace-gate-sql.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-39: its test.
-/apps/galaxy/src/ask/workspace-sql.test.ts @pierrederval
+/apps/galaxy/src/ask/workspace-sql.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-59: its test.
-/apps/galaxy/src/jev/jev-key-sql.test.ts @pierrederval
+/apps/galaxy/src/jev/jev-key-sql.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-63: its test.
-/apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts @pierrederval
+/apps/galaxy/src/agent-connect/tokens/repo-scope-sql.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-64: its test.
-/apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts @pierrederval
+/apps/galaxy/src/agent-connect/tokens/tokens-sql.test.ts @pierrederval @dervalp
 # law BR-PRODUCT-94: its test.
-/apps/galaxy/src/ask/api.test.ts @pierrederval
+/apps/galaxy/src/ask/api.test.ts @pierrederval @dervalp
 # law N-PRODUCT-3: its test.
-/kit/bin/item.test.ts @pierrederval
+/kit/bin/item.test.ts @pierrederval @dervalp
 # law N-PRODUCT-7: its test.
-/kit/bin/ask-hook.test.ts @pierrederval
+/kit/bin/ask-hook.test.ts @pierrederval @dervalp
 # law N-PRODUCT-13: its test.
-/kit/lib/init/settings.test.ts @pierrederval
-/kit/bin/init.test.ts @pierrederval
-/kit/lib/agents/write.test.ts @pierrederval
+/kit/lib/init/settings.test.ts @pierrederval @dervalp
+/kit/bin/init.test.ts @pierrederval @dervalp
+/kit/lib/agents/write.test.ts @pierrederval @dervalp
 # law N-PRODUCT-14: its test.
-/kit/bin/law-demoted.test.ts @pierrederval
+/kit/bin/law-demoted.test.ts @pierrederval @dervalp
 # law N-PRODUCT-15: its test.
-/kit/lib/flow/merge-gate.test.ts @pierrederval
+/kit/lib/flow/merge-gate.test.ts @pierrederval @dervalp
 # law N-PRODUCT-16: its test.
-/supabase/checks/access.sql @pierrederval
-/game/ledger.test.ts @pierrederval
+/supabase/checks/access.sql @pierrederval @dervalp
+/game/ledger.test.ts @pierrederval @dervalp
 # law N-PRODUCT-17: its test.
-/scripts/public-env-guard.test.ts @pierrederval
-/scripts/env-guard.test.ts @pierrederval
+/scripts/public-env-guard.test.ts @pierrederval @dervalp
+/scripts/env-guard.test.ts @pierrederval @dervalp
 # END omni kb owners

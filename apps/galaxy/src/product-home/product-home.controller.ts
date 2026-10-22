@@ -1,5 +1,5 @@
 import 'server-only';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 import type { MemberSession } from '../data/member-session';
 import { viewer } from '../data/viewer';
 import { memberWorkspace } from '../data/workspace';

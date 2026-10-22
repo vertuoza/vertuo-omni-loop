@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Port the delivery loop's library (inbox, outbox, settling, replies, comments, knowledge
-registers, policies) from `vertuo-ai-domain` into `kit/lib` so that every repository-specific value is
+registers, policies) from `nimbus-brain` into `kit/lib` so that every repository-specific value is
 read from `.omni-loop/config.yml`, add the ship step and the two gate fixes, and expose it all as one
 bundled, dependency-free `omni.mjs` CLI.
 
@@ -11,7 +11,7 @@ bundled, dependency-free `omni.mjs` CLI.
 takes a frozen **context** `ctx = { root, config, layout, markers }` instead. `config` is the parsed
 `.omni-loop/config.yml`; `layout` answers every "where does PRD N live" question for the one-folder-
 per-PRD delivery layout; `markers` derives every HTML-comment marker from one prefix. Upstream tests
-are ported with a *flat* test-only layout and the `vertuo-outbox` marker prefix, so their assertions
+are ported with a *flat* test-only layout and the `nimbus-outbox` marker prefix, so their assertions
 stay byte-identical and prove the port; each module then gets folder-layout tests of its own.
 
 **Tech Stack:** Node ≥ 22 ESM (`.mjs`), `zod` 3, `yaml` 2, `vitest` 2, `esbuild` (bundling only),
@@ -21,9 +21,9 @@ stay byte-identical and prove the port; each module then gets folder-layout test
 
 ## Global Constraints
 
-- Upstream source is pinned: `vertuo-ai-domain` at **`c4a210122`**, read with
-  `git -C ../vertuo-ai-domain show c4a210122:<path>`. Never port from the working tree (stale at
-  `c214b06b`) or from `vertuo-workflow`.
+- Upstream source is pinned: `nimbus-brain` at **`c4a210122`**, read with
+  `git -C ../nimbus-brain show c4a210122:<path>`. Never port from the working tree (stale at
+  `c214b06b`) or from `nimbus-workflow`.
 - No repository literal in `kit/lib` or `kit/bin`: no `vertuo`, no `docs/` path, no `repoRoot`, no
   `pierrederval`, no `outbox:go`/`pr:feature` string literal. The only exception is the one-line
   provenance comment. `kit/test/no-literals.test.mjs` (Task 1) enforces this.
@@ -48,10 +48,10 @@ stay byte-identical and prove the port; each module then gets folder-layout test
 A port task copies an upstream module and its test, then applies these rules and nothing else:
 
 1. **Fetch** both files verbatim:
-   `git -C ../vertuo-ai-domain show c4a210122:<src>.mjs > kit/lib/<dst>.mjs` and the same for
+   `git -C ../nimbus-brain show c4a210122:<src>.mjs > kit/lib/<dst>.mjs` and the same for
    `<src>.test.mjs` → `kit/lib/<dst>.test.mjs`.
 2. **Provenance.** Directly under the module's header comment add
-   `// Ported from vertuo-ai-domain@c4a210122:<src>.mjs — changes in kit/porting/<dst>.md.`
+   `// Ported from nimbus-brain@c4a210122:<src>.mjs — changes in kit/porting/<dst>.md.`
 3. **No CLI half.** Delete the `if (process.argv[1] === fileURLToPath(import.meta.url)) { … }` block
    and every function or constant used only by it. Task 15 rebuilds the CLI.
 4. **Context, not root.** Every `{ root = repoRoot } = {}` option becomes `{ ctx }`; inside, `root`
@@ -148,7 +148,7 @@ import { describe, expect, it } from 'vitest';
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
 const SCANNED = ['lib', 'bin'];
 const FORBIDDEN = [/vertuo/i, /\bdocs\//, /\brepoRoot\b/, /pierrederval/, /'outbox:go'/, /'pr:feature'/];
-const PROVENANCE = /^\/\/ Ported from vertuo-ai-domain@/;
+const PROVENANCE = /^\/\/ Ported from nimbus-brain@/;
 
 function files(dir) {
   let out = [];
@@ -427,7 +427,7 @@ Create `kit/porting/README.md`:
 ```markdown
 # Porting record
 
-Every module under `kit/lib` that came from `vertuo-ai-domain` has one file here, named after it: its source, the
+Every module under `kit/lib` that came from `nimbus-brain` has one file here, named after it: its source, the
 pinned sha (`c4a210122`), every literal replaced by the context, every test assertion changed and
 every test deleted. A reviewer reads this beside the diff against upstream.
 ```
@@ -658,17 +658,17 @@ import { describe, expect, it } from 'vitest';
 import { makeMarkers } from './markers.mjs';
 
 describe('makeMarkers', () => {
-  it('reproduces upstream markers byte for byte with the vertuo-outbox prefix', () => {
-    const m = makeMarkers('vertuo-outbox');
-    expect(m.comment).toBe('<!-- vertuo-outbox -->');
-    expect(m.prComment).toBe('<!-- vertuo-outbox-pr -->');
-    expect(m.settledOpen('s1-01-x')).toBe('<!-- vertuo-outbox-settled: s1-01-x -->');
-    expect(m.settledClose('s1-01-x')).toBe('<!-- /vertuo-outbox-settled: s1-01-x -->');
-    expect('<!-- vertuo-outbox-settled: s1-01-x -->').toMatch(m.settledOpenRe);
-    expect(m.round(2, [1, 3])).toBe('<!-- vertuo-outbox-round: 2 1,3 -->');
-    expect('<!-- vertuo-outbox-round: 2 1,3 -->'.match(m.roundRe).slice(1)).toEqual(['2', '1,3']);
-    expect('<!-- vertuo-outbox-numbers: {"a":1} -->'.match(m.numbersRe)[1]).toBe('{"a":1}');
-    expect('<!-- vertuo-outbox-announced: a,b -->'.match(m.announcedRe)[1]).toBe('a,b');
+  it('reproduces upstream markers byte for byte with the nimbus-outbox prefix', () => {
+    const m = makeMarkers('nimbus-outbox');
+    expect(m.comment).toBe('<!-- nimbus-outbox -->');
+    expect(m.prComment).toBe('<!-- nimbus-outbox-pr -->');
+    expect(m.settledOpen('s1-01-x')).toBe('<!-- nimbus-outbox-settled: s1-01-x -->');
+    expect(m.settledClose('s1-01-x')).toBe('<!-- /nimbus-outbox-settled: s1-01-x -->');
+    expect('<!-- nimbus-outbox-settled: s1-01-x -->').toMatch(m.settledOpenRe);
+    expect(m.round(2, [1, 3])).toBe('<!-- nimbus-outbox-round: 2 1,3 -->');
+    expect('<!-- nimbus-outbox-round: 2 1,3 -->'.match(m.roundRe).slice(1)).toEqual(['2', '1,3']);
+    expect('<!-- nimbus-outbox-numbers: {"a":1} -->'.match(m.numbersRe)[1]).toBe('{"a":1}');
+    expect('<!-- nimbus-outbox-announced: a,b -->'.match(m.announcedRe)[1]).toBe('a,b');
   });
   it('uses the configured prefix', () => {
     expect(makeMarkers('omni-outbox').settledOpen('x')).toBe('<!-- omni-outbox-settled: x -->');
@@ -727,7 +727,7 @@ import { loadContext, slugFromRemote } from './context.mjs';
 
 describe('slugFromRemote', () => {
   it.each([
-    ['git@github.com:vertuoza/some-repo.git', 'vertuoza/some-repo'],
+    ['git@github.com:demo-org/some-repo.git', 'demo-org/some-repo'],
     ['https://github.com/acme/widgets.git', 'acme/widgets'],
     ['https://github.com/acme/widgets', 'acme/widgets'],
     ['ssh://git@github.com/acme/widgets.git', 'acme/widgets'],
@@ -849,8 +849,8 @@ export function makeRepo({ files = {}, config = {}, git = false } = {}) {
 ```
 `kit/test/flat-layout.mjs`:
 ```js
-// Test-only. Reproduces upstream vertuo-ai-domain's flat layout (docs/outbox/<prd>/, docs/adr,
-// docs/knowledge) and its `vertuo-outbox` markers, so ported upstream tests keep their assertions
+// Test-only. Reproduces upstream nimbus-brain's flat layout (docs/outbox/<prd>/, docs/adr,
+// docs/knowledge) and its `nimbus-outbox` markers, so ported upstream tests keep their assertions
 // byte for byte. Never shipped: kit/lib knows only the folders layout.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -885,10 +885,10 @@ export function flatLayout(root) {
 
 export function flatCtx(root, overrides = {}) {
   const ctx = testContext(root, {
-    markers: { prefix: 'vertuo-outbox' },
+    markers: { prefix: 'nimbus-outbox' },
     laws: { source: 'knowledge' },
     paths: { knowledge: 'docs/knowledge', adr: 'docs/adr', glossary: 'docs/glossary.md' },
-    repo: { slug: 'vertuoza/vertuo-ai-domain' },
+    repo: { slug: 'demo-org/nimbus-brain' },
     ...overrides,
   });
   return Object.freeze({ ...ctx, layout: flatLayout(root) });
@@ -1210,7 +1210,7 @@ it('lists open items in flight and in shipped folders, never settled.md or accou
 | Upstream | Kit |
 |---|---|
 | `ENTRY_OPEN` / `ENTRY_CLOSE` / `ENTRY_OPEN_RE` module constants | `markers.settledOpen` / `markers.settledClose` / `markers.settledOpenRe` |
-| `(/vertuo-yolo-fix)` in the drifted `Closed:` text | `` `(${COMMANDS.yoloFix})` `` |
+| `(/nimbus-yolo-fix)` in the drifted `Closed:` text | `` `(${COMMANDS.yoloFix})` `` |
 | `` `docs/outbox/SETTLING.md` `` in `settledHeader` | `` `${ctx.layout.dirs.outbox}/README.md` `` |
 | `join(OUTBOX_DIR, String(item.prd), SETTLED_FILE)` | `` `${ctx.layout.outboxDir(item.prd)}/${SETTLED_FILE}` ``; if `outboxDir` is `null`, throw `Error(\`PRD ${item.prd} has no inbox or shipped folder\`)` |
 
@@ -1224,8 +1224,8 @@ it('reads Became: as a list of ids', () => {
   expect(parseSettledEntries(text, markers)[0].became).toEqual(['N-PRODUCT-1', 'N-PRODUCT-2']);
 });
 ```
-- [ ] **Step 4: Port the tests** (`flatCtx`, `markers = makeMarkers('vertuo-outbox')`); the only
-  assertion changes allowed are the `/vertuo-yolo-fix` text (now `/omni-yolo-fix`) and the
+- [ ] **Step 4: Port the tests** (`flatCtx`, `markers = makeMarkers('nimbus-outbox')`); the only
+  assertion changes allowed are the `/nimbus-yolo-fix` text (now `/omni-yolo-fix`) and the
   `SETTLING.md` path in the header. List both.
 - [ ] **Step 5: Add a folders-layout case:** `settleItem` on `.omni-loop/delivery/outbox/0042-a/s1-01-x.md`
   (an item fixture copied from one of upstream's test fixtures, with `prd: 42`) appends to
@@ -1391,8 +1391,8 @@ it('the override label still waves everything through', () => {
 - [ ] **Step 1: Fetch; Step 2: mapping** — `OUTBOX_MARKER_PREFIX` → `markers.any`; the round marker
   literal → `markers.round(round, numbers)`; `DEFAULT_REPO` → deleted (the CLI passes
   `ctx.config.repo.slug`); `join(OUTBOX_DIR, String(prd), SETTLED_FILE)` →
-  `` `${ctx.layout.outboxDir(prd)}/${SETTLED_FILE}` ``; `/vertuo-yolo-fix` → `COMMANDS.yoloFix`.
-- [ ] **Step 3: Port tests** (`flatCtx`, `makeMarkers('vertuo-outbox')`), fake client unchanged.
+  `` `${ctx.layout.outboxDir(prd)}/${SETTLED_FILE}` ``; `/nimbus-yolo-fix` → `COMMANDS.yoloFix`.
+- [ ] **Step 3: Port tests** (`flatCtx`, `makeMarkers('nimbus-outbox')`), fake client unchanged.
 - [ ] **Step 4: Gate, Commit** — `feat(kit): port reply intake`.
 
 ---
@@ -1424,10 +1424,10 @@ it('the override label still waves everything through', () => {
 | `DEFAULT_REPO` | deleted |
 | `` `docs/outbox/${prd}/` `` and `` `docs/outbox/${prd}/settled.md` `` in text | `` `${ctx.layout.outboxDir(prd)}/` `` and `` `${ctx.layout.outboxDir(prd)}/settled.md` `` |
 | `labels.includes('outbox:go')` and the `outbox:go` text | `ctx.config.labels.outboxGo` |
-| `/vertuo-yolo-fix`, `/vertuo-yolo`, `/vertuo-deliver` in text | `COMMANDS.*` |
+| `/nimbus-yolo-fix`, `/nimbus-yolo`, `/nimbus-deliver` in text | `COMMANDS.*` |
 | the default Slack channel id (#octopod) | none: `maybeWriteSlackNote` writes nothing when `ctx.config.notify.slack` is `null` |
 
-- [ ] **Step 3: Port tests** — `flatCtx`, `makeMarkers('vertuo-outbox')`, labels default
+- [ ] **Step 3: Port tests** — `flatCtx`, `makeMarkers('nimbus-outbox')`, labels default
   `outbox:go`. Allowed assertion changes: command names in rendered text. The Slack cases pass
   `flatCtx(root, { notify: { slack: {} } })`.
 - [ ] **Step 4: New test** — with `notify.slack: null`, `maybeWriteSlackNote` returns without writing
@@ -1527,9 +1527,9 @@ it('still refuses status, branch, value and priority by name', () => {
 ### Task 13: **Port** the policies — recording, rework, phase-0
 
 **Files:**
-- Create: `kit/lib/policy/outbox-policy.mjs` (+ test) ← `.claude/skills/vertuo-do-work/outbox-policy.mjs`
-- Create: `kit/lib/policy/rework.mjs` (+ test) ← `.claude/skills/vertuo-yolo-fix/rework.mjs`
-- Create: `kit/lib/policy/phase-0.mjs` (+ test) ← `.claude/skills/vertuo-brainstorming/phase-0-policy.mjs`
+- Create: `kit/lib/policy/outbox-policy.mjs` (+ test) ← `.claude/skills/nimbus-do-work/outbox-policy.mjs`
+- Create: `kit/lib/policy/rework.mjs` (+ test) ← `.claude/skills/nimbus-yolo-fix/rework.mjs`
+- Create: `kit/lib/policy/phase-0.mjs` (+ test) ← `.claude/skills/nimbus-brainstorming/phase-0-policy.mjs`
 
 **Interfaces:**
 - Produces: outbox-policy — `SLICE_STATUSES`, `RECORDING_OUTCOMES`, `AUTHOR_MARK`,
@@ -1552,13 +1552,13 @@ it('still refuses status, branch, value and priority by name', () => {
 | Upstream | Kit |
 |---|---|
 | `'../../../scripts/…'` imports | the kit modules from Tasks 3–9 |
-| consultation keys `'/vertuo-deliver'`, `'/vertuo-yolo'` | `COMMANDS.deliver`, `COMMANDS.yolo` |
+| consultation keys `'/nimbus-deliver'`, `'/nimbus-yolo'` | `COMMANDS.deliver`, `COMMANDS.yolo` |
 | `idParts` law detection in `decideRecording` | `laws.floorsHigh(bearsOn)` for "a law it can name"; a `P-` id conflict still stops only when `laws.source === 'knowledge'` |
 | `pnpm check:decision-coverage` / `node scripts/check-decision-coverage.mjs` text | `node .omni-loop/bin/omni.mjs check coverage` |
-| `<!-- vertuo-outbox-settled: … -->` in rework | `markers` |
+| `<!-- nimbus-outbox-settled: … -->` in rework | `markers` |
 | `PHASE_0_LABEL`, `PHASE_0_BASE`, `PLAN_DIR`, `PENDING_FEATURE_SUFFIX`, `INBOX_DIR`, `BEFORE_AFTER_DIR`, `inboxFilePath`, `beforeAfterPath` | `ctx.config.labels.phase0`, `ctx.config.repo.defaultBranch`, the folder paths from `ctx.layout` (the PRD's spec, plan and page all sit in `inbox/<prd>-<topic>/`), `ctx.config.acceptance.dir` + `.pendingSuffix` (acceptance paths are a phase-0 kind only when `acceptance.enabled`) |
 
-- [ ] **Step 3: Port tests.** outbox-policy and rework: `flatCtx`/`makeMarkers('vertuo-outbox')`,
+- [ ] **Step 3: Port tests.** outbox-policy and rework: `flatCtx`/`makeMarkers('nimbus-outbox')`,
   laws from the regex stub in Task 5. phase-0: rewrite against folders fixtures (upstream's are
   flat), keeping each case's intent: a docs-only PR with spec + plan + page passes; a source file
   fails; a missing plan fails; a claude.ai link as handoff is refused.
@@ -1908,7 +1908,7 @@ if (invoked) {
   `kit/bin/commands/index.mjs` exports `COMMAND_TABLE = { config, prd, status, settle, adopt, replies, comment, ship, check, knowledge }`,
   each `{ run(args, { ctx, stdout, stderr, exec }) → Promise<number> }` in its own file. Each file's
   flag parsing is re-fetched from the upstream module's CLI half named in the table above
-  (`git -C ../vertuo-ai-domain show c4a210122:scripts/<module>.mjs`), with `--repo` defaulting to
+  (`git -C ../nimbus-brain show c4a210122:scripts/<module>.mjs`), with `--repo` defaulting to
   `ctx.config.repo.slug` and every path argument resolved against `ctx.root`. Throw
   `Object.assign(new Error(msg), { name: 'UsageError' })` for a bad flag. `kit/bin/github.mjs`
   holds upstream's `ghClient` (from `outbox-comment.mjs`) and the replies client, both taking `exec`

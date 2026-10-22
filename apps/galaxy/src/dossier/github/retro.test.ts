@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readRetro, retroSource } from './retro';
 import type { PullRef } from './summary';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 // Where the PRD page reads a PRD's retro.md (PRD 426, s3): from the retro branch while its pull request
 // is open, from the default branch once it is merged, and nowhere when there is no retro PR. Pure: the

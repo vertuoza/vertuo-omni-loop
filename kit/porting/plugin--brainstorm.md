@@ -1,6 +1,6 @@
 # `kit/plugin/skills/brainstorm/SKILL.md` (`/omni:brainstorm`)
 
-Source: `.claude/skills/vertuo-brainstorming/SKILL.md` @ `vertuo-ai-domain@c4a210122`. Its step 1
+Source: `.claude/skills/nimbus-brainstorming/SKILL.md` @ `nimbus-brain@c4a210122`. Its step 1
 ("invoke `superpowers:brainstorming` and follow it to the letter") is replaced by that skill's steps
 written in (spec §2: no `superpowers:` dependency), taken from `superpowers` 6.4.1
 `skills/brainstorming/SKILL.md`. Its executable policy, `phase-0-policy.mjs`, was ported earlier as
@@ -23,12 +23,12 @@ written in (spec §2: no `superpowers:` dependency), taken from `superpowers` 6.
 | `--label pr:phase-0` ("create it if missing"), `Refs #<prd>` | `labels.phase0` under **Labels**, `prLinks.phase0` |
 | `pnpm check:inbox` | `omni check inbox` |
 | `pnpm check:phase-0 <prd>` (`scripts/check-phase-0.mjs`) | `omni phase0 <n>`, run after the phase-0 commit (it grades `<base>...HEAD`) |
-| `vertuo-plan`, `vertuo-pull-request` | `/omni:plan`, `/omni:pr` |
-| `/vertuo-deliver #<n>` or `/vertuo-yolo #<n>` | `/omni:yolo <n>` only |
+| `nimbus-plan`, `nimbus-pull-request` | `/omni:plan`, `/omni:pr` |
+| `/nimbus-deliver #<n>` or `/nimbus-yolo #<n>` | `/omni:yolo <n>` only |
 
 ## Dropped
 
-- **`/vertuo-deliver` as a hand-off:** out of scope (spec §4); the last line is `/omni:yolo <n>`.
+- **`/nimbus-deliver` as a hand-off:** out of scope (spec §4); the last line is `/omni:yolo <n>`.
 - **The `plan:` front-matter field** and upstream's step 6.1 (fill `plan:` and commit): the kit's
   inbox guard refuses a `plan` field by name; the plan is always the sibling `plan.md`.
 - **The `## Delivery` spec section:** the plan beside the spec and the Handoff carry it; PRD 7's own
@@ -334,3 +334,10 @@ names `omni dossier link`, which the skill already named, so the snapshot is unc
 Not a re-port. Step 10 gains, above the command in each of its two **What is next?** blocks, the line
 "To build it on a runner instead: `/omni:yolo-runner <n>`."; the command stays the last line,
 `/omni:yolo <n>`. Tested in `kit/test/plugin.test.ts`, `/omni:yolo-runner and the hand-offs that name it`.
+
+## PRD 2299, slice s3 — the product's glossary and legal entries
+
+Not a re-port: kit-local prose. The words of step 4 and step 6 (**Words first**) read `omni kb
+glossary`, the page winning over `paths.glossary` on a shared term. **Risks** names each Legal entry
+the design touches, from `omni kb legal`, as it names locked laws. Tested in
+`kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".

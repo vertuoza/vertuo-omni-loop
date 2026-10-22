@@ -8,7 +8,7 @@ import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuesti
 import { BellView } from './Bell.tsx';
 import type { BellAlerts, BellUnread } from './bell';
 import { item } from '../ask/test/test-item';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499) as the server renders it: its count badge and accessible name, and its
 // panel, closed at first, listing the Questions and Outbox groups, or that nothing waits.

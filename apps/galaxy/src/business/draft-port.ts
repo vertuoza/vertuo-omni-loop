@@ -5,7 +5,7 @@ import type { DraftView, WebPage } from './reveal';
 import { MAX_PAGES } from './reveal';
 import { COULD_NOT_SAVE, refusalOf } from './store';
 import { orNull, parseRow, parseRows } from '../data/parse-rows';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // The draft's calls from Settings › Business (PRD 774 s3), as the signed-in person. Draft from my repos
 // posts to the draft route (src/business/draft/api.ts), which answers the draft it started or the one

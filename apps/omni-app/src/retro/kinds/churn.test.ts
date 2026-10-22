@@ -1,8 +1,8 @@
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { failing } from '../../../test/github-replay.ts';
 import { JUDGE_ENV, MERGE_SHA, judge, mergeFiles } from '../../../test/retro-scenario.ts';
 import { inngest } from '../../inngest-client.ts';

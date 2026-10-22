@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 import { ALL_IN_A_PRODUCT, DEMO_PRODUCTS_LIST, NO_PRODUCTS_YET, ProductsHome } from './ProductsHome';
 import type { ProductsList } from './products.service';
 

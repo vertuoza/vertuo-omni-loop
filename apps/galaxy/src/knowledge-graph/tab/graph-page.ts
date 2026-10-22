@@ -1,5 +1,5 @@
-import type { ProductGraphEdge, ProductGraphNode, RepositoryStanding, Unresolved } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
-import { PRODUCT_GRAPH_DEPTH } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import type { ProductGraphEdge, ProductGraphNode, RepositoryStanding, Unresolved } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
+import { PRODUCT_GRAPH_DEPTH } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 import type { JoinedGraph, JoinedNode } from '../join';
 import { walkProductGraph } from '../walk';
 

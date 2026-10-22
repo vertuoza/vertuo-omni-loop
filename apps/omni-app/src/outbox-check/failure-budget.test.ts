@@ -8,7 +8,7 @@ import { InngestTestEngine } from '@inngest/test';
 import { RetryAfterError } from 'inngest';
 import { describe, expect, it } from 'vitest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { fakeGitHub } from './fake-github.ts';
 import { createFailureHandler, createOutboxCheck } from './outbox-check.ts';

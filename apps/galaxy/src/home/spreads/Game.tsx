@@ -1,6 +1,6 @@
 import { spritePixels } from '@omni/design';
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { RULEBOOK } from 'omni-loop/game/rulebook.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { cssVars } from '../../arcade/css-vars';
 import { pixelSvg } from '../../design/pixel-svg';
 import { Svg } from '../poster/Poster';

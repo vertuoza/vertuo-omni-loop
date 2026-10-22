@@ -1,8 +1,8 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { STAGE_SIGNATURE_HEADER } from './stage-forward.ts';
 import { forwardTouch, touchedUrl, toTouches, type Touch } from './touch.ts';
 

@@ -3,7 +3,7 @@ name: yolo
 description: Build a whole PRD with nothing asked along the way — plan it if needed, run /omni:wave until every slice is merged or nothing more can move, then finish the feature branch, run the outbox gate, and ship before ready. Green gate — omni ship, commit, push, then the feature PR is marked ready. Red gate — the feature PR stays draft with the outbox questions posted on it, then, with answers.enabled on, it offers to take the answers here and carry on into the yolo-fix steps. Never merges into the default branch. Triggers on "yolo this PRD", "build it, I'll review the outbox after", "/omni:yolo".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-yolo/SKILL.md (and vertuo-deliver §1–3, with the ask-nothing policy) — changes in kit/porting/plugin--yolo.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-yolo/SKILL.md (and nimbus-deliver §1–3, with the ask-nothing policy) — changes in kit/porting/plugin--yolo.md -->
 
 # Yolo: every wave, the gate, ship before ready
 

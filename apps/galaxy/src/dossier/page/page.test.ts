@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement, Fragment, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { fakeStageStore } from '../../stages/store.fake';
 import { fakeSnapshotStore } from '../snapshot/store.fake';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
@@ -10,16 +10,16 @@ import { signature } from './live';
 import { StoredSummary } from '../snapshot/schema';
 import { LiveRefresh } from './live-refresh';
 import { SANDBOX_CSP } from './sandbox';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd/<id> and its sandboxed route (PRD 216), called as the server calls them, reading as the viewer
 // through the stubbed client of ../store.fake.ts (the migration's access rules): a member reads the
 // dossier, anyone else — another workspace, signed out after signing in — gets not found.
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', name: 'ADA' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', name: 'ADA' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 const OTHER = '00000000-0000-4000-8000-00000000aced';
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: [OTHER] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: [OTHER] };
 const SPEC = '---\nprd: 7\ntitle: Team inbox\n---\n\n# Team inbox\n\n<b>raw</b>\n';
 const PAGE = '<!doctype html><title>After</title><script>document.title = "ran"</script>';
 
@@ -697,9 +697,9 @@ describe('the history', () => {
     const page = await list();
     expect(page).toContain('<span class="dossier-number">#71</span>');
     expect(page).toContain('<span class="dossier-draft">DRAFT</span>');
-    expect(rows(await list({ repo: 'vertuoza/vertuo-web' }))).toHaveLength(1);
-    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop' }))).toHaveLength(2);
-    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop', who: 'all' }))).toHaveLength(3);
+    expect(rows(await list({ repo: 'demo-org/nimbus-web' }))).toHaveLength(1);
+    expect(rows(await list({ repo: 'demo-org/nimbus-plan' }))).toHaveLength(2);
+    expect(rows(await list({ repo: 'demo-org/nimbus-plan', who: 'all' }))).toHaveLength(3);
   });
 });
 

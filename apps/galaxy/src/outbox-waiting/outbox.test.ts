@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakePrdOutboxStore } from '../stages/outbox/store.fake';
 import type { OutboxCounts, WaitingQuestion } from '../stages/outbox/store';
 import { MAX_DOSSIERS, waitingItems, waitingOutbox, type WaitingDb, type WaitingDeps } from './outbox';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const ME = 'user-me';
 

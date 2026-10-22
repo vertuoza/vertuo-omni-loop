@@ -15,10 +15,15 @@
 // branch's head, and opens a PR from there. The records of the runs before it (`earlier`) are written
 // again beside its own, so its `retro.md` is the whole retro even when the first PR was never merged.
 //
+// `retro.json` keeps the outcomes `/omni:retro-apply` recorded on the branch (PRD 2338): a replay and
+// the day-14 run write every one back. While the open retro PR holds a kept lesson with no outcome,
+// its body carries the line that settles them, which the publish gives back for the retro to queue.
+//
 // The branch, the commit and the PR are written through the app's shared writer (`../git-write/`).
 import { addCommit, branchHead, pullsFrom, refuseDefault, upsertPull } from '../git-write/git-write.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
+import { applyLine, unsettledLessons } from './apply.ts';
 import { mergeRuns, render } from './render.ts';
 import { readContent } from './github.ts';
 import { RefSchema, parseGitHub } from './github.schema.ts';
@@ -46,6 +51,8 @@ export type Published = {
   committed: boolean;
   commit: string;
   pr: { number: PrNumber; url: string; created: boolean } | null;
+  /** The line that settles the open retro PR's kept lessons, written in its body; `null` when none waits (PRD 2338). */
+  apply: string | null;
 };
 
 export async function publishRetro(octokit: Octokit, { owner, repo, config, prd, pr, record, prose, earlier = [] }: PublishInput): Promise<Published> {
@@ -67,7 +74,8 @@ export async function publishRetro(octokit: Octokit, { owner, repo, config, prd,
     json: await readContent(octokit, { owner, repo, ref: branch, path: paths.json }),
     markdown: await readContent(octokit, { owner, repo, ref: branch, path: paths.markdown }),
   };
-  const out = render({ doc: withRuns(onBranch.json, [...earlier, record]), featurePr: pr.number, prose });
+  const doc = withRuns(onBranch.json, [...earlier, record]);
+  const out = render({ doc, featurePr: pr.number, prose });
   const unchanged = onBranch.markdown === out.markdown && onBranch.json === out.json;
 
   let commit: string = head;
@@ -88,6 +96,7 @@ export async function publishRetro(octokit: Octokit, { owner, repo, config, prd,
 
   // A branch holding nothing beyond where it is cut from has nothing to propose.
   const found = commit === from ? null : await upsertPull(octokit, { owner, repo, branch, base, head: commit, title: out.title, body: out.prBody });
+  let apply: string | null = null;
   if (found?.open) {
     await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/labels', {
       owner,
@@ -95,9 +104,31 @@ export async function publishRetro(octokit: Octokit, { owner, repo, config, prd,
       issue_number: found.number,
       labels: [config.labels.retro],
     });
+    apply = await withApplyLine(octokit, { owner, repo, pull: found.number, doc, featurePr: pr.number, prose });
   }
   const retroPr = found ? { number: found.number, url: found.url, created: found.created } : null;
-  return { branch, committed: !unchanged, commit, pr: retroPr };
+  return { branch, committed: !unchanged, commit, pr: retroPr, apply };
+}
+
+/**
+ * The line that settles the open retro PR's kept lessons still without an outcome (PRD 2338), written
+ * into its body for a person to run when no runner takes it; `null`, and the body left as written,
+ * when every kept lesson has one. The PR's number is known only once it is open, so the body is
+ * rewritten in place.
+ */
+async function withApplyLine(
+  octokit: Octokit,
+  { owner, repo, pull, doc, featurePr, prose }: Repo & { pull: PrNumber; doc: RetroDoc; featurePr: PrNumber; prose: Prose | null },
+): Promise<string | null> {
+  if (unsettledLessons(doc.runs.filter((run) => run.featurePr.number === featurePr)).length === 0) return null;
+  const apply = applyLine(pull);
+  await octokit.request('PATCH /repos/{owner}/{repo}/pulls/{pull_number}', {
+    owner,
+    repo,
+    pull_number: pull,
+    body: render({ doc, featurePr, prose, apply }).prBody,
+  });
+  return apply;
 }
 
 /**

@@ -8,8 +8,8 @@
 // and before that lights nothing and reads Brainstorming. A numbered PRD with no row yet reads Syncing….
 // A PRD at building whose feature PR carries open outbox items (the red yolo gate) shows a badge,
 // N questions waiting, linking to where they are answered.
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export type StageId = 'idea' | 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped' | 'retro';
 

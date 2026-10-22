@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { hitlCategory, type HitlInput } from '../jev/decisions/hitl-category';
 import { decide, type JevDecideDeps } from '../jev/resolve';
 import { HumanWorkKind, HumanWorkSource } from './store';

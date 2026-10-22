@@ -8,7 +8,7 @@ import { answeredJobs, loadRunnersPage, type RunnersPageReads } from './load';
 // fleets; no workspace, the notice; the board refused or a read failing, unreadable; the fleets failing
 // alone, the board with no fleet to pick.
 
-vi.mock('vertuo-omni-plan/kit/lib/log/log.ts', () => ({ log: { error: () => undefined } }));
+vi.mock('omni-loop/kit/lib/log/log.ts', () => ({ log: { error: () => undefined } }));
 
 const NOW = new Date('2026-10-13T14:00:00Z');
 const WORKSPACE = { id: 'w1', slug: 'acme', name: 'Acme', theme: {} };

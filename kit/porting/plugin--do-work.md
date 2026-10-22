@@ -1,6 +1,6 @@
 # `kit/plugin/skills/do-work/SKILL.md`
 
-Source: `.claude/skills/vertuo-do-work/SKILL.md` @ `vertuo-ai-domain@c4a210122`, and the prose
+Source: `.claude/skills/nimbus-do-work/SKILL.md` @ `nimbus-brain@c4a210122`, and the prose
 duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 `kit/lib/policy/outbox-policy.mjs`, see `policy--outbox-policy.md`). Typed `/omni:do-work`.
 
@@ -19,8 +19,8 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 | `pnpm check` (implied) | every command in `commands.checks`, then `omni check all` |
 | `<behaviour>.pending.feature` → `.feature` | `acceptance.pendingSuffix` under `acceptance.dir`, only when `acceptance.enabled` |
 | the browser scenarios run twice against Railway | `acceptance.run`, run twice, only when `acceptance.enabled` |
-| `vertuo-pull-request` (PR kind, labels, `Part of #<prd>`, lifecycle) | "follow `/omni:pr`" — labels and link lines are that skill's, read from `labels.*` and `prLinks.*` |
-| `vertuo-parallel-wave` dispatch | `/omni:wave`, signalled by the explicit `--in-wave` input |
+| `nimbus-pull-request` (PR kind, labels, `Part of #<prd>`, lifecycle) | "follow `/omni:pr`" — labels and link lines are that skill's, read from `labels.*` and `prLinks.*` |
+| `nimbus-parallel-wave` dispatch | `/omni:wave`, signalled by the explicit `--in-wave` input |
 | "Start From Architecture" (Zod-first, OpenRouter, Kysely, controller-service-repository, `use-intl`, ADR 0037/0040) | the repository's own forms: `omni kb show architecture`, `conventions` and `setup` (PRD 45; it was `.omni-loop/repo.md`, now retired) |
 | `docs/agents/testing.md`, `verification.md`, `pull-request.md`, `definition-of-done.md` ("Pair With") | `omni kb show testing` at test-first; `verification`, `pull-requests`, `definition-of-done` at ship (PRD 45) |
 
@@ -40,7 +40,7 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 - **"Right-Size The Model (When Delegating)":** a slice is built by one agent, and `/omni:wave`
   already sits two levels deep; do-work delegating further would near the three-level subagent limit.
 - **"SOLID In This Repo" examples tied to OpenRouter/Kysely:** kept as three generic lines in Build.
-- **"Pair With"** (`vertuo-fix-bug`, `vertuo-testing`, `docs/agents/*.md`): none has an `/omni:` twin;
+- **"Pair With"** (`nimbus-fix-bug`, `nimbus-testing`, `docs/agents/*.md`): none has an `/omni:` twin;
   the `docs/agents/` pages came back as the playbook forms in PRD 45 (above).
 - **Writing the item text by hand** (the letter-your-own-options fallback): `omni item new` renders it.
 
@@ -275,3 +275,11 @@ human-action accounts for.
 ### Tests
 
 `kit/test/briefing-text-skills.test.ts`.
+
+## PRD 2299, slice s3 — the product's glossary and legal entries
+
+Not a re-port: kit-local prose. Step 1, item 4 (the context read) gains `omni kb glossary`, read where
+the slice's words come from, and `omni kb legal` when the slice touches personal data, keys, logs or
+licences. Where a term is in both the page and `paths.glossary`, the page wins; an offline or
+product-less read carries on with what it has. Tested in `kit/test/plugin.test.ts`, "the skills read
+the product knowledge (PRD 2299)".

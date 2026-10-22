@@ -3,11 +3,11 @@
 // PRD. Read from what the check already computed and the head it already snapshotted: it makes no
 // request, and it decides nothing the check did not.
 import { join } from 'node:path';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { escalates, type EscalationSettings, type HeldKind } from 'vertuo-omni-plan/kit/lib/escalation/escalation.ts';
-import { prdFoldersIn } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { openItems } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { escalates, type EscalationSettings, type HeldKind } from 'omni-loop/kit/lib/escalation/escalation.ts';
+import { prdFoldersIn } from 'omni-loop/kit/lib/layout.ts';
+import { openItems } from 'omni-loop/kit/lib/outbox/status.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { prdDirs, prdOfTopic, pullKind } from '../evaluate/evaluate.ts';
 import type { LawGate } from '../outbox-check/law-locked.ts';
 

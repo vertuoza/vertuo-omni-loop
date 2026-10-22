@@ -1,9 +1,10 @@
-import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { outcomeLine } from 'omni-loop/kit/lib/retro/outcome.ts';
 import { replayGitHub } from '../../test/github-replay.ts';
 import { FEATURE, OWNER, PLAN, REPO, SUB_PULLS } from '../../test/retro-scenario.ts';
 import { detect } from './detect.ts';
@@ -222,6 +223,80 @@ describe('mergeRuns — retro.json keeps every run', () => {
 
   it('starts again from nothing when the file on the branch is not JSON', async () => {
     expect(mergeRuns('not json', await widgetSheet()).runs).toHaveLength(1);
+  });
+});
+
+describe('render — the outcomes of the kept lessons (PRD 2338)', () => {
+  const issues: IssueLinks = {
+    'repeated-red:e2e': { number: parseIssue(88), url: 'https://github.com/acme/widgets/issues/88', state: 'open' },
+    'slow-slice:s3': { number: parseIssue(89), url: 'https://github.com/acme/widgets/issues/89', state: 'open' },
+  };
+  const prose: Prose = {
+    findings: {
+      'repeated-red:e2e': { lesson: 'Fix the flaky step first.', keep: true, why: 'It is new.' },
+      'slow-slice:s3': { lesson: 'Split a slice that runs long.', keep: true, why: 'It is new too.' },
+    },
+    lessons: [],
+    verdict: { worthIt: true, reason: 'New.' },
+  };
+  const settled = async (): Promise<RunRecord> => ({
+    ...(await widgetSheet({ extra: [RED], issues })),
+    outcomes: { 'repeated-red:e2e': { became: 'playbook/testing#never' } },
+  });
+
+  it('renders each outcome under its lesson, with the kit’s line, and none under a lesson that has none', async () => {
+    const { markdown } = render({ doc: mergeRuns(null, await settled()), featurePr: 12, prose });
+    expect(markdown).toContain(`- **Kept:** It is new.\n${outcomeLine({ became: 'playbook/testing#never' })}\n- **Evidence:** `);
+    expect(markdown).toContain('- **Kept:** It is new too.\n- **Evidence:** ');
+  });
+
+  it('renders a reason it stays here on one line', async () => {
+    const sheet: RunRecord = { ...(await settled()), outcomes: { 'slow-slice:s3': { staysHere: 'A rule\n  already says it.' } } };
+    const { markdown } = render({ doc: mergeRuns(null, sheet), featurePr: 12, prose });
+    expect(markdown).toContain('- **Kept:** It is new too.\n- **Stays here:** A rule already says it.\n');
+  });
+
+  it('shows each outcome in the PR body, closes the issue of each settled lesson, and says what merging applies', async () => {
+    const { prBody } = render({ doc: mergeRuns(null, await settled()), featurePr: 12, prose });
+    expect(prBody).toContain('· [#88](https://github.com/acme/widgets/issues/88)\n  - **Became:** `playbook/testing#never`\n');
+    expect(prBody).toContain('\nCloses #88\n');
+    expect(prBody).not.toContain('Closes #89');
+    expect(prBody).not.toContain('changes nothing else');
+  });
+
+  it('carries the line that settles the kept lessons when it is given, and none when it is not', async () => {
+    const doc = mergeRuns(null, await widgetSheet({ extra: [RED], issues }));
+    const line = '/omni:retro-apply --retro 21';
+    const withLine = render({ doc, featurePr: 12, prose, apply: line }).prBody;
+    expect(withLine).toContain('\n## Lessons to settle\n');
+    expect(withLine).toContain(`\n\`\`\`text\n${line}\n\`\`\`\n`);
+    const without = render({ doc, featurePr: 12, prose }).prBody;
+    expect(without).not.toContain('Lessons to settle');
+    expect(without).toContain('\nMerging keeps this retro as history and changes nothing else.\n');
+  });
+});
+
+describe('mergeRuns — a lesson’s outcome is never lost (PRD 2338)', () => {
+  it('keeps the outcomes of the run a replay replaces, and of every other run', async () => {
+    const sheet = await widgetSheet();
+    const onBranch = {
+      prd: 7,
+      runs: [
+        { ...sheet, outcomes: { 'slow-slice:s3': { became: 'playbook/testing#never' } } },
+        { ...sheet, run: 'day-14', outcomes: { 'bug:40': { staysHere: 'Not about how to work here.' } } },
+      ],
+    };
+    const again = mergeRuns(JSON.stringify(onBranch), sheet);
+    expect(again.runs.map((run) => run.outcomes)).toEqual([
+      { 'slow-slice:s3': { became: 'playbook/testing#never' } },
+      { 'bug:40': { staysHere: 'Not about how to work here.' } },
+    ]);
+  });
+
+  it('adds nothing to a run that records no outcome', async () => {
+    const sheet = await widgetSheet();
+    const again = mergeRuns(JSON.stringify(mergeRuns(null, sheet)), sheet);
+    expect(again.runs[0]).not.toHaveProperty('outcomes');
   });
 });
 

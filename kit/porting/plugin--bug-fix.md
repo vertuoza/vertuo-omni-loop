@@ -1,6 +1,6 @@
 # `kit/plugin/skills/bug-fix/SKILL.md` (`/omni:bug-fix`)
 
-Source: `.claude/skills/vertuo-fix-bug/SKILL.md` @ `vertuo-ai-domain@47a1a194a` (its last change on
+Source: `.claude/skills/nimbus-fix-bug/SKILL.md` @ `nimbus-brain@47a1a194a` (its last change on
 origin/main when PRD 556 was built). Shaped like `/omni:visual-fix` (PRD 541): frontmatter,
 **Signing**, the input table, Step 0, the boundary and its stop, numbered steps, the hand-off and
 **Never**. The flow, the boundary, the five stop rules, the triage comment, the record and the PR's
@@ -15,13 +15,13 @@ Bug section are PRD 556's spec, carried whole.
 | `fix/<n>-<slug>`, `.claude/worktrees/fix-<n>` | `branches.fix` with `{topic}` = `<n>-<slug>`, under `worktrees` |
 | `gh label create risk:<level> … --force`, `regression` | `labels.riskCritical`, `labels.riskHigh`, `labels.riskMedium`, `labels.riskLow`, `labels.regression`, created by `omni init`, and by the skill only under `/omni:pr`'s **Labels** rules (`labels.autoCreate`) |
 | an issue labelled `bug` | `labels.bug`; the skill opens the issue itself from a description |
-| `<!-- vertuo-fix-bug:triage -->` | `<!-- omni-bug:triage -->` |
+| `<!-- nimbus-fix-bug:triage -->` | `<!-- omni-bug:triage -->` |
 | `docs/glossary.md` | `paths.glossary`, else `paths.knowledge` and `paths.context` |
 | `apps/e2e/features/<domain>/<behaviour>.feature`, the bddgen/Playwright run, `E2E_*` variables | an acceptance scenario under `acceptance.dir`, run by `acceptance.run`, when `acceptance.enabled`; otherwise a test at the level `omni kb show testing` picks |
 | `pnpm mutation:changed` | `commands.mutation`, `Mutation: not set here` when null |
 | `pnpm quality:preflight` | `commands.preflight` |
 | three attempts | `limits.attempts` |
-| `vertuo-do-work`, `vertuo-pull-request` | the steps themselves, and `/omni:pr` |
+| `nimbus-do-work`, `nimbus-pull-request` | the steps themselves, and `/omni:pr` |
 
 ## Dropped
 
@@ -84,3 +84,6 @@ Bug section are PRD 556's spec, carried whole.
   with **Reproduction** and **Branch** `pending`, steps 5 and 7 edit those lines in place by the
   marker, a `Production:` line gives the deployed version and the first occurrence in UTC matched
   against releases and deployments, and a release range is regression evidence.
+- **The product's glossary for the reproduction's words** (PRD 2299, slice s3): step 6 reads
+  `omni kb glossary` for the nouns and verbs; the page wins over `paths.glossary` on a shared term.
+  Tested in `kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".

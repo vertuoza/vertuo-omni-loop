@@ -32,7 +32,7 @@
 //   Field: a string, or `{ dropped: '<reason>' }` for a field refused, which `render` writes as one
 //          line naming the reason. A lesson of the list has no such form, so a refused one keeps its
 //          place as that same line (`_Dropped: <reason>._`), citing only the findings the retro found.
-import { isList } from 'vertuo-omni-plan/kit/lib/outbox/plain-text.ts';
+import { isList } from 'omni-loop/kit/lib/outbox/plain-text.ts';
 import { FIELD_CAPS, FINDING_ORDER, refusedWordsIn } from './rules.ts';
 import type { Dropped, Prose, ProseField, ProseFinding, Verdict } from './retro.types.ts';
 

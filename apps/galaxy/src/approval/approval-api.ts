@@ -32,7 +32,7 @@
 // failed or answered out of shape.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { authenticate, callerOrigin, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import type { ServerEvent } from '../server-event/server-event.service';

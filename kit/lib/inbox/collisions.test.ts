@@ -22,17 +22,17 @@ function row(id: string, territory: string) {
 
 describe('planCollisions', () => {
   it('reports two plans declaring an overlapping path as colliding, naming the shared path', () => {
-    const left = planFromMarkdown(parsePrd(1001), plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
-    const right = planFromMarkdown(parsePrd(1002), plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
+    const left = planFromMarkdown(parsePrd(1001), plan([row('s1', '`libs/nimbus-domain-tenant/`')]));
+    const right = planFromMarkdown(parsePrd(1002), plan([row('s1', '`libs/nimbus-domain-tenant/`')]));
 
     expect(planCollisions([left, right])).toEqual([
-      { left: 1001, right: 1002, shared: ['libs/vertuo-domain-tenant/'] },
+      { left: 1001, right: 1002, shared: ['libs/nimbus-domain-tenant/'] },
     ]);
   });
 
   it('reports nothing for two plans whose declared territory is disjoint', () => {
-    const left = planFromMarkdown(parsePrd(1001), plan([row('s1', '`libs/vertuo-domain-tenant/`')]));
-    const right = planFromMarkdown(parsePrd(1002), plan([row('s1', '`libs/vertuo-domain-payment/`')]));
+    const left = planFromMarkdown(parsePrd(1001), plan([row('s1', '`libs/nimbus-domain-tenant/`')]));
+    const right = planFromMarkdown(parsePrd(1002), plan([row('s1', '`libs/nimbus-domain-payment/`')]));
 
     expect(planCollisions([left, right])).toEqual([]);
   });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { ConfigSchema } from 'omni-loop/kit/lib/config.ts';
 import { DEFAULT_CHECK_NAME, MAX_SUMMARY, publish, startCheck } from './publish.ts';
 
 const REPO = { owner: 'vertuoza', repo: 'widget' };

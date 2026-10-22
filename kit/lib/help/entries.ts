@@ -222,14 +222,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'check',
     kind: 'command',
     who: 'you',
-    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|', '  coverage|context|all] [--base <ref>] [--prd <n>]'],
+    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|', '  coverage|context|all] [--base <ref>] [--prd <n>] [--retro <prd>]'],
     label: 'omni check [all]',
     summary: "the repository's guards",
     detail:
       "The repository's guards, each printing its violations or one line saying it passed: config " +
       '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
       '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers), kb (the ' +
-      "playbook's forms), releases (the release notes), coverage (every risky change of a branch " +
+      "playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro " +
+      'kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, ' +
+      "the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch " +
       'accounted for, against --base) and context (what every agent session reads, held to the ' +
       'ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling ' +
       "raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit " +
@@ -266,7 +268,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -278,7 +280,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "as one graph, or with an <id> the neighbourhood of one entry (--paths <file>… for every entry " +
       'that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood ' +
       'document); graph push sends the whole repository graph, at HEAD, to the Omni page ' +
-      '(a clean knowledge folder and a sign-in needed); legal and glossary print ' +
+      '(a clean knowledge folder and a sign-in needed); index prints the capped block a session ' +
+      "starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, " +
+      'at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always ' +
+      'exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print ' +
       "the product's active Legal entries and its glossary " +
       'terms, one line each, read from the Omni page and kept as a local copy, which they print, ' +
       'saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change ' +
@@ -357,7 +362,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
-      'mega-bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
+      'mega-bug-fix, visual-fix, plan, pitch, prove and retro-apply run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
       'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
       'pins is updated (once, however many slots start together), and one still older fails the job ' +
@@ -434,6 +439,23 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
       'omni dossier link does. omni proof session writes the signed-in browser session a run films ' +
       'with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it.',
+  },
+  {
+    name: 'before-after',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni before-after new <n> --services <name>,<name>… [--force]', 'omni before-after render <n>'],
+    summary: "writes a PRD's before/after page in two tabs, and draws its diagrams",
+    detail:
+      'The verbs /omni:brainstorm runs. new writes before-after.html into PRD n\'s inbox folder from the ' +
+      "kit's skeleton: the Functional & design tab first and open, the Technical tab second, one block " +
+      'per named service in each, every section a <!-- FILL --> to replace with filled, na or gap. It ' +
+      'refuses, writing nothing, a PRD with no inbox folder, a page already there unless --force, and ' +
+      'a missing or empty --services, each with one line and exit 1. render replaces each ' +
+      '<pre class="mermaid"> of the page with the SVG Mermaid draws for it, inline, in a headless ' +
+      'Chromium from the repository\'s Playwright; it prints one line per diagram and refuses, with the ' +
+      'install line, when no browser starts. omni check inbox grades a page of this shape: both tabs, ' +
+      'a valid state on every section, no FILL marker, no diagram left unrendered, no external resource.',
   },
   {
     name: 'pitch',
@@ -812,6 +834,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'feature PR. It asks a model where each decision of the PRD belongs in the knowledge base and ' +
       'writes the files into the working tree, staging and committing nothing. It needs gh and ' +
       'OPENROUTER_API_KEY. Exit 1 when the PR is not merged into {defaultBranch}.',
+  },
+  {
+    name: 'retro',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni retro outcome <prd> <finding>', "  (--became <playbook/<form>#<slot>> | --stays-here '<why>')"],
+    summary: "record what became of a retro's kept lesson",
+    detail:
+      "Records a kept lesson's outcome: --became names the playbook slot the rule was appended to, " +
+      '--stays-here gives the reason it stays here. It writes the outcome in the PRD\'s retro.json, ' +
+      'under the run that kept the lesson, and its line under the finding in retro.md. It refuses, ' +
+      'writing nothing and exiting 1, an id that does not resolve to a filled slot, an empty reason, a ' +
+      'finding the retro did not keep, and a lesson that already has an outcome: an outcome is never ' +
+      'rewritten.',
   },
   {
     name: 'item',
@@ -1855,6 +1891,29 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:enforce 1400',
       result: "one PR adding the law's test, seen red with the law broken and green restored, closing the issue",
+    },
+  },
+  {
+    name: 'retro-apply',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:retro-apply --retro <n>'],
+    label: '/omni:retro-apply',
+    summary: "settle a retro PR's kept lessons",
+    detail:
+      "Settles every kept lesson of retro PR n on the PR's own branch, so each ends in an outcome a person " +
+      'approves by merging: it appends one rule to the playbook slot it belongs in and records became, or ' +
+      'records staysHere with the rule that already says it, or asks one question on the retro PR and ' +
+      "records nothing. It rewrites the PR's body with a line per lesson, the rule quoted word for word " +
+      'with its slot, or the reason, then Closes #<issue>. With retro.guards on it also writes the guard ' +
+      'test, proved red then green; off, it writes no code. It refuses, in one line, a retro PR already ' +
+      'merged or closed, and never merges. The Omni app queues it for a runner when a retro keeps a ' +
+      'lesson, and the retro PR body carries the same line.',
+    group: 'everyday',
+    when: 'Use it when a retro PR holds a kept lesson with no outcome and no runner took the job.',
+    example: {
+      type: '/omni:retro-apply --retro 2300',
+      result: "the retro PR's body quoting each new rule with its slot, or its reason, and omni check retro green",
     },
   },
   {

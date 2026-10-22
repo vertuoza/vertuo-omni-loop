@@ -24,7 +24,7 @@ const ROSTER = [member('u-ada', 'ada-gh', 'octo', 'ADA'), member('u-paul', 'paet
 const READ = {
   roster: ROSTER,
   activity: [
-    { kind: 'pr-merged', repo: 'vertuo-ai-domain', number: 1, login: 'paetienne', at: '2026-09-25T08:00:00Z' },
+    { kind: 'pr-merged', repo: 'nimbus-ai-domain', number: 1, login: 'paetienne', at: '2026-09-25T08:00:00Z' },
     { kind: 'prd-opened', repo: 'vertuo-omni-loop', number: 12, login: 'ada-gh', at: '2026-09-26T08:00:00Z' },
   ],
   answered: [{ user_id: 'u-paul', answered: 9 }],
@@ -181,7 +181,7 @@ describe('a board', () => {
 
   it('lists the repositories involved, most active first', () => {
     const t = text(render());
-    expect(t).toMatch(/Repositories involved Repository PRs merged PRD events vertuo-ai-domain 1 0 vertuo-omni-loop 0 1/);
+    expect(t).toMatch(/Repositories involved Repository PRs merged PRD events nimbus-ai-domain 1 0 vertuo-omni-loop 0 1/);
   });
 
   it('ends with the season\'s fleet ranking when the page asks, yours marked', () => {

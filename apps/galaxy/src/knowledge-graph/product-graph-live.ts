@@ -1,5 +1,5 @@
 import 'server-only';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { supabaseAs, supabaseEnv } from '../data/supabase-server';
 import type { ProductGraphDeps } from './product-graph.controller';
 import { productGraphRepository } from './product-graph.repository';

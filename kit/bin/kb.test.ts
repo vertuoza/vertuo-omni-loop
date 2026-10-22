@@ -929,7 +929,7 @@ describe('omni check kb — acceptance criterion 5: check all runs it', () => {
 
 describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
   const K = '.omni-loop/knowledge';
-  const COPY = `${K}/repos/vertuo-backend-php`;
+  const COPY = `${K}/repos/nimbus-core`;
   const READ_AT = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
   const PLAN_CONFIG = {
     '.omni-loop/config.yml': [
@@ -937,11 +937,11 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
       'plan:',
       '  guide: null',
       '  targets:',
-      '    - repo: acme/vertuo-backend-php',
+      '    - repo: acme/nimbus-core',
       '      role: back-end',
       '      knowledge: imported',
       `      readAt: ${READ_AT}`,
-      '    - repo: acme/vertuo-apps',
+      '    - repo: acme/nimbus-apps',
       '      role: front-end',
       '      knowledge: own',
       '',
@@ -958,7 +958,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
   // The copy's evidence, its See: line and its registers' paths all name files of the target, none
   // of which exists on the plan repository's disk.
   const COPY_FILES = {
-    [`${COPY}/README.md`]: `# acme/vertuo-backend-php — imported\n\nRead at ${READ_AT}. A draft.\n`,
+    [`${COPY}/README.md`]: `# acme/nimbus-core — imported\n\nRead at ${READ_AT}. A draft.\n`,
     [`${COPY}/playbook/testing.md`]: testingForm({
       frontMatter: { evidence: ['composer.json@abcdef1', 'phpunit.xml@1234567'] },
       slots: { never: { body: 'See: docs/testing.md' } },
@@ -1008,7 +1008,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const { root } = makeRepo({ git: true, files });
     const { code, out } = await omni(root, ['check', 'kb']);
     expect(code).toBe(1);
-    expect(violations(out)).toEqual([`${COPY}: missing — plan.targets lists acme/vertuo-backend-php as imported, so its copy lives here`]);
+    expect(violations(out)).toEqual([`${COPY}: missing — plan.targets lists acme/nimbus-core as imported, so its copy lives here`]);
   });
 
   it('the plan repository’s own registers never read a copy, even for an id both hold', async () => {
@@ -1033,7 +1033,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const [copy] = status.targets;
     assertDefined(copy, 'the copy');
     expect(Object.keys(copy)).toEqual(['repo', 'folder', 'forms', 'registers']);
-    expect(copy.repo).toBe('acme/vertuo-backend-php');
+    expect(copy.repo).toBe('acme/nimbus-core');
     expect(copy.folder).toBe(COPY);
     expect(copy.registers).toEqual([{ folder: `${COPY}/product`, laws: 3, proposals: 0 }]);
     expect(copy.forms.map(({ form }) => form)).toEqual(status.forms.map(({ form }) => form));
@@ -1046,7 +1046,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const lines = (await omni(root, ['kb', 'status'])).out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
     expect(lines.slice(lines.indexOf('Imported copies: 1'), lines.indexOf('Imported copies: 1') + 2)).toEqual([
       'Imported copies: 1',
-      `acme/vertuo-backend-php ${COPY} · 1 filled · 14 missing · 1 register folder(s)`,
+      `acme/nimbus-core ${COPY} · 1 filled · 14 missing · 1 register folder(s)`,
     ]);
     const { root: plain } = makeRepo({ git: true, files: CONFIG });
     expect(dig(JSON.parse((await omni(plain, ['kb', 'status', '--json'])).out), 'targets')).toEqual([]);
@@ -1512,7 +1512,7 @@ describe('omni kb legal | glossary (PRD 1795)', () => {
     const glossary = await know(root, ['kb', 'glossary'], page(200));
     expect(glossary.out).toBe('Credit note: A document that cancels part of an invoice.  (avoid: refund, rebate)\n');
     expect(JSON.parse(read(LOCAL))).toEqual({
-      product: 'Invoicing', readAt: NOW.toISOString(), legal: BUSINESS.legal, glossary: BUSINESS.glossary,
+      product: 'Invoicing', readAt: NOW.toISOString(), legal: BUSINESS.legal, glossary: BUSINESS.glossary, personas: [],
     });
   });
 
@@ -1557,6 +1557,140 @@ describe('omni kb legal | glossary (PRD 1795)', () => {
     const { root: other } = repo();
     const unsigned = await know(other, ['kb', 'glossary'], page(200), { read: () => null, write: () => {} });
     expect(unsigned).toMatchObject({ code: 1, out: 'no product knowledge: no sign-in for omni.test (omni signin)\n' });
+  });
+});
+
+describe('omni kb index (PRD 2299)', () => {
+  const NOW = new Date('2026-10-15T08:00:00Z');
+  const LOCAL = '.omni-loop/local/product-knowledge.json';
+  const CONFIG_ASK = 'kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: https://omni.test\n';
+  const BUSINESS = {
+    state: 'ok',
+    business: { name: 'Acme' },
+    product: { name: 'Invoicing' },
+    claims: [],
+    personas: [{ name: 'Paul', stance: 'excited', trade: 't', who: 'w', usage: 'u' }, { nope: true }],
+    legal: [{ id: 'L-INVOICING-1', statement: 'An invoice is kept ten years.', source: 'Code de commerce', owner: 'jane' }],
+    glossary: [{ term: 'Credit note', meaning: 'Cancels an invoice.', avoid: ['refund', 'rebate'] }, { term: 'Quote', meaning: 'q', avoid: [] }],
+  };
+  const signedIn = { read: (host: string) => (host === 'omni.test' ? { access_token: 'a', refresh_token: 'r' } : null), write: () => {} };
+  const page = (status: number, body: unknown = BUSINESS) => ({ fetch: () => Promise.resolve(new Response(JSON.stringify(body), { status })) });
+  const down = { fetch: () => Promise.reject(new TypeError('fetch failed')) };
+  const never = { fetch: () => new Promise<Response>(() => {}) };
+  const repo = (config = CONFIG_ASK, files: Record<string, string> = {}) => makeRepo({ git: true, files: { '.omni-loop/config.yml': config, ...files } });
+  const index = (root: string, server: { fetch: unknown }, args: string[] = [], extra: object = {}) =>
+    omni(root, ['kb', 'index', ...args], { env: {}, tokens: signedIn, fetch: server.fetch, now: () => NOW, ...extra });
+
+  it('prints the block and keeps the personas in the local copy', async () => {
+    const { root, read } = repo();
+    const result = await index(root, page(200));
+    expect(result).toEqual({
+      code: 0,
+      err: '',
+      out: [
+        'Knowledge of Invoicing (synced just now): words to use, laws to respect, people to build for.',
+        'Words: Credit note (not: refund, rebate) · Quote',
+        '       → meanings: omni kb glossary',
+        'Legal: L-INVOICING-1 An invoice is kept ten years.',
+        '       → sources: omni kb legal',
+        'Personas: Paul (excited)',
+        '       → who they are: omni business show',
+        '',
+      ].join('\n'),
+    });
+    expect((JSON.parse(read(LOCAL)) as { personas: unknown }).personas).toEqual([{ name: 'Paul', stance: 'excited' }]);
+  });
+
+  it('prints --json as { state, product, words, legal, personas, syncedAt, cut }', async () => {
+    const { root } = repo();
+    const { code, out } = await index(root, page(200), ['--json']);
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toEqual({
+      state: 'ok',
+      product: 'Invoicing',
+      words: [{ term: 'Credit note', avoid: ['refund', 'rebate'] }, { term: 'Quote', avoid: [] }],
+      legal: [{ id: 'L-INVOICING-1', statement: 'An invoice is kept ten years.' }],
+      personas: [{ name: 'Paul', stance: 'excited' }],
+      syncedAt: NOW.toISOString(),
+      cut: { words: 0, legal: 0, personas: 0 },
+    });
+  });
+
+  it('cuts at the 3 KB cap with the count and the command', async () => {
+    const { root } = repo();
+    const legal = Array.from({ length: 200 }, (_, i) => ({ id: `L-X-${i}`, statement: 'x'.repeat(60), source: 's', owner: 'o' }));
+    const { code, out } = await index(root, page(200, { ...BUSINESS, legal }));
+    expect(code).toBe(0);
+    expect(Buffer.byteLength(out)).toBeLessThanOrEqual(3072);
+    expect(out).toMatch(/… \d+ more: omni kb legal/);
+  });
+
+  it.each([
+    ['a 5xx', () => page(503, { error: 'down' })],
+    ['an unreachable page', () => down],
+  ])('prints the last copy with its age on %s, and one line with no copy', async (_, server) => {
+    const { root } = repo();
+    expect((await index(root, server())).out).toBe('no product knowledge: offline — agents carry on\n');
+    await index(root, page(200));
+    const later = await index(root, server(), [], { now: () => new Date(NOW.getTime() + 2 * 86_400_000) });
+    expect(later.code).toBe(0);
+    expect(later.out).toContain('Knowledge of Invoicing (synced 2 d ago, offline)');
+    expect(later.out).toContain('Credit note (not: refund, rebate)');
+  });
+
+  it('exits 0 with one line for no Omni page, no sign-in, no product and no knowledge', async () => {
+    const none = repo();
+    expect(await index(none.root, page(200, { ...BUSINESS, product: null }))).toEqual({
+      code: 0, err: '', out: 'no product knowledge: no product knowledge: acme/widgets belongs to no product on the Omni page — agents carry on\n',
+    });
+    const empty = repo();
+    expect((await index(empty.root, page(200, { ...BUSINESS, legal: [], glossary: [], personas: [] }))).out).toBe(
+      'no product knowledge: Invoicing holds no words, laws or personas yet — agents carry on\n',
+    );
+    const noPage = repo('kit: 1\nrepo:\n  slug: acme/widgets\n');
+    expect(await index(noPage.root, page(200))).toMatchObject({ code: 0, out: 'no product knowledge: no Omni page is set here (ask.url) — agents carry on\n' });
+    const unsigned = repo();
+    expect(await index(unsigned.root, page(200), [], { tokens: { read: () => null, write: () => {} } })).toMatchObject({
+      code: 0, out: 'no product knowledge: no sign-in (omni signin) — agents carry on\n',
+    });
+    const refused = repo();
+    expect((await index(refused.root, page(403, { error: 'not a member' }))).out).toContain('— agents carry on');
+  });
+
+  it('prints an archived product its one line, whatever the copy', async () => {
+    const { root } = repo();
+    await index(root, page(200));
+    const archived = await index(root, page(200, { ...BUSINESS, state: 'archived' }));
+    expect(archived).toEqual({
+      code: 0, err: '', out: 'no product knowledge: product Invoicing is archived: an owner restores it on its page — agents carry on\n',
+    });
+  });
+
+  it('exits 0 in no kit checkout', async () => {
+    const { root } = makeRepo({ git: true, files: {} });
+    expect(await index(root, page(200))).toMatchObject({ code: 0, out: expect.stringContaining('— agents carry on') as unknown });
+  });
+
+  it('holds its 3-second budget against a server that never answers', async () => {
+    const { root } = repo();
+    const started = Date.now();
+    const result = await index(root, never, [], { budgetMs: 100 });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(result).toEqual({ code: 0, err: '', out: 'no product knowledge: offline — agents carry on\n' });
+  });
+
+  it('still reads a copy from before the personas', async () => {
+    const { root } = repo(CONFIG_ASK, {
+      [LOCAL]: JSON.stringify({ product: 'Invoicing', readAt: NOW.toISOString(), legal: [], glossary: BUSINESS.glossary }),
+    });
+    const glossary = await omni(root, ['kb', 'glossary'], { env: {}, tokens: signedIn, fetch: down.fetch, now: () => NOW });
+    expect(glossary.out).toContain('Credit note: Cancels an invoice.');
+    expect((await index(root, down)).out).toContain('Credit note (not: refund, rebate)');
+  });
+
+  it('is a usage error with an argument', async () => {
+    const { root } = repo();
+    expect((await index(root, page(200), ['extra'])).code).toBe(2);
   });
 });
 

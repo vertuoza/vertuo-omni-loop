@@ -8,7 +8,7 @@ import { InngestTestEngine } from '@inngest/test';
 import { GithubDeferred } from '@omni/github';
 import { RetryAfterError } from 'inngest';
 import { afterAll, describe, expect, it } from 'vitest';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, type AppEvent, inngest } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { stdoutLines } from '../run-log/capture.ts';

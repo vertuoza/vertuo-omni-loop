@@ -5,9 +5,9 @@ state: filled
 points-to: null
 evidence:
   - .omni-loop/knowledge/adr/0001-outbox-check-as-github-app.md@3ae738d
-  - .omni-loop/knowledge/product/principles.md@934e61a
-  - .omni-loop/knowledge/product/rules.md@f603ae9
-  - .omni-loop/knowledge/product/invariants.md@6894355
+  - .omni-loop/knowledge/product/principles.md@3837f52
+  - .omni-loop/knowledge/product/rules.md@1c17512
+  - .omni-loop/knowledge/product/invariants.md@00edca5
 invaded: 2026-10-20
 ---
 

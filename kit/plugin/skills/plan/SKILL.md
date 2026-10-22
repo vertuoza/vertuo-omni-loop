@@ -3,7 +3,7 @@ name: plan
 description: Turns one PRD in the inbox into a plan of thin tracer-bullet slices, each with a territory, a blocker list and a wave, written as plan.md beside its spec and graded by omni plan check — then commits it on the PRD's feature branch and opens the draft feature PR. Writes no code, files no issues, merges nothing. /omni:yolo follows it when a PRD has no plan yet; a person may run it alone. Triggers on "plan PRD 7", "slice this PRD", "tracer bullets", "/omni:plan".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-plan/SKILL.md — adaptations in kit/porting/plugin--plan.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-plan/SKILL.md — adaptations in kit/porting/plugin--plan.md -->
 
 # Plan: one PRD into slices
 
@@ -69,7 +69,9 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 
    A ◇ PRD (no `birthplace:` line) never reads any of the four: it is `inbox` or not, as always.
 2. The spec, in full. Then every file in `paths.context`, the glossary at `paths.glossary` when it
-   is set, and each ADR the spec cites under `paths.adr`.
+   is set, `node .omni-loop/bin/omni.mjs kb glossary` (the product's glossary: where a term is in
+   both, the page wins; offline or product-less it prints its copy or one line, and you carry on),
+   and each ADR the spec cites under `paths.adr`.
 3. `gh issue view <n> --json body,comments`: the issue and any answer a person already gave on it.
    (Piped, `--comments` alone prints nothing when there are no comments; read the JSON.)
 4. `node .omni-loop/bin/omni.mjs flow show`: what this repository changes from the kit's defaults,

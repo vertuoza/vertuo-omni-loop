@@ -1,9 +1,9 @@
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { failing } from '../../../test/github-replay.ts';
 import { FEATURE, FEATURE_EVENTS, OWNER, PLAN, REPO, SUB_PULLS } from '../../../test/retro-scenario.ts';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { listPullsInto } from '../github.ts';
 import { timeline, wavesAsMerged } from './timeline.ts';
 import type { RetroPull } from './index.ts';

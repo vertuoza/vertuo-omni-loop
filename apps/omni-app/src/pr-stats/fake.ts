@@ -7,7 +7,7 @@
 // one of the GraphQL budget and answering `rateLimit` when asked. The two budgets are separate, as on
 // GitHub; a spent budget answers 403 (REST) or RATE_LIMITED (GraphQL).
 
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { PrStatsStore, RepositoryPatch } from './supabase-store.ts';
 
 /** A user as GitHub's REST API names it. */

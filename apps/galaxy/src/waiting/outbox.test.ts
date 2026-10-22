@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_OUTBOX_PART, OUTBOX_MS, outboxRead, pollOutbox, readOutbox } from './outbox';
 import type { WaitingOutbox } from './waiting';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The waiting list's Outbox part (PRD 499, s3): read from GET /api/waiting/outbox once after load and
 // every 60 s while the tab is visible, never twice within 60 s; a failed read keeps the last items.

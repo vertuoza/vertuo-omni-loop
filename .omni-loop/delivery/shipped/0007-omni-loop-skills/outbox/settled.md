@@ -208,7 +208,7 @@ Which patterns `kit/test/no-literals.test.mjs` applies to `kit/plugin/**/*.md`.
 
 ## What I did meanwhile
 
-Applied the same `FORBIDDEN` list to skill prose; a Markdown provenance line (`<!-- Ported from vertuo-ai-domain@… -->`) is exempt like a `// Ported from` line.
+Applied the same `FORBIDDEN` list to skill prose; a Markdown provenance line (`<!-- Ported from nimbus-brain@… -->`) is exempt like a `// Ported from` line.
 
 The label patterns are `'outbox:go'` and `'pr:feature'` — quoted, as they would appear in JS. In prose a label is written `` `outbox:go` ``, which these patterns do not catch (the fixture in the test pins that behaviour). The `vertuo` and `docs/` patterns do catch prose.
 
@@ -1554,7 +1554,7 @@ C. Ask when run directly by a person, never under /omni:yolo.
 
 ## What I had to decide
 
-Upstream vertuo-parallel-wave carried a consultation policy: under vertuo-deliver it asked about high and human-action items in the prompt and settled the answers on the spot. PRD 7 ships only /omni:yolo, which asks nothing; /omni:deliver is out of scope (spec §4).
+Upstream nimbus-parallel-wave carried a consultation policy: under nimbus-deliver it asked about high and human-action items in the prompt and settled the answers on the spot. PRD 7 ships only /omni:yolo, which asks nothing; /omni:deliver is out of scope (spec §4).
 
 ## What I did meanwhile
 

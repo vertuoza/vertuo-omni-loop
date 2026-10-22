@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { answerRunnerJob, cancelRunnerJob, dismissRunnerJob, readJobLines, readJobQuestions, sendToRunner, setRunnerFleet } from './runners.client';
 import type { Job, JobLines, JobQuestions, Runner } from './runners.contract';
 
@@ -7,14 +7,14 @@ import type { Job, JobLines, JobQuestions, Runner } from './runners.contract';
 // refusal and an unreachable app come back.
 
 const JOB: Job = {
-  id: '00000000-0000-4000-8000-000001830201', line: '/omni:yolo 1717', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia',
+  id: '00000000-0000-4000-8000-000001830201', line: '/omni:yolo 1717', repo: 'demo-org/app', toRunner: null, toFleet: 'cia',
   sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: null, status: 'queued', runner: null, cancelRequested: false,
   logTail: '', prUrl: null, exitCode: null, reason: null, queuedAt: '2026-10-13T12:00:00.000Z', claimedAt: null, runningAt: null, endedAt: null,
 };
 
 const RUNNER: Runner = {
   id: '00000000-0000-4000-8000-0000018301a1', name: 'shared', owner: '00000000-0000-4000-8000-0000018300a1', fleet: 'cia', slots: 4, used: 0,
-  repos: ['vertuoza/app'], version: '0.0.387', lastSeenAt: '2026-10-13T12:00:00.000Z', state: 'online',
+  repos: ['demo-org/app'], version: '0.0.387', lastSeenAt: '2026-10-13T12:00:00.000Z', state: 'online',
 };
 
 function fetcher(status: number, body: unknown) {
@@ -29,8 +29,8 @@ function fetcher(status: number, body: unknown) {
 describe('the runners\' client', () => {
   it('queues a job and reads it back', async () => {
     const { fake, calls } = fetcher(200, { job: JOB });
-    expect(await sendToRunner('/omni:yolo 1717', 'vertuoza/app', { kind: 'fleet', fleet: 'cia' }, fake)).toEqual({ ok: true, value: JOB });
-    expect(calls).toEqual([{ url: '/api/runners/jobs', method: 'POST', body: { line: '/omni:yolo 1717', repo: 'vertuoza/app', target: { kind: 'fleet', fleet: 'cia' } } }]);
+    expect(await sendToRunner('/omni:yolo 1717', 'demo-org/app', { kind: 'fleet', fleet: 'cia' }, fake)).toEqual({ ok: true, value: JOB });
+    expect(calls).toEqual([{ url: '/api/runners/jobs', method: 'POST', body: { line: '/omni:yolo 1717', repo: 'demo-org/app', target: { kind: 'fleet', fleet: 'cia' } } }]);
   });
 
   it('cancels a job and sets a fleet', async () => {
@@ -44,7 +44,7 @@ describe('the runners\' client', () => {
 
   it('gives the route\'s words for a refusal', async () => {
     const { fake } = fetcher(403, { error: 'cia-box serves cia: only its players and the workspace\'s owners send to it.' });
-    expect(await sendToRunner('/omni:yolo 1', 'vertuoza/app', { kind: 'any' }, fake))
+    expect(await sendToRunner('/omni:yolo 1', 'demo-org/app', { kind: 'any' }, fake))
       .toEqual({ ok: false, error: 'cia-box serves cia: only its players and the workspace\'s owners send to it.' });
   });
 

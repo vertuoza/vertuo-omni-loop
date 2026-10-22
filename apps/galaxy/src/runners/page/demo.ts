@@ -1,4 +1,4 @@
-import { IssueNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { Board, Job, JobQuestions, Runner } from '../runners.contract';
 import type { Fleet, RunnersPageView } from './model';
 
@@ -105,6 +105,8 @@ export function demoRunnersPage(now: Date): RunnersPageView {
       }),
       // One that asked, and Ada answered: it reads Done again, and its drawer says who answered.
       job({ id: ANSWERED, line: '/omni:bug-fix 301', status: 'done', runner: DEMO_RUNNERS.office, exitCode: 0, endedAt: at(-200) }),
+      // A retro the Omni app sent, which no person asked for (PRD 2338): its sender reads Omni app.
+      job({ line: '/omni:retro-apply --retro 2340', status: 'queued', sentBy: null, sentByLogin: null, sentByApp: 'omni-app', queuedAt: at(-1) }),
     ],
     viewer: { id: YOU, owner: true, fleet: 'comets' },
   };
@@ -141,5 +143,5 @@ export function demoRunnersPage(now: Date): RunnersPageView {
       ],
     },
   ];
-  return { kind: 'board', name: DEMO_NAME, board, fleets: FLEETS, prds: { 'acme/widgets#1717': 'Sync widgets across devices', 'acme/widgets#1855': 'Export the totals as CSV' }, now: now.toISOString(), answered: [], demoQuestions: questions };
+  return { kind: 'board', name: DEMO_NAME, board, fleets: FLEETS, prds: { 'acme/widgets#1717': 'Sync widgets across devices', 'acme/widgets#1855': 'Export the totals as CSV' }, retros: { 'acme/widgets#2340': 1717 }, now: now.toISOString(), answered: [], demoQuestions: questions };
 }

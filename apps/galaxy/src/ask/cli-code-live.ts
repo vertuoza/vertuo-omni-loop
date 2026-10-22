@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { installUrl } from '../signup/github-app';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { issueCode, redeemerOf, repoWorkspace, storeCode, workspaceNamed } from './cli-code.repository';
 import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
 import type { Database } from '../../../../supabase/database.types';

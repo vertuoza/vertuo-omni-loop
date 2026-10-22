@@ -1,6 +1,6 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { parseRow } from '../data/parse-rows';
-import { repositoryRowOf, SavedRepository, type Phase0, type RepositoryRow } from './model';
+import { repositoryRowOf, SavedRepository, SkillsReadSchema, type Phase0, type RepositoryRow, type SkillsRead } from './model';
 
 // Settings → Repositories's two calls (PRD 612 s1). In production, the owner-only functions of
 // supabase/migrations/20261008090000_repositories.sql, add_repository() and set_repository_tracked(),
@@ -16,10 +16,16 @@ import { repositoryRowOf, SavedRepository, type Phase0, type RepositoryRow } fro
 // supabase/migrations/20261215090000_remove_repository.sql, the owner's only: the repository is hidden,
 // untracked, its board private, out of every product, and keeps its history; add_repository() lists it
 // again, tracked. PRD 2270 s3 adds set_repository_fix_when_answered() of
-// supabase/migrations/20261219090000_fix_when_answered.sql, the owner's only: it switches whether a runner
-// job that waited on answers is fixed by itself once they are in.
+// supabase/migrations/20261220090000_fix_when_answered.sql, the owner's only: it switches whether a runner
+// job that waited on answers is fixed by itself once they are in. PRD 2313 s3 adds the Runner skills block:
+// the live read of a repository's skills (GET /api/repositories/skills) and set_repository_runner_skill()
+// of supabase/migrations/20261222090000_repository_runner_skills.sql, the owner's only: it allows a skill
+// on the runners or takes the allowance back.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };
+
+/** A switch of the Runner skills block: the block read again, or the refusal. */
+export type SkillSaved = { ok: true; read: SkillsRead } | { ok: false; message: string };
 
 export interface RepositoriesPort {
   /** Adds `owner/name`, tracked. Adding one already listed answers it as it is. */
@@ -33,6 +39,10 @@ export interface RepositoriesPort {
   setFixWhenAnswered(fullName: string, on: boolean): Promise<Saved>;
   /** Removes it (PRD 2188 s1): the owner's only. Removing one already removed answers it as it is. */
   remove(fullName: string): Promise<Saved>;
+  /** The repository's own skills on its default branch, each allowed or not (PRD 2313 s3). Never fails: a read that failed says why in `error`. */
+  skills(fullName: string): Promise<SkillsRead>;
+  /** Allows a skill on the runners, or takes it back (PRD 2313 s3): the owner's only. Answers the block read again. */
+  setSkill(fullName: string, skill: string, allowed: boolean): Promise<SkillSaved>;
 }
 
 export const NOT_OWNER = 'Only the workspace’s owner can change its repositories.';
@@ -40,6 +50,7 @@ export const GONE = 'That repository is no longer in this workspace. Reload the 
 export const NOT_A_BOARD_MEMBER = 'Only a member of the workspace can make its ideas board public or private.';
 export const PUBLIC_ELSEWHERE = 'Another workspace already shows this repository’s ideas board in public.';
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
+const SKILLS_RETRY = 'try again in a moment.';
 
 /** An error as PostgREST answers it, or anything thrown, as the page says it. */
 export function refusalOf(error: unknown): string {
@@ -51,7 +62,29 @@ export function refusalOf(error: unknown): string {
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
 
-export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPort {
+type Fetch = (url: string) => Promise<Pick<Response, 'ok' | 'json'>>;
+
+/** The skills route's answer, or why it could not be read, as the block says it. */
+async function readSkills(fetchImpl: Fetch, fullName: string): Promise<SkillsRead> {
+  const unread = (why: string): SkillsRead => ({ skills: [], branch: null, error: why });
+  try {
+    const response = await fetchImpl(`/api/repositories/skills?repo=${encodeURIComponent(fullName)}`);
+    const body: unknown = await response.json();
+    if (!response.ok) return unread(propertyOf(body, 'error') === undefined ? SKILLS_RETRY : String(propertyOf(body, 'error')));
+    const read = SkillsReadSchema.safeParse(body);
+    return read.success ? read.data : unread(SKILLS_RETRY);
+  } catch {
+    return unread(SKILLS_RETRY);
+  }
+}
+
+/** set_repository_runner_skill()'s refusal, as the page says it: 22023 carries its own words. */
+function skillRefusal(error: unknown): string {
+  const message = propertyOf(error, 'message');
+  return propertyOf(error, 'code') === '22023' && typeof message === 'string' ? message : refusalOf(error);
+}
+
+export function databaseRepositories(db: Rpc, workspace: string, fetchImpl: Fetch = (url) => fetch(url)): RepositoriesPort {
   const call = async (fn: string, args: Record<string, unknown>, refusal = refusalOf): Promise<Saved> => {
     try {
       const { data, error } = await db.rpc(fn, { p_workspace: workspace, ...args });
@@ -74,12 +107,36 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
     setPhase0: (fullName, phase0) => call('set_repository_phase0', { p_full_name: fullName, p_phase0: phase0 }),
     setFixWhenAnswered: (fullName, on) => call('set_repository_fix_when_answered', { p_full_name: fullName, p_on: on }),
     remove: (fullName) => call('remove_repository', { p_full_name: fullName }),
+    skills: (fullName) => readSkills(fetchImpl, fullName),
+    async setSkill(fullName, skill, allowed) {
+      try {
+        const { error } = await db.rpc('set_repository_runner_skill', { p_workspace: workspace, p_full_name: fullName, p_skill: skill, p_allowed: allowed });
+        if (error) return { ok: false, message: skillRefusal(error) };
+      } catch (err) {
+        return { ok: false, message: skillRefusal(err) };
+      }
+      return { ok: true, read: await readSkills(fetchImpl, fullName) };
+    },
   };
 }
 
 /** The functions' rules on repositories kept in memory. */
 export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort {
   let rows = [...initial];
+  // The demo has no GitHub: every repository holds two skills, allowed per repository as the owner switches them.
+  const demoSkills = [
+    { name: 'validate-prd', description: 'Checks a PRD’s criteria on its preview, with a clip per criterion.' },
+    { name: 'release-notes', description: 'Drafts the release notes of a merged PR.' },
+  ];
+  const allowedAt = new Map<string, string>();
+  const demoRead = (fullName: string): SkillsRead => ({
+    skills: demoSkills.map((s) => {
+      const at = allowedAt.get(`${fullName.toLowerCase()} ${s.name}`);
+      return { ...s, allowed: at ? { by: 'ada', at } : null, gone: false };
+    }),
+    branch: 'main',
+    error: null,
+  });
   const find = (name: string) => rows.find((r) => r.fullName === name.trim().toLowerCase());
   const change = (fullName: string, to: Partial<RepositoryRow>): Promise<Saved> => {
     const kept = find(fullName);
@@ -105,6 +162,14 @@ export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort
       const kept = find(fullName);
       if (kept?.removedAt) return Promise.resolve({ ok: true, repository: kept });
       return change(fullName, { removedAt: new Date().toISOString(), tracked: false, publicIdeas: false, products: [], planProducts: [] });
+    },
+    skills: (fullName) => Promise.resolve(demoRead(fullName)),
+    setSkill(fullName, skill, allowed) {
+      if (!find(fullName)) return Promise.resolve({ ok: false, message: GONE });
+      const id = `${fullName.toLowerCase()} ${skill}`;
+      if (allowed) allowedAt.set(id, new Date().toISOString());
+      else allowedAt.delete(id);
+      return Promise.resolve({ ok: true, read: demoRead(fullName) });
     },
   };
 }

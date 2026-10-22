@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { inngest, RETRO_EVENT } from '../src/inngest-client.ts';
@@ -82,6 +82,26 @@ describe('the PRD 438 recording, replayed offline with a reply that keeps nothin
     const golden = `${FIXTURE}verdict.golden.md`;
     if (process.env.UPDATE_GOLDEN) writeFileSync(golden, body);
     expect(body).toBe(readFileSync(golden, 'utf8'));
+  });
+
+  it('queues no runner job: the retro keeps no lesson, so nothing waits to be settled (PRD 2338)', async () => {
+    const github = replayGitHub({ recording: recording.requests });
+    const queued: unknown[] = [];
+    const fn = createRetro({
+      client: inngest,
+      octokitFor: () => github.octokit,
+      openrouter: readEnv(JUDGE_ENV).openrouter,
+      fetch: judge({ worthIt: false }),
+      queue: (job) => {
+        queued.push(job);
+        return Promise.resolve({ job: 'job-1', created: true, reason: null });
+      },
+    });
+    const event = { name: RETRO_EVENT, data: { installationId: 1, owner: 'vertuoza', repo: 'vertuo-omni-loop', repository: 'vertuoza/vertuo-omni-loop', prNumber: 440, mergeSha: recording.mergeSha, mergedAt: recording.mergedAt } };
+    const { result, error } = await new InngestTestEngine({ function: fn, events: [event] }).execute();
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ prd: 438, verdict: 'no new lesson' });
+    expect(queued).toEqual([]);
   });
 
   it('a replay of the replay rewrites the one comment in place', async () => {

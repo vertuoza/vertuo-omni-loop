@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { item } from '../../ask/test/test-item';
 import { changedPrds, stagesOfRepo, syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The sync's core (PRD 587, s2): a repository's snapshot in, the stages and topics it shows out. Pure:
 // no GitHub, no database. Each test says what the repository holds.

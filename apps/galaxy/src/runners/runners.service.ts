@@ -49,10 +49,10 @@
 //   job that ended `human` is answered or dismissed. The Runners page keeps a job waiting for an answer
 //   whatever its age, and reads one whose questions are closed as Done (outcome null): the stored
 //   outcome stays `human`.
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
-  type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type RegisterReply, type RegisterRequest,
+  checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
@@ -103,14 +103,26 @@ export function runnerState(runner: Pick<RunnerRow, 'last_seen_at' | 'slots'>, u
 /** The API key that sends: its id and name, its workspace, and the member who made it (the sender of record). */
 type KeySender = { id: string; name: string; workspace: string; maker: string };
 
-/** Who a runner's job reads as sent by: `@login`, or `API key <name> (@login)` for a key's (PRD 2022). */
-const senderOf = (login: string | null, keyName: string | null): string | null =>
-  keyName === null ? login : login ? `API key ${keyName} (@${login})` : `API key ${keyName}`;
+/** Who a runner's job reads as sent by: `@login`, `API key <name> (@login)` for a key's (PRD 2022), or `Omni app`
+ * for a job the app sent (PRD 2338). */
+const senderOf = (login: string | null, keyName: string | null, app: string | null = null): string | null =>
+  app !== null ? 'Omni app' : keyName === null ? login : login ? `API key ${keyName} (@${login})` : `API key ${keyName}`;
+
+/** The people who sent these jobs: an app-sent job has none. */
+const sendersOf = (jobs: readonly Pick<JobRow, 'sent_by'>[]): string[] => [...new Set(jobs.flatMap((job) => (job.sent_by === null ? [] : [job.sent_by])))];
+
+/** Who sent a job, as the browser reads it: a person, the key they made, or the Omni app (PRD 2338). */
+function senderFields(row: JobRow, logins: Map<string, string>, keys: Map<string, string>): Pick<Job, 'sentBy' | 'sentByLogin' | 'sentByApp' | 'sentByKey'> {
+  return {
+    sentBy: row.sent_by, sentByLogin: row.sent_by === null ? null : logins.get(row.sent_by) ?? null, sentByApp: row.sent_by_app,
+    sentByKey: row.sent_by_key === null ? null : keys.get(row.sent_by_key) ?? null,
+  };
+}
 
 function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
   return {
-    id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, sentBy: row.sent_by,
-    sentByLogin: logins.get(row.sent_by) ?? null, sentByKey: row.sent_by_key === null ? null : keys.get(row.sent_by_key) ?? null, status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
+    id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys),
+    status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
     released: row.released ?? null, releaseError: row.release_error ?? null, outcome: row.outcome ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
@@ -247,6 +259,15 @@ const targetOf = (job: JobRow): Target => {
   return job.to_fleet === null ? { kind: 'any' } : { kind: 'fleet', fleet: job.to_fleet };
 };
 
+/** The line that resumes the job, checked as Send checks it; a repository's own skill (PRD 2313) is never resumed. */
+function resumeOf(firstLine: string, issue: IssueNumber, jobId: string): Served<null> {
+  const first = checkLineShape(firstLine);
+  if (!first.ok) return no('malformed', first.reason);
+  if (first.kind === 'repository') return no('malformed', `/${first.skill} is a repository's own skill: its questions can only be dismissed.`);
+  const line = checkLine(resumeLine(first.skill, issue, jobId));
+  return line.ok ? ok(null) : no('malformed', line.reason);
+}
+
 const NOT_WAITING = 'This job is not waiting for an answer.';
 const NO_QUESTION = 'This job asked no question.';
 const EACH_ANSWERED = 'Answer each question once, and only the ones asked.';
@@ -284,18 +305,35 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return job.runner_id === null ? null : (await store.runner(job.runner_id))?.name ?? null;
   }
 
-  /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's. */
+  /** Whether the repository allows the skill a repository's own line names (PRD 2313); a fixed skill's line needs no allowance. */
+  async function allowance(workspaceId: string, repo: string, line: LineCheck & { ok: true }): Promise<Served<null>> {
+    if (line.kind === 'omni') return ok(null);
+    if ((await store.allowedSkills(workspaceId, repo)).includes(line.skill)) return ok(null);
+    return no('malformed', `/${line.skill} is not allowed on a runner for ${repo}: an owner allows it in Settings › Repositories.`);
+  }
+
+  /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's.
+   * The line's shape is checked first; a repository's own skill, once the repository is placed, against what its owner allowed. */
   async function queue(caller: string, request: SendRequest, key: KeySender | null): Promise<Served<JobRow>> {
-    const line = checkLine(request.line);
+    const line = checkLineShape(request.line);
     if (!line.ok) return no('malformed', line.reason);
     const repo = request.repo.toLowerCase();
-    const placed = await placement(caller, repo, key?.workspace ?? null);
+    const placed = await senderIn(caller, repo, key?.workspace ?? null);
+    if (!placed.ok) return placed;
+    const { workspaceId, sender } = placed.value;
+    const allowed = await allowance(workspaceId, repo, line);
+    if (!allowed.ok) return allowed;
+    const target = await mayTarget(store, workspaceId, sender, request.target);
+    if (!target.ok) return target;
+    return ok(await store.insertJob({ workspaceId, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }));
+  }
+
+  /** The workspace the repository belongs to for the person, which must be `only` when that is given, and their place in it. */
+  async function senderIn(caller: string, repo: string, only: string | null): Promise<Served<{ workspaceId: string; sender: Sender }>> {
+    const placed = await placement(caller, repo, only);
     if (!placed.ok) return placed;
     const sender = await store.member(placed.value, caller);
-    if (!sender) return no('forbidden', `${repo} is not in your workspace.`);
-    const target = await mayTarget(store, placed.value, sender, request.target);
-    if (!target.ok) return target;
-    return ok(await store.insertJob({ workspaceId: placed.value, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }));
+    return sender ? ok({ workspaceId: placed.value, sender }) : no('forbidden', `${repo} is not in your workspace.`);
   }
 
   /** The workspace the repository belongs to for the person, which must be `only` when that is given. */
@@ -418,9 +456,11 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
         await store.updateRunner(runnerId, { last_seen_at: iso() });
         const job = await store.claim(runnerId);
         if (job) {
-          const logins = await store.logins(job.workspace_id, [job.sent_by]);
+          const logins = await store.logins(job.workspace_id, sendersOf([job]));
           const keyName = job.sent_by_key === null ? null : (await store.keyNames(job.workspace_id, [job.sent_by_key])).get(job.sent_by_key) ?? null;
-          return ok({ id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(logins.get(job.sent_by) ?? null, keyName) });
+          // Read at claim (PRD 2313): a skill turned off while its job waited is absent, and the runner refuses it.
+          const allowedSkills = await store.allowedSkills(job.workspace_id, job.repo);
+          return ok({ id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(job.sent_by === null ? null : logins.get(job.sent_by) ?? null, keyName, job.sent_by_app), allowedSkills });
         }
         if (clock.now().getTime() + NEXT_POLL_MS > deadline) return ok(null);
         await clock.sleep(NEXT_POLL_MS);
@@ -512,7 +552,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const updated = await store.updateJob(jobId, [job.status], patch);
       if (!updated) return no('conflict', 'This job changed meanwhile. Try again.');
       await retainLines(updated);
-      return ok(jobOf(updated, await store.logins(updated.workspace_id, [updated.sent_by]), await keysOf(updated.workspace_id, [updated])));
+      return ok(jobOf(updated, await store.logins(updated.workspace_id, sendersOf([updated])), await keysOf(updated.workspace_id, [updated])));
     },
 
     /** Gives the runner to a fleet, or makes it shared: a workspace owner only. */
@@ -547,6 +587,13 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const [runners, active] = await Promise.all([store.runners(workspace.value), store.activeJobs(workspace.value)]);
       const now = clock.now();
       return ok(runners.map((runner) => kitRunnerOf(runner, usedBy(active, runner.id), now)));
+    },
+
+    /** The repository's own skills its owner allowed, for Send to terminal's choice of line (PRD 2313): a
+     * member of the workspace reads them, sorted, however the repository is spelt. */
+    async allowedSkills(caller: string, workspaceId: string, repo: string): Promise<Served<string[]>> {
+      if (!(await store.member(workspaceId, caller))) return no('forbidden', 'You are not a member of this workspace.');
+      return ok(await store.allowedSkills(workspaceId, repo.toLowerCase()));
     },
 
     /** The terminal's read of a PRD's jobs (PRD 2251): the jobs of the repository whose line names the PRD,
@@ -595,10 +642,8 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const { job, row, member } = waiting.value;
       const asked = row.questions.map((question) => question.question);
       if (Object.keys(request.answers).length !== asked.length || !asked.every((text) => Object.hasOwn(request.answers, text))) return no('malformed', EACH_ANSWERED);
-      const first = checkLine(job.line);
-      if (!first.ok) return no('malformed', first.reason);
-      const line = checkLine(resumeLine(first.skill, row.issue, jobId));
-      if (!line.ok) return no('malformed', line.reason);
+      const resumed = resumeOf(job.line, row.issue, jobId);
+      if (!resumed.ok) return resumed;
       const placed = await placement(caller, job.repo, job.workspace_id);
       if (!placed.ok) return placed;
       const target = await mayTarget(store, job.workspace_id, member, targetOf(job));
@@ -634,7 +679,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       // …and one whose questions were answered or dismissed reads Done: the outcome `human` is only for open ones.
       const open = new Set(openIds);
       const jobs = [...active, ...finished].map((job) => (job.outcome === 'human' && !open.has(job.id) ? { ...job, outcome: null } : job));
-      const logins = await store.logins(workspaceId, [...new Set(jobs.map((job) => job.sent_by))]);
+      const logins = await store.logins(workspaceId, sendersOf(jobs));
       const keys = await keysOf(workspaceId, jobs);
       const now = clock.now();
       const samples = samplesByRunner(await store.samples(runners.map((runner) => runner.id), new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString()));
@@ -660,8 +705,16 @@ type ContinueRequest = {
 /** The fix queued, or why none was. */
 type Continued = { queued: Job; why: null } | { queued: null; why: string };
 
-/** Why a continuation has no sender: the job's sender left the workspace, or the person pressing never joined it. */
-const senderGone = (by: string | undefined): string => (by === undefined ? 'its sender is no longer a member of the workspace' : 'you are not a member of this workspace');
+/** Why a continuation has no sender: the Omni app sent the job and no person pressed (PRD 2338), the job's sender left
+ * the workspace, or the person pressing never joined it. */
+const senderGone = (by: string | undefined): string =>
+  by === undefined ? 'its sender is no longer a member of the workspace, or the Omni app sent it' : 'you are not a member of this workspace';
+
+/** The person and their place in the workspace; none for an app-sent job (no person), or a person who left. */
+async function memberOf(store: RunnersRepository, workspaceId: string, person: string | null): Promise<{ person: string; sender: Sender } | null> {
+  const sender = person === null ? null : await store.member(workspaceId, person);
+  return person !== null && sender ? { person, sender } : null;
+}
 
 /** The API key a continuation is sent by: the job's own, unless a person pressed Fix with answers. */
 const keyOf = (job: Pick<JobRow, 'sent_by_key'>, by: string | undefined): string | null => (by === undefined ? job.sent_by_key : null);
@@ -683,9 +736,9 @@ export function continuationsService(store: RunnersRepository, continuations: Co
       const decision = shouldContinue({ prd, stand, jobs, switchOn: by !== undefined || switchOn === true });
       if (!decision.continue) return none(decision.why);
       const job = decision.job;
-      const sentBy = by ?? job.sent_by;
-      const sender = await store.member(workspaceId, sentBy);
-      if (!sender) return none(senderGone(by));
+      const placed = await memberOf(store, workspaceId, by ?? job.sent_by);
+      if (!placed) return none(senderGone(by));
+      const { person: sentBy, sender } = placed;
       const target = await mayTarget(store, workspaceId, sender, targetOf(job));
       if (!target.ok) return none(target.error);
       const row = await continuations.insertContinuation({
@@ -693,7 +746,7 @@ export function continuationsService(store: RunnersRepository, continuations: Co
       });
       if (!row) return none(`job ${job.id} was continued already`);
       const keys = row.sent_by_key === null ? new Map<string, string>() : await store.keyNames(workspaceId, [row.sent_by_key]);
-      return { queued: jobOf(row, await store.logins(workspaceId, [row.sent_by]), keys), why: null };
+      return { queued: jobOf(row, await store.logins(workspaceId, sendersOf([row])), keys), why: null };
     },
   };
 }

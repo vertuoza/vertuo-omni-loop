@@ -11,7 +11,7 @@ enforced. A tab whose sign-in expired kept asking the database (bug #1316), ever
 coupled to the tables' shape, and there was no single answer to "where does this rule live?".
 Agents build this repository, and an import that compiles is an import they keep (ADR-0058).
 
-vertuo-ai-domain settled the same question for its own code in `libs/LIBRARY_STYLE_RULES.md` §5:
+nimbus-brain settled the same question for its own code in `libs/LIBRARY_STYLE_RULES.md` §5:
 Controller → Service → Repository → Database, only a repository touches the database, contracts at
 every boundary, one typed client in the UI, enforced by a script. PRD 1318 adopts it for the galaxy
 app.
@@ -52,7 +52,7 @@ app.
 ## Consequences
 
 - ADR-0058 and its import guard are unchanged: that guard has no allowlist and no comment escape,
-  and this one starts from a baseline, so it is a check of its own. vertuo-ai-domain's
+  and this one starts from a baseline, so it is a check of its own. nimbus-brain's
   `libs/LIBRARY_STYLE_RULES.md` §5 is unchanged too: this record adopts it, it does not amend it.
 - New code in the galaxy app follows the roles from the start: a database call or an import in the
   wrong layer fails the test suite, by file and rule.

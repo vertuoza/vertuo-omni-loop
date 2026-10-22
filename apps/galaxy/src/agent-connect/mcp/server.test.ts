@@ -4,7 +4,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import { readBusiness, type BusinessDeps } from '../../business-api/api';
 import type { LinkGraphBundle } from '../../knowledge-graph/link.repository';
 import { GRAPH_READ_REFUSALS } from '../../knowledge-graph/product-graph.contract';

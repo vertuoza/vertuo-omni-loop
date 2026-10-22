@@ -561,7 +561,7 @@ describe('The guard runs on the agent and on the branch', () => {
     return { path, status, rule };
   }
 
-  const STORED_SHAPE = risky('libs/vertuo-ai-credit/src/server/migrations.ts', 'stored-shape');
+  const STORED_SHAPE = risky('libs/nimbus-ai-credit/src/server/migrations.ts', 'stored-shape');
   const SHARED_CONTRACT = risky('libs/system-api-contract/src/account.ts', 'shared-contract');
 
   describe('The agent is told before it opens its sub-pull-request', () => {
@@ -572,7 +572,7 @@ describe('The guard runs on the agent and on the branch', () => {
         graded: '2026-09-23',
         risky: [
           STORED_SHAPE,
-          risky('libs/vertuo-ai-credit/src/server/migrations.ts', 'law-proof'),
+          risky('libs/nimbus-ai-credit/src/server/migrations.ts', 'law-proof'),
           STORED_SHAPE,
         ],
         accountFor: () => ({ kind: 'spec', where: 'Scope > In' }),
@@ -580,8 +580,8 @@ describe('The guard runs on the agent and on the branch', () => {
       });
 
       expect(plan.owed).toEqual([
-        { path: 'libs/vertuo-ai-credit/src/server/migrations.ts', rule: 'stored-shape' },
-        { path: 'libs/vertuo-ai-credit/src/server/migrations.ts', rule: 'law-proof' },
+        { path: 'libs/nimbus-ai-credit/src/server/migrations.ts', rule: 'stored-shape' },
+        { path: 'libs/nimbus-ai-credit/src/server/migrations.ts', rule: 'law-proof' },
       ]);
     });
 

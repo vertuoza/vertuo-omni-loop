@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { answered, dropPicks, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './outbox-picks';
 import type { Face } from '../../people/face';
 import { LoginChip } from './LoginChip';

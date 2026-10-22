@@ -1,5 +1,5 @@
 import 'server-only';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import type { ApiKeysDeps } from './api-keys.controller';
 import { apiKeysRepository, type ApiKeysDb } from './api-keys.repository';

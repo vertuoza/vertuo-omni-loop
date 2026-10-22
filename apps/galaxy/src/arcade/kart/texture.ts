@@ -5,7 +5,7 @@
 // space drawn behind the floor shows (art.ts), with a neon edge on its side of the road's edge. Pure: no
 // canvas, so it is tested and reused as it is. The Mode 7 floor samples
 // it (mode7.ts). Only the map's characters decide what a tile is, never a colour.
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { rampFrom, rng } from '@omni/design';
 import type { Deck, Texture } from './mode7';
 import { inSpan, locate, pieceAt, segmentAt } from './line';

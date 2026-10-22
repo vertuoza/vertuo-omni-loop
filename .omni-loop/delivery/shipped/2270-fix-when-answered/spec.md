@@ -11,7 +11,7 @@ phase0: server
 Since PRD 2223, a runner job that stops on open questions reads **Waiting on answers** on the
 Runners page. That word is written once, when the job ends, and never changes: a person who answers
 every question, on GitHub or on the PRD's page, still sees Waiting on answers, and nothing moves
-until someone remembers to send `/omni:yolo-fix <n>`. On PRD 271 (vertuo-crew-domain), the answers
+until someone remembers to send `/omni:yolo-fix <n>`. On PRD 271 (nimbus-crew-domain), the answers
 were in and the job row still waited.
 
 ## Solution

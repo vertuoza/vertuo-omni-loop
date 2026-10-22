@@ -1,4 +1,4 @@
-// OMNI PONG on the canvas (PRD 2101): the scene's group. The game's code lives in `arcade/pong/` and is
+// PULSAR VOLLEY on the canvas (PRD 2101): the scene's group. The game's code lives in `arcade/pong/` and is
 // imported only when its cabinet opens, so this file, like every other scene's, imports nothing from
 // that folder at run time (pong/guard.test.ts): the loaded game comes in as `FrameState.pong` and draws
 // its court itself, on the whole grid. Until the game has loaded, or if it never does, the canvas is the
@@ -71,7 +71,7 @@ export type PongStatus = 'loading' | 'ready' | 'failed';
 /** What the arcade holds while the pong scene is up: where the import stands, the retries asked for, the grid it started on, the game once loaded and its text layer. */
 export interface ArcadePong { status: PongStatus; retry: number; grid: Grid; game: PongGame | null; hud: PongHud | null }
 
-export const PONG_TITLE = 'OMNI PONG';
+export const PONG_TITLE = 'PULSAR VOLLEY';
 /** The two ways the voice steers, before the microphone is on. */
 export const STEER_LINE = 'HIGH ▲ · LOW ▼';
 export const MIC_REQUIRED = 'MIC REQUIRED';

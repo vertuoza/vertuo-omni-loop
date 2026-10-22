@@ -5,7 +5,7 @@ import { workPath } from '../dossier/page/work';
 import { SectionTabs } from '../nav/SectionTabs';
 import { SituationNotice, type Situation } from '../products/ProductsScreen';
 import { DEMO_ROADMAP_ONE_REPO } from '../roadmap/page/demo';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { archivedLine } from './archive';
 import { ArchiveButton, RestoreButton } from './ArchiveControls';
 import type { Filter } from './constellation';

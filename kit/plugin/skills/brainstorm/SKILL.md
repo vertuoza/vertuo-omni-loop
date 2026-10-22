@@ -3,7 +3,7 @@ name: brainstorm
 description: Turns an idea into an approved design, then into a PRD the loop can build — the PRD issue, the spec, the before/after page and the pending acceptance scenarios in the PRD's inbox folder, its plan through /omni:plan, and a docs-only phase-0 PR a person reviews and merges before any code is written — or, when the repository's phase 0 is on the server, no phase-0 PR and an approval on the PRD's page. Use before any change someone wants made. With --concept <n> <area>, starts from one area of a concept /omni:think-big left in the inbox. Writes no code, merges nothing. Ends with the /omni:yolo line. Triggers on "brainstorm", "I have an idea", "let's design this", "turn this into a PRD", "/omni:brainstorm".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-brainstorming/SKILL.md (with the superpowers brainstorming steps written in) — changes in kit/porting/plugin--brainstorm.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-brainstorming/SKILL.md (with the superpowers brainstorming steps written in) — changes in kit/porting/plugin--brainstorm.md -->
 
 # Brainstorm: an idea into a PRD the loop can build
 
@@ -362,6 +362,10 @@ spec: file
   tests, at which levels, and what a test must never do.
 - **Risks** names what merging this PRD would publish, and how that is rolled back: read
   `omni kb show releasing`.
+- **The Legal entries it touches**, in **Risks**: run `node .omni-loop/bin/omni.mjs kb legal` and
+  name each entry the design touches (its id and what it governs), as the locked laws are named
+  above. A design touching none says `The Legal entries: none touched.` An offline read carries on
+  with its copy, or with the one line it prints.
 - **The locked laws it touches**, in **Risks**, when `laws.source` is `knowledge`. List the files
   the design will change or add (best guess, from the design as approved), then run
   `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on them. Each locked law it prints gets
@@ -376,7 +380,11 @@ spec: file
   `no written convention: follows <file>`, naming the neighbouring code it copies. When two conventions
   coexist and no page says which one a new name follows, ask the person during the design and never pick
   silently. A spec that names nothing writes the one line `No name chosen.`
-- Words come from `paths.glossary` when it is set, and from the files in `paths.context`.
+- Words come from `paths.glossary` when it is set, from the files in `paths.context`, and from
+  `node .omni-loop/bin/omni.mjs kb glossary`, the product's own glossary, read here where the spec's
+  words come from. Where a term is in both, the page wins: it is shared by every repository of the
+  product. Offline or with no product, the command prints its copy or one line, and the skill carries
+  on with what it has.
 
 **Self-review,** before anyone reads it: no placeholder or "TBD", no two sections contradicting each
 other, a scope one plan can carry, and no requirement readable two ways (pick one and say it). Fix
@@ -389,23 +397,65 @@ and go on only once they approve it.
 
 ## 5. The before/after page
 
-`before-after.html` in the folder, always, because `omni phase0` requires one:
+`before-after.html` in the folder, always, because `omni phase0` requires one. Write it through the
+CLI, never from a blank file, in this order:
 
-- **Two parts,** with the design flag on, in this order, each under its own heading:
-  - **Functional:** what the change does, today beside after: the flow, the data, the exchange,
-    drawn as the kinds below say (an API's exchange, a flow diagram, a short page for nothing
-    visible). Every PRD has it.
-  - **Pixel perfect:** only when the change changes a screen: the marked screens, today beside
-    after, as **A change with a screen** below says, and one line naming the library screens they
-    are, shared screens included (`screens: quote-list · app-shell`). It is the part review and the
-    word pass read, and the one a reviewer looks at closely.
+1. **Start it.** `node .omni-loop/bin/omni.mjs before-after new <n> --services <name>,<name>…`, the
+   services the design touches: a service is a deployable part of the repository, named as its
+   architecture form names it. It writes the page with every section a `<!-- FILL -->`; never name
+   the skeleton's path. It refuses a PRD with no folder, a page already there (`--force` rewrites
+   it) and an empty `--services`.
+2. **Fill it,** each section in one of three states (below), and delete every `<!-- FILL -->`.
+3. **Draw it.** `node .omni-loop/bin/omni.mjs before-after render <n>` turns each
+   `<pre class="mermaid">` into inline SVG and prints `rendered <section> of <service>` per diagram.
+   It needs a Playwright browser and the network: when it refuses (exit 1, with its install line)
+   or a diagram is refused, that section becomes `gap`, `To settle — diagram not rendered: <why>`,
+   with the diagram's source kept as text in a `<details>`, never as `<pre class="mermaid">`.
+4. **The word pass,** below, then `omni check inbox`, which grades the page's tabs, states and
+   rendered diagrams.
 
-  A PRD that changes no screen (a database fix, a guard, a doc) has the Functional part alone, and
-  says, in place of the second part, the one line `Pixel perfect: no screen changes`: no slice runs
-  pixel-perfect work for it, and the feature PR's **Pixel perfect** line (`/omni:pr`) is `none`.
-  With the design flag off, the page is written as before, in one part, by the kinds below.
+- **Two tabs,** in this order, each a `<section data-tab="…">` of the skeleton:
+  - **Functional & design** (`functional`, open when the page loads): one block per service
+    (`data-service`), each with two sections:
+    - **Functional** (`data-section="functional"`): today beside after, in product words: the
+      journey, what the person sees or gets, no identifier a product reader would not use. Every
+      PRD has it.
+    - **Pixel perfect** (`data-section="pixel-perfect"`): only when the change changes a screen:
+      the marked screens, today beside after, as the **Pixel perfect section** below says, and one
+      line naming the library screens they are, shared screens included
+      (`screens: quote-list · app-shell`). It is the section review and the word pass read. A PRD
+      that changes no screen says the one line `Pixel perfect: no screen changes` in it: no slice
+      runs pixel-perfect work for it, and the feature PR's **Pixel perfect** line (`/omni:pr`) is
+      `none`. With the design flag off, the section is `na`, `N/A — design craft is off here`.
+  - **Technical** (`technical`): **Flow** (`data-section="flow"`, once: a Mermaid
+    `sequenceDiagram` or `flowchart` of the exchange between services, each datastore and third
+    party named) and **Deploy order** (`data-section="deploy"`, once: the order services and
+    migrations ship in), then one block per service, headed by its name and a role badge
+    (`BACK-END`, `FRONT-END`, `DATABASE`, `CLI`…), with three sections:
+    - **Database** (`db`): a Mermaid `erDiagram` of the tables created, altered or dropped, only the
+      columns the design names, each marked `+ added`, `- dropped` or `~ altered · was <old>`; per
+      table a TODAY | AFTER code block (an added line `add`, a removed line `del`, an untouched
+      `ctx`); then the change table `table · change · detail`, a row that needs a coordinated
+      deploy first, badged `coordinated deploy`.
+    - **API / schema** (`api`): the change table `element · kind · before · after · service`, one
+      row per element, `kind` one of `added`, `changed`, `deprecated`, `removed`, breaking rows
+      first and badged `breaking`; then, for at most six touched types, breaking first, a
+      BEFORE | AFTER block in the schema's own language, only the touched lines, `# …` for the
+      rest.
+    - **Behaviour** (`behaviour`): the readers and writers whose result changes though their
+      signature does not, today beside after.
+- **A change is breaking** when it removes an element, changes the type of an output, an argument or
+  an input field, changes an output's nullability, or adds a required argument or input field. A
+  deprecation never is. The repository's conventions pages may make the rule stricter, never
+  looser: follow them and say under the table which page you followed.
+- **Three states.** Every `data-section` carries `data-state`: `filled` (the design covers it: the
+  content), `na` (the change does not touch it: `N/A — <one-line reason>`) or `gap` (it applies and
+  the design does not settle it: `To settle — <what is missing, one line>`). A service whose `db`,
+  `api` and `behaviour` are all `na` shows them as the one line `<service>: no technical change`.
+- **Pages with no meta.** A page without `<meta name="omni-before-after" content="2">` is the older
+  shape and is graded on its size alone; this step never writes one.
 
-- A change with a **screen:** two mockups side by side, the screen today and the screen after.
+- **The Pixel perfect section:** a change with a **screen** is two mockups side by side, the screen today and the screen after.
   With the design flag on, read `node .omni-loop/bin/omni.mjs kb show design` first (and the file a
   pointer section names), and build the "after" from the product's own tokens and components as
   its `system` section names them: their colours, type scale, spacing and component shapes, read
@@ -484,7 +534,7 @@ and go on only once they approve it.
   same, today beside after.
 - **The contract blocks,** whenever the repository asks every slice to declare its contract
   (`omni flow show` printed `contracts: declare <kinds>`; `db`, `schema`, `rest`, `api` are the
-  usual kinds) and the change commits it to one: the Functional part carries one **Contract** block
+  usual kinds) and the change commits it to one: the service's technical sections carry one **Contract** block
   per kind the spec commits the repository to, today beside after, under a heading that names the
   kind and the repository (`Contract: db — <repository>`). `db` shows the table(s) and their columns
   before and after; `schema` the GraphQL types, fields and mutations before and after; `rest` or
@@ -518,7 +568,9 @@ where the dossier push sends it).
 Only when `acceptance.enabled` is true, and only for behaviour a browser (or the configured harness,
 `acceptance.run`) can observe.
 
-1. **Words first.** Every noun and verb exists in `paths.glossary` when it is set. When the area has
+1. **Words first.** Every noun and verb exists in `paths.glossary` when it is set, and reads as the
+   product's own term in `node .omni-loop/bin/omni.mjs kb glossary` (the page wins over
+   `paths.glossary` on a term both define). When the area has
    not defined its verbs, add them to the glossary now, in the same commit. Never invent vocabulary
    in a scenario.
 2. **Write** each scenario file under `acceptance.dir`, its name ending in `acceptance.pendingSuffix`:
@@ -761,6 +813,9 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
 3. **Rewrite** the spec and the before/after page to answer the latest round's objection and its
    lowest scores, the way steps 4 and 5 write them (with the design flag on, the marks, the word
    pass and the drafts included), and add the change to the spec's **Decisions**.
+   The page is written as step 5 writes it, through `omni before-after new <n> --force …`, `render`
+   and the word pass. A reworked PRD whose page has no `omni-before-after` meta keeps its old shape
+   (edit it in place, never `new`) unless the person asks for the new one.
    The overrule and the gap question hold as in **The voice**.
 4. **Ask the personas again** as round `rework-<k>`, `<k>` one more than the last rework round (1
    for the first), appended to `voice.json`.

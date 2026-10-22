@@ -3,7 +3,7 @@
 // and the knowledge PR holds the law `Enforced by: pending #<that issue>`, a "no" opens none and stays
 // in the PRD's settled.md. A judge that refuses or fails leaves the classifier's answer to count.
 import { InngestTestEngine } from '@inngest/test';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { inngest } from '../inngest-client.ts';
 import { FILES, K, KEY, LEDGER, REPLIES, fakeFetch, harvestEvent, harvestScenario } from '../../test/harvest-scenario.ts';

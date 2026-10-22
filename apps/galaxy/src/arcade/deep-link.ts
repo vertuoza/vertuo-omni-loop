@@ -8,11 +8,11 @@
 // galaxy is there to show; a page that holds none (out of reach, or an account outside the crew)
 // starts at the boot, as `/` does.
 import type { GalaxyView } from '@omni/galaxy';
-import { at, group, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, group, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { allowed } from './onboarding';
 import type { SceneName } from './scenes';
 import type { Session } from './types';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** The screens an address may name by their own name. */
 export const DEEP_LINKS: readonly SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'menu'];

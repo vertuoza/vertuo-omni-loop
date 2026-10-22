@@ -1,18 +1,19 @@
-// `omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|coverage|context|all]` — the repository's guards.
+// `omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|retro|coverage|context|all]` — the repository's guards.
 // Each prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
 // every guard, and skips `coverage` — never fails on it — when the default branch's remote ref is
 // absent; `design` then grades the library without comparing its locks. `context` (PRD 1679) runs in
 // `all` only while `budgets.context.enabled` is true. `agents` (PRD 1890) grades the skill copies for
-// the non-Claude agents against their manifest.
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-outbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-decision-coverage.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// the non-Claude agents against their manifest. `retro` (PRD 2338) grades the outcomes of the retros'
+// kept lessons and, with `--retro <prd>`, that every kept lesson of that PRD's retro has one.
+// Ported from nimbus-brain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-outbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-registers.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-decision-coverage.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatFailure, formatPass, trackedFiles } from '../../lib/check-report.ts';
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
-import { findInboxViolations } from '../../lib/inbox/check-inbox.ts';
+import { findInboxViolations, inboxAvoidWarnings } from '../../lib/inbox/check-inbox.ts';
 import { gradeKnowledge } from '../../lib/knowledge/check-knowledge.ts';
 import { verifyServedLegal, type LegalReach } from '../../lib/knowledge/check-knowledge-legal.ts';
 import { COPIES_DIR, gradeCopies } from '../../lib/knowledge/copies.ts';
@@ -29,6 +30,7 @@ import { outboxItemFiles } from '../../lib/outbox/outbox.ts';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.ts';
 import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.ts';
 import { gradeAgents } from '../../lib/agents/check.ts';
+import { gradeRetros } from '../../lib/retro/check-retro.ts';
 import { CONFIG_FILE, ConfigError, contextBudget, designScreensDir } from '../../lib/config.ts';
 import { prdOfBranch } from '../../lib/ask/context.ts';
 import { currentBranch } from '../../lib/ask/title.ts';
@@ -49,7 +51,7 @@ import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { loadContext, type Context } from '../../lib/context.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 
-const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|coverage|context|all] [--base <ref>] [--prd <n>]';
+const USAGE = 'usage: omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|retro|coverage|context|all] [--base <ref>] [--prd <n>] [--retro <prd>]';
 
 /** Prints a guard's result; `true` when it is green. */
 function report(stdout: Out, title: string, violations: readonly string[], passLine: string): boolean {
@@ -64,12 +66,15 @@ function report(stdout: Out, title: string, violations: readonly string[], passL
 function checkInbox({ ctx, stdout }: CommandIo): boolean {
   const violations = findInboxViolations({ ctx });
   const count = ctx.layout.specFiles().length;
-  return report(
+  // PRD 2299: the product's avoided words in a spec are warnings, never a violation.
+  const green = report(
     stdout,
     'check inbox — an inbox file does not hold what it claims:',
     violations,
     `check inbox — ${count} inbox file(s), all well-formed.`,
   );
+  for (const warning of inboxAvoidWarnings({ ctx })) println(stdout, warning);
+  return green;
 }
 
 function checkOutbox({ ctx, stdout }: CommandIo): boolean {
@@ -154,6 +159,18 @@ function checkAgents({ ctx, stdout }: CommandIo): boolean {
     ? `check agents — ${grade.folders} folder(s), ${grade.files} file(s), every copy as omni wrote it.`
     : 'check agents — agents lists claude alone; no copies to check.';
   return report(stdout, 'check agents — a skill copy does not hold what omni wrote:', grade.violations, pass);
+}
+
+// PRD 2338: every retro's outcomes sound; with `--retro <prd>`, every kept lesson of that retro settled.
+function checkRetro({ ctx, stdout }: CommandIo, retro: PrdNumber | null): boolean {
+  const grade = gradeRetros({ ctx, retro });
+  const own = retro === null ? '' : `; PRD ${String(retro)}: ${String(grade.kept ?? 0)} kept lesson(s), each with an outcome`;
+  return report(
+    stdout,
+    "check retro — a retro's lesson does not hold what it claims:",
+    grade.violations,
+    `check retro — ${String(grade.retros)} retro(s), ${String(grade.outcomes)} outcome(s), each one sound${own}.`,
+  );
 }
 
 function defaultBase(ctx: Context): string {
@@ -342,7 +359,7 @@ function contextFor(guard: string, cwd: string, exec: Exec, stdout: Out): Contex
   }
 }
 
-const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'agents', 'design', 'coverage', 'context', 'all'];
+const GUARDS: readonly string[] = ['config', 'inbox', 'outbox', 'knowledge', 'kb', 'releases', 'agents', 'design', 'retro', 'coverage', 'context', 'all'];
 
 /** The guards that run alone and take nothing but the command's io. */
 const SINGLE_GUARDS: Readonly<Record<string, (io: CommandIo) => boolean>> = {
@@ -366,12 +383,15 @@ interface Range {
   base: string;
   baseKnown: boolean;
   prd: PrdNumber | null;
+  /** The PRD whose retro a retro PR carries (`--retro`, PRD 2338): its every kept lesson needs an outcome. */
+  retro: PrdNumber | null;
 }
 
-/** The coverage guard's range, from `--base` and `--prd`. */
-function rangeOf(guard: string, flags: Flags<'base' | 'prd', never>, io: CommandIo, know: Range['know']): Range {
+/** The coverage guard's range, from `--base` and `--prd`; the retro guard's PRD, from `--retro`. */
+function rangeOf(guard: string, flags: Flags<'base' | 'prd' | 'retro', never>, io: CommandIo, know: Range['know']): Range {
   const { ctx, exec } = io;
   const prd = flags.prd === undefined ? null : prdArg('check', '--prd', flags.prd);
+  const retro = flags.retro === undefined ? null : prdArg('check', '--retro', flags.retro);
   const base = flags.base ?? defaultBase(ctx);
   const baseKnown = refExists(ctx, base, exec);
   // An explicit --base is the user's own ref: when it does not resolve, say so rather than skip.
@@ -381,7 +401,8 @@ function rangeOf(guard: string, flags: Flags<'base' | 'prd', never>, io: Command
   const coverageRuns = guard === 'coverage' || (guard === 'all' && baseKnown);
   const contextRuns = guard === 'context' || (guard === 'all' && contextBudget(ctx.config).enabled);
   if (prd !== null && !coverageRuns && !contextRuns) println(io.stderr, `omni check: --prd ${prd} ignored — neither the coverage nor the context guard ran.`);
-  return { know, base, baseKnown, prd };
+  if (retro !== null && guard !== 'retro' && guard !== 'all') println(io.stderr, `omni check: --retro ${retro} ignored — the retro guard did not run.`);
+  return { know, base, baseKnown, prd, retro };
 }
 
 /** `omni check coverage` alone: a missing base is a usage error, not a skip. */
@@ -393,7 +414,17 @@ function coverageOnly(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
 /** `omni check all`: every guard, coverage skipped when the base is absent, context while budgets are on. */
 async function allGuards(io: CommandIo, range: Range): Promise<boolean> {
   const { base, baseKnown, prd } = range;
-  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), await checkKnowledge(io, range.know), checkKb(io), checkReleases(io), checkAgents(io), checkDesign(io, { base, baseKnown })];
+  const results = [
+    checkConfig(io),
+    checkInbox(io),
+    checkOutbox(io),
+    await checkKnowledge(io, range.know),
+    checkKb(io),
+    checkReleases(io),
+    checkAgents(io),
+    checkDesign(io, { base, baseKnown }),
+    checkRetro(io, range.retro),
+  ];
   if (baseKnown) results.push(checkCoverage(io, { base, prd }));
   else println(io.stdout, `coverage: skipped — no ${base}`);
   if (contextBudget(io.ctx.config).enabled) results.push(await checkContext(io, range));
@@ -406,6 +437,7 @@ async function runGuard(guard: string, io: CommandIo, range: Range): Promise<boo
   if (guard === 'knowledge') return checkKnowledge(io, range.know);
   if (single) return single(io);
   if (guard === 'design') return checkDesign(io, range);
+  if (guard === 'retro') return checkRetro(io, range.retro);
   if (guard === 'context') return checkContext(io, range);
   return guard === 'coverage' ? coverageOnly(io, range) : allGuards(io, range);
 }
@@ -416,7 +448,7 @@ export const check: FreeCommand = {
   withoutContext: true,
   async run(args: string[], free: FreeIo & LegalReach): Promise<number> {
     const { cwd, stdout, stderr, exec, env, vars } = free;
-    const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
+    const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd', 'retro'] });
     const guard = guardOf(positional);
     const ctx = contextFor(guard, cwd, exec, stdout);
     if (ctx === null) return 1;

@@ -3,16 +3,16 @@ import { playerXp, XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES } from './index';
 import { barFill, cabinetDoor, cabinets, gamesHint, levelTag, ROOM_CABINETS, roomWindow, WIDE_WINDOW, XP_LINE, xpStatus, type Cabinet } from './room';
 import { sure } from '../test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 
 describe('the registry', () => {
-  it('lists Entropy Invaders, Super Omni World, OMNI KART, OMNI DUET then OMNI PONG, each keyed as the rulebook unlocks it', () => {
-    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET'], ['pong', 'OMNI PONG']]);
+  it('lists Entropy Invaders, Starhop, OMNI KART, OMNI DUET then PULSAR VOLLEY, each keyed as the rulebook unlocks it', () => {
+    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'STARHOP'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET'], ['pong', 'PULSAR VOLLEY']]);
     expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time', boards: [{ id: 'kart', title: 'COMET RING' }, { id: 'kart-frost-eight', title: 'FROST EIGHT' }] });
     expect(GAMES[3]).toEqual({ id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' });
-    expect(GAMES[4]).toEqual({ id: 'pong', title: 'OMNI PONG', scene: 'pong', measure: 'points' });
+    expect(GAMES[4]).toEqual({ id: 'pong', title: 'PULSAR VOLLEY', scene: 'pong', measure: 'points' });
     expect(XP_RULES.unlocks).toEqual({ invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 5 });
     expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time'], ['duet', 'points'], ['pong', 'points']]);
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
@@ -148,7 +148,7 @@ describe('cabinetDoor', () => {
     expect(cabinetDoor(locked, xpStatus(true, 'unreadable'))).toEqual({ refused: 'XP OUT OF REACH' });
   });
 
-  it('refuses Super Omni World at LV 1 with REACH LV 2 TO PLAY, and opens its scene at LV 2', () => {
+  it('refuses Starhop at LV 1 with REACH LV 2 TO PLAY, and opens its scene at LV 2', () => {
     const lv1 = xpStatus(true, row(10, 1, ['invaders']));
     const [, platformer1] = cabinets(lv1);
     assertDefined(platformer1, 'platformer1');
@@ -195,14 +195,14 @@ describe('OMNI DUET\'s cabinet (PRD 1633)', () => {
   });
 });
 
-describe('OMNI PONG\'s cabinet (PRD 2101)', () => {
+describe('PULSAR VOLLEY\'s cabinet (PRD 2101)', () => {
   it('is the fifth cabinet: refused at LV 4 with REACH LV 5 TO PLAY, and open at LV 5 on its scene', () => {
     const lv4 = xpStatus(true, row(300, 4, ['invaders', 'platformer', 'kart', 'duet']));
     const room4 = cabinets(lv4);
     expect(room4).toHaveLength(5);
     const pong4 = room4[4];
     assertDefined(pong4, 'pong4');
-    expect(pong4).toMatchObject({ kind: 'game', game: { id: 'pong', title: 'OMNI PONG' }, unlocked: false, level: 5 });
+    expect(pong4).toMatchObject({ kind: 'game', game: { id: 'pong', title: 'PULSAR VOLLEY' }, unlocked: false, level: 5 });
     expect(cabinetDoor(pong4, lv4)).toEqual({ refused: 'REACH LV 5 TO PLAY' });
     const lv5 = xpStatus(true, row(500, 5, ['invaders', 'platformer', 'kart', 'duet', 'pong']));
     const pong5 = cabinets(lv5)[4];

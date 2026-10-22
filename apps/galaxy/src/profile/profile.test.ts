@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it, vi } from 'vitest';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { BoardReads } from '../dashboard/board/load';

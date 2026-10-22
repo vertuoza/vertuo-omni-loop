@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { refuse, reply } from '../business-api/reply';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { AlertChannels, PushDevice } from './device';
 import type { AlertStore } from './store';
 

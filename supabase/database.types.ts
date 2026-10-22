@@ -3172,6 +3172,38 @@ export type Database = {
           },
         ]
       }
+      repository_runner_skills: {
+        Row: {
+          allowed_at: string
+          allowed_by: string | null
+          full_name: string
+          skill: string
+          workspace_id: string
+        }
+        Insert: {
+          allowed_at?: string
+          allowed_by?: string | null
+          full_name: string
+          skill: string
+          workspace_id: string
+        }
+        Update: {
+          allowed_at?: string
+          allowed_by?: string | null
+          full_name?: string
+          skill?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repository_runner_skills_workspace_id_full_name_fkey"
+            columns: ["workspace_id", "full_name"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
       roadmap_human_work: {
         Row: {
           act: string | null
@@ -3550,7 +3582,8 @@ export type Database = {
           repo: string
           runner_id: string | null
           running_at: string | null
-          sent_by: string
+          sent_by: string | null
+          sent_by_app: string | null
           sent_by_key: string | null
           status: string
           to_fleet: string | null
@@ -3576,7 +3609,8 @@ export type Database = {
           repo: string
           runner_id?: string | null
           running_at?: string | null
-          sent_by: string
+          sent_by?: string | null
+          sent_by_app?: string | null
           sent_by_key?: string | null
           status?: string
           to_fleet?: string | null
@@ -3602,7 +3636,8 @@ export type Database = {
           repo?: string
           runner_id?: string | null
           running_at?: string | null
-          sent_by?: string
+          sent_by?: string | null
+          sent_by_app?: string | null
           sent_by_key?: string | null
           status?: string
           to_fleet?: string | null
@@ -6185,6 +6220,10 @@ export type Database = {
         Returns: undefined
       }
       repository_phase0: { Args: { p_repo: string }; Returns: string }
+      repository_runner_skills_of: {
+        Args: { p_full_name: string; p_workspace: string }
+        Returns: string[]
+      }
       restore_fleet: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
@@ -6268,7 +6307,8 @@ export type Database = {
           repo: string
           runner_id: string | null
           running_at: string | null
-          sent_by: string
+          sent_by: string | null
+          sent_by_app: string | null
           sent_by_key: string | null
           status: string
           to_fleet: string | null
@@ -6303,7 +6343,8 @@ export type Database = {
           repo: string
           runner_id: string | null
           running_at: string | null
-          sent_by: string
+          sent_by: string | null
+          sent_by_app: string | null
           sent_by_key: string | null
           status: string
           to_fleet: string | null
@@ -6502,6 +6543,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_repository_runner_skill: {
+        Args: {
+          p_allowed: boolean
+          p_full_name: string
+          p_skill: string
+          p_workspace: string
+        }
+        Returns: undefined
       }
       set_repository_tracked: {
         Args: { p_full_name: string; p_tracked: boolean; p_workspace: string }

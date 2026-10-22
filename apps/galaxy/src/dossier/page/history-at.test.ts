@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierListRow } from '../store';
 import { findAt, outboxTabPath, readAt, atCallbackPath, atLanding, atPath, atSignInReturn, prdPagePath } from './history-at';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd/at/<owner>/<repo>/<n> (PRD 251, s10): the short address the kit's outbox comment writes, knowing
 // only the repository and the PRD. It names a dossier by its home repository and PRD among the ones the
@@ -17,7 +17,7 @@ describe('the address', () => {
   it('reads an owner, a repository and a PRD number', () => {
     expect(readAt({ owner: 'vertuoza', repo: 'vertuo-omni-loop', n: '251' })).toEqual({ owner: 'vertuoza', repo: 'vertuo-omni-loop', prd: parsePrd(251) });
     expect(readAt({ owner: 'Vertuoza', repo: 'my.repo_2', n: '7' })).toEqual({ owner: 'Vertuoza', repo: 'my.repo_2', prd: parsePrd(7) });
-    expect(readAt({ owner: 'vertuoza', repo: 'vertuo%2Domni', n: '1' })).toEqual({ owner: 'vertuoza', repo: 'vertuo-omni', prd: parsePrd(1) });
+    expect(readAt({ owner: 'vertuoza', repo: 'nimbus%2Domni', n: '1' })).toEqual({ owner: 'vertuoza', repo: 'nimbus-omni', prd: parsePrd(1) });
   });
 
   it('names nothing for a PRD that is not a positive number, or a name GitHub would not give', () => {
@@ -35,7 +35,7 @@ describe('the address', () => {
   });
 
   it('names a PRD\'s own page by its repository\'s slug and its number (#1199)', () => {
-    expect(prdPagePath('vertuoza/vertuo-vibe-master-plan', parsePrd(8))).toBe('/prd/at/vertuoza/vertuo-vibe-master-plan/8?to=page');
+    expect(prdPagePath('demo-org/nimbus-vibe-master-plan', parsePrd(8))).toBe('/prd/at/demo-org/nimbus-vibe-master-plan/8?to=page');
     expect(prdPagePath('Acme/my.repo', parsePrd(12))).toBe('/prd/at/Acme/my.repo/12?to=page');
   });
 });
@@ -43,17 +43,17 @@ describe('the address', () => {
 describe('the dossier it names', () => {
   const ROWS = [
     row('00000000-0000-4000-8000-0000000000d1', { prd: parsePrd(251) }),
-    row('00000000-0000-4000-8000-0000000000d2', { prd: parsePrd(216), home_repo: 'vertuoza/vertuo-core' }),
+    row('00000000-0000-4000-8000-0000000000d2', { prd: parsePrd(216), home_repo: 'demo-org/nimbus-core' }),
     row('00000000-0000-4000-8000-0000000000d3', { prd: null }),
   ];
 
   it('is the dossier with that home repository and PRD, the repository in any case', () => {
     expect(findAt(ROWS, { owner: 'Vertuoza', repo: 'Vertuo-Omni-Loop', prd: parsePrd(251) })).toBe('00000000-0000-4000-8000-0000000000d1');
-    expect(findAt(ROWS, { owner: 'vertuoza', repo: 'vertuo-core', prd: parsePrd(216) })).toBe('00000000-0000-4000-8000-0000000000d2');
+    expect(findAt(ROWS, { owner: 'demo-org', repo: 'nimbus-core', prd: parsePrd(216) })).toBe('00000000-0000-4000-8000-0000000000d2');
   });
 
   it('is none for another repository, another PRD, or a dossier the viewer may not read (absent from the rows)', () => {
-    expect(findAt(ROWS, { owner: 'vertuoza', repo: 'vertuo-core', prd: parsePrd(251) })).toBeNull();
+    expect(findAt(ROWS, { owner: 'demo-org', repo: 'nimbus-core', prd: parsePrd(251) })).toBeNull();
     expect(findAt(ROWS, { owner: 'vertuoza', repo: 'vertuo-omni-loop', prd: parsePrd(999) })).toBeNull();
     expect(findAt([], { owner: 'vertuoza', repo: 'vertuo-omni-loop', prd: parsePrd(251) })).toBeNull();
   });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { newRun, STAGE_SECONDS } from './rules';
 import { ended, hearEvent, newSession, pauseSession, pressSession, scoreToSend, type Session } from './session';
 
-// A game of Super Omni World as the arcade holds it around the Phaser scene (PRD 817): the presses
+// A game of Starhop as the arcade holds it around the Phaser scene (PRD 817): the presses
 // the scene does not read (START, SELECT, B on a screen), what the scene reports, and a pause from
 // outside.
 

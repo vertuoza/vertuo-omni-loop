@@ -8,7 +8,7 @@
 // go through `noteTo`: one `note` line at `warn`, the sentence as `message`, the module that said it as
 // `fn`. So the App's whole output is JSON lines.
 import type { Inngest } from 'inngest';
-import { log, type LogEntry, type Logger, type LogOutcome } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log, type LogEntry, type Logger, type LogOutcome } from 'omni-loop/kit/lib/log/log.ts';
 
 /** The ids a run line may carry, beside its event, outcome and duration; one left undefined is not written. */
 export type RunFields = { [K in 'repo' | 'prd' | 'deliveryId' | 'runId' | 'fn' | 'status']?: LogEntry[K] | undefined };

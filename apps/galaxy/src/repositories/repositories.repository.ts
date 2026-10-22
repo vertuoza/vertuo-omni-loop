@@ -47,6 +47,34 @@ export function repositoriesRepository(db: Db) {
       return data ?? [];
     },
 
+    /** The workspace that lists the repository (not removed) among the signed-in person's, or null (PRD 2313 s3). */
+    async workspaceOf(fullName: string): Promise<string | null> {
+      // `data` is widened to null: the rows are read here unparsed.
+      const { data, error }: { data: { workspace_id: string }[] | null; error: Error | null } =
+        await db.from('repositories').select('workspace_id').eq('full_name', fullName).is('removed_at', null).limit(1);
+      if (error) throw new Error(`Supabase: could not read the repository (${error.message})`);
+      return data?.[0]?.workspace_id ?? null;
+    },
+
+    /** The skills of the repository the workspace's owner allowed on its runners (PRD 2313 s3). */
+    async allowedSkills(workspace: string, fullName: string): Promise<{ skill: string; allowed_by: string | null; allowed_at: string }[]> {
+      // `data` is widened to null: the rows are read here unparsed.
+      const { data, error }: { data: { skill: string; allowed_by: string | null; allowed_at: string }[] | null; error: Error | null } =
+        await db.from('repository_runner_skills').select('skill, allowed_by, allowed_at').eq('workspace_id', workspace).eq('full_name', fullName);
+      if (error) throw new Error(`Supabase: could not read the allowed skills (${error.message})`);
+      return data ?? [];
+    },
+
+    /** The GitHub logins of those users in the workspace; a person without one is left out (PRD 2313 s3). */
+    async logins(workspace: string, users: string[]): Promise<Map<string, string>> {
+      if (users.length === 0) return new Map();
+      // `data` is widened to null: the rows are read here unparsed.
+      const { data, error }: { data: { user_id: string; github_login: string | null }[] | null; error: Error | null } =
+        await db.from('players').select('user_id, github_login').eq('workspace_id', workspace).in('user_id', users);
+      if (error) throw new Error(`Supabase: could not read the players (${error.message})`);
+      return new Map((data ?? []).flatMap((p) => (p.github_login ? [[p.user_id, p.github_login] as const] : [])));
+    },
+
     /** The workspace's GitHub org and the installation it stored. */
     async github(workspace: string): Promise<GithubOf> {
       // `data` is widened to null: the row is read here unparsed.

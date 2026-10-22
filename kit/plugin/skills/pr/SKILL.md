@@ -3,7 +3,7 @@ name: pr
 description: Opens, updates, watches and finishes a pull request of the Omni Loop — a feature PR into the default branch, a sub-PR into a feature branch, or a standalone PR. Use when a PR is opened or its body changes, when CI is running, red or conflicting, or when someone asks whether an agent is still on a PR.
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-pull-request/SKILL.md — adaptations in kit/porting/plugin--pr.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-pull-request/SKILL.md — adaptations in kit/porting/plugin--pr.md -->
 
 # Pull request
 

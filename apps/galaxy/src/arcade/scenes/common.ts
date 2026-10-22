@@ -5,7 +5,7 @@
 // its own in `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw. A colour that is a
 // theme token is read from the frame's theme (`FrameState.theme`), never written here, and every
 // sprite is drawn through `sprite()`, in the theme's stripes.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import {
   drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm, type Tint,
 } from '@omni/design';
@@ -16,7 +16,7 @@ import { stripesOf, type Theme } from '../theme';
 import type { Game } from '../games/invaders';
 import type { FleetRow } from '../types';
 import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
@@ -64,7 +64,7 @@ export interface FrameState {
   game?: Game | null;   // the game being played (invaders), laid out for `grid`
   kart?: KartDraw | null; // OMNI KART once its code has loaded (kart); null while it loads or when it did not
   duet?: DuetDraw | null; // OMNI DUET once its code has loaded (duet); null while it loads or when it did not
-  pong?: PongDraw | null; // OMNI PONG once its code has loaded (pong); null while it loads or when it did not
+  pong?: PongDraw | null; // PULSAR VOLLEY once its code has loaded (pong); null while it loads or when it did not
 }
 
 /**
@@ -79,7 +79,7 @@ export interface KartDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): 
  */
 export interface DuetDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): void }
 
-/** OMNI PONG as the canvas holds it once `arcade/pong/` has been imported (PRD 2101): it draws its court on the frame's whole grid. */
+/** PULSAR VOLLEY as the canvas holds it once `arcade/pong/` has been imported (PRD 2101): it draws its court on the frame's whole grid. */
 export interface PongDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): void }
 
 /** What the star chart's two scenes draw: the knowledge, its suns and the open system, laid out on the frame's grid. */

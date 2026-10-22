@@ -295,7 +295,7 @@ Question I ask of each concept: what must be true for this to work? Round 1 dial
 3. **A signed-in film session on the product** (production for the pitch walk, preview for proof) that does not
    expire between ship and render.
 4. **Feature visible where it is filmed at ship time.** Does "shipped" in Omni (feature PR merged into `main`)
-   mean vertuo-apps' production has it? If production deploys later, or behind a flag, the production walk films
+   mean nimbus-apps' production has it? If production deploys later, or behind a flag, the production walk films
    the old screen.
 5. **Trust in AI-written claims:** Thomas's post carried a limit ("creation date only since mid-September",
    `today`). That fact lives in data/backfill knowledge, maybe not in the spec. The draft must not drop limits it
@@ -351,7 +351,7 @@ is cheap to regenerate and easy to trust-check. The video is secondary, which un
 A ritual can raise watching; it also adds a deadline, an aggregator and a show-level render on top of every
 per-feature condition. A sales rep cannot link a 1:48 show to one customer as easily as a per-feature post.
 - **Must be true:** there are enough opted-in launches per week to make a show (how many PRDs ship per week in
-  vertuo-apps, and how many will be opted in?); several PMs approve by Thursday 18:00; the renderer is up on a
+  nimbus-apps, and how many will be opted in?); several PMs approve by Thursday 18:00; the renderer is up on a
   schedule; chapters/per-segment links exist so CS can share one segment.
 - **Yes, and…** let E be the *weekly digest* that stitches already-published per-feature launches (F or C), never
   the only path: a feature is announced the day it ships, and the Friday show re-packs the week.
@@ -975,10 +975,10 @@ designed state; a green dot glyph is not.
 
 **Visionary, on C "it is ours, HOME is a retro print ad":** I disagree. `design` keeps the kicker, the ★ and the hard
 shadows *for HOME, on purpose*. It does not hand them to every artifact. Worse, the launch videos are mostly
-Vertuoza's own products (`brief`: vertuo-apps), whose look is set per product in Settings › Products › Pitch (`today`,
+Vertuoza's own products (`brief`: nimbus-apps), whose look is set per product in Settings › Products › Pitch (`today`,
 PRD 1108: look, fonts, intro, outro). A construction-software feature in Omni's arcade costume leaves that product's
 look. Your crest ident is right *for Omni Loop's own launches*: pixel crest at a whole-number scale (`design` ›
-Deliberate). For vertuo-apps the ident is that product's logo from its settings. On this point I side with Fedev and
+Deliberate). For nimbus-apps the ident is that product's logo from its settings. On this point I side with Fedev and
 Bedev: the poster should be a real frame of the UI, set in the product's own look.
 
 **Visionary, on D "nobody forwards a lede":** true, and D was never meant to be what readers see. It is the desk the
@@ -1685,7 +1685,7 @@ writes one settled still per scene plus a contact sheet (`kit/lib/pitch/storyboa
   from Settings › Products › Pitch (`today`, PRD 1108). For Vertuoza, that is the example's ink #08104D, accent
   #3D5AFE, cta #FF4217 and Gantari, as Martin cited. On the tab, the product's look appears only inside the preview
   frame, never in the page's chrome.
-- **No costume anywhere:** no film poster, no "presents", no Anton, no pixel faces in a vertuo-apps video. The pixel
+- **No costume anywhere:** no film poster, no "presents", no Anton, no pixel faces in a nimbus-apps video. The pixel
   crest and the arcade look belong only to Omni Loop's own launches, because that is its product look.
 - **The tier changes amount, not style.** Mini: no narration, music optional, around 20 s, no slide. Full: narration,
   music, 30–60 s, the slide. Same intro (logo + eyebrow), same outro (cta), same type and colour. "Premium" is what
@@ -2269,7 +2269,7 @@ prod **and** on demo. None of the three tells a person to use the terminal. Good
 
 ## 1
 Scores: Wow 4 · User value 5 · Craft 4 · Fit 5 · Feasibility 3
-Stance: the right default. Approving is the job, the before source is named ("Before: demo · Oct 14"), every line carries a source chip (spec §1, proof AC-1), and the no-before state is drawn honestly ("The post says nothing about a before"). Its hidden must-be-true is time. It shows "Merged 09:41" and "ready 10:02", which needs prod deployed with the feature, the after walk filmed on prod, the demo walk filmed and a CI render, all within about 20 minutes. If vertuo-apps' prod deploys later than the merge, "Launch ready" has to wait for prod, and the page must say so instead of filming the old screen.
+Stance: the right default. Approving is the job, the before source is named ("Before: demo · Oct 14"), every line carries a source chip (spec §1, proof AC-1), and the no-before state is drawn honestly ("The post says nothing about a before"). Its hidden must-be-true is time. It shows "Merged 09:41" and "ready 10:02", which needs prod deployed with the feature, the after walk filmed on prod, the demo walk filmed and a CI render, all within about 20 minutes. If nimbus-apps' prod deploys later than the merge, "Launch ready" has to wait for prod, and the page must say so instead of filming the old screen.
 Remix: yes, and add one state, "Waiting for prod: the feature is not live yet". Omni checks that the after walk finds the new element (the moments from proof) before it films, the mirror of the "demo matches prod" refusal. The "Click through it · Public link · no sign-in" needs one more condition: it is filmed in a demo workspace, never a real customer's data, because a public link travels.
 
 ## 2
@@ -2279,7 +2279,7 @@ Remix: yes, and make the Desk what prototype 1's "Edit words" and "Adjust scenes
 
 ## 3
 Scores: Wow 4 · User value 3 · Craft 4 · Fit 4 · Feasibility 3
-Stance: it answers Martin's "a really nice format" without Nintendo. The construction "site report" is Vertuoza's own world, and it is the cheapest reel possible: concatenating already-rendered drops plus a cover scene, with ffmpeg doing the work and nothing re-filmed. It is honest that chapters 2 and 3 are invented examples, and it draws the skip ("Editions need two drops or more") and the render failure ("The drops stay posted"). The must-be-true I cannot check: are there two or more opted-in launches a week in vertuo-apps? The opt-in is designed to be rare, so the per-release key may fill more often than the per-week one. The written edition PDF is extra surface for little gain over the thread.
+Stance: it answers Martin's "a really nice format" without Nintendo. The construction "site report" is Vertuoza's own world, and it is the cheapest reel possible: concatenating already-rendered drops plus a cover scene, with ffmpeg doing the work and nothing re-filmed. It is honest that chapters 2 and 3 are invented examples, and it draws the skip ("Editions need two drops or more") and the render failure ("The drops stay posted"). The must-be-true I cannot check: are there two or more opted-in launches a week in nimbus-apps? The opt-in is designed to be rare, so the per-release key may fill more often than the per-week one. The written edition PDF is extra surface for little gain over the thread.
 Remix: yes, and default to "Keyed by Release" (PRD 262's `/releases` already groups by version), and drop the PDF. The thread's "one line per chapter for sales and CS" already is the written edition.
 
 ## Answers by name
@@ -2890,7 +2890,7 @@ Crowned: **L · Launch (Ready on ship × Friday Tech News)**, r3/direction.md + 
 2. **Build on what exists:** the `/omni:pitch` skill (docs: /docs/skills/pitch), `kit/lib/pitch`, `kit/pitch-engine`
    and the per-product Pitch settings (Settings › Products › <product> › Pitch) are the base to improve or replace —
    Launch replaces the Pitch tab and the manual terminal run.
-3. **A Vertuoza engine exists outside Omni:** `vertuoza/release-videos` (private, Thomas Margraff, last pushed
+3. **A Vertuoza engine exists outside Omni:** `demo-org/release-videos` (private, Thomas Margraff, last pushed
    2026-09-30): "Moteur de vidéos de release Vertuoza : storyboard JSON → MP4 aux couleurs de la marque, pour Slack",
    with music sync (`meta.audio.sync`, −16 LUFS), a `check`, a skill, Pixabay music proposals. PRD 1108 was inspired by
    it. Its author said he would see if it can be integrated in Omni. → An open question for the first area: integrate
@@ -2909,7 +2909,7 @@ can post an *existing* render. It proves the reader's moment and the "no video, 
 | # | id | Name | One-line brief | Moments | Main risk |
 |---|---|---|---|---|---|
 | 1 | `launch-post` | Post inline to Slack (wedge) | An "Omni" Slack app posts a PRD's rendered video *as* the message in #release-won (3-step upload, three lines of text with Limits and links), only after the PM clicks "Post the launch"; no video means no post, and the PM gets the reason plus Retry on the Launch tab and in a private Slack note. | 4, 8 (and 2's button) | The workspace blocks or does not play an uploaded MP4 inline; the bot token is held server-side |
-| 2 | `launch-on-ship` | Ready on ship | The one-toggle opt-in (brainstorm or ship, Post when shipped / Add to Friday), "Waiting for prod", then a CI render of the after footage in a fixed format (Flash, Feature, Spotlight, Still fallback) from the product's Pitch settings; Launch replaces the Pitch tab and the terminal run. Settles the engine question: Thomas's `vertuoza/release-videos` as the render provider behind `kit/lib/pitch/providers`, or port its best parts (audio sync, −16 LUFS, check). | 1, 2, 8 | A CI runner with Chromium, ffmpeg, Claude and a live prod sign-in session; the engine choice |
+| 2 | `launch-on-ship` | Ready on ship | The one-toggle opt-in (brainstorm or ship, Post when shipped / Add to Friday), "Waiting for prod", then a CI render of the after footage in a fixed format (Flash, Feature, Spotlight, Still fallback) from the product's Pitch settings; Launch replaces the Pitch tab and the terminal run. Settles the engine question: Thomas's `demo-org/release-videos` as the render provider behind `kit/lib/pitch/providers`, or port its best parts (audio sync, −16 LUFS, check). | 1, 2, 8 | A CI runner with Chromium, ffmpeg, Claude and a live prod sign-in session; the engine choice |
 | 3 | `launch-adapt` | Adapt by prompt | One prompt line plus chips (Shorter, Other music, Other format, Replace a shot, Plainer words); Claude rewrites the storyboard within its schema, `omni pitch check` refuses unsourced claims, changed stills show with a diff, each adapt is a new version, Undo is free; uploading your own replacement video is a separate button. | 3 | The rewrite drifts or invents a claim the check misses; one model session plus one render per adapt |
 | 4 | `launch-from-scratch` | New video from screenshots or a prompt | A launch with nothing filmed (mobile, behind sign-in, not a PRD): drop screenshots and/or write a prompt, and Omni builds the same storyboard in a fixed format (screenshot media already exist in the schema). | 5 | Words with no spec to source them; how the check judges a claim when only a prompt backs it |
 | 5 | `tech-news` | Friday Tech News | Products › <product> › Tech News lists the week's "Add to Friday" launches, each PM can untick theirs; Friday 11:00 one group video (cover, a 10–15 s chapter per feature, outro, chapter times in the text) posts itself inline; under two items it skips; if the group render fails, nothing posts. | 6, 7, 8 | Too few opted-in launches to fill a week; a send with no click must still count as each PM's approval |
@@ -2930,7 +2930,7 @@ The wedge has to remove that before anything else counts.
 
 | # | id | Name | Brief (one line) | Moments |
 |---|---|---|---|---|
-| 1 | `launch-post` | Post the launch (wedge) | The "Announce this launch" toggle, a CI render of the PRD's video in the default Feature format from the after footage, spec and release note, and the ship-day "Post the launch" card that uploads the MP4 *as* the Slack message with three lines of text. No video means no post: the PM gets the reason and a Retry. Launch replaces the Pitch tab. The open question it settles: whether `vertuoza/release-videos` becomes the render provider, or Omni's engine stays and ports its best parts. | 1 · 2 · 4 · 8 |
+| 1 | `launch-post` | Post the launch (wedge) | The "Announce this launch" toggle, a CI render of the PRD's video in the default Feature format from the after footage, spec and release note, and the ship-day "Post the launch" card that uploads the MP4 *as* the Slack message with three lines of text. No video means no post: the PM gets the reason and a Retry. Launch replaces the Pitch tab. The open question it settles: whether `demo-org/release-videos` becomes the render provider, or Omni's engine stays and ports its best parts. | 1 · 2 · 4 · 8 |
 | 2 | `tech-news` | Friday Tech News | "Add to Friday" on the toggle, the Products › <product> › Tech News week page (PMs untick theirs), and the Friday 11:00 group video (cover, one chapter per launch, outro) that sends itself inline with one line per chapter. It skips when there are fewer than two launches, and never posts if the group render failed. | 6 · 7 · 8 |
 | 3 | `launch-formats` | Fixed formats | Flash, Spotlight and the Still fallback next to Feature, chosen by one select, all in the product's Pitch look (optional narration in Spotlight: Kokoro free, ElevenLabs if the product adds a key). Omni suggests the format from the spec's weight. | 2 · 4 |
 | 4 | `launch-adapt` | Adapt by prompt | A prompt line and chips under the video (Shorter, Other music, Other format, Replace a shot, Plainer words). Each prompt rewrites the storyboard within its schema, the check refuses unsourced claims, changed stills and a diff appear in seconds, each result is a new version with "Use this version", and the PM can upload a replacement video. | 3 |
@@ -2950,7 +2950,7 @@ Why this order:
 
 | # | id | Name | Brief | Moments | Screens |
 |---|---|---|---|---|---|
-| 1 | `launch-on-ship` | Launch on ship (the wedge) | The Launch tab replaces Pitch. On a shipped PRD, a toggle on the tab and a "Waiting for prod" state. The CI render (off the laptop) cuts the default Feature format from the after footage, spec and release note, through `kit/lib/pitch`. The head button reads "Post the launch", and the MP4 is posted *as* the Slack message with the 3 lines. No video, no post: on failure the PM gets the reason and Retry on the tab, plus a private Slack note. Open question settled here: Thomas's `vertuoza/release-videos` becomes the render provider behind `kit/lib/pitch/providers`, or its best parts are ported. | 2, 4, 8 | prd-dossier (Launch tab, head button, states); notifications (ready / failed in the bell) |
+| 1 | `launch-on-ship` | Launch on ship (the wedge) | The Launch tab replaces Pitch. On a shipped PRD, a toggle on the tab and a "Waiting for prod" state. The CI render (off the laptop) cuts the default Feature format from the after footage, spec and release note, through `kit/lib/pitch`. The head button reads "Post the launch", and the MP4 is posted *as* the Slack message with the 3 lines. No video, no post: on failure the PM gets the reason and Retry on the tab, plus a private Slack note. Open question settled here: Thomas's `demo-org/release-videos` becomes the render provider behind `kit/lib/pitch/providers`, or its best parts are ported. | 2, 4, 8 | prd-dossier (Launch tab, head button, states); notifications (ready / failed in the bell) |
 | 2 | `launch-formats-opt-in` | Formats and opt-in | The fixed formats as one select: Flash, Feature, Spotlight (optional narration, the slide), with the Still fallback. Each is rendered in the product's Pitch look. "Announce this launch" moves to brainstorm, where Omni suggests it, with Post when shipped / Add to Friday. The per-product Pitch settings become Launch settings: formats, channel, voice provider key. | 1 | prd-dossier (toggle, format select); products (Settings › Products › Pitch → Launch) |
 | 3 | `tech-news` | Friday Tech News | The weekly edition per product: this week's "Add to Friday" launches, each PM's Leave out, sent automatically on Friday at 11:00 as one group video (cover, a 10–15 s chapter per feature, outro), inline with one line per feature and its chapter time. Under two items it skips and says so. If the group video fails, the edition does not post either. | 6, 7, 8 | adds `tech-news` (Products › <product> › Tech News); products (entry from the product); notifications (edition sent / skipped / failed) |
 | 4 | `launch-adapt` | Adapt by prompt | One prompt line plus chips (Shorter, Other music, Other format, Replace a shot, Plainer words) rewrite the storyboard within its schema. The check refuses unsourced claims, and a strip of changed stills shows with its diff. Each adapt becomes a new version in the tab's version picker, with "Use this version", Undo, and a separate upload for your own replacement video. | 3 | prd-dossier (Launch tab, version picker) |

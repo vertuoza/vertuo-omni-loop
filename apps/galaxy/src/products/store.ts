@@ -1,5 +1,5 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { parsePitchSettings, presetOf, type PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
+import { parsePitchSettings, presetOf, type PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { rowOf, type PitchLook, type ProductRow, type StoredProduct } from './model';
 
 // Settings › Products's calls. In production, set_pitch_look() of

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { boundaries } from './product.boundary';
 import { dossierProductRepository, ProductDossierRow, ProductRow, type ProductDb } from './product.repository';
 

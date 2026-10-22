@@ -47,7 +47,7 @@
 <body>
 <div class="doc">
   <h1>Every bug-fix PR carries its proof, and a stale plugin cannot skip it</h1>
-  <p class="lead">PRD 2100 · after vertuoza/vertuo-backend-php#6720, opened by a runner job on 16 October with no <code>## Proof</code> and not a draft. Four changes: the red/green GIF without ffmpeg, links to a component bug's clips, <code>omni bug</code> checking the pull request's body, and <code>omni runner</code> keeping the plugin current. A fifth line names the fix when the bug was already gone.</p>
+  <p class="lead">PRD 2100 · after demo-org/nimbus-backend-php#6720, opened by a runner job on 16 October with no <code>## Proof</code> and not a draft. Four changes: the red/green GIF without ffmpeg, links to a component bug's clips, <code>omni bug</code> checking the pull request's body, and <code>omni runner</code> keeping the plugin current. A fifth line names the fix when the bug was already gone.</p>
 
   <h2 class="part">Functional</h2>
 
@@ -161,7 +161,7 @@
         <div class="step"><b>install</b>pnpm install --frozen-lockfile</div>
         <div class="step"><b>claude</b>claude -p "/omni:bug-fix …" · plugin v0.0.408, never looked at</div>
       </div>
-      <p class="cap">The plugin is whatever the machine installed last. vertuo-backend-php pins omni v0.0.426; the skills the job ran came from before #1973.</p>
+      <p class="cap">The plugin is whatever the machine installed last. nimbus-backend-php pins omni v0.0.426; the skills the job ran came from before #1973.</p>
     </div>
     <div>
       <span class="tag after">After</span>
@@ -171,7 +171,7 @@
         <div class="step new"><b>update</b>claude plugin update omni@omni-loop → v0.0.442</div>
         <div class="step"><b>install</b>pnpm install --frozen-lockfile</div>
         <div class="step"><b>claude</b>claude -p "/omni:bug-fix …"</div>
-        <div class="step fail"><b>or</b>still older: job failed · omni plugin v0.0.408 is older than vertuoza/vertuo-backend-php's omni v0.0.426: claude plugin update failed: …</div>
+        <div class="step fail"><b>or</b>still older: job failed · omni plugin v0.0.408 is older than demo-org/nimbus-backend-php's omni v0.0.426: claude plugin update failed: …</div>
       </div>
       <p class="cap">One update at a time across the slots. A plugin as new as the pinned omni, or newer, costs nothing. The sweep also updates the plugin once an hour.</p>
     </div>
@@ -182,7 +182,7 @@
     <div>
       <span class="tag today">Today</span>
       <pre>The reproduction passes before any fix. Two readings: it misses the bug, or the bug is already gone. It looks like #749 changed this code. A person decides.</pre>
-      <p class="cap">Prose: vertuo-cleaner cannot tell which pull request fixed the bug (vertuoza/vertuo-apps#791).</p>
+      <p class="cap">Prose: nimbus-cleaner cannot tell which pull request fixed the bug (demo-org/nimbus-apps#791).</p>
     </div>
     <div>
       <span class="tag after">After</span>
@@ -191,7 +191,7 @@
 <span class="hi">Fixed by #749</span>
 
 Red at a1b2c3d (before #749), green at e4f5a6b: `vendor/bin/phpunit --filter InvoiceTest`</pre>
-      <p class="cap">Written only when the reproduction is red at the merge's first parent and green at the merge. vertuo-cleaner follows #749 to its release and verdict. With no proven candidate, the comment lists <code>Maybe: #&lt;n&gt;</code> lines, which it does not read.</p>
+      <p class="cap">Written only when the reproduction is red at the merge's first parent and green at the merge. nimbus-cleaner follows #749 to its release and verdict. With no proven candidate, the comment lists <code>Maybe: #&lt;n&gt;</code> lines, which it does not read.</p>
     </div>
   </div>
 

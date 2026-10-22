@@ -100,7 +100,7 @@ migration in `supabase/migrations/`:
 
 ```sql
 insert into public.sectors (workspace_id, name, repos)
-select id, 'core-belt', array['vertuo-core', 'vertuo-api'] from public.workspaces where slug = 'vertuoza';
+select id, 'core-belt', array['nimbus-core', 'nimbus-api'] from public.workspaces where slug = 'vertuoza';
 insert into public.teams (workspace_id, name, label, color, motto, mascot, home, sort)
 select id, 'pirates', 'PIRATES', '#2fc6a4', 'Takes the zones nobody claims.', 'pirate', 'core-belt', 50
   from public.workspaces where slug = 'vertuoza';
@@ -134,3 +134,10 @@ real repositories.
 The workflow polls every 15 minutes and posts rankings every Monday. It does nothing until it is
 switched on. The token, rankings issue and `GAME_ENABLED` steps are described in
 [`game/README.md` › Setup](game/README.md#setup).
+
+## License
+
+Omni Loop is free software under the [GNU Affero General Public License v3.0](LICENSE)
+(`AGPL-3.0-only`). You may copy, change and share it; anyone who runs a changed version as a
+network service must publish its full source under the same license. The fonts in
+`packages/design/fonts/` keep their own SIL Open Font License, beside each font.

@@ -1,6 +1,6 @@
 // What the /design page shows, read straight from @omni/design: nothing here draws or names a
 // colour of its own, so a piece the package gains appears on the page without an edit here.
-import { keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { keysOf } from 'omni-loop/kit/lib/narrow.ts';
 import {
   HERO_PRESETS, INK, LOGO_DRAWINGS, OMNI_POSES, SPRITE_DEFS, TYPE_SCALE, contrast, heroLook,
   type Hero, type LogoDrawing, type Tint,

@@ -1,7 +1,7 @@
 import type { SubmitEvent } from 'react';
 import { PERSONA_TRADES, personaGrid, type PersonaAvatar } from '@omni/design';
 import { pixelSvg } from '../design/pixel-svg';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { hasProducts, type Product } from './model';
 import {
   drawable, NAME_MAX, PICKER_SIZE, pickerOf, sameAvatar, STANCES, TEXT_MAX, tradeLabel, viewPersonas,

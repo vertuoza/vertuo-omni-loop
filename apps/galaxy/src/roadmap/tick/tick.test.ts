@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readTicks } from 'vertuo-omni-plan/kit/lib/roadmap/prereqs/ticks.ts';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { readTicks } from 'omni-loop/kit/lib/roadmap/prereqs/ticks.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { fakeGitHub } from '../../outbox/send.fake';
 import { githubUser } from '../../outbox/send';
 import { sure } from '../../arcade/test/sure';

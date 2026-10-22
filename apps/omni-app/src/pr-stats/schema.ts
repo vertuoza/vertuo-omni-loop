@@ -1,9 +1,9 @@
 // What GitHub's GraphQL API answers the collector's queries (PRD 612, bug 638, PRD 714), as the
 // collector reads them (PRD 725, s20). Each schema names only the fields the collector uses and lets
 // every other field through; a field the collector reads past a missing value is nullish here.
-import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
-import { firstIssue } from 'vertuo-omni-plan/kit/lib/plan-repo/gh-schema.ts';
+import { firstIssue } from 'omni-loop/kit/lib/plan-repo/gh-schema.ts';
 
 /** `rateLimit { limit remaining resetAt }`: an installation's GraphQL budget. */
 const RateLimitSchema = z.looseObject({

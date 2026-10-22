@@ -282,7 +282,7 @@ describe('formatReport', () => {
       items: [{ file: 'docs/outbox/985/s3-01-one.md', id: 's3-01-one', rank: 'high' }],
       unaccounted: [
         {
-          path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
+          path: 'libs/nimbus-ai-credit/src/server/migrations.ts',
           status: 'M',
           rule: 'stored-shape',
         },
@@ -291,7 +291,7 @@ describe('formatReport', () => {
     const report = formatReport(parsePrd('985'), result);
     expect(report).toContain('1 open item(s)');
     expect(report).toContain('unaccounted risky change');
-    expect(report.split('\n')).toContain('  - libs/vertuo-ai-credit/src/server/migrations.ts (stored-shape)');
+    expect(report.split('\n')).toContain('  - libs/nimbus-ai-credit/src/server/migrations.ts (stored-shape)');
   });
 });
 
@@ -299,7 +299,7 @@ describe('formatReport', () => {
 // account names. `gateResult`'s existing tests above are untouched; `changes` is a new, optional
 // argument, and every scenario here passes it explicitly.
 describe('gateResult — the range (PRD #1044, slice s4)', () => {
-  const RISKY_CHANGE = { path: 'libs/vertuo-ai-credit/src/server/migrations.ts', status: 'M' };
+  const RISKY_CHANGE = { path: 'libs/nimbus-ai-credit/src/server/migrations.ts', status: 'M' };
 
   it('is red when the range holds one risky change no account names', () => {
     const root = rangeFixtureRoot();
@@ -391,7 +391,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
         entries: [
           {
             // The range below never touches this path — the account is stale.
-            path: 'libs/vertuo-ai-other/src/server/migrations.ts',
+            path: 'libs/nimbus-ai-other/src/server/migrations.ts',
             rule: 'stored-shape',
             account: 'spec docs/inbox/985-example.md#risky',
           },

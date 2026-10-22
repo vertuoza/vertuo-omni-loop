@@ -14,7 +14,11 @@
 //   step "guard"            each field of prose accepted, or dropped with its reason; the verdict too
 //   then, when the verdict says the retro is worth a pull request:
 //   step "publish-issues"   one retro issue per finding the judge kept, worst first
-//   step "publish"          the branch, retro.md + retro.json in the PRD's shipped folder, then the PR
+//   step "publish"          the branch, retro.md + retro.json in the PRD's shipped folder, then the PR;
+//                           while it is open and holds a kept lesson with no outcome (PRD 2338), its
+//                           body carries `/omni:retro-apply --retro <retro PR>` (`apply.ts`)
+//   step "queue-apply"      that line, queued once as a runner job sent by the app, for the
+//                           installation's workspace (`runner-queue.ts`); only with a database
 //   or else — not worth it, or not judged (no verdict, or one `guard` refused):
 //   step "verdict"          no branch, no file, no PR, no issue: one comment on the merged feature PR,
 //                           marked `<markers.prefix>-retro-verdict` and rewritten in place on a replay
@@ -58,15 +62,16 @@
 import { internalEvents } from 'inngest';
 import type { Inngest } from 'inngest';
 import { z } from 'zod';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
-import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { foldersLayout } from 'omni-loop/kit/lib/layout.ts';
+import { parseOrThrow } from 'omni-loop/kit/lib/schema/parse-or-throw.ts';
+import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { RETRO_EVENT } from '../inngest-client.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { firstLine } from '../outbox-check/github-schema.ts';
 import { detect } from './detect.ts';
-import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
+import { knowledgeSummary } from 'omni-loop/kit/lib/knowledge/classify.ts';
+import { playbookLines } from 'omni-loop/kit/lib/playbook/lines.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { parseSaved, savedStep, type StepRun } from '../saved-step.ts';
@@ -84,7 +89,9 @@ import {
   PublishedSchema,
   PullsIntoSchema,
   QualifiedSchema,
+  QueuedSchema,
 } from './retro.schema.ts';
+import type { ApplyQueue } from './runner-queue.ts';
 import { guard } from './guard.ts';
 import { publishIssues } from './issues.ts';
 import { followUpAt } from './kinds/after-merge.ts';
@@ -205,6 +212,11 @@ export type RetroDeps = {
   fetch?: typeof fetch;
   kinds?: readonly Kind[];
   followUp?: boolean;
+  /**
+   * The runner queue (PRD 2338, `runner-queue.ts`), on the app's database; `null`: no job is queued,
+   * and the retro PR's body still carries the line for a person to run.
+   */
+  queue?: ApplyQueue | null;
 };
 
 /** What the judge said, as the retro acts on it. */
@@ -212,6 +224,7 @@ export type VerdictOutcome = { worthIt: boolean; judged: boolean; reason: string
 
 type Published = z.infer<typeof PublishedSchema>;
 type Commented = z.infer<typeof CommentedSchema>;
+type Queued = z.infer<typeof QueuedSchema>;
 
 /** One run of the retro, as the run after it reads it. */
 type RunResult = {
@@ -222,9 +235,11 @@ type RunResult = {
   published: Published | null;
   comment: Commented | null;
   verdict: VerdictOutcome;
+  /** The runner job the retro PR's line was queued as (PRD 2338); `null` when none was asked for. */
+  queued: Queued | null;
 };
 
-export function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch, kinds = KINDS, followUp = false }: RetroDeps) {
+export function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch, kinds = KINDS, followUp = false, queue = null }: RetroDeps) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -251,7 +266,7 @@ export function createRetro({ client, octokitFor, appOctokit = null, openrouter,
 
       const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
       const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...(targets.length > 0 ? { targets } : {}) };
-      const context = { step, github, octokitFor, openrouter, fetch, owner, repo, pr, prd, config, pulls };
+      const context = { step, github, octokitFor, openrouter, fetch, queue, installationId, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
 
@@ -302,6 +317,9 @@ type RunInput = {
   octokitFor: OctokitFor<Octokit>;
   openrouter: OpenRouterEnv | null;
   fetch: typeof fetch | undefined;
+  queue: ApplyQueue | null;
+  /** The installation the retro runs as: its workspace is the one a queued job goes to. */
+  installationId: number;
   owner: string;
   repo: string;
   pr: FeaturePull;
@@ -411,12 +429,15 @@ async function commentRun({ step, github, owner, repo, pr, config, earlier }: Ru
       text: verdictComment({ judged: verdict.judged, reason: verdict.reason, runs, prose }),
     }),
   );
-  return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict };
+  return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict, queued: null };
 }
 
-/** A run worth a pull request: its findings' issues, then the retro's branch and PR. */
+/**
+ * A run worth a pull request: its findings' issues, then the retro's branch and PR and, while that PR
+ * is open and holds a kept lesson with no outcome, the runner job that settles them (`queueApply`).
+ */
 async function publishRun(
-  { step, github, owner, repo, pr, prd, config, earlier }: RunInput,
+  { step, github, queue, installationId, owner, repo, pr, prd, config, earlier }: RunInput,
   id: StepId,
   folder: string,
   sheet: FactSheet,
@@ -433,7 +454,9 @@ async function publishRun(
   const published = await savedStep(step, id('publish'), PublishedSchema, async () =>
     publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
   );
-  return { sheet, prose, known, record, published, comment: null, verdict };
+  const line = published.apply ?? null;
+  const queued = queue && line ? await savedStep(step, id('queue-apply'), QueuedSchema, () => queue({ installationId, repository: `${owner}/${repo}`, line })) : null;
+  return { sheet, prose, known, record, published, comment: null, verdict, queued };
 }
 
 /**
@@ -459,8 +482,9 @@ function lessonsOf(prose: Prose | null): Lesson[] {
 
 /**
  * What the judge compares a retro with, read at the merge commit `sha`: the knowledge summary (the
- * kit's `knowledgeSummary`, over the knowledge folder snapshotted through the harvest's `withTreeAt`)
- * and the lessons of the retros already merged (every `lessons[].text` of each run in the
+ * kit's `knowledgeSummary`, over the knowledge folder snapshotted through the harvest's `withTreeAt`),
+ * the playbook's rules, one line each (the kit's `playbookLines`: a rule kept only in a form was once
+ * judged "stated nowhere", #2207), and the lessons of the retros already merged (every `lessons[].text` of each run in the
  * `retro.json` files of the shipped folder), oldest PRD first, each once. Only the config and the
  * knowledge folders are snapshotted, never the whole delivery folder: of it, the shipped folder is
  * listed in one request and only its `retro.json` files are read.
@@ -469,13 +493,14 @@ export async function gatherKnowledge(
   octokit: Octokit,
   { owner, repo, sha, config }: { owner: string; repo: string; sha: string; config: Config },
 ): Promise<Known> {
-  const narrowed = { ...config, paths: { ...config.paths, delivery: null, playbook: null, glossary: null } };
-  const summary = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx: Parameters<typeof knowledgeSummary>[0]['ctx']) =>
-    knowledgeSummary({ ctx }),
-  );
+  const narrowed = { ...config, paths: { ...config.paths, delivery: null, glossary: null } };
+  const summary = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx) => ({
+    ...knowledgeSummary({ ctx }),
+    playbook: playbookLines({ ctx }),
+  }));
   const shipped = foldersLayout('', config.paths).dirs.shipped;
   return {
-    knowledge: { principles: summary.principles, laws: summary.laws, decisions: summary.decisions },
+    knowledge: { principles: summary.principles, laws: summary.laws, decisions: summary.decisions, playbook: summary.playbook },
     lessons: lessonsIn(await retroFilesAt(octokit, { owner, repo, sha, dir: shipped })),
   };
 }
@@ -551,9 +576,9 @@ function numberedAfter(sheet: FactSheet, count: number): FactSheet {
 }
 
 /** What a run did, as the function returns it: what it published, or the verdict comment it left. */
-function outcome({ sheet, record, published, comment, verdict }: RunResult) {
+function outcome({ sheet, record, published, comment, verdict, queued }: RunResult) {
   const counts = { findings: sheet.findings.length, issues: Object.keys(record.issues).length };
-  if (published) return { ...counts, ...published };
+  if (published) return { ...counts, ...published, ...(queued ? { queued } : {}) };
   return { ...counts, verdict: verdict.judged ? NO_NEW_LESSON : NOT_JUDGED, comment };
 }
 

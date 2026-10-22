@@ -1314,7 +1314,7 @@ packages/design imported nothing from the kit before; clearing its `!` assertion
 
 ## What I did meanwhile
 
-packages/design/src (draw, forge, sprites, heroes, logo, personas, fonts) imports `at` and `defined` from `../../../kit/lib/narrow.ts` by relative path, the way scripts/ already imports kit/lib. The arcade already compiles that file (it imports it as `vertuo-omni-plan/kit/lib/narrow.ts`); its typecheck, the tests and `pnpm lint` are green.
+packages/design/src (draw, forge, sprites, heroes, logo, personas, fonts) imports `at` and `defined` from `../../../kit/lib/narrow.ts` by relative path, the way scripts/ already imports kit/lib. The arcade already compiles that file (it imports it as `omni-loop/kit/lib/narrow.ts`); its typecheck, the tests and `pnpm lint` are green.
 
 ## What it costs to change later
 

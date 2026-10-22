@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { matches, type KnowledgeEntry, type KnowledgeGraph, type KnowledgeLink } from '../data/knowledge';
 import { orrery } from './orrery';
 import { entryHref, tabOf } from './view';

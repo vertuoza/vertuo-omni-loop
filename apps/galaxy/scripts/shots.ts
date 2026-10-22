@@ -402,9 +402,9 @@ async function walkInvaders(d: Driver, shot: Shot): Promise<void> {
   await d.key('b', 'games'); // B from the pause: back to the room
 }
 
-// The demo's guest is always a @vertuoza.com account, so `outsider` (signed in from another domain)
+// The demo's guest is always a @example.com account, so `outsider` (signed in from another domain)
 // is out of its reach. This walk rewrites the guest in the page's scripts as it loads them.
-const GUEST = /(["'])guest@vertuoza\.com\1([^}]*?\bcrew\s*:\s*)(?:true|!0)/;
+const GUEST = /(["'])guest@example\.com\1([^}]*?\bcrew\s*:\s*)(?:true|!0)/;
 
 async function asOutsider(context: BrowserContext): Promise<() => boolean> {
   let found = false;

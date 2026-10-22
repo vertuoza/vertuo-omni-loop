@@ -1,5 +1,5 @@
 import 'server-only';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { serverEnv } from '../../env';
 import { DEMO_MEMBERS } from './demo';
 import { forMeList, type ForMeEntry } from './question';

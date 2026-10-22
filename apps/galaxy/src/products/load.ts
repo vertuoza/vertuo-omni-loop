@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { memberWorkspace } from '../data/workspace';
 import { pitchedOf, rowOf, type PitchedProduct, type ProductRow, type StoredProduct } from './model';
