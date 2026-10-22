@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { periodWindow } from '../dashboard/board/period';
 import {
-  OMNI_MAN, durationWords, engineeringOf, isBot, median, sortOf, topFive,
+  OMNI_MAN, engineeringOf, isBot, median, sortOf, topFive,
   type EngineeringRead, type PullRequestRow, type ReviewRow,
 } from './tally';
+import { durationWords } from './duration';
 import { sure } from '../arcade/test/sure';
 
 // The Engineering board's math (PRD 612 s3), pure: the spec's counting rules over the rows the

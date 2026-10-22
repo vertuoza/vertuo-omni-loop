@@ -264,16 +264,6 @@ function sortRows(rows: RepositoryStats[], sort: SortKey): RepositoryStats[] {
 
 // ── The pieces ──────────────────────────────────────────────────────────
 
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-
-/** A duration as the board says it: `42 min`, `4.1 h`, `3.0 d`; a dash for none. */
-export function durationWords(ms: number | null): string {
-  if (ms === null) return '–';
-  if (ms < HOUR) return `${Math.round(ms / MINUTE)} min`;
-  if (ms < 48 * HOUR) return `${(ms / HOUR).toFixed(1)} h`;
-  return `${(ms / (24 * HOUR)).toFixed(1)} d`;
-}
 
 /** A bot account: a login ending in `[bot]`, Omni-man's included. */
 export function isBot(login: string | null | undefined): boolean {

@@ -3,7 +3,7 @@
 // ./timeline.ts, never computed here; the words for a moment not reached are the fix pages' (`not yet`,
 // `not recorded`, ../fixes/timeline.ts).
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { durationWords } from '../engineering/tally';
+import { durationWords } from '../engineering/duration';
 import { timeline, type Gap, type GapId, type Milestone, type Timeline } from './timeline';
 import type { MilestoneId, MilestoneRow } from './store';
 
