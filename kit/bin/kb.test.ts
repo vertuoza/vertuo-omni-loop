@@ -1098,6 +1098,7 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
   const LAW_LINE =
     'law BR-PRODUCT-1 — Only a person merges into main. If broken: unreviewed code reaches every user. Changing it needs @pierrederval to approve the pull request.';
   const UNGOVERNED = '1 rule(s) say no "Governs:", so none of them is shown here (omni kb status counts them).';
+  const NOTHING_APPLIES = 'Nothing applies to these files in particular.';
   const lines = (out: string) => out.split('\n').filter(Boolean);
   /** `omni <argv>` exits 2, its one line saying `text`. */
   const refused = async (root: string, argv: readonly string[], text: string) => {
@@ -1149,21 +1150,30 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
     const { root } = makeRepo({ git: true, files: files() });
     const { code, out } = await omni(root, ['kb', 'laws', '--paths', 'kit/lib/quote/total.ts', 'game/ledger.ts']);
     expect(code).toBe(0);
-    expect(lines(out)).toEqual([LAW_LINE, 'rule BR-PRODUCT-2 — A quote total is never negative.', 'rule BR-PRODUCT-4 — The ledger keeps its history.', UNGOVERNED]);
+    expect(lines(out)).toEqual([
+      'Applies here',
+      'rule BR-PRODUCT-2 — A quote total is never negative. (governs)',
+      'rule BR-PRODUCT-4 — The ledger keeps its history. (governs)',
+      'Global',
+      LAW_LINE,
+      UNGOVERNED,
+    ]);
   });
 
   it('--paths matches as a flow area does: a regular expression, over a comma-separated list', async () => {
     const { root } = makeRepo({ git: true, files: files() });
     expect(lines((await omni(root, ['kb', 'laws', '--paths', 'apps/quote/page.tsx,game/ledger.ts.bak'])).out)).toEqual([
+      'Applies here',
+      'rule BR-PRODUCT-2 — A quote total is never negative. (governs)',
+      'Global',
       LAW_LINE,
-      'rule BR-PRODUCT-2 — A quote total is never negative.',
       UNGOVERNED,
     ]);
   });
 
   it('--paths that no rule governs prints the laws and says so', async () => {
     const { root } = makeRepo({ git: true, files: files() });
-    expect(lines((await omni(root, ['kb', 'laws', '--paths', 'README.md'])).out)).toEqual([LAW_LINE, 'No rule says it governs these files.', UNGOVERNED]);
+    expect(lines((await omni(root, ['kb', 'laws', '--paths', 'README.md'])).out)).toEqual(['Applies here', NOTHING_APPLIES, 'Global', LAW_LINE, UNGOVERNED]);
   });
 
   it('--json carries the laws, the rules asked for and the ungoverned count', async () => {
@@ -1180,14 +1190,31 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       }],
       rules: [{ id: 'BR-PRODUCT-4', kind: 'rule', file: `${K}/product/rules.md`, headline: 'The ledger keeps its history.', governs: ['^game/ledger\\.ts$'], proposed: false }],
       ungoverned: 1,
+      mapped: false,
+      applies: [{ kind: 'rule', id: 'BR-PRODUCT-4', file: `${K}/product/rules.md`, text: 'The ledger keeps its history.', why: ['governs'], proposed: false }],
+      global: [{
+        kind: 'law',
+        id: 'BR-PRODUCT-1',
+        file: `${K}/product/rules.md`,
+        text: 'Only a person merges into main. If broken: unreviewed code reaches every user.',
+        why: [],
+        proposed: false,
+      }],
+      hidden: { laws: 0, rules: 2, adrs: 0 },
     });
   });
 
   it('--slice reads the slice’s territory from its plan, the files under it included', async () => {
     const plan = '# Plan\n\n| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | one | `game/` | — | 1 |\n| s2 | two | `kit/lib/quote` | — | 1 |\n';
     const { root } = makeRepo({ git: true, files: files({ '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan }) });
-    expect(lines((await omni(root, ['kb', 'laws', '--slice', '7', 's1'])).out)).toEqual([LAW_LINE, 'rule BR-PRODUCT-4 — The ledger keeps its history.', UNGOVERNED]);
-    expect(lines((await omni(root, ['kb', 'laws', '--slice', '7', 's2'])).out)[1]).toBe('rule BR-PRODUCT-2 — A quote total is never negative.');
+    expect(lines((await omni(root, ['kb', 'laws', '--slice', '7', 's1'])).out)).toEqual([
+      'Applies here',
+      'rule BR-PRODUCT-4 — The ledger keeps its history. (governs)',
+      'Global',
+      LAW_LINE,
+      UNGOVERNED,
+    ]);
+    expect(lines((await omni(root, ['kb', 'laws', '--slice', '7', 's2'])).out)[1]).toBe('rule BR-PRODUCT-2 — A quote total is never negative. (governs)');
     await refused(root, ['kb', 'laws', '--slice', '7', 's9'], 'the plan of PRD 7 has no slice s9');
     await refused(root, ['kb', 'laws', '--slice', '8', 's1'], 'PRD 8 has no plan — no inbox or shipped folder holds it');
     await refused(root, ['kb', 'laws', '--slice', '7'], '--slice takes a PRD and a slice');
@@ -1463,7 +1490,7 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       const { root } = withContract();
       expect(lines((await omni(root, ['kb', 'laws'])).out)).toEqual([LAW_LINE]);
       const touched = lines((await omni(root, ['kb', 'laws', '--paths', SCHEMA, CONTRACTS])).out);
-      expect(touched).toEqual([LAW_LINE, 'No rule says it governs these files.', UNGOVERNED]);
+      expect(touched).toEqual(['Applies here', NOTHING_APPLIES, 'Global', LAW_LINE, UNGOVERNED]);
       expect(touched.join('\n')).not.toContain('DC-PRODUCT-1');
     });
   });
@@ -1759,5 +1786,106 @@ describe('omni kb graph --paths and --depth (PRD 1797, s3)', () => {
       expect(out).toBe('');
       expect(err, argv.join(' ')).toMatch(/usage: omni kb graph \[<id> \| --paths|--paths needs a value/);
     }
+  });
+});
+
+describe('omni kb laws — applies here, then global, on a knowledge map (PRD 2346, s3)', () => {
+  // A repository with `layers` and flow areas naming their domain folder, its ADRs tagged, and a copy
+  // of its product's Legal entries: the spec's five made-up changes run against it.
+  const MAP = snapshot(join(import.meta.dirname, '../test/fixtures/knowledge-map'));
+  const LAWS = ['BR-PRODUCT-3', 'BR-PRODUCT-5', 'BR-PRODUCT-28', 'N-PRODUCT-15', 'BR-PRODUCT-12', 'N-PRODUCT-7', 'N-PRODUCT-8', 'BR-PRODUCT-59', 'BR-QUOTE-1'];
+  const OWNER = 'Changing it needs @law-keeper to approve the pull request.';
+  type Group = { kind: string; id: string; why: string[] };
+  type Found = { applies: Group[]; global: Group[]; hidden: { laws: number; rules: number; adrs: number }; laws: { id: string }[] };
+  const lines = (out: string) => out.split('\n').filter(Boolean);
+  const found = async (root: string, files: string[]): Promise<Found> => JSON.parse((await omni(root, ['kb', 'laws', '--paths', ...files, '--json'])).out) as Found;
+  /** The printed lines between `Applies here` and `Global`. */
+  const appliesOf = (out: string) => {
+    const all = lines(out);
+    return all.slice(1, all.indexOf('Global'));
+  };
+
+  it('the five made-up changes of the spec each find their rule under Applies here, and none prints a locked law of another area', async () => {
+    const { root } = makeRepo({ git: true, files: MAP });
+    const changes = [
+      { change: 'let a person edit an answer', file: 'apps/galaxy/src/ask/ask.service.ts', finds: ['BR-PRODUCT-12'] },
+      { change: 'log the workspace AI key in clear', file: 'apps/galaxy/src/jev/jev-key.service.ts', finds: ['BR-PRODUCT-59'] },
+      { change: 'an agent applies the override label', file: 'kit/plugin/skills/pr/SKILL.md', finds: ['BR-PRODUCT-3', 'BR-PRODUCT-5'] },
+      { change: 'the ask hook answers for the person', file: 'kit/lib/ask/hook.ts', finds: ['N-PRODUCT-7', 'N-PRODUCT-8'] },
+      { change: 'a notification tap opens another site', file: 'apps/galaxy/src/push/sw.ts', finds: ['N-PRODUCT-18'] },
+    ];
+    for (const { change, file, finds } of changes) {
+      const { applies, global, hidden } = await found(root, [file]);
+      expect(applies.map(({ id }) => id), change).toEqual(expect.arrayContaining(finds));
+      expect(global.map(({ id }) => id), change).toEqual(expect.arrayContaining(['L-GDPR-2', 'L-GDPR-5']));
+      const laws = (group: Group[]) => group.filter(({ kind }) => kind === 'law').map(({ id }) => id);
+      expect(laws(global), change).toEqual(['N-PRODUCT-15']);
+      expect(hidden.laws, change).toBe(LAWS.length - laws(applies).length - 1);
+    }
+  });
+
+  it('prints BR-PRODUCT-12 under Applies here marked domain ask, then the global entries and every Legal entry, then counts what it hides', async () => {
+    const { root } = makeRepo({ git: true, files: MAP });
+    const { code, out } = await omni(root, ['kb', 'laws', '--paths', 'apps/galaxy/src/ask/ask.service.ts']);
+    expect(code).toBe(0);
+    expect(lines(out)).toEqual([
+      'Applies here',
+      `law BR-PRODUCT-12 — An answer never changes after it is given. ${OWNER} (domain ask)`,
+      `law N-PRODUCT-7 — A broken hook never blocks a person's message or question. ${OWNER} (domain ask)`,
+      `law N-PRODUCT-8 — The ask hooks only call the address the repository set. ${OWNER} (domain ask)`,
+      'rule BR-ASK-1 — A question is asked once. (domain ask)',
+      'adr ADR-0002 — The ask API answers each refusal with a standard HTTP code and a status field (domain ask)',
+      'Global',
+      `law N-PRODUCT-15 — Only a person merges into the main branch. ${OWNER}`,
+      'rule BR-PRODUCT-90 — A theme colour is read from the design tokens.',
+      'legal L-GDPR-2 — Credentials are never stored or logged in clear.',
+      "legal L-GDPR-5 — A person's data is deleted on request.",
+      '5 locked laws of other areas: not shown (omni kb laws prints them all).',
+    ]);
+  });
+
+  it('a migration lists the db records and the rules naming db, and no rule of another domain that names no db', async () => {
+    const { root } = makeRepo({ git: true, files: MAP });
+    const { applies } = await found(root, ['supabase/migrations/20261001000000_links.sql']);
+    expect(applies.map(({ id, why }) => [id, why.join(', ')])).toEqual([
+      ['BR-PRODUCT-28', 'layer db'],
+      ['BR-PRODUCT-12', 'layer db'],
+      ['BR-PRODUCT-59', 'layer db'],
+      ['ADR-0001', 'layer db'],
+    ]);
+    expect(appliesOf((await omni(root, ['kb', 'laws', '--paths', 'kit/bin/omni.ts'])).out)).toEqual([
+      'adr ADR-0004 — A command refuses with one line and exit code 2 (layer cli)',
+    ]);
+  });
+
+  it('--slice looks its territory up the same way', async () => {
+    const plan = '# Plan\n\n| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | one | `apps/galaxy/src/push/` | — | 1 |\n';
+    const { root } = makeRepo({ git: true, files: { ...MAP, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
+    expect(appliesOf((await omni(root, ['kb', 'laws', '--slice', '7', 's1'])).out)).toEqual([
+      'invariant N-PRODUCT-18 — A notification tap only ever opens a page of the site. (domain push)',
+    ]);
+  });
+
+  it('--json carries applies, global and hidden, and keeps every locked law under laws', async () => {
+    const { root } = makeRepo({ git: true, files: MAP });
+    const parsed = await found(root, ['apps/galaxy/src/jev/jev-key.service.ts']);
+    expect(parsed.applies).toEqual([
+      { kind: 'law', id: 'BR-PRODUCT-59', file: '.omni-loop/knowledge/domains/jev/rules.md', text: "Only the owner can see the workspace's stored AI key.", why: ['domain jev'], proposed: false },
+    ]);
+    expect(parsed.hidden).toEqual({ laws: 7, rules: 3, adrs: 3 });
+    expect(parsed.laws.map(({ id }) => id)).toEqual(LAWS);
+  });
+
+  it('a repository that maps nothing narrows nothing: every law is listed, under Global, as kb laws lists them', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: { ...MAP, '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\ncommands:\n  test: make check\nlaws:\n  owners: [law-keeper]\n' },
+    });
+    const { applies, global, hidden } = await found(root, ['apps/galaxy/src/ask/ask.service.ts']);
+    expect(applies).toEqual([]);
+    expect(global.filter(({ kind }) => kind === 'law').map(({ id }) => id)).toEqual(LAWS);
+    expect(global.filter(({ kind }) => kind === 'legal').map(({ id }) => id)).toEqual(['L-GDPR-2', 'L-GDPR-5']);
+    expect(hidden.laws).toBe(0);
+    expect(lines((await omni(root, ['kb', 'laws'])).out)).toHaveLength(LAWS.length);
   });
 });

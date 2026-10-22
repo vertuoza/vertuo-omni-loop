@@ -1,0 +1,25 @@
+# A repository with a knowledge map (PRD 2346): layers, and flow areas naming their domain folder.
+kit: 1
+repo:
+  slug: acme/widgets
+commands:
+  test: make check
+laws:
+  owners: [law-keeper]
+layers:
+  db: ['^supabase/migrations/']
+  cli: ['^kit/bin/']
+flow:
+  areas:
+    ask:
+      paths: ['^kit/lib/ask/', '^apps/galaxy/src/ask/']
+      knowledge: ask
+    jev:
+      paths: ['^apps/galaxy/src/jev/']
+      knowledge: jev
+    push:
+      paths: ['^apps/galaxy/src/push/']
+      knowledge: push
+    quote:
+      paths: ['^apps/quote/']
+      knowledge: quote
