@@ -157,3 +157,240 @@ Reverting means putting the old role words back in both files, which also revert
 ```
 
 <!-- /omni-outbox-settled: s5-01-outside-territory-role-fixtures -->
+
+<!-- omni-outbox-settled: s3-01-unmapped-governs-applies -->
+
+## s3-01-unmapped-governs-applies — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-unmapped-governs-applies
+prd: 2346
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+When a repository has drawn no map of its areas and layers, should a rule that names the changed files still show in the top group, the one that says what applies here, or should everything sit in the global group?
+
+## The decision, in plain words
+
+A rule that names the changed files shows in the top group, saying it names them; every other law shows in the global group. The list holds exactly what it held before the map existed, only grouped.
+
+## The intro, for fun
+
+No map drawn, yet one rule still points straight at the file you are editing.
+
+## The punchline, for fun
+
+We let it raise its hand instead of hiding it in the crowd.
+
+## The options, in plain words
+
+A. Show a rule that names the changed files under Applies here, marked governs, and every other law under Global (built).
+B. Show every entry under Global when nothing is mapped, a rule that names the files marked governs there.
+
+## What I had to decide
+
+Where a rule that names the changed files is shown when the repository has no map: in Applies here, marked governs, or under Global with every other entry.
+
+Decided by: Jev (hardToRevert 0.54) · agent said false
+
+## What I did meanwhile
+
+In a repository with no map, a rule whose Governs: line matches a changed file prints under Applies here, marked governs; every other locked law prints under Global, and no law is hidden. The entries listed are the ones the lookup listed before PRD 2346.
+
+## What it costs to change later
+
+One condition in the lookup and the expectations of the unmapped tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says both that a Governs: match applies and that, with no map, every entry is global; it does not say which wins for a Governs: match in an unmapped repository.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-unmapped-governs-applies -->
+
+<!-- omni-outbox-settled: s3-02-what-stays-global -->
+
+## s3-02-what-stays-global — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-what-stays-global
+prd: 2346
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+Should a rule tagged only with layers that no file of the repository belongs to be shown for every change or for none? And should a past decision record with no area and no layer be listed for every change, or left out?
+
+## The decision, in plain words
+
+A rule no file can ever reach is shown for every change, so no rule goes unseen. A decision record with no tag is left out, as before, and a tagged one shows only when its tag meets a changed file.
+
+## The intro, for fun
+
+Some rules wear a badge for a club with no members yet.
+
+## The punchline, for fun
+
+Until the club opens, they stand in the main hall where everyone sees them.
+
+## The options, in plain words
+
+A. An entry whose layers nothing maps is global; an untagged decision record is never listed (built).
+B. Any layer tag narrows an entry, mapped or not, so one tagged with an unmapped layer is hidden; untagged records still left out.
+C. As built, and every untagged decision record listed under Global too.
+
+## What I had to decide
+
+Whether an entry whose only tags are layers the repository maps no path to is global or hidden, and whether an untagged decision record is listed under Global or not at all.
+
+## What I did meanwhile
+
+An entry is global when nothing on the map can narrow it: no Governs: line, a domain no area maps, and no layer the repository maps. A decision record is listed only under Applies here, when its Domain or Layers meet a changed file; a tagged one that does not is counted as hidden, and an untagged one is neither listed nor counted.
+
+## What it costs to change later
+
+One condition each in the lookup, and the tests that pin them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec defines global as naming no layer, and reachable as a layer the repository maps; it says nothing of decision records with no tag, which number in the hundreds here.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-what-stays-global -->
+
+<!-- omni-outbox-settled: s3-03-legal-from-local-copy -->
+
+## s3-03-legal-from-local-copy — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-legal-from-local-copy
+prd: 2346
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+The lookup now lists the product's legal entries for every change. Should it read them from the copy the last session start saved, or ask the Omni page each time?
+
+## The decision, in plain words
+
+It reads the saved copy and never calls the page, as the knowledge graph already does. With no copy saved yet, it lists no legal entry and says nothing about it.
+
+## The intro, for fun
+
+The legal entries live on the page, but the lookup runs in the terminal.
+
+## The punchline, for fun
+
+So it reads the copy in its pocket instead of phoning home every time.
+
+## The options, in plain words
+
+A. Read the saved copy, with no network call, and say nothing when there is none (built).
+B. Read the saved copy, and print one line when there is none, pointing at omni kb legal.
+C. Ask the Omni page on each call, falling back to the copy when it cannot be reached.
+
+## What I had to decide
+
+Where omni kb laws --paths and --slice read the Legal entries from: the local copy every session start refreshes, or the Omni page on each call; and what it says when there is no copy.
+
+Decided by: Jev (hardToRevert 0.46) · agent said false
+
+## What I did meanwhile
+
+The lookup reads the Legal entries from the product knowledge copy under .omni-loop/local/, written by omni kb legal and the session start, and makes no network call. No copy, or one that does not read, lists no Legal entry and prints no line about it.
+
+## What it costs to change later
+
+A line in the command: read the page through the same call omni kb legal makes, or print one line when the copy is missing.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says every Legal entry prints under Global, not where the lookup reads them; whether a missing copy deserves a line is not settled.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-legal-from-local-copy -->
