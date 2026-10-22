@@ -27,6 +27,7 @@ import { contactSize, serveRun } from './render-server.ts';
 import type { RunServer } from './render-server.ts';
 import { readPitchJson, writePitchJson } from './run.ts';
 import type { PitchSettings } from './settings.ts';
+import { sceneIndexOf } from './storyboard.ts';
 import type { Storyboard } from './storyboard.ts';
 
 export { RenderRefused } from './render-input.ts';
@@ -103,10 +104,11 @@ async function writeStills(session: Session, info: PageInfo): Promise<string[]> 
   return [...stills, contact];
 }
 
-/** The second of the video the storyboard's music sync point falls on, or null. */
+/** The second of the video the storyboard's music sync point falls on, its scene named by id or index, or null. */
 export function syncSecondsOf(storyboard: Storyboard, info: PageInfo): number | null {
   const sync = storyboard.meta.music?.sync;
-  const scene = sync === undefined ? undefined : info.scenes[sync.scene];
+  const index = sync === undefined ? null : sceneIndexOf(storyboard.scenes, sync.scene);
+  const scene = index === null ? undefined : info.scenes[index];
   if (sync === undefined || scene === undefined) return null;
   return scene.from / info.fps + sync.at;
 }

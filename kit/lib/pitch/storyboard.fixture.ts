@@ -2,7 +2,8 @@
 // engine. Its media are `clips/walk.webm` and `shots/before.png` / `shots/after.png` of the run folder.
 // Its intro title carries an accent and a final stop (PRD 2030 s1); its steps' second step brings its own
 // media, a later moment of the walk-through with its camera zooming in (PRD 2030 s4); its stats scene shows
-// three figures, one from each source, before the outro (PRD 2030 s5).
+// three figures, one from each source, before the outro (PRD 2030 s5). Its music syncs on the feature
+// scene, named by its id `send` (PRD 2038 s2).
 import type { Storyboard } from './storyboard.ts';
 
 export const FIXTURE_MEDIA = Object.freeze(['clips/walk.webm', 'shots/before.png', 'shots/after.png']);
@@ -16,7 +17,7 @@ export function fixtureStoryboard(): Storyboard {
       width: 1920,
       height: 1080,
       transition: 0.5,
-      music: { sync: { scene: 2, at: 1.5 } },
+      music: { sync: { scene: 'send', at: 1.5 } },
       sources: ['spec.md', 'release-note.md'],
     },
     scenes: [
@@ -24,6 +25,7 @@ export function fixtureStoryboard(): Storyboard {
       { type: 'statement', duration: 4, text: 'A quote leaves the moment the last line is priced.' },
       {
         type: 'feature',
+        id: 'send',
         duration: 6,
         title: 'Send from the quote',
         layout: 'left',

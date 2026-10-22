@@ -20,8 +20,12 @@
 //   `device` frame, and keyframed `camera` (zoom 1 to 4 on a focus point), `callouts` (a ring or a
 //   spotlight, a label of at most four words) and `cursor` (moves and clicks). Coordinates are 0..1 of
 //   the media; times are seconds into the scene.
-// - Meta: 30 fps, 1920×1080, the transition's length, the music and its sync point (`{ scene, at }`), the
-//   sources the words came from, and the locale figures are written for (`en` when absent).
+// - Meta: 30 fps, 1920×1080, the transition's length, the music, the sources the words came from, and the
+//   locale figures are written for (`en` when absent).
+// - Scene ids and the music (PRD 2038 s2): a scene takes an optional `id` (lower-case letters, digits and
+//   hyphens, 1 to 32 characters), each its own. `meta.music` takes the `track` the provider offers, by
+//   title, and a `sync: { scene, at, cue? }`: `scene` a scene's id or, as before, its index; `at` seconds
+//   into that scene; `cue` seconds into the track, the moment of it that plays at `at`.
 import { z } from 'zod';
 
 export const STORYBOARD_FILE = 'storyboard.json';
@@ -63,9 +67,12 @@ export type Media = z.infer<typeof MediaSchema>;
 /** How long the before/after's wipe takes, in seconds. */
 export const WIPE_SECONDS = 1.4;
 
+/** A scene's id, which the music's sync names it by: lower-case letters, digits and hyphens. */
+const sceneId = z.string().regex(/^[a-z0-9-]{1,32}$/, 'lower-case letters, digits and hyphens, 1 to 32 characters');
+
 const duration = z.number().min(1).max(20);
 const scene = <T extends SceneType, Shape extends z.ZodRawShape>(type: T, shape: Shape) =>
-  z.strictObject({ type: z.literal(type), duration, ...shape });
+  z.strictObject({ type: z.literal(type), id: sceneId.optional(), duration, ...shape });
 
 /** Where a figure came from: the spec, the release note, or the person, asked. */
 const FIGURE_SOURCES =Object.freeze(['spec', 'release', 'asked'] as const);
@@ -126,17 +133,41 @@ const MetaSchema = z.strictObject({
   width: z.literal(1920),
   height: z.literal(1080),
   transition: z.number().min(0).max(2),
-  music: z.strictObject({ sync: z.strictObject({ scene: z.number().int().min(0), at: seconds }) }).optional(),
+  music: z
+    .strictObject({
+      track: text.optional(),
+      sync: z.strictObject({ scene: z.union([sceneId, z.number().int().min(0)]), at: seconds, cue: seconds.optional() }).optional(),
+    })
+    .optional(),
   sources: z.array(text).min(1),
   locale: z.string().refine(isLanguageTag, 'a BCP 47 language tag, such as en or fr-BE').optional(),
 });
 
+/** Two scenes sharing an id: the second is refused, naming the first. */
+function sharedIds(scenes: readonly { id?: string | undefined }[], context: z.RefinementCtx): void {
+  const first = new Map<string, number>();
+  scenes.forEach(({ id }, index) => {
+    if (id === undefined) return;
+    const earlier = first.get(id);
+    if (earlier === undefined) first.set(id, index);
+    else context.addIssue({ code: 'custom', path: [index, 'id'], message: `scenes.${earlier}.id and scenes.${index}.id are both ${id}: each scene has an id of its own` });
+  });
+}
+
 const StoryboardSchema = z.strictObject({
   storyboard: z.literal(STORYBOARD_VERSION),
   meta: MetaSchema,
-  scenes: z.array(SceneSchema).min(1),
+  scenes: z.array(SceneSchema).min(1).superRefine(sharedIds),
 });
 export type Storyboard = z.infer<typeof StoryboardSchema>;
+/** How the music's sync names its scene: by its id, or by its index (which the check warns about). */
+export type SceneRef = string | number;
+
+/** The index of the scene `ref` names, by id or by index, or null when there is none. */
+export function sceneIndexOf(scenes: readonly Scene[], ref: SceneRef): number | null {
+  const index = typeof ref === 'number' ? ref : scenes.findIndex((scene) => scene.id === ref);
+  return index >= 0 && index < scenes.length ? index : null;
+}
 
 /** One thing wrong with a storyboard: where (`scenes.2.media.file`, or `` for the whole) and why. */
 export type StoryboardProblem = { path: string; message: string };
