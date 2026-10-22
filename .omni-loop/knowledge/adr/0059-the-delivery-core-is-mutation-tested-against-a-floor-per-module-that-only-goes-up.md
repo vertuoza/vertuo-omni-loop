@@ -1,6 +1,6 @@
 # ADR-0059 — The delivery core is mutation tested against a floor per module that only goes up
 
-**Status:** accepted · **Date:** 2026-10-05 · **PRD:** #1072
+**Status:** accepted · **Date:** 2026-10-05 · **PRD:** #1072 · **Layers:** ci
 
 ## Context
 

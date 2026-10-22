@@ -1,6 +1,6 @@
 # ADR-0103 — The approval wait reads a request reply and an event stream of asked, re-asked, approved and voided news with rising ids
 
-**Status:** adopted · **Date:** 2026-10-09 · **PRD:** #1322 · **Decided:** nobody — adopted when raised (medium), 2026-10-09 · **Merged:** @pierrederval, 2026-10-09, PR #1324
+**Status:** adopted · **Date:** 2026-10-09 · **PRD:** #1322 · **Decided:** nobody — adopted when raised (medium), 2026-10-09 · **Merged:** @pierrederval, 2026-10-09, PR #1324 · **Layers:** api, event · **Domain:** approvals
 
 ## Context
 

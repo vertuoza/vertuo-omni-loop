@@ -1,6 +1,6 @@
 # ADR-0006 — Without a named summary check, every reported check except the outbox check decides that a pull request is green
 
-**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #7 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #9
+**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #7 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #9 · **Layers:** ci
 
 ## Context
 

@@ -1,6 +1,6 @@
 # ADR-0024 — Re-runs follow the repository's CI page: only a listed known red outside the change is re-run, once
 
-**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #45 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #46
+**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #45 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #46 · **Layers:** ci
 
 ## Context
 
