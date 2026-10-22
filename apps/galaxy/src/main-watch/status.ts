@@ -3,6 +3,7 @@
 // one lane that broke breaks the PRD; else a lane whose signal could not be read is Could not check (a
 // missing read never reads clean); else a lane still watched is Watching; else Clean. A PRD nobody
 // watched (it is not merged) has none.
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { stamp } from '../dossier/page/dates';
 import type { BreakKind, BreakRow, MainWatchRead, ParentResult, WatchRow } from './store';
 
@@ -13,7 +14,7 @@ export type BreakView = { kind: BreakKind; label: string; title: string; url: st
 
 export type MainWatchView = {
   /** The PRD's number, for the `/omni:rewind <n>` line. */
-  prd: number;
+  prd: PrdNumber;
   state: MainState;
   /** The head's words: `Watching · 3 days left`, `Clean`, `Broke main` or `Could not check`. */
   words: string;
@@ -55,7 +56,7 @@ const stillWatched = (watches: readonly WatchRow[]) =>
   watches.filter((w) => w.status === 'watching').sort((a, b) => Date.parse(b.watch_until) - Date.parse(a.watch_until));
 
 /** The PRD's status on main; null when it holds no watch. */
-export function mainWatchView(read: MainWatchRead | null | undefined, prd: number, now: number): MainWatchView | null {
+export function mainWatchView(read: MainWatchRead | null | undefined, prd: PrdNumber, now: number): MainWatchView | null {
   if (!read || read.watches.length === 0) return null;
   const { watches } = read;
   const breaks = [...read.breaks].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).map((row) => breakView(row, watches.length));

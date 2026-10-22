@@ -1,6 +1,7 @@
 // A PRD's status on main, worded (PRD 2410, s3): the four states, the worst lane winning, a missing read
 // never reading clean, and each break with its link and, for a CI red, its parent's result.
 import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { daysLeft, mainWatchView } from './status';
 import type { BreakRow, WatchRow } from './store';
 
@@ -16,12 +17,12 @@ const watch = (lane: string, more: Partial<WatchRow> = {}): WatchRow => ({
 const broke = (lane: string, more: Partial<BreakRow> = {}): BreakRow => ({
   lane, kind: 'ci-red', source: 'run-1', url: 'https://github.com/acme/widgets/actions/runs/1', title: 'build', parent: 'green', at: iso(-DAY), ...more,
 });
-const view = (watches: WatchRow[], breaks: BreakRow[] = []) => mainWatchView({ watches, breaks }, 2410, NOW);
+const view = (watches: WatchRow[], breaks: BreakRow[] = []) => mainWatchView({ watches, breaks }, parsePrd(2410), NOW);
 
 describe('a PRD with no watch', () => {
   it('has no status: nothing read, nothing asked for, or no watch row', () => {
-    expect(mainWatchView(null, 7, NOW)).toBeNull();
-    expect(mainWatchView(undefined, 7, NOW)).toBeNull();
+    expect(mainWatchView(null, parsePrd(7), NOW)).toBeNull();
+    expect(mainWatchView(undefined, parsePrd(7), NOW)).toBeNull();
     expect(view([])).toBeNull();
   });
 });

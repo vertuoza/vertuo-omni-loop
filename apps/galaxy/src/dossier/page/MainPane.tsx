@@ -5,8 +5,6 @@ import type { MainWatchView } from '../../main-watch/status';
 // was; then what the rewind found, which is nothing until it runs: it says so, with the line to run it
 // from a terminal. Read-only. Every text is escaped; a link opens on GitHub.
 
-const rewindLine = (prd: number) => `/omni:rewind ${prd}`;
-
 export function MainPane({ main }: { main: MainWatchView | null }) {
   if (!main) return <p className="dossier-empty">The Omni App watches main for seven days once the PRD merges.</p>;
   return (
@@ -38,7 +36,7 @@ export function MainPane({ main }: { main: MainWatchView | null }) {
         <section className="main-rewind" aria-label="The rewind">
           <h2>The rewind</h2>
           <p className="dossier-empty">
-            No rewind yet.{' '}Run <code>{rewindLine(main.prd)}</code> from a terminal.
+            No rewind yet.{' '}Run <code>/omni:rewind {main.prd}</code> from a terminal.
           </p>
         </section>
       )}
