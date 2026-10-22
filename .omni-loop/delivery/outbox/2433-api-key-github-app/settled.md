@@ -1263,3 +1263,189 @@ Small: the statuses are a few lines in the service and its tests. A runner alrea
 ```
 
 <!-- /omni-outbox-settled: s7-02-refresh-refusals-say-stop-or-try-again -->
+
+<!-- omni-outbox-settled: s7-01-token-covers-the-jobs-own-repository-only -->
+
+## s7-01-token-covers-the-jobs-own-repository-only — drifted
+
+- Verdict: drifted
+- Approved by: nicojustdev
+- Approved at: 2026-10-22T21:36:54Z
+- Channel: feature pull request #2434
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2434#issuecomment-6351861855
+- Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: high
+- Bears on: BR-PRODUCT-63
+- Raised: 2026-10-22
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+B. Add a follow-up change that lets the server read each key's allowed repositories now, then widen the token to the plan repository and the product's other repositories within that list. — because widen it in this PRD: add the service-role read of each key's allowed repositories now, then widen the token within that list
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-token-covers-the-jobs-own-repository-only
+prd: 2433
+slice: s7
+rank: high
+bears-on: BR-PRODUCT-63
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+A bug fix that spans several repositories should get a GitHub token for its plan repository and every repository of its product that the API key may reach. The server cannot see which repositories a key may reach, so should the wider token wait until it can?
+
+## The decision, in plain words
+
+For now the token covers only the repository the job runs on, never more than the API key allows. A bug fix that needs to push to another repository of its product cannot do it with this token until the wider token is built.
+
+## The intro, for fun
+
+A bug fix asked the key which repositories it may touch, and the server could not read the answer.
+
+## The punchline, for fun
+
+So the token stays home until someone hands the server the guest list.
+
+## The options, in plain words
+
+A. Give the token only the repository the job runs on, and widen it later once the server can read which repositories each API key may reach.
+B. Add a follow-up change that lets the server read each key's allowed repositories now, then widen the token to the plan repository and the product's other repositories within that list.
+C. Widen the token now to every product repository the GitHub App holds, without checking the key's allowed list, accepting that it can reach repositories the key's owner never allowed.
+
+## What I had to decide
+
+The slice asks for a token that, for a mega-bug-fix job, also covers the plan repository and every repository its product names that the installation holds, each within the key's allowed repositories. The list of repositories a key may reach is stored in agent_tokens, which the service role cannot read, and the migration that would open it is outside this slice's territory (supabase/ is slice s1's). Widening the token without that list would reach repositories the key's owner never allowed, which BR-PRODUCT-63 forbids.
+
+## What I did meanwhile
+
+The claim and the refresh route mint a token for the job's own repository only, whatever the job's line says. The plan repository and the product's other repositories are not added. The list handed to the mint is one argument in mintFor, in apps/galaxy/src/runners/runners.service.ts, so widening later is a change in that one place once the allowed list can be read.
+
+## What it costs to change later
+
+Small if the allowed list becomes readable: the list given to the mint grows and a few tests change, and nothing stored changes. Undoing option C would be a security cleanup instead, though GitHub expires every token it mints within the hour.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The PRD's done-when asks for the wider token but does not say which slice or follow-up migration opens the key's allowed repositories to the server
+- (author) Whether a bug fix's pull request needs the product's other repositories at all in the first release of this feature
+
+```
+
+<!-- /omni-outbox-settled: s7-01-token-covers-the-jobs-own-repository-only -->
+
+<!-- omni-outbox-settled: s6-01-send-check-needs-key-keyed-app-read -->
+
+## s6-01-send-check-needs-key-keyed-app-read — agreed
+
+- Verdict: agreed
+- Approved by: nicojustdev
+- Approved at: 2026-10-22T21:36:54Z
+- Channel: feature pull request #2434
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2434#issuecomment-6351861855
+- Basis: affirmation — the answer opens with "ok" and carries no contradiction marker
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s6
+- Wave: 3
+- Stays here: a human action carried out in s6 (#2451), the function is in the migration and nothing lasting is left to file
+
+### The answer, as it was given
+
+```text
+ok
+```
+
+### The item, as it was raised
+
+````text
+---
+id: s6-01-send-check-needs-key-keyed-app-read
+prd: 2433
+slice: s6
+rank: human-action
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+Before a send from an API key that holds a GitHub App is queued, Omni must check that the App is installed on the repository, but the database can only hand over the App's sealed credentials once a job exists, so a person has to add a way to read them by key.
+
+## The decision, in plain words
+
+Everything that can be built here is built: the two refusals, the check against GitHub, and both answers in the API reference. Until the database can hand over a key's App, a send from a key that holds one fails plainly and nothing is queued, while keys without an App are not affected.
+
+## The intro, for fun
+
+The guard at the door is trained, tested and ready to check every ticket.
+
+## The punchline, for fun
+
+He just cannot read the guest list until someone prints it.
+
+## What a person must do
+
+In supabase/migrations/20261228090000_api_key_github_apps.sql (s1's, on the feature branch, not merged), right after api_key_github_app_of_job, add the key-keyed read the send check calls, and list it in the header comment beside the others:
+
+```sql
+create function public.api_key_github_app_of_key(p_key uuid) returns jsonb
+language sql stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object('app', jsonb_build_object('app_id', g.app_id, 'slug', g.slug, 'ciphertext', g.ciphertext, 'iv', g.iv))
+    from public.api_key_github_apps g where g.key_id = p_key
+$$;
+
+revoke execute on function public.api_key_github_app_of_key(uuid) from public, anon, authenticated;
+grant execute on function public.api_key_github_app_of_key(uuid) to service_role;
+```
+
+It answers null for a key with no App, which the repository reads as no App. Then:
+
+1. Add the function to the supabase check that lists the service-role-only functions, if there is one, and run `pnpm schemas:verify` against a database.
+2. Merge the feature branch's migration change, then take the sub-PR of s6 out of draft (or ask the wave to).
+3. Try it once against a throwaway key: attach an App that is not installed on a test repository and send a bug fix there; expect 422 github_app_not_installed and no job in the queue.
+
+## What I had to decide
+
+The spec has the two POST routes check the key's GitHub App installation before queuing. That needs the key's sealed private key at send time, to sign the App's own JWT for GET /repos/{owner}/{repo}/installation. S1's migration opens the sealed key only by job (api_key_github_app_of_job(p_job), service role), and the service role's column grant on api_key_github_apps is key_id alone. At send there is no job yet, so no existing call can read it. Changing the migration is outside this slice's territory (public-api.*, openapi.*, fixtures/), so it is a decision, not a fix I make.
+
+Built, behind ports, so the one missing piece is one database function: the repository's githubAppOf(key) reads key_id first (a key with no App costs one read and no more), then calls api_key_github_app_of_key(p_key); the service takes an injected CheckInstallation and refuses with github_app_not_installed or github_app_permissions (both 422, message naming the repository or the permission) for bug-fixes on the job's repository and for mega-bug-fixes on the plan repository, after the allow-list and the plan-repository check, before anything is queued; public-api.installation.ts opens the sealed key under the master key and asks GitHub through keys/github-app.ts (appInstallation, missingPermission); public-api.live.ts wires it. ERROR_CODES, PUBLIC_API_ERRORS and the OpenAPI document list both codes. The s4 note holds: no token is minted at send, only the installation read, so mintToken's repository rule does not apply here; the repository is named in the installation path.
+
+Until api_key_github_app_of_key exists, githubAppOf rejects for a key that holds an App, the controller answers 500 internal with the usual logged cause and nothing is queued. Failing closed is the only safe choice: queuing without the check would send a job that fails at claim.
+
+## What I did meanwhile
+
+Both routes keep working for every key without an App, as before. A key with an App cannot start a job on a deployment where the function is missing (500, logged, nothing queued) rather than queuing one the runner would fail. Tests cover the service rules, the controller's refusals and 500s, the repository's two calls, the GitHub adapter (JWT signed by the key's pair, 404 as not installed, the permission order, no master key, a wrong master key, a GitHub 500), and the reference. pnpm schemas:verify was not run here: it needs a database.
+
+## What it costs to change later
+
+Small. One function and its grant in s1's migration (still unmerged on the feature branch), after api_key_github_app_of_job. If its answer takes another shape, the repository's OpenedApp schema in public-api.repository.ts is the one place to follow it. Nothing else changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the function should live in s1's migration or in a new one dated after it (author)
+- That the deployed service-role key can run the function: pnpm schemas:verify needs a database and could not run here (author)
+- Whether GitHub's installation read at send adds acceptable latency to a send: one GitHub call per send, not measured (author)
+
+````
+
+<!-- /omni-outbox-settled: s6-01-send-check-needs-key-keyed-app-read -->
