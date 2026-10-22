@@ -18,7 +18,7 @@ export type DossierTimesStore = {
   dossierTimes(workspaceId: string, repository: string): Promise<DossierTimes[]>;
 };
 
-export const DOSSIER_TIMES_COLUMNS = 'prd, created_at, dossier_versions(created_at)';
+const DOSSIER_TIMES_COLUMNS = 'prd, created_at, dossier_versions(created_at)';
 
 const Time = z.string().refine((at) => !Number.isNaN(Date.parse(at)));
 
@@ -33,11 +33,14 @@ type Db = Pick<SupabaseClient<Database>, 'from'>;
 
 const iso = (at: string) => new Date(Date.parse(at)).toISOString();
 
+/** The select behind the store, also what the boundary reads: the PRD dossiers with their plan versions. */
+export const dossierTimesRows = (db: Db) =>
+  db.from('dossiers').select(DOSSIER_TIMES_COLUMNS).eq('kind', 'prd').not('prd', 'is', null).eq('dossier_versions.kind', 'plan');
+
 export function dossierTimesStore(db: Db): DossierTimesStore {
   return {
     async dossierTimes(workspaceId, repository) {
-      const { data, error } = await db.from('dossiers').select(DOSSIER_TIMES_COLUMNS).eq('workspace_id', workspaceId).eq('kind', 'prd')
-        .eq('home_repo', repository.toLowerCase()).not('prd', 'is', null).eq('dossier_versions.kind', 'plan');
+      const { data, error } = await dossierTimesRows(db).eq('workspace_id', workspaceId).eq('home_repo', repository.toLowerCase());
       settle('read the PRD dossiers\' times', error);
       return orThrow(parseRows(DossierTimesRow, data ?? [], 'stages/sync: dossier times')).map(({ prd, created_at, dossier_versions }) => {
         const plans = dossier_versions.map((v) => Date.parse(v.created_at));

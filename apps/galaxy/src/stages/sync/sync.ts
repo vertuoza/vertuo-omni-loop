@@ -54,7 +54,7 @@ import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import type { MilestoneStore } from '../../timeline/store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
-import type { DossierTimes } from './dossier-times';
+import type { DossierTimes } from './dossier-times.repository';
 import { dossierMilestones, milestonesOfRepo, type SeenMilestone } from './milestones';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Logger } from 'omni-loop/kit/lib/log/log.ts';

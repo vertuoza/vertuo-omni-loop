@@ -1,7 +1,7 @@
 // The sync's read of the PRD dossiers' times (PRD 2370, s3): its Supabase call on a recording client.
 // No test reaches Supabase.
 import { describe, expect, it } from 'vitest';
-import { dossierTimesStore } from './dossier-times';
+import { dossierTimesStore } from './dossier-times.repository';
 
 type Answer = { data: unknown; error: { message: string } | null };
 
@@ -26,8 +26,8 @@ describe('the PRD dossiers\' times, on Supabase', () => {
     const { calls, db } = recording({ data: [], error: null });
     await dossierTimesStore(db).dossierTimes('w1', 'Acme/Widgets');
     expect(calls).toEqual([[
-      'dossiers', ['select', 'prd, created_at, dossier_versions(created_at)'], ['eq', 'workspace_id', 'w1'], ['eq', 'kind', 'prd'],
-      ['eq', 'home_repo', 'acme/widgets'], ['not', 'prd', 'is', null], ['eq', 'dossier_versions.kind', 'plan'],
+      'dossiers', ['select', 'prd, created_at, dossier_versions(created_at)'], ['eq', 'kind', 'prd'], ['not', 'prd', 'is', null],
+      ['eq', 'dossier_versions.kind', 'plan'], ['eq', 'workspace_id', 'w1'], ['eq', 'home_repo', 'acme/widgets'],
     ]]);
   });
 

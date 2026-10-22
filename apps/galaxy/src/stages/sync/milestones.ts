@@ -14,7 +14,7 @@
 // (`Closes #<n>`) on a branch of the feature shape. idea and plan come from the dossier (dossierMilestones, below), not from the snapshot.
 import { PRD_MILESTONES, type MilestoneId, type MilestoneRecord } from '../../timeline/store';
 import { anyTopic, branchPattern, foldersOf, linkPattern, type RepoSnapshot, type ServerBorn, type SnapshotPull } from './core';
-import type { DossierTimes } from './dossier-times';
+import type { DossierTimes } from './dossier-times.repository';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A milestone seen, without its workspace: the route adds it. */

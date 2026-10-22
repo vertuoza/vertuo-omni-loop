@@ -13,7 +13,7 @@ import { stageStore, type StageStore } from '../store';
 import type { MilestoneStore } from '../../timeline/store';
 import { milestoneStore } from '../../timeline/store.repository';
 import { serverBornStore } from './approvals';
-import { dossierTimesStore } from './dossier-times';
+import { dossierTimesStore } from './dossier-times.repository';
 import { stagesReader, type StagesReader } from './github';
 import { syncSnapshotStore } from './snapshots';
 import type { ConceptSyncDeps, FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
