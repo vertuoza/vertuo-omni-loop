@@ -22,4 +22,4 @@ The briefing's Never rule named a coverage floor; the floors the repository keep
 
 ## Mutation
 
-not run — no delivery-core file changed (`pnpm mutation:changed` mutates kit/lib modules only)
+mutation: no changed core file against origin/main (6510cb7d): nothing to mutate
