@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fast PRD pages</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1b18;--mute:#6b665e;--line:#e3dfd6;--card:#fff;--bad:#b4442c;--good:#2f7a4a;--bar:#d9d3c6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16150f;--fg:#ece8df;--mute:#9b958a;--line:#34312a;--card:#1f1d17;--bad:#e07a62;--good:#6cc08a;--bar:#3c382f}}
+:root[data-theme="dark"]{--bg:#16150f;--fg:#ece8df;--mute:#9b958a;--line:#34312a;--card:#1f1d17;--bad:#e07a62;--good:#6cc08a;--bar:#3c382f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:40px 0 12px}h3{font-size:15px;margin:0 0 10px}
+.sub{color:var(--mute);margin:0 0 24px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:720px){.pair{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:99px;padding:2px 10px;margin-bottom:10px}
+.today .tag{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+.after .tag{background:color-mix(in srgb,var(--good) 15%,transparent);color:var(--good)}
+.row{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;font-size:13px;margin:4px 0}
+.track{position:relative;height:16px}
+.seg{position:absolute;top:0;height:16px;border-radius:3px;background:var(--bar)}
+.seg.hot{background:var(--bad)}.after .seg.hot{background:var(--good)}
+.note{color:var(--mute);font-size:13px;margin:10px 0 0}
+ul{margin:8px 0 0;padding-left:18px}li{margin:3px 0}
+code{font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>Fast PRD list and PRD page</h1>
+<p class="sub">PRD 2401 · same pages, same content: only how fast they arrive changes.</p>
+
+<h2>Functional</h2>
+
+<div class="pair">
+<section class="card today">
+<span class="tag">Today · the PRD list</span>
+<h3>Reads wait on each other</h3>
+<div class="row">viewer<div class="track"><div class="seg" style="left:0;width:18%"></div></div></div>
+<div class="row">dossier_list (all)<div class="track"><div class="seg hot" style="left:18%;width:46%"></div></div></div>
+<div class="row">product scope<div class="track"><div class="seg" style="left:64%;width:12%"></div></div></div>
+<div class="row">login ids<div class="track"><div class="seg" style="left:76%;width:10%"></div></div></div>
+<div class="row">counts ∥ stages<div class="track"><div class="seg" style="left:86%;width:14%"></div></div></div>
+<ul>
+<li>Every dossier of every workspace, fixes included, dropped later in JavaScript.</li>
+<li>A row is a plain link: each click reloads the whole page.</li>
+</ul>
+</section>
+<section class="card after">
+<span class="tag">After · the PRD list</span>
+<h3>Fewer, lighter, side by side</h3>
+<div class="row">viewer<div class="track"><div class="seg" style="left:0;width:18%"></div></div></div>
+<div class="row">dossier_list (prd)<div class="track"><div class="seg hot" style="left:18%;width:20%"></div></div></div>
+<div class="row">product scope<div class="track"><div class="seg" style="left:18%;width:12%"></div></div></div>
+<div class="row">login ids<div class="track"><div class="seg" style="left:18%;width:10%"></div></div></div>
+<div class="row">counts ∥ stages<div class="track"><div class="seg" style="left:38%;width:14%"></div></div></div>
+<ul>
+<li><code>dossier_list(p_kind =&gt; 'prd')</code> filters in SQL.</li>
+<li>Rows, filters and Clear are <code>next/link</code>, prefetched.</li>
+</ul>
+</section>
+</div>
+<p class="note">Bar lengths are illustrative; the real before/after numbers come from <code>scripts/perf-prd.ts</code>, slice one.</p>
+
+<div class="pair" style="margin-top:16px">
+<section class="card today">
+<span class="tag">Today · a PRD's page</span>
+<h3>The shell waits for everything</h3>
+<div class="row">click<div class="track"><div class="seg hot" style="left:0;width:22%"></div></div></div>
+<div class="row">dossier + 5 reads<div class="track"><div class="seg" style="left:22%;width:24%"></div></div></div>
+<div class="row">answerable<div class="track"><div class="seg" style="left:46%;width:8%"></div></div></div>
+<div class="row">approval · send<div class="track"><div class="seg" style="left:54%;width:22%"></div></div></div>
+<div class="row">runners 1 by 1<div class="track"><div class="seg hot" style="left:54%;width:30%"></div></div></div>
+<ul>
+<li>Repository chips call the full <code>dossier_list</code>.</li>
+<li>The whole <code>plan.md</code> is read to count slices.</li>
+<li>Tabs are plain links: full reload per tab.</li>
+</ul>
+</section>
+<section class="card after">
+<span class="tag">After · a PRD's page</span>
+<h3>The shell first, the rest streams</h3>
+<div class="row">click<div class="track"><div class="seg hot" style="left:0;width:3%"></div></div></div>
+<div class="row">dossier + 6 reads<div class="track"><div class="seg" style="left:3%;width:22%"></div></div></div>
+<div class="row">approval · send<div class="track"><div class="seg" style="left:25%;width:22%;opacity:.5"></div></div></div>
+<div class="row">runners, 1 query<div class="track"><div class="seg" style="left:25%;width:8%;opacity:.5"></div></div></div>
+<ul>
+<li>Skeleton at once (<code>next/link</code> + <code>loading.tsx</code>).</li>
+<li>Chips and the live pulse read <code>dossier_repos(p_dossier)</code>.</li>
+<li>Approval, send, runners stream in <code>Suspense</code> (faded).</li>
+<li>Slice count stored with the plan's version.</li>
+</ul>
+</section>
+</div>
+
+<div class="pair" style="margin-top:16px">
+<section class="card today">
+<span class="tag">Today · measuring</span>
+<h3>Nothing to read</h3>
+<p>No timing per read; no way to compare before and after.</p>
+</section>
+<section class="card after">
+<span class="tag">After · measuring</span>
+<h3>Server-Timing and a script</h3>
+<p><code>Server-Timing: viewer;dur=…, dossier_list;dur=…, approval;dur=…</code></p>
+<p><code>OMNI_PERF_COOKIE=… node scripts/perf-prd.ts &lt;base&gt; &lt;id&gt;</code> → median and p95, 20 runs each. Goal: median −50%.</p>
+</section>
+</div>
+
+<h2>Pixel perfect</h2>
+<p>Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>
