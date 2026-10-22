@@ -50,7 +50,7 @@ export const API_REFERENCE = 'API reference';
 export const ALL_REPOSITORIES = 'All repositories';
 export const NO_KEY_YET = 'No key yet.';
 export const NOT_AGAIN = 'You will not see this key again.';
-export const ONLY_OWNERS = 'Only owners make or revoke keys.';
+export const ONLY_OWNERS_NOTE = 'Only owners make or revoke keys.';
 export const REVOKE = 'Revoke';
 export const REVOKE_FOR_GOOD = 'Revoke for good';
 export const NOT_WORKING = 'Its maker left the workspace: it no longer works.';
@@ -266,7 +266,7 @@ export function ApiKeysView({ state, owner, tracked, now, demo = false, on = IDL
         )}
       </div>
       <p className="ask-muted api-keys-lead">{LEAD} <a href={API_REFERENCE_HREF}>{API_REFERENCE}</a></p>
-      {!owner && <p className="api-keys-owners">{ONLY_OWNERS}</p>}
+      {!owner && <p className="api-keys-owners">{ONLY_OWNERS_NOTE}</p>}
       {owner && state.form.open && <NewKeyForm state={state} tracked={tracked} on={on} />}
       {owner && <AttachAppForm state={state} on={on} />}
       {state.refusal && <p className="api-keys-refusal" role="alert">{state.refusal}</p>}

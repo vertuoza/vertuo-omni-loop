@@ -5,7 +5,7 @@ import type { ApiKey } from '../keys/api-keys.contract';
 import { GITHUB_REFUSED, NOT_AVAILABLE } from '../keys/api-keys.service';
 import { ApiKeysPage } from './ApiKeysPage';
 import {
-  ALL_REPOSITORIES, API_REFERENCE, ApiKeysView, ATTACH, ATTACH_APP, CHOOSE_FILE, GITHUB_APP, NEW_KEY, NO_KEY_YET, NOT_AGAIN, NOT_WORKING, ONLY_OWNERS, REMOVE,
+  ALL_REPOSITORIES, API_REFERENCE, ApiKeysView, ATTACH, ATTACH_APP, CHOOSE_FILE, GITHUB_APP, NEW_KEY, NO_KEY_YET, NOT_AGAIN, NOT_WORKING, ONLY_OWNERS_NOTE, REMOVE,
   REMOVE_FOR_GOOD, REPLACE, REVOKE, REVOKE_FOR_GOOD,
 } from './ApiKeysView';
 import { demoApiKeysView } from './demo';
@@ -51,7 +51,7 @@ describe('an owner’s view', () => {
     expect(qa?.html).toContain('title="demo-org/backend-php"');
     expect(text(digest?.html ?? '')).toContain(`Weekly digest @irisa · 15 Oct 2026 oma_…A1c0 ${ALL_REPOSITORIES} ${GITHUB_APP} — ${ATTACH_APP} Last used Never Revoke`);
     expect(html).toContain(`aria-label="${REVOKE} QA dashboard"`);
-    expect(html).not.toContain(ONLY_OWNERS);
+    expect(html).not.toContain(ONLY_OWNERS_NOTE);
   });
 
   it('asks Revoke a second time before it revokes', () => {
@@ -85,7 +85,7 @@ describe('a member’s view', () => {
     expect(rows(html)).toHaveLength(2);
     expect(buttons(html)).toEqual([]);
     expect(html).not.toContain('<form');
-    expect(text(html)).toContain(ONLY_OWNERS);
+    expect(text(html)).toContain(ONLY_OWNERS_NOTE);
     expect(html).toContain(API_REFERENCE);
   });
 
