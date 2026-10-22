@@ -2282,6 +2282,97 @@ export type Database = {
           },
         ]
       }
+      prd_main_breaks: {
+        Row: {
+          at: string
+          kind: string
+          lane: string
+          parent: string | null
+          prd: number
+          repository: string
+          source: string
+          title: string
+          url: string
+          workspace_id: string
+        }
+        Insert: {
+          at: string
+          kind: string
+          lane: string
+          parent?: string | null
+          prd: number
+          repository: string
+          source: string
+          title: string
+          url: string
+          workspace_id: string
+        }
+        Update: {
+          at?: string
+          kind?: string
+          lane?: string
+          parent?: string | null
+          prd?: number
+          repository?: string
+          source?: string
+          title?: string
+          url?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_main_breaks_workspace_id_repository_prd_lane_fkey"
+            columns: ["workspace_id", "repository", "prd", "lane"]
+            isOneToOne: false
+            referencedRelation: "prd_main_watch"
+            referencedColumns: ["workspace_id", "repository", "prd", "lane"]
+          },
+        ]
+      }
+      prd_main_watch: {
+        Row: {
+          lane: string
+          merge_sha: string
+          merged_at: string
+          prd: number
+          repository: string
+          status: string
+          unread: string[]
+          watch_until: string
+          workspace_id: string
+        }
+        Insert: {
+          lane: string
+          merge_sha: string
+          merged_at: string
+          prd: number
+          repository: string
+          status?: string
+          unread?: string[]
+          watch_until: string
+          workspace_id: string
+        }
+        Update: {
+          lane?: string
+          merge_sha?: string
+          merged_at?: string
+          prd?: number
+          repository?: string
+          status?: string
+          unread?: string[]
+          watch_until?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_main_watch_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prd_milestones: {
         Row: {
           lane: string
@@ -3242,6 +3333,110 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "repositories"
             referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
+      rewind_finding_events: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          finding_id: string
+          id: number
+          reason: string | null
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          finding_id: string
+          id?: never
+          reason?: string | null
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          finding_id?: string
+          id?: never
+          reason?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewind_finding_events_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "rewind_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rewind_finding_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewind_findings: {
+        Row: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        Insert: {
+          check_name: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id?: string
+          origin: string
+          prd: number
+          proposed_at?: string
+          reason?: string | null
+          repository: string
+          state?: string
+          workspace_id: string
+        }
+        Update: {
+          check_name?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence?: Json
+          fix?: string
+          happened?: string
+          id?: string
+          origin?: string
+          prd?: number
+          proposed_at?: string
+          reason?: string | null
+          repository?: string
+          state?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewind_findings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -6354,6 +6549,82 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "teams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rewind_evidence_ok: { Args: { p_evidence: Json }; Returns: boolean }
+      rewind_finding_approve: {
+        Args: { p_finding: string; p_workspace: string }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rewind_finding_open: {
+        Args: { p_finding: string; p_workspace: string }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rewind_finding_reject: {
+        Args: { p_finding: string; p_reason?: string; p_workspace: string }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
           isOneToOne: true
           isSetofReturn: false
         }
