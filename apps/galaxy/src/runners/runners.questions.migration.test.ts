@@ -72,7 +72,7 @@ describe('the runner_job_questions migration', () => {
   it('adds human to the outcome check, keeping the three words before it', () => {
     expect(CODE).toContain('drop constraint runner_jobs_outcome_check');
     expect(CODE).toContain("add constraint runner_jobs_outcome_check check (outcome in ('answers', 'held', 'ready', 'human'))");
-    expect(CONTRACT).toContain("export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human'] as const;");
+    expect(CONTRACT).toContain("export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped'] as const;");
   });
 });
 
