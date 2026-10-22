@@ -234,3 +234,311 @@ Moving it means changing tests that read the route's result by its exact shape, 
 ```
 
 <!-- /omni-outbox-settled: s1-03-stream-takes-a-timing-prop -->
+
+<!-- omni-outbox-settled: s2-01-s2-link-order-tests -->
+
+## s2-01-s2-link-order-tests — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-s2-link-order-tests
+prd: 2401
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+Switching the PRD tabs to client links changed the order of their attributes in the page's HTML, so three older tests that read the tabs by their exact text broke. Should the slice have fixed those tests, which sit just outside its listed files?
+
+## The decision, in plain words
+
+The three tests (PR care, outbox and visual fix pages) were adjusted to read the same links in the new attribute order, with no change to what they check.
+
+## The intro, for fun
+
+A link moved one word to the left and three tests noticed.
+
+## The punchline, for fun
+
+Now they read the new order and agree again.
+
+## The options, in plain words
+
+A. A. Fix the three tests in this slice (as built).
+B. B. Leave them red and let a person fix them in a separate change.
+
+## What I had to decide
+
+Territory widened by three test files, regex order only.
+
+## What I did meanwhile
+
+Nothing waits on this; the tests are green.
+
+## What it costs to change later
+
+None to undo: three one-line regex edits.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the owner wants test fixes outside the listed files in a slice (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-s2-link-order-tests -->
+
+<!-- omni-outbox-settled: s3-01-s3-outside-territory -->
+
+## s3-01-s3-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-s3-outside-territory
+prd: 2401
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+The new database check, the renamed list function and the new database types needed three small edits in files the slice did not own. Is it fine that the slice made them?
+
+## The decision, in plain words
+
+The slice added the new check to the database workflow, updated the existing dossier check to the list function's new signature, and regenerated the database types, so every check stays green and the new one runs on every pull request.
+
+## The intro, for fun
+
+Three files sat just over the fence, and the slice reached across to tidy them.
+
+## The punchline, for fun
+
+Neighbourly, as long as the neighbour agrees.
+
+## The options, in plain words
+
+A. Keep the three edits in this slice: the conventions ask for the workflow step and the regenerated types in the change that needs them.
+B. Move them to a slice of their own, and hold this one until it merges.
+
+## What I had to decide
+
+Keep the three edits (A), or move them to a slice of their own and leave this one red until it merges (B).
+
+## What I did meanwhile
+
+The edits are on the slice branch: the workflow runs the new check `supabase/checks/dossier_reads.sql`, `supabase/checks/dossiers.sql` names `dossier_list(uuid, uuid, text)`, and `supabase/database.types.ts` is what `node scripts/supabase-types.ts` wrote from the migrations.
+
+## What it costs to change later
+
+A: none. B: one more slice and a red supabase workflow on this sub-PR until it lands.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan's territory for s3 names `supabase/checks/dossier_` but not `supabase/checks/dossiers.sql`, the workflow or the generated types, which every migration that changes a function's signature touches (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-s3-outside-territory -->
+
+<!-- omni-outbox-settled: s3-02-s3-repos-read-rounds -->
+
+## s3-02-s3-repos-read-rounds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-s3-repos-read-rounds
+prd: 2401
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+The spec said the new small read for a PRD's repository chips would not look at the questions, yet it must show the repositories the questions were asked in, and the live refresh needs the question counts. Is it fine that it reads that one PRD's questions?
+
+## The decision, in plain words
+
+The new read looks at the questions of the one PRD it is asked about, no other, so the chips show the same repositories as before and the live refresh still notices a new question; it no longer numbers every version of the PRD, which it never needed.
+
+## The intro, for fun
+
+A read promised to skip the questions, then found the chips were made of questions.
+
+## The punchline, for fun
+
+It reads one PRD's questions now, not the whole workspace's.
+
+## The options, in plain words
+
+A. Read the one PRD's questions, so the chips and the live refresh stay exactly as before.
+B. Read no question: the chips show only the home repository and the planet's regions, and the live refresh watches versions only.
+
+## What I had to decide
+
+Keep the read as built (A), or drop the questions' repositories from the chips and the question counts from the live refresh (B).
+
+## What I did meanwhile
+
+`dossier_repos(p_dossier)` matches the one dossier's rounds as `dossier_list()` does and returns its repositories, its rounds asked and answered, and its version count per kind; `supabase/checks/dossier_reads.sql` proves it equals `dossier_list(p_dossier)` for every dossier.
+
+## What it costs to change later
+
+A: none. B: a follow-up migration, and the page would miss new questions until it is reloaded.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's "joins no rounds" cannot hold together with "returns the same repositories dossier_list(p_dossier) did": a dossier's other repositories are its rounds' sessions' (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-s3-repos-read-rounds -->
+
+<!-- omni-outbox-settled: s3-03-s3-slice-count-in-database -->
+
+## s3-03-s3-slice-count-in-database — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-s3-slice-count-in-database
+prd: 2401
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+Where should a plan's slice count be worked out when a plan version is saved: by the database itself, copying the kit's rule, or by the app before it saves?
+
+## The decision, in plain words
+
+The database counts the slices itself as each plan version is saved, following the same rule the kit uses, so every way a plan arrives (the terminal and the GitHub fallback) gets its count. A plan with no slice the kit can read is stored as none, so the page never downloads its text again; plans saved before this keep no count and are read as before.
+
+## The intro, for fun
+
+Counting slices sounds easy until two places must count them the same way.
+
+## The punchline, for fun
+
+Both counters agreed on every one of the repository's 225 plans.
+
+## The options, in plain words
+
+A. The database counts, as built: one rule for every way a plan arrives.
+B. The app counts with the kit's own rule and sends the count with each push.
+
+## What I had to decide
+
+Keep the count in the database (A), or have the app count and send it with each push (B).
+
+## What I did meanwhile
+
+`plan_slice_count()` mirrors `parsePlanSlices()` of `kit/lib/inbox/territory.ts` and a trigger stores it in `dossier_versions.slices` on insert, 0 for none; `readPlanSlices` reads it and falls back to the body only when it is null. The two counts were compared on every plan.md of this repository: they agree.
+
+## What it costs to change later
+
+A: the rule lives twice, in the kit and in the database; a change to the kit's slice table needs the same change in a migration. B: a migration changing the push function, and the GitHub fallback would need its own count.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No test ties the two rules together on every change: the check proves the database rule on its own cases, and the agreement on the repository's plans was measured once by hand (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-03-s3-slice-count-in-database -->
