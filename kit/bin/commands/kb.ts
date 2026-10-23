@@ -34,6 +34,7 @@ import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
 import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
+import { LEVELS } from '../../lib/knowledge-tree/levels.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
 import { knowledgeMap, lookup, lookupLine, type Lookup } from '../../lib/knowledge/disclose-lookup.ts';
@@ -156,8 +157,11 @@ function copyLines(targets: StatusMap['targets']): string[] {
 function statusText({ frontDoor, forms, registers, targets, ungoverned }: StatusMap): string {
   const width = Math.max(...forms.map(({ form }) => form.length));
   const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
-  for (const { form, kind, state, source, questions, stale } of forms) {
+  // A column per level only when a level above the repository answers something (PRD 2416, s2).
+  const tree = forms.some(({ levels }) => levels['plan repo'] !== undefined || levels['omni settings'] !== undefined);
+  for (const { form, kind, state, source, levels, questions, stale } of forms) {
     const counts: string[] = [];
+    if (tree) counts.push(LEVELS.flatMap((level) => (levels[level] === undefined ? [] : [`${levels[level]} ${level}`])).join(', '));
     if (questions.length > 0) counts.push(`${questions.length} open question(s)`);
     if (stale.length > 0) counts.push(`${stale.length} stale evidence`);
     const columns = [form.padEnd(width), kind.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source]).padEnd(11), counts.join(' · ')];

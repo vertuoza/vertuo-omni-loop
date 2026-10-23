@@ -17,6 +17,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context, ExecText } from '../context.ts';
+import { LEVELS } from '../knowledge-tree/levels.ts';
+import type { Level } from '../knowledge-tree/levels.ts';
 import { registerCounts } from '../knowledge/registers.ts';
 import { FORMS, readForm } from './forms.ts';
 import type { FormSpec } from './forms.ts';
@@ -32,6 +34,27 @@ export type StaleEvidence = { path: string; hash: string; now: string | null; ex
 /** Where a form reads from, as a whole. */
 type FormSource = 'pointer' | 'repo' | 'kit';
 
+/** How many of a form's sections each level answers (PRD 2416, s2); a level that answers none is absent. */
+type LevelCounts = Partial<Record<Level, number>>;
+
+/** The level a section's source names, `null` for a pointer or an open question (no level answers it). */
+const SOURCE_LEVEL: Readonly<Partial<Record<SectionSource, Level>>> = Object.freeze({
+  repo: 'repo',
+  'plan-repo': 'plan repo',
+  'omni-settings': 'omni settings',
+  kit: 'kit default',
+});
+
+/** `sections` counted per level, in the tree's order. */
+function levelCounts(sections: readonly { source: SectionSource }[]): LevelCounts {
+  const counts: LevelCounts = {};
+  for (const level of LEVELS) {
+    const n = sections.filter(({ source }) => SOURCE_LEVEL[source] === level).length;
+    if (n > 0) counts[level] = n;
+  }
+  return counts;
+}
+
 /** One form's row of the map. */
 type FormStatus = {
   form: string;
@@ -40,6 +63,7 @@ type FormStatus = {
   state: ResolvedForm['state'];
   source: FormSource;
   sections: { slot: string | null; source: SectionSource }[];
+  levels: LevelCounts;
   questions: { slot: string; question: string }[];
   stale: { path: string; hash: string; now: string | null }[];
 };
@@ -105,7 +129,7 @@ function formSource(resolved: ResolvedForm): FormSource {
 
 /**
  * The map: `{ frontDoor, forms: [{ form, kind, file, state, source, sections: [{ slot, source }],
- * questions: [{ slot, question }], stale: [{ path, hash, now }] }], registers: [{ folder, laws,
+ * levels: { <level>: <sections it answers> }, questions: [{ slot, question }], stale: [{ path, hash, now }] }], registers: [{ folder, laws,
  * proposals }] }`, the forms in the kit's order, then each register folder's count of laws and of
  * proposed entries (PRD #68).
  * `state` is the form's own, or `missing`, or `invalid` when its file does not parse; a question is
@@ -123,6 +147,7 @@ export function playbookStatus({ ctx, exec }: { ctx: PlaybookCtx; exec: ExecText
       state: resolved.state,
       source: formSource(resolved),
       sections: resolved.sections.map(({ slot, source }) => ({ slot, source })),
+      levels: levelCounts(resolved.sections),
       questions: (form?.slots ?? []).flatMap((slot) => slot.body.questions.map((question) => ({ slot: slot.id, question }))),
       stale: staleEvidence(form?.evidence ?? [], { ctx, exec }).map(({ path, hash, now }) => ({ path, hash, now })),
     };
