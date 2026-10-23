@@ -1075,6 +1075,11 @@
           "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2469",
           "state": "open"
         }
+      },
+      "outcomes": {
+        "repeated-red:gitleaks": {
+          "became": "playbook/testing#never"
+        }
       }
     }
   ]

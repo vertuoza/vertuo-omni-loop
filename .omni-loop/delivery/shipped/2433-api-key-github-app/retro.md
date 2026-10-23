@@ -27,6 +27,7 @@ The delivery made jobs sent with an API key run on GitHub as the calling app's o
 - **Proposed lesson:** A slice that handles credentials runs the secret scan over its own commits before every push. Any test credential it adds is built so it cannot be read as a real secret, so the scan is clear on the first push.
 - **Kept:** Neither the knowledge nor the earlier lessons say to scan for secrets before pushing a credential-handling change, and the scan was red on 3 commits.
 - **Evidence:** [gitleaks on 12fb34c in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39822198961/job/119976085280), [gitleaks on c027fd0 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39823933564/job/119982097274), [gitleaks on fadec56 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826216013/job/119990070469), [gitleaks on fadec56 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826293330/job/119990341725)
+- **Became:** `playbook/testing#never`
 
 ### F3 · A slice edited a migration test outside its territory — `territory:s1`
 
