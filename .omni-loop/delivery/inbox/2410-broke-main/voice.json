@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A merge that turns main red now says so on the PRD's page within the week, with the red job linked, which is the bug in production I fear.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Proposals only for a PRD that broke main, one click each; a playbook finding writes nothing yet, which the card says.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The status is the worst of every repository a PRD merged into, so a PRD across repositories is judged as one.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One share of PRDs that broke main on the board I already read, counted only on watches that ended.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Approving a fix starts the bug fix in my name in one click; seven days is short enough to act on.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
     }
   ]
 }
