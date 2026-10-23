@@ -53,6 +53,11 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     release this job's claims: <why>` (PRD 2175).
   - A queued job whose every possible runner is paused says why under its status: `Waiting:
     <runner> paused (<reason>)`, or `Waiting: every runner paused (<reason>)` (PRD 2102).
+  - A queued job that no runner of the workspace can take reads **Cannot run** in `--ask-red`, in
+    place of Queued, with why under it (PRD 2482): `No runner holds <owner/name>`, `<runner> does not
+    hold <owner/name>`, `No runner of <fleet> holds <owner/name>`, `The runner it was sent to is gone`,
+    `Fleet <fleet> is gone`, or `No runner can run it as <key>'s GitHub App`. An offline, busy or
+    paused runner still counts. It keeps its Cancel, and reads Queued again once a runner can take it.
   - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
     (PRD 2022), followed by ` · for <acting_for>` when the app said whom it acted for, as given and
     never matched to a member (PRD 2425). A job an answer or a relaunch queued from it reads the
@@ -64,7 +69,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 
 - **No runner yet:** the page says how to start one, with `omni runner --name <name> --repos <dir>`
   to copy.
-- **A job's status:** Queued, Running with its time, Done (or its outcome: Waiting on answers, Held,
+- **A job's status:** Queued, Cannot run (PRD 2482), Running with its time, Done (or its outcome: Waiting on answers, Held,
   Ready, Need human), Failed with its reason (`runner lost`,
   `timeout`, the exit code), Cancelled, with `by API key <name>` under it when a key cancelled it
   (PRD 2425). A bug fix's outcome a key reads (already fixed, not a bug…) still reads Done here.
@@ -81,7 +86,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 
 Runners · Runner · State · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
-Any runner · Status · Queued · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
+Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · GitHub App · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
 health · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
@@ -113,3 +118,4 @@ health · Released · Could not release this job's claims · Need human · Stopp
 /omni:brainstorm, PRD 2338: .omni-loop/delivery/shipped/2338-retro-apply/before-after.html
 /omni:brainstorm, PRD 2375: .omni-loop/delivery/shipped/2375-job-stopped-mid-way/before-after.html
 /omni:brainstorm, PRD 2425: .omni-loop/delivery/shipped/2425-api-key-job-control/before-after.html
+/omni:brainstorm, PRD 2482: .omni-loop/delivery/inbox/2482-runner-cannot-run/before-after.html
