@@ -33,9 +33,9 @@ const { AppBar } = await import('./AppBar.tsx');
 
 const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: null, waiting: null };
 
-const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER) => {
+const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER, mode?: 'omni' | 'anti') => {
   at.path = path;
-  return renderToStaticMarkup(createElement(AppBar, { viewer }));
+  return renderToStaticMarkup(createElement(AppBar, { viewer, ...(mode ? { mode } : {}) }));
 };
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 /** The bar's trail, the Breadcrumb nav. */
@@ -58,7 +58,7 @@ describe('the top bar', () => {
     expect(game).toBeGreaterThan(theme);
     const avatar = bar.indexOf('aria-haspopup="menu"');
     expect(avatar).toBeGreaterThan(game);
-    expect(controls(bar)).toEqual(['☰', 'Questions', 'Omni', 'Light', 'Dark', 'Game mode', '', 'A']);
+    expect(controls(bar)).toEqual(['☰', 'Questions', 'Omni', 'Light', 'Dark', 'Game mode', 'Anti-loop', '', 'A']);
   });
 
   it('is a Breadcrumb list: the group as text, the section above the page a link, the page itself marked current (issue 704)', () => {
@@ -146,7 +146,7 @@ describe('the top bar', () => {
 
   it('ends, signed out, with Sign in with GitHub in the avatar\'s place', () => {
     const bar = render('/app');
-    expect(controls(bar)).toEqual(['☰', 'Omni', 'Light', 'Dark', 'Game mode', 'Sign in with GitHub']);
+    expect(controls(bar)).toEqual(['☰', 'Omni', 'Light', 'Dark', 'Game mode', 'Anti-loop', 'Sign in with GitHub']);
     expect(bar).not.toContain('aria-haspopup="menu"');
   });
 
@@ -181,10 +181,10 @@ describe('the top bar', () => {
   it('links back up the trail through next/link: a click keeps the layout (PRD 657)', () => {
     linked.length = 0;
     render('/prd/3f2a', ADA);
-    expect(linked).toEqual(['/prd']);
+    expect(linked.filter((h) => h !== '/anti')).toEqual(['/prd']);
     linked.length = 0;
     render('/ask/history', ADA);
-    expect(linked).toEqual(['/ask']);
+    expect(linked.filter((h) => h !== '/anti')).toEqual(['/ask']);
   });
 
   it('offers no System theme', () => {
@@ -209,5 +209,20 @@ describe('its stylesheet', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toMatch(/\b(?:rgba?|hsla?|oklch|color-mix)\(/i);
     expect(css).not.toMatch(/(?<![\w-])(?:white|black)(?![\w-])/);
+  });
+});
+
+describe('the Anti-loop switch (PRD 2490)', () => {
+  const anchor = (bar: string, label: string) => (bar.match(new RegExp(`<a [^>]*href="([^"]*)"[^>]*>${label}</a>`)) ?? [])[1];
+
+  it('reads Anti-loop and opens /anti on a forward page', () => {
+    expect(anchor(render('/app'), 'Anti-loop')).toBe('/anti');
+  });
+
+  it('reads Omni loop and opens /app in anti-loop mode, under the trail Anti-loop › Anti-dashboard', () => {
+    const bar = render('/anti', SIGNED_OUT_VIEWER, 'anti');
+    expect(anchor(bar, 'Omni loop')).toBe('/app');
+    expect(bar).not.toContain('>Anti-loop</a>');
+    expect(text(trailOf(bar))).toBe('Anti-loop › Anti-dashboard');
   });
 });
