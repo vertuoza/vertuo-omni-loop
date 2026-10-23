@@ -472,3 +472,235 @@ On a deployment without the templates, a page the settings repository lacks is n
 ```
 
 <!-- /omni-outbox-settled: s6-02-kit-default-in-deployment -->
+
+<!-- omni-outbox-settled: s7-01-call-sites-guard-line -->
+
+## s7-01-call-sites-guard-line — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-call-sites-guard-line
+prd: 2417
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 4
+---
+
+## The question, in plain words
+
+The new writer that opens pull requests in the settings repository must be listed by the check that watches every place the app talks to GitHub, and that check sits outside this slice's ground: may the slice add its line there?
+
+## The decision, in plain words
+
+The slice added one line to that check, naming the new writer and why it may write as the Omni app, and changed nothing else in it.
+
+## The intro, for fun
+
+Every door to GitHub has a name on the guard's list, and we just built a new door.
+
+## The punchline, for fun
+
+So we wrote our name on the list, in pen, and left the rest of the page alone.
+
+## The options, in plain words
+
+A. Keep the writer as its own file and list it in the call-sites check (built).
+B. Move the writes into the area's existing GitHub reader, already listed, and leave the check untouched.
+
+## What I had to decide
+
+Whether the new pull-request writer stays its own file, listed by the GitHub call-sites check, or moves into the area's existing GitHub reader, which the check already lists.
+
+## What I did meanwhile
+
+apps/galaxy/src/github-call-sites.test.ts lists apps/galaxy/src/omni-settings/omni-settings.pull-request.ts as a `client` site, with one comment line; the file reaches GitHub only through @omni/github, as the check's second test proves.
+
+## What it costs to change later
+
+Folding the writer into omni-settings.github.ts later is a file move and one line removed from the check; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for s7 names the omni-settings folders only; the wave's prompt asked for the registration, but no plan line covers the check's file.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-call-sites-guard-line -->
+
+<!-- omni-outbox-settled: s7-02-one-pull-request-per-change -->
+
+## s7-02-one-pull-request-per-change — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-one-pull-request-per-change
+prd: 2417
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 4
+---
+
+## The question, in plain words
+
+When a workspace owner changes the same playbook page twice before anyone merges the first change, does the second change join the first pull request or open a new one?
+
+## The decision, in plain words
+
+Each change opens its own pull request on a branch of its own, named after the page and the time it was sent, and the pull request names the owner who proposed it.
+
+## The intro, for fun
+
+Two drafts of the same page walk into the settings repository.
+
+## The punchline, for fun
+
+Each gets its own desk, and whoever merges picks the better one.
+
+## The options, in plain words
+
+A. Every change opens its own branch and pull request (built).
+B. A change to a page with an open pull request from the Omni page adds a commit to that pull request instead.
+C. A change to a page with an open pull request is refused until that pull request is merged or closed.
+
+## What I had to decide
+
+Whether a second change to a page with an open pull request opens a new pull request (built) or adds a commit to the open one.
+
+## What I did meanwhile
+
+omni-settings.service.ts names each branch `omni-settings/<form>-<UTC time>` (playbookChange) and the writer always cuts it from the default branch's head; nothing on the Omni page remembers an open pull request, since Never 6 keeps the text only in the pull request.
+
+## What it costs to change later
+
+Reusing an open pull request later means the writer first looks for an open branch of that page on GitHub; the branch name's shape is one constant.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec and the plan say a change opens a pull request, not what a second change to the same page does.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-one-pull-request-per-change -->
+
+<!-- omni-outbox-settled: s7-03-edit-whole-page-text -->
+
+## s7-03-edit-whole-page-text — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-edit-whole-page-text
+prd: 2417
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 4
+---
+
+## The question, in plain words
+
+When an owner edits a playbook page on the Omni page, do they edit the whole file, its header lines included, or only the words below the header?
+
+## The decision, in plain words
+
+The owner edits the whole file, header included, and a text that the next sync would not read as a page is refused with the reason, so no pull request is opened for a page every repository would then skip.
+
+## The intro, for fun
+
+The page has a small label stuck on top, and someone has to decide who may peel it.
+
+## The punchline, for fun
+
+We handed over the whole page, label and all, and a checker who says when the label fell off.
+
+## The options, in plain words
+
+A. The whole file is edited, header included, and a text the sync would skip is refused (built).
+B. Only the body is edited; the server keeps the header the settings repository holds, or the kit's for a new page.
+
+## What I had to decide
+
+Whether the edit field holds the page's whole text (built) or only its body, with the header kept on the server.
+
+## What I did meanwhile
+
+PlaybookEditor.tsx fills the field with the page's whole text; omni-settings.service.ts runs the kit's own page reader (readSettingsPage) on the text before anything is written, and the route answers 422 with its reason; the page's read-only view still hides the header, as s6 drew it.
+
+## What it costs to change later
+
+Editing the body only later means the service re-attaches the page's current header before writing; the route's body shape stays the same.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say whether a page's header (its owner line among it) is the owner's to edit on the Omni page.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-edit-whole-page-text -->
