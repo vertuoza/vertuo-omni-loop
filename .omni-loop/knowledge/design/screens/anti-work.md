@@ -40,4 +40,4 @@ Anti-work · The tech team's harness, architecture and retros. · Not open yet.
 
 ## Source
 
-- /omni:brainstorm, PRD 2490: .omni-loop/delivery/inbox/2490-anti-loop-placeholder/before-after.html
+- /omni:brainstorm, PRD 2490: .omni-loop/delivery/shipped/2490-anti-loop-placeholder/before-after.html
