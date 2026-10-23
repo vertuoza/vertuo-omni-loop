@@ -837,6 +837,24 @@ Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, en
 Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-17, PR #2130
 
+## P-PRODUCT-101
+
+A PRD's timeline dates each milestone from when it actually happened, as GitHub or the page records it, never from when the kit happened to notice it.
+
+Why: Durations and medians on the board would otherwise measure the sync's schedule instead of the work.
+Source: .omni-loop/delivery/shipped/2370-prd-timeline/outbox/settled.md, entry s1-03-what-dates-a-lane, PRD #2370
+Merged: @pierrederval, 2026-10-22, PR #2371
+Proposed: harvest 2026-10-22
+
+## P-PRODUCT-102
+
+A PRD's timeline counts every pull request its work runs through, so a PRD is never shown done while one of them is still open.
+
+Why: People read the timeline to know when a PRD is really finished. Leaving out a pull request that is still open would show it done too early.
+Source: .omni-loop/delivery/shipped/2370-prd-timeline/outbox/settled.md, entry s4-02-plan-repository-own-lane, PRD #2370
+Merged: @pierrederval, 2026-10-22, PR #2371
+Proposed: harvest 2026-10-22
+
 ## P-PRODUCT-103
 
 The app only offers a skill to allow when a runner can actually find it and allowing it is possible; it never offers a choice that would be refused.

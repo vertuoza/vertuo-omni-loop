@@ -4,7 +4,8 @@
 // after the runner's cursor, each numbered by its 1-based line number in the log, sent at most 2,000
 // lines and 256 KB per report.
 
-import type { PrdNumber } from '../ids.ts';
+import { parseIssue } from '../ids.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 /** The most lines a log tail carries. */
 export const TAIL_LINES = 200;
@@ -90,7 +91,8 @@ export function lastPullRequest(log: string, repo: string): string | null {
 /**
  * What a yolo job's hand-off ended on (PRD 2223): `answers` for `/omni:yolo-fix <prd>`, `held` for
  * `/omni:yolo <prd>`, `ready` for `/omni:pr-care <prd>`. `stopped` (PRD 2375) is a yolo job that exited
- * 0 with no hand-off line for its PRD: it stopped mid-way.
+ * 0 with no hand-off line for its PRD: it stopped mid-way. A `/omni:mega-bug-fix` job is `stopped` too
+ * when its hand-off ends on the line that resumes its fix ({@link fixOutcome}).
  */
 export type RunOutcome = 'answers' | 'held' | 'ready' | 'stopped';
 
@@ -110,11 +112,31 @@ const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
  * `stopped` instead of `null`.
  */
 export function runOutcome(log: string, prd: PrdNumber, skill?: HandOffSkill): RunOutcome | null {
-  const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '';
-  const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP, ''));
+  const match = /^\/omni:([a-z-]+) (\d+)$/.exec(lastLine(log));
   const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
   if (outcome !== undefined && match?.[2] === String(prd)) return outcome;
   return skill === undefined ? null : 'stopped';
+}
+
+/** The run's last non-empty line, without the runner's stamp, a failed hook's line after it ignored. */
+function lastLine(log: string): string {
+  return (log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '').replace(STAMP, '');
+}
+
+/** The plan repository's issue a `/omni:mega-bug-fix` job's arguments name (`612`, `#612` or its URL), or `null` for a description. */
+export function fixIssueOf(args: string): IssueNumber | null {
+  const match = /^(?:#?|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)([1-9]\d*)$/.exec(args.trim());
+  return match?.[1] === undefined ? null : parseIssue(match[1]);
+}
+
+/**
+ * What a `/omni:mega-bug-fix` job for issue `issue` ended on: `stopped` when its last line is the line
+ * that resumes the fix, `/omni:mega-bug-fix #<issue>`, which the skill's hand-off ends on when a rerun
+ * can finish it (a target stuck at `limits.attempts`, or one that could not be reached); `null` for any
+ * other line, so a fix that ended, or stopped for a person to decide, keeps reading Done.
+ */
+export function fixOutcome(log: string, issue: IssueNumber): RunOutcome | null {
+  return lastLine(log) === `/omni:mega-bug-fix #${String(issue)}` ? 'stopped' : null;
 }
 
 const UNITS: Readonly<Record<string, number>> = { s: 1000, m: 60_000, h: 3_600_000 };
