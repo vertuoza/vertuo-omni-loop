@@ -160,3 +160,162 @@ A change of mind is a few lines in the resolver and its tests.
 ```
 
 <!-- /omni-outbox-settled: s1-02-what-a-level-answers -->
+
+<!-- omni-outbox-settled: s4-01-what-counts-as-a-contradiction -->
+
+## s4-01-what-counts-as-a-contradiction — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-what-counts-as-a-contradiction
+prd: 2416
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 2
+---
+
+## The question, in plain words
+
+When does a product rule written in a repository count as contradicting a rule of the levels above it, so that the knowledge check turns red?
+
+## The decision, in plain words
+
+Only when the repository reuses the number of a rule from above and changes what it says, or what sort of entry it is. A rule under a number of its own only adds and stays green; one that repeats the rule above word for word is fine too.
+
+## The intro, for fun
+
+Family rules: you can add your own, but you cannot rewrite grandma's.
+
+## The punchline, for fun
+
+Same name, different story, and the check calls it out.
+
+## The options, in plain words
+
+A. A. Same number with different words or a different sort of entry, while a repeat or a new number stays green: the option built.
+B. B. Also flag a rule under a new number whose wording matches a higher rule's closely but says the opposite, judged by a language model.
+C. C. Ask the person writing a rule to mark it with a line naming the higher rule it overrides or contradicts, and flag only those marked rules.
+
+## What I had to decide
+
+What counts as a contradiction between two levels' register entries, read from the registers' own fields only. Built (kit/lib/knowledge-tree/product.ts, wired into gradeKnowledge in kit/lib/knowledge/check-knowledge.ts): a lower level's entry carrying the id of a higher level's entry contradicts it when its kind differs, or else its statement differs once spacing is collapsed. Each pair is one red line naming both entries, their files and their levels, and what differs. Every pair is checked, the plan repository's copy against the Omni settings' copy as well as the repository against either, since the spec says a lower level never contradicts a higher one. Other fields (Serves, Enforced by, Locked, Governs, Proposed) are not compared: they say how a level proves or governs a rule, not what the rule is. A proposed higher entry counts like a confirmed one. An imported copy (ctx.copyOf) is never compared.
+
+## What I did meanwhile
+
+The check is one function over the parsed entries and one call in the grade; a repository with no level above it grades exactly as before.
+
+## What it costs to change later
+
+A different definition is a change to one comparison function and its tests; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether two repositories numbering their product rules independently can collide on an id with no intent to restate, which this definition reads as a contradiction
+- (author) whether a contradiction between the plan repository's copy and the Omni settings' copy should turn this repository's check red, since neither copy is this repository's to fix
+- (author) whether a higher entry still only proposed should bind the levels under it
+
+```
+
+<!-- /omni-outbox-settled: s4-01-what-counts-as-a-contradiction -->
+
+<!-- omni-outbox-settled: s3-01-how-a-decision-shows-its-level -->
+
+## s3-01-how-a-decision-shows-its-level — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-how-a-decision-shows-its-level
+prd: 2416
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 2
+---
+
+## The question, in plain words
+
+When the decision list also holds records from the plan repository or the workspace settings, how does each record show where it comes from, and what happens to the repository's own numbering?
+
+## The decision, in plain words
+
+A record is tagged with its level in the list only once another level contributes one, so a repository with no other level prints exactly what it printed before. The repository's own records keep the next free number and are never renumbered by a record from above.
+
+## The intro, for fun
+
+A family album is easier to read when every photo says whose shelf it came from.
+
+## The punchline, for fun
+
+The tag only appears once there is a second shelf.
+
+## The options, in plain words
+
+A. A. Tag only when another level contributes, the repository's own untagged and without a level key: the option built.
+B. B. Always tag every record, including a repository alone, and add a level key to every record in the JSON.
+C. C. List other levels' records in a separate section under the repository's list.
+
+## What I had to decide
+
+Built: readDecisions returns the repository's records first, then each higher level's records whose number nothing nearer holds. A record read from another level carries a level key; the repository's own carries none, so the JSON of a repository alone is unchanged. The list prints a bracketed level after each title only when some record comes from another level. The repository's own records are cut to the latest 20 and every inherited one is listed. The shared numbers and the next free number stay the repository's own.
+
+## What I did meanwhile
+
+Everything is derived live from the folders; nothing is stored. Other readers of the records (the knowledge graph, the classifier) now also see inherited records when a copy exists.
+
+## What it costs to change later
+
+A change of mind is a few lines in the decisions reader and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the knowledge graph and the classifier should see inherited records or the repository's own only (author)
+- whether a record from above that shares a repository record's number should be listed as shadowed instead of hidden (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-how-a-decision-shows-its-level -->
