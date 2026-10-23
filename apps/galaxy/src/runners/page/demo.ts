@@ -20,6 +20,8 @@ const DEMO_RUNNERS = {
 // The two jobs of the demo that asked questions (PRD 2255): one still open, one a person answered.
 const ASKING = '00000000-0000-4000-8000-00000000d2a1';
 const ANSWERED = '00000000-0000-4000-8000-00000000d2a2';
+// And one an API key answered for someone (PRD 2425): its drawer says so, with whom the app said it acted for.
+const KEY_ANSWERED = '00000000-0000-4000-8000-00000000d2a3';
 
 const FLEETS: Fleet[] =[{ name: 'comets', label: 'Comets' }, { name: 'nebula', label: 'Nebula' }];
 
@@ -100,13 +102,23 @@ export function demoRunnersPage(now: Date): RunnersPageView {
       }),
       // A bug-fix that stopped with two questions for a person (PRD 2255): it reads Need human, with the button.
       job({
-        id: ASKING, line: '/omni:bug-fix 314', status: 'done', sentByLogin: 'ada', sentBy: ADA, sentByKey: 'cleaner', runner: DEMO_RUNNERS.office, exitCode: 0,
+        id: ASKING, line: '/omni:bug-fix 314', status: 'done', sentByLogin: 'ada', sentBy: ADA, sentByKey: 'cleaner', actingFor: 'Jane D.', runner: DEMO_RUNNERS.office, exitCode: 0,
         outcome: 'human', logTail: 'stopped: two questions for a person', endedAt: at(-15),
       }),
       // One that asked, and Ada answered: it reads Done again, and its drawer says who answered.
       job({ id: ANSWERED, line: '/omni:bug-fix 301', status: 'done', runner: DEMO_RUNNERS.office, exitCode: 0, endedAt: at(-200) }),
       // A retro the Omni app sent, which no person asked for (PRD 2338): its sender reads Omni app.
       job({ line: '/omni:retro-apply --retro 2340', status: 'queued', sentBy: null, sentByLogin: null, sentByApp: 'omni-app', queuedAt: at(-1) }),
+      // A job an API key sent for someone and then cancelled (PRD 2425): it reads Cancelled, with the key under it.
+      job({
+        line: '/omni:bug-fix 318', status: 'cancelled', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'cleaner', actingFor: 'Jane D.', cancelledByKey: 'cleaner',
+        cancelRequested: true, endedAt: at(-40),
+      }),
+      // One that asked, and the key answered for someone: it reads Done again, and its drawer says which key and for whom.
+      job({
+        id: KEY_ANSWERED, line: '/omni:bug-fix 322', status: 'done', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'cleaner', actingFor: 'Jane D.',
+        runner: DEMO_RUNNERS.office, exitCode: 0, endedAt: at(-260),
+      }),
     ],
     viewer: { id: YOU, owner: true, fleet: 'comets' },
   };
@@ -139,6 +151,17 @@ export function demoRunnersPage(now: Date): RunnersPageView {
         {
           question: 'Round each line, or the total?', header: 'Rounding', multiSelect: false,
           options: [{ label: 'Round each line', description: 'What the supplier sheet does.' }, { label: 'Round the total', description: 'What the ledger does.' }],
+        },
+      ],
+    },
+    {
+      job: KEY_ANSWERED, issue: IssueNumberSchema.parse(322), state: 'answered', by: null, byLogin: null, byKey: 'cleaner', actingFor: 'Jane D.', at: at(-250), resume: null,
+      lead: 'The export drops the VAT column when a tenant has no VAT number.',
+      answers: { 'Keep the column empty, or leave it out?': 'Keep it empty' },
+      questions: [
+        {
+          question: 'Keep the column empty, or leave it out?', header: 'Export', multiSelect: false,
+          options: [{ label: 'Keep it empty', description: 'The file has the same columns for every tenant.' }, { label: 'Leave it out', description: 'The file shows only what the tenant has.' }],
         },
       ],
     },

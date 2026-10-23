@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { afterAnswersWords, answeredOf, canAnswer, canCancel, canResume, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, retroLineOf, senderWords, slicesWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, retroLineOf, senderWords, slicesWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -69,6 +69,55 @@ describe('senderWords and madeByWords', () => {
     expect(madeByWords({ sentByLogin: 'ada', sentByKey: null })).toBeNull();
     expect(senderWords({ sentByLogin: null, sentByKey: null })).toBe('A member');
     expect(madeByWords({ sentByLogin: null, sentByKey: 'QA dashboard' })).toBeNull();
+  });
+});
+
+describe('a key\'s job, for whom the app acted (PRD 2425)', () => {
+  const key = { sentByLogin: 'ada', sentByKey: 'cleaner' };
+
+  it('reads ` · for <acting_for>` after made by, as the app gave it, and as before without one', () => {
+    const sent = { ...key, actingFor: 'Jane D.' };
+    expect(senderWords(sent)).toBe('API key cleaner');
+    expect(madeByWords(sent)).toBe('made by @ada · for Jane D.');
+    expect(madeByWords({ ...key, actingFor: 'jane.d@acme.test' })).toBe('made by @ada · for jane.d@acme.test');
+    expect(madeByWords({ ...key, actingFor: null })).toBe('made by @ada');
+    expect(madeByWords(key)).toBe('made by @ada');
+  });
+
+  it('reads the for part alone when the key\'s maker is unknown, and nothing when neither is', () => {
+    expect(madeByWords({ sentByLogin: null, sentByKey: 'cleaner', actingFor: 'Jane D.' })).toBe('for Jane D.');
+    expect(madeByWords({ sentByLogin: null, sentByKey: 'cleaner', actingFor: null })).toBeNull();
+  });
+
+  it('names no one for a job no key sent, whatever it carries', () => {
+    expect(madeByWords({ sentByLogin: 'ada', sentByKey: null, actingFor: 'Jane D.' })).toBeNull();
+  });
+
+  it('says `by API key <name>` under Cancelled for a job a key cancelled, and nothing for a person\'s cancel or any other status', () => {
+    expect(cancelledByWords({ status: 'cancelled', cancelledByKey: 'cleaner' })).toBe('by API key cleaner');
+    expect(cancelledByWords({ status: 'cancelled', cancelledByKey: null })).toBeNull();
+    expect(cancelledByWords({ status: 'cancelled' })).toBeNull();
+    expect(cancelledByWords({ status: 'running', cancelledByKey: 'cleaner' })).toBeNull();
+  });
+});
+
+describe('a bug fix\'s own end reads Done on the page (PRD 2425)', () => {
+  const ended = { status: 'done' as const, reason: null, exitCode: 0, runningAt: null, claimedAt: null };
+  const line = { line: '/omni:bug-fix 1790', repo: 'acme/widgets' };
+
+  it.each(['pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'] as const)('%s reads Done, in the green, with no button, no Resume and no PRD page', (outcome) => {
+    expect(statusWords({ ...ended, outcome }, NOW)).toBe('Done');
+    expect(statusTone('done', outcome)).toBe('done');
+    expect(canAnswer({ status: 'done', outcome })).toBe(false);
+    expect(canResume({ status: 'done', outcome })).toBe(false);
+    expect(prdPageLink({ ...line, status: 'done', outcome })).toBeNull();
+  });
+
+  it('keeps the words of the outcomes it shows', () => {
+    expect(statusWords({ ...ended, outcome: 'human' }, NOW)).toBe('Need human');
+    expect(statusWords({ ...ended, outcome: 'ready' }, NOW)).toBe('Ready');
+    expect(prdPageLink({ ...line, line: '/omni:yolo 1790', status: 'done', outcome: 'ready' })).toBe('/prd/at/acme/widgets/1790');
+    expect(prdPageLink({ ...line, line: '/omni:yolo 1790', status: 'done', outcome: 'stopped' })).toBe('/prd/at/acme/widgets/1790');
   });
 });
 

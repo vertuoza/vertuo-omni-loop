@@ -54,7 +54,9 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   - A queued job whose every possible runner is paused says why under its status: `Waiting:
     <runner> paused (<reason>)`, or `Waiting: every runner paused (<reason>)` (PRD 2102).
   - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
-    (PRD 2022).
+    (PRD 2022), followed by ` · for <acting_for>` when the app said whom it acted for, as given and
+    never matched to a member (PRD 2425). A job an answer or a relaunch queued from it reads the
+    same sender.
   - A job the Omni app sent, which no person asked for, shows `Omni app` as its sender, with
     `retro of PRD <n>` under it, linked to the retro pull request (PRD 2338).
 
@@ -64,7 +66,8 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   to copy.
 - **A job's status:** Queued, Running with its time, Done (or its outcome: Waiting on answers, Held,
   Ready, Need human), Failed with its reason (`runner lost`,
-  `timeout`, the exit code), Cancelled.
+  `timeout`, the exit code), Cancelled, with `by API key <name>` under it when a key cancelled it
+  (PRD 2425). A bug fix's outcome a key reads (already fixed, not a bug…) still reads Done here.
 - **Paused** (PRD 2102): the runner's state reads `Paused: <reason>` in `--ask-red`, in place of
   Online or Busy, while its last report names a pressure.
 - **A health line:** a figure it could not read is `—` with no bar; an offline runner's last
@@ -79,14 +82,15 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 Runners · Runner · State · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
 Any runner · Status · Queued · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
-Cancel · Send again · Terminal · No job yet · API key · made by · Omni app · retro of PRD · Paused · CPU · load · Memory ·
+Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
 health · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
 
 ## Refusals
 
 - No free-text prompt: a job is only a line the app copies, from the list of skills a runner may run.
-- No job runs again by itself: Send again and Send answers are a person's press.
+- No job runs again by itself: Send again and Send answers are a person's press, or the call of an
+  API key of the workspace on a job a key sent, shown as that key's (PRD 2425).
 
 ## Open questions
 
@@ -108,3 +112,4 @@ health · Released · Could not release this job's claims · Need human · Stopp
 /omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html
 /omni:brainstorm, PRD 2338: .omni-loop/delivery/shipped/2338-retro-apply/before-after.html
 /omni:brainstorm, PRD 2375: .omni-loop/delivery/shipped/2375-job-stopped-mid-way/before-after.html
+/omni:brainstorm, PRD 2425: .omni-loop/delivery/shipped/2425-api-key-job-control/before-after.html

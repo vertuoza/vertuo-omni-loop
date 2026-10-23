@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { JOB_OUTCOMES, QuestionSchema, RunnerHealthSchema, type Question } from './runners.contract';
+import { QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -58,8 +58,19 @@ const JobRow = z.object({
   released: z.array(z.number()).nullable().catch(null).optional(),
   /** Why its runner could not release them (PRD 2175). */
   release_error: z.string().nullable().catch(null).optional(),
-  /** What it ended on (PRD 2223, 2255); a value out of shape reads as none. */
-  outcome: z.enum(JOB_OUTCOMES).nullable().catch(null).optional(),
+  /** What it ended on (PRD 2223, 2255, 2425); a value out of shape reads as none. */
+  outcome: z.enum(STORED_OUTCOMES).nullable().catch(null).optional(),
+  /** The pull request a bug fix proved had already fixed the bug (PRD 2425); one out of shape reads as none. */
+  fixed_by: z.string().nullable().catch(null).optional(),
+  /** Every pull request a bug fix opened, as links in order (PRD 2425); a list out of shape reads as none. */
+  prs: z.array(z.string()).catch([]).optional(),
+  /** Whom the app said it acted for when it queued the job (PRD 2425). */
+  acting_for: z.string().nullable().catch(null).optional(),
+  /** The https link its changes are pinged to, which a relaunch and a resume of it keep (PRD 2425); one out of shape reads as none. */
+  notify_url: z.string().nullable().catch(null).optional(),
+  /** The API key that cancelled it, and whom that key acted for (PRD 2425). */
+  cancelled_by_key: z.string().nullable().catch(null).optional(),
+  cancelled_for: z.string().nullable().catch(null).optional(),
   /** The PRD's slices merged out of all when it ended `stopped` (PRD 2375); one out of shape reads as none. */
   slices_merged: z.number().int().nullable().catch(null).optional(),
   slices_total: z.number().int().nullable().catch(null).optional(),
@@ -74,7 +85,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, fixed_by, prs, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -86,30 +97,40 @@ const QuestionsRow = z.object({
   questions: z.array(QuestionSchema),
   answers: z.record(z.string(), z.string()).nullable(),
   closed_by: z.string().nullable(),
+  // The key that closed the round and whom it said it acted for (PRD 2425): read for the page, never failing a read.
+  closed_by_key: z.string().nullable().catch(null).optional(),
+  closed_for: z.string().nullable().catch(null).optional(),
   closed_at: z.string().nullable(),
   resume_job: z.string().nullable(),
   asked_at: z.string(),
 });
 export type QuestionsRow = z.infer<typeof QuestionsRow>;
 
-const QUESTIONS_COLUMNS = 'job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at';
+const QUESTIONS_COLUMNS = 'job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_by_key, closed_for, closed_at, resume_job, asked_at';
 
 /** A new row of questions: the job that asks, its workspace, its issue, its lead and its questions. */
 type NewQuestions = { jobId: string; workspaceId: string; issue: IssueNumber; lead: string; questions: Question[] };
 
 /** Why runner_job_answer() or runner_job_dismiss() refused, read by the code the database raised: `none` no row
  * for the job (P0002), `closed` the row is closed or the job is not waiting (55000), `stranger` the person is not a
- * member of the workspace (42501), `mismatch` the answers do not match the questions (22023). */
-export type QuestionsRefusal = 'none' | 'closed' | 'stranger' | 'mismatch';
+ * member of the workspace (42501), `key` the API key may not close this job's round (42501: the job was not sent by
+ * a key, or the key is revoked, of another workspace, off the repository's allow-list or not its maker's: PRD 2425),
+ * `mismatch` the answers do not match the questions (22023). */
+export type QuestionsRefusal = 'none' | 'closed' | 'stranger' | 'key' | 'mismatch';
 
 /** What acting on a job's questions answered: the value, or the refusal. */
 export type Acted<T> = { ok: true; value: T } | { ok: false; refusal: QuestionsRefusal };
+
+/** What runner_job_closer_check() says when an API key may not close a round (42501): a plain permission denied is
+ * neither this nor a stranger, it is a failure. */
+const KEY_REFUSALS = ['an API key closes only the questions of a job an API key sent', 'this API key does not act on this job'];
 
 /** The refusal a database error is, or null when it is anything else (a failure the controller logs). */
 function refusalOf(error: { code?: string; message?: string }): QuestionsRefusal | null {
   if (error.code === 'P0002') return 'none';
   if (error.code === '55000') return 'closed';
   if (error.code === '42501' && error.message?.startsWith('not a member')) return 'stranger';
+  if (error.code === '42501' && KEY_REFUSALS.some((message) => error.message?.startsWith(message))) return 'key';
   if (error.code === '22023') return 'mismatch';
   return null;
 }
@@ -140,8 +161,14 @@ export type NewRunner = { workspaceId: string; owner: string; name: string; slot
 /** A new job's columns. */
 export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
 
+/** What a key's start adds to a new job (PRD 2425 s8): whom it said it acts for and the link its changes are pinged to, each written only when given. */
+export type KeyStart = { actingFor?: string | undefined; notifyUrl?: string | undefined };
+
+/** A relaunch's columns (PRD 2425 s7): a new job's, the job it continues, whom the key said it acted for and the link its changes are pinged to. */
+export type NewRelaunch = NewJob & { continues: string; actingFor: string | null; notifyUrl: string | null };
+
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -166,6 +193,17 @@ async function acted<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: stri
   const read = z.union([schema, z.array(schema).length(1).transform((rows) => rows[0])]).safeParse(data);
   if (!read.success || read.data === undefined) throw new Error(`${what} answered out of shape`);
   return { ok: true, value: read.data };
+}
+
+/** Queues a job that carries another on (PRD 2270, 2425): `more` are its columns beyond a new job's and `continues`. Null when that
+ * job was carried on already: runner_jobs.continues is unique (23505, runner_jobs_continues_key). */
+async function insertContinuing(db: RunnersDb, job: NewJob & { continues: string }, more: Record<string, string | null> = {}): Promise<JobRow | null> {
+  const { data, error } = await db.from('runner_jobs').insert({
+    workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
+    sent_by_key: job.sentByKey, continues: job.continues, ...more,
+  }).select(JOB_COLUMNS).single();
+  if (error?.code === '23505') return null;
+  return parsed(Promise.resolve({ data, error }), JobRow, 'runner_jobs');
 }
 
 /** The App an API key's job runs as, as api_key_github_app_of_job() answers (supabase/migrations/20261228090000_api_key_github_apps.sql):
@@ -291,11 +329,21 @@ export function runnersRepository(db: RunnersDb) {
     job: async (id: string): Promise<JobRow | null> =>
       parsed(db.from('runner_jobs').select(JOB_COLUMNS).eq('id', id).maybeSingle(), JobRow.nullable(), 'runner_jobs'),
 
-    insertJob: async (job: NewJob): Promise<JobRow> =>
+    /** The id of the newest job that carries this one on (`continues` names it), or null when none does (PRD 2425). */
+    continuedBy: async (jobId: string): Promise<string | null> =>
+      (await parsed(db.from('runner_jobs').select('id').eq('continues', jobId).order('queued_at', { ascending: false }).limit(1).maybeSingle(), z.object({ id: z.string() }).nullable(), 'runner_jobs'))?.id ?? null,
+
+    insertJob: async (job: NewJob & KeyStart): Promise<JobRow> =>
       parsed(db.from('runner_jobs').insert({
         workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
         sent_by_key: job.sentByKey,
+        ...(job.actingFor === undefined ? {} : { acting_for: job.actingFor }),
+        ...(job.notifyUrl === undefined ? {} : { notify_url: job.notifyUrl }),
       }).select(JOB_COLUMNS).single(), JobRow, 'runner_jobs'),
+
+    /** Queues the job a key relaunches (PRD 2425 s7): a new job that carries the first on, with whom the key said it acted for and the
+     * first job's notify_url; null when that job was carried on already (23505, runner_jobs_continues_key). */
+    insertRelaunch: (job: NewRelaunch): Promise<JobRow | null> => insertContinuing(db, job, { acting_for: job.actingFor, notify_url: job.notifyUrl }),
 
     /** Changes the job while its status is still one of `from`; null when it moved on meanwhile. */
     updateJob: async (id: string, from: readonly JobRowStatus[], patch: JobPatch): Promise<JobRow | null> =>
@@ -362,6 +410,16 @@ export function runnersRepository(db: RunnersDb) {
     /** Dismisses a job's questions for the person (runner_job_dismiss()). Answers the closed row, or why the database refused. */
     dismiss: async (jobId: string, by: string): Promise<Acted<QuestionsRow>> =>
       acted(db.rpc('runner_job_dismiss', { p_job: jobId, p_by: by }), QuestionsRow, 'runner_job_dismiss()'),
+
+    /** Answers a job's questions for an API key (runner_job_answer(), PRD 2425): the same transaction as the person's,
+     * closed by the key and whom it says it acted for (null when it said no one), with no person. Answers the resume
+     * job, or why the database refused: a key that may not close this round is `key`. */
+    answerByKey: async (jobId: string, answers: Record<string, string>, key: string, actingFor: string | null): Promise<Acted<JobRow>> =>
+      acted(db.rpc('runner_job_answer', { p_job: jobId, p_answers: answers, p_key: key, p_acting_for: actingFor }), JobRow, 'runner_job_answer()'),
+
+    /** Dismisses a job's questions for an API key (runner_job_dismiss(), PRD 2425). Answers the closed row, or why the database refused. */
+    dismissByKey: async (jobId: string, key: string, actingFor: string | null): Promise<Acted<QuestionsRow>> =>
+      acted(db.rpc('runner_job_dismiss', { p_job: jobId, p_key: key, p_acting_for: actingFor }), QuestionsRow, 'runner_job_dismiss()'),
   };
 }
 
@@ -371,8 +429,8 @@ export type RunnersRepository = ReturnType<typeof runnersRepository>;
  * one that waited and any queued or running beside it. */
 const PRD_JOBS_READ = 50;
 
-/** A continuation's columns (PRD 2270): a new job's, and the job it continues. */
-type NewContinuation = NewJob & { continues: string };
+/** A continuation's columns (PRD 2270): a new job's, the job it continues and, when it stays a key's, the link its changes are pinged to (PRD 2425 s8). */
+type NewContinuation = NewJob & { continues: string; notifyUrl?: string | undefined };
 
 const SwitchRow = z.object({ fix_when_answered: z.boolean() }).nullable();
 
@@ -392,14 +450,7 @@ export function continuationsRepository(db: RunnersDb) {
         .order('queued_at', { ascending: false }).limit(PRD_JOBS_READ), z.array(JobRow), 'runner_jobs'),
 
     /** Queues the continuation; null when the job was continued already (23505, runner_jobs_continues_key). */
-    insertContinuation: async (job: NewContinuation): Promise<JobRow | null> => {
-      const { data, error } = await db.from('runner_jobs').insert({
-        workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
-        sent_by_key: job.sentByKey, continues: job.continues,
-      }).select(JOB_COLUMNS).single();
-      if (error?.code === '23505') return null;
-      return parsed(Promise.resolve({ data, error }), JobRow, 'runner_jobs');
-    },
+    insertContinuation: (job: NewContinuation): Promise<JobRow | null> => insertContinuing(db, job, job.notifyUrl === undefined ? {} : { notify_url: job.notifyUrl }),
   };
 }
 

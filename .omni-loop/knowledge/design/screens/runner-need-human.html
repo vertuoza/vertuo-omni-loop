@@ -45,7 +45,7 @@
 </style>
 </head>
 <body>
-<div class="note"><p>The Need human drawer over /app/runners (PRD 2255), opened from a job's Need human button or from <code>?answer=&lt;job id&gt;</code>. The first frame is open with an option picked; the second is a job someone already answered. The figures and the questions are an example, from nimbus-plan#314.</p></div>
+<div class="note"><p>The Need human drawer over /app/runners (PRD 2255), opened from a job's Need human button or from <code>?answer=&lt;job id&gt;</code>. The first frame is open with an option picked; the second is a job someone already answered; the third, one an API key answered for the person its app named (PRD 2425). The figures and the questions are an example, from nimbus-plan#314.</p></div>
 <div class="wrap">
   <div class="frame">
     <div class="bar">Dashboard › <b>Runners</b></div>
@@ -74,6 +74,16 @@
       <div class="head"><span class="t" id="nh-title-2">Need human · <span data-content>nimbus-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
       <div class="body">
         <p class="closed">Already answered by <span data-content>Paul</span></p>
+      </div>
+    </aside>
+  </div>
+  <div class="frame short">
+    <div class="bar">Dashboard › <b>Runners</b></div>
+    <div class="scrim"></div>
+    <aside class="drawer" data-screen="runner-need-human" role="dialog" aria-modal="true" aria-labelledby="nh-title-3">
+      <div class="head"><span class="t" id="nh-title-3">Need human · <span data-content>nimbus-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
+      <div class="body">
+        <p class="closed">Already answered by API key <span data-content>cleaner</span> · for <span data-content>Jane D.</span></p>
       </div>
     </aside>
   </div>

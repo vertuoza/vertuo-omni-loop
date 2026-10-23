@@ -327,23 +327,39 @@ describe('the tokens (PRD 2102, s4)', () => {
   });
 });
 
+/** What a job's ending is run with: what the runner is started with, the reports the app refuses with a 400 (as an app older than the fields in them does), and whether the session is alive. */
+type Ending = { over?: Partial<RunnerOptions>; refusing?: (update: JobUpdate) => boolean; alive?: boolean };
+
+/**
+ * Runs one job on `line` that ends with `exit` (`''` when it writes none), its log being `log`: every
+ * report the app got.
+ */
+async function jobEnding(line: string, log: string, exit: string, { over = {}, refusing = () => false, alive = true }: Ending = {}): Promise<JobUpdate[]> {
+  const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
+  const base = holdingApp(7, (n) => {
+    if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [] });
+    if (n === 6 && exit !== '') writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
+  });
+  const sent: JobUpdate[] = [];
+  const api: RunnerApi = {
+    ...base.api,
+    update: (job, update) => {
+      sent.push(update);
+      return refusing(update) ? Promise.reject(new RunnerRefused('refused (400)')) : base.api.update(job, update);
+    },
+  };
+  await run({ ...base, api }, {
+    slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
+    terminal: { start: () => { writeFileSync(join(home, 'logs', 'job-7.log'), log); }, stop: () => undefined, alive: () => alive },
+    ...over,
+  });
+  return sent;
+}
+
 describe('the outcome (PRD 2223)', () => {
   /** Runs one job on `line` that ends with `exit`, its log being `log`: every report the app got. */
-  async function ending(line: string, log: string, exit: string, slices?: (prd: PrdNumber, cwd: string) => Promise<MergedCount>): Promise<JobUpdate[]> {
-    const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
-    const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [] });
-      if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
-    });
-    const sent: JobUpdate[] = [];
-    const api: RunnerApi = { ...base.api, update: (job, update) => { sent.push(update); return base.api.update(job, update); } };
-    await run({ ...base, api }, {
-      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
-      terminal: { start: () => { writeFileSync(join(home, 'logs', 'job-7.log'), log); }, stop: () => undefined, alive: () => true },
-      ...(slices ? { slices } : {}),
-    });
-    return sent;
-  }
+  const ending = (line: string, log: string, exit: string, slices?: (prd: PrdNumber, cwd: string) => Promise<MergedCount>): Promise<JobUpdate[]> =>
+    jobEnding(line, log, exit, slices ? { over: { slices } } : {});
 
   it.each([
     ['/omni:yolo-fix 7', '12:00:00 Done: ok\n/omni:yolo-fix 7\n', 'answers'],
@@ -435,6 +451,86 @@ describe('the outcome (PRD 2223)', () => {
       terminal: { start: () => { writeFileSync(join(home, 'logs', 'job-7.log'), '/omni:yolo 7\n'); }, stop: () => undefined, alive: () => true },
     });
     expect(sent.filter((update) => update.status === 'done').map((update) => update.outcome)).toEqual(['held', undefined]);
+  });
+});
+
+// A bug fix's end (PRD 2425, s2): a done `/omni:bug-fix` or `/omni:mega-bug-fix` job reports the outcome its
+// hand-off wrote, the pull request it proved and every pull request its log names; a failed one reports its
+// pull requests (the draft it left) and no outcome; any other job reports as it always did.
+describe('the bug fix report (PRD 2425, s2)', () => {
+  const pr = (repo: string, n: number): string => `https://github.com/${repo}/pull/${String(n)}`;
+  const handOff = (...lines: string[]): string => ['10:00:09 Done: ok · 40 turns · $2.10 · 12m 3s', ...lines.map((line) => `10:00:09 ${line}`)].join('\n') + '\n';
+  const last = async (line: string, log: string, exit = '0\n', how: Ending = {}): Promise<JobUpdate | undefined> => (await jobEnding(line, log, exit, how)).at(-1);
+
+  it.each(['/omni:bug-fix 612', '/omni:mega-bug-fix 612'])('sends the outcome, the proved pull request and the pull requests of a done %s', async (line) => {
+    const log = [
+      `10:00:00 PR: ${pr('acme/api', 3)}`,
+      `10:00:01 PR: ${pr('acme/widgets', 31)}`,
+      handOff('Outcome: pr-opened', '> Review the PRs'),
+    ].join('\n');
+    expect(await last(line, log)).toMatchObject({ status: 'done', exitCode: 0, outcome: 'pr-opened', prs: [pr('acme/api', 3), pr('acme/widgets', 31)], prUrl: pr('acme/widgets', 31) });
+  });
+
+  it('sends the pull request a bug fix proved had already fixed the bug, apart from the ones it opened', async () => {
+    const log = handOff('Outcome: already-fixed', `Fixed by: ${pr('acme/widgets', 12)}`);
+    const report = await last('/omni:bug-fix 612', `10:00:00 PR: ${pr('acme/widgets', 12)}\n${log}`);
+    expect(report).toMatchObject({ status: 'done', outcome: 'already-fixed', fixedBy: pr('acme/widgets', 12) });
+    expect(report).not.toHaveProperty('prs');
+  });
+
+  it.each(['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'])('sends %s as the log words it, not as the app\'s public word', async (word) => {
+    expect(await last('/omni:bug-fix 612', handOff(`Outcome: ${word}`))).toMatchObject({ status: 'done', outcome: word });
+  });
+
+  it('sends none of the three for a log from before this PRD, or with a word it does not know, and the job still ends done', async () => {
+    for (const log of [handOff('nothing to say'), handOff('Outcome: shrugged'), '']) {
+      const report = await last('/omni:bug-fix 612', log);
+      expect(report).toMatchObject({ status: 'done', exitCode: 0 });
+      for (const field of ['outcome', 'fixedBy', 'prs']) expect(report).not.toHaveProperty(field);
+    }
+  });
+
+  it('sends a failed job its pull requests, the draft it left, and no outcome and no fixed-by', async () => {
+    const log = [`10:00:00 PR: ${pr('acme/widgets', 40)}`, '10:00:01 Outcome: stuck', `10:00:02 Fixed by: ${pr('acme/widgets', 12)}`].join('\n');
+    const report = await last('/omni:bug-fix 612', log, '1\n');
+    expect(report).toMatchObject({ status: 'failed', exitCode: 1, reason: 'exit code 1', prs: [pr('acme/widgets', 40)] });
+    expect(report).not.toHaveProperty('outcome');
+    expect(report).not.toHaveProperty('fixedBy');
+    expect(await last('/omni:mega-bug-fix 612', log, '2\n')).toMatchObject({ status: 'failed', prs: [pr('acme/widgets', 40)] });
+    expect(await last('/omni:bug-fix 612', 'crashed before any pull request\n', '1\n')).not.toHaveProperty('prs');
+  });
+
+  it('sends a job that stopped before it wrote its exit code, or ran past its timeout, its pull requests too, with no outcome', async () => {
+    const log = `10:00:00 PR: ${pr('acme/widgets', 40)}\n${handOff('Outcome: pr-opened')}`;
+    const dead = await last('/omni:bug-fix 612', log, '', { alive: false });
+    expect(dead).toMatchObject({ status: 'failed', reason: 'the job stopped before it wrote its exit code', prs: [pr('acme/widgets', 40)] });
+    expect(dead).not.toHaveProperty('outcome');
+    const slow = await last('/omni:bug-fix 612', log, '', { over: { timeoutMs: 1 } });
+    expect(slow).toMatchObject({ status: 'failed', reason: 'timeout', prs: [pr('acme/widgets', 40)] });
+    expect(slow).not.toHaveProperty('outcome');
+  });
+
+  it('reports a yolo job and any other skill\'s job exactly as before: its outcome and pull request, none of the three new fields', async () => {
+    const log = `10:00:00 PR: ${pr('acme/widgets', 31)}\n10:00:01 Outcome: pr-opened\n10:00:02 Fixed by: ${pr('acme/widgets', 12)}\n/omni:yolo 7\n`;
+    const yolo = await last('/omni:yolo 7', log);
+    expect(yolo).toMatchObject({ status: 'done', outcome: 'held', prUrl: pr('acme/widgets', 31) });
+    const careful = await last('/omni:pr-care 7', log);
+    expect(careful).toMatchObject({ status: 'done', prUrl: pr('acme/widgets', 31) });
+    const failed = await last('/omni:yolo 7', log, '1\n');
+    for (const report of [yolo, careful, failed]) for (const field of ['fixedBy', 'prs']) expect(report).not.toHaveProperty(field);
+    expect(careful).not.toHaveProperty('outcome');
+  });
+
+  it('sends a final report an older app refuses for the new fields again without them, and the job\'s status still reaches it', async () => {
+    const log = `10:00:00 PR: ${pr('acme/widgets', 31)}\n${handOff('Outcome: pr-opened')}`;
+    const sent = await jobEnding('/omni:bug-fix 612', log, '0\n', { refusing: (update) => update.prs !== undefined || update.fixedBy !== undefined || update.outcome !== undefined });
+    const ends = sent.filter((update) => update.status === 'done');
+    expect(ends).toHaveLength(2);
+    expect(ends[0]).toMatchObject({ outcome: 'pr-opened', prs: [pr('acme/widgets', 31)] });
+    expect(ends[1]).toMatchObject({ status: 'done', exitCode: 0, prUrl: pr('acme/widgets', 31) });
+    for (const field of ['outcome', 'fixedBy', 'prs']) expect(ends[1]).not.toHaveProperty(field);
+    const failedSent = await jobEnding('/omni:bug-fix 612', log, '1\n', { refusing: (update) => update.prs !== undefined });
+    expect(failedSent.filter((update) => update.status === 'failed').map((update) => update.prs)).toEqual([[pr('acme/widgets', 31)], undefined]);
   });
 });
 

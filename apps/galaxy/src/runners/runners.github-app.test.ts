@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GITHUB_TOKEN_AFTER_END_MS } from './runners.contract';
-import type { JobRow, JobRowStatus, RunnerRow, RunnersRepository } from './runners.repository';
+import { GITHUB_TOKEN_AFTER_END_MS, type Notifier, type Ping } from './runners.contract';
+import type { JobRow, JobRowStatus, QuestionsRow, RunnerRow, RunnersRepository } from './runners.repository';
 import { runnersService, type GithubDeps } from './runners.service';
 import { BOT, EXPIRES, INSTALLATION, PRIVATE_KEY, stubGithub, TOKEN } from './fixtures/github.fake';
-import { API_KEY, fakeStore, jobRow, KEY_APP, MO, OLGA, runnerRow, SHARED, T0, type KeyState } from './fixtures/store.fake';
+import { API_KEY, fakeStore, jobRow, KEY_APP, MO, OLGA, OTHER_KEY, questionsRow, runnerRow, SHARED, T0, WORKSPACE, type KeyState } from './fixtures/store.fake';
 
 // A key's job runs as the key's GitHub App (PRD 2433 s7), on the store's fake and a stubbed GitHub: the
 // runner that registers `githubApp`, the claim that opens the key's sealed private key, finds the App's
@@ -19,15 +19,15 @@ const PLAIN_RUNNER = runnerRow({ id: SHARED, name: 'shared', slots: 1, github_ap
 const WORKS: KeyState = { id: API_KEY, app: KEY_APP, working: true };
 
 /** The service on the fake store, a stubbed GitHub, and a clock the test moves. */
-function world({ jobs = [], runners = [APP_RUNNER], keys = [WORKS], needsApp = [], github }: {
-  jobs?: JobRow[]; runners?: RunnerRow[]; keys?: KeyState[]; needsApp?: string[]; github?: Partial<GithubDeps> | null;
+function world({ jobs = [], runners = [APP_RUNNER], keys = [WORKS], needsApp = [], questions = [], github, notifier }: {
+  jobs?: JobRow[]; runners?: RunnerRow[]; keys?: KeyState[]; needsApp?: string[]; questions?: QuestionsRow[]; github?: Partial<GithubDeps> | null; notifier?: Notifier;
 } = {}) {
   let now = T0;
-  const { store, state } = fakeStore({ jobs, runners, keys, needsApp, now: () => now });
+  const { store, state } = fakeStore({ jobs, runners, keys, needsApp, questions, now: () => now });
   const stub = stubGithub(github ?? {});
   // A held `next` moves the clock as it sleeps, so it ends after its 40 s with no job.
   const clock = { now: () => now, sleep: (ms: number) => { now = new Date(now.getTime() + ms); return Promise.resolve(); } };
-  const build = (repository: RunnersRepository) => runnersService(repository, clock, github === null ? null : stub.deps);
+  const build = (repository: RunnersRepository) => runnersService(repository, clock, github === null ? null : stub.deps, notifier);
   return { service: build(store), build, store, state, asked: stub.asked, setNow: (next: Date) => { now = next; } };
 }
 
@@ -302,5 +302,80 @@ describe('a runner\'s refresh of a job\'s token', () => {
     expect(w.asked.minted).toHaveLength(2);
     expect(w.state.minted).toEqual([API_KEY, API_KEY]);
     expect(w.state.jobs[0]).toMatchObject({ status: 'running', reason: null });
+  });
+});
+
+// What a key's job carries on is the key's too (PRD 2425), so it runs as the key's App as well (PRD 2433). No column of the job
+// names the App: it is the key's, and the database marks every insert of a key's job that finds the key holding one
+// (runner_job_needs_app_mark()), a resume, a relaunch and a continuation included, so the job waits for a runner that can run it as the App.
+describe('a job that carries a key\'s job on runs as the key\'s App (PRD 2425, PRD 2433)', () => {
+  const ANSWERS = { 'Which fix?': 'Guard the input' };
+  /** Another key of the workspace, which answers and relaunches. */
+  const OTHER = { id: OTHER_KEY, workspace: WORKSPACE, actingFor: null };
+  const ended = (more: Partial<JobRow> = {}) => held('done', { exit_code: 0, line: '/omni:bug-fix #314', ...more });
+  /** A key's bug fix that ended with its questions open. */
+  const waiting = (runners: RunnerRow[]) => {
+    const job = ended({ outcome: 'human' });
+    return { job, w: world({ jobs: [job], runners, questions: [questionsRow({ job_id: job.id })] }) };
+  };
+  const failed = (runners: RunnerRow[], more: Partial<JobRow> = {}) => {
+    const job = ended({ status: 'failed', exit_code: 1, ...more });
+    return { job, w: world({ jobs: [job], runners }) };
+  };
+
+  it('marks the resume of an answer by a key, which no runner that cannot run as the App takes, and the App\'s runner takes with a token', async () => {
+    const { job, w: plain } = waiting([PLAIN_RUNNER]);
+    const resume = value(await plain.service.answerByKey(OTHER, job.id, ANSWERS));
+    expect(plain.state.jobs.find((row) => row.id === resume.id)).toMatchObject({ sent_by_key: API_KEY, continues: job.id });
+    expect(plain.state.needsApp.has(resume.id)).toBe(true);
+    expect(value(await plain.service.next(OLGA, SHARED))).toBeNull();
+    expect(plain.state.jobs.find((row) => row.id === resume.id)?.status).toBe('queued');
+
+    const { job: first, w: app } = waiting([APP_RUNNER]);
+    const queued = value(await app.service.answerByKey(OTHER, first.id, ANSWERS));
+    expect(value(await app.service.next(OLGA, SHARED))).toMatchObject({
+      id: queued.id, line: `/omni:bug-fix #314 --answers ${first.id}`, sentByKey: 'QA dashboard', github: { token: TOKEN, expiresAt: EXPIRES, ...BOT },
+    });
+  });
+
+  it('marks the resume of an answer a person gives on the Runners page, the thread staying the key\'s', async () => {
+    const { job, w } = waiting([PLAIN_RUNNER]);
+    const resume = value(await w.service.answer(OLGA, job.id, { answers: ANSWERS }));
+    expect(w.state.jobs.find((row) => row.id === resume.id)).toMatchObject({ sent_by_key: API_KEY, continues: job.id });
+    expect(w.state.needsApp.has(resume.id)).toBe(true);
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+  });
+
+  it('marks the relaunch of a failed job, which keeps the key and its link, and waits for a runner that can run it as the App', async () => {
+    const { job, w } = failed([PLAIN_RUNNER], { notify_url: 'https://hooks.example.com/omni' });
+    const again = value(await w.service.relaunchByKey(OTHER, job.id));
+    expect(w.state.jobs.find((row) => row.id === again.id)).toMatchObject({ sent_by_key: API_KEY, continues: job.id, notify_url: 'https://hooks.example.com/omni' });
+    expect(w.state.needsApp.has(again.id)).toBe(true);
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+
+    const { job: first, w: app } = failed([APP_RUNNER]);
+    const queued = value(await app.service.relaunchByKey(OTHER, first.id));
+    expect(value(await app.service.next(OLGA, SHARED))).toMatchObject({ id: queued.id, sentByKey: 'QA dashboard', github: { token: TOKEN } });
+  });
+
+  it('marks none when the key holds no App when the resume is queued: a job the key queues then runs as it always did', async () => {
+    const job = ended({ outcome: 'human' });
+    const w = world({ jobs: [job], keys: [{ id: API_KEY, app: null, working: true }], runners: [PLAIN_RUNNER], questions: [questionsRow({ job_id: job.id })] });
+    const resume = value(await w.service.answerByKey(OTHER, job.id, ANSWERS));
+    expect(w.state.needsApp.has(resume.id)).toBe(false);
+    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ id: resume.id, github: null });
+  });
+
+  it('pings the link of a key\'s job once for its claim and once for its end when the App cannot mint, as for any end (PRD 2425 s8)', async () => {
+    const pings: Ping[] = [];
+    const notifier: Notifier = { check: () => Promise.resolve(null), ping: (ping) => { pings.push(ping); } };
+    const job = keyJob({ notify_url: 'https://hooks.example.com/omni' });
+    const w = world({ jobs: [job], notifier, github: { mint: () => Promise.reject(new Error('GitHub answered 422 to POST /app/installations/9001/access_tokens')) } });
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'github app: GitHub answered 422 to POST /app/installations/9001/access_tokens' });
+    expect(pings.map(({ url, jobId, event }) => [url, jobId, event])).toEqual([
+      ['https://hooks.example.com/omni', job.id, 'status'],
+      ['https://hooks.example.com/omni', job.id, 'status'],
+    ]);
   });
 });

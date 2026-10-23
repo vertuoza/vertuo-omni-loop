@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2425: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.caption { font-size: 13px; color: var(--muted); margin: 6px 0 14px; }
+.sub { font-size: 14px; font-weight: 600; margin: 18px 0 6px; }
+.compare > div { min-width: 0; }
+.compare.stack { grid-template-columns: 1fr; }
+
+/* The mockups: Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the runners and runner-need-human screens draw them. */
+.mock {
+  --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+  --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+  --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+  --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--ask-ground); color: var(--ask-ink); font: 15px/1.5 var(--ask-body);
+  border-radius: 8px; padding: 12px; overflow: hidden;
+}
+.mock a { color: var(--ask-cyan); text-underline-offset: 3px; }
+.mock code { font: 500 12.5px/1.5 var(--ask-mono); }
+/* The jobs table (runners/page/runners.css, in short). */
+.mock .table { border: 1px solid var(--ask-line-strong); border-radius: 10px; overflow: hidden; background: var(--ask-surface); }
+.mock .row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--ask-line); min-width: 0; }
+.mock .row:first-child { border-top: 0; }
+.mock .row > * { min-width: 0; }
+.mock .head { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 9px; }
+.mock .by { display: grid; gap: 1px; font-size: 14px; }
+.mock .muted { color: var(--ask-muted); font-size: 13px; }
+.mock .status { font: 700 12px/1 var(--ask-body); padding: 4px 9px; border-radius: 999px; justify-self: start; border: 1px solid var(--ask-line-strong); white-space: nowrap; }
+.mock .s-done { border-color: var(--ask-green); color: var(--ask-green); }
+.mock .s-human { border-color: var(--ask-plasma); color: var(--ask-on-plasma); background: var(--ask-plasma); }
+.mock .s-queue { color: var(--ask-cyan); border-color: var(--ask-cyan); }
+.mock .s-off { color: var(--ask-muted); }
+.mock .st { display: grid; gap: 3px; justify-items: start; }
+.mock .acts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.mock .ghost { display: inline-flex; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; }
+.mock .ghost.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
+.mock .new { outline: 2px dashed var(--ask-plasma); outline-offset: 2px; border-radius: 4px; }
+/* The Need human drawer (runners/page/need-human.css, in short), shown without the page behind it. */
+.mock .drawer { max-width: 560px; margin-left: auto; background: var(--ask-sunk); border: 2px solid var(--ask-line-strong); border-radius: 10px; overflow: hidden; }
+.mock .dhead { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--ask-surface); border-bottom: 1px solid var(--ask-line); font-size: 13px; }
+.mock .dhead .t { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock .x { border: 0; background: none; color: var(--ask-muted); font-size: 18px; line-height: 1; padding: 2px 6px; }
+.mock .dbody { padding: 14px 16px; }
+.mock .closed { margin: 0; color: var(--ask-muted); }
+@media (max-width: 640px) { .mock .row { grid-template-columns: 1fr auto; } .mock .head { display: none; } }
+</style>
+</head>
+<body>
+<h1>PRD 2425: before and after — an API key follows its job</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<ul>
+<li>An app that sent a bug fix with its <code>oma_</code> key polls <code>GET /api/v1/jobs/{id}</code>, and every stop reads the same: <code>status: done</code>, <code>pr_url: null</code>, whether the bug was already fixed, was not a bug, or waits on a decision.</li>
+<li>At most one pull request, of the job's own repository; a mega-bug-fix's targets and a failed job's draft are not there.</li>
+<li>The job's lines, its questions, Cancel, Send again and Resume take a person on the Runners page.</li>
+<li>Once a person answers or relaunches it, the new job is that person's: the key gets 404 on it.</li>
+<li>Nothing tells the app a job changed: it asks again every few seconds.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>The job says how it ended: <code>outcome</code> (<code>already_fixed</code>, <code>pr_opened</code>, <code>need_human</code>, <code>needs_brainstorm</code>, <code>not_a_bug</code>, <code>stuck</code>, <code>blocked</code>), <code>fixed_by</code>, and every pull request in <code>prs</code>.</li>
+<li>With the key, the app reads the job's lines and log tail, reads its questions and answers or dismisses them, cancels or relaunches it.</li>
+<li>Every job that carries the work on stays the key's, linked by <code>continues</code> and <code>continued_by</code>; any key of the workspace follows it, within its allow-list.</li>
+<li>Each action may say whom the app acted for (<code>acting_for</code>, free text). The trace is the key's, never a person's.</li>
+<li>With <code>notify_url</code>, the server pings the app when the job changes: <code>{job_id, event, at}</code>, nothing else.</li>
+<li>On the Runners page, members see which key acted, and for whom.</li>
+</ul></div>
+</div>
+
+<p class="sub">Everything the Runners page does for one job, through the key</p>
+<table>
+<thead><tr><th>on the Runners page today</th><th>through the key, after</th></tr></thead>
+<tbody>
+<tr><td>the job's status and its pull request</td><td><code>GET /api/v1/jobs/{id}</code>: <code>outcome</code>, <code>fixed_by</code>, <code>prs</code>, <code>questions</code>, <code>continues</code>, <code>continued_by</code>, <code>acting_for</code>, <code>cancelled_by</code>, <code>log_tail</code></td></tr>
+<tr><td>Terminal: the job's lines</td><td><code>GET /api/v1/jobs/{id}/lines?cursor=&amp;limit=</code>, oldest first</td></tr>
+<tr><td>Need human: the questions, Send answers, Dismiss</td><td><code>GET …/questions</code>, <code>POST …/answers</code> (202, the resume job), <code>POST …/dismiss</code> (200)</td></tr>
+<tr><td>Cancel</td><td><code>POST …/cancel</code> (200; 409 once the job ended)</td></tr>
+<tr><td>Send again, Resume</td><td><code>POST …/relaunch</code> (202, the new job; 409 when the page offers neither)</td></tr>
+<tr><td>the page read again every 5 seconds</td><td>a ping to <code>notify_url</code>, then one read</td></tr>
+</tbody>
+</table>
+<p class="caption">Merging, approving and Fix with answers stay out: no route merges anything (N-PRODUCT-15), and Fix with answers is a PRD job's.</p>
+
+<p class="sub">One job, read with the key</p>
+<div class="compare">
+<div><div class="label">TODAY · GET /api/v1/jobs/7f3c2a10-…</div>
+<pre><span class="line ctx">{</span><span class="line ctx">  "id": "7f3c2a10-…",</span><span class="line ctx">  "line": "/omni:bug-fix Issue 548 the invoice total is off by a cent",</span><span class="line ctx">  "repo": "acme/backend",</span><span class="line ctx">  "status": "done",</span><span class="line ctx">  "runner": "mac-mini-office",</span><span class="line ctx">  "pr_url": null,</span><span class="line ctx">  "exit_code": 0,</span><span class="line ctx">  "reason": null,</span><span class="line ctx">  "queued_at": "2026-10-22T09:12:04.000+00:00",</span><span class="line ctx">  "claimed_at": "…", "running_at": "…", "ended_at": "…"</span><span class="line ctx">}</span></pre>
+<p class="caption">Already fixed, not a bug, or waiting on a decision: the same answer.</p>
+</div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">{</span><span class="line ctx">  "id": "7f3c2a10-…",</span><span class="line ctx">  … every field of today, unchanged …</span><span class="line ctx">  "pr_url": null,</span><span class="line add">  "outcome": "already_fixed",</span><span class="line add">  "fixed_by": "https://github.com/acme/backend/pull/531",</span><span class="line add">  "prs": [],</span><span class="line add">  "questions": null,</span><span class="line add">  "continues": null,</span><span class="line add">  "continued_by": null,</span><span class="line add">  "acting_for": "Jane D.",</span><span class="line add">  "cancelled_by": null,</span><span class="line add">  "log_tail": "…\nOutcome: already-fixed\nFixed by: https://github.com/acme/backend/pull/531"</span><span class="line ctx">}</span></pre>
+<p class="caption">The app tells its user at once that pull request 531 fixed the bug.</p>
+</div>
+</div>
+
+<p class="sub">A job that stopped for a decision, answered with the key</p>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<pre><span class="line ctx">POST /api/runners/jobs/7f3c…/answers</span><span class="line ctx">Authorization: Bearer oma_…</span><span class="line ctx"></span><span class="line del">403 · any bearer header is refused here (BR-PRODUCT-94)</span></pre>
+<p class="caption">Someone opens the Runners page, signs in, and answers in the drawer; the resume job is theirs, and the key loses the thread.</p>
+</div>
+<div><div class="label">AFTER</div>
+<pre><span class="line add">GET /api/v1/jobs/7f3c…/questions</span><span class="line add">→ 200 {"lead": "…", "questions": [{"header": "Fix", "question": "How should …?", "options": […], "multiSelect": false}], "state": "open"}</span><span class="line ctx"></span><span class="line add">POST /api/v1/jobs/7f3c…/answers</span><span class="line add">{"answers": {"How should …?": "Filter those assignments out"}, "acting_for": "Jane D."}</span><span class="line add">→ 202 {"id": "91ab…", "status": "queued", "continues": "7f3c…", "acting_for": "Jane D.", …}</span><span class="line ctx"></span><span class="line add">POST /api/v1/jobs/7f3c…/answers   (a second time, or after the page answered)</span><span class="line add">→ 409 {"error": {"code": "conflict", "message": "the questions are already answered."}}</span></pre>
+<p class="caption">The first answer or dismissal wins, from the page or a key (BR-PRODUCT-12). The kit's sign-in still never answers.</p>
+</div>
+</div>
+
+<p class="sub">The ping</p>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<p>The app asks <code>GET /api/v1/jobs/{id}</code> every few seconds until the job ends.</p>
+</div>
+<div><div class="label">AFTER</div>
+<pre><span class="line add">POST https://app.example.com/omni/ping</span><span class="line add">{"job_id": "7f3c…", "event": "outcome", "at": "2026-10-22T09:31:40.000+00:00"}</span></pre>
+<p class="caption"><code>event</code> is <code>status</code>, <code>outcome</code> or <code>questions</code>. The ping carries no data and no secret: the app reads the job with its key to learn anything, so a forged ping can only make it read.</p>
+</div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: runners · runner-need-human</p>
+
+<h3>The Runners page — Jobs, a key's jobs</h3>
+<div class="compare stack">
+<div><div class="label">TODAY</div>
+<div class="mock" data-screen="runners">
+<div class="table">
+<div class="row head"><span>Line</span><span>Sent by</span><span>Status</span><span></span></div>
+<div class="row"><span><code data-content>/omni:mega-bug-fix #314</code><br><span class="muted" data-content>nimbus-plan</span></span><span class="by"><span>API key <span data-content>cleaner</span></span><span class="muted">made by <span data-content>@ada</span></span></span><span class="status s-human">Need human</span><span class="acts"><button class="ghost primary" type="button" data-primary>Need human</button><button class="ghost" type="button">Terminal</button></span></div>
+<div class="row"><span><code data-content>/omni:bug-fix #318</code><br><span class="muted" data-content>nimbus-plan</span></span><span class="by"><span data-content>@ada</span></span><span class="status s-off">Cancelled</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Send again</button></span></div>
+</div>
+</div>
+<p class="caption">Only a person cancels, on this page, and nothing says who did.</p>
+</div>
+<div><div class="label">AFTER</div>
+<div class="mock" data-screen="runners">
+<div class="table">
+<div class="row head"><span>Line</span><span>Sent by</span><span>Status</span><span></span></div>
+<div class="row"><span><code data-content>/omni:mega-bug-fix #314</code><br><span class="muted" data-content>nimbus-plan</span></span><span class="by"><span>API key <span data-content>cleaner</span></span><span class="muted">made by <span data-content>@ada</span> <span class="new">· for <span data-content>Jane D.</span></span></span></span><span class="status s-human">Need human</span><span class="acts"><button class="ghost primary" type="button" data-primary>Need human</button><button class="ghost" type="button">Terminal</button></span></div>
+<div class="row"><span><code data-content>/omni:bug-fix #318</code><br><span class="muted" data-content>nimbus-plan</span></span><span class="by"><span>API key <span data-content>cleaner</span></span><span class="muted">made by <span data-content>@ada</span> <span class="new">· for <span data-content>Jane D.</span></span></span></span><span class="st"><span class="status s-off">Cancelled</span><span class="muted new">by API key <span data-content>cleaner</span></span></span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Send again</button></span></div>
+</div>
+</div>
+<p class="caption">Dashed: what is new. <code>· for &lt;acting_for&gt;</code> shows only when the app sent one, as given, never matched to a member. A job the key queued by an answer or a relaunch reads the same sender. The new outcomes read Done here, as a bug fix's stop does today.</p>
+</div>
+</div>
+
+<h3>The Need human drawer — answered elsewhere</h3>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<div class="mock" data-screen="runner-need-human">
+<aside class="drawer" role="dialog" aria-label="Need human">
+<div class="dhead"><span class="t">Need human · <span data-content>nimbus-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
+<div class="dbody"><p class="closed">Already answered by <span data-content>Ada L.</span></p></div>
+</aside>
+</div>
+</div>
+<div><div class="label">AFTER</div>
+<div class="mock" data-screen="runner-need-human">
+<aside class="drawer" role="dialog" aria-label="Need human">
+<div class="dhead"><span class="t">Need human · <span data-content>nimbus-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
+<div class="dbody"><p class="closed">Already answered by <span class="new">API key <span data-content>cleaner</span> · for <span data-content>Jane D.</span></span></p></div>
+</aside>
+</div>
+<p class="caption">A dismissal reads <code>Dismissed by API key &lt;name&gt;</code>, followed by <code>· for &lt;acting_for&gt;</code> when given. A person's answer reads as today. Neither button shows once the round is closed.</p>
+</div>
+</div>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<ul>
+<li><code>/omni:bug-fix</code> and <code>/omni:mega-bug-fix</code> say how they stopped in prose and in the bug's issue comments (<code>Fixed by #&lt;n&gt;</code>, <code>Maybe: #&lt;n&gt;</code>, <code>Kind: tooling</code>), never in a line the runner reads.</li>
+<li>The runner reads the job's pull request from its log, one link, of the job's own repository, and an outcome for a <code>/omni:yolo</code> job only.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>Both skills end every run with one <code>Outcome: &lt;word&gt;</code> line, and <code>Fixed by: &lt;url&gt;</code> when stop rule 3 proves the pull request that fixed the bug (a <code>Maybe:</code> never writes it).</li>
+<li>The runner reports the outcome, <code>fixedBy</code> and every <code>PR:</code> line, of any repository, in order. The issue comments stay as they are.</li>
+</ul></div>
+</div>
+<p class="sub">The end of a run's log</p>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<pre><span class="line ctx">09:31:22 Reproduction passes on main before any fix.</span><span class="line ctx">09:31:25 Commented "Fixed by #531" on issue 548.</span><span class="line ctx">09:31:40 Done: ok · 19 min</span></pre>
+</div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">09:31:22 Reproduction passes on main before any fix.</span><span class="line ctx">09:31:25 Commented "Fixed by #531" on issue 548.</span><span class="line add">09:31:26 Outcome: already-fixed</span><span class="line add">09:31:26 Fixed by: https://github.com/acme/backend/pull/531</span><span class="line ctx">09:31:40 Done: ok · 19 min</span></pre>
+</div>
+</div>
+<table>
+<thead><tr><th>log word</th><th>public <code>outcome</code></th><th>when</th></tr></thead>
+<tbody>
+<tr><td><code>pr-opened</code></td><td><code>pr_opened</code></td><td>a fix pull request is open for review</td></tr>
+<tr><td><code>already-fixed</code></td><td><code>already_fixed</code></td><td>the reproduction passes before the fix (stop rule 3)</td></tr>
+<tr><td><code>need-human</code></td><td><code>need_human</code></td><td>the job asked its questions on the runner</td></tr>
+<tr><td><code>needs-brainstorm</code></td><td><code>needs_brainstorm</code></td><td>a product decision is needed, or an answer <code>Design it first</code></td></tr>
+<tr><td><code>not-a-bug</code></td><td><code>not_a_bug</code></td><td>tooling or a flaky check (stop rule 1)</td></tr>
+<tr><td><code>stuck</code></td><td><code>stuck</code></td><td>the attempts ran out; the pull request stays draft (stop rule 5)</td></tr>
+<tr><td><code>blocked</code></td><td><code>blocked</code></td><td>the repository lacks what the fix needs (stop rules 6 and 7, a mega target that cannot be cloned or pushed to)</td></tr>
+</tbody>
+</table>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — the kit's change is lines in a run's log; it draws no screen.</p>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase</h3>
+<div data-section="functional" data-state="na">
+<h4>Functional</h4>
+<p>N/A — the database keeps what galaxy shows; nobody reads it directly.</p>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — no screen.</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<figure class="mermaid-diagram" data-source="sequenceDiagram
+  participant App as App with an oma_ key
+  participant API as galaxy · /api/v1 and /api/runners
+  participant DB as Supabase · runner_jobs
+  participant Run as Runner · kit
+  participant Ping as the app's notify_url
+  App-&gt;&gt;API: POST /bug-fixes with acting_for, notify_url
+  API-&gt;&gt;DB: insert the job: sent_by_key, acting_for, notify_url
+  Run-&gt;&gt;API: claim the job
+  API--&gt;&gt;Ping: job_id, event status, at
+  Run-&gt;&gt;Run: /omni:bug-fix writes Outcome, Fixed by and PR lines
+  Run-&gt;&gt;API: POST /api/runners/jobs/&lt;id&gt; status, outcome, fixedBy, prs
+  API-&gt;&gt;DB: store outcome, fixed_by, prs
+  API--&gt;&gt;Ping: job_id, event outcome, at
+  App-&gt;&gt;API: GET /jobs/&lt;id&gt;, /lines, /questions
+  App-&gt;&gt;API: POST /jobs/&lt;id&gt;/answers with acting_for
+  API-&gt;&gt;DB: close the round: closed_by_key, closed_for
+  API-&gt;&gt;DB: queue the resume: same sent_by_key, continues, notify_url
+  API--&gt;&gt;Ping: job_id, event questions, at
+  App-&gt;&gt;API: GET /jobs/&lt;id&gt; then continued_by, the resume"><svg aria-roledescription="sequence" role="graphics-document document" viewBox="-50 -10 1517 845" style="max-width: 1517px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><g><rect class="actor actor-bottom" ry="3" rx="3" name="Ping" height="65" width="150" stroke="#666" fill="#eaeaea" y="759" x="1267"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="791.5" x="1342"><tspan dy="0" x="1342">the app's notify_url</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="Run" height="65" width="150" stroke="#666" fill="#eaeaea" y="759" x="1035.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="791.5" x="1110.5"><tspan dy="0" x="1110.5">Runner · kit</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="DB" height="65" width="169" stroke="#666" fill="#eaeaea" y="759" x="816.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="791.5" x="901"><tspan dy="0" x="901">Supabase · runner_jobs</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="API" height="65" width="227" stroke="#666" fill="#eaeaea" y="759" x="339.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="791.5" x="453"><tspan dy="0" x="453">galaxy · /api/v1 and /api/runners</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="App" height="65" width="166" stroke="#666" fill="#eaeaea" y="759" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="791.5" x="83"><tspan dy="0" x="83">App with an oma_ key</tspan></text></g><g><line name="Ping" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="759" x2="1342" y1="65" x1="1342" id="actor4"></line><g id="root-4"><rect class="actor actor-top" ry="3" rx="3" name="Ping" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="1267"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1342"><tspan dy="0" x="1342">the app's notify_url</tspan></text></g></g><g><line name="Run" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="759" x2="1110.5" y1="65" x1="1110.5" id="actor3"></line><g id="root-3"><rect class="actor actor-top" ry="3" rx="3" name="Run" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="1035.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1110.5"><tspan dy="0" x="1110.5">Runner · kit</tspan></text></g></g><g><line name="DB" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="759" x2="901" y1="65" x1="901" id="actor2"></line><g id="root-2"><rect class="actor actor-top" ry="3" rx="3" name="DB" height="65" width="169" stroke="#666" fill="#eaeaea" y="0" x="816.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="901"><tspan dy="0" x="901">Supabase · runner_jobs</tspan></text></g></g><g><line name="API" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="759" x2="453" y1="65" x1="453" id="actor1"></line><g id="root-1"><rect class="actor actor-top" ry="3" rx="3" name="API" height="65" width="227" stroke="#666" fill="#eaeaea" y="0" x="339.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="453"><tspan dy="0" x="453">galaxy · /api/v1 and /api/runners</tspan></text></g></g><g><line name="App" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="759" x2="83" y1="65" x1="83" id="actor0"></line><g id="root-0"><rect class="actor actor-top" ry="3" rx="3" name="App" height="65" width="166" stroke="#666" fill="#eaeaea" y="0" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="83"><tspan dy="0" x="83">App with an oma_ key</tspan></text></g></g><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .actor{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 text.actor&gt;tspan{fill:black;stroke:none;}#mermaid-0 .actor-line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);}#mermaid-0 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#mermaid-0 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#mermaid-0 #arrowhead path{fill:#333;stroke:#333;}#mermaid-0 .sequenceNumber{fill:white;}#mermaid-0 #sequencenumber{fill:#333;}#mermaid-0 #crosshead path{fill:#333;stroke:#333;}#mermaid-0 .messageText{fill:#333;stroke:none;}#mermaid-0 .labelBox{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 .labelText,#mermaid-0 .labelText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .loopText,#mermaid-0 .loopText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);}#mermaid-0 .note{stroke:#aaaa33;fill:#fff5ad;}#mermaid-0 .noteText,#mermaid-0 .noteText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .activation0{fill:#f4f4f4;stroke:#666;}#mermaid-0 .activation1{fill:#f4f4f4;stroke:#666;}#mermaid-0 .activation2{fill:#f4f4f4;stroke:#666;}#mermaid-0 .actorPopupMenu{position:absolute;}#mermaid-0 .actorPopupMenuPanel{position:absolute;fill:#ECECFF;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#mermaid-0 .actor-man line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 .actor-man circle,#mermaid-0 line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;stroke-width:2px;}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><symbol height="24" width="24" id="computer"><path d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z" transform="scale(.5)"></path></symbol></defs><defs><symbol clip-rule="evenodd" fill-rule="evenodd" id="database"><path d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z" transform="scale(.5)"></path></symbol></defs><defs><symbol height="24" width="24" id="clock"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z" transform="scale(.5)"></path></symbol></defs><defs><marker orient="auto-start-reverse" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="7.9" id="arrowhead"><path d="M -1 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker refY="4.5" refX="4" orient="auto" markerHeight="8" markerWidth="15" id="crosshead"><path style="stroke-dasharray: 0, 0;" d="M 1,2 L 6,7 M 6,2 L 1,7" stroke-width="1pt" stroke="#000000" fill="none"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="15.5" id="filled-head"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="40" markerWidth="60" refY="15" refX="15" id="sequencenumber"><circle r="6" cy="15" cx="15"></circle></marker></defs><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="80" x="267">POST /bug-fixes with acting_for, notify_url</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="111" x2="449" y1="111" x1="84"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="126" x="676">insert the job: sent_by_key, acting_for, notify_url</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="157" x2="897" y1="157" x1="454"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="172" x="783">claim the job</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="203" x2="457" y1="203" x1="1109.5"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="218" x="896">job_id, event status, at</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="249" x2="1338" y1="249" x1="454"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="264" x="1112">/omni:bug-fix writes Outcome, Fixed by and PR lines</text><path style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" d="M 1111.5,295 C 1171.5,285 1171.5,325 1111.5,315"></path><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="340" x="783">POST /api/runners/jobs/&lt;id&gt; status, outcome, fixedBy, prs</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="371" x2="457" y1="371" x1="1109.5"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="386" x="676">store outcome, fixed_by, prs</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="417" x2="897" y1="417" x1="454"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="432" x="896">job_id, event outcome, at</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="463" x2="1338" y1="463" x1="454"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="478" x="267">GET /jobs/&lt;id&gt;, /lines, /questions</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="509" x2="449" y1="509" x1="84"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="524" x="267">POST /jobs/&lt;id&gt;/answers with acting_for</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="555" x2="449" y1="555" x1="84"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="570" x="676">close the round: closed_by_key, closed_for</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="601" x2="897" y1="601" x1="454"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="616" x="676">queue the resume: same sent_by_key, continues, notify_url</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="647" x2="897" y1="647" x1="454"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="662" x="896">job_id, event questions, at</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="693" x2="1338" y1="693" x1="454"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="708" x="267">GET /jobs/&lt;id&gt; then continued_by, the resume</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="739" x2="449" y1="739" x1="84"></line></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ol>
+<li><b>supabase:</b> the migration <code>&lt;version&gt;_api_key_job_control.sql</code> (the columns, the widened outcome check, <code>runner_job_answer</code> and the relaunch keeping the key), applied by the <code>supabase</code> workflow on merge, with its check <code>supabase/checks/api_key_jobs.sql</code>.</li>
+<li><b>galaxy:</b> the routes, the report's new fields, the ping and the page's attribution, deployed by the release that follows. It must run before any runner takes the new kit: <code>JobUpdateSchema</code> is strict, so a galaxy that does not know <code>fixedBy</code>, <code>prs</code> or the new outcome words refuses that runner's ending report.</li>
+<li><b>kit:</b> the release <code>v0.0.N</code> with the skills' new lines and the runner reading them; each runner takes it with <code>omni update</code>. A runner on an older kit keeps working and reports no outcome.</li>
+</ol>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>API</span> <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the columns are the supabase block's; galaxy reads and writes them, and regenerates the database types.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<thead><tr><th>element</th><th>kind</th><th>before</th><th>after</th></tr></thead>
+<tbody>
+<tr><td><code>GET /api/v1/jobs/{id}</code></td><td><span class="badge">changed</span></td><td>id, line, repo, status, runner, pr_url, exit_code, reason, four times</td><td>+ <code>outcome</code>, <code>fixed_by</code>, <code>prs</code>, <code>questions</code>, <code>continues</code>, <code>continued_by</code>, <code>acting_for</code>, <code>cancelled_by</code>, <code>log_tail</code>; any key of the workspace, within its allow-list</td></tr>
+<tr><td><code>GET /api/v1/jobs/{id}/lines</code></td><td><span class="badge added">added</span></td><td>—</td><td><code>{data: [{seq, text}], next_cursor}</code>, <code>limit</code> 1 to 100</td></tr>
+<tr><td><code>GET /api/v1/jobs/{id}/questions</code></td><td><span class="badge added">added</span></td><td>—</td><td>lead, questions, state, answers, <code>closed_by</code> (<code>{key, acting_for}</code> or <code>{login}</code>); 404 when none</td></tr>
+<tr><td><code>POST /api/v1/jobs/{id}/answers</code></td><td><span class="badge added">added</span></td><td>—</td><td><code>{answers, acting_for?}</code> → 202 the resume job; 409 when closed</td></tr>
+<tr><td><code>POST /api/v1/jobs/{id}/dismiss</code></td><td><span class="badge added">added</span></td><td>—</td><td><code>{acting_for?}</code> → 200 the job; 409 when closed</td></tr>
+<tr><td><code>POST /api/v1/jobs/{id}/cancel</code></td><td><span class="badge added">added</span></td><td>—</td><td><code>{acting_for?}</code> → 200 the job; 409 once ended</td></tr>
+<tr><td><code>POST /api/v1/jobs/{id}/relaunch</code></td><td><span class="badge added">added</span></td><td>—</td><td><code>{acting_for?}</code> → 202 the new job (Send again or Resume); 409 when the page offers neither</td></tr>
+<tr><td><code>POST /api/v1/bug-fixes</code>, <code>/mega-bug-fixes</code></td><td><span class="badge">changed</span></td><td>repo, issue or line, runner, fleet</td><td>+ <code>acting_for?</code>, <code>notify_url?</code> (https, at most 500, public host, else 422)</td></tr>
+<tr><td><code>PublicApiError.code</code></td><td><span class="badge">changed</span></td><td>unauthorized, forbidden, not_found, invalid_request, internal</td><td>+ <code>conflict</code> (409)</td></tr>
+<tr><td><code>JobUpdateSchema</code> (the runner's report)</td><td><span class="badge">changed</span></td><td><code>outcome</code>: answers, held, ready, stopped</td><td>+ the seven words, <code>fixedBy</code>, <code>prs</code> (at most 50)</td></tr>
+<tr><td><code>/openapi.json</code></td><td><span class="badge">changed</span></td><td>today's routes</td><td>every new field, route and 409, rendered from the same schemas</td></tr>
+</tbody>
+</table>
+<p>Nothing breaking for a client: every field and route is added, and a client that sends none of the new fields gets today's answers. The runner's report is internal, and its strict schema sets the deploy order.</p>
+<div class="compare">
+<div><div class="label">BEFORE · apps/galaxy/src/public-api/public-api.contract.ts</div>
+<pre><span class="line ctx">export const JobSchema = z.object({</span><span class="line ctx">  id, line, repo, status, runner,</span><span class="line ctx">  pr_url, exit_code, reason,</span><span class="line ctx">  queued_at, claimed_at, running_at, ended_at,</span><span class="line ctx">});</span></pre></div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">export const JobSchema = z.object({</span><span class="line ctx">  id, line, repo, status, runner,</span><span class="line ctx">  pr_url, exit_code, reason,</span><span class="line ctx">  queued_at, claimed_at, running_at, ended_at,</span><span class="line add">  outcome: z.enum(JOB_OUTCOMES).nullable(),</span><span class="line add">  fixed_by: z.string().nullable(),</span><span class="line add">  prs: z.array(JobPullRequestSchema),        // {url, repo, number}</span><span class="line add">  questions: z.object({ state: z.enum(['open', 'answered', 'dismissed']) }).nullable(),</span><span class="line add">  continues: z.uuid().nullable(),</span><span class="line add">  continued_by: z.uuid().nullable(),</span><span class="line add">  acting_for: z.string().nullable(),</span><span class="line add">  cancelled_by: z.object({ key: z.string(), acting_for: z.string().nullable() }).nullable(),</span><span class="line add">  log_tail: z.string().nullable(),</span><span class="line ctx">});</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<ul>
+<li>A bearer header on answer or dismiss is 403: only a person's session answers (<code>runners.controller.ts</code>).</li>
+<li>An answer, Send again and Resume queue the new job as the person who pressed, with no <code>sent_by_key</code>.</li>
+<li>Cancel records nobody.</li>
+<li>The Runners page reads again every 5 seconds; nothing calls the app.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>A key of the job's workspace answers or dismisses a key job's round, recorded as <code>closed_by_key</code> and <code>closed_for</code>; the first close wins, the second is 409. The kit's sign-in still gets 403.</li>
+<li>Every job that carries a key job on (an answer, a relaunch, the automatic continuation, a person's answer on the page) keeps <code>sent_by_key</code>, sets <code>continues</code> and inherits <code>notify_url</code>.</li>
+<li>A key's cancel records <code>cancelled_by_key</code> and <code>cancelled_for</code>, then does what the page's Cancel does.</li>
+<li>Once a status, outcome or questions change is stored, <code>notify.ts</code> posts <code>{job_id, event, at}</code> to <code>notify_url</code>: 5 seconds each, at most 3 tries within about 30 seconds, logged when it fails, never failing the change. The host is resolved and refused when loopback, private or link-local, when the job is sent (422) and before every ping. A change a scheduled sweep makes sends none.</li>
+<li>The Runners page's sender cell, the drawer's closed state and a cancelled job name the key, then <code>· for &lt;acting_for&gt;</code>.</li>
+</ul></div>
+</div>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>RUNNER</span> <span class="badge" data-role>SKILLS</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the kit stores nothing; the runner reports to galaxy.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<thead><tr><th>element</th><th>kind</th><th>before</th><th>after</th></tr></thead>
+<tbody>
+<tr><td><code>Outcome: &lt;word&gt;</code> log line</td><td><span class="badge added">added</span></td><td>—</td><td>one of the seven words, written by both skills at every end; the last one wins</td></tr>
+<tr><td><code>Fixed by: &lt;url&gt;</code> log line</td><td><span class="badge added">added</span></td><td>—</td><td>the proven pull request, with <code>already-fixed</code> only</td></tr>
+<tr><td><code>PR: &lt;link&gt;</code> lines</td><td><span class="badge">changed</span></td><td>the last one of the job's own repository becomes <code>prUrl</code></td><td>the same, and every one, of any repository, in order, deduplicated, at most 50, as <code>prs</code></td></tr>
+<tr><td>the ending report</td><td><span class="badge">changed</span></td><td>status, logTail, prUrl, exitCode, reason; <code>outcome</code> for a yolo job</td><td>+ <code>outcome</code> for a bug fix and a mega-bug-fix, <code>fixedBy</code>, <code>prs</code> (a failed job: <code>prs</code> only)</td></tr>
+</tbody>
+</table>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">TODAY · kit/lib/runner/runner.ts, log.ts</div>
+<ul>
+<li><code>outcomeOf</code> reads an outcome for <code>/omni:yolo</code> and <code>/omni:yolo-fix</code> only; a bug fix that stops reports done with <code>prUrl: null</code>.</li>
+<li><code>lastPullRequest</code> returns one link, of the job's own repository; a failed job reports none.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>A pure reader turns the log into <code>{outcome, fixedBy, prs}</code>: the last <code>Outcome:</code>, the <code>Fixed by:</code>, every <code>PR:</code>. An unknown word, or no line (an older skill), gives no outcome, never an error.</li>
+<li>A failed job reports its <code>prs</code> and no outcome. A yolo job's outcome is unchanged.</li>
+<li>Each stop rule of <code>/omni:bug-fix</code>, and the mega's <b>All or nothing across targets</b>, names its word; a guard test holds the skills' text to it.</li>
+</ul></div>
+</div>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase <span class="badge" data-role>DATABASE</span></h3>
+<div data-section="db" data-state="filled">
+<h4>Database</h4>
+<table>
+<thead><tr><th>table</th><th>column</th><th>type</th><th>what it holds</th></tr></thead>
+<tbody>
+<tr><td><code>runner_jobs</code></td><td><code>outcome</code> (check)</td><td>text</td><td>+ <code>pr-opened</code>, <code>already-fixed</code>, <code>needs-brainstorm</code>, <code>not-a-bug</code>, <code>stuck</code>, <code>blocked</code>; <code>need-human</code> is the existing <code>human</code>, which the server sets when the job asks</td></tr>
+<tr><td><code>runner_jobs</code></td><td><code>fixed_by</code></td><td>text, null</td><td>the proven pull request's URL</td></tr>
+<tr><td><code>runner_jobs</code></td><td><code>prs</code></td><td>jsonb, not null, default <code>[]</code></td><td><code>[{url, repo, number}]</code>, at most 50</td></tr>
+<tr><td><code>runner_jobs</code></td><td><code>acting_for</code></td><td>text, null</td><td>1 to 80 characters, as the action that queued the job gave it</td></tr>
+<tr><td><code>runner_jobs</code></td><td><code>notify_url</code></td><td>text, null</td><td>an https URL of at most 500 characters</td></tr>
+<tr><td><code>runner_jobs</code></td><td><code>cancelled_by_key</code>, <code>cancelled_for</code></td><td>uuid → <code>api_keys</code>, text, null</td><td>the key that cancelled the job, and for whom</td></tr>
+<tr><td><code>runner_job_questions</code></td><td><code>closed_by_key</code>, <code>closed_for</code></td><td>uuid → <code>api_keys</code>, text, null</td><td>the key that answered or dismissed the round, and for whom; <code>closed_by</code> stays a person's</td></tr>
+</tbody>
+</table>
+<p><code>runner_job_answer</code> takes the key that answers and its <code>acting_for</code>, and queues the resume with the job's <code>sent_by_key</code> and <code>continues</code>; the relaunch's insert does the same. <code>continued_by</code> is read, never stored: the newest job whose <code>continues</code> is this one. The policies stay as they are: a member reads their own workspace's rows. The check <code>supabase/checks/api_key_jobs.sql</code> runs in the <code>supabase</code> workflow's <code>check</code> job.</p>
+</div>
+<div data-section="api" data-state="na">
+<h4>API / schema</h4>
+<p>N/A — no view or function a client calls; galaxy's routes are in the galaxy block.</p>
+</div>
+<div data-section="behaviour" data-state="na">
+<h4>Behaviour</h4>
+<p>N/A — the rules run in galaxy; the database keeps the first close of a round, as today (BR-PRODUCT-12).</p>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>
