@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2433: before and after — a key's job runs as its own GitHub App</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.caption { font-size: 13px; color: var(--muted); margin: 6px 0 14px; }
+.sub { font-size: 14px; font-weight: 600; margin: 18px 0 6px; }
+.compare > div { min-width: 0; }
+.compare.stack { grid-template-columns: 1fr; }
+.none { border: 1px dashed var(--line); border-radius: 8px; padding: 14px; color: var(--muted); font-size: 14px; }
+
+/* The mockups: Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the api-keys screen draws them (api-keys.css, ApiKeysView.tsx). */
+.mock {
+  --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+  --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+  --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+  --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--ask-ground); color: var(--ask-ink); font: 15px/1.5 var(--ask-body);
+  border-radius: 8px; padding: 14px; overflow: hidden; display: grid; gap: 12px;
+}
+.mock a { color: var(--ask-cyan); text-underline-offset: 3px; }
+.mock code { font: 500 12.5px/1.5 var(--ask-mono); }
+.mock .head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.mock .title { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 700; }
+.mock .lead { margin: 0; max-width: 900px; color: var(--ask-muted); }
+.mock .owners { margin: 0; color: var(--ask-muted); font-style: italic; }
+.mock .refusal { margin: 0; color: var(--ask-red); }
+.mock .refusal.new { padding: 2px 8px; }
+.mock .btn { display: inline-flex; align-items: center; padding: 7px 12px; border-radius: 8px; font: 700 13px/1 var(--ask-body); border: 1px solid var(--ask-line-strong); color: var(--ask-ink); background: none; white-space: nowrap; }
+.mock .btn.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
+.mock .ghost { display: inline-flex; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; }
+.mock .table { border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
+.mock .row { display: grid; gap: 10px; align-items: start; padding: 10px 12px; border-top: 1px solid var(--ask-line); font-size: 14px; min-width: 0; }
+.mock .row:first-child { border-top: 0; }
+.mock .row > * { min-width: 0; overflow-wrap: anywhere; }
+.mock .head { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 9px; }
+.mock .keys .row { grid-template-columns: minmax(0, 1.3fr) 104px minmax(0, 1fr) 82px 72px; }
+.mock .keys.member .row { grid-template-columns: minmax(0, 1.3fr) 104px minmax(0, 1fr) 82px; }
+.mock .keys.withapp .row { grid-template-columns: minmax(0, 1.2fr) 104px minmax(0, .9fr) minmax(0, 1.25fr) 82px 72px; }
+.mock .keys.withapp.member .row { grid-template-columns: minmax(0, 1.2fr) 104px minmax(0, .9fr) minmax(0, 1.1fr) 82px; }
+.mock .name { font-weight: 700; }
+.mock .muted { color: var(--ask-muted); font-size: 13px; }
+.mock code.k { color: var(--ask-muted); white-space: nowrap; }
+.mock .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.mock .chip { border: 1px solid var(--ask-line-strong); border-radius: 999px; padding: 0 8px; font: 500 12.5px/1.6 var(--ask-mono); }
+.mock .app { display: grid; gap: 4px; justify-items: start; }
+.mock .slug { font: 500 13px/1.4 var(--ask-mono); }
+.mock .acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.mock .new { outline: 2px dashed var(--ask-plasma); outline-offset: 2px; border-radius: 4px; }
+.mock .form { display: grid; gap: 12px; max-width: 900px; padding: 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+.mock .ftitle { font-weight: 700; }
+.mock .field { display: grid; gap: 4px; min-width: 0; }
+.mock .field > span { font-size: 14px; color: var(--ask-muted); }
+.mock .field input { width: 100%; min-width: 0; padding: 10px 12px; border: 1.5px solid var(--ask-line-strong); border-radius: 8px; background: var(--ask-sunk); color: var(--ask-ink); font: 16px/1.3 var(--ask-body); }
+.mock .file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mock .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 700px) {
+  .mock .row, .mock .keys .row, .mock .keys.member .row, .mock .keys.withapp .row, .mock .keys.withapp.member .row { grid-template-columns: 1fr; }
+  .mock .head { display: none; }
+}
+</style>
+</head>
+<body>
+<h1>PRD 2433: before and after — a key's job runs as its own GitHub App</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<ul>
+<li>An app that sends a bug fix with its key gets a pull request that GitHub shows as a person's work: the account of whoever set up the runner's machine. The bug's issue, its comments and labels, the branch, the commits and the pull request are all theirs.</li>
+<li>That person neither asked for the fix nor reviews it, yet GitHub notifies them and counts the work as theirs.</li>
+<li>The pull request's body pings the key's maker, in a broken line: <code>Sent from the Omni app by @API key QA dashboard (@ada) on runner mac-mini-1</code>.</li>
+<li>When the job ends, its claims are released (a label swapped, a comment on each pull request) as that same person.</li>
+<li>Settings › API keys lists each key's name, maker, repositories and last use. It says nothing about GitHub.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>An owner attaches the app's GitHub App to a key, once, on Settings › API keys: its App ID and its private key file. Omni asks GitHub to confirm the pair before it keeps anything. The private key is never shown again, to anyone.</li>
+<li>Every member reads, on each key's row, which GitHub App the key runs as. An owner also reads when it last got a token, and can replace or remove the app. Revoking the key, or removing the app, deletes the stored private key.</li>
+<li>Everything the job writes on GitHub is the app's bot: the bug's issue, its comments and labels, the branch, the commits, the pull request, its status comment and the release of its claims.</li>
+<li>No person is named, assigned or asked for a review by the job: no assignee, no review request, no <code>@login</code>. A <code>CODEOWNERS</code> file still asks its owners: that is the repository's own rule, outside the job. The commits carry the agent's own <code>Co-Authored-By</code> and Omni-man's line, never a member's.</li>
+<li>The pull request's body reads <code>Sent through the Omni API by API key QA dashboard on runner mac-mini-1</code>. So does any key job's, with or without an app. A person's job from the Runners page keeps <code>Sent from the Omni app by @ada on runner mac-mini-1</code>.</li>
+<li>Sending to a repository where the app is not installed, or where it lacks write access to contents, pull requests or issues, is refused with a message naming the repository or the permission. Nothing is queued.</li>
+<li>A job whose token cannot be minted when a runner takes it ends <code>failed</code> with <code>github app: &lt;why&gt;</code>. It never runs under a person's account, whether the app was removed or uninstalled, the key revoked, or its maker left the workspace.</li>
+<li>A key with no app works as today, save the sender line.</li>
+</ul></div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: api-keys</p>
+<p class="caption">The <code>api-keys</code> screen is a draft in the library, not locked: it is drawn from the real screen (<code>ApiKeysView.tsx</code>, <code>ApiKeysPanel.tsx</code>) and the product's own reading tokens (theme Omni). The design form has no hole for it. The app shell and the Settings tabs above it do not change and are left out. The names, keys, dates and slugs are examples.</p>
+
+<h3>Settings › API keys — an owner's table</h3>
+<div class="compare stack">
+<div><div class="label">TODAY</div>
+<div class="mock" data-screen="api-keys">
+<div class="head-row"><h5 class="title">API keys</h5><button class="btn primary" type="button" data-primary>New key</button></div>
+<p class="lead">A key lets another tool call this workspace’s API: read its PRDs and bug fixes, and start a bug fix. It acts for the whole workspace, or only on the repositories you pick. <a href="#">API reference</a></p>
+<div class="table keys">
+<div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span>Last used</span><span></span></div>
+<div class="row"><span><span class="name" data-content>QA dashboard</span><br><span class="muted" data-content>@ada · Oct 15</span></span><code class="k" data-content>oma_…9fQe</code><span class="chips"><span class="chip" data-content>shop</span></span><span class="muted" data-content>2 min ago</span><button class="ghost" type="button">Revoke</button></div>
+<div class="row"><span><span class="name" data-content>Weekly digest</span><br><span class="muted" data-content>@ben · Oct 12</span></span><code class="k" data-content>oma_…A1c0</code><span class="muted">All repositories</span><span class="muted">Never</span><button class="ghost" type="button">Revoke</button></div>
+<div class="row"><span><span class="name" data-content>Nightly audit</span><br><span class="muted" data-content>@ada · Oct 18</span></span><code class="k" data-content>oma_…Zr82</code><span class="chips"><span class="chip" data-content>shop</span></span><span class="muted">Never</span><button class="ghost" type="button">Revoke</button></div>
+</div>
+</div>
+<p class="caption">Words finding on today, which the design leaves as it is: the lead sentence under the title stands at rest (33 words). It is the same in the after below.</p>
+</div>
+<div><div class="label">AFTER</div>
+<div class="mock" data-screen="api-keys">
+<div class="head-row"><h5 class="title">API keys</h5><button class="btn primary" type="button" data-primary>New key</button></div>
+<p class="lead">A key lets another tool call this workspace’s API: read its PRDs and bug fixes, and start a bug fix. It acts for the whole workspace, or only on the repositories you pick. <a href="#">API reference</a></p>
+<div class="table keys withapp">
+<div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span class="new">GitHub App</span><span>Last used</span><span></span></div>
+<div class="row"><span><span class="name" data-content>QA dashboard</span><br><span class="muted" data-content>@ada · Oct 15</span></span><code class="k" data-content>oma_…9fQe</code><span class="chips"><span class="chip" data-content>shop</span></span><span class="app new"><span class="slug" data-content>acme-fixer</span><span class="muted">last token <span data-content>Oct 21</span></span><span class="acts"><button class="ghost" type="button">Replace</button><button class="ghost" type="button">Remove</button></span></span><span class="muted" data-content>2 min ago</span><button class="ghost" type="button">Revoke</button></div>
+<div class="row"><span><span class="name" data-content>Weekly digest</span><br><span class="muted" data-content>@ben · Oct 12</span></span><code class="k" data-content>oma_…A1c0</code><span class="muted">All repositories</span><span class="app new"><span class="muted">—</span><span class="acts"><button class="ghost" type="button">Attach a GitHub App</button></span></span><span class="muted">Never</span><button class="ghost" type="button">Revoke</button></div>
+<div class="row"><span><span class="name" data-content>Nightly audit</span><br><span class="muted" data-content>@ada · Oct 18</span></span><code class="k" data-content>oma_…Zr82</code><span class="chips"><span class="chip" data-content>shop</span></span><span class="app new"><span class="slug" data-content>acme-triage</span><span class="muted">no token yet</span><span class="acts"><button class="ghost" type="button">Replace</button><button class="ghost" type="button">Remove</button></span></span><span class="muted">Never</span><button class="ghost" type="button">Revoke</button></div>
+</div>
+</div>
+<p class="caption">Dashed: what is new. The <b>GitHub App</b> column is every member's. The owner reads <code>last token &lt;date&gt;</code> (or <code>no token yet</code>) under the slug, and gets <b>Attach a GitHub App</b> on a key with none, <b>Replace</b> and <b>Remove</b> on a key with one. The design places the column but not where: here it sits after Repositories, beside what the key reaches, and the actions sit in it. The key-creation form does not change. Words finding on the lead, unchanged and inherited from today: the design does not touch that sentence, so it is not cut here.</p>
+</div>
+</div>
+
+<h3>Settings › API keys — a member's table</h3>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<div class="mock" data-screen="api-keys">
+<div class="head-row"><h5 class="title">API keys</h5></div>
+<p class="lead">A key lets another tool call this workspace’s API: read its PRDs and bug fixes, and start a bug fix. It acts for the whole workspace, or only on the repositories you pick. <a href="#">API reference</a></p>
+<p class="owners">Only owners make or revoke keys.</p>
+<div class="table keys member">
+<div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span>Last used</span></div>
+<div class="row"><span><span class="name" data-content>QA dashboard</span><br><span class="muted" data-content>@ada · Oct 15</span></span><code class="k" data-content>oma_…9fQe</code><span class="chips"><span class="chip" data-content>shop</span></span><span class="muted" data-content>2 min ago</span></div>
+<div class="row"><span><span class="name" data-content>Weekly digest</span><br><span class="muted" data-content>@ben · Oct 12</span></span><code class="k" data-content>oma_…A1c0</code><span class="muted">All repositories</span><span class="muted">Never</span></div>
+</div>
+</div>
+</div>
+<div><div class="label">AFTER</div>
+<div class="mock" data-screen="api-keys">
+<div class="head-row"><h5 class="title">API keys</h5></div>
+<p class="lead">A key lets another tool call this workspace’s API: read its PRDs and bug fixes, and start a bug fix. It acts for the whole workspace, or only on the repositories you pick. <a href="#">API reference</a></p>
+<p class="owners">Only owners make or revoke keys.</p>
+<div class="table keys withapp member">
+<div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span class="new">GitHub App</span><span>Last used</span></div>
+<div class="row"><span><span class="name" data-content>QA dashboard</span><br><span class="muted" data-content>@ada · Oct 15</span></span><code class="k" data-content>oma_…9fQe</code><span class="chips"><span class="chip" data-content>shop</span></span><span class="app new"><span class="slug" data-content>acme-fixer</span></span><span class="muted" data-content>2 min ago</span></div>
+<div class="row"><span><span class="name" data-content>Weekly digest</span><br><span class="muted" data-content>@ben · Oct 12</span></span><code class="k" data-content>oma_…A1c0</code><span class="muted">All repositories</span><span class="app new"><span class="muted">—</span></span><span class="muted">Never</span></div>
+</div>
+</div>
+<p class="caption">A member reads the slug or <code>—</code>, never <code>last token</code> and never an action: the app's last token is the owner's. The line above the table says what it says today; the design does not change it, so it still names making and revoking only. Same word-pass finding on the lead as above.</p>
+</div>
+</div>
+
+<h3>Attach a GitHub App — the form and its two refusals</h3>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<p class="none">Nothing: a key cannot carry a GitHub App, so there is nothing to attach.</p>
+</div>
+<div><div class="label">AFTER · the form, opened from Attach a GitHub App or Replace</div>
+<div class="mock" data-screen="api-keys">
+<div class="head-row"><h5 class="title">API keys</h5><button class="btn" type="button">New key</button></div>
+<form class="form" aria-label="Attach a GitHub App">
+<div class="ftitle">Attach a GitHub App to <span data-content>Weekly digest</span></div>
+<label class="field new"><span>App ID</span><input type="text" value="3141592" readonly></label>
+<div class="field new"><span>Private key file</span><span class="file"><button class="ghost" type="button">Choose file</button><span class="muted" data-content>acme-fixer.pem</span></span></div>
+<div class="actions"><button class="btn primary" type="button" data-primary>Attach</button><button class="btn" type="button">Cancel</button></div>
+</form>
+</div>
+<p class="caption">The form opens above the table, in the shape New key's form already has. The page's one primary action is Attach while it is open, so New key goes quiet, as it does today once a key has just been made. <b>Replace</b> opens the same two fields. <b>Remove</b> is asked twice, as Revoke is: it turns into <b>Remove for good</b> and Cancel.</p>
+</div>
+</div>
+<div class="compare">
+<div><div class="label">AFTER · GitHub refuses the pair</div>
+<div class="mock" data-screen="api-keys">
+<div class="head-row"><h5 class="title">API keys</h5><button class="btn" type="button">New key</button></div>
+<form class="form" aria-label="Attach a GitHub App">
+<div class="ftitle">Attach a GitHub App to <span data-content>Weekly digest</span></div>
+<label class="field"><span>App ID</span><input type="text" value="3141592" readonly></label>
+<div class="field"><span>Private key file</span><span class="file"><button class="ghost" type="button">Choose file</button><span class="muted" data-content>acme-fixer.pem</span></span></div>
+<div class="actions"><button class="btn primary" type="button" data-primary>Attach</button><button class="btn" type="button">Cancel</button></div>
+</form>
+<p class="refusal new" role="alert">GitHub refused this App ID and private key.</p>
+</div>
+</div>
+<div><div class="label">AFTER · this deployment has no master key</div>
+<div class="mock" data-screen="api-keys">
+<div class="head-row"><h5 class="title">API keys</h5><button class="btn" type="button">New key</button></div>
+<form class="form" aria-label="Attach a GitHub App">
+<div class="ftitle">Attach a GitHub App to <span data-content>Weekly digest</span></div>
+<label class="field"><span>App ID</span><input type="text" value="3141592" readonly></label>
+<div class="field"><span>Private key file</span><span class="file"><button class="ghost" type="button">Choose file</button><span class="muted" data-content>acme-fixer.pem</span></span></div>
+<div class="actions"><button class="btn primary" type="button" data-primary>Attach</button><button class="btn" type="button">Cancel</button></div>
+</form>
+<p class="refusal new" role="alert">Attaching a GitHub App isn't available on this deployment.</p>
+</div>
+</div>
+</div>
+<p class="caption">Both refusals sit below the form, where the page already shows a refused New key, in the spec's exact words. Nothing is stored in either case. The word pass reads each as a sentence at rest (8 and 9 words) because the spec fixes the words and they show only after a refusal; they are kept as written.</p>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<ul>
+<li>A runner writes on GitHub as its machine's account, the one whoever set it up signed in with. It gets no GitHub credential from Omni.</li>
+<li>That account does everything a job writes, including the release of the job's claims at the end.</li>
+<li>A kit command the job runs may read that person's own token, when the repository's setting says so.</li>
+<li>A pull request from a key's job reads <code>Sent from the Omni app by @API key QA dashboard (@ada) on runner mac-mini-1</code>.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>A runner on the new kit tells Omni, when it registers, that it can run a job as an app. Only such a runner takes a job of a key with an app. On an older kit a runner never takes one: the job waits in the queue, as a job with no free runner does today.</li>
+<li>For such a job the runner writes as the app's bot: the commits' author and committer are the bot, every git push and pull goes over HTTPS with the job's token (even a checkout cloned over SSH, so the machine's SSH key is never used), and <code>gh</code> acts as the bot.</li>
+<li>A job that runs past an hour keeps writing as the app: its token is renewed before it runs out. If renewing keeps failing, the job ends <code>failed</code> with <code>github app: &lt;why&gt;</code>.</li>
+<li>The token appears in no line, log tail or report the runner sends: it reads <code>***</code>.</li>
+<li>When the job ends, the runner releases its claims as the app too. The kit's own GitHub calls never read a person's token for such a job.</li>
+<li>The skills ask for no reviewer and mention no <code>@login</code> while the job runs as an app. The pull request reads <code>Sent through the Omni API by API key QA dashboard on runner mac-mini-1</code>.</li>
+<li>A job with no app, and a person's job, run as they do today.</li>
+</ul></div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — Pixel perfect: no screen changes</p>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase</h3>
+<div data-section="functional" data-state="na">
+<h4>Functional</h4>
+<p>N/A — the database keeps the sealed private key and the slug galaxy shows; nobody reads it directly.</p>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — Pixel perfect: no screen changes</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<figure class="mermaid-diagram" data-source="sequenceDiagram
+  participant Owner as Owner in the browser
+  participant App as App with an oma_ key
+  participant API as galaxy · settings, /api/v1 and /api/runners
+  participant DB as Supabase · api_key_github_apps
+  participant GH as GitHub · the app's API
+  participant Run as Runner · kit
+  Owner-&gt;&gt;API: POST /api/api-keys/:id/github-app with the App ID and the .pem
+  API-&gt;&gt;GH: app JWT, then GET /app and GET /users/slug[bot]
+  GH--&gt;&gt;API: slug and bot id, or a refusal
+  API-&gt;&gt;DB: api_key_github_app_attach with the key sealed under SECRETS_MASTER_KEY
+  App-&gt;&gt;API: POST /api/v1/bug-fixes or /mega-bug-fixes
+  API-&gt;&gt;GH: GET /repos/owner/repo/installation with the app JWT
+  GH--&gt;&gt;API: the installation and its permissions
+  alt no installation, or no write on contents, pull_requests or issues
+    API--&gt;&gt;App: 422 github_app_not_installed or github_app_permissions, nothing queued
+  else installed with the three permissions
+    API-&gt;&gt;DB: queue the job
+  end
+  Run-&gt;&gt;API: POST /api/runners/register with githubApp true
+  Run-&gt;&gt;API: GET /api/runners/next
+  API-&gt;&gt;DB: read the sealed key, as the service role
+  API-&gt;&gt;GH: POST /app/installations/:id/access_tokens for the job's repositories
+  GH--&gt;&gt;API: token and expiresAt
+  API-&gt;&gt;DB: set last_token_at
+  API--&gt;&gt;Run: the job with github (token, expiresAt, login, email) and sentByKey
+  Run-&gt;&gt;GH: git over HTTPS and gh, as the bot
+  Run-&gt;&gt;API: POST /api/runners/jobs/:id/github-token, under 5 minutes left
+  API-&gt;&gt;GH: a fresh installation token
+  API--&gt;&gt;Run: token and expiresAt
+  Run-&gt;&gt;GH: release the job's claims, as the bot
+  Run-&gt;&gt;API: the job's lines and report, the token masked as ***"><svg aria-roledescription="sequence" role="graphics-document document" viewBox="-50 -10 2150 1283" style="max-width: 2150px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><g><rect class="actor actor-bottom" ry="3" rx="3" name="Run" height="65" width="150" stroke="#666" fill="#eaeaea" y="1197" x="1900"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1229.5" x="1975"><tspan dy="0" x="1975">Runner · kit</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="GH" height="65" width="165" stroke="#666" fill="#eaeaea" y="1197" x="1603.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1229.5" x="1686"><tspan dy="0" x="1686">GitHub · the app's API</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="DB" height="65" width="229" stroke="#666" fill="#eaeaea" y="1197" x="1324.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1229.5" x="1439"><tspan dy="0" x="1439">Supabase · api_key_github_apps</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="API" height="65" width="284" stroke="#666" fill="#eaeaea" y="1197" x="696"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1229.5" x="838"><tspan dy="0" x="838">galaxy · settings, /api/v1 and /api/runners</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="App" height="65" width="166" stroke="#666" fill="#eaeaea" y="1197" x="209"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1229.5" x="292"><tspan dy="0" x="292">App with an oma_ key</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="Owner" height="65" width="159" stroke="#666" fill="#eaeaea" y="1197" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1229.5" x="79.5"><tspan dy="0" x="79.5">Owner in the browser</tspan></text></g><g><line name="Run" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1197" x2="1975" y1="65" x1="1975" id="actor5"></line><g id="root-5"><rect class="actor actor-top" ry="3" rx="3" name="Run" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="1900"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1975"><tspan dy="0" x="1975">Runner · kit</tspan></text></g></g><g><line name="GH" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1197" x2="1686" y1="65" x1="1686" id="actor4"></line><g id="root-4"><rect class="actor actor-top" ry="3" rx="3" name="GH" height="65" width="165" stroke="#666" fill="#eaeaea" y="0" x="1603.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1686"><tspan dy="0" x="1686">GitHub · the app's API</tspan></text></g></g><g><line name="DB" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1197" x2="1439" y1="65" x1="1439" id="actor3"></line><g id="root-3"><rect class="actor actor-top" ry="3" rx="3" name="DB" height="65" width="229" stroke="#666" fill="#eaeaea" y="0" x="1324.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1439"><tspan dy="0" x="1439">Supabase · api_key_github_apps</tspan></text></g></g><g><line name="API" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1197" x2="838" y1="65" x1="838" id="actor2"></line><g id="root-2"><rect class="actor actor-top" ry="3" rx="3" name="API" height="65" width="284" stroke="#666" fill="#eaeaea" y="0" x="696"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="838"><tspan dy="0" x="838">galaxy · settings, /api/v1 and /api/runners</tspan></text></g></g><g><line name="App" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1197" x2="292" y1="65" x1="292" id="actor1"></line><g id="root-1"><rect class="actor actor-top" ry="3" rx="3" name="App" height="65" width="166" stroke="#666" fill="#eaeaea" y="0" x="209"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="292"><tspan dy="0" x="292">App with an oma_ key</tspan></text></g></g><g><line name="Owner" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1197" x2="79.5" y1="65" x1="79.5" id="actor0"></line><g id="root-0"><rect class="actor actor-top" ry="3" rx="3" name="Owner" height="65" width="159" stroke="#666" fill="#eaeaea" y="0" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="79.5"><tspan dy="0" x="79.5">Owner in the browser</tspan></text></g></g><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .actor{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 text.actor&gt;tspan{fill:black;stroke:none;}#mermaid-0 .actor-line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);}#mermaid-0 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#mermaid-0 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#mermaid-0 #arrowhead path{fill:#333;stroke:#333;}#mermaid-0 .sequenceNumber{fill:white;}#mermaid-0 #sequencenumber{fill:#333;}#mermaid-0 #crosshead path{fill:#333;stroke:#333;}#mermaid-0 .messageText{fill:#333;stroke:none;}#mermaid-0 .labelBox{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 .labelText,#mermaid-0 .labelText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .loopText,#mermaid-0 .loopText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);}#mermaid-0 .note{stroke:#aaaa33;fill:#fff5ad;}#mermaid-0 .noteText,#mermaid-0 .noteText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .activation0{fill:#f4f4f4;stroke:#666;}#mermaid-0 .activation1{fill:#f4f4f4;stroke:#666;}#mermaid-0 .activation2{fill:#f4f4f4;stroke:#666;}#mermaid-0 .actorPopupMenu{position:absolute;}#mermaid-0 .actorPopupMenuPanel{position:absolute;fill:#ECECFF;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#mermaid-0 .actor-man line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 .actor-man circle,#mermaid-0 line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;stroke-width:2px;}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><symbol height="24" width="24" id="computer"><path d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z" transform="scale(.5)"></path></symbol></defs><defs><symbol clip-rule="evenodd" fill-rule="evenodd" id="database"><path d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z" transform="scale(.5)"></path></symbol></defs><defs><symbol height="24" width="24" id="clock"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z" transform="scale(.5)"></path></symbol></defs><defs><marker orient="auto-start-reverse" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="7.9" id="arrowhead"><path d="M -1 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker refY="4.5" refX="4" orient="auto" markerHeight="8" markerWidth="15" id="crosshead"><path style="stroke-dasharray: 0, 0;" d="M 1,2 L 6,7 M 6,2 L 1,7" stroke-width="1pt" stroke="#000000" fill="none"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="15.5" id="filled-head"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="40" markerWidth="60" refY="15" refX="15" id="sequencenumber"><circle r="6" cy="15" cx="15"></circle></marker></defs><g><line class="loopLine" y2="397" x2="1450" y1="397" x1="281"></line><line class="loopLine" y2="579" x2="1450" y1="397" x1="1450"></line><line class="loopLine" y2="579" x2="1450" y1="579" x1="281"></line><line class="loopLine" y2="579" x2="281" y1="397" x1="281"></line><line style="stroke-dasharray: 3, 3;" class="loopLine" y2="493" x2="1450" y1="493" x1="281"></line><polygon class="labelBox" points="281,397 331,397 331,410 322.6,417 281,417"></polygon><text style="font-size: 16px; font-weight: 400;" class="labelText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="410" x="306">alt</text><text style="font-size: 16px; font-weight: 400;" class="loopText" text-anchor="middle" y="415" x="890.5"><tspan x="890.5">[no installation, or no write on contents, pull_requests or issues]</tspan></text><text style="font-size: 16px; font-weight: 400;" class="loopText" text-anchor="middle" y="511" x="865.5">[installed with the three permissions]</text></g><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="80" x="457">POST /api/api-keys/:id/github-app with the App ID and the .pem</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="111" x2="834" y1="111" x1="80.5"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="126" x="1261">app JWT, then GET /app and GET /users/slug[bot]</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="157" x2="1682" y1="157" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="172" x="1264">slug and bot id, or a refusal</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="203" x2="842" y1="203" x1="1685"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="218" x="1137">api_key_github_app_attach with the key sealed under SECRETS_MASTER_KEY</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="249" x2="1435" y1="249" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="264" x="564">POST /api/v1/bug-fixes or /mega-bug-fixes</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="295" x2="834" y1="295" x1="293"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="310" x="1261">GET /repos/owner/repo/installation with the app JWT</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="341" x2="1682" y1="341" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="356" x="1264">the installation and its permissions</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="387" x2="842" y1="387" x1="1685"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="447" x="567">422 github_app_not_installed or github_app_permissions, nothing queued</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="478" x2="296" y1="478" x1="837"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="538" x="1137">queue the job</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="569" x2="1435" y1="569" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="594" x="1408">POST /api/runners/register with githubApp true</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="625" x2="842" y1="625" x1="1974"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="640" x="1408">GET /api/runners/next</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="671" x2="842" y1="671" x1="1974"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="686" x="1137">read the sealed key, as the service role</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="717" x2="1435" y1="717" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="732" x="1261">POST /app/installations/:id/access_tokens for the job's repositories</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="763" x2="1682" y1="763" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="778" x="1264">token and expiresAt</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="809" x2="842" y1="809" x1="1685"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="824" x="1137">set last_token_at</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="855" x2="1435" y1="855" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="870" x="1405">the job with github (token, expiresAt, login, email) and sentByKey</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="901" x2="1971" y1="901" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="916" x="1832">git over HTTPS and gh, as the bot</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="947" x2="1690" y1="947" x1="1974"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="962" x="1408">POST /api/runners/jobs/:id/github-token, under 5 minutes left</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="993" x2="842" y1="993" x1="1974"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="1008" x="1261">a fresh installation token</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="1039" x2="1682" y1="1039" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="1054" x="1405">token and expiresAt</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="1085" x2="1971" y1="1085" x1="839"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="1100" x="1832">release the job's claims, as the bot</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="1131" x2="1690" y1="1131" x1="1974"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="1146" x="1408">the job's lines and report, the token masked as ***</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="1177" x2="842" y1="1177" x1="1974"></line></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ol>
+<li><b>supabase:</b> the migration <code>&lt;version&gt;_api_key_github_apps.sql</code> (the table, its two functions, the keys list's new fields, the revoke that deletes the row), applied by the <code>supabase</code> workflow on merge, with its check <code>supabase/checks/api_key_github_apps.sql</code>. It ships first: galaxy reads the table and calls the functions.</li>
+<li><b>galaxy:</b> the settings routes, the send-time checks, <code>githubApp</code> at register, <code>github</code> and <code>sentByKey</code> at claim, the refresh route and the page, deployed by the release that follows. It must run before any runner takes the new kit: <code>RegisterRequestSchema</code> is strict, so a galaxy that does not know <code>githubApp</code> refuses that runner's registration.</li>
+<li><b>kit:</b> the release <code>v0.0.N</code> with the runner's app identity and the skills' new text; each runner takes it with <code>omni update</code>. A runner on an older kit keeps working, registers no <code>githubApp</code> and never claims a job of a key with an app.</li>
+</ol>
+<p>Rollback: revert the merge. Keys lose their app, jobs of such keys send as today, and a follow-up migration drops the table.</p>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>BACK-END</span> <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the table and the functions are the supabase block's; galaxy calls them as the person, reads the sealed key as the service role, and regenerates the database types.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<thead><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr></thead>
+<tbody>
+<tr><td><code>POST /api/api-keys/&lt;id&gt;/github-app</code></td><td><span class="badge added">added</span></td><td>—</td><td>attach or replace: <code>{workspace, appId, privateKey}</code> (the <code>.pem</code>'s text) → 200 <code>{key}</code>; owners only; refused with <code>{error}</code>: the two messages of the form, 403 for a member</td><td>galaxy</td></tr>
+<tr><td><code>DELETE /api/api-keys/&lt;id&gt;/github-app</code></td><td><span class="badge added">added</span></td><td>—</td><td><code>{workspace}</code> → 200 <code>{key}</code>; owners only</td><td>galaxy</td></tr>
+<tr><td><code>ApiKey</code> (the keys list)</td><td><span class="badge">changed</span></td><td>id, name, lastFour, repos, createdAt, lastUsedAt, revokedAt, maker, working</td><td>+ <code>githubApp</code>: the slug, or null (every member); + <code>lastTokenAt</code> inside it, for an owner only</td><td>galaxy</td></tr>
+<tr><td><code>POST /api/v1/bug-fixes</code>, <code>/mega-bug-fixes</code></td><td><span class="badge">changed</span></td><td>repo, issue or line, runner, fleet; refusals 401, 403, 404, 422 <code>invalid_request</code></td><td>request unchanged; for a key with an app, 422 <code>github_app_not_installed</code> (naming the repository) or <code>github_app_permissions</code> (naming the permission), before anything is queued; a mega checks its plan repository</td><td>galaxy</td></tr>
+<tr><td><code>PublicApiError.code</code></td><td><span class="badge">changed</span></td><td>unauthorized, forbidden, not_found, invalid_request, internal</td><td>+ <code>github_app_not_installed</code> (422), <code>github_app_permissions</code> (422)</td><td>galaxy</td></tr>
+<tr><td><code>POST /api/runners/register</code></td><td><span class="badge">changed</span></td><td><code>{name, slots, repos, version}</code>, strict</td><td>+ <code>githubApp?</code>: true when the runner can run a job as an app</td><td>galaxy · kit sends</td></tr>
+<tr><td><code>RunnerJobSchema</code> (the claim)</td><td><span class="badge">changed</span></td><td><code>{id, line, repo, sentBy, allowedSkills}</code></td><td>+ <code>github</code>: <code>{token, expiresAt, login, email}</code> or null; + <code>sentByKey</code>: the key's name or null</td><td>galaxy</td></tr>
+<tr><td><code>POST /api/runners/jobs/&lt;id&gt;/github-token</code></td><td><span class="badge added">added</span></td><td>—</td><td>the runner's own sign-in, the job's runner only → <code>{token, expiresAt}</code>; answers while the job is claimed or running, and for 10 minutes after it ends</td><td>galaxy</td></tr>
+<tr><td><code>/openapi.json</code></td><td><span class="badge">changed</span></td><td>today's routes and codes</td><td>both 422 codes, rendered from the same schema</td><td>galaxy</td></tr>
+</tbody>
+</table>
+<p>Nothing breaking: every route, field and code is added, <code>githubApp</code> at register is optional, and a client or runner that knows none of it gets today's answers. The registration's strict schema sets the deploy order, not a break. Followed: the brainstorm skill's rule, as the conventions and architecture pages add no stricter one.</p>
+<p>The keys list's field names follow <code>ApiKeySchema</code>'s camelCase; the spec fixes what each reads, not its spelling.</p>
+<div class="sub">ApiKeySchema</div>
+<div class="compare">
+<div><div class="label">BEFORE · apps/galaxy/src/public-api/keys/api-keys.contract.ts</div>
+<pre><span class="line ctx">export const ApiKeySchema = z.object({</span><span class="line ctx">  # id, name, lastFour, repos, createdAt, lastUsedAt, revokedAt,</span><span class="line ctx">  maker: z.object({ id, login, name }),</span><span class="line ctx">  working: z.boolean(),</span><span class="line ctx">});</span></pre></div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">export const ApiKeySchema = z.object({</span><span class="line ctx">  # id, name, lastFour, repos, createdAt, lastUsedAt, revokedAt,</span><span class="line ctx">  maker: z.object({ id, login, name }),</span><span class="line ctx">  working: z.boolean(),</span><span class="line add">  githubApp: z.object({ slug: z.string(), lastTokenAt: ISO.nullable().optional() }).nullable(),</span><span class="line ctx">});</span></pre></div>
+</div>
+<div class="sub">RegisterRequestSchema</div>
+<div class="compare">
+<div><div class="label">BEFORE · apps/galaxy/src/runners/runners.contract.ts</div>
+<pre><span class="line ctx">export const RegisterRequestSchema = z.object({</span><span class="line ctx">  # name, slots, repos,</span><span class="line ctx">  version: z.string().max(40),</span><span class="line ctx">}).strict();</span></pre></div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">export const RegisterRequestSchema = z.object({</span><span class="line ctx">  # name, slots, repos,</span><span class="line ctx">  version: z.string().max(40),</span><span class="line add">  githubApp: z.boolean().optional(),   // can this runner run a job as an app?</span><span class="line ctx">}).strict();</span></pre></div>
+</div>
+<div class="sub">RunnerJobSchema</div>
+<div class="compare">
+<div><div class="label">BEFORE · apps/galaxy/src/runners/runners.contract.ts</div>
+<pre><span class="line ctx">export const RunnerJobSchema = z.object({</span><span class="line ctx">  id, line, repo, sentBy, allowedSkills,</span><span class="line ctx">}).refine(…);</span></pre></div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">export const RunnerJobSchema = z.object({</span><span class="line ctx">  id, line, repo, sentBy, allowedSkills,</span><span class="line add">  sentByKey: z.string().nullable(),</span><span class="line add">  github: z.object({ token, expiresAt, login, email }).nullable(),</span><span class="line ctx">}).refine(…);</span></pre></div>
+</div>
+<div class="sub">PUBLIC_API_ERRORS</div>
+<div class="compare">
+<div><div class="label">BEFORE · apps/galaxy/src/public-api/public-api.contract.ts</div>
+<pre><span class="line ctx">export const PUBLIC_API_ERRORS = {</span><span class="line ctx">  unauthorized: 401, forbidden: 403, not_found: 404,</span><span class="line ctx">  invalid_request: 422,</span><span class="line ctx">  internal: 500,</span><span class="line ctx">} as const;</span></pre></div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">export const PUBLIC_API_ERRORS = {</span><span class="line ctx">  unauthorized: 401, forbidden: 403, not_found: 404,</span><span class="line ctx">  invalid_request: 422,</span><span class="line add">  github_app_not_installed: 422,</span><span class="line add">  github_app_permissions: 422,</span><span class="line ctx">  internal: 500,</span><span class="line ctx">} as const;</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">TODAY · runners.service.ts, public-api.service.ts</div>
+<ul>
+<li><code>POST /api/v1/bug-fixes</code> checks the key and its allow-list, then queues the job.</li>
+<li><code>next</code> hands a queued job to any online runner with a free slot that holds the repository.</li>
+<li>A claimed job is <code>{id, line, repo, sentBy, allowedSkills}</code>; for a key's job <code>senderOf</code> writes <code>sentBy</code> as <code>API key &lt;name&gt; (@&lt;login&gt;)</code>.</li>
+<li>No route mints a GitHub credential for a job. Omni knows one GitHub App, its own.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li><b>Attach:</b> checks the pair with GitHub (an app JWT, <code>GET /app</code>, then <code>GET /users/&lt;slug&gt;[bot]</code>) before storing anything, seals the private key with the secret box under <code>SECRETS_MASTER_KEY</code>, then calls <code>api_key_github_app_attach</code>. A pair GitHub refuses, or a deployment with no master key, is refused and stores nothing.</li>
+<li><b>Send:</b> for a key with an app, finds the app's installation on the job's repository (the plan repository for a mega) before queuing, and reads its permissions. No installation, or no write on <code>contents</code>, <code>pull_requests</code> or <code>issues</code>: 422, nothing queued.</li>
+<li><b>Claim:</b> a job of a key with an app goes only to a runner that registered <code>githubApp: true</code>. Galaxy then mints an installation token for the job's repository (for a mega, the plan repository and every repository its product names that the installation holds, within the key's allow-list), with <code>contents</code>, <code>pull_requests</code> and <code>issues</code> write and <code>metadata</code> read, and nothing more. The claim gains <code>github</code> and <code>sentByKey</code>; a job with no app gets <code>github: null</code>, a person's job <code>sentByKey: null</code>. The mint is recorded in <code>last_token_at</code>.</li>
+<li><b>No mint, no person:</b> when the token cannot be minted at claim (an app removed or uninstalled, a pair GitHub now refuses, a key revoked, a maker who left the workspace, a master key lost), the job ends <code>failed</code> with <code>github app: &lt;why&gt;</code> and no runner runs it. A job queued while an app was attached keeps needing one: removing the app does not send it as a person.</li>
+<li><b>Refresh:</b> <code>POST /api/runners/jobs/&lt;id&gt;/github-token</code> mints a fresh token for the job's runner only, and records the mint.</li>
+<li>The keys list answers <code>githubApp</code> to every member and <code>lastTokenAt</code> to an owner; revoking a key also deletes its stored private key.</li>
+</ul></div>
+</div>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span> <span class="badge" data-role>RUNNER</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the kit stores nothing; the runner reports to galaxy.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<thead><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr></thead>
+<tbody>
+<tr><td>the registration</td><td><span class="badge">changed</span></td><td><code>{name, slots, repos, version}</code></td><td>+ <code>githubApp: true</code></td><td>kit → galaxy</td></tr>
+<tr><td><code>omni runner github-token</code></td><td><span class="badge added">added</span></td><td>—</td><td>prints the job's current token; asks <code>POST /api/runners/jobs/&lt;id&gt;/github-token</code> for a fresh one when under 5 minutes are left</td><td>kit</td></tr>
+<tr><td><code>OMNI_GITHUB_APP</code> (the job's environment)</td><td><span class="badge added">added</span></td><td>—</td><td><code>&lt;slug&gt;[bot]</code>, set only for a job whose claim carries <code>github</code></td><td>kit</td></tr>
+<tr><td><code>GIT_AUTHOR_NAME</code>, <code>GIT_AUTHOR_EMAIL</code>, <code>GIT_COMMITTER_NAME</code>, <code>GIT_COMMITTER_EMAIL</code></td><td><span class="badge">changed</span></td><td>the machine's git config</td><td>for an app job: the bot's login and <code>&lt;bot id&gt;+&lt;slug&gt;[bot]@users.noreply.github.com</code></td><td>kit</td></tr>
+<tr><td>the job's <code>PATH</code> and git remotes</td><td><span class="badge">changed</span></td><td>the machine's <code>gh</code> and git credentials, SSH or HTTPS as cloned</td><td>for an app job: a <code>gh</code> first on <code>PATH</code> running the real one with <code>GH_TOKEN</code> set to the current token; a credential helper over HTTPS; an <code>insteadOf</code> from the environment for <code>git@github.com:</code> and <code>ssh://git@github.com/</code></td><td>kit</td></tr>
+<tr><td><code>omni runner sender</code> line</td><td><span class="badge">changed</span></td><td><code>Sent from the Omni app by @&lt;login&gt; on runner &lt;name&gt;</code></td><td>for a job with <code>sentByKey</code>: <code>Sent through the Omni API by API key &lt;name&gt; on runner &lt;runner&gt;</code>; a person's job unchanged</td><td>kit</td></tr>
+<tr><td>the runner's lines, log tails and reports</td><td><span class="badge">changed</span></td><td>sent as written</td><td>the job's token, current or past, replaced by <code>***</code></td><td>kit → galaxy</td></tr>
+</tbody>
+</table>
+<p>Nothing breaking: each element is added, or changed only for a job that carries <code>github</code> or <code>sentByKey</code>. Followed: the brainstorm skill's rule; no conventions page adds a stricter one.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">TODAY · kit/bin/commands/runner.ts, kit/lib/runner/, kit/bin/github.ts</div>
+<ul>
+<li><code>jobEnv</code> carries <code>OMNI_SENT_BY</code> and <code>OMNI_RUNNER</code>, no <code>GH_TOKEN</code>: the job writes with the machine's <code>gh</code> and git.</li>
+<li><code>senderLine</code> puts an <code>@</code> in front of <code>sentBy</code>, so a key's job pings its maker.</li>
+<li><code>githubEnv</code> reads <code>gh auth token --user &lt;github.user&gt;</code> when that setting is on: a person's token.</li>
+<li>The release of a dead job's claims runs with the box's own <code>gh</code>.</li>
+<li><code>/omni:pr</code>, <code>/omni:bug-fix</code> and <code>/omni:mega-bug-fix</code> request the reviewers the repository's <code>pull-requests</code> form names.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>The runner registers with <code>githubApp: true</code>. For a job with <code>github</code> it adds <code>OMNI_GITHUB_APP</code>, the bot as author and committer, the credential helper, the <code>insteadOf</code> and the <code>gh</code> on <code>PATH</code>. For a job with <code>github: null</code> the environment is as today.</li>
+<li>The credential helper and that <code>gh</code> both read the token through <code>omni runner github-token</code>, which refreshes under 5 minutes left. A failed refresh is tried again every minute until the token expires; then the job ends <code>failed</code>, <code>github app: &lt;why&gt;</code>.</li>
+<li><code>senderLine</code> reads <code>sentByKey</code>: no <code>@</code>, no login.</li>
+<li>While <code>OMNI_GITHUB_APP</code> is set, <code>githubEnv</code> uses that token and never runs <code>gh auth token</code>.</li>
+<li>The release of the job's claims, when it ends, uses the app's token, still answered for 10 minutes after.</li>
+<li>While <code>OMNI_GITHUB_APP</code> is set, the three skills request no reviewer, even one the form names, add no assignee and mention no <code>@login</code>; a guard test holds their text to it. Drafts and the override label are untouched.</li>
+<li>Every line, log tail and report sent to the server has the job's token, current or past, replaced by <code>***</code>.</li>
+</ul></div>
+</div>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase <span class="badge" data-role>DATABASE</span></h3>
+<div data-section="db" data-state="filled">
+<h4>Database</h4>
+<figure class="mermaid-diagram" data-source="erDiagram
+  workspaces ||--o{ api_key_github_apps : holds
+  agent_tokens ||--o| api_key_github_apps : &quot;key_id&quot;
+  api_key_github_apps {
+    uuid key_id PK &quot;+ added&quot;
+    uuid workspace_id FK &quot;+ added&quot;
+    bigint app_id &quot;+ added&quot;
+    text slug &quot;+ added&quot;
+    bigint bot_id &quot;+ added&quot;
+    text ciphertext &quot;+ added&quot;
+    text iv &quot;+ added&quot;
+    uuid attached_by &quot;+ added&quot;
+    timestamptz attached_at &quot;+ added&quot;
+    timestamptz last_token_at &quot;+ added&quot;
+  }"><svg aria-roledescription="er" role="graphics-document document" viewBox="0 0 341.703125 459.826171875" style="max-width: 341.703125px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-1"><style>#mermaid-1{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-1 .error-icon{fill:#552222;}#mermaid-1 .error-text{fill:#552222;stroke:#552222;}#mermaid-1 .edge-thickness-normal{stroke-width:1px;}#mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1 .marker{fill:#333333;stroke:#333333;}#mermaid-1 .marker.cross{stroke:#333333;}#mermaid-1 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1 p{margin:0;}#mermaid-1 .entityBox{fill:#ECECFF;stroke:#9370DB;}#mermaid-1 .attributeBoxOdd{fill:#ffffff;stroke:#9370DB;}#mermaid-1 .attributeBoxEven{fill:#f2f2f2;stroke:#9370DB;}#mermaid-1 .relationshipLabelBox{fill:hsl(80, 100%, 96.2745098039%);opacity:0.7;background-color:hsl(80, 100%, 96.2745098039%);}#mermaid-1 .relationshipLabelBox rect{opacity:0.5;}#mermaid-1 .relationshipLine{stroke:#333333;}#mermaid-1 .entityTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-1 #MD_PARENT_START{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 #MD_PARENT_END{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><marker orient="auto" markerHeight="240" markerWidth="190" refY="7" refX="0" id="MD_PARENT_START"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="19" id="MD_PARENT_END"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="0" id="ONLY_ONE_START"><path d="M9,0 L9,18 M15,0 L15,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="18" id="ONLY_ONE_END"><path d="M3,0 L3,18 M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="0" id="ZERO_OR_ONE_START"><circle r="6" cy="9" cx="21" fill="white" stroke="gray"></circle><path d="M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="30" id="ZERO_OR_ONE_END"><circle r="6" cy="9" cx="9" fill="white" stroke="gray"></circle><path d="M21,0 L21,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="18" id="ONE_OR_MORE_START"><path d="M0,18 Q 18,0 36,18 Q 18,36 0,18 M42,9 L42,27" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="27" id="ONE_OR_MORE_END"><path d="M3,9 L3,27 M9,18 Q27,0 45,18 Q27,36 9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="18" id="ZERO_OR_MORE_START"><circle r="6" cy="18" cx="48" fill="white" stroke="gray"></circle><path d="M0,18 Q18,0 36,18 Q18,36 0,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="39" id="ZERO_OR_MORE_END"><circle r="6" cy="18" cx="9" fill="white" stroke="gray"></circle><path d="M21,18 Q39,0 57,18 Q39,36 21,18" fill="none" stroke="gray"></path></marker></defs><path style="stroke: gray; fill: none;" marker-start="url(#ONLY_ONE_START)" marker-end="url(#ZERO_OR_MORE_END)" d="M70,95L70,103.333C70,111.667,70,128.333,74.854,145C79.708,161.667,89.416,178.333,94.27,186.667L99.124,195" class="er relationshipLine"></path><path style="stroke: gray; fill: none;" marker-start="url(#ONLY_ONE_START)" marker-end="url(#ZERO_OR_ONE_END)" d="M270.852,95L270.852,103.333C270.852,111.667,270.852,128.333,265.998,145C261.144,161.667,251.436,178.333,246.582,186.667L241.728,195" class="er relationshipLine"></path><g transform="translate(20,20 )" id="entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1"><rect height="75" width="100" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(50,37.5)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1" class="er entityLabel">workspaces</text></g><g transform="translate(66.43359375,195 )" id="entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4"><rect height="244.826171875" width="207.984375" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(103.9921875,12)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4" class="er entityLabel">api_key_github_apps</text><rect height="22.091796875" width="67.5625" y="24" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,35.0458984375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-1-type" class="er entityLabel">uuid</text><rect height="22.091796875" width="72.453125" y="24" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,35.0458984375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-1-name" class="er entityLabel">key_id</text><rect height="22.091796875" width="21.5625" y="24" x="140.015625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,35.0458984375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-1-key" class="er entityLabel">PK</text><rect height="22.091796875" width="46.40625" y="24" x="161.578125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,35.0458984375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-1-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="46.091796875" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,57.1376953125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-2-type" class="er entityLabel">uuid</text><rect height="22.091796875" width="72.453125" y="46.091796875" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,57.1376953125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-2-name" class="er entityLabel">workspace_id</text><rect height="22.091796875" width="21.5625" y="46.091796875" x="140.015625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,57.1376953125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-2-key" class="er entityLabel">FK</text><rect height="22.091796875" width="46.40625" y="46.091796875" x="161.578125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,57.1376953125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-2-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="68.18359375" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,79.2294921875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-3-type" class="er entityLabel">bigint</text><rect height="22.091796875" width="72.453125" y="68.18359375" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,79.2294921875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-3-name" class="er entityLabel">app_id</text><rect height="22.091796875" width="21.5625" y="68.18359375" x="140.015625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,79.2294921875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-3-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="68.18359375" x="161.578125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,79.2294921875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-3-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="90.275390625" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,101.3212890625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-4-type" class="er entityLabel">text</text><rect height="22.091796875" width="72.453125" y="90.275390625" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,101.3212890625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-4-name" class="er entityLabel">slug</text><rect height="22.091796875" width="21.5625" y="90.275390625" x="140.015625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,101.3212890625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-4-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="90.275390625" x="161.578125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,101.3212890625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-4-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="112.3671875" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,123.4130859375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-5-type" class="er entityLabel">bigint</text><rect height="22.091796875" width="72.453125" y="112.3671875" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,123.4130859375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-5-name" class="er entityLabel">bot_id</text><rect height="22.091796875" width="21.5625" y="112.3671875" x="140.015625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,123.4130859375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-5-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="112.3671875" x="161.578125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,123.4130859375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-5-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="134.458984375" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,145.5048828125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-6-type" class="er entityLabel">text</text><rect height="22.091796875" width="72.453125" y="134.458984375" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,145.5048828125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-6-name" class="er entityLabel">ciphertext</text><rect height="22.091796875" width="21.5625" y="134.458984375" x="140.015625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,145.5048828125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-6-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="134.458984375" x="161.578125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,145.5048828125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-6-comment" class="er entityLabel">+ added</text><rect height="22" width="67.5625" y="156.55078125" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,167.55078125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-7-type" class="er entityLabel">text</text><rect height="22" width="72.453125" y="156.55078125" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,167.55078125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-7-name" class="er entityLabel">iv</text><rect height="22" width="21.5625" y="156.55078125" x="140.015625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,167.55078125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-7-key" class="er entityLabel"></text><rect height="22" width="46.40625" y="156.55078125" x="161.578125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,167.55078125)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-7-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="178.55078125" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,189.5966796875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-8-type" class="er entityLabel">uuid</text><rect height="22.091796875" width="72.453125" y="178.55078125" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,189.5966796875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-8-name" class="er entityLabel">attached_by</text><rect height="22.091796875" width="21.5625" y="178.55078125" x="140.015625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,189.5966796875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-8-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="178.55078125" x="161.578125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,189.5966796875)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-8-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="200.642578125" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,211.6884765625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-9-type" class="er entityLabel">timestamptz</text><rect height="22.091796875" width="72.453125" y="200.642578125" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,211.6884765625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-9-name" class="er entityLabel">attached_at</text><rect height="22.091796875" width="21.5625" y="200.642578125" x="140.015625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,211.6884765625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-9-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="200.642578125" x="161.578125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,211.6884765625)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-9-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="222.734375" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,233.7802734375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-10-type" class="er entityLabel">timestamptz</text><rect height="22.091796875" width="72.453125" y="222.734375" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,233.7802734375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-10-name" class="er entityLabel">last_token_at</text><rect height="22.091796875" width="21.5625" y="222.734375" x="140.015625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(145.015625,233.7802734375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-10-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="222.734375" x="161.578125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.578125,233.7802734375)" y="0" x="0" id="text-entity-apikeygithubapps-de8c0c37-b706-513c-ad1b-60eaa71414c4-attr-10-comment" class="er entityLabel">+ added</text></g><g transform="translate(220,20 )" id="entity-agenttokens-59c11efa-4508-5af6-a829-dd8de557b3c8"><rect height="75" width="101.703125" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(50.8515625,37.5)" y="0" x="0" id="text-entity-agenttokens-59c11efa-4508-5af6-a829-dd8de557b3c8" class="er entityLabel">agent_tokens</text></g><rect height="14" width="28.078125" y="140.53269958496094" x="61.589202880859375" class="er relationshipLabelBox"></rect><text style="text-anchor: middle; dominant-baseline: middle; font-size: 12px;" y="147.53269958496094" x="75.62826538085938" id="rel1" class="er relationshipLabel">holds</text><rect height="14" width="34.921875" y="140.53268432617188" x="247.76275634765625" class="er relationshipLabelBox"></rect><text style="text-anchor: middle; dominant-baseline: middle; font-size: 12px;" y="147.53268432617188" x="265.22369384765625" id="rel2" class="er relationshipLabel">key_id</text></svg></figure>
+<div class="sub">api_key_github_apps</div>
+<div class="compare">
+<div><div class="label">TODAY</div>
+<pre><span class="line ctx">-- no table: a key holds no GitHub App,</span><span class="line ctx">-- and Omni keeps no private key but Jev's,</span><span class="line ctx">-- in public.workspace_secrets</span></pre></div>
+<div><div class="label">AFTER</div>
+<pre><span class="line add">create table public.api_key_github_apps (</span><span class="line add">  key_id        uuid primary key references public.agent_tokens on delete cascade,</span><span class="line add">  workspace_id  uuid not null references public.workspaces on delete cascade,</span><span class="line add">  app_id        bigint not null,</span><span class="line add">  slug          text not null,</span><span class="line add">  bot_id        bigint not null,</span><span class="line add">  ciphertext    text not null check (ciphertext &lt;&gt; ''),   -- the PEM, sealed</span><span class="line add">  iv            text not null check (iv &lt;&gt; ''),</span><span class="line add">  attached_by   uuid references auth.users on delete set null,</span><span class="line add">  attached_at   timestamptz not null default now(),</span><span class="line add">  last_token_at timestamptz</span><span class="line add">);</span><span class="line add">-- row level security on, no policy for members</span></pre></div>
+</div>
+<table>
+<thead><tr><th>table</th><th>change</th><th>detail</th></tr></thead>
+<tbody>
+<tr><td><code>api_key_github_apps</code></td><td><span class="badge added">added</span></td><td>one row per key; the private key (PEM) sealed by galaxy's secret box (AES-256-GCM under <code>SECRETS_MASTER_KEY</code>), as <code>workspace_secrets</code> is; in the clear: the app's slug and its bot's id, who attached it and when, when it last minted a token. No member reads the table: they read the slug through the keys list. Only the server's service role opens <code>ciphertext</code>, and writes <code>last_token_at</code>.</td></tr>
+</tbody>
+</table>
+<p>No row needs a coordinated deploy: the table and the functions are added, and the migration only ships before galaxy reads them. The column types follow <code>workspace_secrets</code> and GitHub's numeric ids; the spec fixes the columns, not the types.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<thead><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr></thead>
+<tbody>
+<tr><td><code>api_key_github_app_attach</code></td><td><span class="badge added">added</span></td><td>—</td><td>owners only: stores the app of a live key (id, slug, bot id, sealed key) and answers the key as listed; refusals follow <code>api_key_make</code> (42501 for a member who is not an owner)</td><td>supabase</td></tr>
+<tr><td><code>api_key_github_app_remove</code></td><td><span class="badge added">added</span></td><td>—</td><td>owners only: deletes the key's row and answers the key as listed</td><td>supabase</td></tr>
+<tr><td><code>api_key_listed</code>, <code>api_keys_list</code></td><td><span class="badge">changed</span></td><td>the key as listed, never its hash</td><td>+ <code>githubApp</code>: the slug (any member), with <code>lastTokenAt</code> for an owner only; never the ciphertext</td><td>supabase</td></tr>
+</tbody>
+</table>
+<p>Nothing breaking: two functions are added and the listed key gains a field its readers ignore until galaxy reads it. Followed: the brainstorm skill's rule; no conventions page adds a stricter one.</p>
+<div class="compare">
+<div><div class="label">BEFORE · supabase/migrations/20261210090000_api_keys.sql</div>
+<pre><span class="line ctx">api_key_listed(t) → jsonb:</span><span class="line ctx">  # id, name, lastFour, repos, createdAt, lastUsedAt, revokedAt, maker,</span><span class="line ctx">  'working', exists (…)</span></pre></div>
+<div><div class="label">AFTER</div>
+<pre><span class="line ctx">api_key_listed(t) → jsonb:</span><span class="line ctx">  # id, name, lastFour, repos, createdAt, lastUsedAt, revokedAt, maker,</span><span class="line ctx">  'working', exists (…)</span><span class="line add">  'githubApp', slug, + last_token_at when is_owner(workspace)</span><span class="line add">api_key_github_app_attach(workspace, key, app_id, slug, bot_id, ciphertext, iv) → jsonb</span><span class="line add">api_key_github_app_remove(workspace, key) → jsonb</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">TODAY · api_key_revoke</div>
+<ul>
+<li>Sets <code>revoked_at</code> and <code>revoked_by</code> and answers the key as listed.</li>
+</ul></div>
+<div><div class="label">AFTER</div>
+<ul>
+<li>Does the same, and deletes the key's row in <code>api_key_github_apps</code>, so a revoked key keeps no sealed private key.</li>
+<li>The check <code>supabase/checks/api_key_github_apps.sql</code> runs in the <code>supabase</code> workflow's <code>check</code> job: a member who is not an owner cannot attach or remove; a member reads the slug, never the ciphertext or <code>last_token_at</code>; revoking the key deletes its row.</li>
+</ul></div>
+</div>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>

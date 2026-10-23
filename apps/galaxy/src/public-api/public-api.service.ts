@@ -5,7 +5,8 @@ import { decodeCursor, encodeCursor, type CursorList } from './cursor';
 import { hashApiKey, isApiKeyShaped } from './keys/secret';
 import type { RunnerRefusal, KeyJob, KeySend } from '../runners/runners.contract';
 import { BUG_FIX, MEGA_BUG_FIX, type ApiJob, type BugFix, type BugFixList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
-import type { DossierRow, ListedKind, PublicApiRepository, StageRow } from './public-api.repository';
+import type { WritePermission } from './keys/github-app';
+import type { DossierRow, KeyGithubApp, ListedKind, PublicApiRepository, StageRow } from './public-api.repository';
 
 // The public API's rules (PRD 2022 s2, spec "The routes"; ADR-0095), over the repository as the service
 // role. A program is its key: a secret of the key's shape, hashed, that api_key_of() answers live (not
@@ -14,6 +15,11 @@ import type { DossierRow, ListedKind, PublicApiRepository, StageRow } from './pu
 // dossiers whose home repository is on it, so a product PRD, which has none, shows only to a key with
 // an empty list. The lists page by the cursor (./cursor.ts), newest first; a draft has no number, so it
 // is never listed.
+//
+// A key that holds a GitHub App (PRD 2433) starts a job only where its App can run it: before anything is
+// queued, the App's installation on the job's repository (a mega bug fix's plan repository) is asked of
+// GitHub, and no installation, or one without write access to contents, pull_requests and issues, is a 422
+// naming the repository or the permission. A key with no App queues as it always did.
 
 /** The key a call came with, once api_key_of() answered it. */
 export type ApiKeyCaller = {
@@ -67,7 +73,29 @@ const offList = (key: ApiKeyCaller, repo: string): Answered<never> | null =>
 const notPlan = (repo: string) =>
   `repo: ${repo} is not a plan repository of this workspace: no product names it as its plan repository. A bug of one repository starts with POST /api/v1/bug-fixes.`;
 
-type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages' | 'isPlanRepository'>;
+type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages' | 'isPlanRepository' | 'githubAppOf'>;
+
+/** What GitHub says of a key's App on a repository: not installed there, or installed, and the first of
+ * contents, pull_requests and issues it holds no write access to (null when it holds all three). */
+export type InstallationCheck = { installed: false } | { installed: true; missing: WritePermission | null };
+
+/** Asks GitHub about the key's App on `repo` (`owner/name`). It throws when it cannot be answered: the
+ * controller answers 500 and nothing is queued. */
+export type CheckInstallation = (app: KeyGithubApp, repo: string) => Promise<InstallationCheck>;
+
+const INSTALL_WITH = 'with write access to contents, pull_requests and issues';
+
+/** The refusal of a repository the key's App is not installed on. */
+const notInstalled = (app: KeyGithubApp, repo: string): Answered<never> => ({
+  ok: false, code: 'github_app_not_installed',
+  message: `repo: the GitHub App ${app.slug} attached to this API key is not installed on ${repo}. Install it on that repository, ${INSTALL_WITH}, then send again.`,
+});
+
+/** The refusal of an installation without write access to `permission`. */
+const lacking = (app: KeyGithubApp, repo: string, permission: WritePermission): Answered<never> => ({
+  ok: false, code: 'github_app_permissions',
+  message: `repo: the GitHub App ${app.slug} is installed on ${repo} without write access to ${permission}. Give it write access to contents, pull_requests and issues, then send again.`,
+});
 
 const issueLink = (repo: string, number: number) => `https://github.com/${repo}/issues/${number}`;
 
@@ -99,7 +127,18 @@ async function stagesOf(repository: Port, workspace: string, rows: readonly Doss
   return new Map([...grouped].map(([at, stages]) => [at, currentStage(stages)]));
 }
 
-export function publicApiService(repository: Port, runners: RunnersPort) {
+/** `installation` is the deployment's means to ask GitHub; with none, a key's App is not checked at send. */
+export function publicApiService(repository: Port, runners: RunnersPort, installation: CheckInstallation | null = null) {
+  /** The refusal of a send in `repo` by a key whose App cannot run it there, or null: the key holds no App, or its App is installed with the three permissions. */
+  async function appRefusal(key: ApiKeyCaller, repo: string): Promise<Answered<never> | null> {
+    if (installation === null) return null;
+    const app = await repository.githubAppOf(key.id);
+    if (app === null) return null;
+    const found = await installation(app, repo);
+    if (!found.installed) return notInstalled(app, repo);
+    return found.missing === null ? null : lacking(app, repo, found.missing);
+  }
+
   /** Queues `line` in `repo` for the key, through the runners' own rules (their line check included): the
    * job is sent by the key's maker and marked as the key's. */
   async function queueAs(key: ApiKeyCaller, repo: string, line: string, where: Pick<StartBugFix, 'runner' | 'fleet'>): Promise<Answered<ApiJob>> {
@@ -158,7 +197,8 @@ export function publicApiService(repository: Port, runners: RunnersPort) {
      * repository of its workspace and allow-list; the job is sent by the key's maker and marked as the key's. */
     async startBugFix(key: ApiKeyCaller, body: StartBugFix): Promise<Answered<ApiJob>> {
       const repo = body.repo.toLowerCase();
-      return offList(key, repo) ?? queueAs(key, repo, bugFixLine(body.description), body);
+      const refused = offList(key, repo) ?? (await appRefusal(key, repo));
+      return refused ?? queueAs(key, repo, bugFixLine(body.description), body);
     },
 
     /** Queues `/omni:mega-bug-fix` for the key in a plan repository of its workspace and allow-list, as
@@ -169,7 +209,8 @@ export function publicApiService(repository: Port, runners: RunnersPort) {
       const refused = offList(key, repo);
       if (refused) return refused;
       if (!(await repository.isPlanRepository(key.workspace, repo))) return { ok: false, code: 'invalid_request', message: notPlan(repo) };
-      return queueAs(key, repo, megaBugFixLine(body.description), body);
+      const appRefused = await appRefusal(key, repo);
+      return appRefused ?? queueAs(key, repo, megaBugFixLine(body.description), body);
     },
 
     /** A job a key of the key's workspace queued; any other is not found. */

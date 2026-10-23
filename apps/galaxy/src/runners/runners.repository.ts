@@ -29,6 +29,8 @@ const RunnerRow = z.object({
   last_seen_at: z.string(),
   /** Its last health report (PRD 2102); one out of shape reads as none, as a runner that never sent one. */
   health: RunnerHealthSchema.nullable().catch(null),
+  /** Whether it registered able to run a job as an API key's GitHub App (PRD 2433). */
+  github_app: z.boolean(),
 });
 export type RunnerRow = z.infer<typeof RunnerRow>;
 
@@ -71,7 +73,7 @@ const JobRow = z.object({
 export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
-const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
+const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app';
 const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
@@ -133,7 +135,7 @@ export type SampleRow = z.infer<typeof SampleRow>;
 const SAMPLE_COLUMNS = 'runner_id, workspace_id, at, cpu, mem_used, mem_total, disk_free, tokens_5h';
 
 /** A new runner's columns. */
-export type NewRunner = { workspaceId: string; owner: string; name: string; slots: number; repos: string[]; version: string; seenAt: string };
+export type NewRunner = { workspaceId: string; owner: string; name: string; slots: number; repos: string[]; version: string; seenAt: string; githubApp: boolean };
 
 /** A new job's columns. */
 export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
@@ -165,6 +167,23 @@ async function acted<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: stri
   if (!read.success || read.data === undefined) throw new Error(`${what} answered out of shape`);
   return { ok: true, value: read.data };
 }
+
+/** The App an API key's job runs as, as api_key_github_app_of_job() answers (supabase/migrations/20261228090000_api_key_github_apps.sql):
+ * `working` while the key is not revoked and its maker is still a member; `needs_app` while the key holds an App or the job
+ * was queued while it did; `app` null once the key holds none. `ciphertext` and `iv` are the sealed private key. `repos` is
+ * the key's allow-list (agent_tokens.repos, `owner/name`, lower case; an empty one means every repository of the workspace),
+ * and `product_repos` the repositories of the live products that name the job's repository, in its workspace. Both are
+ * required: a list the database did not send must never read as an empty allow-list, which allows everything. */
+const AppOfJobRow = z.object({
+  key_id: z.string(),
+  workspace_id: z.string(),
+  working: z.boolean(),
+  needs_app: z.boolean(),
+  app: z.object({ app_id: z.number().int(), slug: z.string(), bot_id: z.number().int(), ciphertext: z.string(), iv: z.string() }).nullable(),
+  repos: z.array(z.string()),
+  product_repos: z.array(z.string()),
+}).nullable();
+export type AppOfJob = NonNullable<z.infer<typeof AppOfJobRow>>;
 
 const MemberRow = z.object({ role: z.string() }).nullable();
 const PlayerRow = z.object({ team: z.string().nullable(), github_login: z.string().nullable() }).nullable();
@@ -211,6 +230,16 @@ export function runnersRepository(db: RunnersDb) {
       return new Map(Object.entries(names));
     },
 
+    /** The GitHub App the job of an API key runs as (PRD 2433; api_key_github_app_of_job(), service role only):
+     * null for a job no key sent. The sealed private key comes with it, for the server to open and nobody else. */
+    appOfJob: async (jobId: string): Promise<AppOfJob | null> =>
+      parsed(db.rpc('api_key_github_app_of_job', { p_job: jobId }), AppOfJobRow, 'api_key_github_app_of_job()'),
+
+    /** Records that the key's App minted a token now (api_key_github_app_minted(), service role only). */
+    appMinted: async (keyId: string): Promise<void> => {
+      await parsed(db.rpc('api_key_github_app_minted', { p_key: keyId }), z.unknown(), 'api_key_github_app_minted()');
+    },
+
     runner: async (id: string): Promise<RunnerRow | null> =>
       parsed(db.from('runners').select(RUNNER_COLUMNS).eq('id', id).maybeSingle(), RunnerRow.nullable(), 'runners'),
 
@@ -224,10 +253,10 @@ export function runnersRepository(db: RunnersDb) {
     insertRunner: async (runner: NewRunner): Promise<RunnerRow> =>
       parsed(db.from('runners').insert({
         workspace_id: runner.workspaceId, owner: runner.owner, name: runner.name, slots: runner.slots, repos: runner.repos,
-        version: runner.version, last_seen_at: runner.seenAt,
+        version: runner.version, last_seen_at: runner.seenAt, github_app: runner.githubApp,
       }).select(RUNNER_COLUMNS).single(), RunnerRow, 'runners'),
 
-    updateRunner: async (id: string, patch: Partial<Pick<RunnerRow, 'fleet' | 'slots' | 'repos' | 'version' | 'last_seen_at' | 'health'>>): Promise<RunnerRow> =>
+    updateRunner: async (id: string, patch: Partial<Pick<RunnerRow, 'fleet' | 'slots' | 'repos' | 'version' | 'last_seen_at' | 'health' | 'github_app'>>): Promise<RunnerRow> =>
       parsed(db.from('runners').update(patch).eq('id', id).select(RUNNER_COLUMNS).single(), RunnerRow, 'runners'),
 
     /** Adds one of a runner's samples; one it already holds at that instant stays as it is. */

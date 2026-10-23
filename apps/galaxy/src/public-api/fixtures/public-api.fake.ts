@@ -3,7 +3,7 @@ import { runnersService } from '../../runners/runners.service';
 import { API_KEY, fakeStore, OLGA, T0, WORKSPACE } from '../../runners/fixtures/store.fake';
 import { hashApiKey } from '../keys/secret';
 import type { PRD_STAGES } from '../public-api.contract';
-import type { DossierPage, DossierRow, KeyRow, ListedKind, ProductRow, PublicApiRepository, StageRow } from '../public-api.repository';
+import type { DossierPage, DossierRow, KeyGithubApp, KeyRow, ListedKind, ProductRow, PublicApiRepository, StageRow } from '../public-api.repository';
 
 // The public API's storage in memory (PRD 2022 s2), for the service's and the controller's tests: the
 // rows of public.dossiers, public.products and public.prd_stages, read as the repository reads them
@@ -12,6 +12,7 @@ import type { DossierPage, DossierRow, KeyRow, ListedKind, ProductRow, PublicApi
 // still a member of its workspace. Two workspaces: Northwind (northwind/backend, northwind/web) and
 // Southwind (southwind/backend). Ada made Northwind's keys and is still a member; Ben made one and left.
 // A product's plan repository (products.plan_repository) is added by `planRepository`; there is none at first.
+// A key's GitHub App (PRD 2433 s6), as the repository reads it for a send, is added by `githubApp`; no key holds one at first.
 
 export const NORTHWIND = '11111111-1111-4111-8111-111111111111';
 export const SOUTHWIND = '22222222-2222-4222-8222-222222222222';
@@ -81,6 +82,7 @@ export function fakePublicApi() {
   const products: FakeProduct[] = [];
   const stages: FakeStage[] = [];
   const plans: { workspace: string; repository: string }[] = [];
+  const apps = new Map<string, KeyGithubApp>();
   const calls: string[] = [];
   let made = 0;
 
@@ -127,6 +129,10 @@ export function fakePublicApi() {
       calls.push('isPlanRepository');
       return Promise.resolve(plans.some((plan) => plan.workspace === workspace && plan.repository === repository));
     },
+    githubAppOf(key) {
+      calls.push('githubAppOf');
+      return Promise.resolve(apps.get(key) ?? null);
+    },
   };
 
   // The runners' own rules over their own fake store: what a key starts and follows a job with.
@@ -152,6 +158,8 @@ export function fakePublicApi() {
     stage: (workspace: string, repository: string, prd: PrdNumber, stage: (typeof PRD_STAGES)[number]) => { stages.push({ workspace, repository, prd, stage }); },
     /** A repository a product of the workspace names as its plan repository. */
     planRepository: (workspace: string, repository: string) => { plans.push({ workspace, repository }); },
+    /** A GitHub App the key `keyId` holds, its private key sealed (the fake seals nothing: no test opens it). */
+    githubApp: (keyId: string, more: Partial<KeyGithubApp> = {}) => { apps.set(keyId, { appId: 123456, slug: 'acme-bot', ciphertext: 'c2VhbGVk', iv: 'aXY=', ...more }); },
   };
 }
 

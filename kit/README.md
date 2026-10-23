@@ -140,10 +140,31 @@ on a machine set up for it, with no one at a terminal. Start one with
   it, whatever the page sent.
 - **Who sent it:** a job runs under the runner owner's GitHub and Claude accounts, with
   `OMNI_SENT_BY` and `OMNI_RUNNER` set, and `/omni:pr` writes
-  `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens.
+  `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens. A job an API
+  key sent (PRD 2433) has `OMNI_SENT_BY_KEY`, the key's name, in place of `OMNI_SENT_BY`, and its
+  line reads `Sent through the Omni API by API key <name> on runner <name>`: it names the key and
+  never the person who made it.
 - **A job's own variables** (PRD 2175): every job's session also gets `OMNI_JOB` (the job's id),
   `OMNI_RUNNER` (the runner's name, sender or not) and `OMNI_UNATTENDED=1`, so a claim the job makes
   names it in its status comment, `- job: <id> · runner <name>`, and no skill waits on a question.
+- **A job that runs as a GitHub App** (PRD 2433): the runner registers with `githubApp: true`, and a
+  job the page hands over with a `github` grant (the app's installation token, its login and its
+  email) starts as that app, not as the owner's GitHub account. Its session gets `OMNI_GITHUB_APP`
+  (the app's login), the app as the author and the committer of every commit
+  (`GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL`), a git
+  credential helper and an `insteadOf` that send every `git@github.com:` and `ssh://git@github.com/`
+  remote over HTTPS with the token (set through `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_<n>` and
+  `GIT_CONFIG_VALUE_<n>`, so no git file changes), and a `gh` first on `PATH`, written under
+  `~/.config/omni/runner/bin`, that runs the real `gh` with the token as `GH_TOKEN` and answers
+  `gh auth token` with it. The token is never in the job's environment: the runner keeps it in
+  `~/logs/job-<id>.github`, readable by its owner alone, and the helper and the `gh` read it through
+  `omni runner github-token` (`--git get` is git's credential helper call). That command prints the
+  token inside a job of this runner and nowhere else, and one line with exit 1 otherwise. Every kit
+  command that calls `gh` inside such a job uses the job's token and never runs `gh auth token`, and
+  every line, log tail and report the runner sends reads `***` for every token the job had, past
+  ones too. The file goes once the job is reported. A job with no `github` starts exactly as before.
+  A job whose token cannot be kept on this machine ends `failed`, `github app: <why>`, before Claude
+  starts: it never runs as a person.
 - **When a job dies holding claims** (PRD 2175): once a job ends, done, failed, timed out or
   cancelled, the runner releases the claims it still holds, with `gh`, signed in on the box: every
   open draft pull request of the job's repository that carries `labels.inProgress` and whose status
