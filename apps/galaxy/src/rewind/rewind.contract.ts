@@ -12,18 +12,19 @@
 // 403 not a member, 404 no watch for the PRD, 409 a finding already proposed, 413 too large, 500 the
 // database failed, 503 no database here.
 import { z } from 'zod';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { RewindFindingSchema, REWIND_CHECKS, REWIND_ORIGINS } from 'omni-loop/kit/lib/rewind/findings.ts';
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
 export const FactsQuerySchema = z.strictObject({
   repo: z.string().trim().max(200).regex(REPO, 'the repository as owner/name'),
-  prd: z.coerce.number().int().positive().max(2 ** 31 - 1),
+  prd: z.coerce.number().pipe(PrdNumberSchema),
 });
 
 export const PushBodySchema = z.strictObject({
   repo: z.string().trim().max(200).regex(REPO, 'the repository as owner/name'),
-  prd: z.number().int().positive().max(2 ** 31 - 1),
+  prd: PrdNumberSchema,
   findings: z.array(RewindFindingSchema).min(1).max(50),
 });
 

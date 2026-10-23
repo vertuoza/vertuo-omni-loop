@@ -1,7 +1,7 @@
 /**
  * **The rewind's findings** (PRD 2410, s5): what `/omni:rewind` found about why a PRD broke main, as the
  * file `omni rewind push --file` reads and the page's endpoint receives. Pure, zod only, so the kit and
- * the galaxy app share one contract.
+ * the page's app share one contract.
  *
  * A finding names the check it came from (the break itself, then the seven checks), where the break
  * started, what happened, the links it stands on (at least one, https) and the fix. `checkFindings`
@@ -10,12 +10,12 @@
  * without repeats, so two findings with the same check, origin and evidence are the same finding.
  */
 import { z } from 'zod';
+import { isOneOf } from '../narrow.ts';
 
 export const REWIND_CHECKS = ['main', 'reviews', 'ci', 'bodies', 'waves', 'plan', 'spec', 'knowledge'] as const;
 
 export const REWIND_ORIGINS = ['repository', 'omni-setup', 'knowledge'] as const;
 
-const isOneOf = <T extends string>(list: readonly T[], value: unknown): value is T => typeof value === 'string' && (list as readonly string[]).includes(value);
 
 /** One finding as it is pushed. */
 export const RewindFindingSchema = z.strictObject({

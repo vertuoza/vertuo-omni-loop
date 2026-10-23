@@ -561,11 +561,11 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ dossierId: string, bug: string, created: boolean, rows: unknown[], added: unknown[], unchanged: string[] }>} */
     pushBug: (body: unknown) => call('POST', '/api/fixes', { body }),
     /** PRD 2410: a PRD's watch on main, its breaks and the rewind's findings, as the caller (`omni rewind facts`). */
-    readRewind: ({ repo, prd }: { repo: string; prd: number }) =>
+    readRewind: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
       call('GET', `/api/rewind/facts?${new URLSearchParams({ repo, prd: String(prd) })}`),
     /** PRD 2410: sends the rewind's findings for PRD `prd` of `repo` (`omni rewind push`).
      * @returns {Promise<{ added: number }>} */
-    pushRewind: ({ repo, prd, findings }: { repo: string; prd: number; findings: unknown }) =>
+    pushRewind: ({ repo, prd, findings }: { repo: string; prd: PrdNumber; findings: unknown }) =>
       call('POST', '/api/rewind/findings', { body: { repo, prd, findings } }),
     /** PRD 1246: adds an idea to `repo`'s board (owner/name), for a member of the workspace that lists
      * it. @returns {Promise<{ id: string, url: string }>} */

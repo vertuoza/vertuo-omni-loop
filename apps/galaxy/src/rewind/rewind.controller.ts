@@ -1,4 +1,3 @@
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { reply } from '../business-api/reply';
 import { bodyOf, receivePush, refuse } from '../data/kit-push';
@@ -37,7 +36,7 @@ export async function getRewindFacts(request: Request, deps: RewindDeps): Promis
   const query = FactsQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!query.success) return refuse(REWIND_REFUSALS.malformed, 'Name the repository as owner/name and the PRD as a number.');
   try {
-    const done = await deps.connect(auth.caller.token).service.facts(query.data.repo, parsePrd(query.data.prd));
+    const done = await deps.connect(auth.caller.token).service.facts(query.data.repo, query.data.prd);
     return done.ok ? reply(200, done.value) : refuse(REWIND_REFUSALS[done.kind], done.error);
   } catch (error) {
     deps.log(`rewind facts: ${error instanceof Error ? error.message : String(error)}`);
@@ -52,7 +51,7 @@ export async function postRewindFindings(request: Request, deps: RewindDeps): Pr
   const push = bodyOf(PushBodySchema, received.sent, 'A rewind push');
   if ('problem' in push) return refuse(REWIND_REFUSALS.malformed, push.problem);
   try {
-    const done = await received.client().service.propose(push.repo, parsePrd(push.prd), push.findings);
+    const done = await received.client().service.propose(push.repo, push.prd, push.findings);
     return done.ok ? reply(200, done.value) : refuse(REWIND_REFUSALS[done.kind], done.error);
   } catch (error) {
     deps.log(`rewind push: ${error instanceof Error ? error.message : String(error)}`);

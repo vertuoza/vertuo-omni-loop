@@ -4,6 +4,7 @@
  * in, lines out.
  */
 import { z } from 'zod';
+import type { PrdNumber } from '../ids.ts';
 
 const Watch = z.object({ lane: z.string(), status: z.string(), merge_sha: z.string(), merged_at: z.string(), watch_until: z.string(), unread: z.array(z.string()) });
 const Break = z.object({ lane: z.string(), source: z.string(), kind: z.string(), url: z.string(), title: z.string(), parent: z.string().nullable(), at: z.string() });
@@ -21,7 +22,7 @@ export function factsOf(reply: unknown): RewindFacts | null {
 const day = (stamp: string) => stamp.slice(0, 10);
 
 /** The lines `omni rewind facts` prints for PRD `prd`. */
-export function factLines(prd: number, facts: RewindFacts): string[] {
+export function factLines(prd: PrdNumber, facts: RewindFacts): string[] {
   if (facts.watches.length === 0) return [`PRD ${String(prd)} has no watch on main: it is not merged, or the Omni App has not opened one.`];
   const lines = [`PRD ${String(prd)} on main:`];
   for (const w of facts.watches) {

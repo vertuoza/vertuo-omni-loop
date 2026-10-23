@@ -77,7 +77,8 @@ function fileJson(cwd: string, name: string): { value: unknown } | { error: stri
     return { error: `cannot read ${name}.` };
   }
   try {
-    return { value: JSON.parse(text) as unknown };
+    const value: unknown = JSON.parse(text);
+    return { value };
   } catch {
     return { error: `${name} is not JSON.` };
   }
