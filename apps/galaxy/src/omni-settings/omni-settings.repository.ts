@@ -25,6 +25,17 @@ export type SettingsWorkspace = {
   planRepo: string | null;
 };
 
+async function workspacesOf(db: OmniSettingsDb, ids: string[], what: string): Promise<SettingsWorkspace[]> {
+  const found = await db.from('workspaces').select(WORKSPACE_COLUMNS).in('id', ids).order('id');
+  if (found.error) throw new Error(`read ${what}: ${found.error.message}`);
+  return orThrow(parseRows(StoredWorkspace, found.data, 'omni-settings: workspaces')).map((row) => ({
+    id: row.id,
+    githubOrg: row.github_org,
+    installation: row.github_installation_id === null ? null : Number(row.github_installation_id),
+    planRepo: row.plan_repo,
+  }));
+}
+
 export function omniSettingsRepository(db: OmniSettingsDb) {
   return {
     /** The workspaces the caller reads that list `repo` (owner/name, lower case), by id. */
@@ -33,14 +44,12 @@ export function omniSettingsRepository(db: OmniSettingsDb) {
       if (listed.error) throw new Error(`read the workspaces of ${repo}: ${listed.error.message}`);
       const ids = orThrow(parseRows(Listing, listed.data, 'omni-settings: repositories')).map((row) => row.workspace_id);
       if (ids.length === 0) return [];
-      const found = await db.from('workspaces').select(WORKSPACE_COLUMNS).in('id', ids).order('id');
-      if (found.error) throw new Error(`read the workspaces of ${repo}: ${found.error.message}`);
-      return orThrow(parseRows(StoredWorkspace, found.data, 'omni-settings: workspaces')).map((row) => ({
-        id: row.id,
-        githubOrg: row.github_org,
-        installation: row.github_installation_id === null ? null : Number(row.github_installation_id),
-        planRepo: row.plan_repo,
-      }));
+      return workspacesOf(db, ids, `the workspaces of ${repo}`);
+    },
+
+    /** The workspace `id` when the caller reads it, else null (PRD 2417, s6: the page's own read). */
+    async workspaceById(id: string): Promise<SettingsWorkspace | null> {
+      return (await workspacesOf(db, [id], `the workspace ${id}`))[0] ?? null;
     },
   };
 }
