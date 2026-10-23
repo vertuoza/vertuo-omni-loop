@@ -580,7 +580,8 @@ describe('the Runners page\'s read', () => {
     const w = world({ jobs: [noApp, running] });
     const board = value(await w.service.board(OLGA, WORKSPACE));
     expect(board.jobs.map((j) => j.needsApp)).toEqual([undefined, undefined]);
-    expect(w.state.calls).toEqual([`app of job ${noApp.id}`]);
+    // One batched read of the queued key jobs, never api_key_github_app_of_job(), which carries the App's sealed key.
+    expect(w.state.calls).toEqual([`jobs needing app ${noApp.id}`]);
   });
 });
 
