@@ -645,6 +645,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'branches, labels and commands from here rather than spelling them.',
   },
   {
+    name: 'worktrees',
+    kind: 'command',
+    who: 'you',
+    label: 'omni worktrees …',
+    usage: ['omni worktrees list [--json]', 'omni worktrees prune [--prd <n>] [--dry-run]', 'omni worktrees remove <path>', 'omni worktrees hint'],
+    summary: "remove the kit's worktrees once their work is pushed",
+    detail:
+      "A worktree is the kit's when it sits under the worktrees folder on a slice, feature or " +
+      'phase-0 branch; every other one is never touched. A kit worktree is kept, with its reason, ' +
+      'while it has an uncommitted change, a commit no remote branch holds, a slice still claimed or ' +
+      'red while its feature PR is open, or a process working inside it. list prints every worktree ' +
+      'and each verdict, safe or kept. prune removes the safe ones (of one PRD with --prd), printing ' +
+      'removed or kept per worktree and the space freed; --dry-run removes nothing. remove applies ' +
+      'the same rules to one worktree, a detached one included. hint prints how many could go, with no ' +
+      'network. It removes with git worktree remove and git branch -d, never by force, and exits 0 ' +
+      'whatever it keeps.',
+  },
+  {
     name: 'credits',
     kind: 'command',
     who: 'you',

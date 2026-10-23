@@ -1,11 +1,11 @@
 // Every `omni` subcommand, by name. Each is `{ run(args, { ctx, stdout, stderr, exec, env }) → exit code }`;
-// one marked `withoutContext` (conventions, approval, wait, runner, init, ask, heartbeat, session, signin, signout, whoami, setup-token, dossier, idea, loop, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product, status, prd, item, adopt, settle, answers, sync)
+// one marked `withoutContext` (conventions, approval, wait, runner, init, ask, heartbeat, session, signin, signout, whoami, setup-token, dossier, idea, loop, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product, status, prd, item, adopt, settle, answers, sync, worktrees)
 // gets `{ cwd, stdout, stderr, exec, env }` instead, plus whatever a caller injects (init's `stdin`, `bundle`
 // and `ask`; ask's `stdin`, `tokens` and `limits`; heartbeat's `stdin`, `tokens`, `fetch` and `now`; signin's `home`, `openBrowser`, `fetch` and `waitMs`;
 // signout's and whoami's `home`; setup-token's `openBrowser`, `waitMs` and `now`; dossier's and loop's `tokens`, `home`, `fetch`, `callMs` and `now`; idea's and proof's `tokens`, `home`, `fetch` and `callMs`;
 // pitch's `tokens`, `home`, `fetch`, `callMs`, `now`, `launch`, `openBrowser` and `studioUntil`;
 // business's, decide's, approval's, product's and status's `tokens`, `home`, `fetch` and `callMs`; item's, adopt's, settle's and answers' `tokens`, `home`, `fetch`, `callMs` and `now`; wait's `tokens`, `home`, `fetch`, `callMs`, `sleep`, `now`, `idleMs` and `deadline`; constituents' and session's `tokens`, `home`, `fetch`, `now` and `budgetMs`;
-// version's `kit`; update's `kit` and `bundle`; sync's `now` and `spawn`; statusline's `stdin`, `now`, `readFacts` and `spawn`; now's `stdin` and `now`; runner's `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs` and `backoff`).
+// version's `kit`; update's `kit` and `bundle`; sync's `now` and `spawn`; worktrees' `board` and `processes`; statusline's `stdin`, `now`, `readFacts` and `spawn`; now's `stdin` and `now`; runner's `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs` and `backoff`).
 import type { Command, FreeCommand } from '../io.ts';
 import { adopt } from './adopt.ts';
 import { answers } from './answers.ts';
@@ -69,5 +69,6 @@ import { sync } from './sync.ts';
 import { update } from './update.ts';
 import { version } from './version.ts';
 import { visual } from './visual.ts';
+import { worktrees } from './worktrees.ts';
 
-export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, 'before-after': beforeAfter, prd, budget, approval, wait, status, settle, adopt, replies, answers, comment, ship, harvest, retro, rewind, check, claim, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version, update, help, statusline, now, targets, product, session, runner, tier, sync });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, 'before-after': beforeAfter, prd, budget, approval, wait, status, settle, adopt, replies, answers, comment, ship, harvest, retro, rewind, check, claim, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version, update, help, statusline, now, targets, product, session, runner, tier, sync, worktrees });

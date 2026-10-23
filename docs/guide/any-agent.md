@@ -190,6 +190,32 @@ whose model the agent refuses, started again once on the terminal's model. Every
 built it on a `Tier:` line, such as `Tier: light · claude haiku · low` or
 `Tier: build · inherited (no mapping)`.
 
+## Clean up the worktrees
+
+Every slice agent works in its own worktree under the `worktrees` folder, and so do the feature and
+phase-0 worktrees `/omni:brainstorm` cuts. The kit removes the ones it created, once their work is
+safe on the remote:
+
+```bash terminal
+omni worktrees list [--json]
+omni worktrees prune [--prd <n>] [--dry-run]
+omni worktrees remove <path>
+omni worktrees hint
+```
+
+`list` shows every worktree of the repository, the kit's or not, and says for each of the kit's
+whether it is safe to remove or kept, with the reason. `prune` removes the safe ones, prints
+`removed <path> · <size>` or `kept <path> · <reason>` for each, then `freed <total>`; `--prd <n>`
+limits it to one PRD's, and `--dry-run` removes nothing and prints `would remove`. `remove` applies
+the same rules to the one worktree you name. `hint` prints how many could go, with no network and
+no board read; the session start runs it.
+
+A worktree is kept while it has an uncommitted change, a commit no remote branch holds, a slice still
+claimed, a slice that is red, stopped or blocked while its feature pull request is open, or a process
+working inside it. `/omni:wave` removes a slice's worktree once its pull request merges,
+`/omni:yolo` and `/omni:yolo-fix` prune the PRD's worktrees before they hand off and name each one
+they kept, and every verb exits 0 whatever it keeps. Nothing is ever removed by force.
+
 ## The heartbeat
 
 While the session runs, every `omni` command the agent runs tells the Omni page the session is
