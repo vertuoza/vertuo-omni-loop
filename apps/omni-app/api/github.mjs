@@ -761,8 +761,8 @@ var target = z7.object({
   // PRD 1162: the short names of the targets whose default-branch packages this one installs.
   consumes: z7.array(z7.string()).optional()
 }).strict();
-function targetShortName(slug) {
-  return slug.slice(slug.indexOf("/") + 1);
+function targetShortName(slug2) {
+  return slug2.slice(slug2.indexOf("/") + 1);
 }
 var planSection = z7.object({
   guide: nullableText.default(null),
@@ -1047,6 +1047,11 @@ var ConfigSchema = z7.object({
   // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
   // lesson worth a guard names it for a person to take up. A repository opts in.
   retro: section({ guards: z7.boolean().default(false) }),
+  // PRD 2410: whether the GitHub App watches main for seven days after a feature PR merges, marking
+  // the PRD broke on a red job on the merge commit, a revert or a traced regression, and queueing
+  // `/omni:rewind` on the first break. On by default; read at the merge commit, so `false` there
+  // opens no watch and queues no rewind.
+  mainWatch: section({ enabled: z7.boolean().default(true) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
@@ -1644,7 +1649,7 @@ function forwardTouch(touch, post) {
 
 // apps/omni-app/src/webhook/webhook.ts
 import { Webhooks } from "@octokit/webhooks";
-import { z as z14 } from "zod";
+import { z as z15 } from "zod";
 
 // apps/omni-app/src/fix-rows/fix-stamp.ts
 import { z as z12 } from "zod";
@@ -1692,12 +1697,33 @@ function fixStampId({ repository, prNumber, kind, at: when }) {
   return `fix-stamp:${repository.toLowerCase()}#${String(prNumber)}:${kind}:${when}`;
 }
 
-// apps/omni-app/src/inbox-check/canon-actions.ts
+// apps/omni-app/src/main-watch/events.ts
 import { z as z13 } from "zod";
+var MAIN_WATCH_EVENT = "omni-loop/main-watch.requested";
+var MAIN_WATCH_CI_EVENT = "omni-loop/main-watch.ci-red";
+var slug = z13.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
+var MainWatchDataSchema = z13.looseObject({
+  installationId: z13.number(),
+  owner: z13.string().min(1),
+  repo: z13.string().min(1),
+  repository: slug,
+  prNumber: PrNumberSchema,
+  mergeSha: z13.string().min(1),
+  mergedAt: z13.string().nullish()
+});
+function mainWatchId({ repository, prNumber, mergeSha }) {
+  return `main-watch:${repository.toLowerCase()}#${String(prNumber)}:${mergeSha}`;
+}
+function mainWatchCiId({ repository, suite }) {
+  return `main-watch-ci:${repository.toLowerCase()}:${String(suite)}`;
+}
+
+// apps/omni-app/src/inbox-check/canon-actions.ts
+import { z as z14 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
-var MarkerSchema = z13.looseObject({ prd: z13.unknown(), persona: z13.unknown(), claims: z13.unknown() });
+var MarkerSchema = z14.looseObject({ prd: z14.unknown(), persona: z14.unknown(), claims: z14.unknown() });
 function readCanonMarker(summary) {
   const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed(summary));
   if (!match2) return null;
@@ -1739,6 +1765,10 @@ var APPROVED_LABEL_ACTIONS = Object.freeze({
 var FIX_STAMP_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["closed", "reopened"])
 });
+var MAIN_WATCH_CI_ACTIONS = Object.freeze({
+  check_suite: Object.freeze(["completed"])
+});
+var RED_SUITE = /* @__PURE__ */ new Set(["failure", "timed_out", "startup_failure"]);
 var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
@@ -1746,37 +1776,43 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z14.looseObject({
+var PullRefSchema = z15.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z14.looseObject({ sha: z14.string().nullish() }).nullish(),
-  base: z14.looseObject({ ref: z14.string().nullish() }).nullish()
+  head: z15.looseObject({ sha: z15.string().nullish() }).nullish(),
+  base: z15.looseObject({ ref: z15.string().nullish() }).nullish()
 });
-var PayloadSchema = z14.looseObject({
-  action: z14.unknown(),
+var PayloadSchema = z15.looseObject({
+  action: z15.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z14.looseObject({ id: z14.number().nullish() }).nullish(),
-  repository: z14.looseObject({
-    name: z14.string(),
-    full_name: z14.string().nullish(),
-    owner: z14.looseObject({ login: z14.string().nullish() }).nullish(),
-    default_branch: z14.string().nullish()
+  installation: z15.looseObject({ id: z15.number().nullish() }).nullish(),
+  repository: z15.looseObject({
+    name: z15.string(),
+    full_name: z15.string().nullish(),
+    owner: z15.looseObject({ login: z15.string().nullish() }).nullish(),
+    default_branch: z15.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    body: z14.string().nullish(),
-    merged: z14.boolean().nullish(),
-    merge_commit_sha: z14.string().nullish(),
-    merged_at: z14.string().nullish(),
-    closed_at: z14.string().nullish(),
-    updated_at: z14.string().nullish()
+    body: z15.string().nullish(),
+    merged: z15.boolean().nullish(),
+    merge_commit_sha: z15.string().nullish(),
+    merged_at: z15.string().nullish(),
+    closed_at: z15.string().nullish(),
+    updated_at: z15.string().nullish()
   }).nullish(),
-  check_run: z14.looseObject({
-    id: z14.number().nullish(),
-    external_id: z14.string().nullish(),
-    head_sha: z14.string().nullish(),
-    pull_requests: z14.array(PullRefSchema).nullish(),
-    output: z14.looseObject({ summary: z14.unknown() }).nullish()
+  check_run: z15.looseObject({
+    id: z15.number().nullish(),
+    external_id: z15.string().nullish(),
+    head_sha: z15.string().nullish(),
+    pull_requests: z15.array(PullRefSchema).nullish(),
+    output: z15.looseObject({ summary: z15.unknown() }).nullish()
   }).nullish(),
-  requested_action: z14.looseObject({ identifier: z14.unknown() }).nullish()
+  requested_action: z15.looseObject({ identifier: z15.unknown() }).nullish(),
+  check_suite: z15.looseObject({
+    id: z15.number().nullish(),
+    head_branch: z15.string().nullish(),
+    head_sha: z15.string().nullish(),
+    conclusion: z15.string().nullish()
+  }).nullish()
 });
 async function receiveWebhook({
   body,
@@ -1785,6 +1821,7 @@ async function receiveWebhook({
   send,
   sendApproved = () => Promise.resolve(),
   sendStamps = () => Promise.resolve(),
+  sendWatch = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log: log2 = noteTo("webhook")
@@ -1817,12 +1854,14 @@ async function receiveWebhook({
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
   const stamps = toFixStampRequests(event, payload);
-  const total = events.length + approved.length + stamps.length;
+  const watch = toMainWatchRequests(event, payload);
+  const total = events.length + approved.length + stamps.length + watch.length;
   if (total === 0) return reply(200, "ignored");
   try {
     if (events.length > 0) await send(events);
     if (approved.length > 0) await sendApproved(approved);
     if (stamps.length > 0) await sendStamps(stamps);
+    if (watch.length > 0) await sendWatch(watch);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
@@ -1900,9 +1939,26 @@ function toFixStampRequests(event, delivery) {
   const data = { installationId: source.installationId, repository: source.repository, prNumber, kind, at: at2, bug };
   return [{ name: FIX_STAMP_EVENT, id: fixStampId(data), data }];
 }
-var LabelEventSchema = z14.looseObject({
-  label: z14.looseObject({ name: z14.string() }),
-  issue: z14.looseObject({ number: PrdNumberSchema, pull_request: z14.unknown().optional() })
+function toMainWatchRequests(event, delivery) {
+  const merged = toRetroRequests(event, delivery).map(({ data }) => ({ name: MAIN_WATCH_EVENT, id: mainWatchId(data), data }));
+  const payload = readPayload(delivery);
+  if (merged.length > 0 || !payload || !handles(MAIN_WATCH_CI_ACTIONS, event, payload.action)) return merged;
+  const source = sourceOf(payload);
+  const suite = payload.check_suite;
+  if (!source || !suite?.id || !suite.head_sha || !RED_SUITE.has(suite.conclusion)) return [];
+  const defaultBranch = payload.repository?.default_branch;
+  if (defaultBranch && suite.head_branch !== defaultBranch) return [];
+  return [
+    {
+      name: MAIN_WATCH_CI_EVENT,
+      id: mainWatchCiId({ repository: source.repository, suite: suite.id }),
+      data: { installationId: source.installationId, repository: source.repository, sha: suite.head_sha }
+    }
+  ];
+}
+var LabelEventSchema = z15.looseObject({
+  label: z15.looseObject({ name: z15.string() }),
+  issue: z15.looseObject({ number: PrdNumberSchema, pull_request: z15.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery) {
   const payload = readPayload(delivery);
@@ -1997,6 +2053,7 @@ function githubRoute(env, {
         send,
         sendApproved: send,
         sendStamps: send,
+        sendWatch: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });

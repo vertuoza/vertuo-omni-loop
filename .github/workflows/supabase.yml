@@ -150,6 +150,13 @@ jobs:
         # later last-slice moves it (PRD 2370). A member reads their own workspace's rows; anyone else
         # reads nothing, and nobody signed in writes.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_milestones.sql
+      - name: Who may read and write a PRD's main watch, and who decides a rewind finding
+        # Only the service role opens a watch per lane, adds its breaks (a replayed source adds nothing)
+        # and proposes findings (none without an evidence link, none twice), and never decides one; it
+        # may queue /omni:rewind as the app. A member reads their own workspace's rows, writes none, and
+        # approves or rejects a finding once through its function, which logs the decision; anyone else
+        # reads and decides nothing (PRD 2410).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/main_watch.sql
       - name: Who may read and write the PRD outboxes
         # Only the service role records and recounts a PRD's open outbox questions. A member reads
         # their own workspace's rows; anyone else reads nothing, and nobody signed in writes.

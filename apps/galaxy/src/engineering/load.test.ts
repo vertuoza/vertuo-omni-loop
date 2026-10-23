@@ -36,6 +36,7 @@ function reads(over: Partial<EngineeringReads> = {}): EngineeringReads & { asked
     pullRequests: (from, repos) => { asked.push(['prs', from.toISOString(), repos]); return Promise.resolve([PR]); },
     reviews: (from, to, repos) => { asked.push(['reviews', from.toISOString(), to.toISOString(), repos]); return Promise.resolve([]); },
     milestones: () => Promise.resolve([]),
+    mainWatch: () => Promise.resolve([]),
     people: () => {
       asked.push('people');
       return Promise.resolve(peopleOf(
@@ -113,7 +114,7 @@ describe('loadEngineering', () => {
     expect(r.asked).toEqual([]);
   });
 
-  it.each(['tracked', 'pullRequests', 'reviews', 'milestones'] as const)('when %s cannot be read: could not load, its error logged', async (which) => {
+  it.each(['tracked', 'pullRequests', 'reviews', 'milestones', 'mainWatch'] as const)('when %s cannot be read: could not load, its error logged', async (which) => {
     const board = await loadEngineering(reads({ [which]: () => Promise.reject(new Error('boom')) }), REQUEST);
     expect(board).toBe(UNREADABLE);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('boom'));
