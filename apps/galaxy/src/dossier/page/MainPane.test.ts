@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
 import type { BreakRow, MainWatchRead, WatchRow } from '../../main-watch/store';
+import type { FindingView } from '../../rewind/rewind.contract';
 import type { DossierRow } from '../store';
 import { DEMO_VIEWER, demoDossier } from './demo';
 import { DossierPage } from './DossierPage';
@@ -114,6 +115,47 @@ describe('the Main tab', () => {
 
   it('names the signals it could not read', () => {
     expect(html({ watches: [watch({ unread: ['issues of the week'] })], breaks: [] }, { tab: 'main' })).toContain('Could not read: issues of the week');
+  });
+});
+
+describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
+  const broken = { watches: [watch({ status: 'broke' })], breaks: [red] };
+  const found = (more: Partial<FindingView> = {}): FindingView => ({
+    id: 'f1', check: 'ci', origin: 'omni-setup', happened: 'The lint was <b>red</b> on the slice.', evidence: ['https://github.com/vertuoza/vertuo-omni-loop/actions/runs/2'],
+    fix: 'Require the lint job.', state: 'proposed', reason: null, ...more,
+  });
+  const withFindings = (findings: FindingView[]) => renderToStaticMarkup(createElement(DossierPage, {
+    view: dossierView({ dossier: numbered, versions: [], members: [PIERRE], rounds: [], mainWatch: broken, rewindFindings: findings }, PIERRE.user_id, readPick({ tab: 'main' }), NOW),
+    markdown: null, supabase: SUPABASE,
+  }));
+
+  it('lists each with its check, where it started, what happened, its evidence and its fix, under the breaks', () => {
+    const page = withFindings([found()]);
+    expect(page).toContain('aria-label="What the rewind found"');
+    expect(page).toContain('>CI<');
+    expect(page).toContain('Started in: The Omni setup');
+    expect(page).toContain('Proposed');
+    expect(page).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/actions/runs/2"');
+    expect(page).toContain('<strong>Fix:</strong> Require the lint job.');
+    expect(page).not.toContain('No rewind yet');
+    expect(page.indexOf('What broke main')).toBeLessThan(page.indexOf('What the rewind found'));
+  });
+
+  it('escapes what the rewind wrote', () => {
+    const page = withFindings([found()]);
+    expect(page).toContain('&lt;b&gt;red&lt;/b&gt;');
+    expect(page).not.toContain('<b>red</b>');
+  });
+
+  it('shows a rejected finding with its reason, and never links evidence that is not https', () => {
+    const page = withFindings([found({ state: 'rejected', reason: 'Not our lint', evidence: ['https://a.test/x', 'javascript:alert(1)'] })]);
+    expect(page).toContain('Rejected: Not our lint');
+    expect(page).toContain('href="https://a.test/x"');
+    expect(page).not.toContain('javascript:');
+  });
+
+  it('keeps saying no rewind ran yet when there is no finding', () => {
+    expect(withFindings([])).toContain('No rewind yet.');
   });
 });
 

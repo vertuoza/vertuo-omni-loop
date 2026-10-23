@@ -121,7 +121,7 @@ const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactN
     : <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
   care: ({ view }) => <CarePane care={view.care} />,
   retro: ({ view }) => <RetroPane retro={view.retro} />,
-  main: ({ view }) => <MainPane main={view.mainWatch} />,
+  main: ({ view }) => <MainPane main={view.mainWatch} findings={view.rewindFindings} />,
   timeline: ({ view }) => (view.kind === 'prd' ? <PrdTimelinePane timeline={view.timeline} /> : <TimelinePane fix={view.fix} />),
   proof: ({ view }) => <ProofPane proof={view.proof} action={view.link} />,
   pitch: ({ view }) => <PitchPane pitch={view.pitch} action={view.link} />,

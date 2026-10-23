@@ -96,6 +96,7 @@ import { approvalView, type ApprovalFacts, type ApprovalRead, type ApprovalView 
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { MainWatchRead } from '../../main-watch/store';
 import { mainWatchView, type MainWatchView } from '../../main-watch/status';
+import type { FindingView } from '../../rewind/rewind.contract';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
@@ -230,6 +231,8 @@ export type DossierRead = {
   milestones?: readonly MilestoneRow[] | null | undefined;
   /** The PRD's watch on main (PRD 2410, s3): null when it could not be read, left out when not asked for. */
   mainWatch?: MainWatchRead | null | undefined;
+  /** What the rewind found about a break on main (PRD 2410, s5): null when it could not be read, left out when not asked for. */
+  rewindFindings?: readonly FindingView[] | null | undefined;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
@@ -347,6 +350,8 @@ export type DossierView = {
   timeline: TimelineView | null;
   /** A PRD's status on main (PRD 2410, s3): null with no watch, for a fix and a draft. */
   mainWatch: MainWatchView | null;
+  /** The rewind's findings, for the Main tab (PRD 2410, s5): none for a fix, a draft and a PRD with none. */
+  rewindFindings: readonly FindingView[];
   /** The line under the stage words (PRD 2370, s5); null with no milestone, for a fix and a draft. */
   timelineLine: string | null;
   /** What the User voice tab's Rework with this feedback copies (PRD 822); null for a draft or a fix. */
@@ -771,6 +776,9 @@ function ownMainWatch(page: Page, read: DossierRead, now: number): MainWatchView
   return page.work === 'prd' && read.dossier.prd !== null ? mainWatchView(read.mainWatch, read.dossier.prd, now) : null;
 }
 
+/** The rewind's findings of a PRD (PRD 2410, s5); none for a fix, a draft, and a PRD with none. */
+const ownFindings = (page: Page, read: DossierRead): readonly FindingView[] => (page.work === 'prd' ? read.rewindFindings ?? [] : []);
+
 export function dossierView(read: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now()): DossierView {
   const page = pageOf(read, me, pick);
   const questions = questionsView(read.rounds, read.members, read.dossier.id, read.answerable ?? [], now, page.people);
@@ -797,6 +805,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     care,
     fix: page.work === 'prd' ? null : read.fix ?? null,
     mainWatch: ownMainWatch(page, read, now),
+    rewindFindings: ownFindings(page, read),
     timeline: own.view,
     timelineLine: own.line,
     rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
