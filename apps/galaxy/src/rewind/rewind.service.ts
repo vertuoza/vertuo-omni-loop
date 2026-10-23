@@ -109,8 +109,7 @@ const NOT_A_MEMBER = 'Only a member of the workspace decides its findings.';
 function namesOf(plan: ApprovalPlan): { done: string; what: string; instead: string } {
   if (plan.kind === 'job') {
     const skill = `/omni:${plan.skill}`;
-    const later = plan.skill === 'knowledge-add' ? ' On a runner it writes nothing yet: the rule still waits for a person to write it.' : '';
-    return { done: `Queued ${skill} on a runner of the workspace, sent by you.${later}`, what: `${skill} was not queued`, instead: `Run it from a terminal: ${plan.line}` };
+    return { done: `Queued ${skill} on a runner of the workspace, sent by you.`, what: `${skill} was not queued`, instead: `Run it from a terminal: ${plan.line}` };
   }
   if (plan.kind === 'proposal') {
     const kind = plan.knowledge === 'legal' ? 'Legal' : 'glossary';

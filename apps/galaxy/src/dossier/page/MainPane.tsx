@@ -1,5 +1,6 @@
 import type { MainWatchView } from '../../main-watch/status';
 import { FindingDecision } from '../../rewind/FindingDecision';
+import { proposesRule } from '../../rewind/rewind.approval';
 import { CHECK_LABELS, ORIGIN_LABELS, type FindingState, type FindingView } from '../../rewind/rewind.contract';
 
 const STATE_WORDS: Readonly<Record<FindingState, string>> = { proposed: 'Proposed', approved: 'Approved', rejected: 'Rejected' };
@@ -65,10 +66,11 @@ function stateLine(f: FindingView): string {
 }
 
 /** What became of an approved finding (PRD 2498, s2): the pull request that proposes the rule, the rule that
- * already says it, or the question asked; a knowledge finding still waiting says the rule is being proposed. */
+ * already says it, or the question asked; a finding Approve sent to `/omni:rewind-apply` that is still waiting
+ * says the rule is being proposed, and a glossary or Legal one, filed as a proposal, says nothing (s3). */
 function OutcomeLine({ finding: f }: { finding: FindingView }) {
   const outcome = f.outcome;
-  if (outcome === null) return f.origin === 'knowledge' ? <p className="main-finding-outcome ask-hint">Proposing the rule…</p> : null;
+  if (outcome === null) return proposesRule(f) ? <p className="main-finding-outcome ask-hint">Proposing the rule…</p> : null;
   if (outcome.kind === 'proposed') {
     return (
       <p className="main-finding-outcome">

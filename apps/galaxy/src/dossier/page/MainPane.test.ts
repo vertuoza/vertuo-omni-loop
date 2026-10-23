@@ -240,6 +240,11 @@ describe('an approved finding\'s outcome on the Main tab (PRD 2498, s2)', () => 
     expect(page(approved({ state: 'rejected' }))).not.toContain('Proposing the rule');
     expect(page(approved({ state: 'proposed', decidedBy: null, decidedAt: null }))).not.toContain('Proposing the rule');
   });
+
+  it('says nothing of a rule on a glossary or Legal finding, which Approve files as a proposal and no skill settles (PRD 2498, s3)', () => {
+    expect(page(approved({ fix: 'Add the glossary term `main watch`: the seven days after a merge.' }))).not.toContain('Proposing the rule');
+    expect(page(approved({ fix: 'Add a Legal entry L-GDPR: logs keep no e-mail address.' }))).not.toContain('Proposing the rule');
+  });
 });
 
 describe('the demo dossier', () => {
