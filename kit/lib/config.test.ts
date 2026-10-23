@@ -89,6 +89,16 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nretro:\n  tests: true\n')).toThrow(/retro.*tests/s);
   });
 
+  it('keeps the main watch on unless the file switches it off, and refuses a switch that is not a boolean (PRD 2410)', () => {
+    expect(parseConfig('kit: 1\n').mainWatch).toEqual({ enabled: true });
+    expect(parseConfig('kit: 1\nmainWatch:\n  enabled: false\n').mainWatch).toEqual({ enabled: false });
+    expect(parseConfig('kit: 1\nmainWatch: { enabled: true }\n').mainWatch).toEqual({ enabled: true });
+    expect(() => parseConfig('kit: 1\nmainWatch:\n  enabled: no thanks\n', 'c.yml')).toThrow(/c\.yml.*mainWatch\.enabled/);
+    expect(() => parseConfig('kit: 1\nmainWatch:\n  enabled: "false"\n')).toThrow(/mainWatch\.enabled/);
+    expect(() => parseConfig('kit: 1\nmainWatch:\n  enabled: 0\n')).toThrow(/mainWatch\.enabled/);
+    expect(() => parseConfig('kit: 1\nmainWatch:\n  days: 14\n')).toThrow(/mainWatch.*days/s);
+  });
+
   it('keeps design craft off with no screen paths unless the file switches it on, and refuses a bad switch or path (PRD 1369)', () => {
     expect(parseConfig('kit: 1\n').design).toEqual({ enabled: false, paths: [], screens: '.omni-loop/knowledge/design/screens/', words: { sentence: 7, screen: '[data-screen]', primary: '[data-primary]', avoid: [] } });
     expect(parseConfig('kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/**, "**/*.css"]\n').design).toEqual({
@@ -668,7 +678,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'retro', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
+      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'retro', 'mainWatch', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
     ]);
   });
 

@@ -18,8 +18,10 @@ import {
   toEvents,
   toFixStampRequests,
   toHarvestRequests,
+  toMainWatchRequests,
   toRetroRequests,
 } from './webhook.ts';
+import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, type MainWatchRequest } from '../main-watch/events.ts';
 import { APPROVED_LABEL_EVENT } from '../inngest-client.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
 import { FIX_STAMP_EVENT, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
@@ -333,8 +335,8 @@ describe('webhook — the retro route (PRD 72)', () => {
   it('turns a merged pull request into one retro event and one harvest event (PRD 82), and no outbox event', async () => {
     const { response, send } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
-    // The retro, the harvest, and the fix stamp beside them (PRD 2011 s7), which `send` never gets.
-    expect(response.body).toBe('sent 3');
+    // The retro, the harvest, and beside them the fix stamp (PRD 2011 s7) and the main watch (PRD 2410), which `send` never gets.
+    expect(response.body).toBe('sent 4');
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]?.[0]).toEqual([
       {
@@ -692,7 +694,7 @@ describe('webhook — the fix stamp (PRD 2011 s7)', () => {
     const send = sending();
     const sendStamps = vi.fn((events: FixStampRequest[]) => Promise.resolve(events.length));
     const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send, sendStamps, forward: forwarding() });
-    expect(response).toEqual({ status: 200, body: 'sent 3' });
+    expect(response).toEqual({ status: 200, body: 'sent 4' });
     expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
     expect(sendStamps).toHaveBeenCalledWith([stampOf('merged', MERGED_AT, 'mobile-B74')]);
 
@@ -708,5 +710,64 @@ describe('webhook — the fix stamp (PRD 2011 s7)', () => {
     const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send: sending(), sendStamps, forward: forwarding() });
     expect(response.status).toBe(401);
     expect(sendStamps).not.toHaveBeenCalled();
+  });
+});
+
+describe('webhook — the main watch (PRD 2410)', () => {
+  const suitePayload = (over: Record<string, unknown> = {}, repository: Record<string, unknown> = REPOSITORY) => ({
+    action: 'completed',
+    installation: INSTALLATION,
+    repository,
+    check_suite: { id: 77, head_branch: 'main', head_sha: MERGE_SHA, status: 'completed', conclusion: 'failure', ...over },
+  });
+  const ciEvent = { name: MAIN_WATCH_CI_EVENT, id: 'main-watch-ci:vertuoza/vertuo-omni-loop:77', data: { installationId: 4242, repository: 'vertuoza/vertuo-omni-loop', sha: MERGE_SHA } };
+
+  it('turns a pull request merged into the default branch into one main watch event, carrying its merge, with an id', () => {
+    expect(toMainWatchRequests('pull_request', mergedPayload())).toEqual([
+      {
+        name: MAIN_WATCH_EVENT,
+        id: `main-watch:vertuoza/vertuo-omni-loop#28:${MERGE_SHA}`,
+        data: { installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', repository: 'vertuoza/vertuo-omni-loop', prNumber: 28, mergeSha: MERGE_SHA, mergedAt: MERGED_AT },
+      },
+    ]);
+    expect(toMainWatchRequests('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }))).toEqual([]);
+    expect(toMainWatchRequests('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+    expect(toMainWatchRequests('pull_request', pullRequestPayload('opened'))).toEqual([]);
+  });
+
+  it('turns a check suite of the default branch that completed red into one CI event naming its commit', () => {
+    for (const conclusion of ['failure', 'timed_out', 'startup_failure']) {
+      expect(toMainWatchRequests('check_suite', suitePayload({ conclusion })), conclusion).toEqual([ciEvent]);
+    }
+    const noDefault = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } };
+    expect(toMainWatchRequests('check_suite', suitePayload({ head_branch: 'feat/x' }, noDefault))).toEqual([ciEvent]);
+  });
+
+  it('turns a green, neutral or cancelled suite, a suite of another branch, another action or a suite missing its commit into none', () => {
+    for (const conclusion of ['success', 'neutral', 'cancelled', 'skipped', null]) {
+      expect(toMainWatchRequests('check_suite', suitePayload({ conclusion })), String(conclusion)).toEqual([]);
+    }
+    expect(toMainWatchRequests('check_suite', suitePayload({ head_branch: 'feat/x' }))).toEqual([]);
+    expect(toMainWatchRequests('check_suite', { ...suitePayload(), action: 'requested' })).toEqual([]);
+    expect(toMainWatchRequests('check_suite', suitePayload({ head_sha: null }))).toEqual([]);
+    expect(toMainWatchRequests('check_suite', suitePayload({ id: null }))).toEqual([]);
+    expect(toMainWatchRequests('check_suite', { ...suitePayload(), installation: null })).toEqual([]);
+    expect(toEvents('check_suite', suitePayload())).toEqual([]);
+  });
+
+  it('a signed delivery hands the main watch its events, nothing to send, and answers 502 when they cannot be sent', async () => {
+    const body = JSON.stringify(suitePayload());
+    const headers = { 'x-github-event': 'check_suite', 'x-hub-signature-256': sign(body) };
+    const send = sending();
+    const sendWatch = vi.fn((events: MainWatchRequest[]) => Promise.resolve(events.length));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendWatch, forward: forwarding() })).toEqual({ status: 200, body: 'sent 1' });
+    expect(sendWatch).toHaveBeenCalledWith([ciEvent]);
+    expect(send).not.toHaveBeenCalled();
+
+    const failing = vi.fn(() => Promise.reject(new Error('inngest is down')));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendWatch: failing, forward: forwarding() })).toEqual({ status: 502, body: 'could not send the event: inngest is down' });
+    const bad = vi.fn(() => Promise.resolve());
+    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send, sendWatch: bad, forward: forwarding() })).status).toBe(401);
+    expect(bad).not.toHaveBeenCalled();
   });
 });

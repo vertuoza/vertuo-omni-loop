@@ -5,6 +5,7 @@ import { withPeople } from './faced';
 import type { EngineeringBoard } from './load';
 import type { WorkspaceMilestone } from '../timeline/store';
 import { parsePrd, parsePr } from 'omni-loop/kit/lib/ids.ts';
+import type { MainWatchRow } from './broke-main';
 import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
 // The demo's Engineering board (PRD 612 s3), for development and OMNI_LOOP_DEMO=1: two tracked
@@ -138,11 +139,23 @@ function milestonesOf(now: Date): WorkspaceMilestone[] {
   return rows;
 }
 
-function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[]; milestones: WorkspaceMilestone[] } {
+/** The main watch of the twelve done PRDs (PRD 2410 s4): the first three still watched, every fifth one broke, the rest clean. */
+function mainWatchOf(now: Date): MainWatchRow[] {
+  return Array.from({ length: 12 }, (_, i): MainWatchRow => {
+    const mergedAt = new Date(now.getTime() - (i * 2 + 1) * 24 * HOUR).toISOString();
+    const broke = i % 5 === 2;
+    return {
+      repository: tracked(i).toLowerCase(), prd: parsePrd(1000 + i), mergedAt, dossier: null,
+      status: broke ? 'broke' : i < 3 ? 'watching' : 'clean', breaks: broke ? ['CI red: build and test on main'] : [],
+    };
+  });
+}
+
+function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[]; milestones: WorkspaceMilestone[]; mainWatch: MainWatchRow[] } {
   const all = Array.from({ length: 90 }, (_, i) => i);
   const subs = Array.from({ length: 200 }, (_, i) => subPrOf(i, now));
   const promotions = Array.from({ length: 7 }, (_, i) => promotionOf(i, now));
-  return { pullRequests: [...all.map((i) => pullRequestOf(i, now)), ...subs, ...promotions, ...stuckOf(now)], reviews: all.map((i) => reviewOf(i, now)), milestones: milestonesOf(now) };
+  return { pullRequests: [...all.map((i) => pullRequestOf(i, now)), ...subs, ...promotions, ...stuckOf(now)], reviews: all.map((i) => reviewOf(i, now)), milestones: milestonesOf(now), mainWatch: mainWatchOf(now) };
 }
 
 export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date): EngineeringBoard;
