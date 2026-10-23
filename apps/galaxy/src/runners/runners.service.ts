@@ -63,21 +63,122 @@
 //   it: Send again for a failed or cancelled one, Resume for one stopped mid-way. The new job is the
 //   first one's key's and maker's, sent to its target, `continues` it, and keeps its notify_url; the job
 //   was carried on already when another job continues it, runner_jobs.continues being unique.
+// - A key's job runs as the key's GitHub App (PRD 2433 s7): a runner registers `githubApp`, or never takes
+//   a job that needs an App. `next` opens the key's sealed private key, finds the App's installation on the
+//   job's repository, mints a token and answers the job with it and the App's bot (`github`); every claimed
+//   job carries `sentByKey`, the key's name or null. The token is for the job's repository and, for a mega
+//   bug fix, the other repositories of its plan repository's product that the installation holds, never one
+//   outside the key's allow-list (BR-PRODUCT-63). A mint that fails, or a key that no longer works, ends the
+//   job `failed`, `github app: <why>`: the job is never answered without `github`, and never runs as a person.
+//   `githubToken` mints a fresh token, for the same repositories, for the job's own runner while the job is
+//   claimed or running and for 10 minutes after it ends.
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
-  type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
+  checkLine, checkLineShape, ENDED_JOBS_SHOWN, GITHUB_TOKEN_AFTER_END_MS, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
+import type { AppCredentials, AppInstallation, MintedToken } from '../public-api/keys/github-app';
 import { shouldContinue, unansweredWhy } from './continue';
-import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { AppOfJob, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
 
 /** A rule's answer: its value, or why not, in plain words. */
 export type Served<T> = { ok: true; value: T } | { ok: false; kind: RunnerRefusal; error: string };
+
+/** What running a key's job as its GitHub App needs beyond the database (PRD 2433 s7): the means to open the key's sealed
+ * private key and to ask GitHub, which the live wiring builds (./runners.github.ts) and a test stubs. */
+export interface GithubDeps {
+  /** The master key a private key is sealed under, or null on a deployment with none (SECRETS_MASTER_KEY unset or malformed). */
+  master: () => Buffer | null;
+  /** Opens a sealed private key under the master key; throws when it cannot (a key sealed under another master, or garbled). */
+  open: (sealed: { ciphertext: string; iv: string }, master: Buffer) => string;
+  /** The App's installation on the repository `owner/name`, or null when it is not installed there; throws naming GitHub's status. */
+  installation: (credentials: AppCredentials, repo: string) => Promise<AppInstallation | null>;
+  /** The first of contents, pull_requests and issues the installation does not hold at write, or null. */
+  lacks: (installation: AppInstallation) => string | null;
+  /** A token for exactly these repositories (`owner/name`) of the installation; throws naming GitHub's status. */
+  mint: (credentials: AppCredentials, installation: AppInstallation, repositories: readonly string[]) => Promise<MintedToken>;
+}
+
+/** What asking for a job's GitHub App came to: the job runs as no App, the App's grant, or why no token could be minted
+ * (`unreachable` when GitHub could not say, so a later try may mint). The why never holds a key or a token (L-GDPR-2). */
+type Minted = { kind: 'none' } | { kind: 'grant'; grant: GithubGrant } | { kind: 'failed'; why: string; unreachable: boolean };
+
+type FailedMint = Extract<Minted, { kind: 'failed' }>;
+
+/** The longest why a failed mint keeps: the job's reason is `github app: <why>`, at most 200 characters in all. */
+const MAX_WHY = 150;
+const KEY_STOPPED = 'the API key no longer works: it was revoked, or its maker left the workspace';
+const APP_REMOVED = 'the GitHub App was removed from the API key';
+const outsideKey = (repo: string) => `the API key may not reach ${repo}`;
+const NO_MASTER = 'this Omni server has no key to open the App\'s private key';
+const CANNOT_OPEN = 'the App\'s private key could not be opened';
+const NO_APP = 'This job does not run as a GitHub App.';
+const MEGA_BUG_FIX = 'mega-bug-fix';
+const TOO_LATE = 'This job ended over 10 minutes ago: it takes no new GitHub token.';
+
+const failedMint = (why: string, unreachable = false): FailedMint => ({ kind: 'failed', why: why.length <= MAX_WHY ? why : `${why.slice(0, MAX_WHY - 1)}…`, unreachable });
+
+/** The App a key holds, as the database reads it for a job. */
+type KeyApp = NonNullable<AppOfJob['app']>;
+
+/** The App's private key, opened under the master key, as credentials; the why when this deployment cannot open it. */
+function openApp(github: GithubDeps, app: KeyApp): AppCredentials | FailedMint {
+  const master = github.master();
+  if (master === null) return failedMint(NO_MASTER);
+  try {
+    return { appId: String(app.app_id), privateKey: github.open(app, master) };
+  } catch {
+    // The box's own words are about ciphers, never for a person; the key stays out of every answer.
+    return failedMint(CANNOT_OPEN);
+  }
+}
+
+/** The repositories of `wanted` that the App's installation holds: GitHub names the installation of each, and one the App is not installed on,
+ * or whose installation is another one (another organisation's), is left out. One GitHub cannot answer for throws. */
+async function heldBy(github: GithubDeps, credentials: AppCredentials, installation: AppInstallation, wanted: readonly string[]): Promise<string[]> {
+  const answers = await Promise.all(wanted.map(async (repo) => ((await github.installation(credentials, repo))?.id === installation.id ? [repo] : [])));
+  return answers.flat();
+}
+
+/** A token on the App's installation for the job's repository and the `also` repositories it holds; the why when GitHub gave none
+ * (`unreachable` when it threw). The job's repository is the one the job needs: the App missing on it, or lacking a permission there, fails the mint. */
+async function mintOn(github: GithubDeps, credentials: AppCredentials, repo: string, also: readonly string[]): Promise<MintedToken | FailedMint> {
+  try {
+    const installation = await github.installation(credentials, repo);
+    if (installation === null) return failedMint(`the App is not installed on ${repo}`);
+    const lacks = github.lacks(installation);
+    if (lacks !== null) return failedMint(`the App's installation lacks write access to ${lacks}`);
+    return await github.mint(credentials, installation, [repo, ...await heldBy(github, credentials, installation, also)]);
+  } catch (error) {
+    return failedMint(error instanceof Error && error.message !== '' ? error.message.split('\n')[0] ?? '' : 'GitHub gave no reason', true);
+  }
+}
+
+/** Whether a runner's line is a mega bug fix's, which also works on the other repositories of its plan repository's product. */
+function isMegaBugFix(line: string): boolean {
+  const check = checkLineShape(line);
+  return check.ok && check.kind === 'omni' && check.skill === MEGA_BUG_FIX;
+}
+
+/** Whether the key's allow-list lets it reach `repo`: an empty list is every repository of its workspace. */
+const allows = (allowed: readonly string[], repo: string): boolean => allowed.length === 0 || allowed.includes(repo);
+
+/** The repositories besides the job's own that its token should reach: for a mega bug fix, the other repositories of its product
+ * that the key's allow-list names (or all of them, with no list). Which of them the installation holds is for GitHub to say. */
+function alsoFor(job: Pick<JobRow, 'line' | 'repo'>, read: Pick<AppOfJob, 'repos' | 'product_repos'>): string[] {
+  if (!isMegaBugFix(job.line)) return [];
+  return [...new Set(read.product_repos)].filter((repo) => repo !== job.repo && allows(read.repos, repo));
+}
+
+/** What a minted token reaches a runner as: the token beside the App's bot, who the job's commits read as. */
+const grantOf = (app: KeyApp, minted: MintedToken): GithubGrant => ({
+  token: minted.token, expiresAt: minted.expiresAt, login: `${app.slug}[bot]`, email: `${String(app.bot_id)}+${app.slug}[bot]@users.noreply.github.com`,
+});
 
 /** Who sends: whether they own the workspace, and their fleet. */
 type Sender = { owner: boolean; fleet: string | null };
@@ -374,7 +475,9 @@ const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<strin
   return Object.keys(answers).length === asked.length && asked.every((text) => Object.hasOwn(answers, text));
 };
 
-export function runnersService(store: RunnersRepository, clock: Clock, notifier: Notifier = NO_NOTIFIER) {
+/** `github` is the deployment's means to open a key's App and mint its token (PRD 2433); with none, a job that needs an App fails when claimed.
+ * `notifier` pings the link of a job a key sent when its status, outcome or questions change (PRD 2425 s8); with none, no link is taken. */
+export function runnersService(store: RunnersRepository, clock: Clock, github: GithubDeps | null = null, notifier: Notifier = NO_NOTIFIER) {
   const iso = () => clock.now().toISOString();
   const markLost = () => store.markLost(new Date(clock.now().getTime() - LOST_AFTER_MS).toISOString());
 
@@ -494,6 +597,60 @@ export function runnersService(store: RunnersRepository, clock: Clock, notifier:
     if (!found) return no('missing', 'No such job.');
     const owned = found.runner_id ? await ownRunner(caller, found.runner_id) : null;
     return owned?.ok ? ok(owned.value.id) : no('forbidden', 'This job was claimed by none of your runners.');
+  }
+
+  /**
+   * The GitHub App the job runs as, with a token minted for it now (PRD 2433): a job no key sent, or a key that holds no
+   * App and never did, runs as none. A job queued while its key held an App runs as that App or not at all, so a key
+   * revoked or whose maker left, an App removed, an uninstalled one, a deployment with no master key, or a GitHub that
+   * refuses each fail it, never run it as anyone else. The token is for the job's repository and, for a mega bug fix, the other
+   * repositories of its product that the installation holds, each within the key's allow-list: a job whose own repository the
+   * key may not reach fails, and the others are never even asked of GitHub (BR-PRODUCT-63). A mint is recorded for the key's `last token`.
+   */
+  async function mintFor(job: Pick<JobRow, 'id' | 'repo' | 'line'>): Promise<Minted> {
+    const read = await store.appOfJob(job.id);
+    if (read === null || !read.needs_app) return { kind: 'none' };
+    if (!read.working) return failedMint(KEY_STOPPED);
+    if (read.app === null) return failedMint(APP_REMOVED);
+    if (!allows(read.repos, job.repo)) return failedMint(outsideKey(job.repo));
+    if (github === null) return failedMint(NO_MASTER);
+    const credentials = openApp(github, read.app);
+    if ('kind' in credentials) return credentials;
+    const minted = await mintOn(github, credentials, job.repo, alsoFor(job, read));
+    if ('kind' in minted) return minted;
+    await recordMint(read.key_id);
+    return { kind: 'grant', grant: grantOf(read.app, minted) };
+  }
+
+  /**
+   * The answer to a runner that claimed `job`, or null when the job ended failed instead. A key's job that runs as its App
+   * takes its token now (PRD 2433); one whose App cannot mint ends failed and is never answered without `github`.
+   */
+  async function replyTo(job: JobRow): Promise<RunnerJob | null> {
+    const minted = job.sent_by_key === null ? { kind: 'none' as const } : await mintFor(job);
+    if (minted.kind === 'failed') {
+      const failed = await store.updateJob(job.id, ACTIVE, { status: 'failed', reason: `github app: ${minted.why}`, ended_at: iso() });
+      // The job ended here: its link is told, as when a runner reports its end (PRD 2425 s8).
+      if (failed !== null) tellChange(job, failed);
+      return null;
+    }
+    const logins = await store.logins(job.workspace_id, sendersOf([job]));
+    const keyName = job.sent_by_key === null ? null : (await store.keyNames(job.workspace_id, [job.sent_by_key])).get(job.sent_by_key) ?? null;
+    // Read at claim (PRD 2313): a skill turned off while its job waited is absent, and the runner refuses it.
+    const allowedSkills = await store.allowedSkills(job.workspace_id, job.repo);
+    return {
+      id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(job.sent_by === null ? null : logins.get(job.sent_by) ?? null, keyName, job.sent_by_app), allowedSkills,
+      sentByKey: keyName, github: minted.kind === 'grant' ? minted.grant : null,
+    };
+  }
+
+  /** The key's `last token` label in Settings: a mint that could not be recorded is still a mint, and the job runs. */
+  async function recordMint(keyId: string): Promise<void> {
+    try {
+      await store.appMinted(keyId);
+    } catch {
+      // Left unrecorded: nothing the runner needs hangs on it.
+    }
   }
 
   /** Ends the claimed and running jobs of a runner registering again as `runner lost`: a runner that
@@ -646,13 +803,13 @@ export function runnersService(store: RunnersRepository, clock: Clock, notifier:
       const placed = await workspaceOf(caller, repos);
       if (!placed.ok) return placed;
       const workspaceId = placed.value;
-      const seen = { slots: request.slots, repos, version: request.version, last_seen_at: iso() };
+      const seen = { slots: request.slots, repos, version: request.version, last_seen_at: iso(), github_app: request.githubApp ?? false };
       const existing = await store.runnerNamed(workspaceId, request.name);
       if (existing && existing.owner !== caller) return no('forbidden', `A runner named ${request.name} was registered by someone else: pick another name.`);
       if (existing) await loseJobsOf(existing);
       const runner = existing
         ? await store.updateRunner(existing.id, seen)
-        : await store.insertRunner({ workspaceId, owner: caller, name: request.name, slots: seen.slots, repos, version: seen.version, seenAt: seen.last_seen_at });
+        : await store.insertRunner({ workspaceId, owner: caller, name: request.name, slots: seen.slots, repos, version: seen.version, seenAt: seen.last_seen_at, githubApp: seen.github_app });
       return ok({ id: runner.id, name: runner.name, fleet: runner.fleet });
     },
 
@@ -668,15 +825,32 @@ export function runnersService(store: RunnersRepository, clock: Clock, notifier:
         if (job) {
           // The claim is stored: a job with a link tells it that it is Starting (PRD 2425 s8).
           tell(job, 'status');
-          const logins = await store.logins(job.workspace_id, sendersOf([job]));
-          const keyName = job.sent_by_key === null ? null : (await store.keyNames(job.workspace_id, [job.sent_by_key])).get(job.sent_by_key) ?? null;
-          // Read at claim (PRD 2313): a skill turned off while its job waited is absent, and the runner refuses it.
-          const allowedSkills = await store.allowedSkills(job.workspace_id, job.repo);
-          return ok({ id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(job.sent_by === null ? null : logins.get(job.sent_by) ?? null, keyName, job.sent_by_app), allowedSkills });
+          const reply = await replyTo(job);
+          // A job that ended failed for want of its App's token is never answered: the runner is handed the next one, if any, at once.
+          if (reply !== null) return ok(reply);
+          continue;
         }
         if (clock.now().getTime() + NEXT_POLL_MS > deadline) return ok(null);
         await clock.sleep(NEXT_POLL_MS);
       }
+    },
+
+    /**
+     * A fresh token of the App a job runs as (PRD 2433), for the runner that claimed it: while the job is claimed or
+     * running and for 10 minutes after it ends, since the runner releases the job's claims minutes after the end.
+     * Another runner's owner is refused (403), a later ask is 409, as is a job that runs as no App or whose key's App
+     * can no longer mint (its words say why); GitHub out of reach is 503, for a later try.
+     */
+    async githubToken(caller: string, jobId: string): Promise<Served<GithubTokenReply>> {
+      const held = await reporting(caller, jobId);
+      if (!held.ok) return held;
+      const job = await store.job(jobId);
+      if (!job) return no('missing', 'No such job.');
+      if (ENDED.includes(job.status) && !(clock.now().getTime() - Date.parse(job.ended_at ?? '') <= GITHUB_TOKEN_AFTER_END_MS)) return no('conflict', TOO_LATE);
+      const minted = await mintFor(job);
+      if (minted.kind === 'none') return no('conflict', NO_APP);
+      if (minted.kind === 'failed') return no(minted.unreachable ? 'unavailable' : 'conflict', minted.why);
+      return ok({ token: minted.grant.token, expiresAt: minted.grant.expiresAt });
     },
 
     /** A runner's report on a job it claimed: answers whether a cancel waits. */

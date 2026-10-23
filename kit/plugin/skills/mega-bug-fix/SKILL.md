@@ -25,6 +25,15 @@ line `omni sign trailer` prints (run from the plan repository). Every pull reque
 opens, in any repository, ends its body with the line `omni sign footer` prints. Comments are never
 signed.
 
+**Under `OMNI_GITHUB_APP`.** While `OMNI_GITHUB_APP` is set (a runner job that runs as an API key's own
+GitHub App, PRD 2433), everything this skill writes on GitHub, in any repository, is that app's, and no
+person is named in it: request no reviewer on any pull request, even one the `pull-requests` form names;
+add no assignee to the issue or to any pull request; and mention no `@login` in anything written on
+GitHub (an issue, a comment, a body, a commit message). Where a step below writes `@<login>` (the
+`Decided in Omni by` line), write the login with no `@`. A `CODEOWNERS` file still makes GitHub request
+its owners: that is the repository's own rule, outside the job. With `OMNI_GITHUB_APP` unset, nothing
+here applies.
+
 **Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
 and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
 (`commands.preflightFull`, else `commands.preflight`; when both are set, `commands.preflight` is also

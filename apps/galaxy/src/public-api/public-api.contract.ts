@@ -18,6 +18,9 @@ import { AnswerRequestSchema } from '../runners/runners.contract';
 //   POST /api/v1/jobs/{id}/dismiss         200 Job: the questions closed with no answer and no job queued; 409 when closed (PRD 2425 s6)
 //
 // Every refusal answers one shape, `{error: {code, message}}`, with the status PUBLIC_API_ERRORS names.
+// A key that holds a GitHub App (PRD 2433) is also refused at send, nothing queued, with 422
+// `github_app_not_installed` (its App is not installed on the repository) or `github_app_permissions` (its
+// installation holds no write access to contents, pull_requests or issues).
 
 const LIMIT_DEFAULT = 50;
 export const LIMIT_MAX = 100;
@@ -293,15 +296,22 @@ export const PUBLIC_API_ERRORS = {
   not_found: 404,
   conflict: 409,
   invalid_request: 422,
+  github_app_not_installed: 422,
+  github_app_permissions: 422,
   internal: 500,
 } as const;
 export type PublicApiErrorCode = keyof typeof PUBLIC_API_ERRORS;
 
-const ERROR_CODES = ['unauthorized', 'forbidden', 'not_found', 'conflict', 'invalid_request', 'internal'] as const satisfies readonly PublicApiErrorCode[];
+const ERROR_CODES = [
+  'unauthorized', 'forbidden', 'not_found', 'conflict', 'invalid_request', 'github_app_not_installed', 'github_app_permissions', 'internal',
+] as const satisfies readonly PublicApiErrorCode[];
 
 export const PublicApiErrorSchema = z.object({
   error: z.object({
-    code: z.enum(ERROR_CODES),
+    code: z.enum(ERROR_CODES).meta({
+      description: 'Why it was refused: `unauthorized`, `forbidden`, `not_found`, `conflict` (the job is not in a state the request needs), `invalid_request`, `github_app_not_installed` (the GitHub App attached to the key is not installed on the repository) `github_app_permissions` (its installation holds no write access to `contents`, `pull_requests` or `issues`) or `internal`.',
+      example: 'github_app_not_installed',
+    }),
     message: z.string().meta({ description: 'What went wrong, in plain words; a refused field is named first.', example: 'limit: a whole number from 1 to 100.' }),
   }),
 }).meta({ description: 'Every refusal.' });

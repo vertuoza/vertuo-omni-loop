@@ -5,7 +5,7 @@ import { API_KEY, EVE, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SAM, SHA
 import { encodeCursor, encodeLinesCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ApiJob, type ListQuery, type StartBugFix } from './public-api.contract';
-import { BAD_CURSOR, publicApiService, type Answered, type ApiKeyCaller, type RunnersPort } from './public-api.service';
+import { BAD_CURSOR, publicApiService, type Answered, type ApiKeyCaller, type CheckInstallation, type InstallationCheck, type RunnersPort } from './public-api.service';
 
 // The public API's rules (PRD 2022 s2) on realistic rows in memory: a key is a live key of its shape;
 // a key lists only its own workspace's dossiers (BR-PRODUCT-63), only those of its allow-list when it has
@@ -1324,5 +1324,114 @@ describe('a key starting a job that pings a link (PRD 2425 s8)', () => {
       expect(api.posts).toEqual([]);
       expect(api.pingLogs).toEqual([`ping ${id} (status) to hooks.example.com was not delivered: hooks.example.com resolves to a private address, which is not public`]);
     });
+  });
+});
+
+describe('a key with a GitHub App starts a job only where its App can run it (PRD 2433 s6)', () => {
+  const FIX = { repo: 'Demo-Org/App', description: 'Issue 548 totals' };
+  const MEGA = { repo: 'Demo-Org/Plan', description: 'https://github.com/demo-org/plan/issues/612' };
+  const APP = { appId: 123456, slug: 'acme-bot', ciphertext: 'c2VhbGVk', iv: 'aXY=' };
+  const ALL: InstallationCheck = { installed: true, missing: null };
+  const NOT_INSTALLED = (repo: string) => `repo: the GitHub App acme-bot attached to this API key is not installed on ${repo}. Install it on that repository, with write access to contents, pull_requests and issues, then send again.`;
+  const WITHOUT = (repo: string, permission: string) => `repo: the GitHub App acme-bot is installed on ${repo} without write access to ${permission}. Give it write access to contents, pull_requests and issues, then send again.`;
+
+  /** The fake, the runners' key holding the App, and a GitHub that answers for each repository (none: not installed). */
+  function setup(answers: Record<string, InstallationCheck>) {
+    const api = fakePublicApi();
+    api.githubApp(API_KEY, APP);
+    api.planRepository(WORKSPACE, 'demo-org/plan');
+    const asked: { slug: string; repo: string }[] = [];
+    const check: CheckInstallation = (app, repo) => {
+      asked.push({ slug: app.slug, repo });
+      return Promise.resolve(answers[repo] ?? { installed: false });
+    };
+    return { api, asked, service: publicApiService(api.repository, api.runners, check) };
+  }
+
+  it('queues the bug fix where the App is installed with write access to contents, pull_requests and issues, after asking GitHub about that repository', async () => {
+    const { api, asked, service } = setup({ 'demo-org/app': ALL });
+    const started = await service.startBugFix(await caller(api, SECRETS.runners), FIX);
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'demo-org/app' } });
+    expect(asked).toEqual([{ slug: 'acme-bot', repo: 'demo-org/app' }]);
+    expect(api.runnersState.jobs).toHaveLength(1);
+  });
+
+  it('refuses a repository the App is not installed on: 422 github_app_not_installed naming it, and nothing queued', async () => {
+    const { api, service } = setup({ 'demo-org/app': ALL });
+    const refused = await service.startBugFix(await caller(api, SECRETS.runners), { ...FIX, repo: 'demo-org/other' });
+    expect(refused).toEqual({ ok: false, code: 'github_app_not_installed', message: NOT_INSTALLED('demo-org/other') });
+    expect(api.runnersState.jobs).toEqual([]);
+  });
+
+  for (const permission of ['contents', 'pull_requests', 'issues'] as const) {
+    it(`refuses an installation with no write access to ${permission}: 422 github_app_permissions naming it, and nothing queued`, async () => {
+      const { api, service } = setup({ 'demo-org/app': { installed: true, missing: permission } });
+      const refused = await service.startBugFix(await caller(api, SECRETS.runners), FIX);
+      expect(refused).toEqual({ ok: false, code: 'github_app_permissions', message: WITHOUT('demo-org/app', permission) });
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+  }
+
+  it('asks GitHub nothing for a key with no App, and queues as it did', async () => {
+    const { api, asked, service } = setup({});
+    const started = await service.startBugFix(await caller(api, SECRETS.runnersLimited), { ...FIX, repo: 'demo-org/other' });
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'demo-org/other' } });
+    expect(asked).toEqual([]);
+    expect(api.runnersState.jobs).toHaveLength(1);
+  });
+
+  it('reads no App at all when this deployment has no means to ask GitHub', async () => {
+    const api = fakePublicApi();
+    api.githubApp(API_KEY, APP);
+    const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), FIX);
+    expect(started).toMatchObject({ ok: true });
+    expect(api.calls).not.toContain('githubAppOf');
+  });
+
+  it('keeps the allow-list in front of the App: a repository off the list is 403, with no App read and no GitHub call', async () => {
+    const { api, asked, service } = setup({ 'demo-org/app': ALL });
+    api.githubApp('k-runners-limited', APP);
+    const limited = await caller(api, SECRETS.runnersLimited);
+    api.calls.length = 0;
+    expect(await service.startBugFix(limited, FIX)).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await service.startMegaBugFix(limited, MEGA)).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(api.calls).toEqual([]);
+    expect(asked).toEqual([]);
+  });
+
+  it('queues nothing when GitHub cannot be asked, and says so by throwing: the controller answers 500', async () => {
+    const api = fakePublicApi();
+    api.githubApp(API_KEY, APP);
+    const down: CheckInstallation = () => Promise.reject(new Error('GitHub answered 502 to GET /repos/demo-org/app/installation'));
+    const service = publicApiService(api.repository, api.runners, down);
+    await expect(service.startBugFix(await caller(api, SECRETS.runners), FIX)).rejects.toThrow('GitHub answered 502');
+    expect(api.runnersState.jobs).toEqual([]);
+  });
+
+  it('checks a mega bug fix on its plan repository, and queues it when the App is installed there', async () => {
+    const { api, asked, service } = setup({ 'demo-org/plan': ALL });
+    const started = await service.startMegaBugFix(await caller(api, SECRETS.runners), MEGA);
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'demo-org/plan' } });
+    expect(asked).toEqual([{ slug: 'acme-bot', repo: 'demo-org/plan' }]);
+  });
+
+  it('refuses a mega bug fix whose plan repository the App is not installed on, or lacks a permission on, queueing nothing', async () => {
+    const { api, service } = setup({});
+    const key = await caller(api, SECRETS.runners);
+    expect(await service.startMegaBugFix(key, MEGA)).toEqual({ ok: false, code: 'github_app_not_installed', message: NOT_INSTALLED('demo-org/plan') });
+    const lacking = setup({ 'demo-org/plan': { installed: true, missing: 'issues' } });
+    expect(await lacking.service.startMegaBugFix(await caller(lacking.api, SECRETS.runners), MEGA)).toEqual({
+      ok: false, code: 'github_app_permissions', message: WITHOUT('demo-org/plan', 'issues'),
+    });
+    expect(api.runnersState.jobs).toEqual([]);
+    expect(lacking.api.runnersState.jobs).toEqual([]);
+  });
+
+  it('keeps the plan check in front of the App: a repository no product names as its plan repository is refused with no App read', async () => {
+    const { api, asked, service } = setup({ 'demo-org/app': ALL });
+    api.calls.length = 0;
+    expect(await service.startMegaBugFix(await caller(api, SECRETS.runners), { ...MEGA, repo: 'demo-org/app' })).toMatchObject({ ok: false, code: 'invalid_request' });
+    expect(api.calls).not.toContain('githubAppOf');
+    expect(asked).toEqual([]);
   });
 });

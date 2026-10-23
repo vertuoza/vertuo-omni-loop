@@ -105,7 +105,7 @@ describe('the runner health migration (PRD 2102)', () => {
 
   it('is named in the database\'s types', () => {
     expect(TYPES).toMatch(/runner_samples: \{\n\s+Row: \{\n\s+at: string\n\s+cpu: number \| null\n\s+disk_free: number \| null\n\s+mem_total: number \| null\n\s+mem_used: number \| null\n\s+runner_id: string\n\s+tokens_5h: number \| null\n\s+workspace_id: string\n/);
-    expect(TYPES).toMatch(/runners: \{\n\s+Row: \{\n\s+created_at: string\n\s+fleet: string \| null\n\s+health: Json \| null\n/);
+    expect(TYPES).toMatch(/runners: \{\n\s+Row: \{\n\s+created_at: string\n\s+fleet: string \| null\n(\s+github_app: boolean\n)?\s+health: Json \| null\n/);
   });
 });
 
@@ -166,7 +166,7 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 });
 
-const KEY_CONTROL = read('supabase/migrations/20261228090000_api_key_job_control.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+const KEY_CONTROL = read('supabase/migrations/20261229090000_api_key_job_control.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 
 // PRD 2425: what the server stores of a bug fix's report is what the migration's columns and check hold.
 describe('the API key job control migration (PRD 2425)', () => {

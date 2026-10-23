@@ -410,9 +410,18 @@ describe('a job’s questions, as a key reads them (PRD 2425 s6)', () => {
 
 describe('the errors', () => {
   it('answer one shape, with the spec’s statuses, a 409 for a round already closed included (PRD 2425 s6)', () => {
-    expect(PUBLIC_API_ERRORS).toEqual({ unauthorized: 401, forbidden: 403, not_found: 404, conflict: 409, invalid_request: 422, internal: 500 });
+    expect(PUBLIC_API_ERRORS).toEqual({
+      unauthorized: 401, forbidden: 403, not_found: 404, conflict: 409, invalid_request: 422, github_app_not_installed: 422, github_app_permissions: 422, internal: 500,
+    });
     for (const code of Object.keys(PUBLIC_API_ERRORS)) expect(PublicApiErrorSchema.safeParse({ error: { code, message: 'm' } }).success).toBe(true);
     expect(PublicApiErrorSchema.safeParse({ error: { code: 'teapot', message: 'm' } }).success).toBe(false);
     expect(PublicApiErrorSchema.safeParse({ error: 'Sign in first.' }).success).toBe(false);
+  });
+
+  it('name the two refusals of a key whose GitHub App cannot run the job (PRD 2433 s6), both 422', () => {
+    for (const code of ['github_app_not_installed', 'github_app_permissions'] as const) {
+      expect(PUBLIC_API_ERRORS[code]).toBe(422);
+      expect(PublicApiErrorSchema.parse({ error: { code, message: 'repo: acme/backend' } }).error.code).toBe(code);
+    }
   });
 });

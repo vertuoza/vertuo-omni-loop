@@ -5,6 +5,7 @@
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
 //   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, slicesMerged?, slicesTotal?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
+//   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running and for 10 minutes after it ends (PRD 2433) → {token, expiresAt}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
 //   GET   /api/runners?repo=<owner/name>   terminal (PRD 2251)                              → {runners: [KitRunner]}
 //   GET   /api/runners/jobs?repo=<owner/name>&prd=<n>  terminal (PRD 2251)                 → {jobs: [PrdJob]}, newest first
@@ -22,7 +23,9 @@
 // sender's fleet, a repository outside the workspace, a fleet set by a non-owner, a runner of someone
 // else, a token on a route that takes a person's session), 404 no such runner or job (or no question
 // on it), 409 a job that has ended (a runner stops it) or a status that goes back, or questions already
-// asked, answered or dismissed, 503 no database here, 500 the database failed.
+// asked, answered or dismissed, or a GitHub token asked of a job that ended over 10 minutes ago, that
+// runs as no App, or whose key's App no longer works (its words say which), 503 no database here
+// (or GitHub could not be reached for a token), 500 the database failed.
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { BUG_FIX_OUTCOMES, PRS_MAX, type BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
@@ -144,12 +147,15 @@ const IdSchema = z.uuid();
 
 // ── The runner's routes ─────────────────────────────────────────────────────────
 
-/** A runner registering, or registering again, by its name. */
+/** A runner registering, or registering again, by its name. `githubApp` says it can run a job as an API key's
+ * GitHub App (PRD 2433): the app hands such a job only to a runner that said so, and a runner that says
+ * nothing (an older kit) cannot. */
 export const RegisterRequestSchema = z.object({
   name: RunnerNameSchema,
   slots: z.number().int().min(1).max(8),
   repos: z.array(RepoSchema).min(1).max(50),
   version: z.string().max(40),
+  githubApp: z.boolean().optional(),
 }).strict();
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
@@ -159,13 +165,31 @@ export type RegisterReply = z.infer<typeof RegisterReplySchema>;
 /** `next`'s query: the runner asking. */
 export const NextQuerySchema = z.object({ runner: IdSchema }).strict();
 
+/** The GitHub App a key's job runs as (PRD 2433): an installation token for the job's repositories and when it
+ * stops working, and the App's bot as git and GitHub name it, `<slug>[bot]` and `<bot id>+<slug>[bot]@users.noreply.github.com`. */
+const GithubGrantSchema = z.object({
+  token: z.string().min(1), expiresAt: z.string().min(1), login: z.string().min(1), email: z.string().min(1),
+});
+export type GithubGrant = z.infer<typeof GithubGrantSchema>;
+
 /** A job, as the runner that claimed it receives it: the sender's GitHub login, when they have one, goes
  * to the run as OMNI_SENT_BY. `allowedSkills` are the repository's own skills its owner allowed, read
- * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs. */
+ * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs.
+ * `sentByKey` is the name of the API key that sent it, or null (PRD 2433); `github` is the App it runs as,
+ * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. */
 export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
+  sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(),
 }).refine((job) => checkLine(job.line, job.allowedSkills).ok, { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
+
+/** How long after a job ends its runner may still ask for a fresh token (PRD 2433): its release of the job's
+ * claims comes minutes after the end. */
+export const GITHUB_TOKEN_AFTER_END_MS = 10 * 60 * 1000;
+
+/** What `POST /api/runners/jobs/<id>/github-token` answers: a fresh token of the job's App, and when it stops working. */
+export const GithubTokenReplySchema = GithubGrantSchema.pick({ token: true, expiresAt: true });
+export type GithubTokenReply = z.infer<typeof GithubTokenReplySchema>;
 
 /** The statuses a job goes through, in order; the last three end it. */
 const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancelled'] as const;

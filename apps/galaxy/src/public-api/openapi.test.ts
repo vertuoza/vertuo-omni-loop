@@ -275,6 +275,25 @@ describe('the OpenAPI reference', () => {
     expect(body).toContain('"maxLength":181');
   });
 
+  it('lists the two refusals of a key whose GitHub App cannot run the job, in the error shape and on both starts (PRD 2433 s6)', () => {
+    const shape = JSON.stringify(document.paths?.['/api/v1/prds']?.get?.responses?.['401']);
+    expect(shape).toContain('"enum":["unauthorized","forbidden","not_found","conflict","invalid_request","github_app_not_installed","github_app_permissions","internal"]');
+    const described = (response: unknown): string => {
+      const text = typeof response === 'object' && response !== null && 'description' in response ? response.description : '';
+      return typeof text === 'string' ? text : '';
+    };
+    for (const path of ['/api/v1/bug-fixes', '/api/v1/mega-bug-fixes']) {
+      const post = document.paths?.[path]?.post;
+      const answer = described(post?.responses?.['422']);
+      expect(answer, path).toContain('github_app_not_installed');
+      expect(answer, path).toContain('github_app_permissions');
+      expect(post?.description, path).toContain('nothing is queued');
+    }
+    for (const path of ['/api/v1/prds', '/api/v1/bug-fixes']) {
+      expect(described(document.paths?.[path]?.get?.responses?.['422']), path).not.toContain('github_app');
+    }
+  });
+
   it('is what GET /api/v1/openapi.json answers, with no key', async () => {
     const answer = GET();
     expect(answer.status).toBe(200);

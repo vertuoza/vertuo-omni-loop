@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COULD_NOT, httpApiKeysPort } from './api-keys.client';
+import { COULD_NOT, httpApiKeysPort, httpGithubAppPort } from './api-keys.client';
 
 // Settings › API keys' calls from the browser (PRD 2022 s1): what each sends, and what it makes of each
 // answer.
@@ -43,5 +43,34 @@ describe('the browser’s API keys port', () => {
     expect(await httpApiKeysPort(WS, answering(201, { secret: 'nope', key: KEY }).fetch).make('x', [])).toEqual({ ok: false, message: COULD_NOT });
     const failing = (() => Promise.reject(new Error('offline'))) as unknown as typeof globalThis.fetch;
     expect(await httpApiKeysPort(WS, failing).make('x', [])).toEqual({ ok: false, message: COULD_NOT });
+  });
+});
+
+// A key's GitHub App from the browser (PRD 2433 s4): the owner's attach (and replace) and remove.
+describe('the browser’s GitHub App port', () => {
+  it('attaches an App to a key by its id, sending the App ID and the private key, and reads the slug back', async () => {
+    const { fetch, sent } = answering(200, { slug: 'acme-bugs' });
+    expect(await httpGithubAppPort(fetch).attach(KEY, ' 123456 ', 'the pem')).toEqual({ ok: true, slug: 'acme-bugs' });
+    expect(sent[0]?.url).toBe('/api/api-keys/k-1/github-app');
+    expect(sent[0]?.init.method).toBe('POST');
+    expect(JSON.parse(sent[0]?.init.body as string)).toEqual({ appId: '123456', privateKey: 'the pem' });
+  });
+
+  it('removes the App of a key by its id, and reads whether it held one', async () => {
+    const { fetch, sent } = answering(200, { removed: true });
+    expect(await httpGithubAppPort(fetch).remove(KEY)).toEqual({ ok: true, removed: true });
+    expect(sent[0]?.url).toBe('/api/api-keys/k-1/github-app');
+    expect(sent[0]?.init.method).toBe('DELETE');
+    expect(sent[0]?.init.body).toBeUndefined();
+  });
+
+  it('says a refusal in the route’s words, and anything else in its own', async () => {
+    const refused = answering(422, { error: 'GitHub refused this App ID and private key.' });
+    expect(await httpGithubAppPort(refused.fetch).attach(KEY, '1', 'x')).toEqual({ ok: false, message: 'GitHub refused this App ID and private key.' });
+    expect(await httpGithubAppPort(answering(500, 'oops').fetch).remove(KEY)).toEqual({ ok: false, message: COULD_NOT });
+    expect(await httpGithubAppPort(answering(200, { slug: 3 }).fetch).attach(KEY, '1', 'x')).toEqual({ ok: false, message: COULD_NOT });
+    expect(await httpGithubAppPort(answering(200, {}).fetch).remove(KEY)).toEqual({ ok: false, message: COULD_NOT });
+    const failing = (() => Promise.reject(new Error('offline'))) as unknown as typeof globalThis.fetch;
+    expect(await httpGithubAppPort(failing).attach(KEY, '1', 'x')).toEqual({ ok: false, message: COULD_NOT });
   });
 });

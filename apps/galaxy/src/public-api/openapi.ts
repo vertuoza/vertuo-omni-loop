@@ -33,6 +33,15 @@ const errors = (...statuses: ErrorStatus[]) => errorsSaying({}, ...statuses);
 /** What both start routes say of the two optional fields their body takes after the runner (PRD 2425 s8). */
 const START_FIELDS = '\n\n`acting_for` says whom the key acts for, if anyone. `notify_url` is an https link the server pings, `{"job_id", "event", "at"}`, when the job’s status, outcome or questions change: it says that something changed, never what, so read the job with `GET /api/v1/jobs/{id}`. The link is checked before the job is queued, and a host that is not public is a 422.';
 
+/** What a start answers 422 to besides the contract's refusals: a key that holds a GitHub App (PRD 2433) is refused at send, nothing queued. */
+const START_422 = `${ERROR_ANSWERS[422]} A key with a GitHub App attached is also refused, and nothing is queued, with \`github_app_not_installed\` when its App is not installed on the repository (the message names the repository) or \`github_app_permissions\` when its installation holds no write access to \`contents\`, \`pull_requests\` or \`issues\` (the message names the permission).`;
+
+/** The answers of a start: those of any route, and a 422 that names the two refusals of a key with a GitHub App. */
+const startErrors = () => ({
+  ...errors(401, 403, 500),
+  422: { description: START_422, content: { 'application/json': { schema: PublicApiErrorSchema } } },
+});
+
 /** The path parameter of every route under /api/v1/jobs/{id}. */
 const JobParams = z.object({
   id: z.uuid().meta({ description: 'The job’s id, as `POST /api/v1/bug-fixes` or `POST /api/v1/mega-bug-fixes` answered it.', example: '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3' }),
@@ -80,12 +89,12 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/bug-fixes',
     tags: ['Bug fixes'],
     summary: 'Start a bug fix',
-    description: 'Queues `/omni:bug-fix <description>` on the workspace’s runners, as the key: the job names the key as its sender, and the pull request it opens says so. Follow the job with `GET /api/v1/jobs/{id}`. The job ends in a pull request a person merges.' + START_FIELDS,
+    description: 'Queues `/omni:bug-fix <description>` on the workspace’s runners, as the key: the job names the key as its sender, and the pull request it opens says so. Follow the job with `GET /api/v1/jobs/{id}`. The job ends in a pull request a person merges. A key a workspace owner attached a GitHub App to sends the job as that App: its installation on `repo` is checked first, and when the check fails (see the 422 answer) nothing is queued.' + START_FIELDS,
     security: [{ bearerAuth: [] }],
     request: { body: { required: true, content: { 'application/json': { schema: StartBugFixSchema } } } },
     responses: {
       202: { description: 'The job, queued.', content: { 'application/json': { schema: JobSchema } } },
-      ...errors(401, 403, 422, 500),
+      ...startErrors(),
     },
   });
 
@@ -94,12 +103,12 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/mega-bug-fixes',
     tags: ['Bug fixes'],
     summary: 'Start a bug fix across repositories',
-    description: 'Queues `/omni:mega-bug-fix <description>` in a plan repository of the workspace, as the key, for a bug that shows in one of its targets while its cause may sit in another: the skill finds where the cause is among the plan’s targets, opens one fix pull request per target that changes, in merge order, then a record pull request in the plan repository that closes the issue. The job’s `pr_url` is that record pull request; its body lists the target pull requests with `Merge after` lines. A person merges every one, the record last. The repository must be one a product of the workspace names as its plan repository, held by a runner. This route never answers 404: a deployment that answers 404 here is older than it.' + START_FIELDS,
+    description: 'Queues `/omni:mega-bug-fix <description>` in a plan repository of the workspace, as the key, for a bug that shows in one of its targets while its cause may sit in another: the skill finds where the cause is among the plan’s targets, opens one fix pull request per target that changes, in merge order, then a record pull request in the plan repository that closes the issue. The job’s `pr_url` is that record pull request; its body lists the target pull requests with `Merge after` lines. A person merges every one, the record last. The repository must be one a product of the workspace names as its plan repository, held by a runner. For a key with a GitHub App attached, the App’s installation on that plan repository is checked first, as on `POST /api/v1/bug-fixes`, and when the check fails (see the 422 answer) nothing is queued. This route never answers 404: a deployment that answers 404 here is older than it.' + START_FIELDS,
     security: [{ bearerAuth: [] }],
     request: { body: { required: true, content: { 'application/json': { schema: StartMegaBugFixSchema } } } },
     responses: {
       202: { description: 'The job, queued.', content: { 'application/json': { schema: JobSchema } } },
-      ...errors(401, 403, 422, 500),
+      ...startErrors(),
     },
   });
 
