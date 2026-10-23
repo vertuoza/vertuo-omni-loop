@@ -9,7 +9,7 @@
 // so `/yolo` never means `/omni:yolo`. The same length and the same argument characters.
 
 /** The skills a runner runs: they run without a person typing, and end on their own. */
-export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add']);
+export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add', 'rewind-apply']);
 
 /** The longest line a runner takes, in characters. */
 export const LINE_MAX = 200;
