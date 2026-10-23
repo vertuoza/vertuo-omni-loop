@@ -136,6 +136,15 @@ describe('the board', () => {
     expect(t).toContain('Cancelled');
   });
 
+  it('reads a queued job no runner holds the repository of as Cannot run in red, with its reason and its Cancel (PRD 2482)', () => {
+    const row = jobRow(html, '/omni:retro-apply --retro 2351');
+    expect(text(row)).toContain('Cannot run No runner holds acme/gadgets');
+    expect(row).toContain('runners-status is-fail');
+    expect(row).not.toContain('Queued');
+    expect(actionsOf(row)).toEqual(['Cancel']);
+    expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('Cannot run');
+  });
+
   it('names who sent each job and where it went', () => {
     expect(text(jobRow(html, '/omni:pr-care 1801'))).toContain('@ada Comets Queued');
     expect(text(jobRow(html, '/omni:yolo 1717'))).toContain('@you acme-agents Running 12 min');

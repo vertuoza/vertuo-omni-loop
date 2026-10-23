@@ -363,6 +363,8 @@ const JobSchema = z.object({
   actingFor: z.string().nullable().optional(),
   /** The name of the API key that cancelled it (PRD 2425); null for a job no key cancelled. */
   cancelledByKey: z.string().nullable().optional(),
+  /** The key that sent it holds a GitHub App, or the job was queued while it did (PRD 2482); absent reads as false. Set on a queued job of a key only. */
+  needsApp: z.boolean().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
   runningAt: z.string().nullable(),
@@ -520,6 +522,8 @@ const RunnerSchema = z.object({
   health: RunnerHealthSchema.nullable().optional(),
   /** Its samples of the last hour, oldest first: on the Runners page's read only. */
   samples: z.array(RunnerSampleSchema).optional(),
+  /** It registered that it can run a job as an API key's GitHub App (PRD 2433, `runners.github_app`); absent reads as false (PRD 2482). */
+  githubApp: z.boolean().optional(),
 });
 export type Runner = z.infer<typeof RunnerSchema>;
 

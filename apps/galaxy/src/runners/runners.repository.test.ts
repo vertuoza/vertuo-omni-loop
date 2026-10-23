@@ -168,6 +168,17 @@ describe('a key\'s GitHub App (PRD 2433)', () => {
     repos: ['demo-org/plan', 'demo-org/api'], product_repos: ['demo-org/api', 'demo-org/plan', 'demo-org/web'],
   };
 
+  it('reads which queued jobs need their key\'s App from key_id and job_id alone, never the sealed key (PRD 2482)', async () => {
+    const { db, lines } = fakeDb([{ data: [{ key_id: 'k1' }], error: null }, { data: [{ job_id: 'j3' }], error: null }]);
+    const jobs = [{ id: 'j1', keyId: 'k1' }, { id: 'j2', keyId: 'k2' }, { id: 'j3', keyId: 'k2' }];
+    expect(await runnersRepository(db).jobsNeedingApp(jobs)).toEqual(new Set(['j1', 'j3']));
+    expect(lines).toEqual([
+      'from("api_key_github_apps").select("key_id").in("key_id",["k1","k2"])',
+      'from("runner_job_needs_app").select("job_id").in("job_id",["j1","j2","j3"])',
+    ]);
+    expect(await runnersRepository(fakeDb([]).db).jobsNeedingApp([])).toEqual(new Set());
+  });
+
   it('reads the App a job runs as with api_key_github_app_of_job()', async () => {
     const { db, lines } = fakeDb([{ data: OF_JOB, error: null }]);
     expect(await runnersRepository(db).appOfJob('j1')).toEqual(OF_JOB);
