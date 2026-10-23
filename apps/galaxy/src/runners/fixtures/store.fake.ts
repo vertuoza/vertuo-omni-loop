@@ -268,6 +268,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       .filter((row) => row.workspace_id === workspaceId && row.full_name === repo.toLowerCase()).map((row) => row.skill).sort()),
     runner: (id) => Promise.resolve(state.runners.find((r) => r.id === id) ?? null),
     runnerNamed: (workspaceId, name) => Promise.resolve(state.runners.find((r) => r.workspace_id === workspaceId && r.name === name) ?? null),
+    runnersByIds: (ids) => Promise.resolve(state.runners.filter((r) => ids.includes(r.id))),
     runners: (workspaceId) => Promise.resolve(state.runners.filter((r) => r.workspace_id === workspaceId).sort((a, b) => a.name.localeCompare(b.name))),
     insertRunner: (runner: NewRunner) => {
       const row = runnerRow({

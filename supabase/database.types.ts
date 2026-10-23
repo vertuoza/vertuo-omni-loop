@@ -1204,6 +1204,7 @@ export type Database = {
           id: string
           kind: string
           sha256: string
+          slices: number | null
           source: string
           uploaded_by: string | null
         }
@@ -1217,6 +1218,7 @@ export type Database = {
           id?: string
           kind: string
           sha256: string
+          slices?: number | null
           source: string
           uploaded_by?: string | null
         }
@@ -1230,6 +1232,7 @@ export type Database = {
           id?: string
           kind?: string
           sha256?: string
+          slices?: number | null
           source?: string
           uploaded_by?: string | null
         }
@@ -5298,7 +5301,7 @@ export type Database = {
         Returns: undefined
       }
       dossier_list: {
-        Args: { p_dossier?: string; p_workspace?: string }
+        Args: { p_dossier?: string; p_kind?: string; p_workspace?: string }
         Returns: {
           answered: number
           asked: number
@@ -5332,6 +5335,16 @@ export type Database = {
           p_title: string
         }
         Returns: Json
+      }
+      dossier_repos: {
+        Args: { p_dossier: string }
+        Returns: {
+          answered: number
+          asked: number
+          id: string
+          latest: Json
+          repos: string[]
+        }[]
       }
       dossier_rounds: {
         Args: { p_dossier: string }
@@ -5794,6 +5807,7 @@ export type Database = {
         Returns: Json
       }
       plan_repository_names: { Args: { p_plan: string }; Returns: string[] }
+      plan_slice_count: { Args: { p_plan: string }; Returns: number }
       prd_dossier: {
         Args: { p_prd: number; p_product?: string; p_repo: string }
         Returns: {
