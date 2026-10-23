@@ -465,11 +465,21 @@ and the feature PR stays draft, exactly as `/omni:yolo-fix` ends; the opening qu
 again. Then hand off as `/omni:yolo-fix` step 8 does, naming what was answered here and the reply's
 link, instead of step 7.
 
+### Prune the worktrees
+
+Just before the hand-off, gate green or red, held included, run
+`node .omni-loop/bin/omni.mjs worktrees prune --prd <n>`. It removes the merged slices' worktrees
+and the PRD's feature and phase-0 worktrees once they are clean and pushed, and it removes nothing
+else: a red, stopped or blocked slice keeps its worktree, for the person who reads why it failed,
+while the feature PR is open (`omni worktrees prune` takes it once the feature PR is merged or
+closed). It never fails the run: it exits 0 whatever it keeps, and a failure to run it is named in
+the hand-off. Keep its `kept <path> · <reason>` lines for step 7.
+
 ## 7. Hand off
 
 Report, in one block: the PRD's page beside its number, then the feature PR link and its state
 (ready, draft with the gate red, or held); slices merged out of total, each held slice with its
-reason; the checks that ran and did not; every open outbox item with its rank and file
+reason; each worktree the prune kept, one line `kept <path> · <reason>`, or that it kept none; the checks that ran and did not; every open outbox item with its rank and file
 (`omni status <prd>` lists them); and, when step 6 asked the opening question, the choice made.
 
 The PRD's page comes first on every ending, green, red or held. Run

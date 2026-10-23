@@ -168,7 +168,8 @@ never run side by side. Each takes the next from the feature branch as the last 
    the slice's `territory`, as step 4 item 2 reads it (the outbox dir and a generated entry's `path`
    are never a breach). A path outside is a **breach**: name it in the report and carry on, never
    fatal.
-3. **The result.** `done`: the slice is built; go on to the next. `red`, `stopped` or `blocked`: it
+3. **The result.** `done`: the slice is built; run `node .omni-loop/bin/omni.mjs worktrees remove <worktree>`
+   (its detached worktree, by the path its agent call returned), put its line in the report, and go on to the next. `red`, `stopped` or `blocked`: it
    is **not built**, and its commits carry no `Omni-Slice` line, so the board still holds it. Report
    what it names (the red step, the law or principles, the human-action item); the feature PR's
    status comment (step 5 item 4) says `stuck` and names it; the slices that wait on it stay
@@ -323,10 +324,16 @@ sub-PR afresh; never trust an earlier look.
    verdict carries the merged PR's number. A `not ok` from a hook leaves the sub-PR open, as a
    `not ok` gate does.
 
+7. **Remove its worktree.** Once the sub-PR is merged, run
+   `node .omni-loop/bin/omni.mjs worktrees remove <worktree>`, `<worktree>` being the path its agent
+   call returned. It keeps a worktree that is uncommitted, unpushed or in use, and exits 0 either way:
+   the `removed <path> · <size>` or `kept <path> · <reason>` line it prints goes in the wave's report
+   (step 6), and a kept worktree is never forced.
+
 **A red slice** gets one look first. Read `omni kb show ci` once: which checks exist and gate, the
 known reds, and when a re-run is allowed. When a `red` slice's failing step matches a known red
 there, its diff changes nothing that red names, and the form allows a re-run, take it through
-items 1 to 6 like a `done` slice: the preflight in item 4 is its one re-run, counted as an attempt.
+items 1 to 7 like a `done` slice: the preflight in item 4 is its one re-run, counted as an attempt.
 Any other `red` slice is not merged.
 
 **Not merged:**
@@ -401,6 +408,9 @@ verb) means it has no page to show: the line is
 
 The outcome says whether a merged slice went green on its first try or after how many attempts;
 the tier column is each slice's tier and the model it ran on, from its `tier`.
+
+Each merged slice's report line carries what `omni worktrees remove` printed for its worktree,
+`removed <path> · <size>` or `kept <path> · <reason>`.
 
 An inline wave has no sub-PR: its column reads `inline`, its outcome `built` (or, for a slice not
 built, `red`, `stopped` or `blocked`, with what it named).
