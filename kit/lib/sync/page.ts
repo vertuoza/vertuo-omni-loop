@@ -10,6 +10,9 @@
 //   replied in time; `syncedAt` is then the copy's own time, so a page that does not answer leaves
 //   the copy as old as it was.
 //
+// - It also refreshes the local Omni-settings copy (`../omni-settings/sync.ts`), whatever the
+//   constituents read says; that copy never changes the check's facts.
+//
 // Nothing here throws: a failure is a fact, never a finding of its own.
 import { homeTokens } from '../ask/client-tokens.ts';
 import { askClient, AskCallError } from '../ask/client.ts';
@@ -18,6 +21,7 @@ import { credentialsHost } from '../ask/credentials.ts';
 import { readCache, writeCache } from '../constituents/cache.ts';
 import { constituentsOf } from '../constituents/read.ts';
 import { dossierSwitch } from '../config.ts';
+import { refreshSettingsCopy } from '../omni-settings/sync.ts';
 import type { GatherIo, PageFacts } from './facts.ts';
 
 /** The refresh's budget: `omni constituents`'s own. */
@@ -84,10 +88,12 @@ export async function gatherPage(io: GatherIo, deps: PageDeps = {}): Promise<Pag
   const kept = copyAt !== null && Number.isFinite(copyAt) ? copyAt : null;
   if (!signedInTo(tokens, host, io.now)) return { signedIn: false, syncedAt: kept, answering: false };
   if (!repo) return { signedIn: true, syncedAt: kept, answering: false };
-  const read = await refreshed(
-    { tokens, fetch: deps.fetch ?? globalThis.fetch, budgetMs: deps.budgetMs ?? PAGE_BUDGET_MS },
-    { askUrl, host, repo, root: io.root, now: io.now },
-  );
+  const reach = { tokens, fetch: deps.fetch ?? globalThis.fetch, budgetMs: deps.budgetMs ?? PAGE_BUDGET_MS };
+  // The Omni-settings copy (PRD 2417) is refreshed beside the constituents, each within its own budget.
+  const [read] = await Promise.all([
+    refreshed(reach, { askUrl, host, repo, root: io.root, now: io.now }),
+    refreshSettingsCopy({ ...reach, askUrl, host, repo, root: io.root, now: io.now }),
+  ]);
   if (read === 'refused') return { signedIn: false, syncedAt: kept, answering: false };
   return { signedIn: true, syncedAt: read ? io.now : kept, answering: read };
 }
