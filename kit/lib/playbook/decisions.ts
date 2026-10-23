@@ -19,13 +19,21 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Context } from '../context.ts';
 import { PrdNumberSchema, type PrdNumber } from '../ids.ts';
+import { levelCopies, type Level } from '../knowledge-tree/levels.ts';
 
 /**
  * One decision record: its four-digit number, its file, its title (`null` with no `# ` heading), and
  * the PRD its header names (`null` with no `**PRD:** #n`).
  */
 export type DecisionRecord = {
+  /**
+   * The knowledge-tree level a record is read from (PRD 2416), set only on a record another level
+   * holds: a repository's own record has no `level` key, so `omni kb show decisions --json` reads as
+   * it always has. Read it with `levelOf`.
+   */
+  level?: Level;
   number: string;
   file: string;
   title: string | null;
@@ -81,25 +89,23 @@ function tagsOf(text: string): Pick<DecisionRecord, 'layers' | 'domain'> {
   return { ...(layers.length > 0 ? { layers } : {}), ...(domain === null ? {} : { domain }) };
 }
 
-/**
- * `{ dir, records: [{ number, file, title, prd }], shared: [{ number, files }], next }`: the records in
- * number order (a shared number's files by name), `title` `null` when the file has no `# `
- * heading, `next` the next free number, four digits. A folder that does not exist has no records.
- */
-export function readDecisions({ ctx }: { ctx: { root: string; layout: { adrDir: string } } }): Decisions {
-  const dir = ctx.layout.adrDir.replace(/\/+$/, '');
-  const absolute = join(ctx.root, dir);
+/** The level a record is read from: `repo` for the repository's own. */
+export const levelOf = (record: Pick<DecisionRecord, 'level'>): Level => record.level ?? 'repo';
+
+/** The records of one folder, in number order (a shared number's files by name), each tagged with `level`. */
+function readFolder(root: string, dir: string, level: Level): DecisionRecord[] {
+  const absolute = join(root, dir);
   const names = existsSync(absolute)
     ? readdirSync(absolute, { withFileTypes: true })
         .filter((entry) => entry.isFile() && RECORD.test(entry.name))
         .map((entry) => entry.name)
         .sort()
     : [];
-
-  const records = names.map((name): DecisionRecord => {
+  return names.map((name): DecisionRecord => {
     const file = `${dir}/${name}`;
-    const text = readFileSync(join(ctx.root, file), 'utf8');
+    const text = readFileSync(join(root, file), 'utf8');
     return {
+      ...(level === 'repo' ? {} : { level }),
       number: name.match(RECORD)?.[1] ?? '',
       file,
       title: text.match(TITLE)?.[1] ?? null,
@@ -107,11 +113,40 @@ export function readDecisions({ ctx }: { ctx: { root: string; layout: { adrDir: 
       ...tagsOf(text),
     };
   });
+}
+
+/**
+ * `{ dir, records: [{ level, number, file, title, prd }], shared: [{ number, files }], next }`: the
+ * repository's records in number order (a shared number's files by name), then, bottom-up (PRD 2416),
+ * the records of the plan repository's and the Omni settings' copies whose number nothing nearer
+ * holds, each level in number order. `title` is `null` when the file has no `# ` heading. `shared`
+ * and `next` are the repository's own: a copy's number never shifts the next free one. A context
+ * with no `config`, or a checkout with no copy, reads the repository alone. A folder that does not
+ * exist has no records.
+ */
+export function readDecisions({
+  ctx,
+}: {
+  ctx: { root: string; layout: { adrDir: string }; config?: Context['config'] };
+}): Decisions {
+  const dir = ctx.layout.adrDir.replace(/\/+$/, '');
+  const records = readFolder(ctx.root, dir, 'repo');
 
   const byNumber = new Map<string, string[]>();
   for (const record of records) byNumber.set(record.number, [...(byNumber.get(record.number) ?? []), record.file]);
   const shared = [...byNumber].filter(([, files]) => files.length > 1).map(([number, files]) => ({ number, files }));
 
   const highest = records.reduce((max, record) => Math.max(max, Number(record.number)), 0);
-  return { dir, records, shared, next: String(highest + 1).padStart(4, '0') };
+
+  const held = new Set(records.map((record) => record.number));
+  const inherited: DecisionRecord[] = [];
+  if (ctx.config) {
+    for (const copy of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
+      const own = readFolder(ctx.root, copy.ctx.layout.adrDir.replace(/\/+$/, ''), copy.level);
+      const taken = new Set(held);
+      for (const record of own) if (!taken.has(record.number)) inherited.push(record);
+      for (const record of own) held.add(record.number);
+    }
+  }
+  return { dir, records: [...records, ...inherited], shared, next: String(highest + 1).padStart(4, '0') };
 }

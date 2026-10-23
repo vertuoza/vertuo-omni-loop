@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import type { Context } from '../context.ts';
 import { briefingLaws } from '../knowledge/briefing-laws.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../playbook/forms.ts';
-import { readDecisions } from '../playbook/decisions.ts';
+import { levelOf, readDecisions } from '../playbook/decisions.ts';
 import type { Decisions } from '../playbook/decisions.ts';
 import { resolveForm } from '../playbook/resolve.ts';
 import type { ResolvedForm } from '../playbook/resolve.ts';
@@ -45,8 +45,16 @@ const LATEST_RECORDS = 20;
 function recordLines({ dir, records, shared, next }: Decisions, all: boolean): string[] {
   const lines = [`## Records  [read live from ${dir}]`];
   if (records.length === 0) lines.push('No decision records yet.');
-  const older = all ? 0 : Math.max(0, records.length - LATEST_RECORDS);
-  lines.push(...records.slice(older).map(({ number, file, title }) => `${number}  ${title ?? file}`));
+  // A level tag shows only once another level contributes a record (PRD 2416): else the lines are as ever.
+  const tagged = records.some((record) => levelOf(record) !== 'repo');
+  const own = records.filter((record) => levelOf(record) === 'repo');
+  const inherited = records.filter((record) => levelOf(record) !== 'repo');
+  const older = all ? 0 : Math.max(0, own.length - LATEST_RECORDS);
+  lines.push(
+    ...[...own.slice(older), ...inherited].map(
+      (record) => `${record.number}  ${record.title ?? record.file}${tagged ? `  [${levelOf(record)}]` : ''}`,
+    ),
+  );
   if (older > 0) lines.push(`… ${older} older records: omni kb show decisions --all`);
   lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(', ')}`));
   lines.push(`Next free number: ${next}`);
