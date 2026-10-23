@@ -1,6 +1,6 @@
 ---
 title: API
-description: Make an API key, read your workspace's PRDs and bug fixes with curl, start a bug fix in one repository or across a plan repository's targets and follow its job, page with the cursor, and read the errors. The full reference is below.
+description: Make an API key, read your workspace's PRDs and bug fixes with curl, start a bug fix in one repository or across a plan repository's targets and follow its job, run the jobs as your own GitHub App, page with the cursor, and read the errors. The full reference is below.
 ---
 
 A program outside the loop can read a workspace's PRDs and bug fixes, and start a bug fix, in one
@@ -59,8 +59,11 @@ other character, answers 422 and nothing is queued. Add `runner` (a runner's nam
 fleet's key) to choose where it runs; with neither, any runner of the workspace may take it.
 
 The Runners page shows the job as sent by `API key <name>`, with `made by @<login>` under it, and
-the pull request the job opens says it was sent by the key. The job still ends in a pull request a
-person merges: a key never merges anything.
+the pull request the job opens says it was sent by the key:
+`Sent through the Omni API by API key <name> on runner <runner>`, with no login in it. The job still
+ends in a pull request a person merges: a key never merges anything. Unless you
+[run as your own GitHub App](#run-as-your-own-github-app), the job writes on GitHub as the account
+of the person who set the runner up.
 
 ## Start a bug fix across repositories
 
@@ -90,6 +93,76 @@ each target pull request on a `Merge after` line. A person merges every one, the
 This route is newer than the others. A deployment without it answers `404` with an HTML page, not
 the error shape; the route itself never answers 404, so a program may read a 404 as "not deployed
 here yet".
+
+## Run as your own GitHub App
+
+A job a key starts writes on GitHub as the account of the person who set the runner up
+([Runners](/docs/runners)), so a person appears on the issue, the branch, the commits and the pull
+request. Attach a **GitHub App** of your own to the key and every job it sends is visibly your app's
+instead: the bug's issue, its comments and labels, the branch, the commits (author and committer),
+the pull request and its status comment, and the release of the job's claims are all written by the
+app's bot, `<slug>[bot]`. The job names no person, adds no assignee, requests no reviewer and
+mentions no `@login`. A key with no app works as above.
+
+1. **Create the app.** On GitHub, create a GitHub App (in your account's or your organization's
+   Settings › Developer settings › GitHub Apps › New GitHub App) with these repository permissions,
+   and no other:
+   - **Contents:** Read and write;
+   - **Pull requests:** Read and write;
+   - **Issues:** Read and write.
+
+   GitHub adds **Metadata:** Read-only itself. Note the **App ID** on the app's page, and generate
+   a key for the app there: GitHub downloads it as a `.pem` file.
+2. **Install it** on the repositories the key's jobs work in, with those permissions. A bug fix needs
+   it on the job's repository. A mega bug fix needs it on the plan repository, and on each
+   repository of the plan repository's product that a fix may change.
+3. **Attach it to the key.** A workspace owner opens **Settings › API keys**, chooses **Attach a
+   GitHub App** on the key's row, gives the **App ID** and the app's `.pem` key file, and presses
+   **Attach**.
+   - Omni checks the pair, the App ID and the key, with GitHub before it keeps anything. A pair
+     GitHub refuses is refused on the form and nothing is stored. On a deployment with no master
+     key, attaching is refused too, and the form says it isn't available on this deployment.
+   - Omni keeps the key sealed and never shows it again, to anyone. Every member then reads the
+     app's slug in the key's **GitHub App** column, and an owner also reads under it
+     `last token <date>`, or `no token yet`: when the app last made a token for a job.
+   - **Replace** attaches another pair the same way. **Remove**, then **Remove for good**, deletes
+     the app; revoking the key deletes it too. Only an owner does any of these.
+
+Nothing changes in the calls you send. Two checks run before a job is queued, and each refuses it
+with a 422 and queues nothing:
+
+- `github_app_not_installed`: the app is not installed on the repository; the message names the
+  repository.
+- `github_app_permissions`: the app's installation on the repository lacks write access to
+  `contents`, `pull_requests` or `issues`; the message names the permission.
+
+For a mega bug fix the repository checked is the plan repository, since its targets are only chosen
+while the job runs. Install the app on those targets too: a target the app does not hold fails its
+push, and the whole fix stops, as it does whenever a target cannot be pushed to.
+
+### What the job gets
+
+When a runner takes the job, Omni makes a token for it from the app, and the job writes with that
+token and nothing else:
+
+- it lasts an hour, and the runner refreshes it before it ends, so a job that runs longer keeps
+  writing as the app;
+- it covers the job's repository. For a mega bug fix it covers the plan repository and every
+  repository its product names that the app's installation holds, each within the key's allow-list;
+- it holds `contents`, `pull_requests` and `issues` write and `metadata` read, nothing more. A fix
+  that changes a workflow file therefore fails to push, as any push that fails does;
+- the runner replaces it with `***` in every line, log tail and report it sends to Omni.
+
+A job never runs as a person: when its token cannot be made, it ends `failed` with a reason that
+starts `github app:`, and no runner runs it under its own account. That covers an app removed or
+uninstalled, a pair GitHub now refuses, a key revoked or whose maker left the workspace, and a master
+key Omni lost. A job queued while an app was attached keeps needing one: removing the app does not
+send it as a person. A refresh that keeps failing until the token ends fails the job the same way.
+
+Two things stay with the repository, outside the job. A `CODEOWNERS` file still makes GitHub request
+its owners' review on the pull request. The job asks for no reviewer itself, not even one the
+repository's playbook names. And only a runner on a recent enough kit takes such a job: see
+[Runners](/docs/runners#a-job-of-a-key-with-a-github-app).
 
 ## Follow a job
 
@@ -125,6 +198,8 @@ Every refusal answers one shape, `{"error": {"code": "…", "message": "…"}}`.
 | 403 | `forbidden` | a repository outside the workspace or outside the key's allow-list |
 | 404 | `not_found` | a job that does not exist or that no key of this workspace queued |
 | 422 | `invalid_request` | a query or body the contract refuses, a bad cursor, or a repository that is not a plan repository; the message names the field |
+| 422 | `github_app_not_installed` | the key has a GitHub App and it is not installed on the repository; the message names the repository, and nothing is queued |
+| 422 | `github_app_permissions` | the key has a GitHub App whose installation on the repository lacks write access to `contents`, `pull_requests` or `issues`; the message names the permission, and nothing is queued |
 | 500 | `internal` | anything else; the message never carries a stack or a database error |
 
 ## Reference

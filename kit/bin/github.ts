@@ -6,10 +6,12 @@
 // Ported from nimbus-brain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/bin--github.md.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
+import { homedir } from 'node:os';
 import type { ExecText } from '../lib/context.ts';
-import { processEnv, withGithubToken } from '../lib/env/read.ts';
+import { githubAppOf, processEnv, runnerJobOf, withGithubToken } from '../lib/env/read.ts';
 import type { IssueNumber, PrNumber } from '../lib/ids.ts';
 import type { CommentClient } from '../lib/outbox/comment.ts';
+import { jobGithubToken } from '../lib/runner/github-token.ts';
 import type { Env } from './io.ts';
 import { GhCommentsSchema, GhWrittenCommentSchema } from './schema.ts';
 
@@ -65,11 +67,32 @@ export function ghClient({
 }
 
 /**
+ * The token of the GitHub App `app` a job runs as (PRD 2433): `githubToken`'s when a test hands one in, else
+ * the one the job's runner keeps, read through the same call as `omni runner github-token`. It refuses, rather
+ * than let a call run as another login, in words that hold no token.
+ */
+function appToken(app: string, env: Env, { githubToken, home }: { githubToken: ((env: Env) => string | null) | undefined; home: string }): string {
+  const handed = githubToken?.(env) ?? null;
+  if (handed !== null) return handed;
+  const read = githubToken === undefined ? jobGithubToken(runnerJobOf(env), home) : { refusal: 'no token is kept for it.' };
+  if ('token' in read) return read.token;
+  throw new Error(`omni: this job runs as the GitHub App ${app}, but its token cannot be read: ${read.refusal} It never runs as another login.`);
+}
+
+/**
  * The `env` every `gh` call runs with: unchanged when `ctx.config.github.user` is null (the ambient
  * `gh` login), else `env` plus `GH_TOKEN` read once from `gh auth token --user <user>`. The token is
  * only ever passed through `env` — never interpolated into an argument or a shell string.
+ *
+ * Under `OMNI_GITHUB_APP` (PRD 2433) the job runs as an app, whatever `github.user` says: `GH_TOKEN` is the
+ * job's token, and `gh auth token`, which would hand over a person's own login, never runs.
  */
-export function githubEnv(ctx: GithubContext, { exec = execFileSync, env = processEnv() }: { exec?: ExecText; env?: Env | undefined } = {}): Env | undefined {
+export function githubEnv(
+  ctx: GithubContext,
+  { exec = execFileSync, env = processEnv(), githubToken, home = homedir() }: { exec?: ExecText; env?: Env | undefined; githubToken?: ((env: Env) => string | null) | undefined; home?: string } = {},
+): Env | undefined {
+  const app = githubAppOf(env);
+  if (app !== null) return withGithubToken(env, appToken(app, env, { githubToken, home }));
   const user = ctx.config.github.user;
   if (!user) return undefined;
   const token = exec('gh', ['auth', 'token', '--user', user], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

@@ -3,7 +3,7 @@ import { API_KEY, OLGA, WORKSPACE } from '../runners/fixtures/store.fake';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import { DEAD_KEY, FAILED, getJob, listBugFixes, listPrds, startBugFix, startMegaBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps } from './public-api.controller';
 import { JobSchema, PublicApiErrorSchema } from './public-api.contract';
-import { publicApiService } from './public-api.service';
+import { publicApiService, type CheckInstallation, type InstallationCheck } from './public-api.service';
 import type { PublicApiRepository } from './public-api.repository';
 
 // GET /api/v1/prds and /api/v1/bug-fixes (PRD 2022 s2) through the real service on rows in memory: the key
@@ -13,8 +13,8 @@ import type { PublicApiRepository } from './public-api.repository';
 
 const ORIGIN = 'https://omni.example';
 
-function deps(api: FakePublicApi | null, logs: string[] = []): PublicApiDeps {
-  return { service: api ? publicApiService(api.repository, api.runners) : null, log: (line) => logs.push(line) };
+function deps(api: FakePublicApi | null, logs: string[] = [], installation: CheckInstallation | null = null): PublicApiDeps {
+  return { service: api ? publicApiService(api.repository, api.runners, installation) : null, log: (line) => logs.push(line) };
 }
 
 function get(path: string, authorization: string | null = `Bearer ${SECRETS.all}`): Request {
@@ -356,5 +356,91 @@ describe('POST /api/v1/mega-bug-fixes', () => {
     const none = await startMegaBugFix(post(FIX), deps(null));
     expect(none.status).toBe(500);
     expect(await errorOf(none)).toEqual({ code: 'internal', message: NO_DATABASE });
+  });
+});
+
+describe('POST /api/v1/bug-fixes and /mega-bug-fixes from a key with a GitHub App (PRD 2433 s6)', () => {
+  const ROUTES = [
+    { route: 'bug-fixes', start: startBugFix, body: { repo: 'demo-org/app', description: 'Issue 548 totals' } },
+    { route: 'mega-bug-fixes', start: startMegaBugFix, body: { repo: 'demo-org/plan', description: 'https://github.com/demo-org/plan/issues/612' } },
+  ] as const;
+  const post = (route: string, body: unknown) => new Request(`${ORIGIN}/api/v1/${route}`, {
+    method: 'POST', headers: { authorization: `Bearer ${SECRETS.runners}` }, body: JSON.stringify(body),
+  });
+
+  /** The fake, the runners' key holding an App and demo-org/plan a plan repository, and a GitHub answering `answer`. */
+  function setup(answer: InstallationCheck | Error) {
+    const api = fakePublicApi();
+    api.githubApp(API_KEY, { slug: 'acme-bot' });
+    api.planRepository(WORKSPACE, 'demo-org/plan');
+    const asked: string[] = [];
+    const check: CheckInstallation = (_app, repo) => {
+      asked.push(repo);
+      return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
+    };
+    return { api, asked, check };
+  }
+
+  for (const { route, start, body } of ROUTES) {
+    it(`answers 422 github_app_not_installed on /${route}, naming the repository, and queues nothing`, async () => {
+      const { api, asked, check } = setup({ installed: false });
+      const response = await start(post(route, body), deps(api, [], check));
+      expect(response.status).toBe(422);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      const error = await errorOf(response);
+      expect(error.code).toBe('github_app_not_installed');
+      expect(error.message).toContain(body.repo);
+      expect(asked).toEqual([body.repo]);
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+
+    it(`answers 422 github_app_permissions on /${route}, naming the permission, and queues nothing`, async () => {
+      const { api, check } = setup({ installed: true, missing: 'pull_requests' });
+      const response = await start(post(route, body), deps(api, [], check));
+      expect(response.status).toBe(422);
+      const error = await errorOf(response);
+      expect(error.code).toBe('github_app_permissions');
+      expect(error.message).toContain('pull_requests');
+      expect(error.message).toContain(body.repo);
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+
+    it(`queues /${route} with 202 where the App is installed with the three permissions`, async () => {
+      const { api, check } = setup({ installed: true, missing: null });
+      const response = await start(post(route, body), deps(api, [], check));
+      expect(response.status).toBe(202);
+      expect(JobSchema.parse(await response.json())).toMatchObject({ status: 'queued', repo: body.repo });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it(`answers 500 on /${route} without GitHub's words when GitHub cannot be asked, logging them, and queues nothing`, async () => {
+      const { api, check } = setup(new Error('GitHub answered 502 to GET /repos/demo-org/app/installation'));
+      const logs: string[] = [];
+      const response = await start(post(route, body), deps(api, logs, check));
+      expect(response.status).toBe(500);
+      expect(await errorOf(response)).toEqual({ code: 'internal', message: FAILED });
+      expect(logs).toEqual(['public-api: GitHub answered 502 to GET /repos/demo-org/app/installation']);
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+
+    it(`answers 500 on /${route} without the database's words when the App's sealed key cannot be opened, and queues nothing`, async () => {
+      const { api, check } = setup({ installed: true, missing: null });
+      const logs: string[] = [];
+      const broken = { ...api.repository, githubAppOf: () => Promise.reject(new Error('api_key_github_app_of_key: Could not find the function')) };
+      const response = await start(post(route, body), { service: publicApiService(broken, api.runners, check), log: (line) => logs.push(line) });
+      expect(response.status).toBe(500);
+      expect(await errorOf(response)).toEqual({ code: 'internal', message: FAILED });
+      expect(logs).toEqual(['public-api: api_key_github_app_of_key: Could not find the function']);
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+  }
+
+  it('asks GitHub nothing for a key with no App', async () => {
+    const api = fakePublicApi();
+    const asked: string[] = [];
+    const check: CheckInstallation = (_app, repo) => { asked.push(repo); return Promise.resolve({ installed: false }); };
+    const response = await startBugFix(post('bug-fixes', ROUTES[0].body), deps(api, [], check));
+    expect(response.status).toBe(202);
+    expect(asked).toEqual([]);
   });
 });

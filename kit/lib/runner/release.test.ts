@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { alarmText, MAX_RELEASED, MAX_RELEASE_ERROR, namesJob, release, releaser } from './release.ts';
+import { alarmText, MAX_RELEASED, MAX_RELEASE_ERROR, namesJob, notReleased, release, releaser } from './release.ts';
 import type { ClaimsRepo, Gh } from './release.ts';
 
 const REPO: ClaimsRepo = { slug: 'acme/widgets', inProgress: 'omni:in-progress', released: 'omni:released', statusMarker: '<!-- omni-outbox-status -->' };
@@ -245,6 +245,49 @@ describe('releaser()', () => {
     const exec = (): string => '[]';
     expect(releaser({ exec, checkouts: new Map([['acme/widgets', dir]]) })({ id: '9', runner: 'box-1', repo: 'acme/widgets', reason: 'done' })).toEqual({
       released: [], releaseError: 'the config of acme/widgets could not be read',
+    });
+  });
+
+  describe('as the job’s app (PRD 2433, s3)', () => {
+    const TOKEN = ['ghs', 'fakeTokenOfTheJobBeingReleased0123456789'].join('_');
+    const ended = { id: '9', runner: 'box-1', repo: 'acme/widgets', reason: 'done' };
+
+    /** Every `gh` call of a release, with the environment it ran in (none: the machine's own). */
+    function releasedWith(extra: { ghToken?: string | null }, env?: Record<string, string | undefined>) {
+      const dir = checkout('kit: 1\n');
+      const seen: { args: string; env: NodeJS.ProcessEnv | undefined }[] = [];
+      const exec = (_file: string, args: readonly string[], options: { env?: NodeJS.ProcessEnv | undefined }): string => {
+        seen.push({ args: args.join(' '), env: options.env });
+        if (args[1] === 'list') return JSON.stringify([{ number: 3, isDraft: true, labels: [{ name: 'omni:in-progress' }] }]);
+        if (args[0] === 'api') return `${JSON.stringify(['<!-- omni-outbox-status -->\n- job: 9'])}\n`;
+        return '';
+      };
+      const done = releaser({ exec, checkouts: new Map([['acme/widgets', dir]]), ...(env === undefined ? {} : { env }) })({ ...ended, ...extra });
+      return { done, seen };
+    }
+
+    it('runs every gh call with the job’s token as GH_TOKEN, on top of the runner’s own environment', () => {
+      const { done, seen } = releasedWith({ ghToken: TOKEN }, { PATH: '/usr/bin', HOME: '/home/box' });
+      expect(done).toEqual({ released: [3], releaseError: null });
+      expect(seen.length).toBeGreaterThanOrEqual(4);
+      for (const call of seen) expect(call.env).toEqual({ PATH: '/usr/bin', HOME: '/home/box', GH_TOKEN: TOKEN });
+    });
+
+    it('runs with the machine’s own gh, and no environment of its own, when the job had no app', () => {
+      const cases: { ghToken?: string | null }[] = [{}, { ghToken: null }];
+      for (const extra of cases) {
+        const { done, seen } = releasedWith(extra, { PATH: '/usr/bin', GH_TOKEN: 'a-token-of-the-machine' });
+        expect(done.released).toEqual([3]);
+        for (const call of seen) expect(call.env).toBeUndefined();
+      }
+    });
+
+    it('says why a release that could not run came to nothing, cut to what the app stores', () => {
+      expect(notReleased('github app: its token expired')).toEqual({ released: [], releaseError: 'github app: its token expired' });
+      const long = notReleased(`github app: ${'x'.repeat(500)}`);
+      expect(long.released).toEqual([]);
+      expect(long.releaseError).toHaveLength(MAX_RELEASE_ERROR);
+      expect(long.releaseError?.endsWith('…')).toBe(true);
     });
   });
 });

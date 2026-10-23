@@ -36,6 +36,23 @@ const DossierRow = z.object({
 /** A numbered dossier, as the lists read it. */
 export type DossierRow = z.infer<typeof DossierRow>;
 
+// A key's GitHub App (PRD 2433 s6), as a send reads it: whether the key holds one comes from `key_id`, the
+// one column the service role may select of api_key_github_apps, and its sealed private key comes only from
+// the function that opens it for the service role (supabase/migrations/20261228090000_api_key_github_apps.sql
+// opens it by job, api_key_github_app_of_job(); a send has no job yet, so it asks by key).
+const HeldRow = z.array(z.object({ key_id: z.string() }));
+const OpenedApp = z.object({
+  app: z.object({
+    app_id: z.number().int().positive(),
+    slug: z.string().min(1),
+    ciphertext: z.string().min(1),
+    iv: z.string().min(1),
+  }).nullable(),
+}).nullable();
+
+/** The App a key holds: its id and slug, and its private key sealed by the secret box (never in the clear here). */
+export type KeyGithubApp = { appId: number; slug: string; ciphertext: string; iv: string };
+
 const ProductRow = z.object({ id: z.string(), key: z.string().nullable(), name: z.string() });
 export type ProductRow = z.infer<typeof ProductRow>;
 
@@ -123,6 +140,16 @@ export function publicApiRepository(db: PublicApiDb) {
         z.array(z.object({ id: z.string() })), 'products.plan_repository',
       );
       return named.length > 0;
+    },
+
+    /** The GitHub App the key holds, or null when it holds none (PRD 2433). A key with none is told by `key_id`
+     * alone and never reaches the function that opens the sealed key. */
+    async githubAppOf(key: string): Promise<KeyGithubApp | null> {
+      const held = await settled(db.from('api_key_github_apps').select('key_id').eq('key_id', key).limit(1), HeldRow, 'api_key_github_apps');
+      if (held.length === 0) return null;
+      const opened = await settled(db.rpc('api_key_github_app_of_key', { p_key: key }), OpenedApp, 'api_key_github_app_of_key');
+      const app = opened?.app;
+      return app ? { appId: app.app_id, slug: app.slug, ciphertext: app.ciphertext, iv: app.iv } : null;
     },
   };
 }

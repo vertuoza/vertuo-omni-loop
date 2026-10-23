@@ -79,7 +79,7 @@ describe('which job a runner claims', () => {
   it('hands the runner the line, the repository and the sender\'s login', async () => {
     const job = jobRow({ line: '/omni:pr-care 1801', sent_by: MO });
     const { service } = world({ jobs: [job] });
-    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [] });
+    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [], sentByKey: null, github: null });
   });
 });
 
@@ -137,7 +137,7 @@ describe('a repository\'s own skill (PRD 2313)', () => {
   it('hands the runner the allowed skills as they stand when it claims the job', async () => {
     const w = world({ skills: [allowed('validate-prd'), allowed('audit'), allowed('lint', 'demo-org/other')] });
     const queued = value(await w.service.send(MO, send('/validate-prd 347')));
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: '/validate-prd 347', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: ['audit', 'validate-prd'] });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: '/validate-prd 347', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: ['audit', 'validate-prd'], sentByKey: null, github: null });
   });
 
   it('hands none back for a skill turned off while its job waited, so the runner refuses it', async () => {
@@ -411,7 +411,7 @@ describe('a job the Omni app sends (PRD 2338 s2)', () => {
   it('reads as sent by the Omni app to the runner that claims it', async () => {
     const queued = appJob();
     const w = world({ jobs: [queued] });
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: queued.line, repo: 'demo-org/app', sentBy: 'Omni app', allowedSkills: [] });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: queued.line, repo: 'demo-org/app', sentBy: 'Omni app', allowedSkills: [], sentByKey: null, github: null });
   });
 
   it('lets a workspace owner cancel it, and no other member', async () => {
@@ -462,7 +462,7 @@ describe('a job an API key sends (PRD 2022 s4)', () => {
   it('reads as sent by the key, with its maker, to the runner and on the Runners page', async () => {
     const w = world();
     const queued = value(await w.service.sendByKey(key, fix));
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [] });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [], sentByKey: 'QA dashboard', github: null });
     const board = value(await w.service.board(OLGA, key.workspace));
     expect(board.jobs).toMatchObject([{ id: queued.id, sentByKey: 'QA dashboard', sentByLogin: 'olga' }]);
     const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'demo-org/app', target: { kind: 'any' } }));

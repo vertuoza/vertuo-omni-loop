@@ -4,6 +4,7 @@ import { serviceDb } from '../data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { serverEnv } from '../env';
 import type { RunnersDeps } from './runners.controller';
+import { githubDeps } from './runners.github';
 import { runnersRepository } from './runners.repository';
 import { runnersService, type RunnersService } from './runners.service';
 
@@ -12,6 +13,9 @@ import { runnersService, type RunnersService } from './runners.service';
 // cookies, and the rules over the service role's client (SUPABASE_SERVICE_ROLE_KEY, server only), the
 // one role that writes the two tables. Without Supabase configured (the demo galaxy) every call answers
 // 503; without the service role key, too, said in its words.
+//
+// A key's job runs as the key's GitHub App (PRD 2433): its private key is opened under SECRETS_MASTER_KEY
+// and its token minted through the global fetch (./runners.github.ts).
 
 const clock = {
   now: () => new Date(),
@@ -21,7 +25,7 @@ const clock = {
 /** The rules over the service role's client, or null when this deployment has none. */
 function liveRunnersService(): RunnersService | null {
   if (!supabaseEnv() || serverEnv().serviceRole === null) return null;
-  return runnersService(runnersRepository(serviceDb()), clock);
+  return runnersService(runnersRepository(serviceDb()), clock, githubDeps(serverEnv().secretsMasterKey));
 }
 
 /** The signed-in person of the page's session, by id, or null. */
