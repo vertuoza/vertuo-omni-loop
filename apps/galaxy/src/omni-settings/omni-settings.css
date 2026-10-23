@@ -1,0 +1,38 @@
+/* Settings → Playbook (PRD 2417, s6), on the ask pages' reading surface: the head card, then one card
+   per playbook page with its source tag and its text. Every colour is a token of
+   src/ask/theme-tokens.ts. Nothing is wider than the window: at 393 px the tag wraps under the name and
+   the text wraps rather than scrolls the page. */
+
+.omni-settings .ask-card { justify-items: stretch; }
+.omni-settings-head,
+.omni-settings-empty { justify-items: start; }
+.omni-settings-source { overflow-wrap: anywhere; }
+
+.omni-settings-pages { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.omni-settings-page { display: grid; gap: 12px; min-width: 0; }
+.omni-settings-page-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.omni-settings-page-head h2 { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+
+.omni-settings-source-tag {
+  padding: 2px 10px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--ask-muted);
+}
+.omni-settings-source-settings { color: var(--ask-ink); }
+
+.omni-settings-text {
+  margin: 0;
+  padding: 12px 14px;
+  max-width: 900px;
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 10px;
+  color: var(--ask-ink);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
