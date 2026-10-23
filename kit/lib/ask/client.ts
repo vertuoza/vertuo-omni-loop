@@ -519,6 +519,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
     readConstituents: (repo: string) => call('GET', `/api/constituents?${new URLSearchParams({ repo })}`),
+    /** PRD 2417: the tech playbook of the settings repository of the workspace `repo` (owner/name) belongs to, as the
+     * caller; `../omni-settings/schema.ts` shapes the answer, and `../omni-settings/sync.ts` reads it. */
+    readOmniSettings: (repo: string) => call('GET', `/api/omni-settings/playbook?${new URLSearchParams({ repo })}`),
     /** PRD 2268: adds or edits one Legal entry or Glossary term of the product `repo` belongs to (`product`, when
      * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
      * `entry` names the item an edit changes, by the id or term the reads print.

@@ -569,6 +569,17 @@ Then run `node .omni-loop/bin/omni.mjs check design` and
 fixed in it. Commit the drafts as their own commit, so a person can drop them alone:
 `docs(design): draft the screen library from the repository`.
 
+### Pages it cannot prove
+
+A page the evidence cannot prove is left unwritten: no file, or the form as `omni kb init` laid it
+down. It then reads the Omni-settings default (the workspace's settings repository, through its
+local copy), and the kit default where that has none. The run never copies either text into the
+repository: a repository's own page is one a person or this skill wrote for it, and it never copies
+default text to look complete. After the forms are written, run
+`node .omni-loop/bin/omni.mjs kb status` and name the pages on its `reads the Omni settings` line in
+the pull request, so the person sees which pages follow the default. With no such line the
+repository has no Omni-settings copy, and every unproven page reads the kit default.
+
 ## 6. Leave holes
 
 What the evidence cannot show becomes a question, never a guess.
@@ -842,6 +853,6 @@ at, at Settings › Business › Draft from my repos, and every drafted claim wa
 - Writes only under the front door, the screen library and the config file: never a `CLAUDE.md`, a README, a workflow or
   source code. Repatriating decision records copies them; the originals are never deleted.
 - Never rewrites a `by: human` section, nor any section a person wrote.
-- Never copies a kit default into a form, and never copies a page a pointer or an index entry can
+- Never copies a kit default or an Omni-settings default into a form, and never copies a page a pointer or an index entry can
   name.
 - Never merges, never pushes to the default branch, never adds `labels.outboxGo`.
