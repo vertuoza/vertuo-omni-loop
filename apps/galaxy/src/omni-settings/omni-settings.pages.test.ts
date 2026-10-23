@@ -24,7 +24,7 @@ function service({ workspace = ACME, files = {}, installation = 77 }: World = {}
     head: () => Promise.resolve(COMMIT),
     file: (_installation, _repository, _commit, path) => Promise.resolve(files[path] ?? null),
   };
-  return omniSettingsPagesService({ workspaceById: () => Promise.resolve(workspace) }, github, () => KIT);
+  return omniSettingsPagesService({ workspaceById: () => Promise.resolve(workspace), isOwner: (id) => Promise.resolve(id === 'w-acme') }, github, () => KIT);
 }
 
 describe('the playbook pages of a workspace', () => {
@@ -70,6 +70,11 @@ describe('the playbook pages of a workspace', () => {
 
   it('is null for a workspace the caller does not read', async () => {
     expect(await service({ workspace: null }).pages('w-other')).toBeNull();
+  });
+
+  it('says whether the caller owns the workspace, as the database answers (s7)', async () => {
+    expect(await service().owner('w-acme')).toBe(true);
+    expect(await service().owner('w-other')).toBe(false);
   });
 });
 

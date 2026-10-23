@@ -17,13 +17,22 @@ function dbOf(rows: unknown[], error: string | null = null): SupabaseClient<Data
   return { from: () => ({ select: () => ({ eq: () => answer }) }) } as unknown as SupabaseClient<Database>;
 }
 const member = [{ joined_at: '2026-01-01T00:00:00Z', workspace: { id: 'w-acme', slug: 'acme', name: 'Acme', theme: {} } }];
-const serviceOf = (pages: OmniSettingsPagesService['pages']): OmniSettingsPagesService => ({ pages });
+const serviceOf = (pages: OmniSettingsPagesService['pages'], owner: OmniSettingsPagesService['owner'] = () => Promise.resolve(false)): OmniSettingsPagesService => ({ pages, owner });
 
 describe('loading the playbook page', () => {
-  it('reads the playbook of the person\'s workspace', async () => {
+  it('reads the playbook of the person\'s workspace, and whether they own it', async () => {
     const pages = vi.fn(() => Promise.resolve(VIEW));
-    expect(await loadSettingsPage(dbOf(member), USER, serviceOf(pages))).toEqual({ kind: 'playbook', workspace: { id: 'w-acme', name: 'Acme' }, ...VIEW });
+    const owner = vi.fn(() => Promise.resolve(true));
+    expect(await loadSettingsPage(dbOf(member), USER, serviceOf(pages, owner))).toEqual({ kind: 'playbook', workspace: { id: 'w-acme', name: 'Acme' }, owner: true, ...VIEW });
     expect(pages).toHaveBeenCalledWith('w-acme');
+    expect(owner).toHaveBeenCalledWith('w-acme');
+  });
+
+  it('reads a role that cannot be read as a member\'s, so the page still shows, without its edit (s7)', async () => {
+    const quiet = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const load = await loadSettingsPage(dbOf(member), USER, serviceOf(() => Promise.resolve(VIEW), () => Promise.reject(new Error('boom'))));
+    expect(load).toMatchObject({ kind: 'playbook', owner: false });
+    quiet.mockRestore();
   });
 
   it('says a person in no workspace is in none', async () => {

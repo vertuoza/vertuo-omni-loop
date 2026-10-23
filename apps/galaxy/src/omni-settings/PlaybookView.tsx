@@ -1,10 +1,13 @@
+import type { PlaybookEditing } from './omni-settings.client';
 import type { PlaybookPage, PlaybookPagesView } from './omni-settings.contract';
+import { PlaybookEditor } from './PlaybookEditor';
 
 // Settings → Playbook drawn (PRD 2417, s6): the tech playbook of the workspace's settings repository,
 // page by page. One card per page: its name, whose it is (the settings repository's own file, or the
 // kit's first default) and its text. A workspace with no settings repository, or one the Omni app
-// cannot read, says so with the one thing to do. Read only: the edit is a later slice's. Drawn on the
-// server; nothing here needs the browser.
+// cannot read, says so with the one thing to do. Drawn on the server; only the edit needs the browser.
+// A workspace owner gets each page's edit (s7, ./PlaybookEditor.tsx), which proposes a change as a pull
+// request in the settings repository; every other member reads the pages only, with no edit control.
 
 export const SOURCE_LABEL: Record<PlaybookPage['source'], string> = {
   settings: 'In your settings repository',
@@ -27,7 +30,11 @@ export function pageBody(text: string): string {
   return text.replace(FRONT_MATTER, '').trim();
 }
 
-export function PlaybookView({ view }: { view: Pick<PlaybookPagesView, 'repository' | 'commit' | 'reason' | 'pages'> }) {
+export function PlaybookView({ view, editing = null }: {
+  view: Pick<PlaybookPagesView, 'repository' | 'commit' | 'reason' | 'pages'>;
+  /** How an owner proposes a change; null for a member who is not an owner, who sees no edit control. */
+  editing?: PlaybookEditing | null;
+}) {
   const noRepository = view.repository === null;
   return (
     <div className="ask-col omni-settings">
@@ -62,6 +69,9 @@ export function PlaybookView({ view }: { view: Pick<PlaybookPagesView, 'reposito
                 <span className={`omni-settings-source-tag omni-settings-source-${page.source}`}>{SOURCE_LABEL[page.source]}</span>
               </div>
               <pre className="omni-settings-text">{pageBody(page.text)}</pre>
+              {editing !== null && view.repository !== null && (
+                <PlaybookEditor form={page.form} text={page.text} repository={view.repository} editing={editing} />
+              )}
             </li>
           ))}
         </ul>

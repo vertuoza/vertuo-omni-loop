@@ -23,7 +23,7 @@ function kitDefault(): SettingsFile[] {
   }
 }
 
-export function settingsPagesFor(db: Pick<SupabaseClient, 'from'>): OmniSettingsPagesService | null {
+export function settingsPagesFor(db: Pick<SupabaseClient, 'from' | 'rpc'>): OmniSettingsPagesService | null {
   try {
     const github = settingsGithub(appCredentials(), fetch, Date.now, githubStore());
     return omniSettingsPagesService(omniSettingsRepository(db), github, kitDefault);

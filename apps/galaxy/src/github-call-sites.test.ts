@@ -30,6 +30,8 @@ const SITES: Record<string, Kind> = {
   'apps/galaxy/src/loop/github.ts': 'client',
   /** The settings repository's playbook, read as the App for the terminal that waits (PRD 2417, s3). */
   'apps/galaxy/src/omni-settings/omni-settings.github.ts': 'client',
+  /** A workspace owner's playbook change, one branch and one pull request in its settings repository, as the App (PRD 2417, s7). */
+  'apps/galaxy/src/omni-settings/omni-settings.pull-request.ts': 'client',
   'apps/galaxy/src/outbox/send.ts': 'person',
   /** An approved Omni-setup finding's one issue on the kit's repository (PRD 2410, s7). */
   'apps/galaxy/src/rewind/kit-issue.ts': 'client',
