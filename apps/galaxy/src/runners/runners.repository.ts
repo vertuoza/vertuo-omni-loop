@@ -268,6 +268,21 @@ export function runnersRepository(db: RunnersDb) {
       return new Map(Object.entries(names));
     },
 
+    /** Of these queued jobs of API keys, the ones that must run as their key's GitHub App (PRD 2482): the key holds an App, or
+     * runner_job_needs_app marks the job. Only `key_id` and `job_id` are read, the two columns the service role may select, never
+     * the App's sealed key; two reads whatever the number of jobs. */
+    jobsNeedingApp: async (jobs: readonly { id: string; keyId: string }[]): Promise<Set<string>> => {
+      if (jobs.length === 0) return new Set();
+      const keyIds = [...new Set(jobs.map((job) => job.keyId))];
+      const [held, marked] = await Promise.all([
+        parsed(db.from('api_key_github_apps').select('key_id').in('key_id', keyIds), z.array(z.object({ key_id: z.string() })), 'api_key_github_apps'),
+        parsed(db.from('runner_job_needs_app').select('job_id').in('job_id', jobs.map((job) => job.id)), z.array(z.object({ job_id: z.string() })), 'runner_job_needs_app'),
+      ]);
+      const holding = new Set(held.map((row) => row.key_id));
+      const markedIds = new Set(marked.map((row) => row.job_id));
+      return new Set(jobs.filter((job) => holding.has(job.keyId) || markedIds.has(job.id)).map((job) => job.id));
+    },
+
     /** The GitHub App the job of an API key runs as (PRD 2433; api_key_github_app_of_job(), service role only):
      * null for a job no key sent. The sealed private key comes with it, for the server to open and nobody else. */
     appOfJob: async (jobId: string): Promise<AppOfJob | null> =>
@@ -280,6 +295,12 @@ export function runnersRepository(db: RunnersDb) {
 
     runner: async (id: string): Promise<RunnerRow | null> =>
       parsed(db.from('runners').select(RUNNER_COLUMNS).eq('id', id).maybeSingle(), RunnerRow.nullable(), 'runners'),
+
+    /** These runners, in one read; one that is gone is not in the answer. */
+    runnersByIds: async (ids: readonly string[]): Promise<RunnerRow[]> => {
+      if (ids.length === 0) return [];
+      return parsed(db.from('runners').select(RUNNER_COLUMNS).in('id', [...ids]), z.array(RunnerRow), 'runners');
+    },
 
     runnerNamed: async (workspaceId: string, name: string): Promise<RunnerRow | null> =>
       parsed(db.from('runners').select(RUNNER_COLUMNS).eq('workspace_id', workspaceId).eq('name', name).maybeSingle(), RunnerRow.nullable(), 'runners'),

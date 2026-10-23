@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { ASK, ASK_TEXT_PAIRS, ASK_UI_PAIRS } from '@omni/design';
+import { ASK, ASK_ANTI, ASK_TEXT_PAIRS, ASK_UI_PAIRS } from '@omni/design';
 import { TEXT_PAIRS, TOKENS, UI_PAIRS, themeCss, type TokenName } from './theme-tokens';
 import { item } from './test/test-item';
 
@@ -46,6 +46,27 @@ describe('the stylesheet the table becomes', () => {
     expect(unmarked).toContain('color-scheme: dark;');
     for (const [name, value] of Object.entries(TOKENS.omni)) expect(unmarked).toContain(`${variable(name as TokenName)}: ${value};`);
     expect(css).not.toContain('prefers-color-scheme');
+  });
+});
+
+describe('the anti-loop declarations (PRD 2490)', () => {
+  const css = themeCss();
+  const variable = (name: string) => `--ask-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+  const rules = css.split('\n');
+
+  it('emits each theme\'s ASK_ANTI only under a root marked data-ask-mode="anti"', () => {
+    for (const theme of ['omni', 'light', 'dark'] as const) {
+      const rule = rules.find((r) => r.includes(`data-ask-theme="${theme}"][data-ask-mode="anti"]`));
+      expect(rule, theme).toBeDefined();
+      for (const [name, value] of Object.entries(ASK_ANTI[theme])) expect(rule, theme).toContain(`${variable(name)}: ${value};`);
+    }
+    expect(rules.filter((r) => r.includes('data-ask-mode="anti"'))).toHaveLength(4);
+    for (const r of rules.filter((x) => !x.includes('data-ask-mode="anti"'))) expect(r).not.toContain('--ask-plasma-soft: #3a1238');
+  });
+
+  it('shows Omni\'s anti-loop tokens on a marked root no script reached', () => {
+    const rule = rules.find((r) => r.startsWith('.ask[data-ask-mode="anti"]:not([data-ask-theme])'));
+    expect(rule).toContain(`--ask-plasma: ${ASK_ANTI.omni.plasma};`);
   });
 });
 

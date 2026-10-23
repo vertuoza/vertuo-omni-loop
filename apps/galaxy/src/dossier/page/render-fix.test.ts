@@ -48,7 +48,7 @@ describe('a visual fix\'s page', () => {
 
   it('lists Timeline, Before/after, Variations and Questions, and nothing of a PRD', () => {
     const html = render('visual', VISUAL);
-    const labels = [...html.matchAll(/class="dossier-tab[^"]*" href="[^"]*"[^>]*>([^<]+)/g)].map((m) => m[1]);
+    const labels = [...html.matchAll(/class="dossier-tab[^"]*"[^>]*href="[^"]*"[^>]*>([^<]+)/g)].map((m) => m[1]);
     expect(labels).toEqual(['Timeline', 'Before/after', 'Variations', 'Questions']);
   });
 

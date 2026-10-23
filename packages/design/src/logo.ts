@@ -8,6 +8,7 @@
 // single ink. Whole-number scales only: the logo is never smoothed.
 /// <reference lib="dom" />
 import { INK } from './palette.ts';
+import { ASK_ANTI } from './tokens.ts';
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 
 /** The logo's forms: OMNI LOOP, a big O leading MNI LOOP, and the O alone. */
@@ -109,6 +110,9 @@ const LAYOUTS: Readonly<Record<LogoDrawing, () => { w: number; h: number; boxes:
 };
 
 const RAMP = [INK.highlight, INK.yellow, INK.orange, INK.ember];
+// The mirrored crest's ring (anti-loop mode): the same 4-tone ramp in the anti-loop signal colour,
+// the Omni theme's `plasma` of Rewind Light as its second tone. The outline and the shadow stay.
+const ANTI_RAMP = ['#ffc2e3', ASK_ANTI.omni.plasma, '#c21a80', '#7d0f55'];
 
 /** The ramp tone of a glyph's pixel: lit from the top left, mostly from above. */
 function tone(x: number, y: number, w: number, h: number): string {
@@ -120,11 +124,12 @@ const cache = new Map<string, LogoArt>();
 
 /**
  * A logo drawing as pixels: `{ w, h, pixels }`, row by row, `null` for empty, like a forged sprite.
- * `mono` gives the one-colour variant.
+ * `mono` gives the one-colour variant. `mirror` gives the anti-loop's drawing: the pixels reversed
+ * column for column, the ring in the anti-loop signal colour (the mono variant has no ring colour).
  */
-export function logoPixels(form: LogoDrawing, { mono = false }: { mono?: boolean } = {}): LogoArt {
+export function logoPixels(form: LogoDrawing, { mono = false, mirror = false }: { mono?: boolean; mirror?: boolean } = {}): LogoArt {
   if (!LOGO_DRAWINGS.includes(form)) throw new Error(`unknown logo form ${form}`);
-  const key = `${form}|${mono}`;
+  const key = `${form}|${mono}|${mirror}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const { w: lw, h: lh, boxes, shadow } = LAYOUTS[form]();
@@ -153,6 +158,14 @@ export function logoPixels(form: LogoDrawing, { mono = false }: { mono?: boolean
   } else {
     // The drop shadow: the silhouette moved down and right, behind it.
     pixels = body.map((c, i) => c ?? (has(body, (i % w) - shadow, Math.floor(i / w) - shadow) ? INK.plasmaDark : null));
+  }
+  if (mirror) {
+    const anti = new Map(RAMP.map((c, i) => [c, at(ANTI_RAMP, i, 'an anti-loop tone')]));
+    const flat = pixels;
+    pixels = flat.map((_, i) => {
+      const flipped = flat[Math.floor(i / w) * w + (w - 1 - (i % w))] ?? null;
+      return flipped === null ? null : (anti.get(flipped) ?? flipped);
+    });
   }
   const art = Object.freeze({ w, h, pixels: Object.freeze(pixels) });
   cache.set(key, art);
@@ -190,9 +203,9 @@ const escape = (s: string): string => s.replace(/[&<>"]/g, (c) => defined(ENTITI
  * A logo drawing as a crisp SVG string, `scale` times its pixels (a whole number), never smoothed.
  * `title` names it for a screen reader; without one the SVG is decorative.
  */
-export function logoSvg(form: LogoDrawing, { scale = 1, mono = false, title = null }: { scale?: number; mono?: boolean; title?: string | null } = {}): string {
+export function logoSvg(form: LogoDrawing, { scale = 1, mono = false, mirror = false, title = null }: { scale?: number; mono?: boolean; mirror?: boolean; title?: string | null } = {}): string {
   const k = wholeScale(scale);
-  const art = logoPixels(form, { mono });
+  const art = logoPixels(form, { mono, mirror });
   const paths = [...runsByColour(art)].map(([c, runs]) =>
     `<path fill="${c}" d="${runs.map(([x, y, n]) => `M${x} ${y}h${n}v1h-${n}z`).join('')}"/>`);
   const label = title ? ` role="img" aria-label="${escape(title)}"><title>${escape(title)}</title>` : ' aria-hidden="true">';

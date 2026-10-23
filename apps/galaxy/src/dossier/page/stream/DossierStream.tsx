@@ -57,9 +57,11 @@ export interface DossierStreamProps {
   live: (read: DossierRead) => ReactNode | Promise<ReactNode>;
   /** Where the viewer may send a line a runner runs (PRD 1830 s4): left out or null, Send to terminal shows nowhere. */
   send?: SendSetup | null;
+  /** What the page says of its own timings (PRD 2401 s1), after the page: it never holds the page back. */
+  timing?: ReactNode;
 }
 
-type Props = Omit<DossierStreamProps, 'live'>;
+type Props = Omit<DossierStreamProps, 'live' | 'timing'>;
 
 /** The page as the database has it, before GitHub answers. */
 async function Pending({ read, me, pick, reads, markdown, voice, supabase, send = null }: Props) {
@@ -84,7 +86,7 @@ async function Live({ read, live }: Pick<DossierStreamProps, 'read' | 'live'>) {
   return <>{await live(read)}</>;
 }
 
-export function DossierStream({ live, ...props }: DossierStreamProps) {
+export function DossierStream({ live, timing = null, ...props }: DossierStreamProps) {
   return (
     <>
       <Suspense fallback={null}>
@@ -93,6 +95,7 @@ export function DossierStream({ live, ...props }: DossierStreamProps) {
       <Suspense fallback={<Pending {...props} />}>
         <Complete {...props} />
       </Suspense>
+      {timing}
     </>
   );
 }

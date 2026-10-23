@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2482: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+
+/* The mockups use Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the runners library screen does. */
+.mock { --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+  --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-cyan: #5ee7ff; --ask-red: #ff6b86;
+  background: var(--ask-ground); color: var(--ask-ink); border: 1px solid var(--ask-line); border-radius: 12px; padding: 14px;
+  font: 15px/1.5 "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+.mock h5 { margin: 0 0 8px; font-size: 15px; }
+.mock .table { border: 1px solid var(--ask-line-strong); border-radius: 10px; overflow: hidden; background: var(--ask-surface); }
+.mock .row { display: grid; grid-template-columns: minmax(0, 1.6fr) 90px minmax(0, 1.3fr) 64px; gap: 10px; align-items: start; padding: 10px 12px; border-top: 1px solid var(--ask-line); }
+.mock .row:first-child { border-top: 0; }
+.mock .head { font: 700 11px/1 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); }
+.mock code { font: 500 12px/1.5 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+.mock .muted { color: var(--ask-muted); font-size: 13px; }
+.mock .status { display: inline-block; font: 700 12px/1 system-ui, sans-serif; padding: 4px 8px; border-radius: 999px; border: 1px solid; }
+.mock .s-queue { color: var(--ask-cyan); border-color: var(--ask-cyan); }
+.mock .s-fail { color: var(--ask-red); border-color: var(--ask-red); }
+.mock .why { display: block; color: var(--ask-red); font-size: 12px; margin-top: 4px; overflow-wrap: anywhere; }
+.mock .ghost { display: inline-block; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 system-ui, sans-serif; color: var(--ask-ink); background: none; }
+.caption { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<h1>PRD 2482: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div>
+<p>A job waits on <strong>Queued</strong> until a runner takes it. When no runner of the workspace can take it (none holds its repository, the runner or fleet it went to is gone, or it needs its API key's GitHub App and no runner can run one), it still reads Queued, forever. Nothing on the page says why.</p>
+<p>On 2026-10-23, the Omni app's retro jobs for four repositories sat on Queued: the workspace's one runner held none of them.</p>
+</div>
+<div><div class="label">After</div>
+<p>That job reads <strong>Cannot run</strong>, in red, with the reason under it:</p>
+<ul>
+<li><code>No runner holds nimbus/nimbus-work</code>; for a job sent to one runner, <code>&lt;runner&gt; does not hold …</code>; to a fleet, <code>No runner of &lt;fleet&gt; holds …</code></li>
+<li><code>The runner it was sent to is gone</code>, or <code>Fleet &lt;fleet&gt; is gone</code></li>
+<li><code>No runner can run it as &lt;key&gt;'s GitHub App</code></li>
+</ul>
+<p>A runner that is offline, busy or paused still counts: its jobs stay Queued (a paused one keeps its Waiting line). Nothing is stored: Cancel stays, and once a runner that can take the job registers, the row reads Queued again within 5 seconds and the job runs.</p>
+</div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: runners · app-shell (unchanged)</p>
+<div class="compare">
+<div><div class="label">Today</div><div class="mock" data-screen="runners-jobs-today"><h5>Jobs</h5><div class="table"><div class="row head"><span>Line</span><span>Where</span><span>Status</span><span></span></div><div class="row"><span><code>/omni:retro-apply --retro 186</code><span class="muted">nimbus-work · Omni app</span></span><span class="muted">Any runner</span><span><span class="status s-queue">Queued</span></span><span><button class="ghost" type="button">Cancel</button></span></div><div class="row"><span><code>/omni:retro-apply --retro 460</code><span class="muted">nimbus-buddies · Omni app</span></span><span class="muted">Cyan</span><span><span class="status s-queue">Queued</span></span><span><button class="ghost" type="button">Cancel</button></span></div><div class="row"><span><code>/omni:retro-apply --retro 2340</code><span class="muted">vertuo-omni-loop · Omni app</span></span><span class="muted">Any runner</span><span><span class="status s-queue">Queued</span></span><span><button class="ghost" type="button">Cancel</button></span></div></div></div><p class="caption">Every row reads Queued, whether a runner can take it or not.</p></div>
+<div><div class="label">After</div><div class="mock" data-screen="runners-jobs-after"><h5>Jobs</h5><div class="table"><div class="row head"><span>Line</span><span>Where</span><span>Status</span><span></span></div><div class="row"><span><code>/omni:retro-apply --retro 186</code><span class="muted">nimbus-work · Omni app</span></span><span class="muted">Any runner</span><span><span class="status s-fail">Cannot run</span><span class="why">No runner holds nimbus/nimbus-work</span></span><span><button class="ghost" type="button">Cancel</button></span></div><div class="row"><span><code>/omni:retro-apply --retro 460</code><span class="muted">nimbus-buddies · Omni app</span></span><span class="muted">Cyan</span><span><span class="status s-fail">Cannot run</span><span class="why">No runner of Cyan holds nimbus/nimbus-buddies</span></span><span><button class="ghost" type="button">Cancel</button></span></div><div class="row"><span><code>/omni:retro-apply --retro 2340</code><span class="muted">vertuo-omni-loop · Omni app</span></span><span class="muted">Any runner</span><span><span class="status s-queue">Queued</span></span><span><button class="ghost" type="button">Cancel</button></span></div></div></div><p class="caption">The status pill takes the failed job's red (<code>--ask-red</code>, the <code>fail</code> tone), and the reason sits in the line under it that the Waiting and Released lines already use. The last row is held by a runner, so it stays Queued.</p></div>
+</div>
+<p class="caption">Columns shortened to Line, Where and Status: Repository and Sent by are folded under the line here. Every other row and column of the page is unchanged.</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<figure class="mermaid-diagram" data-source="flowchart LR
+  P[Runners page] --&gt;|every 5 s| S[runners service: board]
+  S --&gt;|runners, jobs| DB[(Supabase: runners, runner_jobs)]
+  S --&gt;|service role: which queued jobs need an App| DB2[(runner_job_needs_app, api_key_github_apps)]
+  S --&gt;|runners + githubApp, jobs + needsApp| P
+  P --&gt; M{page model: can any runner take the queued job?}
+  M --&gt;|yes| Q[Queued]
+  M --&gt;|no| C[Cannot run + reason]
+  R[runner] --&gt;|runner_claim, unchanged| DB"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="0 0.000003814697265625 1188.40625 606.2132568359375" style="max-width: 1188.40625px;" class="flowchart" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#mermaid-0 .cluster-label text{fill:#333;}#mermaid-0 .cluster-label span{color:#333;}#mermaid-0 .cluster-label span p{background-color:transparent;}#mermaid-0 .label text,#mermaid-0 span{fill:#333;color:#333;}#mermaid-0 .node rect,#mermaid-0 .node circle,#mermaid-0 .node ellipse,#mermaid-0 .node polygon,#mermaid-0 .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#mermaid-0 .rough-node .label text,#mermaid-0 .node .label text,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-anchor:middle;}#mermaid-0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-0 .rough-node .label,#mermaid-0 .node .label,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-align:center;}#mermaid-0 .node.clickable{cursor:pointer;}#mermaid-0 .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#mermaid-0 .arrowheadPath{fill:#333333;}#mermaid-0 .edgePath .path{stroke:#333333;stroke-width:2.0px;}#mermaid-0 .flowchart-link{stroke:#333333;fill:none;}#mermaid-0 .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#mermaid-0 .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#mermaid-0 .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#mermaid-0 .cluster text{fill:#333;}#mermaid-0 .cluster span{color:#333;}#mermaid-0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-0 rect.text{fill:none;stroke-width:0;}#mermaid-0 .icon-shape,#mermaid-0 .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .icon-shape p,#mermaid-0 .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#mermaid-0 .icon-shape rect,#mermaid-0 .image-shape rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_P_S_0" d="M123.71,180.213L151.159,160.713C178.609,141.213,233.507,102.213,287.883,82.713C342.258,63.213,396.109,63.213,423.035,63.213L449.961,63.213"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_S_DB_1" d="M674.852,50.28L702.444,47.049C730.036,43.818,785.221,37.356,832.987,36.929C880.752,36.502,921.098,42.11,941.271,44.915L961.444,47.719"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_S_DB2_2" d="M601.706,90.213L641.489,119.011C681.273,147.809,760.84,205.404,820.79,234.202C880.74,263,921.073,263,941.24,263L961.406,263"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_S_P_3" d="M526.386,90.213L486.723,118.38C447.059,146.547,367.733,202.88,307.882,225.868C248.031,248.856,207.656,238.498,187.468,233.319L167.281,228.141"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_P_M_4" d="M108.507,234.213L138.49,269.713C168.474,305.213,228.44,376.213,278.673,411.794C328.906,447.375,369.406,447.536,389.656,447.617L409.906,447.697"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_M_Q_5" d="M691.967,423.774L716.707,419.014C741.447,414.254,790.927,404.734,844.194,399.973C897.461,395.213,954.516,395.213,983.043,395.213L1011.57,395.213"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_M_C_6" d="M691.967,471.652L716.707,476.246C741.447,480.839,790.927,490.026,836.741,494.62C882.555,499.213,924.703,499.213,945.777,499.213L966.852,499.213"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_R_DB_7" d="M618.102,160.925L655.152,156.587C692.203,152.248,766.305,143.571,823.552,133.006C880.799,122.44,921.191,109.987,941.388,103.761L961.584,97.534"></path></g><g class="edgeLabels"><g transform="translate(288.40625, 63.21323776245117)" class="edgeLabel"><g transform="translate(-31.953125, -12)" class="label"><foreignObject height="24" width="63.90625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>every 5 s</p></span></div></foreignObject></g></g><g transform="translate(840.40625, 30.893381118774414)" class="edgeLabel"><g transform="translate(-47.203125, -12)" class="label"><foreignObject height="24" width="94.40625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>runners, jobs</p></span></div></foreignObject></g></g><g transform="translate(840.40625, 263)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>service role: which queued jobs need an App</p></span></div></foreignObject></g></g><g transform="translate(288.40625, 259.2132377624512)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>runners + githubApp, jobs + needsApp</p></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(840.40625, 395.2132377624512)" class="edgeLabel"><g transform="translate(-11.546875, -12)" class="label"><foreignObject height="24" width="23.09375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>yes</p></span></div></foreignObject></g></g><g transform="translate(840.40625, 499.2132377624512)" class="edgeLabel"><g transform="translate(-8.6640625, -12)" class="label"><foreignObject height="24" width="17.328125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>no</p></span></div></foreignObject></g></g><g transform="translate(840.40625, 134.8933811187744)" class="edgeLabel"><g transform="translate(-91.171875, -12)" class="label"><foreignObject height="24" width="182.34375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>runner_claim, unchanged</p></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(85.703125, 207.21323776245117)" id="flowchart-P-0" class="node default"><rect height="54" width="155.40625" y="-27" x="-77.703125" style="" class="basic label-container"></rect><g transform="translate(-47.703125, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="95.40625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Runners page</p></span></div></foreignObject></g></g><g transform="translate(564.40625, 63.21323776245117)" id="flowchart-S-1" class="node default"><rect height="54" width="220.890625" y="-27" x="-110.4453125" style="" class="basic label-container"></rect><g transform="translate(-80.4453125, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="160.890625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>runners service: board</p></span></div></foreignObject></g></g><g transform="translate(1072.90625, 63.21323776245117)" id="flowchart-DB-3" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Supabase: runners, runner_jobs</p></span></div></foreignObject></g></g><g transform="translate(1072.90625, 263)" id="flowchart-DB2-5" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>runner_job_needs_app, api_key_github_apps</p></span></div></foreignObject></g></g><g transform="translate(564.40625, 447.2132377624512)" id="flowchart-M-9" class="node default"><polygon transform="translate(-151,151)" class="label-container" points="151,0 302,-151 151,-302 0,-151"></polygon><g transform="translate(-100, -36)" style="" class="label"><rect></rect><foreignObject height="72" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>page model: can any runner take the queued job?</p></span></div></foreignObject></g></g><g transform="translate(1072.90625, 395.2132377624512)" id="flowchart-Q-11" class="node default"><rect height="54" width="114.671875" y="-27" x="-57.3359375" style="" class="basic label-container"></rect><g transform="translate(-27.3359375, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="54.671875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Queued</p></span></div></foreignObject></g></g><g transform="translate(1072.90625, 499.2132377624512)" id="flowchart-C-13" class="node default"><rect height="54" width="204.109375" y="-27" x="-102.0546875" style="" class="basic label-container"></rect><g transform="translate(-72.0546875, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="144.109375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Cannot run + reason</p></span></div></foreignObject></g></g><g transform="translate(564.40625, 167.21323776245117)" id="flowchart-R-14" class="node default"><rect height="54" width="107.390625" y="-27" x="-53.6953125" style="" class="basic label-container"></rect><g transform="translate(-23.6953125, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="47.390625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>runner</p></span></div></foreignObject></g></g></g></g></g></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<p>One step: the galaxy app (Vercel), on merge. No migration, no kit release, no change to the runners: the claim, the runner's API and the terminal's reads are unchanged.</p>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — no table, column or function changes: the read uses <code>runners.github_app</code>, <code>runner_job_needs_app</code> and <code>api_key_github_apps.key_id</code>, which exist and which the service role already reads.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>Runner.githubApp</code> (the board's runner)</td><td><span class="badge added">added</span></td><td>—</td><td><code>boolean</code>, optional: whether it registered that it can run a job as an API key's GitHub App</td><td>galaxy</td></tr>
+<tr><td><code>Job.needsApp</code> (the board's job)</td><td><span class="badge added">added</span></td><td>—</td><td><code>boolean</code>, optional: whether the job must run as its key's GitHub App</td><td>galaxy</td></tr>
+</table>
+<p class="caption">No row is breaking: both fields are added and optional, and an absent field reads as false (<code>apps/galaxy/src/runners/runners.contract.ts</code>). The runner's own API (<code>/api/runners/*</code>) and the terminal's job reads do not change.</p>
+<div class="compare">
+<div><div class="label">Before</div><pre><span class="line ctx">const RunnerSchema = z.object({</span><span class="line ctx">  # …</span><span class="line ctx">  state: RunnerStateSchema,</span><span class="line ctx">});</span><span class="line ctx">const JobSchema = z.object({</span><span class="line ctx">  # …</span><span class="line ctx">  sentByKey: z.string().nullable(),</span><span class="line ctx">});</span></pre></div>
+<div><div class="label">After</div><pre><span class="line ctx">const RunnerSchema = z.object({</span><span class="line ctx">  # …</span><span class="line ctx">  state: RunnerStateSchema,</span><span class="line add">  githubApp: z.boolean().optional(),</span><span class="line ctx">});</span><span class="line ctx">const JobSchema = z.object({</span><span class="line ctx">  # …</span><span class="line ctx">  sentByKey: z.string().nullable(),</span><span class="line add">  needsApp: z.boolean().optional(),</span><span class="line ctx">});</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<table><tr><th>reader</th><th>today</th><th>after</th></tr>
+<tr><td>The status of a queued job (<code>statusWords</code>, <code>statusTone</code>)</td><td>Queued, tone <code>queue</code>, always</td><td>Cannot run, tone <code>fail</code>, when no runner can take it; else Queued</td></tr>
+<tr><td>The Waiting line (<code>waitingWords</code>, PRD 2102)</td><td>a job sent to any runner counts every runner, fleet or not</td><td>counts only runners with no fleet, as <code>runner_claim()</code> does; never shown on a Cannot run job</td></tr>
+</table>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>

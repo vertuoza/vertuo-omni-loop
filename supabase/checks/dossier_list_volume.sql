@@ -4,7 +4,8 @@
 -- /prd reads dossier_list() whole, as the signed-in member. Production gives that role an 8 second
 -- statement timeout; past it the page says "The dossier database could not answer". A workspace of
 -- 1400 dossiers, six versions each, two ask sessions each (its Claude session's and its delivery's)
--- and nine answered rounds per session must be listed, every dossier once, inside that timeout.
+-- and nine answered rounds per session must be listed, every dossier once, inside that timeout; and,
+-- since PRD 2401 s3, /prd's own read, dossier_list(p_kind => 'prd'), only its PRDs inside it too.
 -- One transaction, rolled back at the end. Any `FAIL:` or a cancelled statement stops the run.
 
 begin;
@@ -66,6 +67,22 @@ begin
   end if;
   if asked <> 1400 * 18 then
     raise exception 'FAIL: dossier_list() counted % rounds, not %', asked, 1400 * 18;
+  end if;
+end $$;
+
+-- PRD 2401 s3: /prd lists only the PRDs, filtered in SQL: 1400 less 140 bug fixes and 28 visual fixes.
+-- A statement of its own, under the same timeout.
+do $$
+declare
+  listed int;
+  asked int;
+begin
+  select count(*), sum(l.asked) into listed, asked from public.dossier_list(p_kind => 'prd') l;
+  if listed <> 1232 then
+    raise exception 'FAIL: dossier_list(p_kind => prd) listed % dossiers, not 1232', listed;
+  end if;
+  if asked <> 1232 * 18 then
+    raise exception 'FAIL: dossier_list(p_kind => prd) counted % rounds, not %', asked, 1232 * 18;
   end if;
 end $$;
 

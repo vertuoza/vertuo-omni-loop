@@ -1135,9 +1135,11 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
       const keys = await keysOf(workspaceId, jobs);
       const now = clock.now();
       const samples = samplesByRunner(await store.samples(runners.map((runner) => runner.id), new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString()));
+      // Whether a queued key's job needs its key's GitHub App (PRD 2482): one batched read of who holds an App, never the App's sealed key.
+      const needing = await store.jobsNeedingApp(jobs.flatMap((job) => (job.status === 'queued' && job.sent_by_key !== null ? [{ id: job.id, keyId: job.sent_by_key }] : [])));
       return ok({
-        runners: runners.map((runner) => runnerOf(runner, usedBy(active, runner.id), now, samples.get(runner.id) ?? [])),
-        jobs: jobs.map((job) => jobOf(job, logins, keys)),
+        runners: runners.map((runner) => ({ ...runnerOf(runner, usedBy(active, runner.id), now, samples.get(runner.id) ?? []), githubApp: runner.github_app })),
+        jobs: jobs.map((job) => ({ ...jobOf(job, logins, keys), ...(needing.has(job.id) ? { needsApp: true } : {}) })),
         viewer: { id: caller, owner: viewer.owner, fleet: viewer.fleet },
       });
     },

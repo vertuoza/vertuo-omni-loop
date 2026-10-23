@@ -7,10 +7,11 @@ import type { MouseEvent } from 'react';
 import { pixelSvg } from '../design/pixel-svg';
 import { useWaiting } from '../waiting/WaitingProvider';
 import type { WaitingCounts } from '../waiting/waiting';
+import type { ShellMode } from '../anti/anti';
 import { BrandLogo } from './BrandLogo';
 import { useDrawer } from './drawer-context';
 import { setMenu, type MenuState } from './menu-rail';
-import { OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, hrefOf, type SidebarId, type SidebarItem } from './sidebar.ts';
+import { ANTI_SIDEBAR, OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, hrefOf, type SidebarId, type SidebarItem } from './sidebar.ts';
 import type { ViewerView } from './viewer-view';
 import './sidebar.css';
 import './drawer.css';
@@ -84,7 +85,7 @@ function fold(event: MouseEvent<HTMLButtonElement>, state: MenuState) {
   sidebar?.querySelector<HTMLButtonElement>(state === 'rail' ? '.app-sidebar-unfold' : '.app-sidebar-fold')?.focus();
 }
 
-export function Sidebar({ viewer }: { viewer: ViewerView }) {
+export function Sidebar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: ShellMode }) {
   const current = currentItem(usePathname());
   const drawer = useDrawer();
   const { counts } = useWaiting();
@@ -94,13 +95,13 @@ export function Sidebar({ viewer }: { viewer: ViewerView }) {
       {drawer.open && <div className="app-drawer-scrim" aria-hidden="true" onClick={() => { drawer.send('scrim'); }} />}
       <aside ref={drawer.panel} className="app-sidebar" id="app-sidebar" aria-label="Sidebar" data-open={drawer.open || undefined}>
         <div className="app-sidebar-head">
-          <BrandLogo className="app-sidebar-crest" onClick={choose} />
+          <BrandLogo className="app-sidebar-crest" mode={mode} onClick={choose} />
           <button type="button" className="app-sidebar-fold" title="Collapse the menu" aria-label="Collapse the menu" aria-expanded="true" aria-controls="app-sidebar" onClick={(event) => { fold(event, 'rail'); }}>«</button>
           <button type="button" className="app-sidebar-unfold" title="Expand the menu" aria-label="Expand the menu" aria-expanded="false" aria-controls="app-sidebar" onClick={(event) => { fold(event, 'open'); }}>»</button>
           {viewer.workspaceName && <p className="app-sidebar-workspace">{viewer.workspaceName}</p>}
         </div>
         <nav className="app-sidebar-nav" aria-label="Sections">
-          {SIDEBAR.map((group) => (
+          {(mode === 'anti' ? ANTI_SIDEBAR : SIDEBAR).map((group) => (
             <div key={group.id} className="app-sidebar-group">
               <p className="app-sidebar-label" id={`app-sidebar-${group.id}`}>{group.label}</p>
               <ul className="app-sidebar-items" aria-labelledby={`app-sidebar-${group.id}`}>

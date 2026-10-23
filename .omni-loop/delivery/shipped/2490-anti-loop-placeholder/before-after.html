@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2490: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.mock { --ground:#07061c; --surface:#120f3a; --sunk:#0e0d33; --mline:#1a2170; --mlineStrong:#5a60c4; --ink:#f2f4ff; --mmuted:#8a90d6; --plasma:#ffd84a; --plasmaSoft:#2a2350; --onPlasma:#07061c; --cyan:#6ff0ff; --ring:#6ff0ff;
+  border:1px solid var(--mline); background:var(--ground); color:var(--ink); border-radius:8px; overflow:hidden; display:grid; grid-template-columns:150px 1fr; font-size:13px; }
+.mock.anti { --mline:#3a1458; --mlineStrong:#b0489a; --plasma:#ff3ea5; --plasmaSoft:#3a1238; --onPlasma:#07061c; --ring:#ff3ea5; }
+.mock .bar { grid-column:1/3; display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--surface); border-bottom:1px solid var(--mline); flex-wrap:wrap; }
+.mock .trail { color:var(--mmuted); font-size:12px; }
+.mock .ctl { font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--mlineStrong); color:var(--ink); }
+.mock .ctl.go { background:var(--plasma); color:var(--onPlasma); border-color:var(--plasma); font-weight:600; }
+.mock .ctls { margin-left:auto; display:flex; gap:6px; }
+.mock nav { background:var(--sunk); border-right:1px solid var(--mline); padding:8px 6px; min-height:220px; display:flex; flex-direction:column; }
+.mock .logo { display:flex; align-items:center; gap:6px; font:700 11px/1 ui-monospace, monospace; letter-spacing:.08em; margin:2px 6px 10px; }
+.mock .crest { width:16px; height:16px; border-radius:50%; border:3px solid var(--ring); border-right-color:#ffd84a; }
+.mock.anti .logo { flex-direction:row-reverse; justify-content:flex-end; }
+.mock.anti .crest { border-right-color:var(--ring); border-left-color:#ffd84a; }
+.mock .g { color:var(--mmuted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; margin:6px 6px 3px; }
+.mock .i { padding:4px 8px; border-radius:5px; }
+.mock .i.cur { background:var(--plasmaSoft); box-shadow:inset 3px 0 var(--plasma); }
+.mock .foot { margin-top:auto; border-top:1px solid var(--mline); padding-top:6px; }
+.mock main { padding:14px; }
+.mock main h5 { font-size:15px; margin:0 0 6px; }
+.mock main p { color:var(--mmuted); margin:0; max-width:46ch; }
+.caption { font-size:12px; color:var(--muted); margin:6px 0 0; }
+</style>
+</head>
+<body>
+<h1>PRD 2490: before and after</h1>
+<p style="max-width:1040px;margin:0 auto 16px;color:var(--muted)">Anti-loop placeholder: a switch to an anti-loop mode with Anti-dashboard and Anti-work, in concept #1964's Rewind Light colours.</p>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">TODAY</div>
+<p>The app has one mode, the forward loop. The menu holds Dashboard (Home, Fleet, Loop, Runners, Workspace, Engineering) and Work (Products to Knowledge). The tech team's harness, architecture and retro work has no place of its own.</p></div>
+<div><div class="label">AFTER</div>
+<p>The top bar gets an <b>Anti-loop</b> button beside Game mode. It opens <b>Anti-dashboard</b> at <code>/anti</code>: the same app, in the anti-loop's colours (magenta signal, plum edges, yellow Recommended badge), with the logo reading ANTI LOOP beside a mirrored crest. The menu holds one group, Anti-loop: Anti-dashboard and Anti-work. Each page says what it will hold and that it is not open yet. The button now reads <b>Omni loop</b> and takes you back to your dashboard. Settings, Docs and Release notes stay in the menu's foot. Nothing is remembered: the address is the mode.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p class="caption">screens: app-shell · anti-dashboard · anti-work</p>
+<div class="compare"><div><div class="label">TODAY · /app</div>
+<div class="mock" data-screen="app-shell"><div class="bar"><span class="trail">Dashboard › Home</span><span class="ctls"><span class="ctl">Theme</span><span class="ctl">Game mode</span></span></div><nav><span class="logo"><span class="crest"></span>OMNI LOOP</span><div class="g">Dashboard</div><div class="i cur">Home</div><div class="i">Fleet</div><div class="i">Loop</div><div class="g">Work</div><div class="i">PRDs</div><div class="i">Questions</div><div class="foot"><div class="i">Settings</div><div class="i">Docs</div></div></nav><main><h5>Home</h5><p>Your dashboard, as today.</p></main></div>
+<p class="caption">The app shell in the Omni theme. The top bar ends with the theme switch and Game mode.</p></div>
+<div><div class="label">AFTER · /app</div>
+<div class="mock" data-screen="app-shell"><div class="bar"><span class="trail">Dashboard › Home</span><span class="ctls"><span class="ctl">Theme</span><span class="ctl">Game mode</span><span class="ctl go" data-primary>Anti-loop</span></span></div><nav><span class="logo"><span class="crest"></span>OMNI LOOP</span><div class="g">Dashboard</div><div class="i cur">Home</div><div class="i">Fleet</div><div class="i">Loop</div><div class="g">Work</div><div class="i">PRDs</div><div class="i">Questions</div><div class="foot"><div class="i">Settings</div><div class="i">Docs</div></div></nav><main><h5>Home</h5><p>Your dashboard, as today.</p></main></div>
+<p class="caption">The forward loop is unchanged but for the new Anti-loop button in the top bar.</p></div></div>
+<div class="compare" style="margin-top:12px"><div><div class="label">AFTER · /anti</div>
+<div class="mock anti" data-screen="anti-dashboard"><div class="bar"><span class="trail">Anti-loop › Anti-dashboard</span><span class="ctls"><span class="ctl">Theme</span><span class="ctl">Game mode</span><span class="ctl go" data-primary>Omni loop</span></span></div><nav><span class="logo"><span class="crest"></span>ANTI LOOP</span><div class="g">Anti-loop</div><div class="i cur">Anti-dashboard</div><div class="i">Anti-work</div><div class="foot"><div class="i">Settings</div><div class="i">Docs</div></div></nav><main><h5>Anti-dashboard</h5><p>Harness, architecture and retros, at a glance.</p><p>Not open yet.</p></main></div>
+<p class="caption">Anti-dashboard in Rewind Light (concept #1964): the signal turns magenta, the edges plum, and the lockup reads ANTI LOOP then the mirrored crest. Ground, surface, ink and errors keep the Omni theme's values. Light and Dark get their own anti-loop sets (spec › Solution).</p></div>
+<div><div class="label">AFTER · /anti/work</div>
+<div class="mock anti" data-screen="anti-work"><div class="bar"><span class="trail">Anti-loop › Anti-work</span><span class="ctls"><span class="ctl">Theme</span><span class="ctl">Game mode</span><span class="ctl go" data-primary>Omni loop</span></span></div><nav><span class="logo"><span class="crest"></span>ANTI LOOP</span><div class="g">Anti-loop</div><div class="i">Anti-dashboard</div><div class="i cur">Anti-work</div><div class="foot"><div class="i">Settings</div><div class="i">Docs</div></div></nav><main><h5>Anti-work</h5><p>The tech team's harness, architecture and retros.</p><p>Not open yet.</p></main></div>
+<p class="caption">Anti-work: the same shell, its own sentence. The crest here is a sketch of the pixel crest; the real one is mirrored pixel for pixel by @omni/design.</p></div></div>
+</div>
+</div>
+<div data-service="design">
+<h3>design</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">TODAY</div><p>The reading surface has three themes, Omni, Light and Dark, and one logo, OMNI LOOP.</p></div>
+<div><div class="label">AFTER</div><p>Each theme gains an anti-loop variant that recolours seven tokens (edges, strong edges, the signal, its soft shade, the text on it, the Recommended badge and its text), each pair tested for contrast like the others. The logo can be drawn mirrored, its ring in the anti-loop colour.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — the design package draws no screen of its own here; its tokens and logo are shown on galaxy's screens above.</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<figure class="mermaid-diagram" data-source="flowchart LR
+  P[Member's browser] --&gt;|GET /anti or /anti/work| L[galaxy: app/anti/layout.tsx]
+  L --&gt;|viewerLive| V[(Supabase: the viewer, as /app reads it)]
+  L --&gt;|mode anti| S[AppShell: data-ask-mode=anti]
+  S --&gt; T[themeCss: ASK plus ASK_ANTI from @omni/design]
+  S --&gt; N[Sidebar: ANTI_SIDEBAR]
+  S --&gt; B[AppBar: AntiLoopButton to /app]
+  S --&gt; G[Anti-dashboard or Anti-work page]"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="0 0 1383.6875 478" style="max-width: 1383.6875px;" class="flowchart" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#mermaid-0 .cluster-label text{fill:#333;}#mermaid-0 .cluster-label span{color:#333;}#mermaid-0 .cluster-label span p{background-color:transparent;}#mermaid-0 .label text,#mermaid-0 span{fill:#333;color:#333;}#mermaid-0 .node rect,#mermaid-0 .node circle,#mermaid-0 .node ellipse,#mermaid-0 .node polygon,#mermaid-0 .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#mermaid-0 .rough-node .label text,#mermaid-0 .node .label text,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-anchor:middle;}#mermaid-0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-0 .rough-node .label,#mermaid-0 .node .label,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-align:center;}#mermaid-0 .node.clickable{cursor:pointer;}#mermaid-0 .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#mermaid-0 .arrowheadPath{fill:#333333;}#mermaid-0 .edgePath .path{stroke:#333333;stroke-width:2.0px;}#mermaid-0 .flowchart-link{stroke:#333333;fill:none;}#mermaid-0 .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#mermaid-0 .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#mermaid-0 .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#mermaid-0 .cluster text{fill:#333;}#mermaid-0 .cluster span{color:#333;}#mermaid-0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-0 rect.text{fill:none;stroke-width:0;}#mermaid-0 .icon-shape,#mermaid-0 .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .icon-shape p,#mermaid-0 .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#mermaid-0 .icon-shape rect,#mermaid-0 .image-shape rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_P_L_0" d="M196.125,172.893L214.768,172.893C233.411,172.893,270.698,172.893,307.318,172.893C343.938,172.893,379.891,172.893,397.867,172.893L415.844,172.893"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_L_V_1" d="M621.403,145.893L641.517,138.376C661.631,130.858,701.858,115.822,735.656,108.305C769.453,100.787,796.82,100.787,810.504,100.787L824.188,100.787"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_L_S_2" d="M621.403,199.893L641.517,207.411C661.631,214.929,701.858,229.964,731.906,237.482C761.953,245,781.82,245,791.754,245L801.688,245"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_S_T_3" d="M968.188,206L988.604,181.5C1009.021,157,1049.854,108,1073.771,83.5C1097.688,59,1104.688,59,1108.188,59L1111.688,59"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_S_N_4" d="M1039.912,206L1048.374,202.833C1056.837,199.667,1073.762,193.333,1088.777,190.167C1103.792,187,1116.896,187,1123.448,187L1130,187"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_S_B_5" d="M1039.912,284L1048.374,287.167C1056.837,290.333,1073.762,296.667,1085.725,299.833C1097.688,303,1104.688,303,1108.188,303L1111.688,303"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_S_G_6" d="M968.188,284L988.604,308.5C1009.021,333,1049.854,382,1073.771,406.5C1097.688,431,1104.688,431,1108.188,431L1111.688,431"></path></g><g class="edgeLabels"><g transform="translate(307.984375, 172.8933811187744)" class="edgeLabel"><g transform="translate(-86.859375, -12)" class="label"><foreignObject height="24" width="173.71875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>GET /anti or /anti/work</p></span></div></foreignObject></g></g><g transform="translate(742.0859375, 100.78676223754883)" class="edgeLabel"><g transform="translate(-38.6015625, -12)" class="label"><foreignObject height="24" width="77.203125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>viewerLive</p></span></div></foreignObject></g></g><g transform="translate(742.0859375, 245)" class="edgeLabel"><g transform="translate(-36.1953125, -12)" class="label"><foreignObject height="24" width="72.390625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>mode anti</p></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(102.0625, 172.8933811187744)" id="flowchart-P-0" class="node default"><rect height="54" width="188.125" y="-27" x="-94.0625" style="" class="basic label-container"></rect><g transform="translate(-64.0625, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="128.125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Member's browser</p></span></div></foreignObject></g></g><g transform="translate(549.1640625, 172.8933811187744)" id="flowchart-L-1" class="node default"><rect height="54" width="258.640625" y="-27" x="-129.3203125" style="" class="basic label-container"></rect><g transform="translate(-99.3203125, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="198.640625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>galaxy: app/anti/layout.tsx</p></span></div></foreignObject></g></g><g transform="translate(935.6875, 100.78676223754883)" id="flowchart-V-3" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Supabase: the viewer, as /app reads it</p></span></div></foreignObject></g></g><g transform="translate(935.6875, 245)" id="flowchart-S-5" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>AppShell: data-ask-mode=anti</p></span></div></foreignObject></g></g><g transform="translate(1245.6875, 59)" id="flowchart-T-7" class="node default"><rect height="102" width="260" y="-51" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -36)" style="" class="label"><rect></rect><foreignObject height="72" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>themeCss: ASK plus ASK_ANTI from @omni/design</p></span></div></foreignObject></g></g><g transform="translate(1245.6875, 187)" id="flowchart-N-9" class="node default"><rect height="54" width="223.375" y="-27" x="-111.6875" style="" class="basic label-container"></rect><g transform="translate(-81.6875, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="163.375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Sidebar: ANTI_SIDEBAR</p></span></div></foreignObject></g></g><g transform="translate(1245.6875, 303)" id="flowchart-B-11" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>AppBar: AntiLoopButton to /app</p></span></div></foreignObject></g></g><g transform="translate(1245.6875, 431)" id="flowchart-G-13" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Anti-dashboard or Anti-work page</p></span></div></foreignObject></g></g></g></g></g></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<p>One deploy: <code>@omni/design</code> is a workspace package built into galaxy, so the tokens, the logo and the pages ship together in galaxy's Vercel production deploy after the release commit. No migration, no kit or GitHub App change.</p>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na"><h4>Database</h4><p>N/A — no table read or written beyond the viewer the app shell already reads.</p></div>
+<div data-section="api" data-state="na"><h4>API / schema</h4><p>N/A — no API or schema; two new pages only.</p></div>
+<div data-section="behaviour" data-state="filled"><h4>Behaviour</h4>
+<table><tr><th>reader</th><th>today</th><th>after</th></tr>
+<tr><td><code>currentItem</code>, <code>pageTrail</code> (sidebar.ts)</td><td><code>/anti</code> matches no item: no trail</td><td><code>/anti</code> → Anti-dashboard, <code>/anti/work</code> → Anti-work, trail <code>Anti-loop › …</code>; every forward path unchanged</td></tr>
+<tr><td><code>Sidebar</code></td><td>always Dashboard and Work</td><td>Anti-loop group under a shell in mode <code>anti</code>, Dashboard and Work otherwise</td></tr>
+<tr><td><code>AppShell</code></td><td>no mode</td><td><code>mode</code> prop, <code>'omni'</code> by default; <code>'anti'</code> marks the root <code>data-ask-mode="anti"</code></td></tr>
+<tr><td><code>BrandLogo</code></td><td>OMNI LOOP, links <code>/app</code></td><td>in anti mode: ANTI LOOP then the mirrored crest, links <code>/anti</code></td></tr>
+</table></div>
+</div>
+<div data-service="design">
+<h3>design <span class="badge" data-role>DESIGN SYSTEM</span></h3>
+<div data-section="db" data-state="na"><h4>Database</h4><p>N/A — a package of tokens and drawings, no data.</p></div>
+<div data-section="api" data-state="filled"><h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>ASK_ANTI</code></td><td>added</td><td>—</td><td>per theme, the seven anti-loop token overrides</td><td>design</td></tr>
+<tr><td><code>logoSvg(form, { mirror })</code></td><td>added</td><td>no mirror</td><td>optional <code>mirror</code>: the pixels reversed column for column, the ring in the anti-loop colour</td><td>design</td></tr>
+</table>
+<p class="caption">Nothing breaking: two additions, every existing export unchanged (the kit's rule; no conventions page in this repository makes it stricter).</p>
+<div class="compare"><div><div class="label">BEFORE</div><pre><span class="line ctx">export const ASK: Record&lt;AskTheme, Record&lt;AskToken, string&gt;&gt; = …</span><span class="line ctx">export function logoSvg(form, { scale, mono, title })</span></pre></div>
+<div><div class="label">AFTER</div><pre><span class="line ctx">export const ASK: Record&lt;AskTheme, Record&lt;AskToken, string&gt;&gt; = …</span><span class="line add">export const ASK_ANTI: Record&lt;AskTheme, Partial&lt;Record&lt;AskToken, string&gt;&gt;&gt; = …</span><span class="line del">export function logoSvg(form, { scale, mono, title })</span><span class="line add">export function logoSvg(form, { scale, mono, title, mirror })</span></pre></div></div>
+</div>
+<div data-section="behaviour" data-state="filled"><h4>Behaviour</h4>
+<p>The contrast tests, today over three themes, also run over each theme with its anti-loop overrides applied; a pair under 4.5:1 (text) or 3:1 (edge) fails the build.</p></div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>

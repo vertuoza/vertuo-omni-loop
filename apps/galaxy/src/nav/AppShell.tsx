@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { ShellMode } from '../anti/anti';
 import { ThemeScript } from '../ask/theme-script';
 import { themeCss } from '../ask/theme-tokens';
 import { WaitingProvider } from '../waiting/WaitingProvider';
@@ -25,22 +26,24 @@ export interface AppShellProps {
   css?: string;
   /** The page's own classes on the ask root. */
   className?: string;
+  /** `anti` marks the root data-ask-mode="anti" (PRD 2490): Rewind Light, the Anti-loop menu and lockup. */
+  mode?: ShellMode;
 }
 
-export function AppShell({ viewer, children, css, className }: AppShellProps) {
+export function AppShell({ viewer, children, css, className, mode = 'omni' }: AppShellProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: css ? `${themeCss()}\n${css}` : themeCss() }} />
       {/* The scripts mark this root with the theme, and with the menu's rail when the omni-menu
           cookie keeps it (PRD 733), before anything in it is parsed; React leaves those attributes
           alone. */}
-      <div className={['ask app-shell', className].filter(Boolean).join(' ')} suppressHydrationWarning>
+      <div className={['ask app-shell', className].filter(Boolean).join(' ')} data-ask-mode={mode === 'anti' ? 'anti' : undefined} suppressHydrationWarning>
         <ThemeScript />
         <MenuRailScript />
         <WaitingProvider view={viewer.waiting}>
           <DrawerProvider>
-            <Sidebar viewer={viewer} />
-            <AppBar viewer={viewer} />
+            <Sidebar viewer={viewer} mode={mode} />
+            <AppBar viewer={viewer} mode={mode} />
           </DrawerProvider>
           <main className="ask-main">{children}</main>
         </WaitingProvider>
