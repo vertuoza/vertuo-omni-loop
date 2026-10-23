@@ -17,3 +17,12 @@
 .kn-fields dd { margin: 0; overflow-wrap: anywhere; }
 .kn-status { font-weight: 400; }
 .kn-controls { display: grid; gap: 10px; }
+/* The Repositories section (PRD 2419 s1): a card per repository, each page's level a quiet mark, the
+   repository's own in ink, every level read from above it muted. */
+.kn-repo { border-top: 1px solid var(--ask-line, #e5e5e5); padding-top: 12px; margin-top: 16px; }
+.kn-repo h3 { margin: 0 0 4px; font-size: 17px; overflow-wrap: anywhere; }
+.kn-repo h4 { margin: 14px 0 4px; font-size: 14px; color: var(--ask-muted); }
+.kn-level { display: inline-block; padding: 0 8px; border: 1px solid var(--ask-line, #e5e5e5); border-radius: 999px; font-size: 12px; white-space: nowrap; color: var(--ask-muted); }
+.kn-level[data-level='repo'] { color: var(--ask-ink); font-weight: 600; }
+.kn-file { display: block; font-size: 12px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.kn-problems { margin-top: 10px; font-size: 13px; color: var(--ask-muted); }
