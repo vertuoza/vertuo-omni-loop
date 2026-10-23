@@ -66,4 +66,4 @@ Dismiss · Send answers · Already answered by · Dismissed by · API key · for
 ## Source
 
 /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
-/omni:brainstorm, PRD 2425: .omni-loop/delivery/inbox/2425-api-key-job-control/before-after.html
+/omni:brainstorm, PRD 2425: .omni-loop/delivery/shipped/2425-api-key-job-control/before-after.html

@@ -664,7 +664,7 @@ Proposed: harvest 2026-10-22
 When a person answers, on the page, a question asked by a job an API key sent, the job that resumes stays the key's: sent by the same key and by the person who made the key, its notify link kept, and the round records who answered. A job a person sent resumes as before, sent by whoever answered.
 
 Serves: P-PRODUCT-103
-Source: .omni-loop/delivery/outbox/2425-api-key-job-control/settled.md, entry s1-02-resume-stays-the-keys, PRD #2425
+Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, entry s1-02-resume-stays-the-keys, PRD #2425
 Enforced by: supabase/checks/api_key_jobs.sql
 Stated: 2026-10-23
 Decided: @nicojustdev, 2026-10-23
