@@ -82,7 +82,8 @@ describe('the playbook page', () => {
   it('shows each page\'s edit to a workspace owner only (s7)', () => {
     const owner = render({ ...FILLED, editing: { kind: 'database', workspace: 'w-acme' } });
     expect(pageOf(owner, 'review')).toContain('Propose a change');
-    expect(pageOf(owner, 'definition-of-done')).toContain('Propose a change');
+    expect(pageOf(owner, 'definition-of-done')).toContain('aria-label="Propose a change to Definition of done"');
+    expect(text(pageOf(owner, 'review'))).toContain('Fix, push back or ask.');
     expect(text(render({ ...FILLED, editing: { kind: 'demo' } }))).toContain('Propose a change');
     for (const member of [render(FILLED), render({ ...FILLED, editing: null })]) {
       expect(member).not.toContain('Propose a change');

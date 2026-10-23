@@ -68,9 +68,12 @@ export function PlaybookView({ view, editing = null }: {
                 <h2>{pageTitle(page.form)}</h2>
                 <span className={`omni-settings-source-tag omni-settings-source-${page.source}`}>{SOURCE_LABEL[page.source]}</span>
               </div>
-              <pre className="omni-settings-text">{pageBody(page.text)}</pre>
-              {editing !== null && view.repository !== null && (
-                <PlaybookEditor form={page.form} text={page.text} repository={view.repository} editing={editing} />
+              {editing !== null && view.repository !== null ? (
+                <PlaybookEditor form={page.form} title={pageTitle(page.form)} text={page.text} repository={view.repository} editing={editing}>
+                  <pre className="omni-settings-text">{pageBody(page.text)}</pre>
+                </PlaybookEditor>
+              ) : (
+                <pre className="omni-settings-text">{pageBody(page.text)}</pre>
               )}
             </li>
           ))}
