@@ -31,10 +31,9 @@ repository's config. -->
    defined without inventing product behaviour is a question for a person.
 4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and
    run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this
-   level cannot see it: add the case to the repository's smoke check (`omni config commands.smoke`)
-   and run that. No smoke check to run: stop, and keep the reproduction.
-5. **Fix.** Test-first, the smallest fix that turns the reproduction green. Never edit the
-   reproduction to make it pass.
+   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the
+   reproduction.
+5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.
 6. **Guard.** See below.
 7. **Open the pull request**, closing the report, and say what proved red and what proved green.
 
@@ -43,6 +42,6 @@ Nothing is reported as proven that was not run.
 ## Guard
 <!-- slot: guard · optional -->
 Ask which cheap check would have caught this before it shipped. When one is guard-sized (a check
-script, a lint rule, a unit test), add it, with its own test; for a bug proven red by the smoke
-check, that case, run by CI. Otherwise the pull request says `Guard: none — <reason>`. A regression
-test that lets small mutations of the fixed lines pass is not guarding the fix.
+script, a lint rule, a unit test), add it, with its own test; for a bug proven red by
+`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none — <reason>`.
+A regression test that lets small mutations of the fixed lines pass is not guarding the fix.

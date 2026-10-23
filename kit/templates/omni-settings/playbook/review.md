@@ -19,31 +19,19 @@ repository's config. -->
 
 ## Fix
 <!-- slot: fix · required -->
-Fix the comment, commit, and reply on its thread with the commit, when it names a defect:
-- a bug, a security problem, or a way to lose or leak data;
-- a missing or weak test: one that would stay green if the change were wrong;
-- duplicated code the change adds;
-- a broken convention, boundary or law the repository has written down;
-- a name the reviewer shows is misleading;
-- a case the spec asks for that the change does not handle.
-
-Each fix stays inside the pull request's scope. The checks the verification page names run before
-the fix is pushed, and the reply says what proves it.
+Fix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss
+problem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.
 
 ## Push back
 <!-- slot: push-back · required -->
-Change nothing, and reply with a reason that names the line below it falls under, when the comment
-asks for:
-- naming taste, or style no linter or written convention enforces;
-- "while you're here" work outside the pull request's scope: offer it as an issue of its own;
-- a rewrite to the reviewer's preferred pattern, with no defect named;
-- what the spec or a recorded decision already settles: quote the line that settles it.
-
-A push-back is short and specific, and is made once.
+Reply with a reason that names the line below it falls under, and change nothing, when it asks for:
+- naming taste, or style no linter enforces;
+- work outside the pull request's scope;
+- a rewrite to another pattern, with no defect named;
+- what the spec already settles: quote it.
 
 ## Ask
 <!-- slot: ask · required -->
-Leave the thread open for a person, and say in one line why, when the comment needs a product
-decision, contradicts the spec, a recorded decision or a law, or asks for a change that is hard to
-undo (a stored shape, a public contract, a published name). A reviewer who replies again after a
-fix or a push-back has the last word: the thread goes to a person, never back into the argument.
+Leave the thread open for a person, and say why, when the comment needs a product decision,
+contradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after
+a fix or a push-back has the last word: the thread goes to a person, never back into the argument.

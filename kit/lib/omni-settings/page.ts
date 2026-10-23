@@ -46,7 +46,7 @@ function splitOwner(text: string): { text: string; owner: unknown } | null {
   return { text: `${open}${doc.toString().replace(/\r?\n$/, '')}${rest}`, owner };
 }
 
-/** The first line of `errors`, its file prefix (none here) dropped. */
+/** The first line of `errors`: the parser is given no file, so the line names none. */
 const firstError = (errors: readonly string[]): string => errors[0] ?? 'does not parse as a form';
 
 /** Reads one file of the settings repository as the copy keeps it, or says why it is no page. */

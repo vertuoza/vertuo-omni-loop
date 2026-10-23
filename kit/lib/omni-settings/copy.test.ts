@@ -60,7 +60,7 @@ describe('writeSettingsCopy — the round trip from a settings checkout to the t
     const review = resolveForm('review', { ctx, template: formTemplate('review') });
     expect(review.problems).toEqual([]);
     expect(review.sections.map(({ slot, label }) => `${slot ?? ''} ${label}`)).toEqual(['fix [omni settings]', 'push-back [omni settings]', 'ask [omni settings]']);
-    expect(review.sections[0]?.text).toMatch(/^Fix the comment, commit, and reply on its thread with the commit/);
+    expect(review.sections[0]?.text).toMatch(/^Fix the comment, commit, and reply with the commit, when it names a bug/);
   });
 
   it('keeps each page as the settings repository wrote it, only its owner line out of the front matter', () => {
@@ -154,7 +154,7 @@ describe('omni kb show — a form the repository does not write reads the Omni s
     expect(err).toBe('');
     expect(code).toBe(0);
     expect(out.match(/^## .*$/gm)).toEqual(['## Fix  [omni settings]', '## Push back  [omni settings]', '## Ask  [omni settings]']);
-    expect(out).toContain('## Fix  [omni settings]\nFix the comment, commit, and reply on its thread with the commit, when it names a defect:\n');
+    expect(out).toContain('## Fix  [omni settings]\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\n');
   });
 
   it('prints exactly what it prints today with no copy, and with a copy that does not set the form', async () => {
