@@ -862,3 +862,12 @@ A job an app sends with an API key stays that app's from start to end: whoever s
 Why: An app that sends work through the API keeps following it without opening the page; a thread that changed owner when a person answered would drop out of the app's sight halfway.
 Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, entry s1-02-resume-stays-the-keys, PRD #2425
 Proposed: write-back 2026-10-23
+
+## P-PRODUCT-106
+
+The Omni page never opens a pull request for a settings change that every repository's sync would then skip.
+
+Why: A merged change that the sync silently ignores misleads the owner and leaves every repository out of step with what was approved.
+Source: .omni-loop/delivery/shipped/2417-tech-defaults/outbox/settled.md, entry s7-03-edit-whole-page-text, PRD #2417
+Merged: @pierrederval, 2026-10-23, PR #2479
+Proposed: harvest 2026-10-23
