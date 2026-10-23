@@ -14,6 +14,8 @@ describe('checkRunnerLine', () => {
     expect(checkRunnerLine('/omni:retro-apply --retro 2360')).toEqual({ ok: true, kind: 'omni', skill: 'retro-apply', args: '--retro 2360' });
     expect(checkRunnerLine('/omni:rewind 2410')).toEqual({ ok: true, kind: 'omni', skill: 'rewind', args: '2410' });
     expect(checkRunnerLine('/omni:knowledge-add add the glossary term main watch')).toMatchObject({ ok: true, kind: 'omni', skill: 'knowledge-add' });
+    expect(checkRunnerLine('/omni:rewind-apply 2498 3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718'))
+      .toEqual({ ok: true, kind: 'omni', skill: 'rewind-apply', args: '2498 3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718' });
     expect(checkRunnerLine('/omni:bug-fix #12 fix/a.b:c')).toMatchObject({ ok: true });
     expect(checkRunnerLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612'))
       .toEqual({ ok: true, kind: 'omni', skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });

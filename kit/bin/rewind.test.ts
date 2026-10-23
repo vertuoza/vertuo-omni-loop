@@ -78,6 +78,13 @@ describe('omni rewind facts', () => {
     expect(result.out).toContain('PRD 7 has no watch on main');
   });
 
+  it('keeps each finding\'s id and outcome in --json, which /omni:rewind-apply reads (PRD 2498, s3)', async () => {
+    const found = { id: '3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718', check: 'knowledge', origin: 'knowledge', state: 'approved', happened: 'No rule said it.', fix: 'Write the rule.', evidence: ['https://github.com/acme/widgets/pull/9'] };
+    const outcome = { kind: 'proposed', pr: 42, url: 'https://github.com/acme/widgets/pull/42' };
+    const run = await checkout(() => ({ status: 200, body: { ...FACTS, findings: [{ ...found, outcome: null }, { ...found, id: 'b'.repeat(8), outcome }, found] } }));
+    expect(JSON.parse((await omni(['facts', '7', '--json'], run)).out)).toMatchObject({ findings: [{ ...found, outcome: null }, { ...found, id: 'b'.repeat(8), outcome }, found] });
+  });
+
   it('prints the reply with --json, and the server\'s refusal as one line', async () => {
     const run = await checkout(() => ({ status: 200, body: FACTS }));
     expect(JSON.parse((await omni(['facts', '7', '--json'], run)).out)).toEqual(FACTS);

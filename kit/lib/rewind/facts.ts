@@ -8,7 +8,13 @@ import type { PrdNumber } from '../ids.ts';
 
 const Watch = z.object({ lane: z.string(), status: z.string(), merge_sha: z.string(), merged_at: z.string(), watch_until: z.string(), unread: z.array(z.string()) });
 const Break = z.object({ lane: z.string(), source: z.string(), kind: z.string(), url: z.string(), title: z.string(), parent: z.string().nullable(), at: z.string() });
-const Found = z.object({ check: z.string(), origin: z.string(), state: z.string(), happened: z.string(), fix: z.string(), evidence: z.array(z.string()) });
+// A finding keeps its id and its outcome (PRD 2498, s3): `/omni:rewind-apply <prd> <finding>` finds its finding
+// by the id, and settles none that already has an outcome. A page older than PRD 2498 sends no outcome.
+const Outcome = z.looseObject({ kind: z.string() });
+const Found = z.object({
+  id: z.string(), check: z.string(), origin: z.string(), state: z.string(), happened: z.string(), fix: z.string(), evidence: z.array(z.string()),
+  outcome: Outcome.nullable().optional(),
+});
 
 const RewindFactsSchema = z.object({ watches: z.array(Watch), breaks: z.array(Break), findings: z.array(Found) });
 export type RewindFacts = z.infer<typeof RewindFactsSchema>;
