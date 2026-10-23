@@ -211,6 +211,7 @@ describe('the plugin\'s SessionStart hook', () => {
       { hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" constituents || true', timeout: 10 }] },
       { hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" kb index || true', timeout: 10 }] },
       { hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" sync --background || true', timeout: 10 }] },
+      { hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" worktrees hint || true', timeout: 10 }] },
     ]);
   });
 });
