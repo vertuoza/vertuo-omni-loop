@@ -704,3 +704,236 @@ Moving the findings read into the main-watch store instead would touch its recor
 ```
 
 <!-- /omni-outbox-settled: s5-02-main-tab-wiring-outside-territory -->
+
+<!-- omni-outbox-settled: s6-01-knowledge-add-on-a-runner -->
+
+## s6-01-knowledge-add-on-a-runner — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-knowledge-add-on-a-runner
+prd: 2410
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 4
+---
+
+## The question, in plain words
+
+A runner may now run knowledge-add, as the plan asks, but that skill refuses to write anything when nobody is at the terminal, and it only knows constituents, Legal entries and glossary terms. Should a runner job of it stay a no-op for now?
+
+## The decision, in plain words
+
+I listed knowledge-add among the skills a runner may run, as planned, and left the skill itself unchanged. A runner job of it ends at once and says it wrote nothing, until the skill learns to propose a playbook or register rule on its own.
+
+## The intro, for fun
+
+A helper was hired for the night shift, but its contract still says to wait for a yes.
+
+## The punchline, for fun
+
+So it clocks in, finds nobody to ask, and politely goes home.
+
+## The options, in plain words
+
+A. A. List knowledge-add as runnable now, as built: the job ends writing nothing until the skill learns to run unattended
+B. B. Take knowledge-add off the runner lists until the skill can run unattended
+C. C. Teach knowledge-add an unattended path that proposes a playbook or register rule, never writes it directly, in s7 or a follow-up PRD
+
+## What I had to decide
+
+Pick A to keep it as built, B to take knowledge-add off the runner lists, or C to give it a way to propose a playbook or register rule with nobody at the terminal (s7 or a follow-up PRD).
+
+## What I did meanwhile
+
+The runner lists name knowledge-add; the skill writes nothing under OMNI_UNATTENDED, so an approved playbook or register finding queues a job that ends at once, writing nothing.
+
+## What it costs to change later
+
+Taking it off is one word in each runner list and the guide; teaching it to run unattended is a change to its skill, which lies outside this slice.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The line check refuses quotes, so the line s7 queues cannot read /omni:knowledge-add '<the finding>' as the spec writes it; s7 must send the finding another way. (author)
+- Whether an unattended knowledge-add should propose (wait for the section's owner) or apply was not asked. (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-01-knowledge-add-on-a-runner -->
+
+<!-- omni-outbox-settled: s6-02-runner-skills-test-outside-territory -->
+
+## s6-02-runner-skills-test-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-runner-skills-test-outside-territory
+prd: 2410
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 4
+---
+
+## The question, in plain words
+
+Adding the two skills to the runner lists turned red a test outside this slice's files: the one that compares the database's fixed skill list with the app's. Was it right to widen that test here, instead of adding the two names to the database?
+
+## The decision, in plain words
+
+I widened that test so it allows the two new skills to be missing from the database's list, as it already allowed one earlier skill. The database is unchanged: the app and the runner still refuse a repository skill that borrows one of these names.
+
+## The intro, for fun
+
+Two new names joined the guest list, and the bouncer's old copy did not have them.
+
+## The punchline, for fun
+
+We told the bouncer they were late additions, not gate-crashers.
+
+## The options, in plain words
+
+A. A. Widen the test to the names added after its migration, as built
+B. B. Add the later names to the database's fixed list in a new migration, and narrow the test back
+
+## What I had to decide
+
+Pick A to keep it, or B to add the three later names to the database's list in a new migration and narrow the test back.
+
+## What I did meanwhile
+
+The test excludes retro-apply, rewind and knowledge-add from the comparison; the database's list holds the twelve older names.
+
+## What it costs to change later
+
+B is one small migration and one line of the test, in a later slice or PRD.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- A repository owner could still allow a repository skill named rewind or knowledge-add in the database; the app and the runner refuse its line, so it never runs. (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-02-runner-skills-test-outside-territory -->
+
+<!-- omni-outbox-settled: s6-03-finding-signed-in-its-fix -->
+
+## s6-03-finding-signed-in-its-fix — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-finding-signed-in-its-fix
+prd: 2410
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 4
+---
+
+## The question, in plain words
+
+Each finding must say an agent wrote it, but a finding has no author field and its card shows none. Is a closing sentence in the finding's own fix text the right place for that mark?
+
+## The decision, in plain words
+
+The rewind ends every finding's fix with one fixed sentence saying an agent wrote it, not a person. It travels with the finding wherever the text goes, the issue an approved setup finding opens included.
+
+## The intro, for fun
+
+Every note in the suggestion box now ends with the same polite signature.
+
+## The punchline, for fun
+
+Nobody can mistake the robot's handwriting for the boss's.
+
+## The options, in plain words
+
+A. A. End every finding's fix with the agent's sentence, as built
+B. B. Mark the findings as an agent's on the Main tab instead, and drop the sentence
+
+## What I had to decide
+
+Pick A to keep the sentence, or B to have the Main tab show an agent badge on every finding and drop the sentence.
+
+## What I did meanwhile
+
+Each finding's fix ends with: Written by an agent (/omni:rewind), not by a person.
+
+## What it costs to change later
+
+B is a small change to the Main tab and one line of the skill.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the Main tab should also mark findings as an agent's was not asked; the tab is s3, s5 and s7's ground. (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-03-finding-signed-in-its-fix -->
