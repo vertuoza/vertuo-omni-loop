@@ -161,10 +161,20 @@ describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
   // PRD 2410, s7: a member approves or rejects each proposed finding, once.
   const buttons = (page: string) => [...page.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]).filter((b) => b === 'Approve' || b === 'Reject');
 
-  it('offers Approve and Reject on a proposed finding, the reason optional', () => {
+  it('offers Approve and Reject on a proposed finding, and asks for no reason at rest', () => {
     const page = withFindings([found()]);
     expect(buttons(page)).toEqual(['Approve', 'Reject']);
-    expect(page).toContain('placeholder="Why reject it (optional)"');
+    expect(page).not.toContain('Why reject it');
+  });
+
+  it('makes the first proposed finding\'s Approve the page\'s primary, and the others quiet', () => {
+    const page = withFindings([found({ id: 'f0', state: 'rejected', decidedAt: '2026-10-21T09:30:00Z' }), found({ id: 'f1' }), found({ id: 'f2' })]);
+    const approves = [...page.matchAll(/<button[^>]*>Approve<\/button>/g)].map((m) => m[0]);
+    expect(approves).toHaveLength(2);
+    expect(approves[0]).toContain('data-primary=""');
+    expect(approves[0]).toContain('class="ask-button"');
+    expect(approves[1]).not.toContain('data-primary');
+    expect(approves[1]).toContain('class="ask-button quiet"');
   });
 
   it('shows who decided a finding and when, and no button', () => {

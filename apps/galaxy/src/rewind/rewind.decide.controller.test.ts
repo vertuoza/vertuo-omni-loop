@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { postRewindDecision, type DecisionDeps } from './rewind.controller';
+import { approveFinding, rejectFinding, type DecisionDeps } from './rewind.controller';
 import type { DecisionReply } from './rewind.contract';
 import type { DecisionService } from './rewind.service';
 
@@ -20,66 +20,91 @@ function deps(decide: Decide = () => Promise.resolve({ ok: true, value: APPROVED
   return { deps: live, decide: spy, session, log };
 }
 
-const post = (body: unknown, headers: Record<string, string> = {}) =>
-  new Request('https://omni.test/api/rewind/decide', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
-
-describe('POST /api/rewind/decide', () => {
-  it('approves as the page\'s member and answers what Approve sent', async () => {
-    const run = deps();
-    const response = await postRewindDecision(post({ finding: ID, verdict: 'approve' }), run.deps);
-    expect([response.status, await response.json()]).toEqual([200, APPROVED]);
-    expect(run.decide).toHaveBeenCalledWith(ID, 'approve', null);
+const post = (verdict: 'approve' | 'reject', body?: unknown, headers: Record<string, string> = {}) =>
+  new Request(`https://omni.test/api/rewind/findings/${ID}/${verdict}`, {
+    method: 'POST', headers: { 'content-type': 'application/json', ...headers },
+    ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }),
   });
 
-  it('rejects with the reason, trimmed, and with none when it is empty', async () => {
-    const run = deps(() => Promise.resolve({ ok: true, value: { state: 'rejected', followUp: null } }));
-    expect((await postRewindDecision(post({ finding: ID, verdict: 'reject', reason: '  Not our lint ' }), run.deps)).status).toBe(200);
-    await postRewindDecision(post({ finding: ID, verdict: 'reject', reason: '  ' }), run.deps);
-    expect(run.decide.mock.calls).toEqual([[ID, 'reject', 'Not our lint'], [ID, 'reject', null]]);
+describe('POST /api/rewind/findings/<id>/approve', () => {
+  it('approves as the page\'s member and answers what Approve sent, with an empty body or none', async () => {
+    const run = deps();
+    const response = await approveFinding(post('approve'), ID, run.deps);
+    expect([response.status, await response.json()]).toEqual([200, APPROVED]);
+    expect((await approveFinding(post('approve', {}), ID, run.deps)).status).toBe(200);
+    expect(run.decide.mock.calls).toEqual([[ID, 'approve', null], [ID, 'approve', null]]);
+  });
+
+  it('takes no reason', async () => {
+    const run = deps();
+    expect((await approveFinding(post('approve', { reason: 'Yes' }), ID, run.deps)).status).toBe(400);
+    expect(run.decide).not.toHaveBeenCalled();
   });
 
   it('refuses a bearer token with 403, whatever session the browser holds, and reads nothing', async () => {
     const run = deps();
-    const response = await postRewindDecision(post({ finding: ID, verdict: 'approve' }, { authorization: 'Bearer t' }), run.deps);
+    const response = await approveFinding(post('approve', undefined, { authorization: 'Bearer t' }), ID, run.deps);
     expect(response.status).toBe(403);
     expect(run.session).not.toHaveBeenCalled();
   });
 
   it('answers 401 signed out, and 503 with no database', async () => {
     const out = deps(undefined, { signedIn: false });
-    expect((await postRewindDecision(post({ finding: ID, verdict: 'approve' }), out.deps)).status).toBe(401);
+    expect((await approveFinding(post('approve'), ID, out.deps)).status).toBe(401);
     expect(out.decide).not.toHaveBeenCalled();
-    expect((await postRewindDecision(post({ finding: ID, verdict: 'approve' }), { session: null, log: vi.fn() })).status).toBe(503);
+    expect((await approveFinding(post('approve'), ID, { session: null, log: vi.fn() })).status).toBe(503);
   });
 
-  it.each([
-    ['no JSON', 'nope'],
-    ['no finding', { verdict: 'approve' }],
-    ['a finding that is no id', { finding: 'f1', verdict: 'approve' }],
-    ['another verdict', { finding: ID, verdict: 'maybe' }],
-    ['a reason of two lines', { finding: ID, verdict: 'reject', reason: 'one\ntwo' }],
-    ['a reason too long', { finding: ID, verdict: 'reject', reason: 'x'.repeat(501) }],
-    ['a field it does not take', { finding: ID, verdict: 'approve', line: '/omni:yolo 1' }],
-    ['a body too large', { finding: ID, verdict: 'reject', reason: 'x'.repeat(5000) }],
-  ])('answers 400 to %s, and decides nothing', async (_what, body) => {
+  it('answers 404 to an id that names no finding, and decides nothing', async () => {
     const run = deps();
-    expect((await postRewindDecision(post(body), run.deps)).status).toBe(400);
-    expect(run.decide).not.toHaveBeenCalled();
+    expect((await approveFinding(post('approve'), 'f1', run.deps)).status).toBe(404);
+    expect(run.session).not.toHaveBeenCalled();
   });
 
-  it('keeps the service\'s refusals: 404 no such finding, 409 already decided, 422 a finding that would leak', async () => {
+  it('keeps the service\'s refusals: 404 no such finding, 409 already decided, 422 a finding that would leak, 403 not a member', async () => {
     for (const [kind, status] of [['missing', 404], ['decided', 409], ['unshareable', 422], ['not-allowed', 403]] as const) {
       const run = deps(() => Promise.resolve({ ok: false, kind, error: `Refused: ${kind}.` }));
-      const response = await postRewindDecision(post({ finding: ID, verdict: 'approve' }), run.deps);
+      const response = await approveFinding(post('approve'), ID, run.deps);
       expect([response.status, await response.json()]).toEqual([status, { error: `Refused: ${kind}.` }]);
     }
   });
 
   it('logs a failure and answers 500 without its words', async () => {
     const run = deps(() => Promise.reject(new Error('db down')));
-    const response = await postRewindDecision(post({ finding: ID, verdict: 'approve' }), run.deps);
+    const response = await approveFinding(post('approve'), ID, run.deps);
     expect(response.status).toBe(500);
     expect(JSON.stringify(await response.json())).not.toContain('db down');
     expect(run.log).toHaveBeenCalledWith('rewind decide: db down');
+  });
+});
+
+describe('POST /api/rewind/findings/<id>/reject', () => {
+  it('rejects with the reason, trimmed, and with none when it is empty or left out', async () => {
+    const run = deps(() => Promise.resolve({ ok: true, value: { state: 'rejected', followUp: null } }));
+    const response = await rejectFinding(post('reject', { reason: '  Not our lint ' }), ID, run.deps);
+    expect([response.status, await response.json()]).toEqual([200, { state: 'rejected', followUp: null }]);
+    await rejectFinding(post('reject', { reason: '  ' }), ID, run.deps);
+    await rejectFinding(post('reject', {}), ID, run.deps);
+    await rejectFinding(post('reject'), ID, run.deps);
+    expect(run.decide.mock.calls).toEqual([[ID, 'reject', 'Not our lint'], [ID, 'reject', null], [ID, 'reject', null], [ID, 'reject', null]]);
+  });
+
+  it.each([
+    ['no JSON', 'nope'],
+    ['a reason of two lines', { reason: 'one\ntwo' }],
+    ['a reason too long', { reason: 'x'.repeat(501) }],
+    ['a reason that is no text', { reason: 7 }],
+    ['a field it does not take', { reason: 'no', line: '/omni:yolo 1' }],
+    ['a body too large', { reason: 'x'.repeat(5000) }],
+  ])('answers 400 to %s, and decides nothing', async (_what, body) => {
+    const run = deps();
+    expect((await rejectFinding(post('reject', body), ID, run.deps)).status).toBe(400);
+    expect(run.decide).not.toHaveBeenCalled();
+  });
+
+  it('refuses a bearer token with 403', async () => {
+    const run = deps();
+    expect((await rejectFinding(post('reject', {}, { authorization: 'Bearer t' }), ID, run.deps)).status).toBe(403);
+    expect(run.decide).not.toHaveBeenCalled();
   });
 });

@@ -47,7 +47,7 @@ export function MainPane({ main, findings = [] }: { main: MainWatchView | null; 
             </p>
           ) : (
             <ol className="main-findings" aria-label="What the rewind found">
-              {findings.map((f) => <Finding key={f.id} finding={f} />)}
+              {findings.map((f) => <Finding key={f.id} finding={f} primary={f.id === findings.find((one) => one.state === 'proposed')?.id} />)}
             </ol>
           )}
         </section>
@@ -66,7 +66,7 @@ function stateLine(f: FindingView): string {
 
 /** One finding of the rewind: its check, where the break started, what happened, the links it stands on and its
  * fix (PRD 2410, s5); a proposed one carries Approve and Reject for the member reading it (s7). */
-function Finding({ finding: f }: { finding: FindingView }) {
+function Finding({ finding: f, primary }: { finding: FindingView; primary: boolean }) {
   const check = isCheck(f.check) ? CHECK_LABELS[f.check] : f.check;
   const origin = isOrigin(f.origin) ? ORIGIN_LABELS[f.origin] : f.origin;
   return (
@@ -83,7 +83,7 @@ function Finding({ finding: f }: { finding: FindingView }) {
         ))}
       </ul>
       <p className="main-finding-fix"><strong>Fix:</strong> {f.fix}</p>
-      {f.state === 'proposed' && <FindingDecision finding={f.id} />}
+      {f.state === 'proposed' && <FindingDecision finding={f.id} primary={primary} />}
     </li>
   );
 }

@@ -57,24 +57,29 @@ export type FindingView = {
 
 // ── A member's decision (PRD 2410, s7) ──────────────────────────────────────────────────────────────────
 //
-//   POST /api/rewind/decide {finding, verdict, reason?}
-//     → 200 {state, followUp}: the finding approved or rejected, once, and what Approve sent
+//   POST /api/rewind/findings/<id>/approve            → 200 {state, followUp}: approved, and what Approve sent
+//   POST /api/rewind/findings/<id>/reject {reason?}   → 200 {state, followUp: null}: rejected, with its reason
 //
 // The page's session only: a request carrying a bearer token is refused 403, since a decision is a
 // member's on the PRD page. 400 a malformed body, 401 signed out, 403 not a member, 404 no such finding,
 // 409 already decided, 422 an Omni-setup finding that names the workspace's repository, 500, 503.
 
-export const REWIND_DECIDE_ROUTE = '/api/rewind/decide';
+/** A finding's decision: approve, or reject. */
+export type Verdict = 'approve' | 'reject';
 
-/** The longest decision body, in bytes: an id, a verdict and a reason of one line. */
+/** The route that decides finding `id`. */
+export const findingRoute = (id: string, verdict: Verdict): string => `/api/rewind/findings/${encodeURIComponent(id)}/${verdict}`;
+
+/** A finding's id, as the route names it. */
+export const FindingIdSchema = z.uuid();
+
+/** The longest decision body, in bytes: a reason of one line. */
 export const MAX_DECIDE_BYTES = 4 * 1024;
 
+/** A decision's body: a Reject's optional reason, one line of at most 500 characters; an Approve's is empty. */
 export const DecideBodySchema = z.strictObject({
-  finding: z.uuid(),
-  verdict: z.enum(['approve', 'reject']),
   reason: z.string().trim().max(500).regex(/^[^\n\r]*$/, 'one line').optional(),
 });
-export type DecideBody = z.infer<typeof DecideBodySchema>;
 
 /** A finding a member may decide: what the card shows, and whose it is. */
 export type DecidableFinding = FindingView & { workspace: string; repository: string; prd: PrdNumber };
