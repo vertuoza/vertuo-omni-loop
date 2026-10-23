@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.530" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.531" };
   }
 });
 
@@ -49528,8 +49528,9 @@ async function askLawWorth(question, { ctx, exec, env, vars, ref }) {
 }
 function ghOptions({ ctx, exec, env }) {
   const ghEnv = githubEnv(ctx, { exec, env });
-  return { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} };
+  return { encoding: "utf8", maxBuffer: GH_MAX_BUFFER, ...ghEnv ? { env: ghEnv } : {} };
 }
+var GH_MAX_BUFFER = 64 * 1024 * 1024;
 function pullRequestFor(number5, io) {
   const data = GhPullRequestSchema.parse(JSON.parse(io.exec("gh", ["api", `repos/${io.ctx.config.repo.slug}/pulls/${number5}`], ghOptions(io))));
   return {
@@ -53419,9 +53420,9 @@ function ghLine(error62) {
 var isNotFound = (error62) => /HTTP 404/.test(ghText2(error62));
 var Unreachable = class extends Error {
 };
-var GH_MAX_BUFFER = 64 * 1024 * 1024;
+var GH_MAX_BUFFER2 = 64 * 1024 * 1024;
 function ghReader({ exec, env }) {
-  const api = (args) => String(exec("gh", ["api", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: GH_MAX_BUFFER, ...env ? { env } : {} }));
+  const api = (args) => String(exec("gh", ["api", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: GH_MAX_BUFFER2, ...env ? { env } : {} }));
   const call = (args) => {
     try {
       return api(args);
