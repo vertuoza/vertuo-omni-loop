@@ -48,5 +48,5 @@ Loop health, Right now, In the period, Nothing stuck right now; from PRD 2410: `
 
 ## Source
 
-- /omni:brainstorm, PRD 2410: .omni-loop/delivery/inbox/2410-broke-main/before-after.html
+- /omni:brainstorm, PRD 2410: .omni-loop/delivery/shipped/2410-broke-main/before-after.html
 - apps/galaxy/src/engineering/EngineeringBoard.tsx
