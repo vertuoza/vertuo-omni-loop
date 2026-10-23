@@ -61151,11 +61151,11 @@ var ASKS_MAX = 2e3;
 var FindingIdSchema = external_exports.uuid();
 var DIGITS3 = /^\d+$/;
 function outcomeOf2(flags) {
-  const given = [flags.pr, flags.already, flags.asks].filter((value) => value !== void 0).length;
+  const given = [flags.pull, flags.already, flags.asks].filter((value) => value !== void 0).length;
   if (given !== 1) return { ok: false, error: "give exactly one of --pr <n>, --already <rule> or --asks <question>." };
-  if (flags.pr !== void 0) {
-    const pr = Number(flags.pr);
-    return DIGITS3.test(flags.pr) && Number.isSafeInteger(pr) && pr > 0 ? { ok: true, value: { outcome: "proposed", pr } } : { ok: false, error: `--pr must be a positive number, got "${flags.pr}".` };
+  if (flags.pull !== void 0) {
+    const pr = PrNumberSchema.safeParse(DIGITS3.test(flags.pull) ? Number(flags.pull) : Number.NaN);
+    return pr.success ? { ok: true, value: { outcome: "proposed", pr: pr.data } } : { ok: false, error: `--pr must be a positive number, got "${flags.pull}".` };
   }
   if (flags.already !== void 0) {
     const note2 = flags.already.trim();
@@ -61275,7 +61275,7 @@ function outcomeArgs(rest) {
   const [finding] = positional;
   if (positional.length !== 1 || finding === void 0) throw usageError(USAGE38);
   if (!FindingIdSchema.safeParse(finding).success) throw usageError("omni rewind outcome: the finding is the id on its card (a UUID).");
-  const named5 = outcomeOf2(flags);
+  const named5 = outcomeOf2({ pull: flags.pr, already: flags.already, asks: flags.asks });
   if (!named5.ok) throw usageError(`omni rewind outcome: ${named5.error}`);
   return { finding, sent: named5.value };
 }
