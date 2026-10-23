@@ -13,6 +13,7 @@ import type { AttestationView } from './Attestation.service';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
+import { MainPane } from './MainPane';
 import { MarkSeen } from './MarkSeen';
 import { OutboxPane } from './OutboxPane';
 import { OutboxPaneProduct } from './OutboxPaneProduct';
@@ -121,6 +122,7 @@ const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactN
     : <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
   care: ({ view }) => <CarePane care={view.care} />,
   retro: ({ view }) => <RetroPane retro={view.retro} />,
+  main: ({ view }) => <MainPane main={view.mainWatch} findings={view.rewindFindings} />,
   timeline: ({ view }) => (view.kind === 'prd' ? <PrdTimelinePane timeline={view.timeline} /> : <TimelinePane fix={view.fix} />),
   proof: ({ view }) => <ProofPane proof={view.proof} action={view.link} />,
   pitch: ({ view }) => <PitchPane pitch={view.pitch} action={view.link} />,
@@ -252,6 +254,19 @@ function UnderHead({ approval, attestation }: { approval: ApprovalView | null; a
   );
 }
 
+/** A watched PRD's Main cell (PRD 2410, s3): Watching · n days left, Clean, Broke main or Could not check, linking its Main tab. */
+function MainFact({ view }: { view: DossierView }) {
+  const main = view.mainWatch;
+  if (!main) return null;
+  const href = view.tabs.find((t) => t.kind === 'main')?.href ?? view.link;
+  return (
+    <div className={`dossier-fact dossier-main dossier-main-${main.state}`}>
+      <dt>Main</dt>
+      <dd><a href={href}><strong>{main.words}</strong></a></dd>
+    </div>
+  );
+}
+
 /** A PRD's Product cell (PRD 1364 s7), on a deployment with a database: none in the demo, nor on a fix. */
 function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
   return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
@@ -281,6 +296,7 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
             </div>
           )}
           {approval && <ApprovalFact approval={approval} />}
+          <MainFact view={view} />
           <ProductFact view={view} supabase={supabase} />
           <div className="dossier-fact">
             <dt>{view.repos.length > 1 ? 'Repos' : 'Repo'}</dt>

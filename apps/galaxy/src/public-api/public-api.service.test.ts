@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine, LINE_MAX } from 'omni-loop/kit/lib/runner/line.ts';
-import { WORKSPACE } from '../runners/fixtures/store.fake';
-import { encodeCursor } from './cursor';
+import { API_KEY, EVE, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SAM, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
+import { encodeCursor, encodeLinesCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
-import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
-import { BAD_CURSOR, publicApiService, type ApiKeyCaller } from './public-api.service';
+import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ApiJob, type ListQuery, type StartBugFix } from './public-api.contract';
+import { BAD_CURSOR, publicApiService, type Answered, type ApiKeyCaller, type CheckInstallation, type InstallationCheck, type RunnersPort } from './public-api.service';
 
 // The public API's rules (PRD 2022 s2) on realistic rows in memory: a key is a live key of its shape;
 // a key lists only its own workspace's dossiers (BR-PRODUCT-63), only those of its allow-list when it has
@@ -327,5 +327,1111 @@ describe('starting a mega bug fix in a plan repository', () => {
     expect(line).toHaveLength(LINE_MAX);
     expect(checkRunnerLine(line)).toMatchObject({ ok: true, skill: 'mega-bug-fix' });
     expect(checkRunnerLine(`${line}a`)).toMatchObject({ ok: false });
+  });
+});
+
+// PRD 2425 s3: a key reads, with its job, what a bug fix did; any key of the workspace reads any job a key of it sent,
+// within its own list of repositories.
+describe('following a job and what it did (PRD 2425 s3)', () => {
+  type Seed = Partial<ReturnType<typeof jobRow>>;
+  const PR = 'https://github.com/demo-org/app/pull/549';
+  const SECOND = 'https://github.com/demo-org/app/pull/550';
+  const PROVED = 'https://github.com/demo-org/app/pull/512';
+  const PUBLIC_WORDS = [
+    ['pr-opened', 'pr_opened'], ['already-fixed', 'already_fixed'], ['needs-brainstorm', 'needs_brainstorm'],
+    ['not-a-bug', 'not_a_bug'], ['stuck', 'stuck'], ['blocked', 'blocked'], ['human', 'need_human'],
+  ] as const;
+
+  /** A bug fix the first key of the workspace sent, ended `done` on the shared runner, in demo-org/app. */
+  function seed(api: FakePublicApi, more: Seed = {}) {
+    const job = jobRow({
+      status: 'done', runner_id: SHARED, line: '/omni:bug-fix 548 totals', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+      claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+    });
+    api.runnersState.jobs.push(job);
+    return job;
+  }
+  async function read(api: FakePublicApi, secret: string, id: string) {
+    return publicApiService(api.repository, api.runners).job(await caller(api, secret), id);
+  }
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+
+  describe('what the job did', () => {
+    it('reads already_fixed with the pull request the fix proved, and no pull request of its own', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'already-fixed', fixed_by: PROVED, prs: [] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({
+        status: 'done', outcome: 'already_fixed', fixed_by: PROVED, prs: [], pr_url: null,
+      });
+    });
+
+    it.each(PUBLIC_WORDS)('reads the stored word %s as %s', async (stored, word) => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: stored });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).outcome).toBe(word);
+    });
+
+    it('reads need_human with its questions open', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'human' });
+      api.runnersState.questions.push(questionsRow({ job_id: job.id }));
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ outcome: 'need_human', questions: { state: 'open' } });
+    });
+
+    it('reads pr_opened with the pull request in prs, as a link, its repository and its number', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', pr_url: PR, prs: [PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({
+        pr_url: PR, prs: [{ url: PR, repo: 'demo-org/app', number: 549 }],
+      });
+    });
+
+    it('reads the repository of a pull request in lower case, as the allow-lists and the PRD lists name it', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', prs: ['https://github.com/Demo-Org/Plan/pull/7'] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).prs).toEqual([{ url: 'https://github.com/Demo-Org/Plan/pull/7', repo: 'demo-org/plan', number: 7 }]);
+    });
+
+    it('reads stuck with its draft in prs', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'stuck', prs: [PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ outcome: 'stuck', prs: [{ number: 549 }] });
+    });
+
+    it('reads a failed job with no outcome and its draft in prs', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'failed', exit_code: 1, reason: 'the run exited 1', prs: [PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'failed', outcome: null, fixed_by: null, prs: [{ url: PR }] });
+    });
+
+    it('reads a job from an older runner, which reported none of it, as outcome null with no pull request', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { pr_url: PR });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'done', outcome: null, fixed_by: null, prs: [], questions: null, pr_url: PR });
+    });
+
+    it('reads a running job with no outcome yet', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'running', exit_code: null, ended_at: null });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'running', outcome: null });
+    });
+
+    it('lists the three pull requests of a mega bug fix with its record last, and keeps pr_url as the record', async () => {
+      const api = fakePublicApi();
+      const record = 'https://github.com/demo-org/plan/pull/9';
+      const job = seed(api, { repo: 'demo-org/plan', line: '/omni:mega-bug-fix 612', outcome: 'pr-opened', pr_url: record, prs: [PR, 'https://github.com/demo-org/other/pull/3', record] });
+      const mega = valueOf(await read(api, SECRETS.runners, job.id));
+      expect(mega.prs.map((pr) => pr.number)).toEqual([549, 3, 9]);
+      expect(mega.prs.map((pr) => pr.repo)).toEqual(['demo-org/app', 'demo-org/other', 'demo-org/plan']);
+      expect(mega.pr_url).toBe(record);
+    });
+
+    it('keeps the order the runner reported the pull requests in', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', prs: [SECOND, PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).prs.map((pr) => pr.number)).toEqual([550, 549]);
+    });
+
+    it('reads the proved pull request of an already_fixed job only: another job’s fixed_by stays null', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', fixed_by: PROVED });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).fixed_by).toBeNull();
+    });
+
+    it('reads the log tail, and null when the job holds none', async () => {
+      const api = fakePublicApi();
+      const tail = seed(api, { log_tail: '12:00:01 Outcome: pr-opened' });
+      const none = seed(api, { log_tail: '' });
+      expect(valueOf(await read(api, SECRETS.runners, tail.id)).log_tail).toBe('12:00:01 Outcome: pr-opened');
+      expect(valueOf(await read(api, SECRETS.runners, none.id)).log_tail).toBeNull();
+    });
+
+    it('reads the state of the questions, open, answered or dismissed, and none as null', async () => {
+      const api = fakePublicApi();
+      const open = seed(api, { outcome: 'human' });
+      const answered = seed(api, { outcome: 'human' });
+      const dismissed = seed(api, { outcome: 'human' });
+      const none = seed(api);
+      const closed = { closed_by: OLGA, closed_at: T0.toISOString() };
+      api.runnersState.questions.push(
+        questionsRow({ job_id: open.id }),
+        questionsRow({ job_id: answered.id, ...closed, answers: { 'Which fix?': 'Guard the input' } }),
+        questionsRow({ job_id: dismissed.id, ...closed }),
+      );
+      const states = await Promise.all([open, answered, dismissed, none].map(async (job) => valueOf(await read(api, SECRETS.runners, job.id)).questions));
+      expect(states).toEqual([{ state: 'open' }, { state: 'answered' }, { state: 'dismissed' }, null]);
+    });
+  });
+
+  describe('who it continues and who it acted for', () => {
+    it('reads the job it continues and the job that continues it, each from the other', async () => {
+      const api = fakePublicApi();
+      const first = seed(api, { outcome: 'human' });
+      const second = seed(api, { status: 'queued', exit_code: null, ended_at: null, continues: first.id, acting_for: 'Jane D.' });
+      expect(valueOf(await read(api, SECRETS.runners, first.id))).toMatchObject({ continues: null, continued_by: second.id });
+      expect(valueOf(await read(api, SECRETS.runnersOther, second.id))).toMatchObject({ continues: first.id, continued_by: null, acting_for: 'Jane D.' });
+    });
+
+    it('reads a job that continues nothing, and acted for no one, with nulls', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ continues: null, continued_by: null, acting_for: null, cancelled_by: null });
+    });
+
+    it('reads the key that cancelled the job by its name, and whom it acted for', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'cancelled', exit_code: null, cancel_requested: true, cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'cancelled', outcome: null, cancelled_by: { key: 'Support bot', acting_for: 'Jane D.' } });
+    });
+
+    it('reads a cancellation by a key that acted for no one with acting_for null', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'cancelled', exit_code: null, cancel_requested: true, cancelled_by_key: API_KEY });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).cancelled_by).toEqual({ key: 'QA dashboard', acting_for: null });
+    });
+  });
+
+  describe('which jobs a key reads', () => {
+    it('lets a second key of the workspace read the first key’s job', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', prs: [PR] });
+      expect(await read(api, SECRETS.runnersOther, job.id)).toMatchObject({ ok: true, value: { id: job.id, outcome: 'pr_opened' } });
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and reads a job of one on it', async () => {
+      const api = fakePublicApi();
+      const off = seed(api);
+      const on = seed(api, { repo: 'demo-org/other' });
+      const refused = await read(api, SECRETS.runnersLimited, off.id);
+      expect(refused).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(!refused.ok && refused.message).toBe('demo-org/app is not on this API key’s list of repositories.');
+      expect(await read(api, SECRETS.runnersLimited, on.id)).toMatchObject({ ok: true, value: { id: on.id, repo: 'demo-org/other' } });
+    });
+
+    it('answers 404 for a job a person sent, whatever the key’s list', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { sent_by_key: null });
+      for (const secret of [SECRETS.runners, SECRETS.runnersOther, SECRETS.runnersLimited]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found' });
+      }
+    });
+
+    it('answers 404 for another workspace’s job, a limited key included, and never 403', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      for (const secret of [SECRETS.all, SECRETS.backend, SECRETS.south]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found' });
+      }
+    });
+
+    it('answers 404 for a job that does not exist', async () => {
+      const api = fakePublicApi();
+      expect(await read(api, SECRETS.runners, '00000000-0000-4000-8000-00000000dead')).toMatchObject({ ok: false, code: 'not_found' });
+    });
+  });
+
+  describe('the job a key has just sent', () => {
+    it('reads queued with nothing done yet: no outcome, no pull request, no questions, no thread', async () => {
+      const api = fakePublicApi();
+      const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { repo: 'demo-org/app', description: 'Issue 548 totals' });
+      expect(valueOf(started)).toMatchObject({
+        status: 'queued', outcome: null, fixed_by: null, prs: [], questions: null, continues: null, continued_by: null,
+        acting_for: null, cancelled_by: null, log_tail: null,
+      });
+    });
+
+    it('reads the same shape when the job is a mega bug fix', async () => {
+      const api = fakePublicApi();
+      api.planRepository(WORKSPACE, 'demo-org/plan');
+      const started = await publicApiService(api.repository, api.runners).startMegaBugFix(await caller(api, SECRETS.runners), { repo: 'demo-org/plan', description: 'https://github.com/demo-org/plan/issues/612' });
+      expect(valueOf(started)).toMatchObject({ outcome: null, prs: [], questions: null, cancelled_by: null });
+    });
+  });
+});
+
+describe('reading a job’s lines (PRD 2425 s4)', () => {
+  const MISSING = '00000000-0000-4000-8000-00000000dead';
+
+  /** A bug fix the first key of the workspace sent, ended `done` on the shared runner, in demo-org/app, holding `count` lines. */
+  function seed(api: FakePublicApi, count: number, more: Partial<ReturnType<typeof jobRow>> = {}) {
+    const job = jobRow({
+      status: 'done', runner_id: SHARED, line: '/omni:bug-fix 548 totals', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+      claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+    });
+    api.runnersState.jobs.push(job);
+    api.runnersState.lines.push(...lineRows(job, 1, count));
+    return job;
+  }
+  async function read(api: FakePublicApi, secret: string, id: string, query: ListQuery = FIRST) {
+    return publicApiService(api.repository, api.runners).jobLines(await caller(api, secret), id, query);
+  }
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+  /** Every line of a job, following next_cursor until it is null, with `between` run before each next page. */
+  async function everyLine(api: FakePublicApi, secret: string, id: string, limit: number, between: () => void = () => {}) {
+    const seen: number[] = [];
+    let cursor: string | undefined;
+    for (let pages = 0; pages < 20; pages += 1) {
+      const page = valueOf(await read(api, secret, id, cursor === undefined ? { limit } : { limit, cursor }));
+      expect(page.data.length).toBeLessThanOrEqual(limit);
+      seen.push(...page.data.map((line) => line.seq));
+      if (page.next_cursor === null) return { seen, pages: pages + 1 };
+      cursor = page.next_cursor;
+      between();
+    }
+    throw new Error('the cursor never ended');
+  }
+
+  describe('the lines', () => {
+    it('answers each line as its sequence number and its text, oldest first, and no cursor after the last', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 3);
+      api.runnersState.lines.reverse();
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toEqual({
+        data: [{ seq: 1, text: 'line 1' }, { seq: 2, text: 'line 2' }, { seq: 3, text: 'line 3' }], next_cursor: null,
+      });
+    });
+
+    it('pages 120 lines by 50, each exactly once, oldest first', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 120);
+      const { seen, pages } = await everyLine(api, SECRETS.runners, job.id, 50);
+      expect(seen).toEqual([...Array(120).keys()].map((i) => i + 1));
+      expect(pages).toBe(3);
+    });
+
+    it('pages by the limit it was asked, 1 line at a time too', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 4);
+      expect((await everyLine(api, SECRETS.runners, job.id, 1)).seen).toEqual([1, 2, 3, 4]);
+      expect(valueOf(await read(api, SECRETS.runners, job.id, { limit: 100 })).data).toHaveLength(4);
+    });
+
+    it('answers no cursor on the last page, and on an exactly full one', async () => {
+      const api = fakePublicApi();
+      const exact = seed(api, 50);
+      const more = seed(api, 51);
+      expect(valueOf(await read(api, SECRETS.runners, exact.id)).next_cursor).toBeNull();
+      const first = valueOf(await read(api, SECRETS.runners, more.id));
+      expect(first.data).toHaveLength(50);
+      expect(first.next_cursor).toEqual(expect.any(String));
+      expect(valueOf(await read(api, SECRETS.runners, more.id, { limit: 50, cursor: first.next_cursor ?? '' }))).toEqual({
+        data: [{ seq: 51, text: 'line 51' }], next_cursor: null,
+      });
+    });
+
+    it('reads on from lines that arrive between two pages without repeating or skipping one', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 120, { status: 'running', ended_at: null, exit_code: null });
+      let next = 121;
+      const { seen } = await everyLine(api, SECRETS.runners, job.id, 50, () => {
+        api.runnersState.lines.push(...lineRows(job, next, 10));
+        next += 10;
+      });
+      expect(seen).toEqual([...Array(seen.length).keys()].map((i) => i + 1));
+      expect(seen.length).toBeGreaterThan(120);
+    });
+
+    it('starts at the first line a job still holds when its first ones were trimmed', async () => {
+      const api = fakePublicApi();
+      const job = jobRow({ status: 'running', runner_id: SHARED, sent_by: OLGA, sent_by_key: API_KEY });
+      api.runnersState.jobs.push(job);
+      api.runnersState.lines.push(...lineRows(job, 9_001, 3));
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).data.map((line) => line.seq)).toEqual([9_001, 9_002, 9_003]);
+    });
+
+    it('answers only the job’s own lines when the workspace holds others', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2);
+      seed(api, 5);
+      expect((await everyLine(api, SECRETS.runners, job.id, 50)).seen).toEqual([1, 2]);
+    });
+
+    it('answers an empty page for a job that holds none: queued, or past the retention of the workspace’s 50 newest ended jobs, which keeps its log tail', async () => {
+      const api = fakePublicApi();
+      const queued = seed(api, 0, { status: 'queued', runner_id: null, ended_at: null, exit_code: null, claimed_at: null, running_at: null });
+      const old = seed(api, 0, { log_tail: '13:49:58 PR: https://github.com/demo-org/app/pull/549' });
+      for (const job of [queued, old]) expect(valueOf(await read(api, SECRETS.runners, job.id))).toEqual({ data: [], next_cursor: null });
+      const service = publicApiService(api.repository, api.runners);
+      expect(valueOf(await service.job(await caller(api, SECRETS.runners), old.id)).log_tail).toBe('13:49:58 PR: https://github.com/demo-org/app/pull/549');
+    });
+  });
+
+  describe('which jobs a key reads the lines of', () => {
+    it('lets a second key of the workspace read the first key’s lines', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2);
+      expect(valueOf(await read(api, SECRETS.runnersOther, job.id)).data).toHaveLength(2);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, reading no line, and reads a job of one on it', async () => {
+      const api = fakePublicApi();
+      const off = seed(api, 2);
+      const on = seed(api, 2, { repo: 'demo-org/other' });
+      const refused = await read(api, SECRETS.runnersLimited, off.id);
+      expect(refused).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(!refused.ok && refused.message).toBe('demo-org/app is not on this API key’s list of repositories.');
+      expect(api.calls).not.toContain('jobLines');
+      expect(valueOf(await read(api, SECRETS.runnersLimited, on.id)).data).toHaveLength(2);
+    });
+
+    it('answers 404 for a job a person sent, whatever the key’s list, reading no line', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2, { sent_by_key: null });
+      for (const secret of [SECRETS.runners, SECRETS.runnersOther, SECRETS.runnersLimited]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found', message: 'No such job.' });
+      }
+      expect(api.calls).not.toContain('jobLines');
+    });
+
+    it('answers 404 for another workspace’s job, a limited key included, and never 403, reading no line', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2);
+      for (const secret of [SECRETS.all, SECRETS.backend, SECRETS.south]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found' });
+      }
+      expect(api.calls).not.toContain('jobLines');
+    });
+
+    it('answers 404 for a job that does not exist', async () => {
+      const api = fakePublicApi();
+      expect(await read(api, SECRETS.runners, MISSING)).toMatchObject({ ok: false, code: 'not_found' });
+      expect(api.calls).not.toContain('jobLines');
+    });
+  });
+
+  describe('the cursor', () => {
+    it('refuses a cursor that is not this job’s lines, as 422 naming the cursor, reading no line', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 5);
+      const other = seed(api, 5);
+      const refusals = [
+        'not a cursor',
+        encodeCursor({ list: 'prds', createdAt: '2026-10-15T13:41:50.481234+00:00', id: job.id }),
+        encodeLinesCursor({ job: other.id, seq: 2 }),
+      ];
+      for (const cursor of refusals) {
+        const refused = await read(api, SECRETS.runners, job.id, { limit: 50, cursor });
+        expect(refused, cursor).toEqual({ ok: false, code: 'invalid_request', message: BAD_CURSOR });
+      }
+      expect(api.calls).not.toContain('jobLines');
+    });
+
+    it('checks the job before the cursor: a job of another workspace is 404 whatever the cursor', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 5);
+      expect(await read(api, SECRETS.south, job.id, { limit: 50, cursor: 'not a cursor' })).toMatchObject({ ok: false, code: 'not_found' });
+    });
+
+    it('answers lines after the cursor’s sequence number', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 5);
+      const page = valueOf(await read(api, SECRETS.runners, job.id, { limit: 2, cursor: encodeLinesCursor({ job: job.id, seq: 2 }) }));
+      expect(page.data.map((line) => line.seq)).toEqual([3, 4]);
+      expect(page.next_cursor).toEqual(expect.any(String));
+    });
+  });
+
+  it('fails, rather than answering 404, when the runners fail: the controller answers 500', async () => {
+    const api = fakePublicApi();
+    const job = seed(api, 2);
+    const broken = { ...api.runners, keyJob: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
+    const service = publicApiService(api.repository, broken);
+    await expect(service.jobLines(await caller(api, SECRETS.runners), job.id, FIRST)).rejects.toThrow('runner_jobs: permission denied');
+  });
+});
+
+// PRD 2425 s6: a key reads the questions of a job a key of its workspace sent, answers them (the resume stays the
+// key's and continues the job) or dismisses them with no job queued; the first close wins, whoever closes.
+describe('a key answering and dismissing its job’s questions (PRD 2425 s6)', () => {
+  const ANSWERS = { 'Which fix?': 'Guard the input' };
+  const UNKNOWN_JOB = '00000000-0000-4000-8000-00000000dead';
+
+  /** A bug fix the first key of the workspace sent, ended `done` with its questions open, in demo-org/app. */
+  function seed(api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}, asked = true) {
+    const job = jobRow({
+      status: 'done', outcome: 'human', runner_id: SHARED, line: '/omni:bug-fix #314', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+      claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+    });
+    api.runnersState.jobs.push(job);
+    if (asked) api.runnersState.questions.push(questionsRow({ job_id: job.id }));
+    return job;
+  }
+  const service = (api: FakePublicApi) => publicApiService(api.repository, api.runners);
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+
+  describe('reading the questions', () => {
+    it('reads an open round in the API’s words: the lead, the questions, no answers and nobody who closed it', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const read = valueOf(await service(api).jobQuestions(await caller(api, SECRETS.runnersOther), job.id));
+      expect(read).toEqual({
+        lead: 'The planning query fails for 31 tenants.',
+        questions: [{
+          question: 'Which fix?', header: 'Fix', multi_select: false,
+          options: [{ label: 'Guard the input', description: 'Check the tenant before the query' }, { label: 'Design it first', description: 'Stop here and brainstorm the behaviour' }],
+        }],
+        state: 'open', answers: null, closed_by: null,
+      });
+    });
+
+    it('reads who closed a round: a key by its name and whom it acted for, or a person by their login', async () => {
+      const api = fakePublicApi();
+      const [byKey, byPerson, noLogin, dismissed, gone] = [seed(api, {}, false), seed(api, {}, false), seed(api, {}, false), seed(api, {}, false), seed(api, {}, false)];
+      const closed_at = T0.toISOString();
+      api.runnersState.questions.push(
+        questionsRow({ job_id: byKey.id, answers: ANSWERS, closed_by_key: OTHER_KEY, closed_for: 'Jane D.', closed_at }),
+        questionsRow({ job_id: byPerson.id, answers: ANSWERS, closed_by: OLGA, closed_at }),
+        questionsRow({ job_id: noLogin.id, answers: ANSWERS, closed_by: SAM, closed_at }),
+        questionsRow({ job_id: dismissed.id, closed_by_key: API_KEY, closed_at }),
+        // A key that was deleted since: the database leaves no closer on the round.
+        questionsRow({ job_id: gone.id, closed_at }),
+      );
+      const key = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).jobQuestions(key, byKey.id))).toMatchObject({ state: 'answered', answers: ANSWERS, closed_by: { key: 'Support bot', acting_for: 'Jane D.' } });
+      expect(valueOf(await service(api).jobQuestions(key, byPerson.id))).toMatchObject({ state: 'answered', answers: ANSWERS, closed_by: { login: 'olga' } });
+      expect(valueOf(await service(api).jobQuestions(key, noLogin.id))).toMatchObject({ state: 'answered', closed_by: { login: null } });
+      expect(valueOf(await service(api).jobQuestions(key, dismissed.id))).toMatchObject({ state: 'dismissed', answers: null, closed_by: { key: 'QA dashboard', acting_for: null } });
+      expect(valueOf(await service(api).jobQuestions(key, gone.id))).toMatchObject({ state: 'dismissed', answers: null, closed_by: null });
+    });
+
+    it('answers 404 for a job that asked none, in its own words, and for a person’s job, another workspace’s and none at all', async () => {
+      const api = fakePublicApi();
+      const quiet = seed(api, {}, false);
+      const person = seed(api, { sent_by_key: null });
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).jobQuestions(key, quiet.id)).toEqual({ ok: false, code: 'not_found', message: 'This job asked no question.' });
+      expect(await service(api).jobQuestions(key, person.id)).toMatchObject({ ok: false, code: 'not_found', message: 'No such job.' });
+      expect(await service(api).jobQuestions(key, UNKNOWN_JOB)).toMatchObject({ ok: false, code: 'not_found' });
+      expect(await service(api).jobQuestions(await caller(api, SECRETS.south), quiet.id)).toMatchObject({ ok: false, code: 'not_found', message: 'No such job.' });
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and reads a job of one on it', async () => {
+      const api = fakePublicApi();
+      const off = seed(api);
+      const on = seed(api, { repo: 'demo-org/other' });
+      const limited = await caller(api, SECRETS.runnersLimited);
+      expect(await service(api).jobQuestions(limited, off.id)).toEqual({ ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.' });
+      expect(await service(api).jobQuestions(limited, on.id)).toMatchObject({ ok: true, value: { state: 'open' } });
+    });
+  });
+
+  describe('answering', () => {
+    it('queues the resume as the job’s key, continuing the job, and answers it as a job: queued, acting_for, no questions yet', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const resume = valueOf(await service(api).answerJob(await caller(api, SECRETS.runnersOther), job.id, { answers: ANSWERS, acting_for: 'Jane D.' }));
+      expect(resume).toMatchObject({
+        line: `/omni:bug-fix #314 --answers ${job.id}`, repo: 'demo-org/app', status: 'queued', continues: job.id, continued_by: null,
+        acting_for: 'Jane D.', questions: null, outcome: null, prs: [],
+      });
+      // The key that answered is not the key that sent the job: the resume stays the sender’s.
+      expect(api.runnersState.jobs.find((j) => j.id === resume.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY, continues: job.id });
+    });
+
+    it('reads the first job as carried on by the resume and answered, and the resume by the key that sent the job', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const resume = valueOf(await service(api).answerJob(await caller(api, SECRETS.runnersOther), job.id, { answers: ANSWERS }));
+      const sender = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).job(sender, job.id))).toMatchObject({ continued_by: resume.id, questions: { state: 'answered' } });
+      expect(valueOf(await service(api).job(sender, resume.id))).toMatchObject({ id: resume.id, continues: job.id });
+      expect(valueOf(await service(api).jobQuestions(sender, job.id))).toMatchObject({ state: 'answered', answers: ANSWERS, closed_by: { key: 'Support bot', acting_for: null } });
+    });
+
+    it('stores whom the key acted for as given, and no one when it said none', async () => {
+      const api = fakePublicApi();
+      const [named, anonymous] = [seed(api), seed(api)];
+      const key = await caller(api, SECRETS.runnersOther);
+      await service(api).answerJob(key, named.id, { answers: ANSWERS, acting_for: '  José O\'Neil · ops  ' });
+      await service(api).answerJob(key, anonymous.id, { answers: ANSWERS });
+      const closed = new Map(api.runnersState.questions.map((q) => [q.job_id, q.closed_for]));
+      expect(closed.get(named.id)).toBe('  José O\'Neil · ops  ');
+      expect(closed.get(anonymous.id)).toBeNull();
+    });
+
+    it('answers 409 conflict to a second answer or dismissal, from a key or the page, naming the first: the first wins', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const key = await caller(api, SECRETS.runnersOther);
+      valueOf(await service(api).answerJob(key, job.id, { answers: ANSWERS }));
+      const closed = { ok: false, code: 'conflict', message: 'Already answered by API key Support bot' };
+      expect(await service(api).answerJob(await caller(api, SECRETS.runners), job.id, { answers: ANSWERS })).toEqual(closed);
+      expect(await service(api).dismissJob(key, job.id, {})).toEqual(closed);
+      expect(await api.runners.answer(OLGA, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'conflict', error: 'Already answered by API key Support bot' });
+      expect(api.runnersState.jobs.filter((j) => j.continues === job.id)).toHaveLength(1);
+    });
+
+    it('answers 409 conflict to a key whose round a person on the page closed first, naming them', async () => {
+      const api = fakePublicApi();
+      const [dismissed, answered] = [seed(api), seed(api)];
+      expect(await api.runners.dismiss(OLGA, dismissed.id)).toMatchObject({ ok: true });
+      expect(await api.runners.answer(OLGA, answered.id, { answers: ANSWERS })).toMatchObject({ ok: true });
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).answerJob(key, dismissed.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'conflict', message: 'Dismissed by @olga' });
+      expect(await service(api).dismissJob(key, answered.id, {})).toEqual({ ok: false, code: 'conflict', message: 'Already answered by @olga' });
+    });
+
+    it('answers 409 conflict to a job that is not waiting for an answer', async () => {
+      const api = fakePublicApi();
+      const failed = seed(api, { status: 'failed', outcome: null });
+      expect(await service(api).answerJob(await caller(api, SECRETS.runners), failed.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'conflict', message: 'This job is not waiting for an answer.' });
+    });
+
+    it('answers 422 to answers that are not one to each question, naming the field, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const key = await caller(api, SECRETS.runners);
+      for (const answers of [{ 'And the tests?': 'Add one' }, { 'Which fix?': 'Guard the input', 'And the tests?': 'Add one' }]) {
+        expect(await service(api).answerJob(key, job.id, { answers })).toEqual({ ok: false, code: 'invalid_request', message: 'answers: Answer each question once, and only the ones asked.' });
+      }
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.questions[0]?.closed_at).toBeNull();
+    });
+
+    it('answers 422 to a repository’s own skill, whose questions can only be dismissed, and dismisses them', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { line: '/triage-bug 314' });
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).answerJob(key, job.id, { answers: ANSWERS })).toEqual({
+        ok: false, code: 'invalid_request', message: 'answers: /triage-bug is a repository\'s own skill: its questions can only be dismissed.',
+      });
+      expect(await service(api).dismissJob(key, job.id, {})).toMatchObject({ ok: true, value: { questions: { state: 'dismissed' } } });
+    });
+
+    it('answers 404 for what a key learns nothing of: a person’s job, another workspace’s, none at all, a job that asked none', async () => {
+      const api = fakePublicApi();
+      const person = seed(api, { sent_by_key: null });
+      const quiet = seed(api, {}, false);
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).answerJob(key, person.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'not_found', message: 'No such job.' });
+      expect(await service(api).answerJob(key, UNKNOWN_JOB, { answers: ANSWERS })).toMatchObject({ ok: false, code: 'not_found' });
+      expect(await service(api).answerJob(key, quiet.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'not_found', message: 'This job asked no question.' });
+      expect(await service(api).answerJob(await caller(api, SECRETS.south), person.id, { answers: ANSWERS })).toMatchObject({ ok: false, code: 'not_found' });
+      expect(api.runnersState.jobs).toHaveLength(2);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      expect(await service(api).answerJob(await caller(api, SECRETS.runnersLimited), job.id, { answers: ANSWERS })).toEqual({
+        ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.',
+      });
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.questions[0]?.closed_at).toBeNull();
+    });
+
+    it('answers 403 when the person who made the job’s key left the workspace, as the resume would be queued as them', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { sent_by: '00000000-0000-4000-8000-0000018300e1' });
+      expect(await service(api).answerJob(await caller(api, SECRETS.runners), job.id, { answers: ANSWERS })).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+  });
+
+  describe('dismissing', () => {
+    it('closes the round with no answer and no job queued, and answers the job with its questions dismissed', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const dismissed = valueOf(await service(api).dismissJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Jane D.' }));
+      expect(dismissed).toMatchObject({ id: job.id, status: 'done', outcome: 'need_human', questions: { state: 'dismissed' }, continued_by: null });
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.questions[0]).toMatchObject({ answers: null, closed_by: null, closed_by_key: OTHER_KEY, closed_for: 'Jane D.', resume_job: null });
+    });
+
+    it('reads the dismissal back with the key by name, and answers 409 to a second close', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const key = await caller(api, SECRETS.runnersOther);
+      valueOf(await service(api).dismissJob(key, job.id, {}));
+      expect(valueOf(await service(api).jobQuestions(key, job.id))).toMatchObject({ state: 'dismissed', answers: null, closed_by: { key: 'Support bot', acting_for: null } });
+      const closed = { ok: false, code: 'conflict', message: 'Dismissed by API key Support bot' };
+      expect(await service(api).dismissJob(key, job.id, {})).toEqual(closed);
+      expect(await service(api).answerJob(key, job.id, { answers: ANSWERS })).toEqual(closed);
+    });
+
+    it('answers 404 and 403 as an answer does, and 409 for a job not waiting', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const person = seed(api, { sent_by_key: null });
+      const failed = seed(api, { status: 'failed', outcome: null });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.runners), person.id, {})).toEqual({ ok: false, code: 'not_found', message: 'No such job.' });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.south), job.id, {})).toMatchObject({ ok: false, code: 'not_found' });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.runnersLimited), job.id, {})).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.runners), failed.id, {})).toEqual({ ok: false, code: 'conflict', message: 'This job is not waiting for an answer.' });
+      expect(api.runnersState.questions.filter((q) => q.closed_at !== null)).toEqual([]);
+    });
+  });
+});
+
+// PRD 2425 s7: a key cancels a job a key of its workspace sent, as the Runners page's Cancel does, and relaunches one as the page
+// offers (Send again, Resume): the new job stays the first one's key's, continues it and keeps its notify_url. Any key of the
+// workspace acts on any key's job within its allow-list; a person's job and another workspace's read as no such job.
+describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
+  const UNKNOWN_JOB = '00000000-0000-4000-8000-00000000dead';
+  const NOTIFY = 'https://hooks.example.com/omni';
+  const MISSING = { ok: false, code: 'not_found', message: 'No such job.' };
+
+  /** A bug fix the first key of the workspace sent through Olga to the fleet cia, in demo-org/app: queued, unless told otherwise. */
+  function seed(api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}) {
+    const job = jobRow({ line: '/omni:bug-fix #314', sent_by: OLGA, sent_by_key: API_KEY, to_fleet: 'cia', notify_url: NOTIFY, ...more });
+    api.runnersState.jobs.push(job);
+    return job;
+  }
+  /** A job that ended `failed`, which the page offers Send again for. */
+  const failed = (api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}) => seed(api, {
+    status: 'failed', exit_code: 1, reason: 'exit 1', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+  });
+  const service = (api: FakePublicApi) => publicApiService(api.repository, api.runners);
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+
+  describe('cancelling', () => {
+    it('ends a queued job at once as the key that cancels, whichever key sent it, and answers it as a job', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const cancelled = valueOf(await service(api).cancelJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Jane D.' }));
+      expect(cancelled).toMatchObject({ id: job.id, status: 'cancelled', ended_at: expect.any(String) as string, cancelled_by: { key: 'Support bot', acting_for: 'Jane D.' } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'cancelled', cancel_requested: true, cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+    });
+
+    it('asks a running job to stop, and says so with the key that asked', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+      const asked = valueOf(await service(api).cancelJob(await caller(api, SECRETS.runners), job.id, {}));
+      expect(asked).toMatchObject({ status: 'running', ended_at: null, cancelled_by: { key: 'QA dashboard', acting_for: null } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'running', cancel_requested: true, cancelled_for: null });
+    });
+
+    it('reads back with the key by name, beside the job the key reads', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      valueOf(await service(api).cancelJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Ann P.' }));
+      expect(valueOf(await service(api).job(await caller(api, SECRETS.runners), job.id))).toMatchObject({ status: 'cancelled', cancelled_by: { key: 'Support bot', acting_for: 'Ann P.' } });
+    });
+
+    it('answers 409 conflict to an ended job, in the page’s words, and changes nothing', async () => {
+      const api = fakePublicApi();
+      const [done, ended] = [failed(api, { status: 'done', exit_code: 0 }), failed(api)];
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).cancelJob(key, done.id, {})).toEqual({ ok: false, code: 'conflict', message: 'This job has ended: done.' });
+      expect(await service(api).cancelJob(key, ended.id, {})).toEqual({ ok: false, code: 'conflict', message: 'This job has ended: failed.' });
+      expect(api.runnersState.jobs.map((j) => j.cancelled_by_key ?? null)).toEqual([null, null]);
+    });
+
+    it('answers 404 for what a key learns nothing of: a person’s job, another workspace’s, none at all, and changes nothing', async () => {
+      const api = fakePublicApi();
+      const person = seed(api, { sent_by_key: null, sent_by: OLGA });
+      const mine = seed(api);
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).cancelJob(key, person.id, {})).toEqual(MISSING);
+      expect(await service(api).cancelJob(key, UNKNOWN_JOB, {})).toEqual(MISSING);
+      expect(await service(api).cancelJob(await caller(api, SECRETS.south), mine.id, {})).toEqual(MISSING);
+      expect(api.runnersState.jobs.map((j) => j.status)).toEqual(['queued', 'queued']);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and changes nothing', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      expect(await service(api).cancelJob(await caller(api, SECRETS.runnersLimited), job.id, {})).toEqual({
+        ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.',
+      });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'queued', cancel_requested: false });
+    });
+
+    it('fails, rather than answering a refusal of its own, when the runners fail: the controller answers 500', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const broken = { ...api.runners, cancelByKey: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
+      await expect(publicApiService(api.repository, broken).cancelJob(await caller(api, SECRETS.runners), job.id, {})).rejects.toThrow('runners: unavailable runner_jobs: permission denied');
+    });
+  });
+
+  describe('relaunching', () => {
+    it('sends a failed job again as the job’s key, continuing it, and answers it as a job: queued, continues, acting_for, no questions', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const relaunched = valueOf(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Jane D.' }));
+      expect(relaunched).toMatchObject({
+        line: '/omni:bug-fix #314', repo: 'demo-org/app', status: 'queued', continues: job.id, continued_by: null, acting_for: 'Jane D.', questions: null, outcome: null, prs: [],
+      });
+      // The key that relaunched is not the key that sent the job: the new job stays the sender’s, with its notify_url.
+      expect(api.runnersState.jobs.find((j) => j.id === relaunched.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY, continues: job.id, to_fleet: 'cia', notify_url: NOTIFY, acting_for: 'Jane D.' });
+    });
+
+    it('resumes a job stopped mid-way and sends a cancelled one again, with the line each ran', async () => {
+      const api = fakePublicApi();
+      const stopped = failed(api, { status: 'done', exit_code: 0, reason: null, outcome: 'stopped', line: '/omni:yolo 2338' });
+      const cancelled = failed(api, { status: 'cancelled', cancel_requested: true, reason: null });
+      const key = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).relaunchJob(key, stopped.id, {}))).toMatchObject({ line: '/omni:yolo 2338', continues: stopped.id, acting_for: null });
+      expect(valueOf(await service(api).relaunchJob(key, cancelled.id, {}))).toMatchObject({ line: '/omni:bug-fix #314', continues: cancelled.id });
+    });
+
+    it('reads the first job as carried on by the new one, and the new one by the key that sent the first', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const relaunched = valueOf(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, {}));
+      const sender = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).job(sender, job.id))).toMatchObject({ continued_by: relaunched.id });
+      expect(valueOf(await service(api).job(sender, relaunched.id))).toMatchObject({ id: relaunched.id, continues: job.id });
+    });
+
+    it('answers 409 conflict to a job the page offers neither Send again nor Resume for, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const [live, handedOff, asked] = [seed(api), failed(api, { status: 'done', exit_code: 0, outcome: 'pr-opened' }), failed(api, { status: 'done', exit_code: 0, outcome: 'human' })];
+      const key = await caller(api, SECRETS.runners);
+      const refused = { ok: false, code: 'conflict', message: 'This job is neither failed, cancelled nor stopped mid-way: the Runners page offers neither Send again nor Resume for it.' };
+      for (const job of [live, handedOff, asked]) expect(await service(api).relaunchJob(key, job.id, {})).toEqual(refused);
+      expect(api.runnersState.jobs).toHaveLength(3);
+    });
+
+    it('answers 409 conflict to a job already carried on, whoever relaunches it again: one new job each', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      valueOf(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, {}));
+      const carried = { ok: false, code: 'conflict', message: 'This job was carried on already.' };
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toEqual(carried);
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, {})).toEqual(carried);
+      expect(api.runnersState.jobs.filter((j) => j.continues === job.id)).toHaveLength(1);
+    });
+
+    it('answers 404 for what a key learns nothing of: a person’s job, another workspace’s, none at all, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const person = failed(api, { sent_by_key: null, sent_by: OLGA });
+      const mine = failed(api);
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).relaunchJob(key, person.id, {})).toEqual(MISSING);
+      expect(await service(api).relaunchJob(key, UNKNOWN_JOB, {})).toEqual(MISSING);
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.south), mine.id, {})).toEqual(MISSING);
+      expect(api.runnersState.jobs).toHaveLength(2);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runnersLimited), job.id, {})).toEqual({
+        ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.',
+      });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('answers 403 when the person who made the job’s key left the workspace, as the new job would be queued as them', async () => {
+      const api = fakePublicApi();
+      const job = failed(api, { sent_by: EVE });
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('answers 409 conflict, not 404, when the runner the job named is gone: the job itself is there', async () => {
+      const api = fakePublicApi();
+      const job = failed(api, { to_fleet: null, to_runner: '00000000-0000-4000-8000-0000018301ff' });
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toEqual({ ok: false, code: 'conflict', message: 'No such runner in this workspace.' });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('answers 422 to a line the runners no longer take, in their words with no field named, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = failed(api, { line: '/validate-prd 347' });
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toEqual({
+        ok: false, code: 'invalid_request', message: '/validate-prd is not allowed on a runner for demo-org/app: an owner allows it in Settings › Repositories.',
+      });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('fails, rather than answering a refusal of its own, when the runners fail: the controller answers 500', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const broken = { ...api.runners, relaunchByKey: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
+      await expect(publicApiService(api.repository, broken).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).rejects.toThrow('runners: unavailable runner_jobs: permission denied');
+    });
+  });
+});
+
+// PRD 2425 s8: a start says whom the job is for and a link to ping. The link is checked before anything is queued (a host that is not
+// public is a 422), the job stores both as given, and what it does afterwards is pinged to the link once the response has gone.
+describe('a key starting a job that pings a link (PRD 2425 s8)', () => {
+  const LINK = 'https://hooks.example.com/omni/jobs';
+  const BUG = { repo: 'demo-org/app', description: 'Issue 548 totals' };
+  const MEGA = { repo: 'demo-org/plan', description: 'https://github.com/demo-org/plan/issues/612' };
+  type Says = Partial<Pick<StartBugFix, 'acting_for' | 'notify_url'>>;
+  type Start = (api: FakePublicApi, key: ApiKeyCaller, says: Says, port?: RunnersPort) => Promise<Answered<ApiJob>>;
+  /** Both starts, the same rules: a bug fix and a mega bug fix (whose plan repository is set up here). */
+  const both: [string, Start][] = [
+    ['a bug fix', (api, key, says, port = api.runners) => publicApiService(api.repository, port).startBugFix(key, { ...BUG, ...says })],
+    ['a mega bug fix', (api, key, says, port = api.runners) => {
+      api.planRepository(WORKSPACE, 'demo-org/plan');
+      return publicApiService(api.repository, port).startMegaBugFix(key, { ...MEGA, ...says });
+    }],
+  ];
+  /** The runners, the links they were asked about recorded. */
+  const watched = (api: FakePublicApi) => {
+    const asked: string[] = [];
+    const port: RunnersPort = { ...api.runners, notifyCheck: (url) => { asked.push(url); return api.runners.notifyCheck(url); } };
+    return { port, asked };
+  };
+  /** A link that carries a login, built here so none stands in the source. */
+  const carrying = (login: string[]) => ['https://', login.join(':'), '@hooks.example.com/omni'].join('');
+  const bodies = (api: FakePublicApi) => api.posts.map((post) => JSON.parse(post.body) as Record<string, string>);
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+
+  describe.each(both)('%s', (_name, start) => {
+    it('stores whom it is for and the link as given, answers whom it is for and never the link, and pings nothing yet', async () => {
+      const api = fakePublicApi();
+      const started = await start(api, await caller(api, SECRETS.runners), { acting_for: 'Jane D.', notify_url: LINK });
+      expect(started).toMatchObject({ ok: true, value: { status: 'queued', acting_for: 'Jane D.' } });
+      expect(JSON.stringify(started)).not.toContain(LINK);
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.jobs[0]).toMatchObject({ acting_for: 'Jane D.', notify_url: LINK, sent_by_key: API_KEY });
+      await api.flushPings();
+      expect(api.posts).toEqual([]);
+    });
+
+    it('never shows the link again: not to the key that sent it, nor to another key of the workspace that reads the job', async () => {
+      const api = fakePublicApi();
+      const service = publicApiService(api.repository, api.runners);
+      const sender = await caller(api, SECRETS.runners);
+      const started = valueOf(await start(api, sender, { acting_for: 'Jane D.', notify_url: LINK }));
+      for (const reader of [sender, await caller(api, SECRETS.runnersOther)]) {
+        const read = valueOf(await service.job(reader, started.id));
+        expect(read).toMatchObject({ id: started.id, acting_for: 'Jane D.' });
+        expect(JSON.stringify(read)).not.toContain(LINK);
+        expect(read).not.toHaveProperty('notify_url');
+      }
+    });
+
+    it('stores neither when the start says neither, and checks no link', async () => {
+      const api = fakePublicApi();
+      const { port, asked } = watched(api);
+      const started = await start(api, await caller(api, SECRETS.runners), {}, port);
+      expect(started).toMatchObject({ ok: true, value: { acting_for: null } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ acting_for: null, notify_url: null });
+      expect(asked).toEqual([]);
+    });
+
+    it('takes a link without whom it is for, and whom it is for without a link', async () => {
+      const api = fakePublicApi();
+      const key = await caller(api, SECRETS.runners);
+      expect(await start(api, key, { notify_url: LINK })).toMatchObject({ ok: true, value: { acting_for: null } });
+      expect(await start(api, key, { acting_for: 'Jane D.' })).toMatchObject({ ok: true, value: { acting_for: 'Jane D.' } });
+      expect(api.runnersState.jobs.map((job) => [job.acting_for, job.notify_url])).toEqual([[null, LINK], ['Jane D.', null]]);
+    });
+
+    it.each([
+      ['is not https', 'http://hooks.example.com/omni', 'must be an https link'],
+      ['carries a user name and a password', carrying(['user', 'pw']), 'must not carry a user name or a password'],
+      ['carries a user name', carrying(['user']), 'must not carry a user name or a password'],
+      ['names a host of the private network', 'https://intranet.example.com/omni', 'intranet.example.com resolves to a private address, which is not public'],
+      ['names a host that resolves to loopback', 'https://loopback.example.com/omni', 'loopback.example.com resolves to a loopback address, which is not public'],
+      ['is the address of a cloud metadata service', 'https://169.254.169.254/latest/meta-data', 'is a link-local address, not a public one'],
+      ['is a private address', 'https://10.0.0.1/omni', 'is a private address, not a public one'],
+      ['is the loopback address of IPv6', 'https://[::1]/omni', 'is a loopback address, not a public one'],
+      ['names a host that does not resolve', 'https://nowhere.example.com/omni', 'nowhere.example.com does not resolve'],
+    ])('answers 422 on notify_url when it %s, and queues nothing', async (_why, link, reason) => {
+      const api = fakePublicApi();
+      expect(await start(api, await caller(api, SECRETS.runners), { acting_for: 'Jane D.', notify_url: link })).toEqual({ ok: false, code: 'invalid_request', message: `notify_url: ${reason}` });
+      expect(api.runnersState.jobs).toEqual([]);
+      expect(api.posts).toEqual([]);
+    });
+
+    it('keeps the allow-list in front of the link: a repository off the key’s list is a 403 whatever the link is, and no link is checked', async () => {
+      const api = fakePublicApi();
+      const { port, asked } = watched(api);
+      const refused = await start(api, await caller(api, SECRETS.runnersLimited), { notify_url: 'https://intranet.example.com/omni' }, port);
+      expect(refused).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(asked).toEqual([]);
+    });
+  });
+
+  it('keeps the plan check in front of the link for a mega bug fix: a repository no product names is refused on repo, no link checked', async () => {
+    const api = fakePublicApi();
+    const { port, asked } = watched(api);
+    const refused = await publicApiService(api.repository, port).startMegaBugFix(await caller(api, SECRETS.runners), { ...MEGA, notify_url: 'https://intranet.example.com/omni' });
+    expect(refused).toMatchObject({ ok: false, code: 'invalid_request', message: expect.stringMatching(/^repo: /) as string });
+    expect(asked).toEqual([]);
+  });
+
+  it('checks the link it is given, once, before queueing', async () => {
+    const api = fakePublicApi();
+    const { port, asked } = watched(api);
+    expect(await both[0]?.[1](api, await caller(api, SECRETS.runners), { notify_url: LINK }, port)).toMatchObject({ ok: true });
+    expect(asked).toEqual([LINK]);
+  });
+
+  describe('the pings', () => {
+    /** A job started with the link, claimed by Olga's shared runner. */
+    async function claimed(api: FakePublicApi) {
+      const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { ...BUG, notify_url: LINK });
+      const id = started.ok ? started.value.id : '';
+      expect((await api.runners.next(OLGA, SHARED)).ok).toBe(true);
+      return id;
+    }
+
+    it('are posted to the link after the response, each with `{job_id, event, at}` and nothing else, to the address just checked', async () => {
+      const api = fakePublicApi();
+      const id = await claimed(api);
+      expect(api.posts).toEqual([]);
+      await api.flushPings();
+      expect(api.posts).toEqual([{ url: LINK, address: '93.184.216.34', body: JSON.stringify({ job_id: id, event: 'status', at: T0.toISOString() }) }]);
+      expect(Object.keys(bodies(api)[0] ?? {})).toEqual(['job_id', 'event', 'at']);
+
+      expect(await api.runners.update(OLGA, id, { status: 'running' })).toMatchObject({ ok: true });
+      expect(await api.runners.update(OLGA, id, { status: 'done', exitCode: 0, outcome: 'pr-opened' })).toMatchObject({ ok: true });
+      await api.flushPings();
+      expect(bodies(api).map((body) => body.event)).toEqual(['status', 'status', 'outcome']);
+      expect(api.pingLogs).toEqual([]);
+    });
+
+    it('are posted for a change a key makes, as the page’s Cancel does', async () => {
+      const api = fakePublicApi();
+      const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { ...BUG, notify_url: LINK });
+      const id = started.ok ? started.value.id : '';
+      expect(await publicApiService(api.repository, api.runners).cancelJob(await caller(api, SECRETS.runners), id, {})).toMatchObject({ ok: true });
+      await api.flushPings();
+      expect(bodies(api)).toEqual([{ job_id: id, event: 'status', at: T0.toISOString() }]);
+    });
+
+    it('are three tries at most when the link answers an error, and then a log that names the job and the host, never the path', async () => {
+      const api = fakePublicApi();
+      api.answer.status = 500;
+      const id = await claimed(api);
+      await api.flushPings();
+      expect(api.posts).toHaveLength(3);
+      expect(api.pingLogs).toHaveLength(1);
+      expect(api.pingLogs[0]).toContain(id);
+      expect(api.pingLogs[0]).toContain('hooks.example.com');
+      expect(api.pingLogs[0]).not.toContain('/omni/jobs');
+    });
+
+    it('check the host again, so a name that moved to a private address since the start gets no post', async () => {
+      const api = fakePublicApi();
+      const id = await claimed(api);
+      api.hosts.set('hooks.example.com', ['10.0.0.9']);
+      await api.flushPings();
+      expect(api.posts).toEqual([]);
+      expect(api.pingLogs).toEqual([`ping ${id} (status) to hooks.example.com was not delivered: hooks.example.com resolves to a private address, which is not public`]);
+    });
+  });
+});
+
+describe('a key with a GitHub App starts a job only where its App can run it (PRD 2433 s6)', () => {
+  const FIX = { repo: 'Demo-Org/App', description: 'Issue 548 totals' };
+  const MEGA = { repo: 'Demo-Org/Plan', description: 'https://github.com/demo-org/plan/issues/612' };
+  const APP = { appId: 123456, slug: 'acme-bot', ciphertext: 'c2VhbGVk', iv: 'aXY=' };
+  const ALL: InstallationCheck = { installed: true, missing: null };
+  const NOT_INSTALLED = (repo: string) => `repo: the GitHub App acme-bot attached to this API key is not installed on ${repo}. Install it on that repository, with write access to contents, pull_requests and issues, then send again.`;
+  const WITHOUT = (repo: string, permission: string) => `repo: the GitHub App acme-bot is installed on ${repo} without write access to ${permission}. Give it write access to contents, pull_requests and issues, then send again.`;
+
+  /** The fake, the runners' key holding the App, and a GitHub that answers for each repository (none: not installed). */
+  function setup(answers: Record<string, InstallationCheck>) {
+    const api = fakePublicApi();
+    api.githubApp(API_KEY, APP);
+    api.planRepository(WORKSPACE, 'demo-org/plan');
+    const asked: { slug: string; repo: string }[] = [];
+    const check: CheckInstallation = (app, repo) => {
+      asked.push({ slug: app.slug, repo });
+      return Promise.resolve(answers[repo] ?? { installed: false });
+    };
+    return { api, asked, service: publicApiService(api.repository, api.runners, check) };
+  }
+
+  it('queues the bug fix where the App is installed with write access to contents, pull_requests and issues, after asking GitHub about that repository', async () => {
+    const { api, asked, service } = setup({ 'demo-org/app': ALL });
+    const started = await service.startBugFix(await caller(api, SECRETS.runners), FIX);
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'demo-org/app' } });
+    expect(asked).toEqual([{ slug: 'acme-bot', repo: 'demo-org/app' }]);
+    expect(api.runnersState.jobs).toHaveLength(1);
+  });
+
+  it('refuses a repository the App is not installed on: 422 github_app_not_installed naming it, and nothing queued', async () => {
+    const { api, service } = setup({ 'demo-org/app': ALL });
+    const refused = await service.startBugFix(await caller(api, SECRETS.runners), { ...FIX, repo: 'demo-org/other' });
+    expect(refused).toEqual({ ok: false, code: 'github_app_not_installed', message: NOT_INSTALLED('demo-org/other') });
+    expect(api.runnersState.jobs).toEqual([]);
+  });
+
+  for (const permission of ['contents', 'pull_requests', 'issues'] as const) {
+    it(`refuses an installation with no write access to ${permission}: 422 github_app_permissions naming it, and nothing queued`, async () => {
+      const { api, service } = setup({ 'demo-org/app': { installed: true, missing: permission } });
+      const refused = await service.startBugFix(await caller(api, SECRETS.runners), FIX);
+      expect(refused).toEqual({ ok: false, code: 'github_app_permissions', message: WITHOUT('demo-org/app', permission) });
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+  }
+
+  it('asks GitHub nothing for a key with no App, and queues as it did', async () => {
+    const { api, asked, service } = setup({});
+    const started = await service.startBugFix(await caller(api, SECRETS.runnersLimited), { ...FIX, repo: 'demo-org/other' });
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'demo-org/other' } });
+    expect(asked).toEqual([]);
+    expect(api.runnersState.jobs).toHaveLength(1);
+  });
+
+  it('reads no App at all when this deployment has no means to ask GitHub', async () => {
+    const api = fakePublicApi();
+    api.githubApp(API_KEY, APP);
+    const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), FIX);
+    expect(started).toMatchObject({ ok: true });
+    expect(api.calls).not.toContain('githubAppOf');
+  });
+
+  it('keeps the allow-list in front of the App: a repository off the list is 403, with no App read and no GitHub call', async () => {
+    const { api, asked, service } = setup({ 'demo-org/app': ALL });
+    api.githubApp('k-runners-limited', APP);
+    const limited = await caller(api, SECRETS.runnersLimited);
+    api.calls.length = 0;
+    expect(await service.startBugFix(limited, FIX)).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await service.startMegaBugFix(limited, MEGA)).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(api.calls).toEqual([]);
+    expect(asked).toEqual([]);
+  });
+
+  it('queues nothing when GitHub cannot be asked, and says so by throwing: the controller answers 500', async () => {
+    const api = fakePublicApi();
+    api.githubApp(API_KEY, APP);
+    const down: CheckInstallation = () => Promise.reject(new Error('GitHub answered 502 to GET /repos/demo-org/app/installation'));
+    const service = publicApiService(api.repository, api.runners, down);
+    await expect(service.startBugFix(await caller(api, SECRETS.runners), FIX)).rejects.toThrow('GitHub answered 502');
+    expect(api.runnersState.jobs).toEqual([]);
+  });
+
+  it('checks a mega bug fix on its plan repository, and queues it when the App is installed there', async () => {
+    const { api, asked, service } = setup({ 'demo-org/plan': ALL });
+    const started = await service.startMegaBugFix(await caller(api, SECRETS.runners), MEGA);
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'demo-org/plan' } });
+    expect(asked).toEqual([{ slug: 'acme-bot', repo: 'demo-org/plan' }]);
+  });
+
+  it('refuses a mega bug fix whose plan repository the App is not installed on, or lacks a permission on, queueing nothing', async () => {
+    const { api, service } = setup({});
+    const key = await caller(api, SECRETS.runners);
+    expect(await service.startMegaBugFix(key, MEGA)).toEqual({ ok: false, code: 'github_app_not_installed', message: NOT_INSTALLED('demo-org/plan') });
+    const lacking = setup({ 'demo-org/plan': { installed: true, missing: 'issues' } });
+    expect(await lacking.service.startMegaBugFix(await caller(lacking.api, SECRETS.runners), MEGA)).toEqual({
+      ok: false, code: 'github_app_permissions', message: WITHOUT('demo-org/plan', 'issues'),
+    });
+    expect(api.runnersState.jobs).toEqual([]);
+    expect(lacking.api.runnersState.jobs).toEqual([]);
+  });
+
+  it('keeps the plan check in front of the App: a repository no product names as its plan repository is refused with no App read', async () => {
+    const { api, asked, service } = setup({ 'demo-org/app': ALL });
+    api.calls.length = 0;
+    expect(await service.startMegaBugFix(await caller(api, SECRETS.runners), { ...MEGA, repo: 'demo-org/app' })).toMatchObject({ ok: false, code: 'invalid_request' });
+    expect(api.calls).not.toContain('githubAppOf');
+    expect(asked).toEqual([]);
   });
 });

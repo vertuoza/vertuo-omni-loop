@@ -514,6 +514,11 @@ export const ConfigSchema = z
     // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
     // lesson worth a guard names it for a person to take up. A repository opts in.
     retro: section({ guards: z.boolean().default(false) }),
+    // PRD 2410: whether the GitHub App watches main for seven days after a feature PR merges, marking
+    // the PRD broke on a red job on the merge commit, a revert or a traced regression, and queueing
+    // `/omni:rewind` on the first break. On by default; read at the merge commit, so `false` there
+    // opens no watch and queues no rewind.
+    mainWatch: section({ enabled: z.boolean().default(true) }),
     // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
     // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
     // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.

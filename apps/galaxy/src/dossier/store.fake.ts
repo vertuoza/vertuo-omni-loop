@@ -44,7 +44,7 @@
 // a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
 // activity (its opening, numbering, versions and rounds asked or answered), newest first. Since PRD
-// 2401 s3 (supabase/migrations/20261229090000_dossier_light_reads.sql) it lists only p_kind's dossiers
+// 2401 s3 (supabase/migrations/20261231090000_dossier_light_reads.sql) it lists only p_kind's dossiers
 // when given, dossier_repos(dossier) gives one dossier's repositories, rounds and version counts as
 // the history does, and each plan version keeps its slice count as the kit counts it (0 for none).
 //

@@ -235,6 +235,89 @@ describe('omni kb show — acceptance criterion 2: each section says where it ca
   });
 });
 
+describe('omni kb show — the knowledge tree’s levels, each section tagged with its own (PRD 2416, s1)', () => {
+  const PLAN_COPY = '.omni-loop/local/tree/plan-repo/playbook/testing.md';
+  const SETTINGS_COPY = '.omni-loop/local/tree/omni-settings/playbook/testing.md';
+  const filled = (slots: SlotFixture[]) => formText({ frontMatter: { state: 'filled' }, slots });
+  const OURS = filled([
+    { id: 'commands', required: true, body: '`make check` runs everything.' },
+    { id: 'data', heading: 'Test data', body: 'TODO(human): is there a naming rule for fixture repositories?' },
+  ]);
+  const PLAN = filled([
+    { id: 'commands', required: true, body: 'Plan: `make all`.' },
+    { id: 'layout', heading: 'Where tests live', required: true, body: 'Plan: beside the code.' },
+  ]);
+  const SETTINGS = filled([
+    { id: 'commands', required: true, body: 'Settings: `make ci`.' },
+    { id: 'layout', heading: 'Where tests live', required: true, body: 'Settings: under test/.' },
+    { id: 'levels', heading: 'Choosing the level', body: 'Settings: start from the risk.' },
+    { id: 'data', heading: 'Test data', body: 'Settings: seed per test.' },
+  ]);
+
+  it('acceptance criteria 1 and 2: [repo] first, then [plan repo], then [omni settings], then [kit default]', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: OURS, [PLAN_COPY]: PLAN, [SETTINGS_COPY]: SETTINGS } });
+    const { code, out, err } = await omni(root, ['kb', 'show', 'testing']);
+    expect(code).toBe(0);
+    expect(err).toBe('');
+    expect(out.match(/^## .*$/gm)).toEqual([
+      '## Commands  [repo]',
+      '## Where tests live  [plan repo]',
+      '## Choosing the level  [omni settings]',
+      '## Never  [kit default]',
+      '## Test data  [hole · omni settings]',
+    ]);
+    expect(out).toContain('## Commands  [repo]\n`make check` runs everything.\n\n## Where tests live  [plan repo]\nPlan: beside the code.\n');
+    expect(out).toContain('## Choosing the level  [omni settings]\nSettings: start from the risk.\n');
+    expect(out).toContain(`## Never  [kit default]\n${kitDefault('testing', 'never')}\n`);
+    expect(out).toContain('## Test data  [hole · omni settings]\nSettings: seed per test.\nTODO(human): is there a naming rule for fixture repositories?\n');
+    expect(out).not.toContain('Plan: `make all`.');
+    expect(out).not.toContain('Settings: `make ci`.');
+  });
+
+  it('the Omni settings answer what the plan repository leaves, and --json names each section’s level', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [SETTINGS_COPY]: SETTINGS } });
+    const { code, out } = await omni(root, ['kb', 'show', 'testing', '--json']);
+    expect(code).toBe(0);
+    const json = JSON.parse(out) as ResolvedForm;
+    expect(json).toMatchObject({ form: 'testing', file: TESTING, state: 'missing' });
+    expect(json.sections.map(({ slot, source, label }) => `${slot}:${source} ${label}`)).toEqual([
+      'commands:omni-settings [omni settings]',
+      'layout:omni-settings [omni settings]',
+      'levels:omni-settings [omni settings]',
+      'never:kit [kit default]',
+      'data:omni-settings [omni settings]',
+    ]);
+  });
+
+  it('acceptance criterion 5: a repository with no copy prints the form byte for byte as it did, and an empty tree folder changes nothing', async () => {
+    const files = { ...CONFIG, [TESTING]: OURS };
+    const before = await omni(makeRepo({ git: true, files }).root, ['kb', 'show', 'testing']);
+    const { root, write } = makeRepo({ git: true, files });
+    write('.omni-loop/local/tree/plan-repo/README.md', 'no form here\n');
+    const after = await omni(root, ['kb', 'show', 'testing']);
+    expect(after).toEqual(before);
+    expect(before.out).toBe(
+      [
+        '# Testing',
+        `${TESTING} · filled`,
+        '',
+        '## Commands  [repo]',
+        '`make check` runs everything.',
+        '',
+        `## Where tests live  [kit default]\n${kitDefault('testing', 'layout')}`,
+        '',
+        `## Choosing the level  [kit default]\n${kitDefault('testing', 'levels')}`,
+        '',
+        `## Never  [kit default]\n${kitDefault('testing', 'never')}`,
+        '',
+        `## Test data  [hole]\n${kitDefault('testing', 'data')}`,
+        'TODO(human): is there a naming rule for fixture repositories?',
+        '',
+      ].join('\n'),
+    );
+  });
+});
+
 describe('omni kb show — acceptance criterion 3: a pointer shows its target; the decisions are read live', () => {
   it('a form with state: pointer shows its whole target', async () => {
     const pointer = formText({ frontMatter: { form: 'ci', state: 'pointer', 'points-to': 'guides/ci.md' }, title: 'CI', slots: [] });
@@ -458,6 +541,36 @@ describe('omni kb status — the map, derived every time', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { out } = await omni(root, ['kb', 'status']);
     expect(out).toMatch(/\nOpen questions: none\.\nStale evidence: none\.\n$/);
+  });
+});
+
+describe('omni kb status — sections per level of the knowledge tree (PRD 2416, s2)', () => {
+  const PLAN_COPY = '.omni-loop/local/tree/plan-repo/playbook/testing.md';
+  const SETTINGS_COPY = '.omni-loop/local/tree/omni-settings/playbook/testing.md';
+  const filled = (slots: SlotFixture[]) => formText({ frontMatter: { state: 'filled' }, slots });
+  const OURS = filled([{ id: 'commands', required: true, body: '`make check` runs everything.' }]);
+  const PLAN = filled([{ id: 'layout', heading: 'Where tests live', required: true, body: 'Plan: beside the code.' }]);
+  const SETTINGS = filled([{ id: 'levels', heading: 'Choosing the level', body: 'Settings: start from the risk.' }]);
+
+  it('counts each form’s sections per level, in the text and in --json, with every level present', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: OURS, [PLAN_COPY]: PLAN, [SETTINGS_COPY]: SETTINGS } });
+    const json = JSON.parse((await omni(root, ['kb', 'status', '--json'])).out) as StatusMap;
+    const testing = json.forms.find(({ form }) => form === 'testing');
+    expect(testing?.levels).toEqual({ repo: 1, 'plan repo': 1, 'omni settings': 1, 'kit default': 2 });
+    const lines = (await omni(root, ['kb', 'status'])).out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+    expect(lines).toContain('testing core filled repo 1 repo, 1 plan repo, 1 omni settings, 2 kit default');
+  });
+
+  it('a repository with no other level prints the rows as before: no level column, and --json holds only the levels that answer', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: OURS } });
+    const { out } = await omni(root, ['kb', 'status']);
+    const lines = out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+    expect(lines).toContain('testing core filled repo');
+    expect(lines).toContain('briefing core missing kit default');
+    expect(out).not.toMatch(/plan repo|omni settings/);
+    const json = JSON.parse((await omni(root, ['kb', 'status', '--json'])).out) as StatusMap;
+    const levels = json.forms.find(({ form }) => form === 'testing')?.levels;
+    expect(Object.keys(levels ?? {})).toEqual(['repo', 'kit default']);
   });
 });
 

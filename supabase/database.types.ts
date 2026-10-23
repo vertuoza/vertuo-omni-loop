@@ -235,6 +235,60 @@ export type Database = {
         }
         Relationships: []
       }
+      api_key_github_apps: {
+        Row: {
+          app_id: number
+          attached_at: string
+          attached_by: string | null
+          bot_id: number
+          ciphertext: string
+          iv: string
+          key_id: string
+          last_token_at: string | null
+          slug: string
+          workspace_id: string
+        }
+        Insert: {
+          app_id: number
+          attached_at?: string
+          attached_by?: string | null
+          bot_id: number
+          ciphertext: string
+          iv: string
+          key_id: string
+          last_token_at?: string | null
+          slug: string
+          workspace_id: string
+        }
+        Update: {
+          app_id?: number
+          attached_at?: string
+          attached_by?: string | null
+          bot_id?: number
+          ciphertext?: string
+          iv?: string
+          key_id?: string
+          last_token_at?: string | null
+          slug?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_github_apps_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: true
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_github_apps_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_requests: {
         Row: {
           asked: string[]
@@ -2285,6 +2339,97 @@ export type Database = {
           },
         ]
       }
+      prd_main_breaks: {
+        Row: {
+          at: string
+          kind: string
+          lane: string
+          parent: string | null
+          prd: number
+          repository: string
+          source: string
+          title: string
+          url: string
+          workspace_id: string
+        }
+        Insert: {
+          at: string
+          kind: string
+          lane: string
+          parent?: string | null
+          prd: number
+          repository: string
+          source: string
+          title: string
+          url: string
+          workspace_id: string
+        }
+        Update: {
+          at?: string
+          kind?: string
+          lane?: string
+          parent?: string | null
+          prd?: number
+          repository?: string
+          source?: string
+          title?: string
+          url?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_main_breaks_workspace_id_repository_prd_lane_fkey"
+            columns: ["workspace_id", "repository", "prd", "lane"]
+            isOneToOne: false
+            referencedRelation: "prd_main_watch"
+            referencedColumns: ["workspace_id", "repository", "prd", "lane"]
+          },
+        ]
+      }
+      prd_main_watch: {
+        Row: {
+          lane: string
+          merge_sha: string
+          merged_at: string
+          prd: number
+          repository: string
+          status: string
+          unread: string[]
+          watch_until: string
+          workspace_id: string
+        }
+        Insert: {
+          lane: string
+          merge_sha: string
+          merged_at: string
+          prd: number
+          repository: string
+          status?: string
+          unread?: string[]
+          watch_until: string
+          workspace_id: string
+        }
+        Update: {
+          lane?: string
+          merge_sha?: string
+          merged_at?: string
+          prd?: number
+          repository?: string
+          status?: string
+          unread?: string[]
+          watch_until?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_main_watch_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prd_milestones: {
         Row: {
           lane: string
@@ -3248,6 +3393,110 @@ export type Database = {
           },
         ]
       }
+      rewind_finding_events: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          finding_id: string
+          id: number
+          reason: string | null
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          finding_id: string
+          id?: never
+          reason?: string | null
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          finding_id?: string
+          id?: never
+          reason?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewind_finding_events_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "rewind_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rewind_finding_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewind_findings: {
+        Row: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        Insert: {
+          check_name: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id?: string
+          origin: string
+          prd: number
+          proposed_at?: string
+          reason?: string | null
+          repository: string
+          state?: string
+          workspace_id: string
+        }
+        Update: {
+          check_name?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence?: Json
+          fix?: string
+          happened?: string
+          id?: string
+          origin?: string
+          prd?: number
+          proposed_at?: string
+          reason?: string | null
+          repository?: string
+          state?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewind_findings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roadmap_human_work: {
         Row: {
           act: string | null
@@ -3546,12 +3795,37 @@ export type Database = {
           },
         ]
       }
+      runner_job_needs_app: {
+        Row: {
+          job_id: string
+          marked_at: string
+        }
+        Insert: {
+          job_id: string
+          marked_at?: string
+        }
+        Update: {
+          job_id?: string
+          marked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_job_needs_app_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runner_job_questions: {
         Row: {
           answers: Json | null
           asked_at: string
           closed_at: string | null
           closed_by: string | null
+          closed_by_key: string | null
+          closed_for: string | null
           issue: number
           job_id: string
           lead: string
@@ -3564,6 +3838,8 @@ export type Database = {
           asked_at?: string
           closed_at?: string | null
           closed_by?: string | null
+          closed_by_key?: string | null
+          closed_for?: string | null
           issue: number
           job_id: string
           lead: string
@@ -3576,6 +3852,8 @@ export type Database = {
           asked_at?: string
           closed_at?: string | null
           closed_by?: string | null
+          closed_by_key?: string | null
+          closed_for?: string | null
           issue?: number
           job_id?: string
           lead?: string
@@ -3584,6 +3862,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "runner_job_questions_closed_by_key_fkey"
+            columns: ["closed_by_key"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "runner_job_questions_job_id_fkey"
             columns: ["job_id"]
@@ -3609,16 +3894,22 @@ export type Database = {
       }
       runner_jobs: {
         Row: {
+          acting_for: string | null
           cancel_requested: boolean
+          cancelled_by_key: string | null
+          cancelled_for: string | null
           claimed_at: string | null
           continues: string | null
           ended_at: string | null
           exit_code: number | null
+          fixed_by: string | null
           id: string
           line: string
           log_tail: string
+          notify_url: string | null
           outcome: string | null
           pr_url: string | null
+          prs: Json
           queued_at: string
           reason: string | null
           release_error: string | null
@@ -3638,16 +3929,22 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          acting_for?: string | null
           cancel_requested?: boolean
+          cancelled_by_key?: string | null
+          cancelled_for?: string | null
           claimed_at?: string | null
           continues?: string | null
           ended_at?: string | null
           exit_code?: number | null
+          fixed_by?: string | null
           id?: string
           line: string
           log_tail?: string
+          notify_url?: string | null
           outcome?: string | null
           pr_url?: string | null
+          prs?: Json
           queued_at?: string
           reason?: string | null
           release_error?: string | null
@@ -3667,16 +3964,22 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          acting_for?: string | null
           cancel_requested?: boolean
+          cancelled_by_key?: string | null
+          cancelled_for?: string | null
           claimed_at?: string | null
           continues?: string | null
           ended_at?: string | null
           exit_code?: number | null
+          fixed_by?: string | null
           id?: string
           line?: string
           log_tail?: string
+          notify_url?: string | null
           outcome?: string | null
           pr_url?: string | null
+          prs?: Json
           queued_at?: string
           reason?: string | null
           release_error?: string | null
@@ -3696,6 +3999,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "runner_jobs_cancelled_by_key_fkey"
+            columns: ["cancelled_by_key"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "runner_jobs_continues_fkey"
             columns: ["continues"]
@@ -3792,6 +4102,7 @@ export type Database = {
         Row: {
           created_at: string
           fleet: string | null
+          github_app: boolean
           health: Json | null
           id: string
           last_seen_at: string
@@ -3805,6 +4116,7 @@ export type Database = {
         Insert: {
           created_at?: string
           fleet?: string | null
+          github_app?: boolean
           health?: Json | null
           id?: string
           last_seen_at?: string
@@ -3818,6 +4130,7 @@ export type Database = {
         Update: {
           created_at?: string
           fleet?: string | null
+          github_app?: boolean
           health?: Json | null
           id?: string
           last_seen_at?: string
@@ -4291,6 +4604,22 @@ export type Database = {
           user_id: string
         }[]
       }
+      api_key_github_app_attach: {
+        Args: {
+          p_app_id: number
+          p_bot_id: number
+          p_ciphertext: string
+          p_iv: string
+          p_key: string
+          p_slug: string
+        }
+        Returns: Json
+      }
+      api_key_github_app_minted: { Args: { p_key: string }; Returns: undefined }
+      api_key_github_app_of_job: { Args: { p_job: string }; Returns: Json }
+      api_key_github_app_of_key: { Args: { p_key: string }; Returns: Json }
+      api_key_github_app_remove: { Args: { p_key: string }; Returns: boolean }
+      api_key_github_apps_list: { Args: { p_workspace: string }; Returns: Json }
       api_key_listed: {
         Args: { t: Database["public"]["Tables"]["agent_tokens"]["Row"] }
         Returns: Json
@@ -6372,6 +6701,82 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      rewind_evidence_ok: { Args: { p_evidence: Json }; Returns: boolean }
+      rewind_finding_approve: {
+        Args: { p_finding: string; p_workspace: string }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rewind_finding_open: {
+        Args: { p_finding: string; p_workspace: string }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rewind_finding_reject: {
+        Args: { p_finding: string; p_reason?: string; p_workspace: string }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       roadmap_human_work_claim: {
         Args: { p_limit: number; p_roadmap: string }
         Returns: Json
@@ -6398,16 +6803,22 @@ export type Database = {
       runner_claim: {
         Args: { p_runner: string }
         Returns: {
+          acting_for: string | null
           cancel_requested: boolean
+          cancelled_by_key: string | null
+          cancelled_for: string | null
           claimed_at: string | null
           continues: string | null
           ended_at: string | null
           exit_code: number | null
+          fixed_by: string | null
           id: string
           line: string
           log_tail: string
+          notify_url: string | null
           outcome: string | null
           pr_url: string | null
+          prs: Json
           queued_at: string
           reason: string | null
           release_error: string | null
@@ -6434,18 +6845,30 @@ export type Database = {
         }
       }
       runner_job_answer: {
-        Args: { p_answers: Json; p_by: string; p_job: string }
+        Args: {
+          p_acting_for?: string
+          p_answers: Json
+          p_by?: string
+          p_job: string
+          p_key?: string
+        }
         Returns: {
+          acting_for: string | null
           cancel_requested: boolean
+          cancelled_by_key: string | null
+          cancelled_for: string | null
           claimed_at: string | null
           continues: string | null
           ended_at: string | null
           exit_code: number | null
+          fixed_by: string | null
           id: string
           line: string
           log_tail: string
+          notify_url: string | null
           outcome: string | null
           pr_url: string | null
+          prs: Json
           queued_at: string
           reason: string | null
           release_error: string | null
@@ -6471,13 +6894,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      runner_job_closer_check: {
+        Args: {
+          p_acting_for: string
+          p_by: string
+          p_job_key: string
+          p_key: string
+          p_repo: string
+          p_workspace: string
+        }
+        Returns: undefined
+      }
       runner_job_dismiss: {
-        Args: { p_by: string; p_job: string }
+        Args: {
+          p_acting_for?: string
+          p_by?: string
+          p_job: string
+          p_key?: string
+        }
         Returns: {
           answers: Json | null
           asked_at: string
           closed_at: string | null
           closed_by: string | null
+          closed_by_key: string | null
+          closed_for: string | null
           issue: number
           job_id: string
           lead: string

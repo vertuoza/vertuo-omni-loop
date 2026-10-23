@@ -33,20 +33,66 @@ function recording(answers: Record<string, Answer>) {
 }
 
 describe('the API keys’ repository', () => {
-  it('lists the live keys through api_keys_list()', async () => {
-    const { db, calls } = recording({ api_keys_list: { data: [KEY], error: null } });
-    expect(await apiKeysRepository(db).list('ws-1')).toEqual([KEY]);
-    expect(calls).toEqual([['rpc', 'api_keys_list', { p_workspace: 'ws-1' }]]);
+  it('lists the live keys through api_keys_list(), each with the App api_key_github_apps_list() gives it, or null', async () => {
+    const other = { ...KEY, id: 'k-2', name: 'Weekly digest' };
+    const { db, calls } = recording({
+      api_keys_list: { data: [KEY, other], error: null },
+      api_key_github_apps_list: { data: [{ keyId: 'k-2', slug: 'acme-bugs' }], error: null },
+    });
+    expect(await apiKeysRepository(db).list('ws-1')).toEqual([{ ...KEY, githubApp: null }, { ...other, githubApp: { slug: 'acme-bugs' } }]);
+    expect(calls).toEqual([['rpc', 'api_keys_list', { p_workspace: 'ws-1' }], ['rpc', 'api_key_github_apps_list', { p_workspace: 'ws-1' }]]);
   });
 
-  it('throws when the list is refused, or out of shape', async () => {
-    await expect(apiKeysRepository(recording({ api_keys_list: { data: null, error: { message: 'denied' } } }).db).list('ws-1')).rejects.toThrow(/denied/);
-    await expect(apiKeysRepository(recording({ api_keys_list: { data: [{ name: 'x' }], error: null } }).db).list('ws-1')).rejects.toThrow();
+  it('gives an App its last token only when the database sent one: an owner’s read, none until it first mints', async () => {
+    const apps = (rows: unknown[]) => recording({ api_keys_list: { data: [KEY, { ...KEY, id: 'k-2' }], error: null }, api_key_github_apps_list: { data: rows, error: null } }).db;
+    const read = await apiKeysRepository(apps([
+      { keyId: 'k-1', slug: 'acme-bugs', lastTokenAt: '2026-10-22T09:00:00+00:00' }, { keyId: 'k-2', slug: 'acme-docs', lastTokenAt: null },
+    ])).list('ws-1');
+    expect(read.map((k) => k.githubApp)).toEqual([{ slug: 'acme-bugs', lastTokenAt: '2026-10-22T09:00:00+00:00' }, { slug: 'acme-docs', lastTokenAt: null }]);
+    const member = await apiKeysRepository(apps([{ keyId: 'k-1', slug: 'acme-bugs' }])).list('ws-1');
+    expect(member[0]?.githubApp).toEqual({ slug: 'acme-bugs' });
+    expect(JSON.stringify(member)).not.toContain('lastTokenAt');
   });
 
-  it('drops anything the contract does not name, a hash included', async () => {
-    const { db } = recording({ api_keys_list: { data: [{ ...KEY, tokenHash: 'f'.repeat(64) }], error: null } });
-    expect(await apiKeysRepository(db).list('ws-1')).toEqual([KEY]);
+  it('throws when a list is refused, or out of shape', async () => {
+    const apps = { api_key_github_apps_list: { data: [], error: null } };
+    await expect(apiKeysRepository(recording({ ...apps, api_keys_list: { data: null, error: { message: 'denied' } } }).db).list('ws-1')).rejects.toThrow(/denied/);
+    await expect(apiKeysRepository(recording({ ...apps, api_keys_list: { data: [{ name: 'x' }], error: null } }).db).list('ws-1')).rejects.toThrow();
+    const keys = { api_keys_list: { data: [KEY], error: null } };
+    await expect(apiKeysRepository(recording({ ...keys, api_key_github_apps_list: { data: null, error: { message: 'nope' } } }).db).list('ws-1')).rejects.toThrow(/nope/);
+    await expect(apiKeysRepository(recording({ ...keys, api_key_github_apps_list: { data: [{ slug: 'x' }], error: null } }).db).list('ws-1')).rejects.toThrow();
+  });
+
+  it('drops anything the contract does not name, a hash and a sealed key included', async () => {
+    const { db } = recording({
+      api_keys_list: { data: [{ ...KEY, tokenHash: 'f'.repeat(64) }], error: null },
+      api_key_github_apps_list: { data: [{ keyId: 'k-1', slug: 'acme-bugs', ciphertext: 'sealed', iv: 'iv', appId: 1 }], error: null },
+    });
+    const [listed] = await apiKeysRepository(db).list('ws-1');
+    expect(listed).toEqual({ ...KEY, githubApp: { slug: 'acme-bugs' } });
+  });
+
+  it('attaches an App through api_key_github_app_attach(), with the sealed key only, and answers its slug', async () => {
+    const { db, calls } = recording({ api_key_github_app_attach: { data: { keyId: 'k-1', slug: 'acme-bugs', lastTokenAt: null }, error: null } });
+    expect(await apiKeysRepository(db).attachGithubApp('k-1', 123456, 'acme-bugs', 777, { ciphertext: 'c2VhbGVk', iv: 'aXY=' }))
+      .toEqual({ ok: true, value: { slug: 'acme-bugs' } });
+    expect(calls).toEqual([['rpc', 'api_key_github_app_attach', { p_key: 'k-1', p_app_id: 123456, p_slug: 'acme-bugs', p_bot_id: 777, p_ciphertext: 'c2VhbGVk', p_iv: 'aXY=' }]]);
+  });
+
+  it('keeps an attach refusal’s code, hint and words, and throws on an answer out of shape', async () => {
+    const refusal = recording({ api_key_github_app_attach: { data: null, error: { code: '42501', hint: 'key', message: 'Key: this API key is revoked.' } } });
+    expect(await apiKeysRepository(refusal.db).attachGithubApp('k-1', 1, 'a', 2, { ciphertext: 'c', iv: 'i' }))
+      .toEqual({ ok: false, code: '42501', hint: 'key', message: 'Key: this API key is revoked.' });
+    const odd = recording({ api_key_github_app_attach: { data: { nope: 1 }, error: null } });
+    await expect(apiKeysRepository(odd.db).attachGithubApp('k-1', 1, 'a', 2, { ciphertext: 'c', iv: 'i' })).rejects.toThrow();
+  });
+
+  it('removes an App through api_key_github_app_remove(), answering whether the key held one', async () => {
+    const { db, calls } = recording({ api_key_github_app_remove: { data: true, error: null } });
+    expect(await apiKeysRepository(db).removeGithubApp('k-1')).toEqual({ ok: true, value: true });
+    expect(calls).toEqual([['rpc', 'api_key_github_app_remove', { p_key: 'k-1' }]]);
+    const refused = recording({ api_key_github_app_remove: { data: null, error: { code: '42501', message: 'Only an owner.' } } });
+    expect(await apiKeysRepository(refused.db).removeGithubApp('k-1')).toEqual({ ok: false, code: '42501', hint: null, message: 'Only an owner.' });
   });
 
   it('makes a key with its hash and last four, never a secret, and answers its id', async () => {

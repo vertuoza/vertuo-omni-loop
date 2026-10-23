@@ -212,7 +212,7 @@ export type DossierVersionRow = {
   commit_sha: string | null;
   created_at: string;
   /** PRD 2401 s3: a plan version's slice count, stored as it was added
-   * (supabase/migrations/20261229090000_dossier_light_reads.sql); 0 when the plan declares no slice the
+   * (supabase/migrations/20261231090000_dossier_light_reads.sql); 0 when the plan declares no slice the
    * kit reads; null for every other kind and for a plan added before it. A row read without it is unknown. */
   slices?: number | null | undefined;
 };
@@ -383,7 +383,7 @@ export async function dossierList(
 }
 
 // ── One dossier's repositories (PRD 2401 s3) ────────────────────────────────────
-// dossier_repos() (supabase/migrations/20261229090000_dossier_light_reads.sql) gives one dossier's
+// dossier_repos() (supabase/migrations/20261231090000_dossier_light_reads.sql) gives one dossier's
 // repositories, as dossier_list() gives them, its rounds asked and answered, and how many versions it
 // has of each kind, without numbering every version: what a page's chips and its change check read. It
 // runs as the caller, so row-level security decides: a dossier they may not read gives no row.

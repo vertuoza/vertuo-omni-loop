@@ -1,4 +1,7 @@
+import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import type { BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
 import { z } from 'zod';
+import { AnswerRequestSchema } from '../runners/runners.contract';
 
 // The public API's contract (PRD 2022 s2, spec "The routes"; ADR-0095): what a program outside the loop
 // sends /api/v1 with its workspace's key, and what it is answered. Each route validates with these zod 4
@@ -8,9 +11,16 @@ import { z } from 'zod';
 //   GET /api/v1/bug-fixes?limit=&cursor=   200 {data: BugFix[], next_cursor}
 //   POST /api/v1/bug-fixes                 202 Job: queues `/omni:bug-fix <description>` on the runners (s4)
 //   POST /api/v1/mega-bug-fixes            202 Job: queues `/omni:mega-bug-fix <description>` in a plan repository
-//   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4)
+//   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4), with what it did (PRD 2425 s3)
+//   GET /api/v1/jobs/{id}/lines?limit=&cursor=  200 {data: {seq, text}[], next_cursor}: that job's lines, oldest first (PRD 2425 s4)
+//   GET /api/v1/jobs/{id}/questions        200 Questions: the lead, the questions, the state, the answers once given, who closed them (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/answers         202 Job: the resume job, queued as the job's key; 409 when the round is closed (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/dismiss         200 Job: the questions closed with no answer and no job queued; 409 when closed (PRD 2425 s6)
 //
 // Every refusal answers one shape, `{error: {code, message}}`, with the status PUBLIC_API_ERRORS names.
+// A key that holds a GitHub App (PRD 2433) is also refused at send, nothing queued, with 422
+// `github_app_not_installed` (its App is not installed on the repository) or `github_app_permissions` (its
+// installation holds no write access to contents, pull_requests or issues).
 
 const LIMIT_DEFAULT = 50;
 export const LIMIT_MAX = 100;
@@ -74,7 +84,50 @@ export const BUG_FIX = '/omni:bug-fix';
  * `/omni:bug-fix `, so a line the app queues is always one a runner runs. */
 export const DESCRIPTION_MAX = 200 - BUG_FIX.length - 1;
 
-/** What starts a bug fix: the repository, what is wrong, and optionally where it runs. */
+/** The longest `acting_for`, in characters (the database's `char_length` bound). */
+export const ACTING_FOR_MAX = 80;
+
+/** Letters of any alphabet (with their marks, which a name in most of them needs), digits, spaces and `. _ ' @ - ·`. */
+const ACTING_FOR_CHARS = /^[\p{L}\p{M}\p{Nd} ._'@·-]+$/u;
+
+/** Whom a key says it acts for when it sends, answers, dismisses, cancels or relaunches: stored as given, shown beside the key’s name. */
+const ActingForSchema = z.string().min(1).max(ACTING_FOR_MAX).regex(ACTING_FOR_CHARS, 'letters of any alphabet, digits, spaces and . _ \' @ - · only');
+
+const ACTING_FOR_META = {
+  description: `Whom the key acts for, 1 to ${String(ACTING_FOR_MAX)} characters of letters of any alphabet, digits, spaces and . _ ' @ - · only. It is stored as given, never trimmed or changed, and the Runners page shows it beside the key’s name. Leave it out when the key acts for no one.`,
+  example: 'Jane D.',
+};
+
+/** The longest `notify_url`, in characters (the database's `char_length` bound). */
+export const NOTIFY_URL_MAX = 500;
+
+/** The link a job's changes are pinged to (PRD 2425 s8): https, the database's `^https://` and 500 characters, and
+ * no user name or password in it. That its host is public is not a shape: the service resolves it and refuses a
+ * host that is not (a 422), as the ping does again before every try. */
+const NotifyUrlSchema = z.url({ protocol: /^https$/ }).max(NOTIFY_URL_MAX).regex(/^https:\/\//, 'https only')
+  .refine((link) => {
+    try {
+      const { username, password } = new URL(link);
+      return username === '' && password === '';
+    } catch {
+      return false;
+    }
+  }, 'no user name or password');
+
+const NOTIFY_URL_META = {
+  description: `An https link to ping when the job changes: when its status, outcome or questions change, the server posts \`{"job_id", "event", "at"}\` to it, \`event\` being \`status\`, \`outcome\` or \`questions\`. The ping says that something changed and never what: read the job with the key. It is sent after the response, three tries within about 30 seconds, and a job that is answered, resumed or continued keeps the link. At most ${String(NOTIFY_URL_MAX)} characters, no user name or password, and a host that resolves to public addresses only: any other is refused with a 422, a redirect is never followed. Leave it out for no ping.`,
+  example: 'https://hooks.example.com/omni/jobs',
+};
+
+/** What both starts end with: the fleet that may run the job, whom it is for and where to ping (PRD 2425 s8). */
+const START_TAIL = {
+  fleet: z.string().min(1).max(40).optional()
+    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+  acting_for: ActingForSchema.optional().meta(ACTING_FOR_META),
+  notify_url: NotifyUrlSchema.optional().meta(NOTIFY_URL_META),
+};
+
+/** What starts a bug fix: the repository, what is wrong, and optionally where it runs, whom it is for and where to ping. */
 export const StartBugFixSchema = z.object({
   repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name')
     .meta({ description: 'The repository to fix, `owner/name`. It must be one of the workspace and on the key’s allow-list.', example: 'acme/backend' }),
@@ -82,8 +135,7 @@ export const StartBugFixSchema = z.object({
     .meta({ description: `What is wrong, 1 to ${DESCRIPTION_MAX} characters of letters, digits, spaces and . _ / : # - only: after \`/omni:bug-fix \`, the runners’ 200-character line.`, example: 'Issue 548 the invoice total is off by a cent' }),
   runner: z.string().min(1).max(40).optional()
     .meta({ description: 'The name of the runner to run it on. Send at most one of `runner` and `fleet`; neither means any runner of the workspace.', example: 'mac-mini-office' }),
-  fleet: z.string().min(1).max(40).optional()
-    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+  ...START_TAIL,
 });
 export type StartBugFix = z.infer<typeof StartBugFixSchema>;
 
@@ -110,14 +162,27 @@ export const StartMegaBugFixSchema = z.strictObject({
     }),
   runner: z.string().min(1).max(40).optional()
     .meta({ description: 'The name of the runner to run it on: one that holds a checkout of the plan repository. Send at most one of `runner` and `fleet`; neither means any runner of the workspace.', example: 'mac-mini-office' }),
-  fleet: z.string().min(1).max(40).optional()
-    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+  ...START_TAIL,
 });
 export type StartMegaBugFix = z.infer<typeof StartMegaBugFixSchema>;
 
 const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancelled'] as const;
 
 const MaybeTimeSchema = z.string().nullable().meta({ description: 'When it happened, ISO 8601, or null while it has not.', example: '2026-10-15T13:42:10.000+00:00' });
+
+type Underscored<S extends string> = S extends `${infer Head}-${infer Tail}` ? `${Head}_${Underscored<Tail>}` : S;
+
+/** How a bug fix or a mega bug fix ended, in the words of its log with an underscore for each hyphen (PRD 2425). */
+export const API_OUTCOMES = ['pr_opened', 'already_fixed', 'need_human', 'needs_brainstorm', 'not_a_bug', 'stuck', 'blocked'] as const satisfies readonly Underscored<BugFixOutcome>[];
+
+/** A pull request a job opened: its link, the repository it is in and its number there. */
+const PullRequestSchema = z.object({
+  url: z.url().meta({ description: 'The pull request’s link.', example: 'https://github.com/acme/backend/pull/549' }),
+  repo: z.string().meta({ description: 'The repository it is in, `owner/name`.', example: 'acme/backend' }),
+  number: PrNumberSchema.meta({ description: 'Its number in that repository.', example: 549 }),
+});
+
+const JOB_ID_EXAMPLE = '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3';
 
 /** A runner job a key queued, as the key follows it. */
 export const JobSchema = z.object({
@@ -133,24 +198,120 @@ export const JobSchema = z.object({
   claimed_at: MaybeTimeSchema,
   running_at: MaybeTimeSchema,
   ended_at: MaybeTimeSchema,
+  outcome: z.enum(API_OUTCOMES).nullable().meta({
+    description: 'How a bug fix or a mega bug fix ended: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`. null while it runs, when it failed, and when its runner reported none (a runner from before it did).',
+    example: 'pr_opened',
+  }),
+  fixed_by: z.url().nullable().meta({ description: 'With `already_fixed` only: the pull request the bug fix proved had already fixed the bug. null otherwise.', example: 'https://github.com/acme/backend/pull/512' }),
+  prs: z.array(PullRequestSchema).meta({ description: 'Every pull request the job opened, in the order it opened them (a mega bug fix: its target pull requests, then its record). Empty when it opened none; a failed or stuck job lists its draft here.' }),
+  questions: z.object({
+    state: z.enum(['open', 'answered', 'dismissed']).meta({ description: 'open until the questions are answered or dismissed.', example: 'open' }),
+  }).nullable().meta({ description: 'The questions the job asked, or null when it asked none.' }),
+  continues: z.uuid().nullable().meta({ description: 'The job this one carries on: the answer to its questions, or its relaunch. null for a job that carries none on.', example: JOB_ID_EXAMPLE }),
+  continued_by: z.uuid().nullable().meta({ description: 'The newest job that carries this one on, or null when none does.', example: JOB_ID_EXAMPLE }),
+  acting_for: z.string().nullable().meta({ description: 'Whom the key said it acted for when it queued the job, or null.', example: 'Jane D.' }),
+  cancelled_by: z.object({
+    key: z.string().meta({ description: 'The name of the API key that cancelled it.', example: 'QA dashboard' }),
+    acting_for: z.string().nullable().meta({ description: 'Whom that key said it acted for, or null.', example: 'Jane D.' }),
+  }).nullable().meta({ description: 'The API key that cancelled the job, or null when no key did.' }),
+  log_tail: z.string().nullable().meta({ description: 'The last lines of the job’s log, or null while it holds none.', example: '13:49:58 PR: https://github.com/acme/backend/pull/549' }),
 }).meta({ description: 'A runner job a key queued.' });
 export type ApiJob = z.infer<typeof JobSchema>;
+
+/** One line of a job's log. */
+const JobLineSchema = z.object({
+  seq: z.number().int().positive().meta({ description: 'Its number in the job’s log, from 1, in the order the job wrote it.', example: 12 }),
+  text: z.string().meta({ description: 'The line, as the job wrote it.', example: '13:49:58 PR: https://github.com/acme/backend/pull/549' }),
+});
+
+/** A page of a job's lines, oldest first (PRD 2425 s4). */
+export const JobLineListSchema = z.object({ data: z.array(JobLineSchema), next_cursor: NextCursorSchema })
+  .meta({ description: 'A page of a job’s lines, oldest first.' });
+export type JobLineList = z.infer<typeof JobLineListSchema>;
+
+// ── A job's questions (PRD 2425 s6) ─────────────────────────────────────────────
+
+/** What a key answers a job's questions with: the answers as the page takes them, and whom it acts for. Strict: a field this server does not know is refused, never ignored. */
+export const AnswerJobSchema = z.strictObject({
+  answers: AnswerRequestSchema.shape.answers.meta({
+    description: 'One answer to each question the job asked, and no other: each question’s text to its answer, a pick (an option’s label) or a free one of 1 to 2,000 characters. One to four answers.',
+    example: { 'Which fix?': 'Guard the input' },
+  }),
+  acting_for: ActingForSchema.optional().meta(ACTING_FOR_META),
+});
+export type AnswerJob = z.infer<typeof AnswerJobSchema>;
+
+/** What a key dismisses a job's questions with: nothing, or whom it acts for. Strict, as the answers are. */
+export const DismissJobSchema = z.strictObject({ acting_for: ActingForSchema.optional().meta(ACTING_FOR_META) });
+export type DismissJob = z.infer<typeof DismissJobSchema>;
+
+/** What a key cancels a job with (PRD 2425 s7): nothing, or whom it acts for. Strict, as the dismissal is. */
+export const CancelJobSchema = z.strictObject({ acting_for: ActingForSchema.optional().meta(ACTING_FOR_META) });
+export type CancelJob = z.infer<typeof CancelJobSchema>;
+
+/** What a key relaunches a job with (PRD 2425 s7): nothing, or whom it acts for, which the new job carries. Strict, as the dismissal is. */
+export const RelaunchJobSchema = z.strictObject({ acting_for: ActingForSchema.optional().meta(ACTING_FOR_META) });
+export type RelaunchJob = z.infer<typeof RelaunchJobSchema>;
+
+/** One option of a question the job asked. */
+const QuestionOptionSchema = z.object({
+  label: z.string().meta({ description: 'What the option is: the text to answer with to pick it.', example: 'Guard the input' }),
+  description: z.string().meta({ description: 'What it changes.', example: 'Check the tenant before the query' }),
+});
+
+/** One question a job asked. */
+const QuestionSchema = z.object({
+  question: z.string().meta({ description: 'The question. It is also the key of its answer.', example: 'Which fix?' }),
+  header: z.string().meta({ description: 'Its short heading.', example: 'Fix' }),
+  multi_select: z.boolean().meta({ description: 'Whether the question allows more than one pick.', example: false }),
+  options: z.array(QuestionOptionSchema).meta({ description: 'Its two to four options. A free answer is allowed beside them.' }),
+});
+
+/** Who closed a round: an API key, by its name, and whom it said it acted for. */
+const ClosedByKeySchema = z.strictObject({
+  key: z.string().meta({ description: 'The name of the API key that closed the questions.', example: 'Support bot' }),
+  acting_for: z.string().nullable().meta({ description: 'Whom that key said it acted for, or null.', example: 'Jane D.' }),
+});
+
+/** Who closed a round: a person, by their GitHub login (null when they have none). */
+const ClosedByPersonSchema = z.strictObject({
+  login: z.string().nullable().meta({ description: 'The GitHub login of the person who closed the questions, or null when they have none.', example: 'mo' }),
+});
+
+/** The questions a job asked, as a key reads them. */
+export const QuestionsSchema = z.object({
+  lead: z.string().meta({ description: 'Why the job stopped to ask.', example: 'The planning query fails for 31 tenants.' }),
+  questions: z.array(QuestionSchema).meta({ description: 'The questions, one to four.' }),
+  state: z.enum(['open', 'answered', 'dismissed']).meta({ description: 'open until someone answers or dismisses them.', example: 'open' }),
+  answers: z.record(z.string(), z.string()).nullable().meta({ description: 'The answers, each question’s text to its answer, once given; null while the questions are open and when they were dismissed.', example: { 'Which fix?': 'Guard the input' } }),
+  closed_by: z.union([ClosedByKeySchema, ClosedByPersonSchema]).nullable()
+    .meta({ description: 'Who answered or dismissed them: `{key, acting_for}` for an API key, `{login}` for a person on the Runners page; null while they are open.' }),
+}).meta({ description: 'The questions a job asked.' });
+export type ApiQuestions = z.infer<typeof QuestionsSchema>;
 
 /** Each error's status. */
 export const PUBLIC_API_ERRORS = {
   unauthorized: 401,
   forbidden: 403,
   not_found: 404,
+  conflict: 409,
   invalid_request: 422,
+  github_app_not_installed: 422,
+  github_app_permissions: 422,
   internal: 500,
 } as const;
 export type PublicApiErrorCode = keyof typeof PUBLIC_API_ERRORS;
 
-const ERROR_CODES = ['unauthorized', 'forbidden', 'not_found', 'invalid_request', 'internal'] as const satisfies readonly PublicApiErrorCode[];
+const ERROR_CODES = [
+  'unauthorized', 'forbidden', 'not_found', 'conflict', 'invalid_request', 'github_app_not_installed', 'github_app_permissions', 'internal',
+] as const satisfies readonly PublicApiErrorCode[];
 
 export const PublicApiErrorSchema = z.object({
   error: z.object({
-    code: z.enum(ERROR_CODES),
+    code: z.enum(ERROR_CODES).meta({
+      description: 'Why it was refused: `unauthorized`, `forbidden`, `not_found`, `conflict` (the job is not in a state the request needs), `invalid_request`, `github_app_not_installed` (the GitHub App attached to the key is not installed on the repository) `github_app_permissions` (its installation holds no write access to `contents`, `pull_requests` or `issues`) or `internal`.',
+      example: 'github_app_not_installed',
+    }),
     message: z.string().meta({ description: 'What went wrong, in plain words; a refused field is named first.', example: 'limit: a whole number from 1 to 100.' }),
   }),
 }).meta({ description: 'Every refusal.' });

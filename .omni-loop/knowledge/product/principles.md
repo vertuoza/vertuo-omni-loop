@@ -854,3 +854,11 @@ Why: People read the timeline to know when a PRD is really finished. Leaving out
 Source: .omni-loop/delivery/shipped/2370-prd-timeline/outbox/settled.md, entry s4-02-plan-repository-own-lane, PRD #2370
 Merged: @pierrederval, 2026-10-22, PR #2371
 Proposed: harvest 2026-10-22
+
+## P-PRODUCT-103
+
+A job an app sends with an API key stays that app's from start to end: whoever steps in, the jobs that carry it on are followed under the same key.
+
+Why: An app that sends work through the API keeps following it without opening the page; a thread that changed owner when a person answered would drop out of the app's sight halfway.
+Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, entry s1-02-resume-stays-the-keys, PRD #2425
+Proposed: write-back 2026-10-23

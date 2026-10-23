@@ -25,7 +25,7 @@ const APPROVALS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supa
 // PRD 1364 s2: a PRD's product, dossier_push() taking it by name, and dossiers.product_id granted.
 const PRODUCT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261129100000_prd_product.sql', import.meta.url)), 'utf8');
 // PRD 2401 s3: dossier_list() taking p_kind, dossier_repos(), and a plan version's slice count, granted.
-const LIGHT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261229090000_dossier_light_reads.sql', import.meta.url)), 'utf8');
+const LIGHT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261231090000_dossier_light_reads.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {

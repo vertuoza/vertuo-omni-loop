@@ -18,9 +18,10 @@
 // PRD 2377 (s1): for the waits (./waits.ts), the list gives each pull request's labels, body and the
 // reviewers asked. Then, only for a pull request the waits count (open, ready, into the default branch)
 // that the run listed, so changed since the last sync, three reads: its events (when a review was last
-// asked, and when it was last marked ready), its reviews, and its head commit's check runs (whether one
-// failed, and the locked laws its outbox check holds it on). Each such pull request's reads either all
-// land or leave its reviews and checks null: a refusal, or the budget stepping back, closes no wait.
+// asked, and when it was last marked ready), its reviews, and its head commit's check runs (whether a
+// check's newest run failed, and the locked laws its outbox check holds it on). Each such pull request's
+// reads either all land or leave its reviews and checks null: a refusal, or the budget stepping back,
+// closes no wait.
 import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
@@ -71,6 +72,7 @@ const Reviews = z.array(z.object({
 }));
 const CheckRuns = z.object({
   check_runs: z.array(z.object({
+    id: z.number(),
     name: z.string(),
     conclusion: z.string().nullable().optional(),
     output: z.object({ title: z.string().nullable().optional() }).optional(),
@@ -86,8 +88,22 @@ const LAW_LOCKED = /^Locked law changed without its CODEOWNER's approval — ([^
 const lastOf = (events: z.infer<typeof Events>, event: string) =>
   events.filter((e) => e.event === event).map((e) => e.created_at).sort().pop() ?? null;
 
-/** Whether a check run failed, and the locked laws the outbox check (`check`) holds the pull request on. */
-function checksOf(runs: z.infer<typeof CheckRuns>['check_runs'], check: string): { lawLocked: string[]; checksRed: boolean } {
+type CheckRun = z.infer<typeof CheckRuns>['check_runs'][number];
+
+/** The newest run of each check. GitHub keeps the latest run of a check per check suite only, so a workflow
+ * run a later one superseded on the same head stays listed beside it (#2475); a newer run has a greater id. */
+function newestRuns(runs: readonly CheckRun[]): CheckRun[] {
+  const newest = new Map<string, CheckRun>();
+  for (const run of runs) {
+    const kept = newest.get(run.name);
+    if (kept === undefined || run.id > kept.id) newest.set(run.name, run);
+  }
+  return [...newest.values()];
+}
+
+/** Whether a check's newest run failed, and the locked laws the outbox check (`check`) holds the pull request on. */
+function checksOf(listed: readonly CheckRun[], check: string): { lawLocked: string[]; checksRed: boolean } {
+  const runs = newestRuns(listed);
   const held = runs.filter((run) => run.name === check && run.conclusion === 'failure')
     .flatMap((run) => (LAW_LOCKED.exec(run.output?.title ?? '')?.[1] ?? '').split(',').map((law) => law.trim()).filter(Boolean));
   return { lawLocked: [...new Set(held)], checksRed: runs.some((run) => RED.has(run.conclusion ?? '')) };

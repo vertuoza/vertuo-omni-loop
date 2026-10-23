@@ -61,11 +61,17 @@ export function answersOf(questions: readonly AskQuestion[], draft: Draft): Reco
   return answers === null || Object.values(answers).some((answer) => answer.length > ANSWER_CHARS) ? null : answers;
 }
 
+/** Who closed a row, in words: an API key by its name (PRD 2425), then ` · for <acting_for>` when the app said whom it acted for,
+ * as given; else the person's login; else someone. A key's close never reads as a person's. */
+function closerWords(row: Pick<JobQuestions, 'byLogin' | 'byKey' | 'actingFor'>): string {
+  if (row.byKey) return row.actingFor ? `API key ${row.byKey} · for ${row.actingFor}` : `API key ${row.byKey}`;
+  return row.byLogin === null ? 'someone' : `@${row.byLogin}`;
+}
+
 /** Why a closed row refuses another answer, in the service's words: who answered, or dismissed, it. Null while open. */
-export function closedWords(row: Pick<JobQuestions, 'state' | 'answers' | 'byLogin'>): string | null {
+export function closedWords(row: Pick<JobQuestions, 'state' | 'answers' | 'byLogin' | 'byKey' | 'actingFor'>): string | null {
   if (row.state === 'open') return null;
-  const who = row.byLogin === null ? 'someone' : `@${row.byLogin}`;
-  return `${row.state === 'dismissed' ? 'Dismissed' : 'Already answered'} by ${who}`;
+  return `${row.state === 'dismissed' ? 'Dismissed' : 'Already answered'} by ${closerWords(row)}`;
 }
 
 const CLOSED_REFUSAL = /^(Already answered|Dismissed) by .+$/;
@@ -91,6 +97,13 @@ export function readingOf(called: Called<JobQuestions>): Reading {
   if (!called.ok) return NOT_FOUND.includes(called.error) ? { kind: 'missing' } : { kind: 'failed', words: called.error };
   const words = closedWords(called.value);
   return words === null ? { kind: 'open', row: called.value, asked: questionsOf(called.value.questions) } : { kind: 'closed', words, issue: called.value.issue };
+}
+
+/** What the drawer shows after a send refused because someone came first: the row read again, which names an API key by its
+ * name (the refusal's own words know a login only), else the refusal's words, when the row cannot be read or reads open still. */
+export function closedAfter(words: string, again: Called<JobQuestions>, issue: IssueNumber | null): Extract<Reading, { kind: 'closed' }> {
+  const next = readingOf(again);
+  return next.kind === 'closed' ? next : { kind: 'closed', words, issue };
 }
 
 /** Which drawer is open, and where the focus goes: into the drawer once it opened, back to the job's button once

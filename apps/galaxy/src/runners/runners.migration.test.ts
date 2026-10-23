@@ -6,6 +6,8 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { PRS_MAX } from 'omni-loop/kit/lib/runner/log.ts';
+import { STORED_OUTCOMES } from './runners.contract';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
 const MIGRATION = read('supabase/migrations/20261208090000_runner_job_lines.sql');
@@ -103,7 +105,7 @@ describe('the runner health migration (PRD 2102)', () => {
 
   it('is named in the database\'s types', () => {
     expect(TYPES).toMatch(/runner_samples: \{\n\s+Row: \{\n\s+at: string\n\s+cpu: number \| null\n\s+disk_free: number \| null\n\s+mem_total: number \| null\n\s+mem_used: number \| null\n\s+runner_id: string\n\s+tokens_5h: number \| null\n\s+workspace_id: string\n/);
-    expect(TYPES).toMatch(/runners: \{\n\s+Row: \{\n\s+created_at: string\n\s+fleet: string \| null\n\s+health: Json \| null\n/);
+    expect(TYPES).toMatch(/runners: \{\n\s+Row: \{\n\s+created_at: string\n\s+fleet: string \| null\n(\s+github_app: boolean\n)?\s+health: Json \| null\n/);
   });
 });
 
@@ -156,11 +158,35 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 
   it('allows the words the contract lets a report carry', () => {
-    expect(read('apps/galaxy/src/runners/runners.contract.ts')).toContain("const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped'] as const;");
+    expect(read('apps/galaxy/src/runners/runners.contract.ts')).toContain("const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped', ...BUG_FIX_OUTCOMES] as const;");
   });
 
   it('is named in the database\'s types', () => {
-    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+outcome: string \| null\n\s+pr_url: string \| null\n/);
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+notify_url: string \| null\n\s+outcome: string \| null\n\s+pr_url: string \| null\n/);
+  });
+});
+
+const KEY_CONTROL = read('supabase/migrations/20261229090000_api_key_job_control.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+
+// PRD 2425: what the server stores of a bug fix's report is what the migration's columns and check hold.
+describe('the API key job control migration (PRD 2425)', () => {
+  it('lets the outcome column hold each word the server stores, and no other', () => {
+    const allowed = /check \(outcome in \(([^)]*)\)\)/.exec(KEY_CONTROL)?.[1]?.split(',').map((word) => word.trim().replaceAll("'", '')).sort();
+    expect(allowed).toEqual([...STORED_OUTCOMES].sort());
+  });
+
+  it('adds the columns the server stores and a key reads, and keeps what the contract lets a report carry in them: 50 pull requests, a link', () => {
+    for (const column of ['fixed_by text', 'prs jsonb not null default', 'acting_for text', 'cancelled_by_key uuid references public.agent_tokens (id)', 'cancelled_for text']) {
+      expect(KEY_CONTROL, column).toContain(`add column ${column}`);
+    }
+    expect(KEY_CONTROL).toContain('jsonb_array_length(prs) <= 50');
+    expect(PRS_MAX).toBe(50);
+  });
+
+  it('is named in the database\'s types, so the repository reads the columns it selects', () => {
+    for (const column of ['acting_for: string | null', 'cancelled_by_key: string | null', 'cancelled_for: string | null', 'fixed_by: string | null', 'prs: Json']) {
+      expect(TYPES, column).toContain(column);
+    }
   });
 });
 
@@ -185,7 +211,7 @@ describe('the fix-when-answered migration (PRD 2270)', () => {
   });
 
   it('is named in the database\'s types: both columns and the switch\'s function', () => {
-    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{\n\s+cancel_requested: boolean\n\s+claimed_at: string \| null\n\s+continues: string \| null\n/);
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{\n\s+acting_for: string \| null\n\s+cancel_requested: boolean\n\s+cancelled_by_key: string \| null\n\s+cancelled_for: string \| null\n\s+claimed_at: string \| null\n\s+continues: string \| null\n/);
     expect(TYPES).toContain('foreignKeyName: "runner_jobs_continues_fkey"');
     expect(TYPES).toMatch(/repositories: \{\n\s+Row: \{[^}]*collected_until: string \| null\n\s+fix_when_answered: boolean\n/);
     expect(TYPES).toContain('set_repository_fix_when_answered: {\n        Args: { p_full_name: string; p_on: boolean; p_workspace: string }');

@@ -36,6 +36,23 @@ const DossierRow = z.object({
 /** A numbered dossier, as the lists read it. */
 export type DossierRow = z.infer<typeof DossierRow>;
 
+// A key's GitHub App (PRD 2433 s6), as a send reads it: whether the key holds one comes from `key_id`, the
+// one column the service role may select of api_key_github_apps, and its sealed private key comes only from
+// the function that opens it for the service role (supabase/migrations/20261228090000_api_key_github_apps.sql
+// opens it by job, api_key_github_app_of_job(); a send has no job yet, so it asks by key).
+const HeldRow = z.array(z.object({ key_id: z.string() }));
+const OpenedApp = z.object({
+  app: z.object({
+    app_id: z.number().int().positive(),
+    slug: z.string().min(1),
+    ciphertext: z.string().min(1),
+    iv: z.string().min(1),
+  }).nullable(),
+}).nullable();
+
+/** The App a key holds: its id and slug, and its private key sealed by the secret box (never in the clear here). */
+export type KeyGithubApp = { appId: number; slug: string; ciphertext: string; iv: string };
+
 const ProductRow = z.object({ id: z.string(), key: z.string().nullable(), name: z.string() });
 export type ProductRow = z.infer<typeof ProductRow>;
 
@@ -44,6 +61,20 @@ export type StageRow = z.infer<typeof StageRow>;
 
 /** The kinds of dossier the lists read. */
 export type ListedKind = 'prd' | 'bug';
+
+const JobLineRow = z.object({ seq: z.number().int().positive(), text: z.string() });
+/** One line of a job's live log, as runner_job_lines holds it (PRD 1904). */
+type JobLineRow = z.infer<typeof JobLineRow>;
+
+/** One page of a job's lines, oldest first. */
+type JobLinesPage = {
+  workspace: string;
+  job: string;
+  /** Only the lines numbered above this one: the last line of the page before, 0 for the first page. */
+  after: number;
+  /** How many lines at most. */
+  take: number;
+};
 
 /** One page of a workspace's dossiers of `kind`, newest first. */
 export type DossierPage = {
@@ -97,6 +128,21 @@ export function publicApiRepository(db: PublicApiDb) {
       );
     },
 
+    /** One page of a job's live lines (PRD 2425 s4), oldest first, by the keyset `seq > after`: the lines the
+     * job still holds, none for one past the workspace's retention. The service has already found the job a
+     * key may read; the workspace filter keeps this read inside it all the same. */
+    jobLines(page: JobLinesPage): Promise<JobLineRow[]> {
+      return settled(
+        db.from('runner_job_lines').select('seq, text')
+          .eq('workspace_id', page.workspace)
+          .eq('job_id', page.job)
+          .gt('seq', page.after)
+          .order('seq', { ascending: true })
+          .limit(page.take),
+        z.array(JobLineRow), 'runner_job_lines',
+      );
+    },
+
     /** The workspace's products among `ids`. */
     products(workspace: string, ids: readonly string[]): Promise<ProductRow[]> {
       if (ids.length === 0) return Promise.resolve([]);
@@ -123,6 +169,16 @@ export function publicApiRepository(db: PublicApiDb) {
         z.array(z.object({ id: z.string() })), 'products.plan_repository',
       );
       return named.length > 0;
+    },
+
+    /** The GitHub App the key holds, or null when it holds none (PRD 2433). A key with none is told by `key_id`
+     * alone and never reaches the function that opens the sealed key. */
+    async githubAppOf(key: string): Promise<KeyGithubApp | null> {
+      const held = await settled(db.from('api_key_github_apps').select('key_id').eq('key_id', key).limit(1), HeldRow, 'api_key_github_apps');
+      if (held.length === 0) return null;
+      const opened = await settled(db.rpc('api_key_github_app_of_key', { p_key: key }), OpenedApp, 'api_key_github_app_of_key');
+      const app = opened?.app;
+      return app ? { appId: app.app_id, slug: app.slug, ciphertext: app.ciphertext, iv: app.iv } : null;
     },
   };
 }

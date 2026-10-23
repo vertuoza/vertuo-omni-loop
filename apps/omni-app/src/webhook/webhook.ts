@@ -35,6 +35,11 @@
 // stamps the Fixes rows of that repository and pull request (../fix-rows/). A sub-PR into its feature
 // branch names no record, and becomes none.
 //
+// The main watch (PRD 2410): a pull request merged into the default branch also becomes one main watch
+// event, beside the retro's and the harvest's, and a check suite of the default branch that completed red
+// becomes one main watch CI event, which wakes the watch of the commit it ran on (../main-watch/events.ts).
+// Both are handed to `sendWatch`, each with an id, so a delivery GitHub sends twice is one event.
+//
 // The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
 // (`labels.approved`'s default, as the stage events read it) becomes one approved label event alone;
 // the `approved-rerun` function runs the `omni/approved` check again on every open pull request of that
@@ -65,6 +70,7 @@ import {
   type RetroRequest,
 } from '../inngest-client.ts';
 import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
+import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type MainWatchRequest } from '../main-watch/events.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { noteTo } from '../run-log/run-log.ts';
@@ -106,6 +112,18 @@ export const APPROVED_LABEL_ACTIONS = Object.freeze({
 export const FIX_STAMP_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['closed', 'reopened']),
 });
+
+/**
+ * The actions that may wake a main watch (PRD 2410): a check suite completed. The manifest already subscribes
+ * to `check_suite` for the touches (`TOUCH_EVENTS`), so the subscriptions do not change and `HANDLED` keeps
+ * the checks' own actions.
+ */
+const MAIN_WATCH_CI_ACTIONS = Object.freeze({
+  check_suite: Object.freeze(['completed']),
+});
+
+/** A check suite's conclusions that read red, as the main watch reads a job's (../main-watch/signals.ts). */
+const RED_SUITE: ReadonlySet<unknown> = new Set(['failure', 'timed_out', 'startup_failure']);
 
 /** The kit's approved label: a repository that renames it gets no rerun on its label. */
 const APPROVED_LABEL = parseConfig('kit: 1').labels.approved;
@@ -157,6 +175,14 @@ const PayloadSchema = z.looseObject({
     })
     .nullish(),
   requested_action: z.looseObject({ identifier: z.unknown() }).nullish(),
+  check_suite: z
+    .looseObject({
+      id: z.number().nullish(),
+      head_branch: z.string().nullish(),
+      head_sha: z.string().nullish(),
+      conclusion: z.string().nullish(),
+    })
+    .nullish(),
 });
 type Payload = z.infer<typeof PayloadSchema>;
 
@@ -172,6 +198,7 @@ export async function receiveWebhook({
   send,
   sendApproved = () => Promise.resolve(),
   sendStamps = () => Promise.resolve(),
+  sendWatch = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log = noteTo('webhook'),
@@ -184,6 +211,8 @@ export async function receiveWebhook({
   sendApproved?: (events: ApprovedLabelRequest[]) => Promise<unknown>;
   /** Sends the fix stamp events (PRD 2011 s7); none given, they go nowhere. */
   sendStamps?: (events: FixStampRequest[]) => Promise<unknown>;
+  /** Sends the main watch's events (PRD 2410); none given, they go nowhere. */
+  sendWatch?: (events: MainWatchRequest[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -222,13 +251,15 @@ export async function receiveWebhook({
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
   const stamps = toFixStampRequests(event, payload);
-  const total = events.length + approved.length + stamps.length;
+  const watch = toMainWatchRequests(event, payload);
+  const total = events.length + approved.length + stamps.length + watch.length;
   if (total === 0) return reply(200, 'ignored');
 
   try {
     if (events.length > 0) await send(events);
     if (approved.length > 0) await sendApproved(approved);
     if (stamps.length > 0) await sendStamps(stamps);
+    if (watch.length > 0) await sendWatch(watch);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
@@ -358,6 +389,31 @@ export function toFixStampRequests(event: string, delivery: unknown): FixStampRe
 
   const data = { installationId: source.installationId, repository: source.repository, prNumber, kind, at, bug };
   return [{ name: FIX_STAMP_EVENT, id: fixStampId(data), data }];
+}
+
+/**
+ * The main watch's filter, pure (PRD 2410): a pull request merged into the default branch (as the retro
+ * reads it: `toRetroRequests`) becomes one main watch event; a check suite completed red on the default
+ * branch becomes one main watch CI event naming its commit. Whether the merge is a feature PR, and whether
+ * the commit is a watched merge, is the function's to decide. A delivery naming no default branch is sent.
+ */
+export function toMainWatchRequests(event: string, delivery: unknown): MainWatchRequest[] {
+  const merged: MainWatchRequest[] = toRetroRequests(event, delivery).map(({ data }) => ({ name: MAIN_WATCH_EVENT, id: mainWatchId(data), data }));
+  const payload = readPayload(delivery);
+  if (merged.length > 0 || !payload || !handles(MAIN_WATCH_CI_ACTIONS, event, payload.action)) return merged;
+
+  const source = sourceOf(payload);
+  const suite = payload.check_suite;
+  if (!source || !suite?.id || !suite.head_sha || !RED_SUITE.has(suite.conclusion)) return [];
+  const defaultBranch = payload.repository?.default_branch;
+  if (defaultBranch && suite.head_branch !== defaultBranch) return [];
+  return [
+    {
+      name: MAIN_WATCH_CI_EVENT,
+      id: mainWatchCiId({ repository: source.repository, suite: suite.id }),
+      data: { installationId: source.installationId, repository: source.repository, sha: suite.head_sha },
+    },
+  ];
 }
 
 /** The parts of an issue's label event the approved label reads. */

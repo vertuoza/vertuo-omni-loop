@@ -21,6 +21,13 @@ function keyset(filter: string): Test {
   return (row) => String(row.created_at) < at || (row.created_at === at && String(row.id) < id);
 }
 
+/** How the database orders two values of a column: numbers as numbers, anything else as text. */
+function compare(p: unknown, q: unknown): number {
+  if (typeof p === 'number' && typeof q === 'number') return p - q;
+  const [x, y] = [String(p), String(q)];
+  return x === y ? 0 : x < y ? -1 : 1;
+}
+
 function evaluating(tables: Record<string, Row[]>, rpc: Record<string, unknown> = {}) {
   const calls: unknown[][] = [];
   const query = (table: string) => {
@@ -34,8 +41,8 @@ function evaluating(tables: Record<string, Row[]>, rpc: Record<string, unknown> 
       const rows = (tables[table] ?? []).filter((row) => tests.every((t) => t(row)));
       rows.sort((a, b) => {
         for (const { column, ascending } of orders) {
-          const [x, y] = [String(a[column]), String(b[column])];
-          if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
+          const order = compare(a[column], b[column]);
+          if (order !== 0) return order * (ascending ? 1 : -1);
         }
         return 0;
       });
@@ -45,6 +52,7 @@ function evaluating(tables: Record<string, Row[]>, rpc: Record<string, unknown> 
       select: (cols: string) => { steps.push(['select', cols]); columns = cols.split(',').map((c) => c.trim()); return builder; },
       eq: (column: string, value: unknown) => { steps.push(['eq', column, value]); tests.push((row) => row[column] === value); return builder; },
       in: (column: string, values: unknown[]) => { steps.push(['in', column, values]); tests.push((row) => values.includes(row[column])); return builder; },
+      gt: (column: string, value: number) => { steps.push(['gt', column, value]); tests.push((row) => compare(row[column], value) > 0); return builder; },
       not: (column: string, op: string, value: unknown) => {
         steps.push(['not', column, op, value]);
         tests.push((row) => row[column] !== null && row[column] !== undefined);
@@ -191,5 +199,100 @@ describe('the public API’s repository', () => {
     expect(await repository.isPlanRepository(NORTHWIND, 'northwind/backend')).toBe(false);
     expect(await repository.isPlanRepository(NORTHWIND, 'southwind/plan')).toBe(false);
     expect(calls[0]).toEqual(['products', ['select', 'id'], ['eq', 'workspace_id', NORTHWIND], ['eq', 'plan_repository', 'northwind/plan'], ['limit', 1]]);
+  });
+
+  describe('a job’s lines (PRD 2425 s4)', () => {
+    const JOB = '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3';
+    const OTHER = '1c4d2e3f-4051-4b6c-9d7e-8f90a1b2c3d4';
+    const line = (job: string, seq: number, more: Row = {}): Row => ({ job_id: job, workspace_id: NORTHWIND, seq, text: `line ${String(seq)}`, ...more });
+
+    it('reads the first lines of the job after a sequence number, oldest first, in its workspace', async () => {
+      const { db, calls } = evaluating({ runner_job_lines: [] });
+      await publicApiRepository(db).jobLines({ workspace: NORTHWIND, job: JOB, after: 50, take: 51 });
+      expect(calls).toEqual([[
+        'runner_job_lines',
+        ['select', 'seq, text'],
+        ['eq', 'workspace_id', NORTHWIND],
+        ['eq', 'job_id', JOB],
+        ['gt', 'seq', 50],
+        ['order', 'seq', { ascending: true }],
+        ['limit', 51],
+      ]]);
+    });
+
+    it('keeps another job’s lines and another workspace’s out, and orders the sequence numbers as numbers', async () => {
+      const rows = [
+        ...[12, 3, 10, 9, 1, 11, 2].map((seq) => line(JOB, seq)),
+        line(OTHER, 5), line(JOB, 6, { workspace_id: SOUTHWIND }),
+      ];
+      const { db } = evaluating({ runner_job_lines: rows });
+      const repository = publicApiRepository(db);
+      expect(await repository.jobLines({ workspace: NORTHWIND, job: JOB, after: 0, take: 20 })).toEqual(
+        [1, 2, 3, 9, 10, 11, 12].map((seq) => ({ seq, text: `line ${String(seq)}` })),
+      );
+      expect((await repository.jobLines({ workspace: NORTHWIND, job: JOB, after: 3, take: 3 })).map((l) => l.seq)).toEqual([9, 10, 11]);
+    });
+
+    it('pages 120 lines by 50, each exactly once and in order', async () => {
+      const { db } = evaluating({ runner_job_lines: [...Array(120).keys()].map((i) => line(JOB, i + 1)) });
+      const repository = publicApiRepository(db);
+      const seen: number[] = [];
+      let after = 0;
+      for (let page = 0; page < 5; page += 1) {
+        const read = await repository.jobLines({ workspace: NORTHWIND, job: JOB, after, take: 51 });
+        const kept = read.slice(0, 50);
+        seen.push(...kept.map((l) => l.seq));
+        const last = kept.at(-1);
+        if (read.length <= 50 || !last) break;
+        after = last.seq;
+      }
+      expect(seen).toEqual([...Array(120).keys()].map((i) => i + 1));
+    });
+
+    it('reads none for a job that holds none, as one past the retention', async () => {
+      const { db } = evaluating({ runner_job_lines: [line(OTHER, 1)] });
+      expect(await publicApiRepository(db).jobLines({ workspace: NORTHWIND, job: JOB, after: 0, take: 51 })).toEqual([]);
+    });
+
+    it('parses each line where it comes in, and throws, naming the call, when the database refuses', async () => {
+      const broken = evaluating({ runner_job_lines: [line(JOB, 1, { text: 3 })] });
+      await expect(publicApiRepository(broken.db).jobLines({ workspace: NORTHWIND, job: JOB, after: 0, take: 1 })).rejects.toThrow();
+      const refused = {
+        from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ gt: () => ({ order: () => ({ limit: () => Promise.resolve({ data: null, error: { message: 'permission denied for table runner_job_lines' } }) }) }) }) }) }) }),
+      } as unknown as PublicApiDb;
+      await expect(publicApiRepository(refused).jobLines({ workspace: NORTHWIND, job: JOB, after: 0, take: 1 })).rejects.toThrow('runner_job_lines: permission denied for table runner_job_lines');
+    });
+  });
+
+  describe('a key’s GitHub App (PRD 2433 s6)', () => {
+    const OPENED = { app_id: 123456, slug: 'acme-bot', bot_id: 777, ciphertext: 'c2VhbGVk', iv: 'aXY=' };
+
+    it('asks which keys hold an App by key_id alone, then opens the one that does', async () => {
+      const held = evaluating({ api_key_github_apps: [{ key_id: 'k-1', ciphertext: 'never-selected' }] }, { api_key_github_app_of_key: { working: true, app: OPENED } });
+      expect(await publicApiRepository(held.db).githubAppOf('k-1')).toEqual({ appId: 123456, slug: 'acme-bot', ciphertext: 'c2VhbGVk', iv: 'aXY=' });
+      expect(held.calls).toEqual([
+        ['api_key_github_apps', ['select', 'key_id'], ['eq', 'key_id', 'k-1'], ['limit', 1]],
+        ['rpc', 'api_key_github_app_of_key', { p_key: 'k-1' }],
+      ]);
+    });
+
+    it('opens nothing for a key that holds no App, so a key with none never reaches the function that opens one', async () => {
+      const other = evaluating({ api_key_github_apps: [{ key_id: 'k-2' }] }, { api_key_github_app_of_key: { working: true, app: OPENED } });
+      expect(await publicApiRepository(other.db).githubAppOf('k-1')).toBeNull();
+      expect(other.calls).toHaveLength(1);
+    });
+
+    it('reads no App when the key lost it between the two reads', async () => {
+      const gone = evaluating({ api_key_github_apps: [{ key_id: 'k-1' }] }, { api_key_github_app_of_key: { working: true, app: null } });
+      expect(await publicApiRepository(gone.db).githubAppOf('k-1')).toBeNull();
+    });
+
+    it('throws, naming the call, when the function that opens the key is refused, missing or out of shape', async () => {
+      const { db: tables } = evaluating({ api_key_github_apps: [{ key_id: 'k-1' }] });
+      const refused = { from: tables.from, rpc: () => Promise.resolve({ data: null, error: { message: 'Could not find the function public.api_key_github_app_of_key' } }) } as unknown as PublicApiDb;
+      await expect(publicApiRepository(refused).githubAppOf('k-1')).rejects.toThrow('api_key_github_app_of_key: Could not find the function');
+      const odd = evaluating({ api_key_github_apps: [{ key_id: 'k-1' }] }, { api_key_github_app_of_key: { app: { ...OPENED, ciphertext: '' } } });
+      await expect(publicApiRepository(odd.db).githubAppOf('k-1')).rejects.toThrow();
+    });
   });
 });

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenCheck } from '../ask/auth';
 import {
-  answerQuestions, askQuestions, cancelJob, dismissQuestions, jobLines, listRunners, nextJob, prdJobs, readQuestions, registerRunner, reportHealth, reportJob, sendJob, setRunnerFleet, type RunnersDeps,
+  answerQuestions, askQuestions, cancelJob, dismissQuestions, jobLines, listRunners, nextJob, prdJobs, readQuestions, refreshGithubToken, registerRunner, reportHealth, reportJob, sendJob, setRunnerFleet, type RunnersDeps,
 } from './runners.controller';
 import { ANSWER_CHARS } from './runners.contract';
-import type { JobLineRow, JobRow, QuestionsRow } from './runners.repository';
-import { runnersService } from './runners.service';
-import { CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, PIA, QUESTION, questionsRow, SHARED, T0 } from './fixtures/store.fake';
+import type { JobLineRow, JobRow, QuestionsRow, RunnerRow } from './runners.repository';
+import { runnersService, type GithubDeps } from './runners.service';
+import { BOT, EXPIRES, PRIVATE_KEY, stubGithub, TOKEN } from './fixtures/github.fake';
+import { API_KEY, CIA_BOX, EVE, fakeStore, jobRow, KEY_APP, lineRows, MO, OLGA, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SHARED, T0, type KeyState } from './fixtures/store.fake';
 
 // The runners' routes (PRD 1830 s1), with the real service on the fake store: the sign-in is checked
 // before anything else (the kit's for a runner's routes, the session for the browser's), each answer is
@@ -24,26 +25,28 @@ const connect = (): TokenCheck => ({
   },
 });
 
-function world({ jobs = [], lines = [], questions = [], viewer = MO, database = true, serviceRole = true }: {
-  jobs?: JobRow[]; lines?: JobLineRow[]; questions?: QuestionsRow[]; viewer?: string | null; database?: boolean; serviceRole?: boolean;
+function world({ jobs = [], lines = [], questions = [], runners = RUNNERS, keys = [], github = {}, viewer = MO, database = true, serviceRole = true }: {
+  jobs?: JobRow[]; lines?: JobLineRow[]; questions?: QuestionsRow[]; runners?: RunnerRow[]; keys?: KeyState[]; github?: Partial<GithubDeps>;
+  viewer?: string | null; database?: boolean; serviceRole?: boolean;
 } = {}) {
   const logged: string[] = [];
   let now = T0;
-  const { store, state } = fakeStore({ jobs, lines, questions, now: () => now });
+  const { store, state } = fakeStore({ jobs, lines, questions, runners, keys, now: () => now });
+  const stub = stubGithub(github);
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
       now = new Date(now.getTime() + ms);
       return Promise.resolve();
     },
-  });
+  }, stub.deps);
   const deps: RunnersDeps = {
     connect: database ? connect : null,
     session: database ? () => Promise.resolve(viewer) : null,
     service: serviceRole ? service : null,
     log: (line) => { logged.push(line); },
   };
-  return { deps, state, logged };
+  return { deps, state, logged, asked: stub.asked, setNow: (next: Date) => { now = next; } };
 }
 
 const URL_BASE = 'https://omni.test/api/runners';
@@ -86,6 +89,16 @@ describe('POST /api/runners/register', () => {
     expect(answered).toMatchObject({ status: 200, body: { name: 'nimbus-agents', fleet: null } });
   });
 
+  it('stores whether the runner can run a job as an API key\'s GitHub App, and refuses a value that is no boolean (PRD 2433)', async () => {
+    const w = world({ runners: [] });
+    const body = { name: 'nimbus-agents', slots: 4, repos: ['demo-org/app'], version: '0.0.530' };
+    expect((await registerRunner(post('/register', 'olga-token', { ...body, githubApp: true }), w.deps)).status).toBe(200);
+    expect(w.state.runners.map((runner) => runner.github_app)).toEqual([true]);
+    expect((await registerRunner(post('/register', 'olga-token', { ...body, githubApp: 'yes' }), w.deps)).status).toBe(400);
+    expect((await registerRunner(post('/register', 'olga-token', body), w.deps)).status).toBe(200);
+    expect(w.state.runners.map((runner) => runner.github_app)).toEqual([false]);
+  });
+
   it('refuses a malformed body, and a name someone else registered', async () => {
     const w = world();
     expect((await registerRunner(post('/register', 'olga-token', { name: 'x', slots: 9, repos: ['demo-org/app'], version: '1' }), w.deps)).status).toBe(400);
@@ -99,7 +112,7 @@ describe('GET /api/runners/next', () => {
     const job = jobRow({ line: '/omni:yolo 1717' });
     const w = world({ jobs: [job] });
     expect(await read(await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps)))
-      .toEqual({ status: 200, body: { id: job.id, line: '/omni:yolo 1717', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [] } });
+      .toEqual({ status: 200, body: { id: job.id, line: '/omni:yolo 1717', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [], sentByKey: null, github: null } });
   });
 
   it('answers 204 after the hold, and counts the check-in', async () => {
@@ -115,6 +128,100 @@ describe('GET /api/runners/next', () => {
     expect((await nextJob(kit('/next?runner=nope', 'olga-token'), w.deps)).status).toBe(400);
     expect((await nextJob(kit(`/next?runner=${SHARED}`, 'mo-token'), w.deps)).status).toBe(403);
     expect((await nextJob(kit('/next?runner=00000000-0000-4000-8000-000001830fff', 'olga-token'), w.deps)).status).toBe(404);
+  });
+});
+
+// A key's job runs as the key's GitHub App (PRD 2433 s7): the claim answers it with the App's token and bot
+// beside the key's name, and the runner asks a route of its own for a fresh token.
+describe('a key\'s job that runs as its GitHub App (PRD 2433)', () => {
+  const APP_RUNNERS = [runnerRow({ id: SHARED, name: 'shared', slots: 1, github_app: true })];
+  const WORKS: KeyState = { id: API_KEY, app: KEY_APP, working: true };
+  const keyJob = (more: Partial<JobRow> = {}) => jobRow({ sent_by: OLGA, sent_by_key: API_KEY, line: '/omni:bug-fix 2433', ...more });
+  const running = (more: Partial<JobRow> = {}) => keyJob({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), ...more });
+  const refresh = (id: string, token: string | null = 'olga-token') => kit(`/jobs/${id}/github-token`, token, { method: 'POST' });
+
+  it('answers the claimed job with the token, its expiry, the bot and the key\'s name, never cached', async () => {
+    const job = keyJob();
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [WORKS] });
+    const response = await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await read(response)).toEqual({
+      status: 200,
+      body: {
+        id: job.id, line: '/omni:bug-fix 2433', repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [], sentByKey: 'QA dashboard',
+        github: { token: TOKEN, expiresAt: EXPIRES, ...BOT },
+      },
+    });
+  });
+
+  it('ends a job whose key no longer works failed, `github app: <why>`, and answers 204 with no job', async () => {
+    const w = world({ jobs: [keyJob()], runners: APP_RUNNERS, keys: [{ ...WORKS, working: false }] });
+    expect((await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps)).status).toBe(204);
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'github app: the API key no longer works: it was revoked, or its maker left the workspace' });
+  });
+
+  it('answers a fresh token and its expiry, and nothing else, to the runner of the job', async () => {
+    const job = running();
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [WORKS] });
+    const response = await refreshGithubToken(refresh(job.id), job.id, w.deps);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await read(response)).toEqual({ status: 200, body: { token: TOKEN, expiresAt: EXPIRES } });
+    expect(w.state.minted).toEqual([API_KEY]);
+  });
+
+  it('refuses a signed-out caller, or a bad token, before anything is minted', async () => {
+    const job = running();
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [WORKS] });
+    expect((await refreshGithubToken(refresh(job.id, null), job.id, w.deps)).status).toBe(401);
+    expect((await refreshGithubToken(refresh(job.id, 'stolen-token'), job.id, w.deps)).status).toBe(401);
+    expect(w.asked.minted).toEqual([]);
+  });
+
+  it('answers 403 in words to another runner\'s owner, 404 to a job that is none, and mints nothing for either', async () => {
+    const job = running();
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [WORKS] });
+    expect(await read(await refreshGithubToken(refresh(job.id, 'mo-token'), job.id, w.deps)))
+      .toEqual({ status: 403, body: { error: 'This job was claimed by none of your runners.' } });
+    expect(await read(await refreshGithubToken(refresh('not-an-id'), 'not-an-id', w.deps))).toEqual({ status: 404, body: { error: 'No such runner or job.' } });
+    expect((await refreshGithubToken(refresh('00000000-0000-4000-8000-000000000000'), '00000000-0000-4000-8000-000000000000', w.deps)).status).toBe(404);
+    expect(w.asked.minted).toEqual([]);
+  });
+
+  it('answers within 10 minutes of the job\'s end, and 409 in words after', async () => {
+    const job = running({ status: 'done', ended_at: T0.toISOString() });
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [WORKS] });
+    w.setNow(new Date(T0.getTime() + 10 * 60_000));
+    expect((await refreshGithubToken(refresh(job.id), job.id, w.deps)).status).toBe(200);
+    w.setNow(new Date(T0.getTime() + 10 * 60_000 + 1_000));
+    expect(await read(await refreshGithubToken(refresh(job.id), job.id, w.deps)))
+      .toEqual({ status: 409, body: { error: 'This job ended over 10 minutes ago: it takes no new GitHub token.' } });
+  });
+
+  it('answers 409 with the reason\'s words for a key that stopped working, which the runner ends the job on', async () => {
+    const job = running();
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [{ ...WORKS, working: false }] });
+    expect(await read(await refreshGithubToken(refresh(job.id), job.id, w.deps)))
+      .toEqual({ status: 409, body: { error: 'the API key no longer works: it was revoked, or its maker left the workspace' } });
+  });
+
+  it('answers 503 with GitHub\'s words when it cannot be reached, for the runner to try again', async () => {
+    const job = running();
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [WORKS], github: { mint: () => Promise.reject(new Error('GitHub could not be reached (fetch failed)')) } });
+    expect(await read(await refreshGithubToken(refresh(job.id), job.id, w.deps)))
+      .toEqual({ status: 503, body: { error: 'GitHub could not be reached (fetch failed)' } });
+  });
+
+  it('never says a token or a private key in a refusal or a log', async () => {
+    const job = running();
+    const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [{ ...WORKS, app: { ...KEY_APP, ciphertext: 'garbled' } }] });
+    const refused = await refreshGithubToken(refresh(job.id), job.id, w.deps);
+    const broken = world({ jobs: [running()], runners: APP_RUNNERS, keys: [WORKS] });
+    const failing: RunnersDeps = { ...broken.deps, service: { ...broken.deps.service, githubToken: () => Promise.reject(new Error('api_key_github_app_of_job(): connection reset')) } as RunnersDeps['service'] };
+    const failed = await refreshGithubToken(refresh(job.id), job.id, failing);
+    expect(failed.status).toBe(500);
+    const said = JSON.stringify([refused.status, await refused.json(), await failed.json(), w.logged, broken.logged]);
+    for (const secret of [TOKEN, PRIVATE_KEY, 'garbled', 'Unsupported state']) expect(said, secret).not.toContain(secret);
+    expect(broken.logged).toEqual(['runners: api_key_github_app_of_job(): connection reset']);
   });
 });
 
@@ -457,7 +564,7 @@ describe('a job\'s questions (PRD 2255)', () => {
       const w = world({ jobs: [job] });
       expect(await read(await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, w.deps))).toEqual({
         status: 200,
-        body: { job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null },
+        body: { job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, byKey: null, actingFor: null, at: null, resume: null },
       });
       expect(w.state.questions).toEqual([questionsRow({ job_id: job.id, lead: ASK.lead, questions: [QUESTION] })]);
     });

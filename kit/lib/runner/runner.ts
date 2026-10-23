@@ -47,26 +47,45 @@
 // from `origin/<default branch>`, the skill's `.claude/skills/<name>/SKILL.md` must be there, or the job
 // fails `refused: /<name> is not on <default branch>` before Claude starts. Such a job has no outcome: it
 // ends done or failed from its exit code alone.
+//
+// A job as a GitHub App (PRD 2433): a runner given `githubToken`, the command that prints a job's token,
+// registers with `githubApp: true`. A job whose claim carries `github` starts as that app (`github-app.ts`):
+// its identity, git over HTTPS and a `gh` first on its `PATH`, with the token in `~/logs/job-<id>.github`
+// (`github-token.ts`) and in no variable. Every line, log tail and report the runner sends reads `***` for
+// every token the job had, and the file goes once the job is reported. A job whose app cannot be set up ends
+// `failed`, `github app: <why>`, before its session starts: it never runs as a person. A job with no `github`
+// starts exactly as it always did.
+//
+// Its token lasts an hour (PRD 2433, s3): at every look at the running job the runner keeps it current
+// (`github-refresh.ts`), asking the app for a fresh one with less than 5 minutes left and again every minute
+// while that fails. A job whose token expires with no fresh one is stopped and ends `failed`,
+// `github app: <why>`. Its claims are released with the job's token too, and with no token a job that ran as an
+// app is released by no one: never as the machine's account.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
 import { parsePrd } from '../ids.ts';
 import type { PrdNumber } from '../ids.ts';
-import { runnerJobVariables } from '../env/read.ts';
+import { runnerJobVariables, runnerSenderVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
+import { githubJobEnv, installGhShim } from './github-app.ts';
+import { keepGithubToken } from './github-refresh.ts';
+import type { RefreshOptions } from './github-refresh.ts';
+import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
-import { lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
-import type { RunOutcome } from './log.ts';
+import { bugFixReading, fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
+import type { BugFixReading, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import type { PluginKeeper } from './plugin.ts';
+import { notReleased } from './release.ts';
 import type { Released, Releaser } from './release.ts';
 import { dropJobBranch, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
@@ -133,6 +152,13 @@ export type RunnerOptions = {
   tokens?: TokenSource | undefined;
   /** Releases the claims of a job that ended (PRD 2175): none are released unless given. */
   release?: Releaser | undefined;
+  /**
+   * The command that prints a job's GitHub App token (`omni runner github-token`), before its own flags (PRD 2433).
+   * A runner given one registers as able to run a job as an app; without one a job that carries an app fails.
+   */
+  githubToken?: readonly string[] | undefined;
+  /** The Omni page, kept in each app job's token file for `omni runner github-token` to ask a fresh token of (PRD 2433, s3). */
+  askUrl?: string | undefined;
   /** The PRD's slices merged of all, read in the job's worktree when a job ended `stopped` (PRD 2375): never read unless given. */
   slices?: ((prd: PrdNumber, cwd: string) => Promise<MergedCount>) | undefined;
 };
@@ -186,6 +212,9 @@ const readText = (path: string): string => {
     return '';
   }
 };
+
+/** A job's log as the runner sends it (PRD 2433): every GitHub token the job had, past ones too, reads `***`, before any line is cut or counted. */
+const readLog = (loop: Loop, job: string, path: string): string => maskTokens(readText(path), jobTokens(loop.home, job));
 
 function loopOf(options: RunnerOptions): Loop {
   const refusal = new AbortController();
@@ -245,7 +274,7 @@ async function register(loop: Loop): Promise<string | null> {
   const repos = [...loop.checkouts.keys()];
   while (!loop.halt.aborted) {
     try {
-      return (await loop.api.register({ name: loop.name, slots: loop.slots, repos, version: loop.version ?? 'unknown' })).id;
+      return (await loop.api.register({ name: loop.name, slots: loop.slots, repos, version: loop.version ?? 'unknown', githubApp: loop.githubToken !== undefined })).id;
     } catch (error) {
       if (error instanceof RunnerRefused) loop.refuse(error);
       else if (error instanceof RunnerUnreachable) delay = await backOff(loop, delay, error, loop.halt);
@@ -274,13 +303,30 @@ async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<
   }
 }
 
+/** `update` with every GitHub token the job had, past ones too, replaced by `***` in each text it carries (PRD 2433, L-GDPR-2). */
+function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
+  const tokens = jobTokens(loop.home, job);
+  if (tokens.length === 0) return update;
+  const hide = (text: string): string => maskTokens(text, tokens);
+  const hidden: JobUpdate = { ...update };
+  for (const key of ['logTail', 'prUrl', 'reason', 'releaseError'] as const) {
+    const text = update[key];
+    if (typeof text === 'string') hidden[key] = hide(text);
+  }
+  if (update.lines !== undefined) hidden.lines = update.lines.map(hide);
+  return hidden;
+}
+
 /**
- * Sends a job's report. One that carries what was released, or an outcome, and is refused is sent again
- * without them: an app older than PRD 2175, 2223 or 2375 refuses a field it does not know, and the job's status must still reach it.
+ * Sends a job's report. One that carries what was released, an outcome, or a bug fix's pull requests, and
+ * is refused is sent again without them: an app older than PRD 2175, 2223, 2375 or 2425 refuses a field it
+ * does not know, or an outcome word it has no value for, and the job's status must still reach it.
  */
-async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
-  const { released, releaseError, outcome, slicesMerged, slicesTotal, ...rest } = update;
-  if (released === undefined && releaseError === undefined && outcome === undefined && slicesMerged === undefined && slicesTotal === undefined) return sendCounted(loop, job, update);
+async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
+  const update = hideTokens(loop, job, raw);
+  const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, ...rest } = update;
+  const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs];
+  if (newer.every((field) => field === undefined)) return sendCounted(loop, job, update);
   try {
     return await sendCounted(loop, job, update);
   } catch (error) {
@@ -341,7 +387,7 @@ async function finish(loop: Loop, job: string, update: JobUpdate, live: Live | n
     await sendLast(loop, job, update);
     return;
   }
-  const log = readText(live.log);
+  const log = readLog(loop, job, live.log);
   const left = linesAfter(log, live.cursor, { ended: true });
   for (;;) {
     const lines = reportBatch(left);
@@ -427,18 +473,37 @@ function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
  * 0 makes it wait for them to end (bug 1912). */
 const WAIT_FOR_AGENTS: Readonly<Record<string, string>> = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' };
 
-/** Writes the job's line and its log, empty or starting on `note`, then starts its session: whether it started. */
-function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null): boolean {
+/**
+ * What a job runs as (PRD 2433): the variables of its app, its token kept for the session to read, or why it
+ * cannot run as the app, in the words its report carries. A job with no app runs as the runner always ran it:
+ * no variable more, and no token kept. The token goes in a file and nowhere else.
+ */
+function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { failed: string } {
+  if (job.github === null) return { env: {} };
+  const file = githubTokenFile(loop.home, job.id);
+  if (loop.githubToken === undefined || file === null) return { failed: 'github app: this runner cannot give the job its token' };
+  try {
+    saveGithubToken(file, loop.name, job.github, loop.askUrl);
+    const shimDir = installGhShim({ home: loop.home, tokenCommand: loop.githubToken, path: loop.env.PATH });
+    return { env: githubJobEnv({ bot: job.github, tokenCommand: loop.githubToken, shimDir, path: loop.env.PATH }) };
+  } catch (error) {
+    // The detail names a folder of this machine: it stays here, and the report carries the reason alone.
+    loop.print(`job ${job.id}: its GitHub App token could not be kept (${error instanceof Error ? error.message : String(error)})`);
+    return { failed: 'github app: the token could not be kept on this machine' };
+  }
+}
+
+/** Writes the job's line and its log, empty or starting on `note`, then starts its session as `app`: whether it started. */
+function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null, app: Record<string, string>): boolean {
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
   writeFileSync(place.line, `${job.line}\n`);
   writeFileSync(place.log, note === null ? '' : `${note}\n`);
   rmSync(place.exit, { force: true });
-  const sender: Record<string, string> = job.sentBy ? { OMNI_SENT_BY: job.sentBy, OMNI_RUNNER: loop.name } : {};
   try {
     loop.terminal.start({
       name: place.session,
       cwd: place.worktree,
-      env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...sender, ...WAIT_FOR_AGENTS },
+      env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...runnerSenderVariables(job, loop.name), ...WAIT_FOR_AGENTS, ...app },
       argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
     });
     return true;
@@ -447,18 +512,27 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
   }
 }
 
-/** What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), `stopped` with none (PRD 2375); `null` for any other job. */
+/**
+ * What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), `stopped` with none (PRD 2375);
+ * `stopped` for a `/omni:mega-bug-fix` job of an issue whose hand-off ends on the line that resumes it; `null`
+ * for any other job.
+ */
 function outcomeOf(log: string, line: string): RunOutcome | null {
   const checked = checkRunnerLine(line);
-  const args = checked.ok ? checked.args.trim() : '';
-  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked.skill) : null;
+  if (!checked.ok) return null;
+  const args = checked.args.trim();
+  if (checked.skill === 'mega-bug-fix') {
+    const issue = fixIssueOf(args);
+    return issue === null ? null : fixOutcome(log, issue);
+  }
+  return (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked.skill) : null;
 }
 
-/** `update` with the PRD's slice count when the job stopped mid-way (PRD 2375); as it is when the count cannot be read, which stops nothing. */
+/** `update` with the PRD's slice count when a yolo job stopped mid-way (PRD 2375); as it is when the count cannot be read, which stops nothing. */
 async function withSlices(loop: Loop, job: RunnerJob, place: Place, update: JobUpdate): Promise<JobUpdate> {
   if (update.outcome !== 'stopped' || loop.slices === undefined) return update;
   const checked = checkRunnerLine(job.line);
-  if (!checked.ok) return update;
+  if (!checked.ok || (checked.skill !== 'yolo' && checked.skill !== 'yolo-fix')) return update;
   try {
     const count = await loop.slices(parsePrd(checked.args.trim()), place.worktree);
     return count === null ? update : { ...update, slicesMerged: count.merged, slicesTotal: count.total };
@@ -467,16 +541,38 @@ async function withSlices(loop: Loop, job: RunnerJob, place: Place, update: JobU
   }
 }
 
+/** What a `/omni:bug-fix` or `/omni:mega-bug-fix` job's log says of its end (PRD 2425); `null` for any other job. */
+function bugFixOf(log: string, line: string): BugFixReading | null {
+  const checked = checkRunnerLine(line);
+  return checked.ok && (checked.skill === 'bug-fix' || checked.skill === 'mega-bug-fix') ? bugFixReading(log) : null;
+}
+
+/** The fields a done bug fix's log adds to its report (PRD 2425): what the log does not say is left out. */
+function bugFixFields({ outcome, fixedBy, prs }: BugFixReading): Pick<JobUpdate, 'outcome' | 'fixedBy' | 'prs'> {
+  return { ...(outcome === null ? {} : { outcome }), ...(fixedBy === null ? {} : { fixedBy }), ...(prs.length === 0 ? {} : { prs }) };
+}
+
+/**
+ * `failed`, the status of a bug fix that did not end done, with the pull requests its log names, the
+ * draft it left included, and no outcome (PRD 2425); as it is for any other job, or a log naming none.
+ */
+function failedWithPrs(failed: JobUpdate, log: string, line: string): JobUpdate {
+  const reading = bugFixOf(log, line);
+  return reading === null || reading.prs.length === 0 ? failed : { ...failed, prs: reading.prs };
+}
+
 /** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
 function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
   if (exitCode === 0) {
     const done: JobUpdate = { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: 0 };
+    const bugFix = bugFixOf(log, job.line);
     const outcome = outcomeOf(log, job.line);
-    return outcome === null ? done : { ...done, outcome };
+    // A mega bug fix whose hand-off ends on the line that resumes it reads `stopped` (#2449), whatever its Outcome word.
+    return { ...done, ...(bugFix === null ? {} : bugFixFields(bugFix)), ...(outcome === null ? {} : { outcome }) };
   }
-  return { status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
+  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` }, log, job.line);
 }
 
 /** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
@@ -485,27 +581,50 @@ function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
 function vanished(log: string, job: RunnerJob): JobUpdate {
   const reason = 'the job stopped before it wrote its exit code';
   const outcome = outcomeOf(log, job.line);
-  if (outcome === null || outcome === 'stopped') return { status: 'failed', logTail: logTail(log), reason };
+  if (outcome === null || outcome === 'stopped') return failedWithPrs({ status: 'failed', logTail: logTail(log), reason }, log, job.line);
   return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
 }
 
 /** Stops the job's session and answers `update`. */
-function killed(loop: Loop, place: Place, update: JobUpdate): JobUpdate {
+function killed(loop: Loop, job: string, place: Place, update: JobUpdate): JobUpdate {
   loop.terminal.stop(place.session);
-  return { ...update, logTail: logTail(readText(place.log)) };
+  return { ...update, logTail: logTail(readLog(loop, job, place.log)) };
+}
+
+/** What keeps a token current for `job` in `file`: the app's refresh route, the runner's clock and sleep (PRD 2433, s3). */
+const refreshOf = (loop: Loop, job: string, file: string): RefreshOptions => ({
+  file,
+  runner: loop.name,
+  job,
+  fetchToken: (id) => loop.api.githubToken(id),
+  now: loop.now,
+  sleep: (ms) => loop.sleep(ms),
+});
+
+/**
+ * Keeps the token of a running job that runs as an app current (PRD 2433, s3): `null` while it has one, and
+ * the reason the job ends on once it has none, `github app: <why>`. A job with no app has nothing to keep.
+ */
+async function appLacking(loop: Loop, job: RunnerJob): Promise<string | null> {
+  const file = job.github === null ? null : githubTokenFile(loop.home, job.id);
+  if (file === null) return null;
+  const kept = await keepGithubToken(refreshOf(loop, job.id, file));
+  return kept.token === null ? `github app: ${kept.failed}` : null;
 }
 
 /** Looks at the running job every tick, until it ends, is cancelled or runs past the timeout. */
 async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Promise<JobUpdate> {
   const started = loop.now();
-  if (await tick(loop, job.id, { status: 'running', logTail: '' })) return killed(loop, place, { status: 'cancelled' });
+  if (await tick(loop, job.id, { status: 'running', logTail: '' })) return killed(loop, job.id, place, { status: 'cancelled' });
   for (;;) {
     await loop.sleep(loop.tickMs);
-    const log = readText(place.log);
+    const log = readLog(loop, job.id, place.log);
     if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
-    if (!loop.terminal.alive(place.session)) return vanished(readText(place.log), job);
-    if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
-    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, place, { status: 'cancelled' });
+    if (!loop.terminal.alive(place.session)) return vanished(readLog(loop, job.id, place.log), job);
+    if (loop.now() - started > loop.timeoutMs) return killed(loop, job.id, place, failedWithPrs({ status: 'failed', reason: 'timeout' }, log, job.line));
+    const noApp = await appLacking(loop, job);
+    if (noApp !== null) return killed(loop, job.id, place, { status: 'failed', reason: noApp });
+    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });
   }
 }
 
@@ -520,12 +639,20 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
     if (missing !== null) return { last: missing, live: null };
     const plugin = await loop.plugin.forJob(place.worktree, job.repo);
     if ('failed' in plugin) return { last: { status: 'failed', reason: plugin.failed }, live: null };
-    if (!startSession(loop, job, place, plugin.note)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
+    const app = asApp(loop, job);
+    if ('failed' in app) return { last: { status: 'failed', reason: app.failed }, live: null };
+    if (!startSession(loop, job, place, plugin.note, app.env)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
   } finally {
     cleanUp(loop, job, place);
   }
+}
+
+/** Removes the file a job's GitHub App token was kept in, when it has one. */
+function forgetJobToken(loop: Loop, job: string): void {
+  const file = githubTokenFile(loop.home, job);
+  if (file !== null) forgetGithubToken(file);
 }
 
 /** The line a job's end prints. */
@@ -547,28 +674,60 @@ function releaseLines(job: string, { released, releaseError }: Released): string
   ];
 }
 
+/**
+ * Releases the claims of an ended job, `ran` saying whether it ran as an app (PRD 2433, s3): with the job's
+ * token, kept current (the app answers its refresh route for 10 minutes after the end), so the label and the
+ * comment are the app's. A job that ran as an app and has no token now releases nothing, and says why: its
+ * claims are never released as the machine's account. A job that ran as the machine is released as it always was.
+ */
+async function releasedAs(loop: Loop, release: Releaser, ended: { id: string; repo: string; reason: string }, ran: boolean): Promise<Released> {
+  const file = ran ? githubTokenFile(loop.home, ended.id) : null;
+  let ghToken: string | null = null;
+  let lacking: Released | null = null;
+  if (ran) {
+    const kept = file === null ? null : await keepGithubToken(refreshOf(loop, ended.id, file));
+    if (kept === null || kept.token === null) lacking = notReleased(`github app: ${kept === null ? 'the job has no token kept on this machine' : kept.failed}`);
+    else ghToken = kept.token.token;
+  }
+  const done = lacking ?? release({ id: ended.id, runner: loop.name, repo: ended.repo, reason: ended.reason, ghToken });
+  const hide = (text: string): string => (ghToken === null ? text : maskTokens(text, jobTokens(loop.home, ended.id)));
+  for (const line of releaseLines(ended.id, done)) loop.print(hide(line));
+  return done;
+}
+
 /** Releases the claims of `job`, which ended on `last`: `last` with what was released, or as it is when the runner releases nothing. */
-function releasing(loop: Loop, job: RunnerJob, last: JobUpdate): JobUpdate {
+async function releasing(loop: Loop, job: RunnerJob, last: JobUpdate): Promise<JobUpdate> {
   if (loop.release === undefined) return last;
-  const done = loop.release({ id: job.id, runner: loop.name, repo: job.repo, reason: endReason(last) });
-  for (const line of releaseLines(job.id, done)) loop.print(line);
+  const done = await releasedAs(loop, loop.release, { id: job.id, repo: job.repo, reason: endReason(last) }, job.github !== null);
   return { ...last, released: done.released, releaseError: done.releaseError };
+}
+
+/** Whether the job left a token file: it ran as an app, whoever's the file is. */
+function ranAsApp(loop: Loop, job: string): boolean {
+  const file = githubTokenFile(loop.home, job);
+  return file !== null && readGithubToken(file) !== null;
 }
 
 /**
  * Releases the claims of a job the app marked lost, `runner lost`, and reports what it released when
  * there is something to say. The job has ended on the app: a report it refuses, or never answers,
- * prints one line and stops nothing.
+ * prints one line and stops nothing. `ran` says whether it ran as an app, read before the sweep, which takes
+ * an old token file with the rest: it is released as that app, or not at all.
  */
-async function releaseLost(loop: Loop, lost: { job: string; repo: string }): Promise<void> {
+async function releaseLost(loop: Loop, lost: { job: string; repo: string; ran: boolean }): Promise<void> {
   if (loop.release === undefined) return;
-  const done = loop.release({ id: lost.job, runner: loop.name, repo: lost.repo, reason: 'runner lost' });
-  for (const line of releaseLines(lost.job, done)) loop.print(line);
-  if (done.released.length === 0 && done.releaseError === null) return;
+  const { ran } = lost;
   try {
-    await loop.api.update(lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError });
-  } catch (error) {
-    loop.print(`job ${lost.job}: its release was not reported (${error instanceof Error ? error.message : String(error)})`);
+    const done = await releasedAs(loop, loop.release, { id: lost.job, repo: lost.repo, reason: 'runner lost' }, ran);
+    if (done.released.length === 0 && done.releaseError === null) return;
+    try {
+      await loop.api.update(lost.job, hideTokens(loop, lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError }));
+    } catch (error) {
+      loop.print(`job ${lost.job}: its release was not reported (${error instanceof Error ? error.message : String(error)})`);
+    }
+  } finally {
+    // Once its release is reported: the token of a job that is gone is kept no longer.
+    if (ran) forgetJobToken(loop, lost.job);
   }
 }
 
@@ -604,10 +763,12 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     try {
       const { last, live } = await runJob(loop, job);
       // A job whose session never started made no claim: it has nothing to release.
-      const report = live === null ? last : releasing(loop, job, last);
+      const report = live === null ? last : await releasing(loop, job, last);
       await finish(loop, job.id, withTokens(loop, report, worktreeOf(loop, job)), live);
       loop.print(endLine(job, last));
     } finally {
+      // Once its last report is sent: the log is masked with the file until then.
+      forgetJobToken(loop, job.id);
       loop.jobs.delete(job.id);
       loop.running -= 1;
     }
@@ -661,7 +822,8 @@ async function reporter(loop: Loop, runner: string): Promise<void> {
 async function sweeper(loop: Loop): Promise<void> {
   const keepLogsDays = loop.keepLogsDays ?? KEEP_LOGS_DAYS;
   while (!loop.halt.aborted) {
-    const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs });
+    // Whether each ran as an app is read first: the sweep removes a token file older than `keepLogsDays`.
+    const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs }).map((stranded) => ({ ...stranded, ran: ranAsApp(loop, stranded.job) }));
     const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
     if (line !== null) loop.print(line);
     for (const job of lost) await releaseLost(loop, job);

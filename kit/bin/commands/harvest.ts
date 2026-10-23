@@ -106,8 +106,14 @@ type HarvestedPr = { number: PrNumber; url: string; merged: boolean; mergedAt: s
 /** The `gh` options of one read: utf8, with the configured user's token when there is one. */
 function ghOptions({ ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>) {
   const ghEnv = githubEnv(ctx, { exec, env });
-  return { encoding: 'utf8' as const, ...(ghEnv ? { env: ghEnv } : {}) };
+  return { encoding: 'utf8' as const, maxBuffer: GH_MAX_BUFFER, ...(ghEnv ? { env: ghEnv } : {}) };
 }
+
+/**
+ * How much `gh` may print to one call (issue 2442): a pull request's files, every page at once, ran
+ * past execFileSync's 1 MB default on a pull request of 1,172 files, and the harvest crashed (ENOBUFS).
+ */
+const GH_MAX_BUFFER = 64 * 1024 * 1024;
 
 /** Pull request `number` of this repository, through `gh api`. */
 function pullRequestFor(number: PrNumber, io: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): HarvestedPr {

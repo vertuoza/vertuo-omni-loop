@@ -153,8 +153,8 @@ describe('what proves it', () => {
   });
 
   it('is named in the database\'s types: the table, and both functions', () => {
-    expect(TYPES).toMatch(/runner_job_questions: \{\n\s+Row: \{\n\s+answers: Json \| null\n\s+asked_at: string\n\s+closed_at: string \| null\n\s+closed_by: string \| null\n\s+issue: number\n\s+job_id: string\n\s+lead: string\n\s+questions: Json\n\s+resume_job: string \| null\n\s+workspace_id: string\n/);
-    expect(TYPES).toMatch(/runner_job_answer: \{\n\s+Args: \{ p_answers: Json; p_by: string; p_job: string \}/);
-    expect(TYPES).toMatch(/runner_job_dismiss: \{\n\s+Args: \{ p_by: string; p_job: string \}/);
+    expect(TYPES).toMatch(/runner_job_questions: \{\n\s+Row: \{\n\s+answers: Json \| null\n\s+asked_at: string\n\s+closed_at: string \| null\n\s+closed_by: string \| null\n\s+closed_by_key: string \| null\n\s+closed_for: string \| null\n\s+issue: number\n\s+job_id: string\n\s+lead: string\n\s+questions: Json\n\s+resume_job: string \| null\n\s+workspace_id: string\n/);
+    expect(TYPES).toMatch(/runner_job_answer: \{\n\s+Args: \{\n\s+p_acting_for\?: string\n\s+p_answers: Json\n\s+p_by\?: string\n\s+p_job: string\n\s+p_key\?: string\n/);
+    expect(TYPES).toMatch(/runner_job_dismiss: \{\n\s+Args: \{\n\s+p_acting_for\?: string\n\s+p_by\?: string\n\s+p_job: string\n\s+p_key\?: string\n/);
   });
 });

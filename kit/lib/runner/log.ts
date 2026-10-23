@@ -2,9 +2,11 @@
 // to the last 200 lines and at most 16 KB, and the last pull request of the job's repository the run
 // printed, which the app links once the job is done. And its live lines (PRD 1904): the whole lines
 // after the runner's cursor, each numbered by its 1-based line number in the log, sent at most 2,000
-// lines and 256 KB per report.
+// lines and 256 KB per report. And how a bug fix ended (PRD 2425): its `Outcome:` word, the pull request
+// it proved had fixed the bug and every pull request it opened.
 
-import type { PrdNumber } from '../ids.ts';
+import { parseIssue } from '../ids.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 /** The most lines a log tail carries. */
 export const TAIL_LINES = 200;
@@ -88,9 +90,50 @@ export function lastPullRequest(log: string, repo: string): string | null {
 }
 
 /**
+ * The words a `/omni:bug-fix` or `/omni:mega-bug-fix` hand-off gives its `Outcome:` line (PRD 2425), one
+ * per end the skills' stop rules name.
+ */
+export const BUG_FIX_OUTCOMES = ['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'] as const;
+
+/** How a bug fix or a mega bug fix ended: one of {@link BUG_FIX_OUTCOMES}. */
+export type BugFixOutcome = (typeof BUG_FIX_OUTCOMES)[number];
+
+/** The most pull requests a report carries (the app's limit, PRD 2425). */
+export const PRS_MAX = 50;
+
+/** What a bug fix's log says of how it ended: its outcome, the pull request it proved had already fixed the bug, and the pull requests it opened. */
+export type BugFixReading = { outcome: BugFixOutcome | null; fixedBy: string | null; prs: string[] };
+
+/** The hand-off's `Outcome: <word>` and `Fixed by: <link>` lines, each a line of its own, as a `PR: <link>` line is. */
+const OUTCOME_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Outcome: (\S+)\s*$/;
+const FIXED_BY_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Fixed by: (\S+)\s*$/;
+const PULL_REQUEST_LINK = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/i;
+
+const isOutcome = (word: string | undefined): word is BugFixOutcome => BUG_FIX_OUTCOMES.some((known) => known === word);
+const isPullRequest = (link: string): boolean => PULL_REQUEST_LINK.test(link);
+
+/**
+ * What a bug fix's or a mega bug fix's readable log says of its end (PRD 2425). The `outcome` is the word
+ * of the last `Outcome:` line, `null` when that word is none of {@link BUG_FIX_OUTCOMES} or no line is
+ * there (a skill from before this PRD). `fixedBy` is the pull request link of the last `Fixed by:` line,
+ * the one the skill proved had fixed the bug. `prs` is every `PR:` line's pull request, of any repository,
+ * in order and once each, at most {@link PRS_MAX}: a link the job only read is no `PR:` line, and the
+ * proved one is left out, since the job opened no pull request for it.
+ */
+export function bugFixReading(log: string): BugFixReading {
+  const lines = log.split('\n');
+  const valuesOf = (line: RegExp): string[] => lines.flatMap((each) => line.exec(each)?.[1] ?? []);
+  const word = valuesOf(OUTCOME_LINE).at(-1);
+  const fixedBy = valuesOf(FIXED_BY_LINE).filter(isPullRequest).at(-1) ?? null;
+  const opened = valuesOf(PR_LINE).filter((link) => isPullRequest(link) && link !== fixedBy);
+  return { outcome: isOutcome(word) ? word : null, fixedBy, prs: [...new Set(opened)].slice(0, PRS_MAX) };
+}
+
+/**
  * What a yolo job's hand-off ended on (PRD 2223): `answers` for `/omni:yolo-fix <prd>`, `held` for
  * `/omni:yolo <prd>`, `ready` for `/omni:pr-care <prd>`. `stopped` (PRD 2375) is a yolo job that exited
- * 0 with no hand-off line for its PRD: it stopped mid-way.
+ * 0 with no hand-off line for its PRD: it stopped mid-way. A `/omni:mega-bug-fix` job is `stopped` too
+ * when its hand-off ends on the line that resumes its fix ({@link fixOutcome}).
  */
 export type RunOutcome = 'answers' | 'held' | 'ready' | 'stopped';
 
@@ -110,11 +153,31 @@ const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
  * `stopped` instead of `null`.
  */
 export function runOutcome(log: string, prd: PrdNumber, skill?: HandOffSkill): RunOutcome | null {
-  const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '';
-  const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP, ''));
+  const match = /^\/omni:([a-z-]+) (\d+)$/.exec(lastLine(log));
   const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
   if (outcome !== undefined && match?.[2] === String(prd)) return outcome;
   return skill === undefined ? null : 'stopped';
+}
+
+/** The run's last non-empty line, without the runner's stamp, a failed hook's line after it ignored. */
+function lastLine(log: string): string {
+  return (log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '').replace(STAMP, '');
+}
+
+/** The plan repository's issue a `/omni:mega-bug-fix` job's arguments name (`612`, `#612` or its URL), or `null` for a description. */
+export function fixIssueOf(args: string): IssueNumber | null {
+  const match = /^(?:#?|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)([1-9]\d*)$/.exec(args.trim());
+  return match?.[1] === undefined ? null : parseIssue(match[1]);
+}
+
+/**
+ * What a `/omni:mega-bug-fix` job for issue `issue` ended on: `stopped` when its last line is the line
+ * that resumes the fix, `/omni:mega-bug-fix #<issue>`, which the skill's hand-off ends on when a rerun
+ * can finish it (a target stuck at `limits.attempts`, or one that could not be reached); `null` for any
+ * other line, so a fix that ended, or stopped for a person to decide, keeps reading Done.
+ */
+export function fixOutcome(log: string, issue: IssueNumber): RunOutcome | null {
+  return lastLine(log) === `/omni:mega-bug-fix #${String(issue)}` ? 'stopped' : null;
 }
 
 const UNITS: Readonly<Record<string, number>> = { s: 1000, m: 60_000, h: 3_600_000 };

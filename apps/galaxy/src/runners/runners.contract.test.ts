@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   AnswerRequestSchema, AskRequestSchema, checkLine, checkLineShape, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
-  KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
+  GithubTokenReplySchema, KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -16,6 +16,12 @@ describe('the line check', () => {
 
   it('lets the retro app\'s line /omni:retro-apply --retro <retro PR> through (PRD 2338)', () => {
     expect(checkLine('/omni:retro-apply --retro 2360')).toEqual({ ok: true, kind: 'omni', skill: 'retro-apply', args: '--retro 2360' });
+  });
+
+  it('lets the main watch\'s line /omni:rewind <n> through, and /omni:knowledge-add, which a finding\'s Approve queues (PRD 2410)', () => {
+    expect(checkLine('/omni:rewind 2410')).toEqual({ ok: true, kind: 'omni', skill: 'rewind', args: '2410' });
+    expect(checkLine('/omni:knowledge-add add the glossary term main watch')).toMatchObject({ ok: true, kind: 'omni', skill: 'knowledge-add' });
+    expect(linePrd('/omni:rewind 2410')).toBe(2410);
   });
 
   it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
@@ -133,7 +139,7 @@ describe('the line check, for a repository\'s own skills (PRD 2313)', () => {
 });
 
 describe('the job a runner claims (PRD 2313)', () => {
-  const job = { id: '00000000-0000-4000-8000-000023130001', line: '/omni:yolo 2313', repo: 'acme/widgets', sentBy: 'olga', allowedSkills: [] };
+  const job = { id: '00000000-0000-4000-8000-000023130001', line: '/omni:yolo 2313', repo: 'acme/widgets', sentBy: 'olga', allowedSkills: [], sentByKey: null, github: null };
 
   it('carries its repository\'s allowed skills, and takes a fixed skill\'s line as before', () => {
     expect(RunnerJobSchema.parse(job)).toEqual(job);
@@ -152,6 +158,34 @@ describe('the job a runner claims (PRD 2313)', () => {
   });
 });
 
+describe('the job an API key\'s App runs (PRD 2433)', () => {
+  const job = { id: '00000000-0000-4000-8000-000024330001', line: '/omni:bug-fix 2433', repo: 'acme/widgets', sentBy: 'API key QA dashboard', allowedSkills: [], sentByKey: 'QA dashboard' };
+  const github = { token: 'a-token-for-the-tests', expiresAt: '2026-10-22T11:00:00Z', login: 'acme-bugs[bot]', email: '777+acme-bugs[bot]@users.noreply.github.com' };
+
+  it('carries the key\'s name and the App\'s token, expiry, bot login and email', () => {
+    expect(RunnerJobSchema.parse({ ...job, github })).toEqual({ ...job, github });
+  });
+
+  it('carries no App for a job a person sent or a key with none, saying so with null', () => {
+    expect(RunnerJobSchema.parse({ ...job, sentByKey: null, github: null })).toMatchObject({ sentByKey: null, github: null });
+    expect(RunnerJobSchema.safeParse(job).success).toBe(false);
+    expect(RunnerJobSchema.safeParse({ ...job, github: null }).success).toBe(true);
+  });
+
+  it('never reads an App that holds less than all four, so no job goes out half-set', () => {
+    for (const field of ['token', 'expiresAt', 'login', 'email'] as const) {
+      const rest = Object.fromEntries(Object.entries(github).filter(([key]) => key !== field));
+      expect(RunnerJobSchema.safeParse({ ...job, github: rest }).success, field).toBe(false);
+      expect(RunnerJobSchema.safeParse({ ...job, github: { ...github, [field]: '' } }).success, field).toBe(false);
+    }
+  });
+
+  it('answers a refresh with the token and its expiry alone', () => {
+    expect(GithubTokenReplySchema.parse({ ...github })).toEqual({ token: github.token, expiresAt: github.expiresAt });
+    expect(GithubTokenReplySchema.safeParse({ token: github.token }).success).toBe(false);
+  });
+});
+
 describe('the requests', () => {
   it('registers a runner with 1 to 8 slots and at least one repository', () => {
     const runner = { name: 'nimbus-agents', slots: 4, repos: ['vertuoza/vertuo-omni-loop'], version: '0.0.387' };
@@ -160,6 +194,14 @@ describe('the requests', () => {
     expect(RegisterRequestSchema.safeParse({ ...runner, repos: [] }).success).toBe(false);
     expect(RegisterRequestSchema.safeParse({ ...runner, name: 'two words' }).success).toBe(false);
     expect(RegisterRequestSchema.safeParse({ ...runner, owner: 'someone' }).success).toBe(false);
+  });
+
+  it('registers a runner that can run a job as an API key\'s GitHub App, or one that says nothing (PRD 2433)', () => {
+    const runner = { name: 'nimbus-agents', slots: 4, repos: ['vertuoza/vertuo-omni-loop'], version: '0.0.530' };
+    expect(RegisterRequestSchema.parse({ ...runner, githubApp: true })).toEqual({ ...runner, githubApp: true });
+    expect(RegisterRequestSchema.parse({ ...runner, githubApp: false })).toEqual({ ...runner, githubApp: false });
+    expect(RegisterRequestSchema.parse(runner)).toEqual(runner);
+    for (const githubApp of ['true', 1, null]) expect(RegisterRequestSchema.safeParse({ ...runner, githubApp }).success).toBe(false);
   });
 
   it('sends to any runner, a fleet or one runner, and nowhere else', () => {
@@ -334,6 +376,47 @@ describe('the outcome a report carries', () => {
   });
 });
 
+// What a bug fix's report carries (PRD 2425 s3): the seven words its hand-off ends on, the pull request it proved had
+// fixed the bug, and every pull request it opened; the server alone sets `human`, whose report word is `need-human`.
+describe('the outcome, fixedBy and prs a bug fix report carries (PRD 2425)', () => {
+  const PR = 'https://github.com/acme/widgets/pull/12';
+
+  it.each(['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'])('takes the word %s', (outcome) => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0, outcome })).toEqual({ status: 'done', exitCode: 0, outcome });
+  });
+
+  it('takes the pull request a bug fix proved had fixed it, and every pull request it opened', () => {
+    const report = { status: 'done', exitCode: 0, outcome: 'already-fixed', fixedBy: PR, prs: [] };
+    expect(JobUpdateSchema.parse(report)).toEqual(report);
+    const opened = { status: 'failed', exitCode: 1, prs: [PR, 'https://github.com/acme/other/pull/3'] };
+    expect(JobUpdateSchema.parse(opened)).toEqual(opened);
+  });
+
+  it('takes a report without them, as a runner from before this PRD sends', () => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0 })).toEqual({ status: 'done', exitCode: 0 });
+  });
+
+  it('refuses the stored word human, the yolo words spelled the key\'s way and an unknown word', () => {
+    for (const outcome of ['human', 'need_human', 'pr_opened', 'PR-OPENED', 'fixed']) {
+      expect(JobUpdateSchema.safeParse({ status: 'done', outcome }).success, outcome).toBe(false);
+    }
+  });
+
+  it('refuses a fixedBy that is no pull request link, and one that is null', () => {
+    for (const fixedBy of ['https://evil.test/acme/widgets/pull/12', 'https://github.com/acme/widgets/issues/12', 12, null]) {
+      expect(JobUpdateSchema.safeParse({ status: 'done', outcome: 'already-fixed', fixedBy }).success, String(fixedBy)).toBe(false);
+    }
+  });
+
+  it('keeps at most 50 pull requests, each a pull request link', () => {
+    const links = (count: number) => Array.from({ length: count }, (_, index) => `https://github.com/acme/widgets/pull/${String(index + 1)}`);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: links(50) }).success).toBe(true);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: links(51) }).success).toBe(false);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: [PR, 'https://github.com/acme/widgets/issues/1'] }).success).toBe(false);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: null }).success).toBe(false);
+  });
+});
+
 // The kit's reads (PRD 2251 s1): a job names a PRD by its line's first argument; the runners and a
 // PRD's jobs are read by the repository the terminal is in.
 describe('the PRD a line names', () => {
@@ -462,6 +545,18 @@ describe('the questions a job asks (PRD 2255)', () => {
     const answered = { ...read, state: 'answered', answers: { 'Which fix for Planning?': 'Make project nullable' }, by: '00000000-0000-4000-8000-0000018300b1', byLogin: 'mo', at: 't', resume: '00000000-0000-4000-8000-000001830202' };
     expect(JobQuestionsSchema.parse(answered).state).toBe('answered');
     expect(JobQuestionsSchema.safeParse({ ...read, state: 'closed' }).success).toBe(false);
+  });
+
+  it('reads the key that closed a round by its name and whom it acted for (PRD 2425), and a read without them as before', () => {
+    const read = {
+      job: '00000000-0000-4000-8000-000001830201', issue: 314, lead: ask.lead, questions: ask.questions, state: 'answered',
+      answers: { 'Which fix for Planning?': 'Make project nullable' }, by: null, byLogin: null, at: 't', resume: '00000000-0000-4000-8000-000001830202',
+    };
+    expect(JobQuestionsSchema.parse(read)).toEqual(read);
+    const byKey = { ...read, byKey: 'Support bot', actingFor: 'Jane D.' };
+    expect(JobQuestionsSchema.parse(byKey)).toEqual(byKey);
+    expect(JobQuestionsSchema.parse({ ...read, byKey: null, actingFor: null })).toMatchObject({ byKey: null, actingFor: null });
+    expect(JobQuestionsSchema.safeParse({ ...read, byKey: 7 }).success).toBe(false);
   });
 });
 
