@@ -23,8 +23,13 @@ export { contrast };
 const variable = (name: string) => `--ask-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 /** The scheme of each theme's native controls and scrollbars: Omni is a dark world. */
 const SCHEME: Record<Theme, 'light' | 'dark'> = { omni: 'dark', light: 'light', dark: 'dark' };
+/** Each loop's signal and the text on it, in a theme (issue 2505): the Anti-loop switch wears the loop
+ * it opens, whatever the mode, so these stay out of the anti-loop overrides. */
+const loops = (theme: Theme) =>
+  `--ask-loop-omni: ${TOKENS[theme].plasma}; --ask-loop-omni-on: ${TOKENS[theme].onPlasma}; `
+  + `--ask-loop-anti: ${ASK_ANTI[theme].plasma}; --ask-loop-anti-on: ${ASK_ANTI[theme].onPlasma};`;
 const declarations = (theme: Theme) =>
-  `color-scheme: ${SCHEME[theme]}; ${Object.entries(TOKENS[theme]).map(([name, value]) => `${variable(name)}: ${value};`).join(' ')}`;
+  `color-scheme: ${SCHEME[theme]}; ${Object.entries(TOKENS[theme]).map(([name, value]) => `${variable(name)}: ${value};`).join(' ')} ${loops(theme)}`;
 
 /** The anti-loop mode's overrides of one theme (PRD 2490, Rewind Light): only the tokens it remaps. */
 const antiDeclarations = (theme: Theme) =>

@@ -213,7 +213,8 @@ describe('its stylesheet', () => {
 });
 
 describe('the Anti-loop switch (PRD 2490)', () => {
-  const anchor = (bar: string, label: string) => (bar.match(new RegExp(`<a [^>]*href="([^"]*)"[^>]*>${label}</a>`)) ?? [])[1];
+  const anchor = (bar: string, label: string) => (bar.match(new RegExp(`<a [^>]*href="([^"]*)"[^>]*>(?:(?!</a>).)*${label}</a>`)) ?? [])[1];
+  const button = (bar: string) => (bar.match(/<a [^>]*class="anti-loop-button"[^>]*>(?:(?!<\/a>).)*<\/a>/) ?? [''])[0];
 
   it('reads Anti-loop and opens /anti on a forward page', () => {
     expect(anchor(render('/app'), 'Anti-loop')).toBe('/anti');
@@ -224,5 +225,28 @@ describe('the Anti-loop switch (PRD 2490)', () => {
     expect(anchor(bar, 'Omni loop')).toBe('/app');
     expect(bar).not.toContain('>Anti-loop</a>');
     expect(text(trailOf(bar))).toBe('Anti-loop › Anti-dashboard');
+  });
+
+  // Issue 2505: each button wears the colours of the loop it opens, with that loop's crest at 1×.
+  it('wears the anti-loop colours and the mirrored crest on its way to the anti-loop', () => {
+    const link = button(render('/app'));
+    expect(link).toContain('data-to="anti"');
+    expect(link).toContain(logoSvg('mark', { scale: 1, title: null, mirror: true }));
+    expect(link).not.toContain(logoSvg('mark', { scale: 1, title: null }));
+  });
+
+  it('wears the Omni colours and the Omni crest on its way back', () => {
+    const link = button(render('/anti', SIGNED_OUT_VIEWER, 'anti'));
+    expect(link).toContain('data-to="omni"');
+    expect(link).toContain(logoSvg('mark', { scale: 1, title: null }));
+  });
+
+  it('fills each button from the loop it opens, never from the page\'s own signal', () => {
+    const switchCss = readFileSync(new URL('../switch/switch.css', import.meta.url), 'utf8');
+    for (const to of ['anti', 'omni']) {
+      const rule = switchCss.match(new RegExp(`\\.anti-loop-button\\[data-to='${to}'\\]\\s*\\{([^}]*)\\}`))?.[1] ?? '';
+      expect(rule, to).toContain(`background: var(--ask-loop-${to});`);
+      expect(rule, to).toContain(`color: var(--ask-loop-${to}-on);`);
+    }
   });
 });
