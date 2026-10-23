@@ -544,6 +544,36 @@ describe('omni kb status — the map, derived every time', () => {
   });
 });
 
+describe('omni kb status — sections per level of the knowledge tree (PRD 2416, s2)', () => {
+  const PLAN_COPY = '.omni-loop/local/tree/plan-repo/playbook/testing.md';
+  const SETTINGS_COPY = '.omni-loop/local/tree/omni-settings/playbook/testing.md';
+  const filled = (slots: SlotFixture[]) => formText({ frontMatter: { state: 'filled' }, slots });
+  const OURS = filled([{ id: 'commands', required: true, body: '`make check` runs everything.' }]);
+  const PLAN = filled([{ id: 'layout', heading: 'Where tests live', required: true, body: 'Plan: beside the code.' }]);
+  const SETTINGS = filled([{ id: 'levels', heading: 'Choosing the level', body: 'Settings: start from the risk.' }]);
+
+  it('counts each form’s sections per level, in the text and in --json, with every level present', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: OURS, [PLAN_COPY]: PLAN, [SETTINGS_COPY]: SETTINGS } });
+    const json = JSON.parse((await omni(root, ['kb', 'status', '--json'])).out) as StatusMap;
+    const testing = json.forms.find(({ form }) => form === 'testing');
+    expect(testing?.levels).toEqual({ repo: 1, 'plan repo': 1, 'omni settings': 1, 'kit default': 2 });
+    const lines = (await omni(root, ['kb', 'status'])).out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+    expect(lines).toContain('testing core filled repo 1 repo, 1 plan repo, 1 omni settings, 2 kit default');
+  });
+
+  it('a repository with no other level prints the rows as before: no level column, and --json holds only the levels that answer', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: OURS } });
+    const { out } = await omni(root, ['kb', 'status']);
+    const lines = out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+    expect(lines).toContain('testing core filled repo');
+    expect(lines).toContain('briefing core missing kit default');
+    expect(out).not.toMatch(/plan repo|omni settings/);
+    const json = JSON.parse((await omni(root, ['kb', 'status', '--json'])).out) as StatusMap;
+    const levels = json.forms.find(({ form }) => form === 'testing')?.levels;
+    expect(Object.keys(levels ?? {})).toEqual(['repo', 'kit default']);
+  });
+});
+
 describe('omni kb status — laws and proposals per register folder (PRD #68)', () => {
   const K = '.omni-loop/knowledge';
   const PROPOSED = 'Proposed: invade 2026-09-25\n';
