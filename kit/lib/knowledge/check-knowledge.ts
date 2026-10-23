@@ -37,7 +37,12 @@
  *   `**Layers:**`, is one of the ten canonical layers (an old word names its replacement); an ADR's
  *   `**Domain:**` names a domain folder that exists;
  * - **honesty** — a path-shaped `Enforced by:` or `Source:` that does not exist is refused: a wrong
- *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves.
+ *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves;
+ * - **the tree** (PRD 2416) — product knowledge reads top-down, so an entry of a lower level (the
+ *   repository, its plan repository's copy) under the id of a higher level's entry (the plan
+ *   repository's, the Omni settings') says what that entry says: another statement or another kind
+ *   is a contradiction, naming both entries and their levels (`knowledge-tree/product.ts`). A
+ *   repository with no level above it grades as before.
  *
  * In an imported copy's context (`ctx.copyOf`, PRD 522, `copies.mjs`) every path names a file of
  * the target, so none is looked up: the honesty checks on paths and the owning libraries are skipped.
@@ -74,6 +79,7 @@ import { readDecisions } from '../playbook/decisions.ts';
 import { invalidGoverns } from './disclose.ts';
 import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
 import { ownersBlockProblems } from '../codeowners-laws.ts';
+import { findContradictions, productEntries, statementOf } from '../knowledge-tree/product.ts';
 import type { LawOwner } from '../config.ts';
 
 /**
@@ -663,6 +669,34 @@ function findOwnersBlockViolations(ctx: CheckCtx, knowledge: Knowledge): Violati
   return ownersBlockProblems(ctx, knowledge).map((text) => ({ text }));
 }
 
+/** `a rule`, `an invariant`: an entry's kind with its article, for one line of the check. */
+function aKind(kind: EntryKind | null): string {
+  if (kind === null) return 'an entry of no kind';
+  return `${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}`;
+}
+
+/**
+ * Every product entry a lower level of the knowledge tree holds that contradicts a higher level's
+ * (PRD 2416): the tree reads product knowledge top-down, so a level may add to the levels above it,
+ * never change them (`knowledge-tree/product.ts`). One line per pair, naming both entries, their
+ * levels and what differs. A repository with no level above it has nothing to contradict; an
+ * imported copy is its target's, graded on its own.
+ */
+function findLevelContradictions(ctx: CheckCtx): Violation[] {
+  if (ctx.copyOf) return [];
+  return findContradictions(productEntries({ ctx })).map(({ lower, higher, on }) => {
+    const differs =
+      on === 'kind'
+        ? `${aKind(lower.entry.kind)} against ${aKind(higher.entry.kind)}`
+        : `"${statementOf(lower.entry)}" against "${statementOf(higher.entry)}"`;
+    return {
+      text:
+        `${lower.entry.file}: ${lower.entry.id} [${lower.level}] contradicts ${higher.entry.id} [${higher.level}] in ${higher.entry.file} — ` +
+        `${differs}: a level may add to the product knowledge above it, never change it — say it as the level above does, or give the new entry an id of its own.`,
+    };
+  });
+}
+
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
@@ -727,6 +761,7 @@ export function gradeKnowledge({
     ...findDecisionTagViolations(ctx, knowledge),
     ...findThesisViolations(ctx, knowledge.entries),
     ...findOwnersBlockViolations(ctx, knowledge),
+    ...findLevelContradictions(ctx),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve)),
   ];
 

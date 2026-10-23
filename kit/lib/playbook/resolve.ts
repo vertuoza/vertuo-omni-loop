@@ -27,10 +27,24 @@
  *
  * Nothing here throws on a repository's content: a dead pointer or a form that does not parse is
  * reported in `problems`, one `file: detail` line each, and the kit default shows through.
+ *
+ * **The knowledge tree** (PRD 2416). Between the repository and the kit default sit the levels the
+ * tree reads bottom-up (`../knowledge-tree/levels.ts`): the plan repository's copy, then the Omni
+ * settings' copy. Where the repository has no answer for a slot (its section empty, holding only
+ * `TODO(human)` lines, or its form file missing or unparsable), the nearest level whose section holds
+ * text answers it, tagged `[plan repo]` or `[omni settings]`; only when none does is it the kit
+ * default. A repository hole keeps its questions, and the level's text shows in place of the kit
+ * default, tagged `[hole · <level>]`. A level's section that is empty, holds only `TODO(human)` lines
+ * or is a `See:` line (whose path names the other repository's file, not this disk's) is no answer,
+ * and neither is a level's pointer form: the next level is read. A level's text is never filled from
+ * the config: it is a repository's own text. A level whose copy is absent is skipped, so a repository
+ * with no copy resolves exactly as it did before the tree.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from '../context.ts';
+import { levelCopies } from '../knowledge-tree/levels.ts';
+import type { CopyLevel, LevelCopy } from '../knowledge-tree/levels.ts';
 import { defined } from '../narrow.ts';
 import { parseForm, readForm } from './forms.ts';
 import type { Form, FormState, Slot } from './forms.ts';
@@ -41,8 +55,11 @@ type ConfigValue = { ok: true; text: string } | { ok: false; reason: string };
 /** A `{config:<key>}` placeholder left as written, and why. */
 export type Unresolved = { key: string; reason: string };
 
-/** Where a resolved section came from. */
-export type SectionSource = 'repo' | 'pointer' | 'kit' | 'hole';
+/** Where a resolved section came from: `plan-repo` and `omni-settings` are levels of the tree. */
+export type SectionSource = 'repo' | 'pointer' | 'kit' | 'hole' | 'plan-repo' | 'omni-settings';
+
+/** The source a section answered by a level's copy carries. */
+const LEVEL_SOURCE: Readonly<Record<CopyLevel, SectionSource>> = Object.freeze({ 'plan repo': 'plan-repo', 'omni settings': 'omni-settings' });
 
 /** One resolved section: `slot` is `null` for a pointer form's one section. */
 export type Section = {
@@ -180,32 +197,70 @@ function repoLabel(slot: Slot): string {
   return `[${parts.join(' · ')}]`;
 }
 
-/** One slot, resolved from the repository's slot (or `null`) over the template's. */
-function resolveSlot(
-  kitSlot: Slot,
-  repoSlot: Slot | null,
-  { ctx, formId, file, problems }: { ctx: Ctx; formId: string; file: string; problems: string[] },
-): Section {
+/** One level's form, read from its copy. */
+type LevelForm = { level: CopyLevel; form: Form };
+
+/** The form `formId` of each copy in `levels`, bottom-up; a copy whose form is missing or a pointer
+ * is left out, and one whose form does not parse is left out and reported. */
+function levelForms(formId: string, levels: readonly LevelCopy[], problems: string[]): LevelForm[] {
+  return levels.flatMap(({ level, ctx }) => {
+    const read = readForm(formId, { ctx });
+    if (!read.exists) return [];
+    if (!read.ok) {
+      problems.push(...read.errors);
+      return [];
+    }
+    return read.form.state === 'pointer' ? [] : [{ level, form: read.form }];
+  });
+}
+
+/** The nearest level whose slot `slotId` holds text: its level and that slot's body, or `null`. */
+function levelAnswer(slotId: string, levels: readonly LevelForm[]): { level: CopyLevel; text: string; questions: string[] } | null {
+  for (const { level, form } of levels) {
+    const body = form.slots.find((slot) => slot.id === slotId)?.body;
+    if (body?.kind === 'text') return { level, text: body.text, questions: body.questions };
+  }
+  return null;
+}
+
+/** What resolving one slot reads, beside the slots themselves. */
+type SlotIo = { ctx: Ctx; formId: string; file: string; levels: readonly LevelForm[]; problems: string[] };
+
+/** The kit default for `kitSlot`, filled from the config; `holes` are the repository's own open
+ * questions for it, `null` when it asks none. */
+function kitDefault(kitSlot: Slot, holes: string[] | null, { ctx, formId, problems }: Omit<SlotIo, 'file' | 'levels'>): Section {
   const base = { slot: kitSlot.id, heading: kitSlot.heading };
-  const body = repoSlot?.body ?? null;
-
-  if (repoSlot !== null && body?.kind === 'text') {
-    return { ...base, source: 'repo', label: repoLabel(repoSlot), text: body.text, questions: body.questions };
-  }
-  if (repoSlot !== null && body?.kind === 'pointer') {
-    return resolvePointer(base, body.see, { ctx, heading: repoSlot.heading, file, problems });
-  }
-
   const kit = fillConfig(kitSlot.body.text, ctx.config);
   for (const { key, reason } of kit.unresolved) {
     problems.push(`kit default ${formId}#${kitSlot.id}: {config:${key}} ${reason}`);
   }
   const kitHoles = kitSlot.body.kind === 'holes';
-  if (body?.kind === 'holes') {
-    return { ...base, source: 'hole', label: '[hole]', text: kitHoles ? '' : kit.text, questions: body.questions };
-  }
+  if (holes) return { ...base, source: 'hole', label: '[hole]', text: kitHoles ? '' : kit.text, questions: holes };
   if (kitHoles) return { ...base, source: 'hole', label: '[hole]', text: '', questions: kitSlot.body.questions };
   return { ...base, source: 'kit', label: '[kit default]', text: kit.text, questions: [] };
+}
+
+/** A slot the repository does not answer: the nearest level's text, else the kit default. `holes`
+ * are the repository's own open questions for it, `null` when it asks none. */
+function fallThrough(kitSlot: Slot, holes: string[] | null, io: SlotIo): Section {
+  const answer = levelAnswer(kitSlot.id, io.levels);
+  if (!answer) return kitDefault(kitSlot, holes, io);
+  const base = { slot: kitSlot.id, heading: kitSlot.heading };
+  if (holes) return { ...base, source: 'hole', label: `[hole · ${answer.level}]`, text: answer.text, questions: holes };
+  return { ...base, source: LEVEL_SOURCE[answer.level], label: `[${answer.level}]`, text: answer.text, questions: answer.questions };
+}
+
+/** One slot, resolved from the repository's slot (or `null`), then the levels', over the template's. */
+function resolveSlot(kitSlot: Slot, repoSlot: Slot | null, io: SlotIo): Section {
+  const base = { slot: kitSlot.id, heading: kitSlot.heading };
+  const body = repoSlot?.body ?? null;
+  if (repoSlot !== null && body?.kind === 'text') {
+    return { ...base, source: 'repo', label: repoLabel(repoSlot), text: body.text, questions: body.questions };
+  }
+  if (repoSlot !== null && body?.kind === 'pointer') {
+    return resolvePointer(base, body.see, { ctx: io.ctx, heading: repoSlot.heading, file: io.file, problems: io.problems });
+  }
+  return fallThrough(kitSlot, body?.kind === 'holes' ? body.questions : null, io);
 }
 
 /**
@@ -214,8 +269,9 @@ function resolveSlot(
  *
  * `{ form, file, state, title, sections: [{ slot, heading, source, label, text, questions }],
  * problems }`: `state` is the form's own (`blank`, `filled`, `pointer`), or `missing` when its file
- * is not there, or `invalid` when it does not parse; `source` is `repo`, `pointer`, `kit` or
- * `hole`. A pointer form resolves to one section, its whole target, with `slot: null`.
+ * is not there, or `invalid` when it does not parse; `source` is `repo`, `pointer`, `kit`, `hole`,
+ * or the level of the tree that answered it, `plan-repo` or `omni-settings`. A pointer form
+ * resolves to one section, its whole target, with `slot: null`.
  */
 export function resolveForm(formId: string, { ctx, template }: { ctx: Ctx; template: string }): ResolvedForm {
   const kit = parseForm(template, { file: `kit template ${formId}` });
@@ -242,9 +298,10 @@ export function resolveForm(formId: string, { ctx, template }: { ctx: Ctx; templ
     return { form: formId, file, state, title, sections: [section], problems };
   }
 
+  const levels = levelForms(formId, levelCopies({ ctx }), problems);
   const sections = kit.form.slots.map((kitSlot) => {
     const repoSlot = repo?.slots.find((slot) => slot.id === kitSlot.id) ?? null;
-    return resolveSlot(kitSlot, repoSlot, { ctx, formId, file, problems });
+    return resolveSlot(kitSlot, repoSlot, { ctx, formId, file, levels, problems });
   });
   return { form: formId, file, state, title, sections, problems };
 }
