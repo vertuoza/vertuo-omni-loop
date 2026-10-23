@@ -736,6 +736,19 @@ describe('lawsAwaitingOwners — a file no person owns falls back to the law own
     ]);
   });
 
+  it('takes a law owner written with or without @, and never a team as a person', () => {
+    expect(lawsAwaitingOwners(moved, { ownersOf, approvers: ['ann'], lawOwners: ['@ann'] })).toEqual({ awaiting: [], approvedBy: ['ann'] });
+    expect(lawsAwaitingOwners([fired('BR-1', 'domains/ask/rules.md')], { ownersOf, approvers: ['core'], lawOwners: ['acme/core'] }).awaiting).toEqual([
+      { law: 'BR-1', reason: 'no-codeowner', paths: ['domains/ask/rules.md'], owners: [] },
+    ]);
+  });
+
+  it('given no law owners at all, a file nobody owns fails closed, as before', () => {
+    expect(lawsAwaitingOwners([fired('BR-1', 'domains/ask/rules.md')], { ownersOf, approvers: ['ann'] }).awaiting).toEqual([
+      { law: 'BR-1', reason: 'no-codeowner', paths: ['domains/ask/rules.md'], owners: [] },
+    ]);
+  });
+
   it('with no law owners either, it still fails closed', () => {
     expect(lawsAwaitingOwners(moved, { ownersOf, approvers: ['ann'], lawOwners: [] }).awaiting).toEqual([
       { law: 'BR-1', reason: 'no-codeowner', paths: ['domains/ask/rules.md'], owners: ['@ann'] },

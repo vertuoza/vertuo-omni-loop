@@ -87,7 +87,7 @@ export async function lawGateAt(
   await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
   const codeowners = readCodeowners((file) => (existsSync(join(base, file)) ? readFileSync(join(base, file), 'utf8') : null));
   const approvers = await approversAt(octokit, { owner, repo, prNumber, headSha });
-  const lawOwners = (config.laws.owners ?? []).map((entry) => lawOwnerParts(entry).owner);
+  const lawOwners = config.laws.owners.map((entry) => lawOwnerParts(entry).owner);
   const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
   return { fired, ...held, codeowners: codeowners.file };
 }
