@@ -16,7 +16,7 @@ function fakeDb(tables: Record<string, Answer>) {
         is: (column: string, value: null) => { calls.push(`${table} is ${column} ${String(value)}`); return builder; },
         in: (column: string, values: string[]) => { calls.push(`${table} in ${column} ${values.join(',')}`); return builder; },
         order: () => builder,
-        // eslint-disable-next-line unicorn/no-thenable -- a supabase query builder is awaited
+        // A supabase query builder is awaited.
         then: (resolve: (answer: Answer) => unknown) => resolve(tables[table] ?? { data: [], error: null }),
       };
       return builder;
