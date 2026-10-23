@@ -180,10 +180,10 @@ describe('the stages sync reader and the waits (PRD 2377, s1)', () => {
       reviews: { 9: [{ user: { login: 'rita' }, state: 'APPROVED', submitted_at: '2026-09-27T00:00:00Z' }] },
       checks: {
         sha9: [
-          { name: 'outbox', status: 'completed', conclusion: 'failure', output: { title: 'Locked law changed without its CODEOWNER\'s approval — BR-PRODUCT-5, N-PRODUCT-15; 1 open item' } },
-          { name: 'test', status: 'completed', conclusion: 'success', output: { title: null } },
+          { id: 91, name: 'outbox', status: 'completed', conclusion: 'failure', output: { title: 'Locked law changed without its CODEOWNER\'s approval — BR-PRODUCT-5, N-PRODUCT-15; 1 open item' } },
+          { id: 92, name: 'test', status: 'completed', conclusion: 'success', output: { title: null } },
         ],
-        sha5: [{ name: 'test', status: 'in_progress', conclusion: null }],
+        sha5: [{ id: 51, name: 'test', status: 'in_progress', conclusion: null }],
       },
     });
     const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
@@ -224,6 +224,60 @@ describe('the stages sync reader and the waits (PRD 2377, s1)', () => {
     const gh = fakeGithub({ inbox: ['0042-dark-mode'], pulls: [waiting(9, 'feat/dark-mode')], fail: /\/reviews/ });
     const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
     expect(snap.pulls[0]).toMatchObject({ reviews: null, lawLocked: null, checksRed: null });
+  });
+
+  // GitHub keeps the latest run of a check per check suite only, and each workflow run is a suite of its own:
+  // a run a later one superseded on the same head stays listed beside it (#2475).
+  it('reads a check re-run green as green, not red from the cancelled run it superseded on the same head (#2475)', async () => {
+    const gh = fakeGithub({
+      inbox: ['0042-dark-mode'],
+      pulls: [waiting(9, 'feat/dark-mode')],
+      checks: {
+        sha9: [
+          { id: 101, name: 'quick', status: 'completed', conclusion: 'cancelled' },
+          { id: 102, name: 'test', status: 'completed', conclusion: 'success' },
+          { id: 103, name: 'quick', status: 'completed', conclusion: 'success' },
+        ],
+      },
+    });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(snap.pulls[0]).toMatchObject({ checksRed: false });
+  });
+
+  it('holds no law the outbox check held on a run a later green run superseded on the same head (#2475)', async () => {
+    const gh = fakeGithub({
+      inbox: ['0042-dark-mode'],
+      pulls: [waiting(9, 'feat/dark-mode')],
+      checks: {
+        sha9: [
+          { id: 202, name: 'outbox', status: 'completed', conclusion: 'success', output: { title: 'No open item' } },
+          { id: 201, name: 'outbox', status: 'completed', conclusion: 'failure', output: { title: 'Locked law changed without its CODEOWNER\'s approval — BR-PRODUCT-5; 1 open item' } },
+        ],
+      },
+    });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(snap.pulls[0]).toMatchObject({ lawLocked: [], checksRed: false });
+  });
+
+  it('still reads red a check whose only run was cancelled, and one whose newest run failed after a green one', async () => {
+    const gh = fakeGithub({
+      inbox: ['0042-dark-mode'],
+      pulls: [waiting(9, 'feat/dark-mode'), waiting(8, 'feat/dark-mode')],
+      checks: {
+        sha9: [
+          { id: 101, name: 'quick', status: 'completed', conclusion: 'cancelled' },
+          { id: 102, name: 'test', status: 'completed', conclusion: 'success' },
+        ],
+        sha8: [
+          { id: 302, name: 'outbox', status: 'completed', conclusion: 'failure', output: { title: 'Locked law changed without its CODEOWNER\'s approval — BR-PRODUCT-5; 1 open item' } },
+          { id: 301, name: 'outbox', status: 'completed', conclusion: 'success', output: { title: 'No open item' } },
+        ],
+      },
+    });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    const byNumber = new Map(snap.pulls.map((p) => [Number(p.number), p]));
+    expect(byNumber.get(9)).toMatchObject({ lawLocked: [], checksRed: true });
+    expect(byNumber.get(8)).toMatchObject({ lawLocked: ['BR-PRODUCT-5'], checksRed: true });
   });
 });
 
