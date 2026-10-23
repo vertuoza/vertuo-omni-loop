@@ -196,7 +196,7 @@ Every slice agent works in its own worktree under the `worktrees` folder, and so
 phase-0 worktrees `/omni:brainstorm` cuts. The kit removes the ones it created, once their work is
 safe on the remote:
 
-```bash
+```bash terminal
 omni worktrees list [--json]
 omni worktrees prune [--prd <n>] [--dry-run]
 omni worktrees remove <path>
