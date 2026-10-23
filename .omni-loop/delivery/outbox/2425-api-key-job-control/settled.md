@@ -1801,3 +1801,81 @@ Undoing it means removing three routes and the rules behind them in the runners'
 ```
 
 <!-- /omni-outbox-settled: s6-01-key-answers-under-the-ask-rule -->
+
+<!-- omni-outbox-settled: s7-04-carried-on-job-runs-as-the-key-app -->
+
+## s7-04-carried-on-job-runs-as-the-key-app — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-04-carried-on-job-runs-as-the-key-app
+prd: 2425
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 5
+---
+
+## The question, in plain words
+
+Since a key's job can now run on GitHub as the calling app's own GitHub App, should the job that carries a key's job on (the resume after an answer, the automatic continuation, a relaunch) run as that same app, and should the app be told when its job fails because its GitHub App cannot be used?
+
+## The decision, in plain words
+
+Yes to both. A job that carries a key's job on runs as the key's GitHub App, as the job it continues did, and the app's link is told when such a job ends failed for that reason, as for any other end.
+
+## The intro, for fun
+
+Two features met at the finish: one gave the key a GitHub App, the other kept the key's thread together.
+
+## The punchline, for fun
+
+The whole thread wears the same badge, and the app hears when the badge is refused.
+
+## The options, in plain words
+
+A. A. The thread runs as the key's GitHub App, and the app is told when that App cannot be used.
+B. B. Only the job the key sent runs as its App; the jobs that carry it on run as the workspace's runner.
+
+## What I had to decide
+
+Merging main into the feature branch brought PRD 2433: a key that holds a GitHub App has its jobs marked, at insert, to run as that App (`runner_job_needs_app`, filled by a trigger on `runner_jobs` when the row has `sent_by_key` and the key holds an App). Every job this PRD carries on already sets `sent_by_key` (the resume of `runner_job_answer`, whoever answered; the relaunch; the automatic continuation), so each is marked and runs as the key's App with no code or SQL change. The merge adds one thing: when such a job ends failed because its App cannot mint a token, the job's `notify_url` is pinged as for any other change. The in-memory store now marks a job the way the trigger does, with tests on an answer, a page answer and a relaunch. The merge also re-dated this PRD's migration to `20261229090000_api_key_job_control.sql`, since both PRDs had taken the same version; its content is unchanged.
+
+## What I did meanwhile
+
+Resolved the merge as the union of both PRDs (public API, runners, runner, guide), kept both migrations, and ran the full test, lint and typecheck green before shipping.
+
+## What it costs to change later
+
+Changing it later is the trigger's condition in one migration and one line in the service's failure path; jobs already ended keep what they reported.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A relaunch by a key does not redo the start routes' check that the App is installed: a relaunched job whose App cannot be used ends failed at claim, with the reason.
+- (author) A resume queued after the key's App was removed runs as no App, like any job of a key without one.
+
+```
+
+<!-- /omni-outbox-settled: s7-04-carried-on-job-runs-as-the-key-app -->
