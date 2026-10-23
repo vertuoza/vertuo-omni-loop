@@ -126,6 +126,28 @@ export const ASK: Readonly<Record<AskTheme, Readonly<Record<AskToken, string>>>>
   }),
 });
 
+/** The tokens the anti-loop mode remaps; every other token stays Ask's. */
+export type AskAntiToken = 'line' | 'lineStrong' | 'plasma' | 'plasmaSoft' | 'onPlasma' | 'yellow' | 'onYellow';
+
+/**
+ * Rewind Light (concept #1964, round 4): the anti-loop mode's overrides of `ASK`, per theme. Magenta
+ * takes the signal, the Recommended badge takes yellow, errors stay red. Apply them over `ASK[theme]`.
+ */
+export const ASK_ANTI: Readonly<Record<AskTheme, Readonly<Record<AskAntiToken, string>>>> = Object.freeze({
+  omni: Object.freeze({
+    line: '#3a1458', lineStrong: '#b0489a', plasma: '#ff3ea5', plasmaSoft: '#3a1238',
+    onPlasma: '#07061c', yellow: '#ffd84a', onYellow: '#07061c',
+  }),
+  light: Object.freeze({
+    line: '#ecd3e4', lineStrong: '#a0558f', plasma: '#b0127a', plasmaSoft: '#fbe3f2',
+    onPlasma: '#ffffff', yellow: '#ffd84a', onYellow: '#3a2c00',
+  }),
+  dark: Object.freeze({
+    line: '#4a1c66', lineStrong: '#c05aa8', plasma: '#ff5fb4', plasmaSoft: '#3a1650',
+    onPlasma: '#0e0d33', yellow: '#ffd84a', onYellow: '#3a2c00',
+  }),
+});
+
 /** Every text colour on every background Ask puts it on. Each must reach 4.5:1. */
 export const ASK_TEXT_PAIRS: readonly AskPair[] = Object.freeze<AskPair[]>([
   { text: 'ink', on: 'ground', where: 'page text' },

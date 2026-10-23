@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeSwitch } from '../ask/theme-switch';
 import { pixelSvg } from '../design/pixel-svg';
+import type { ShellMode } from '../anti/anti';
+import { AntiLoopButton } from '../switch/AntiLoopButton';
 import { GameModeButton } from '../switch/GameModeButton';
 import { Bell } from './Bell.tsx';
 import { useDrawer } from './drawer-context';
@@ -28,7 +30,7 @@ const MARK = logoSvg('mark', { scale: 1, title: null });
 /** The tile's picture: the section's sprite at 2×, or the mark. Decoration: the trail says the same. */
 const tileSvg = (sprite: string | null) => (sprite ? pixelSvg(spritePixels(sprite), { scale: 2, title: '' }) : MARK);
 
-export function AppBar({ viewer }: { viewer: ViewerView }) {
+export function AppBar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: ShellMode }) {
   const trail = pageTrail(usePathname());
   const drawer = useDrawer();
   return (
@@ -67,6 +69,7 @@ export function AppBar({ viewer }: { viewer: ViewerView }) {
         <span className="app-bar-view">
           <ThemeSwitch />
           <GameModeButton />
+          <AntiLoopButton mode={mode} />
           {viewer.signedIn && <Bell />}
         </span>
         <span className="app-bar-you">

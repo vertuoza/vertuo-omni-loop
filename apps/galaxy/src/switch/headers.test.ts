@@ -110,7 +110,7 @@ describe('every app page', () => {
     // Signed in, the bell (PRD 499) sits after Game mode, before you.
     const count: unknown = expect.stringMatching(/^\d*$/);
     const bell = /class="bell-button"/.test(shown) ? [count] : [];
-    expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, ...bell]);
+    expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, 'Anti-loop', ...bell]);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);
