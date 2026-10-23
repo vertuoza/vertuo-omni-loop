@@ -18,6 +18,7 @@ import { createContext } from 'omni-loop/kit/lib/context.ts';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { diskSource } from 'omni-loop/kit/lib/knowledge/registers.ts';
 import { lawsAwaitingOwners, lockedLawChanges, type LawAwaiting, type LockedLawChange } from 'omni-loop/kit/lib/outbox/decision-coverage.ts';
+import { lawOwnerParts } from 'omni-loop/kit/lib/config.ts';
 import type { Config } from 'omni-loop/kit/lib/types.ts';
 import type { Verdict } from '../evaluate/evaluate.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';
@@ -64,7 +65,8 @@ async function approversAt(
 /**
  * `law-locked` on a pull request: `base` and `head` are the folders `evaluateAt` snapshotted (the base
  * branch's config and knowledge, the head's knowledge). Null when no locked law changed: then neither
- * CODEOWNERS nor the reviews are read. Otherwise CODEOWNERS is snapshotted from `baseSha` into `base`.
+ * CODEOWNERS nor the reviews are read. Otherwise CODEOWNERS is snapshotted from `baseSha` into `base`;
+ * a file it gives no person falls back to the base config's `laws.owners` (issue 2387).
  */
 export async function lawGateAt(
   octokit: GitHubClient,
@@ -85,7 +87,8 @@ export async function lawGateAt(
   await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
   const codeowners = readCodeowners((file) => (existsSync(join(base, file)) ? readFileSync(join(base, file), 'utf8') : null));
   const approvers = await approversAt(octokit, { owner, repo, prNumber, headSha });
-  const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers });
+  const lawOwners = (config.laws.owners ?? []).map((entry) => lawOwnerParts(entry).owner);
+  const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
   return { fired, ...held, codeowners: codeowners.file };
 }
 

@@ -1373,6 +1373,9 @@ var ownerWithDelegate = z8.preprocess(
   })
 );
 var lawOwnerEntry = z8.union([lawOwner, ownerWithDelegate]);
+function lawOwnerParts(entry) {
+  return typeof entry === "string" ? { owner: entry, delegate: null } : { owner: entry.login, delegate: entry.delegate };
+}
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = z8.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
 var contractKinds = z8.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
@@ -4106,9 +4109,11 @@ function lawPaths(before2, after, { compared }) {
   const changed = compared && (before2 === void 0 || after === void 0 || entryText(before2) !== entryText(after));
   return [...laws.filter(() => changed).map((entry) => entry.file), ...laws.flatMap(proofPathsOf)];
 }
-function lawsAwaitingOwners(fired, { ownersOf: ownersOf2, approvers }) {
+function lawsAwaitingOwners(fired, { ownersOf: ownersOf2, approvers, lawOwners = [] }) {
+  const fallback = lawOwners.map((login) => `@${login.replace(/^@/, "")}`).filter(isPersonOwner);
   const files = fired.map(({ law, path }) => {
-    const persons = ownersOf2(path).filter(isPersonOwner);
+    const listed = ownersOf2(path).filter(isPersonOwner);
+    const persons = listed.length > 0 ? listed : fallback;
     return { law, path, persons, approved: approvers.filter((login) => isOwnedBy(persons, login)) };
   });
   const awaiting = [];
@@ -7522,7 +7527,8 @@ async function lawGateAt(octokit, {
   await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
   const codeowners = readCodeowners((file) => existsSync22(join30(base, file)) ? readFileSync21(join30(base, file), "utf8") : null);
   const approvers = await approversAt(octokit, { owner, repo, prNumber, headSha });
-  const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers });
+  const lawOwners = (config.laws.owners ?? []).map((entry) => lawOwnerParts(entry).owner);
+  const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
   return { fired, ...held, codeowners: codeowners.file };
 }
 function heldLine(held, codeowners) {
