@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-21
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off maintenance choice to keep tests green after adding a guide page; nothing lasting about product behaviour or architecture to record.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Moving the page, or renaming it, is one line in the guide's meta file and the sa
 - Raised: 2026-10-21
 - Slice: s5
 - Wave: 2
+- Stays here: A one-off choice about fixing outside-territory test fixtures within this slice; the role rule itself is recorded elsewhere, nothing lasting here.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Reverting means putting the old role words back in both files, which also revert
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-126, P-PRODUCT-104
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ One condition in the lookup and the expectations of the unmapped tests.
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-127, P-PRODUCT-105
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ One condition each in the lookup, and the tests that pin them.
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 3
+- Became: ADR-0125
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ A line in the command: read the page through the same call omni kb legal makes, 
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 4
+- Stays here: A local choice about where an edit landed across slice boundaries; it records nothing lasting about how the product behaves or is built.
 
 ### The answer, as it was given
 
@@ -486,6 +492,7 @@ Moving the call into a helper elsewhere is a small edit, since the matching itse
 - Raised: 2026-10-22
 - Slice: s7
 - Wave: 5
+- Stays here: A test-scope choice inside one test file; the chart's behaviour is unchanged and nothing a person relies on depends on it.
 
 ### The answer, as it was given
 

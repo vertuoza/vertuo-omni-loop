@@ -854,3 +854,21 @@ Why: People read the timeline to know when a PRD is really finished. Leaving out
 Source: .omni-loop/delivery/shipped/2370-prd-timeline/outbox/settled.md, entry s4-02-plan-repository-own-lane, PRD #2370
 Merged: @pierrederval, 2026-10-22, PR #2371
 Proposed: harvest 2026-10-22
+
+## P-PRODUCT-104
+
+Adding a way to group the knowledge never hides a law from an agent; a repository that has not adopted the grouping sees every law it saw before.
+
+Why: Agents must keep seeing every law that binds them, whether or not a repository has drawn its map.
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-01-unmapped-governs-applies, PRD #2346
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22
+
+## P-PRODUCT-105
+
+The knowledge shown for a change never leaves a rule unseen merely because the map cannot place it.
+
+Why: A rule tagged only with layers no file maps to would otherwise never be shown, so agents would never be bound by it.
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-02-what-stays-global, PRD #2346
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22

@@ -658,3 +658,27 @@ Stated: 2026-10-22
 Decided: nobody — adopted when raised (medium), 2026-10-22
 Merged: @pierrederval, 2026-10-22, PR #2371
 Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-126
+
+In a repository with no knowledge map, the lookup lists exactly the entries it listed before maps existed: a rule whose Governs line names a changed file is listed as applying here, and every other locked law as global, none hidden.
+
+Serves: P-PRODUCT-104
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-01-unmapped-governs-applies, PRD #2346
+Enforced by: kit/lib/knowledge/disclose-lookup.test.ts, kit/bin/kb-graph-lookup.test.ts
+Stated: 2026-10-22
+Decided: nobody — adopted when raised (medium), 2026-10-22
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-127
+
+An entry nothing on the knowledge map can narrow (no Governs line, no mapped domain, no mapped layer) is shown for every change. A decision record shows only when its Domain or Layers meet a changed file; an untagged one is neither listed nor counted as hidden.
+
+Serves: P-PRODUCT-105
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-02-what-stays-global, PRD #2346
+Enforced by: kit/lib/knowledge/disclose-lookup.test.ts
+Stated: 2026-10-22
+Decided: nobody — adopted when raised (medium), 2026-10-22
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22
