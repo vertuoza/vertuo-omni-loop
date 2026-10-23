@@ -10,7 +10,9 @@
 -- `sent_by_key`, sets `continues` and keeps `notify_url`, also when a person answered; the second close
 -- of a round is refused (BR-PRODUCT-12); a key outside the workspace, off the repository, revoked, whose
 -- maker left, of the kit, or on a job no key sent, is refused (BR-PRODUCT-63, BR-PRODUCT-64). A member of
--- the workspace reads the columns, nobody else does, and nobody signed in writes them. Any `FAIL:` stops
+-- the workspace reads the columns, nobody else does, and nobody signed in writes them. While the key holds
+-- a GitHub App (PRD 2433), the resume, whoever answered, and a job inserted as the automatic continuation
+-- or a relaunch inserts it are marked to run as that App; while it holds none, none is. Any `FAIL:` stops
 -- the run.
 
 begin;
@@ -389,6 +391,116 @@ begin
     raise exception 'FAIL: deleting a key broke the rounds it closed or the jobs it sent';
   end if;
 end $$;
+
+-- ── A job that carries a key's job on runs as the key's GitHub App ──
+-- A job a key queues while it holds a GitHub App is marked to run as that App (PRD 2433: the AFTER INSERT
+-- trigger runner_jobs_needs_app_mark on runner_jobs), and only a runner that runs it as the App claims it.
+-- A job that carries a key's job on is the key's, so it is marked like any other: the resume, whether the
+-- key or a person answered, and the automatic continuation and the relaunch, which insertContinuing
+-- (apps/galaxy/src/runners/runners.repository.ts) inserts with the key's `sent_by_key` and `continues` set.
+-- The mark follows what the key holds when the job is inserted. Four more jobs of pipeline, sent while it
+-- holds no App, ended `human` on K4's question: K9 and K10 are carried on before Olga attaches an App to
+-- pipeline, K11 and K12 after.
+
+-- Carries two of pipeline's jobs on, as whoever runs it: `by_key` is answered by pipeline and `by_person` by
+-- Olga on the page; the first resume is then continued as the automatic continuation inserts it, the second
+-- relaunched as a relaunch is. Answers the four jobs queued, each with what it is and its key.
+create function pg_temp.carry_on(by_key uuid, by_person uuid) returns table (what text, job uuid, job_key uuid)
+language plpgsql as $$
+declare
+  pipeline   constant uuid  := '00000000-0000-4000-8000-0000024253a1';
+  olga       constant uuid  := '00000000-0000-4000-8000-0000024250a1';
+  good       constant jsonb := '{"Which fix?":"Guard"}';
+  answered   public.runner_jobs;
+  resumed    public.runner_jobs;
+  continued  public.runner_jobs;
+  relaunched public.runner_jobs;
+begin
+  answered := public.runner_job_answer(carry_on.by_key, good, p_key => pipeline);
+  resumed := public.runner_job_answer(carry_on.by_person, good, p_by => olga);
+  insert into public.runner_jobs (workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, continues, notify_url)
+  values (answered.workspace_id, '/omni:yolo-fix 2425', answered.repo, answered.to_runner, answered.to_fleet, answered.sent_by,
+          answered.sent_by_key, answered.id, answered.notify_url)
+  returning * into continued;
+  insert into public.runner_jobs (workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, continues, acting_for, notify_url)
+  values (resumed.workspace_id, resumed.line, resumed.repo, resumed.to_runner, resumed.to_fleet, resumed.sent_by,
+          resumed.sent_by_key, resumed.id, 'Ops bot', resumed.notify_url)
+  returning * into relaunched;
+  return query values
+    ('the resume a key''s answer queued', answered.id, answered.sent_by_key),
+    ('the resume a person''s answer to a key''s job queued', resumed.id, resumed.sent_by_key),
+    ('the automatic continuation of a key''s job', continued.id, continued.sent_by_key),
+    ('the relaunch of a key''s job', relaunched.id, relaunched.sent_by_key);
+end;
+$$;
+
+set local role service_role;
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by, sent_by_key, notify_url, status, runner_id, claimed_at, running_at, ended_at, outcome)
+select j.id::uuid, '00000000-0000-4000-8000-000002425001', '/omni:bug-fix #' || j.issue, 'keyjobs-check/app', '00000000-0000-4000-8000-0000024250a1',
+       '00000000-0000-4000-8000-0000024253a1', 'https://app.example.test/hook', 'done', '00000000-0000-4000-8000-0000024251a1', now(), now(), now(), 'human'
+  from (values ('00000000-0000-4000-8000-0000024252a9', 421), ('00000000-0000-4000-8000-0000024252aa', 422),
+               ('00000000-0000-4000-8000-0000024252ab', 423), ('00000000-0000-4000-8000-0000024252ac', 424)) as j (id, issue);
+insert into public.runner_job_questions (job_id, workspace_id, issue, lead, questions)
+select j.id::uuid, k4.workspace_id, j.issue, k4.lead, k4.questions
+  from (values ('00000000-0000-4000-8000-0000024252a9', 421), ('00000000-0000-4000-8000-0000024252aa', 422),
+               ('00000000-0000-4000-8000-0000024252ab', 423), ('00000000-0000-4000-8000-0000024252ac', 424)) as j (id, issue)
+  join public.runner_job_questions k4 on k4.job_id = '00000000-0000-4000-8000-0000024252a4';
+
+-- pipeline holds no App: every job that carries K9 and K10 on is the key's, and none is marked.
+do $$
+declare
+  c    record;
+  seen integer := 0;
+begin
+  for c in select * from pg_temp.carry_on('00000000-0000-4000-8000-0000024252a9', '00000000-0000-4000-8000-0000024252aa') loop
+    seen := seen + 1;
+    if c.job_key is distinct from '00000000-0000-4000-8000-0000024253a1' then
+      raise exception 'FAIL: % is not the key''s', c.what;
+    end if;
+    if exists (select 1 from public.runner_job_needs_app n where n.job_id = c.job) then
+      raise exception 'FAIL: % was marked to run as a GitHub App while its key held none', c.what;
+    end if;
+  end loop;
+  if seen <> 4 then
+    raise exception 'FAIL: carrying K9 and K10 on queued % jobs, not 4', seen;
+  end if;
+end $$;
+reset role;
+
+-- Olga attaches a GitHub App to pipeline (api_key_github_apps.sql proves the attach itself).
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000024250a1');
+do $$
+begin
+  perform public.api_key_github_app_attach('00000000-0000-4000-8000-0000024253a1', 2425, 'keyjobs-bot', 24250,
+                                           'sealed-for-keyjobs-bot', 'iv-for-keyjobs-bot');
+end $$;
+reset role;
+
+-- pipeline holds an App: every job that carries K11 and K12 on is marked; the four jobs sent before it held
+-- one are not.
+set local role service_role;
+do $$
+declare
+  c    record;
+  seen integer := 0;
+begin
+  for c in select * from pg_temp.carry_on('00000000-0000-4000-8000-0000024252ab', '00000000-0000-4000-8000-0000024252ac') loop
+    seen := seen + 1;
+    if not exists (select 1 from public.runner_job_needs_app n where n.job_id = c.job) then
+      raise exception 'FAIL: % is not marked to run as the key''s GitHub App', c.what;
+    end if;
+  end loop;
+  if seen <> 4 then
+    raise exception 'FAIL: carrying K11 and K12 on queued % jobs, not 4', seen;
+  end if;
+  if exists (select 1 from public.runner_job_needs_app n
+              where n.job_id in ('00000000-0000-4000-8000-0000024252a9', '00000000-0000-4000-8000-0000024252aa',
+                                 '00000000-0000-4000-8000-0000024252ab', '00000000-0000-4000-8000-0000024252ac')) then
+    raise exception 'FAIL: a job sent before its key held a GitHub App was marked';
+  end if;
+end $$;
+reset role;
 
 -- ── Signed out: nothing ──
 set local role anon;

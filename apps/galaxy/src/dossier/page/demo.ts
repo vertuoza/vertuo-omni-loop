@@ -19,6 +19,7 @@ import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
 import { peopleOf } from '../../people/load';
 import type { StageRow } from '../../stages/stage';
+import type { MainWatchRead } from '../../main-watch/store';
 import type { MilestoneRow } from '../../timeline/store';
 import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
@@ -287,6 +288,15 @@ function demoMilestones(opened: number): MilestoneRow[] {
   ];
 }
 
+/** The demo PRD's watch on main (PRD 2410, s3): one lane that broke, a red job on its merge commit. */
+function demoMainWatch(opened: number): MainWatchRead {
+  const merged = opened + 2 * 24 * 60 * MIN;
+  return {
+    watches: [{ lane: DEMO_REPO, merge_sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678', merged_at: iso(merged), watch_until: iso(merged + 7 * 24 * 60 * MIN), status: 'broke', unread: [] }],
+    breaks: [{ lane: DEMO_REPO, kind: 'ci-red', source: '4401-build', url: `https://github.com/${DEMO_REPO}/actions/runs/4401`, title: 'build (ubuntu-latest)', parent: 'green', at: iso(merged + 12 * MIN) }],
+  };
+}
+
 /** The demo PRD's stored stages: opened, its phase-0 merged, its first slice merged; synced 5 minutes ago. */
 function demoStages(opened: number): StageRow[] {
   const synced = iso(opened + 3 * 24 * 60 * MIN - 5 * MIN);
@@ -333,6 +343,7 @@ export function demoDossier(now: number): DossierRead {
     slices: 5,
     stages: demoStages(opened),
     milestones: demoMilestones(opened),
+    mainWatch: demoMainWatch(opened),
     demo: true,
     people: DEMO_PEOPLE,
   };
