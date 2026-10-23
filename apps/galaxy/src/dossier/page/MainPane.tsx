@@ -1,4 +1,5 @@
 import type { MainWatchView } from '../../main-watch/status';
+import { FindingDecision } from '../../rewind/FindingDecision';
 import { CHECK_LABELS, ORIGIN_LABELS, type FindingState, type FindingView } from '../../rewind/rewind.contract';
 
 const STATE_WORDS: Readonly<Record<FindingState, string>> = { proposed: 'Proposed', approved: 'Approved', rejected: 'Rejected' };
@@ -46,7 +47,7 @@ export function MainPane({ main, findings = [] }: { main: MainWatchView | null; 
             </p>
           ) : (
             <ol className="main-findings" aria-label="What the rewind found">
-              {findings.map((f) => <Finding key={f.id} finding={f} />)}
+              {findings.map((f) => <Finding key={f.id} finding={f} primary={f.id === findings.find((one) => one.state === 'proposed')?.id} />)}
             </ol>
           )}
         </section>
@@ -55,8 +56,17 @@ export function MainPane({ main, findings = [] }: { main: MainWatchView | null; 
   );
 }
 
-/** One finding of the rewind: its check, where the break started, what happened, the links it stands on and its fix (PRD 2410, s5). */
-function Finding({ finding: f }: { finding: FindingView }) {
+/** A finding's state in words: Proposed, or who decided it and on which day, with a rejection's reason (PRD 2410, s7). */
+function stateLine(f: FindingView): string {
+  const by = f.decidedBy ? ` by @${f.decidedBy}` : '';
+  const on = f.decidedAt ? ` · ${f.decidedAt.slice(0, 10)}` : '';
+  const why = f.state === 'rejected' && f.reason ? `: ${f.reason}` : '';
+  return `${STATE_WORDS[f.state]}${by}${on}${why}`;
+}
+
+/** One finding of the rewind: its check, where the break started, what happened, the links it stands on and its
+ * fix (PRD 2410, s5); a proposed one carries Approve and Reject for the member reading it (s7). */
+function Finding({ finding: f, primary }: { finding: FindingView; primary: boolean }) {
   const check = isCheck(f.check) ? CHECK_LABELS[f.check] : f.check;
   const origin = isOrigin(f.origin) ? ORIGIN_LABELS[f.origin] : f.origin;
   return (
@@ -64,7 +74,7 @@ function Finding({ finding: f }: { finding: FindingView }) {
       <p className="main-finding-head">
         <span className="main-kind">{check}</span>
         <span className="ask-hint">Started in: {origin}</span>
-        <span className="ask-hint">{STATE_WORDS[f.state]}{f.state === 'rejected' && f.reason ? `: ${f.reason}` : ''}</span>
+        <span className="ask-hint">{stateLine(f)}</span>
       </p>
       <p className="main-finding-happened">{f.happened}</p>
       <ul className="main-finding-evidence" aria-label="Evidence">
@@ -73,6 +83,7 @@ function Finding({ finding: f }: { finding: FindingView }) {
         ))}
       </ul>
       <p className="main-finding-fix"><strong>Fix:</strong> {f.fix}</p>
+      {f.state === 'proposed' && <FindingDecision finding={f.id} primary={primary} />}
     </li>
   );
 }
