@@ -3448,6 +3448,9 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null
@@ -3464,6 +3467,9 @@ export type Database = {
           happened: string
           id?: string
           origin: string
+          outcome?: string | null
+          outcome_note?: string | null
+          outcome_pr?: number | null
           prd: number
           proposed_at?: string
           reason?: string | null
@@ -3480,6 +3486,9 @@ export type Database = {
           happened?: string
           id?: string
           origin?: string
+          outcome?: string | null
+          outcome_note?: string | null
+          outcome_pr?: number | null
           prd?: number
           proposed_at?: string
           reason?: string | null
@@ -6713,6 +6722,9 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null
@@ -6738,6 +6750,43 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rewind_finding_outcome: {
+        Args: {
+          p_finding: string
+          p_note?: string
+          p_outcome: string
+          p_pr?: number
+          p_workspace: string
+        }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null
@@ -6763,6 +6812,9 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null

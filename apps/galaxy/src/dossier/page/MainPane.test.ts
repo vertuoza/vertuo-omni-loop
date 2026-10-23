@@ -7,7 +7,7 @@ import type { DossierRow } from '../store';
 import { DEMO_VIEWER, demoDossier } from './demo';
 import { DossierPage } from './DossierPage';
 import { dossierView, readPick } from './view';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -122,7 +122,7 @@ describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
   const broken = { watches: [watch({ status: 'broke' })], breaks: [red] };
   const found = (more: Partial<FindingView> = {}): FindingView => ({
     id: 'f1', check: 'ci', origin: 'omni-setup', happened: 'The lint was <b>red</b> on the slice.', evidence: ['https://github.com/vertuoza/vertuo-omni-loop/actions/runs/2'],
-    fix: 'Require the lint job.', state: 'proposed', reason: null, decidedBy: null, decidedAt: null, ...more,
+    fix: 'Require the lint job.', state: 'proposed', reason: null, decidedBy: null, decidedAt: null, outcome: null, ...more,
   });
   const withFindings = (findings: FindingView[]) => renderToStaticMarkup(createElement(DossierPage, {
     view: dossierView({ dossier: numbered, versions: [], members: [PIERRE], rounds: [], mainWatch: broken, rewindFindings: findings }, PIERRE.user_id, readPick({ tab: 'main' }), NOW),
@@ -196,6 +196,54 @@ describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
   it('offers the buttons on the proposed findings only', () => {
     const page = withFindings([found({ id: 'f1' }), found({ id: 'f2', state: 'approved', decidedBy: 'ada-gh', decidedAt: '2026-10-21T09:30:00Z' })]);
     expect(buttons(page)).toEqual(['Approve', 'Reject']);
+  });
+});
+
+// PRD 2498, s2: what became of an approved finding shows on its card.
+describe('an approved finding\'s outcome on the Main tab (PRD 2498, s2)', () => {
+  const broken = { watches: [watch({ status: 'broke' })], breaks: [red] };
+  const approved = (more: Partial<FindingView> = {}): FindingView => ({
+    id: 'f1', check: 'knowledge', origin: 'knowledge', happened: 'No rule said it.', evidence: ['https://github.com/acme/widgets/pull/9'],
+    fix: 'Write the rule.', state: 'approved', reason: null, decidedBy: 'ada-gh', decidedAt: '2026-10-21T09:30:00Z', outcome: null, ...more,
+  });
+  const page = (finding: FindingView) => renderToStaticMarkup(createElement(DossierPage, {
+    view: dossierView({ dossier: numbered, versions: [], members: [PIERRE], rounds: [], mainWatch: broken, rewindFindings: [finding] }, PIERRE.user_id, readPick({ tab: 'main' }), NOW),
+    markdown: null, supabase: SUPABASE,
+  }));
+
+  it('shows the pull request that proposes the rule, linked', () => {
+    const html = page(approved({ outcome: { kind: 'proposed', pr: parsePr(42), url: 'https://github.com/acme/widgets/pull/42' } }));
+    expect(html).toContain('<a href="https://github.com/acme/widgets/pull/42" target="_blank" rel="noopener noreferrer">Rule proposed in PR #42</a>');
+    expect(html).not.toContain('Proposing the rule');
+  });
+
+  it('shows the pull request without a link when it has none, and never links anything but https', () => {
+    expect(page(approved({ outcome: { kind: 'proposed', pr: parsePr(42), url: null } }))).toContain('Rule proposed in PR #42');
+    expect(page(approved({ outcome: { kind: 'proposed', pr: parsePr(42), url: 'javascript:alert(1)' } }))).not.toContain('javascript:');
+  });
+
+  it('shows the rule that already says it, escaped', () => {
+    const html = page(approved({ outcome: { kind: 'already', rule: 'playbook/testing#<b>x</b>' } }));
+    expect(html).toContain('Already said by <code>playbook/testing#&lt;b&gt;x&lt;/b&gt;</code>');
+  });
+
+  it('shows the question asked', () => {
+    expect(page(approved({ outcome: { kind: 'asks', question: 'Which form holds it?' } }))).toContain('Which form holds it?');
+  });
+
+  it('says the rule is being proposed while an approved knowledge finding has no outcome', () => {
+    expect(page(approved())).toContain('Proposing the rule…');
+  });
+
+  it('says nothing of an outcome on a finding of another origin, or one not approved', () => {
+    expect(page(approved({ origin: 'repository' }))).not.toContain('Proposing the rule');
+    expect(page(approved({ state: 'rejected' }))).not.toContain('Proposing the rule');
+    expect(page(approved({ state: 'proposed', decidedBy: null, decidedAt: null }))).not.toContain('Proposing the rule');
+  });
+
+  it('says nothing of a rule on a glossary or Legal finding, which Approve files as a proposal and no skill settles (PRD 2498, s3)', () => {
+    expect(page(approved({ fix: 'Add the glossary term `main watch`: the seven days after a merge.' }))).not.toContain('Proposing the rule');
+    expect(page(approved({ fix: 'Add a Legal entry L-GDPR: logs keep no e-mail address.' }))).not.toContain('Proposing the rule');
   });
 });
 

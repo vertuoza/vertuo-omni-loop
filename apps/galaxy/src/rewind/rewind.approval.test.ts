@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine, LINE_MAX } from 'omni-loop/kit/lib/runner/line.ts';
-import { AGENT_LINE, approvalOf, KIT_REPOSITORY, leakOf, runnerLine, type ApprovedFinding } from './rewind.approval';
+import { AGENT_LINE, approvalOf, KIT_REPOSITORY, leakOf, proposesRule, runnerLine, type ApprovedFinding } from './rewind.approval';
 
 // What Approve sends, by where a finding started (PRD 2410, s7): a repository finding queues /omni:bug-fix, a
 // glossary or Legal finding is filed as a product knowledge proposal, another knowledge finding queues
-// /omni:knowledge-add, and an Omni-setup finding opens one issue on the kit's repository with the card's text.
-// Every line it queues passes the runner's own line check, so a finding's quotes and long words never stop it.
+// /omni:rewind-apply <prd> <finding> (PRD 2498, s3), and an Omni-setup finding opens one issue on the kit's
+// repository with the card's text. Every line it queues passes the runner's own line check, so a finding's
+// quotes and long words never stop it; nothing queues /omni:knowledge-add any more.
 
 const PRD = parsePrd(2410);
+const ID = '3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718';
 const finding = (more: Partial<ApprovedFinding> = {}): ApprovedFinding => ({
-  check: 'ci', origin: 'repository', happened: 'The lint job was red on s3 and the slice merged anyway.',
+  id: ID, check: 'ci', origin: 'repository', happened: 'The lint job was red on s3 and the slice merged anyway.',
   evidence: ['https://github.com/acme/widgets/actions/runs/9'], fix: `Make the lint a required check.\n${AGENT_LINE}`,
   repository: 'acme/widgets', prd: PRD, ...more,
 });
@@ -31,7 +33,7 @@ describe('the runner line', () => {
   });
 
   it('cuts a long text at a word, within the runner\'s longest line', () => {
-    const line = runnerLine('knowledge-add', PRD, 'word '.repeat(80));
+    const line = runnerLine('bug-fix', PRD, 'word '.repeat(80));
     expect(line.length).toBeLessThanOrEqual(LINE_MAX);
     expect(line.endsWith('word')).toBe(true);
     expect(checkRunnerLine(line).ok).toBe(true);
@@ -72,14 +74,22 @@ describe('a knowledge finding', () => {
     ['a register', 'Add a rule to the product register: a watch never reads clean with a signal unread.'],
     ['a glossary finding that names no term', 'Add the word to the glossary.'],
     ['a Legal finding that names no code', 'Add a Legal entry for the logs.'],
-  ])('about %s queues /omni:knowledge-add with its fix', (_what, fix) => {
+  ])('about %s queues /omni:rewind-apply with the PRD and the finding\'s id only, never /omni:knowledge-add', (_what, fix) => {
     const plan = approvalOf(finding({ origin: 'knowledge', fix: `${fix}\n${AGENT_LINE}` }));
-    expect(plan).toMatchObject({ kind: 'job', skill: 'knowledge-add' });
+    expect(plan).toEqual({ kind: 'job', skill: 'rewind-apply', line: `/omni:rewind-apply 2410 ${ID}` });
     if (plan.kind === 'job') {
-      expect(plan.line.startsWith('/omni:knowledge-add rewind of PRD 2410: ')).toBe(true);
-      expect(plan.line).not.toContain('Written by an agent');
-      expect(checkRunnerLine(plan.line).ok).toBe(true);
+      expect(checkRunnerLine(plan.line)).toEqual({ ok: true, kind: 'omni', skill: 'rewind-apply', args: `2410 ${ID}` });
+      expect(plan.line).not.toContain('knowledge-add');
     }
+  });
+
+  it('says which approved findings wait for /omni:rewind-apply\'s outcome: a knowledge finding that files no proposal', () => {
+    expect(proposesRule({ origin: 'knowledge', fix: 'Write it in the conventions form, under Naming.' })).toBe(true);
+    expect(proposesRule({ origin: 'knowledge', fix: 'Add the word to the glossary.' })).toBe(true);
+    expect(proposesRule({ origin: 'knowledge', fix: 'Add the glossary term `main watch`: the seven days.' })).toBe(false);
+    expect(proposesRule({ origin: 'knowledge', fix: 'Add a Legal entry L-GDPR: logs keep no e-mail address.' })).toBe(false);
+    expect(proposesRule({ origin: 'repository', fix: 'Write it in the conventions form.' })).toBe(false);
+    expect(proposesRule({ origin: 'omni-setup', fix: 'Write it in the conventions form.' })).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { RewindFinding } from 'omni-loop/kit/lib/rewind/findings.ts';
 import { brokenRows } from '../data/broken-rows.fake';
 import { decisionRepository, findingsOf, rewindRepository, StoredDecidable, StoredDecider, StoredFinding, StoredWatchWorkspace } from './rewind.repository';
@@ -9,7 +9,7 @@ import { decisionRepository, findingsOf, rewindRepository, StoredDecidable, Stor
 // does is proved by supabase/checks/main_watch.sql.
 
 const PRD = parsePrd(7);
-const stored = { id: 'f1', check_name: 'ci', origin: 'repository', happened: 'x', evidence: ['https://a.test/1'], fix: 'y', state: 'proposed', reason: null, decided_by: null, decided_at: null };
+const stored = { id: 'f1', check_name: 'ci', origin: 'repository', happened: 'x', evidence: ['https://a.test/1'], fix: 'y', state: 'proposed', reason: null, decided_by: null, decided_at: null, outcome: null, outcome_pr: null, outcome_note: null };
 
 type Call = unknown[];
 
@@ -63,7 +63,7 @@ describe('the repository, on Supabase', () => {
     const found = await findingsOf(db, { workspace_id: 'w1', repository: 'Acme/Widgets', prd: PRD });
     expect(found.map((f) => [f.id, f.state, f.reason])).toEqual([['f1', 'proposed', null], ['f3', 'rejected', 'no']]);
     expect(calls).toEqual([[
-      'select', 'rewind_findings', 'id, check_name, origin, happened, evidence, fix, state, reason, decided_by, decided_at',
+      'select', 'rewind_findings', 'id, check_name, origin, happened, evidence, fix, state, reason, decided_by, decided_at, outcome, outcome_pr, outcome_note',
       ['workspace_id', 'w1'], ['repository', 'acme/widgets'], ['prd', 7], ['order', 'proposed_at'],
     ]]);
   });
@@ -114,9 +114,9 @@ describe('the decision\'s storage (PRD 2410, s7)', () => {
     const { calls, db } = withRpc({ rewind_findings: [row] });
     expect(await decisionRepository(db).finding(ID)).toEqual({
       id: ID, check: 'ci', origin: 'repository', happened: 'x', evidence: ['https://a.test/1'], fix: 'y', state: 'proposed', reason: null,
-      decidedBy: null, decidedAt: null, workspace: 'w1', repository: 'acme/widgets', prd: 7,
+      decidedBy: null, decidedAt: null, outcome: null, workspace: 'w1', repository: 'acme/widgets', prd: 7,
     });
-    expect(calls).toEqual([['select', 'rewind_findings', 'workspace_id, repository, prd, id, check_name, origin, happened, evidence, fix, state, reason, decided_by, decided_at', ['id', ID]]]);
+    expect(calls).toEqual([['select', 'rewind_findings', 'workspace_id, repository, prd, id, check_name, origin, happened, evidence, fix, state, reason, decided_by, decided_at, outcome, outcome_pr, outcome_note', ['id', ID]]]);
     expect(await decisionRepository(withRpc({}).db).finding(ID)).toBeNull();
   });
 
@@ -161,6 +161,65 @@ describe('the decision\'s storage (PRD 2410, s7)', () => {
     expect(await decisionRepository(refused.db).propose('acme/widgets', 'w1', plan)).toEqual({ ok: false, error: 'Code: one word.' });
     const odd = withRpc({}, { knowledge_product_for_repo: { data: 'p1' } });
     await expect(decisionRepository(odd.db).propose('acme/widgets', 'w1', plan)).rejects.toThrow('out of shape');
+  });
+});
+
+describe('an approved finding\'s outcome (PRD 2498, s2)', () => {
+  const ID = '6f1c1b1e-8a0e-4c1f-9d55-2c1f7b0e9a11';
+  const approved = { ...stored, state: 'approved', decided_by: null, decided_at: '2026-10-21T09:30:00Z' };
+  const read = async (more: Record<string, unknown>) => (await findingsOf(recording({ rewind_findings: [{ ...approved, ...more }] }).db, { workspace_id: 'w1', repository: 'Acme/Widgets', prd: PRD }))[0]?.outcome;
+
+  it('reads each outcome with the finding, the pull request linked on its repository', async () => {
+    expect(await read({})).toBeNull();
+    expect(await read({ outcome: 'proposed', outcome_pr: 42 })).toEqual({ kind: 'proposed', pr: 42, url: 'https://github.com/acme/widgets/pull/42' });
+    expect(await read({ outcome: 'already', outcome_note: 'playbook/testing#where-tests-live' })).toEqual({ kind: 'already', rule: 'playbook/testing#where-tests-live' });
+    expect(await read({ outcome: 'asks', outcome_note: 'Which form?' })).toEqual({ kind: 'asks', question: 'Which form?' });
+  });
+
+  it('reads an outcome this build does not know, or without its value, as none', async () => {
+    expect(await read({ outcome: 'merged', outcome_pr: 4 })).toBeNull();
+    expect(await read({ outcome: 'proposed' })).toBeNull();
+    expect(await read({ outcome: 'asks' })).toBeNull();
+  });
+
+  it('reads the workspace of a finding as the caller, and none when they read none', async () => {
+    const { calls, db } = withRpc({ rewind_findings: [{ ...stored, workspace_id: 'w1', repository: 'acme/widgets', prd: 7 }] });
+    expect(await rewindRepository(db, () => db).workspaceOfFinding(ID)).toBe('w1');
+    expect(calls).toHaveLength(1);
+    expect(await rewindRepository(withRpc({}).db, () => db).workspaceOfFinding(ID)).toBeNull();
+  });
+
+  it('records through the database\'s function, as the caller, sending only what the outcome carries', async () => {
+    const { calls, db } = withRpc({});
+    const repository = rewindRepository(db, () => db);
+    expect(await repository.recordOutcome('w1', ID, { outcome: 'proposed', pr: parsePr(42) })).toBeNull();
+    expect(await repository.recordOutcome('w1', ID, { outcome: 'asks', note: 'Which form?' })).toBeNull();
+    expect(calls).toEqual([
+      ['rpc', 'rewind_finding_outcome', { p_workspace: 'w1', p_finding: ID, p_outcome: 'proposed', p_pr: 42 }],
+      ['rpc', 'rewind_finding_outcome', { p_workspace: 'w1', p_finding: ID, p_outcome: 'asks', p_note: 'Which form?' }],
+    ]);
+  });
+
+  it('reads the database\'s refusals by their code and hint, and throws on any other', async () => {
+    const refusing = (error: { code?: string; hint?: string; message: string }) => rewindRepository(withRpc({}, { rewind_finding_outcome: { error } }).db, () => withRpc({}).db);
+    const body = { outcome: 'already', note: 'x' } as const;
+    expect(await refusing({ code: 'P0002', message: 'Finding: no such finding in this workspace.' }).recordOutcome('w1', ID, body)).toMatchObject({ kind: 'missing' });
+    expect(await refusing({ code: '42501', hint: 'finding', message: 'Finding: proposed, and only an approved finding has an outcome.' }).recordOutcome('w1', ID, body))
+      .toEqual({ kind: 'unapproved', error: 'Finding: proposed, and only an approved finding has an outcome.' });
+    expect(await refusing({ code: '42501', hint: 'outcome', message: 'Outcome: already asks, and an outcome is never rewritten.' }).recordOutcome('w1', ID, body))
+      .toEqual({ kind: 'recorded', error: 'Outcome: already asks, and an outcome is never rewritten.' });
+    expect(await refusing({ code: '42501', message: 'Only the Omni App or a member of the workspace records a rewind finding\'s outcome.' }).recordOutcome('w1', ID, body)).toMatchObject({ kind: 'not-allowed' });
+    expect(await refusing({ code: '22023', hint: 'pr', message: 'Pull request: only a proposed rule names one.' }).recordOutcome('w1', ID, body))
+      .toEqual({ kind: 'malformed', error: 'Pull request: only a proposed rule names one.' });
+    await expect(refusing({ code: '08006', message: 'connection lost' }).recordOutcome('w1', ID, body)).rejects.toThrow('connection lost');
+  });
+
+  it('parses the outcome columns, and refuses a broken copy', () => {
+    const withOutcome = { ...approved, outcome: 'proposed', outcome_pr: 42 };
+    expect(StoredFinding.safeParse(withOutcome).success).toBe(true);
+    for (const [name, row] of brokenRows(withOutcome, { missing: 'outcome', wrongType: ['outcome_pr', 'forty-two'], notNull: 'happened' })) {
+      expect(StoredFinding.safeParse(row).success, name).toBe(false);
+    }
   });
 });
 
