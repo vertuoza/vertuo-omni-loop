@@ -122,7 +122,7 @@ describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
   const broken = { watches: [watch({ status: 'broke' })], breaks: [red] };
   const found = (more: Partial<FindingView> = {}): FindingView => ({
     id: 'f1', check: 'ci', origin: 'omni-setup', happened: 'The lint was <b>red</b> on the slice.', evidence: ['https://github.com/vertuoza/vertuo-omni-loop/actions/runs/2'],
-    fix: 'Require the lint job.', state: 'proposed', reason: null, ...more,
+    fix: 'Require the lint job.', state: 'proposed', reason: null, decidedBy: null, decidedAt: null, ...more,
   });
   const withFindings = (findings: FindingView[]) => renderToStaticMarkup(createElement(DossierPage, {
     view: dossierView({ dossier: numbered, versions: [], members: [PIERRE], rounds: [], mainWatch: broken, rewindFindings: findings }, PIERRE.user_id, readPick({ tab: 'main' }), NOW),
@@ -156,6 +156,36 @@ describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
 
   it('keeps saying no rewind ran yet when there is no finding', () => {
     expect(withFindings([])).toContain('No rewind yet.');
+  });
+
+  // PRD 2410, s7: a member approves or rejects each proposed finding, once.
+  const buttons = (page: string) => [...page.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]).filter((b) => b === 'Approve' || b === 'Reject');
+
+  it('offers Approve and Reject on a proposed finding, the reason optional', () => {
+    const page = withFindings([found()]);
+    expect(buttons(page)).toEqual(['Approve', 'Reject']);
+    expect(page).toContain('placeholder="Why reject it (optional)"');
+  });
+
+  it('shows who decided a finding and when, and no button', () => {
+    const page = withFindings([
+      found({ id: 'f1', state: 'approved', decidedBy: 'ada-gh', decidedAt: '2026-10-21T09:30:00Z' }),
+      found({ id: 'f2', state: 'rejected', reason: 'Not our lint', decidedBy: 'bob-gh', decidedAt: '2026-10-22T10:00:00Z' }),
+    ]);
+    expect(buttons(page)).toEqual([]);
+    expect(page).toContain('Approved by @ada-gh · 2026-10-21');
+    expect(page).toContain('Rejected by @bob-gh · 2026-10-22: Not our lint');
+  });
+
+  it('says a decision whose member it cannot name, without inventing one', () => {
+    const page = withFindings([found({ state: 'approved', decidedBy: null, decidedAt: '2026-10-21T09:30:00Z' })]);
+    expect(page).toContain('Approved · 2026-10-21');
+    expect(page).not.toContain('by @');
+  });
+
+  it('offers the buttons on the proposed findings only', () => {
+    const page = withFindings([found({ id: 'f1' }), found({ id: 'f2', state: 'approved', decidedBy: 'ada-gh', decidedAt: '2026-10-21T09:30:00Z' })]);
+    expect(buttons(page)).toEqual(['Approve', 'Reject']);
   });
 });
 
