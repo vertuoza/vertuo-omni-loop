@@ -6,7 +6,7 @@ import { ENDED_JOBS_SHOWN, STORED_OUTCOMES, type Notifier, type Ping } from './r
 import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
 import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
-  API_KEY, CIA_BOX, ELSEWHERE, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, OTHER_KEY, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
+  API_KEY, CIA_BOX, ELSEWHERE, EVE, fakeStore, jobRow, KEY_APP, lineRows, MO, OLGA, OTHER, OTHER_KEY, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
   type AllowedSkillRow,
 } from './fixtures/store.fake';
 
@@ -554,6 +554,33 @@ describe('the Runners page\'s read', () => {
   it('is refused to anyone outside the workspace', async () => {
     const w = world();
     expect(await w.service.board(EVE, RUNNERS[0]?.workspace_id ?? '')).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+
+  // PRD 2482 s2: what the page needs to say a queued job cannot run as its key's GitHub App.
+  it('carries each runner\'s githubApp, from runners.github_app', async () => {
+    const w = world({ runners: [runnerRow({ id: SHARED, name: 'shared', github_app: true }), runnerRow({ id: CIA_BOX, name: 'cia-box', github_app: false })] });
+    const board = value(await w.service.board(OLGA, WORKSPACE));
+    expect(board.runners.map((r) => [r.name, r.githubApp])).toEqual([['cia-box', false], ['shared', true]]);
+  });
+
+  it('carries needsApp on a queued job of a key that holds an App, or that was marked, and on no other', async () => {
+    const holds = jobRow({ sent_by: OLGA, sent_by_key: API_KEY });
+    const marked = jobRow({ sent_by: OLGA, sent_by_key: OTHER_KEY });
+    const plain = jobRow({ sent_by: OLGA });
+    const w = world({ jobs: [holds, marked, plain] });
+    w.state.keys.push({ id: API_KEY, app: KEY_APP, working: true });
+    w.state.needsApp.add(marked.id);
+    const board = value(await w.service.board(OLGA, WORKSPACE));
+    expect(Object.fromEntries(board.jobs.map((j) => [j.id, j.needsApp]))).toEqual({ [holds.id]: true, [marked.id]: true, [plain.id]: undefined });
+  });
+
+  it('reads no App for a key that holds none, and none for a job that is not queued', async () => {
+    const noApp = jobRow({ sent_by: OLGA, sent_by_key: API_KEY });
+    const running = jobRow({ sent_by: OLGA, sent_by_key: API_KEY, status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const w = world({ jobs: [noApp, running] });
+    const board = value(await w.service.board(OLGA, WORKSPACE));
+    expect(board.jobs.map((j) => j.needsApp)).toEqual([undefined, undefined]);
+    expect(w.state.calls).toEqual([`app of job ${noApp.id}`]);
   });
 });
 
