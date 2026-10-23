@@ -107,11 +107,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 64 commands and the 36 skills', () => {
+  it('holds the 64 commands and the 37 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(64);
-    expect(skillFolders()).toHaveLength(36);
+    expect(skillFolders()).toHaveLength(37);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(64);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(36);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(37);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -403,9 +403,20 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'status', 'validate-e2e'],
+      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'status', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
+  });
+
+  it('explains /omni:rewind, the runner job the main watch queues, and names the runner skills it lets run (PRD 2410)', () => {
+    const rewind = ENTRIES.find((e) => e.name === 'rewind' && e.kind === 'skill');
+    assertDefined(rewind, 'rewind');
+    expect(rewind).toMatchObject({ who: 'you', usage: ['/omni:rewind <n>'], group: 'everyday' });
+    const words = rewind.detail.replace(/\s+/g, ' ');
+    for (const phrase of [/omni rewind facts/, /seven checks/, /omni rewind push/, /writes nothing to the repository/, /never merges/]) expect(words, String(phrase)).toMatch(phrase);
+    const runner = ENTRIES.find((e) => e.name === 'runner' && e.kind === 'command');
+    assertDefined(runner, 'runner');
+    expect(runner.detail.replace(/\s+/g, ' ')).toMatch(/prove, retro-apply, rewind and knowledge-add run\./);
   });
 
   it('names the seven stages of the loop in order, in the kit\'s stage words, each with one line, and three principles', () => {
