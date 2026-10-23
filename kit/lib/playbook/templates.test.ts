@@ -9,6 +9,7 @@ import { FORM_IDS, FORMS, parseForm } from './forms.ts';
 import { fillConfig } from './resolve.ts';
 import { FRONT_DOOR_TEMPLATE, formTemplate, frontDoorTemplate, readTemplates, templatePath } from './templates.ts';
 import { assertDefined } from '../../test/assert.ts';
+import { CURATED_FORMS } from '../omni-settings/curated.ts';
 
 const kitRoot = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = join(kitRoot, 'dist/omni.mjs');
@@ -36,8 +37,9 @@ const kitKind = (formId: string, slotId: string): string => {
 const ALL = (): [string, string][] => [...FORM_IDS.map((id): [string, string] => [templatePath(id), formTemplate(id)]), [FRONT_DOOR_TEMPLATE, frontDoorTemplate()]];
 
 describe('the kit’s templates folder', () => {
-  it('holds one template per form and the front door’s README, and nothing else', () => {
-    expect(Object.keys(readTemplates()).sort()).toEqual([FRONT_DOOR_TEMPLATE, 'before-after/page.html', ...FORM_IDS.map(templatePath)].sort());
+  it('holds one template per form, the front door’s README and the settings repository’s curated pages (PRD 2417), and nothing else', () => {
+    const curated = CURATED_FORMS.map((form) => `omni-settings/playbook/${form}.md`);
+    expect(Object.keys(readTemplates()).sort()).toEqual([FRONT_DOOR_TEMPLATE, 'before-after/page.html', ...FORM_IDS.map(templatePath), ...curated].sort());
     expect(templatePath('testing')).toBe('playbook/testing.md');
     expect(templatePath('decisions')).toBe('playbook/decisions.md');
     expect(FRONT_DOOR_TEMPLATE).toBe('README.md');

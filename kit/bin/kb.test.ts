@@ -574,6 +574,32 @@ describe('omni kb status — sections per level of the knowledge tree (PRD 2416,
   });
 });
 
+describe('omni kb status — the pages that read the Omni settings (PRD 2417, s2)', () => {
+  const SETTINGS_REVIEW = '.omni-loop/local/tree/omni-settings/playbook/review.md';
+  const SETTINGS_DOD = '.omni-loop/local/tree/omni-settings/playbook/definition-of-done.md';
+  const filled = (id: string, body: string) => formText({ frontMatter: { state: 'filled' }, slots: [{ id, required: true, body }] });
+
+  it('names the pages whose sections read the Omni settings, after the rows, in the text and in --json', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, [SETTINGS_REVIEW]: filled('fix', 'Settings: fix it.'), [SETTINGS_DOD]: filled('done', 'Settings: done means green.') },
+    });
+    const { out } = await omni(root, ['kb', 'status']);
+    const line = out.split('\n').find((l) => l.startsWith('reads the Omni settings:'));
+    const json = JSON.parse((await omni(root, ['kb', 'status', '--json'])).out) as StatusMap;
+    expect(json.readsOmniSettings).toEqual(expect.arrayContaining(['review', 'definition-of-done']));
+    expect(line).toBe(`reads the Omni settings: ${(json.readsOmniSettings ?? []).join(', ')}`);
+  });
+
+  it('a repository with no Omni-settings copy prints exactly today’s rows: no line, no key', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { out } = await omni(root, ['kb', 'status']);
+    expect(out).not.toContain('reads the Omni settings');
+    const json = JSON.parse((await omni(root, ['kb', 'status', '--json'])).out) as Record<string, unknown>;
+    expect(json).not.toHaveProperty('readsOmniSettings');
+  });
+});
+
 describe('omni kb status — laws and proposals per register folder (PRD #68)', () => {
   const K = '.omni-loop/knowledge';
   const PROPOSED = 'Proposed: invade 2026-09-25\n';

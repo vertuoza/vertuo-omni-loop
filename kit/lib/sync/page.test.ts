@@ -9,6 +9,8 @@ import type { Tokens } from '../ask/schema.ts';
 import { parseConfig } from '../config.ts';
 import { readCache, writeCache } from '../constituents/cache.ts';
 import { constituentsOf } from '../constituents/read.ts';
+import { readSettingsCopy } from '../omni-settings/copy.ts';
+import { curatedDefault } from '../omni-settings/curated.ts';
 import { realExec } from '../../test/fixture.ts';
 import { gatherPage, pageFacts } from './page.ts';
 
@@ -62,8 +64,19 @@ describe('the page check\'s facts', () => {
     const root = tempRoot();
     const p = page(READ);
     await expect(gatherPage(io(root), { tokens: tokens(SIGNED_IN), fetch: p.fetch })).resolves.toEqual({ signedIn: true, syncedAt: NOW, answering: true });
-    expect(p.calls).toEqual([`https://${HOST}/api/constituents?repo=acme%2Fwidgets`]);
+    expect(p.calls.toSorted()).toEqual([`https://${HOST}/api/constituents?repo=acme%2Fwidgets`, `https://${HOST}/api/omni-settings/playbook?repo=acme%2Fwidgets`]);
     expect(readCache(root, 'acme/widgets')?.syncedAt).toBe(new Date(NOW).toISOString());
+  });
+
+  it('refreshes the Omni-settings copy beside the constituents, and a refused settings read changes no fact', async () => {
+    const root = tempRoot();
+    const settings = { repository: 'acme/settings', commit: 'abc1234', files: [{ form: 'review', text: curatedDefault().find((p) => p.form === 'review')?.text ?? '' }], reason: null };
+    const route = (settingsStatus: number): Fetch => (url) =>
+      Promise.resolve(url.includes('/api/omni-settings/') ? new Response(JSON.stringify(settings), { status: settingsStatus }) : new Response(JSON.stringify(READ), { status: 200 }));
+    await expect(gatherPage(io(root), { tokens: tokens(SIGNED_IN), fetch: route(403) })).resolves.toEqual({ signedIn: true, syncedAt: NOW, answering: true });
+    expect(readSettingsCopy({ root })).toEqual({ state: 'absent' });
+    await expect(gatherPage(io(root), { tokens: tokens(SIGNED_IN), fetch: route(200) })).resolves.toEqual({ signedIn: true, syncedAt: NOW, answering: true });
+    expect(readSettingsCopy({ root })).toMatchObject({ state: 'copied', repository: 'acme/settings', forms: ['review'], readAt: new Date(NOW).toISOString() });
   });
 
   it('is not signed in with no sign-in, and does not call the page', async () => {
