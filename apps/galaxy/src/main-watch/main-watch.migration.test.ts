@@ -36,9 +36,10 @@ function rowType(name: string): string {
 }
 
 describe('the migration', () => {
-  it('is dated after every other migration, so supabase db push applies it', () => {
+  // A later PRD's migration may follow it: scripts/migration-order.ts keeps each new one the newest.
+  it('is dated after every migration main held when it was written, so supabase db push applies it', () => {
     const versions = readdirSync(root('supabase/migrations')).filter((file) => file.endsWith('.sql')).sort();
-    expect(versions.at(-1)).toBe(NAME);
+    expect(versions.indexOf(NAME)).toBeGreaterThan(versions.indexOf('20261229090000_api_key_job_control.sql'));
   });
 
   it('names its rollback in its header: a follow-up migration drops the tables, which nothing else reads', () => {
