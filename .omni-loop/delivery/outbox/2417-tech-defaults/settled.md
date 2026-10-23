@@ -316,3 +316,159 @@ Changing the choice later costs one small function and its test; no stored data 
 ```
 
 <!-- /omni-outbox-settled: s3-01-settings-repo-when-none-named -->
+
+<!-- omni-outbox-settled: s6-01-playbook-tab-nav -->
+
+## s6-01-playbook-tab-nav — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-playbook-tab-nav
+prd: 2417
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 3
+---
+
+## The question, in plain words
+
+Where does the new Playbook page appear in the settings menu, since the menu's own files are outside this slice?
+
+## The decision, in plain words
+
+The Playbook page shows itself as one more tab after Jev on its own page, and the other settings pages and the side menu do not list it yet.
+
+## The intro, for fun
+
+A new room is built, but the hallway signs belong to another crew.
+
+## The punchline, for fun
+
+So the room hangs its own sign until someone updates the hallway.
+
+## The options, in plain words
+
+A. A. The page carries its own Playbook tab; the shared menus are untouched (built).
+B. B. Add Playbook to the shared settings tabs and the side menu in a later change.
+C. C. Leave the page unlisted, reached by address only.
+
+## What I had to decide
+
+Whether to add Playbook to the settings tabs of the other pages and to the side menu (src/nav/section-tabs.ts, src/nav/sidebar.ts), outside this slice's territory.
+
+## What I did meanwhile
+
+The page builds its tab row from the settings tabs plus its own entry (PLAYBOOK_TABS in PlaybookScreen.tsx); moving the entry into the shared list is one line there.
+
+## What it costs to change later
+
+Until then, a member reaches the page only by its address or from the page itself.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the side menu's Settings entry should list Playbook (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-01-playbook-tab-nav -->
+
+<!-- omni-outbox-settled: s6-02-kit-default-in-deployment -->
+
+## s6-02-kit-default-in-deployment — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-kit-default-in-deployment
+prd: 2417
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 3
+---
+
+## The question, in plain words
+
+Will the kit's first default pages be present on the deployed Omni page, which reads them from files shipped with the kit?
+
+## The decision, in plain words
+
+The page reads the kit's first default from the kit's template files and, when they are not in the deployment, shows only the settings repository's own pages and logs why.
+
+## The intro, for fun
+
+The house rules are printed in a book that may not have been packed for the trip.
+
+## The punchline, for fun
+
+If the book is missing, the page shows what the repository wrote and says nothing rude about it.
+
+## The options, in plain words
+
+A. A. Fall back to the settings repository's pages alone, logging the failure (built).
+B. B. Tell the app's build to ship the kit's first default files, in a later change.
+C. C. Embed the first default's text in the Omni page's own code.
+
+## What I had to decide
+
+Whether the app's file tracing (apps/galaxy/next.config.ts outputFileTracingIncludes, outside this slice's territory) should include kit/templates/omni-settings so a deployment carries the kit's first default.
+
+## What I did meanwhile
+
+A failed read of the templates is caught in omni-settings-pages-live.ts and logged; the list then holds only the settings repository's pages.
+
+## What it costs to change later
+
+On a deployment without the templates, a page the settings repository lacks is not listed at all instead of marked as the kit's default.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the Vercel build already traces kit/templates (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-02-kit-default-in-deployment -->
