@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { FORMS, parseForm } from '../playbook/forms.ts';
 import { readTemplates } from '../playbook/templates.ts';
+import { curatedFrom, curatedPath } from './curated-forms.ts';
 import { CURATED_FORMS, curatedDefault } from './curated.ts';
 import { readSettingsPage } from './page.ts';
 import { SettingsFileSchema } from './schema.ts';
@@ -56,5 +57,11 @@ describe('the curated first default', () => {
   it('review answers a comment three ways: fix, push back, ask', () => {
     const review = parseForm(pages().find((entry) => entry.form === 'review')?.text ?? '').form;
     expect(review?.slots.map(({ heading }) => heading)).toEqual(['Fix', 'Push back', 'Ask']);
+  });
+
+  it('reads the same pages through any reader of the templates folder, as the Omni page does', () => {
+    const templates = readTemplates();
+    expect(curatedFrom((path) => templates[path] ?? '')).toEqual(curatedDefault());
+    expect(CURATED_FORMS.map(curatedPath)).toEqual(CURATED_FORMS.map((form) => `omni-settings/playbook/${form}.md`));
   });
 });

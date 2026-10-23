@@ -7,20 +7,16 @@
  * The pages are kit templates (`kit/templates/omni-settings/`, laid out as the settings folder is,
  * `./layout.ts`), so they travel inside the bundle as every kit default does. They are no level of
  * the tree by themselves: a repository reads them only once its settings repository holds them, and
- * the Omni page shows them beside the settings repository's own pages.
+ * the Omni page shows them beside the settings repository's own pages (through `./curated-forms.ts`,
+ * which an app bundler can take).
  */
 import { kitTemplate } from '../playbook/templates.ts';
-import { defined } from '../narrow.ts';
-import { formRelativePath } from './layout.ts';
+import { curatedFrom } from './curated-forms.ts';
 import type { SettingsFile } from './schema.ts';
 
-/** The forms the curated default sets, in the order they are shown. */
-export const CURATED_FORMS: readonly string[] = Object.freeze(['review', 'definition-of-done', 'verification', 'bug-fixing']);
+export { CURATED_FORMS } from './curated-forms.ts';
 
-/** The kit's templates folder for the settings repository. */
-const CURATED_DIR = 'omni-settings';
-
-/** The curated default, one settings file per form of {@link CURATED_FORMS}, each its template's text. */
+/** The curated default, one settings file per form of `CURATED_FORMS`, each its template's text. */
 export function curatedDefault(): SettingsFile[] {
-  return CURATED_FORMS.map((form) => ({ form, text: kitTemplate(`${CURATED_DIR}/${defined(formRelativePath(form), `the curated form ${form}`)}`) }));
+  return curatedFrom(kitTemplate);
 }
