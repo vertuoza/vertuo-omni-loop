@@ -1,4 +1,5 @@
 import type { Job, Runner, RunnerSample, TokenCounts } from '../runners.contract';
+import { couldTake } from './model';
 
 // The health line of the Runners page (PRD 2102 s3), as words and numbers: pure, so each gauge, each state of the line and
 // each queued reason is tested without a page. The figures are the runner's last report and its hour of samples; a figure
@@ -129,11 +130,11 @@ export const UPDATE_COMMAND = 'omni update';
 /** Why a queued job waits: every runner it could go to (any, its fleet's, or its one runner) is online and paused. Null when
  * some other runner could take it, or when none could. */
 export function waitingWords(
-  job: Pick<Job, 'status' | 'toRunner' | 'toFleet'>,
-  runners: readonly (Pick<Runner, 'id' | 'name' | 'fleet' | 'state'> & Paused)[],
+  job: Pick<Job, 'status' | 'toRunner' | 'toFleet' | 'repo'>,
+  runners: readonly (Pick<Runner, 'id' | 'name' | 'fleet' | 'state' | 'repos'> & Paused)[],
 ): string | null {
   if (job.status !== 'queued') return null;
-  const possible = runners.filter((r) => (job.toRunner !== null ? r.id === job.toRunner : job.toFleet !== null ? r.fleet === job.toFleet : true));
+  const possible = runners.filter((r) => couldTake(job, r));
   const reasons = possible.map((r) => (r.state === 'offline' ? null : r.health?.paused ?? null));
   const first = reasons[0];
   if (!first || reasons.some((reason) => !reason)) return null;

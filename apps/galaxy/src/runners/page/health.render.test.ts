@@ -90,7 +90,8 @@ describe('why a queued job waits', () => {
     const html = render(withBoard((board) => ({
       ...board,
       jobs: board.jobs.map((job) => (job.status === 'queued' ? { ...job, toFleet: null } : job)),
-      runners: board.runners.filter((r) => r.state !== 'offline').map((r) => (r.state === 'online' ? { ...r, health: r.health && { ...r.health, paused: 'disk 6 GB free' } } : r)),
+      // Both runners are without a fleet: a runner with one is not a runner a job sent to any runner can take (PRD 2482).
+      runners: board.runners.filter((r) => r.state !== 'offline').map((r) => ({ ...r, fleet: null })).map((r) => (r.state === 'online' ? { ...r, health: r.health && { ...r.health, paused: 'disk 6 GB free' } } : r)),
     })));
     expect(text(html)).toContain('Waiting: every runner paused');
   });

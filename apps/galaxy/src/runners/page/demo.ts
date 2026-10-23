@@ -109,6 +109,8 @@ export function demoRunnersPage(now: Date): RunnersPageView {
       job({ id: ANSWERED, line: '/omni:bug-fix 301', status: 'done', runner: DEMO_RUNNERS.office, exitCode: 0, endedAt: at(-200) }),
       // A retro the Omni app sent, which no person asked for (PRD 2338): its sender reads Omni app.
       job({ line: '/omni:retro-apply --retro 2340', status: 'queued', sentBy: null, sentByLogin: null, sentByApp: 'omni-app', queuedAt: at(-1) }),
+      // A job no runner can take (PRD 2482): no runner without a fleet holds its repository, so it reads Cannot run and why.
+      job({ line: '/omni:retro-apply --retro 2351', repo: 'acme/gadgets', status: 'queued', sentBy: null, sentByLogin: null, sentByApp: 'omni-app', queuedAt: at(-3) }),
       // A job an API key sent for someone and then cancelled (PRD 2425): it reads Cancelled, with the key under it.
       job({
         line: '/omni:bug-fix 318', status: 'cancelled', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'cleaner', actingFor: 'Jane D.', cancelledByKey: 'cleaner',
