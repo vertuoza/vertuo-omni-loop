@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   AnswerRequestSchema, AskRequestSchema, checkLine, checkLineShape, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
-  GithubTokenReplySchema, KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
+  GithubTokenReplySchema, KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RunnerReplySchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -600,5 +600,23 @@ describe('the outcome stopped and its slice count (PRD 2375)', () => {
   it('reads stopped on a job, and still refuses human in a report', () => {
     expect(JobUpdateSchema.safeParse({ status: 'done', outcome: 'human' }).success).toBe(false);
     expect(PrdJobsSchema.safeParse({ jobs: [{ ...{ id: '00000000-0000-4000-8000-000001830201', line: '/omni:yolo 7', repo: 'acme/widgets', status: 'done', runner: null, prUrl: null, exitCode: 0, reason: null, queuedAt: 't', claimedAt: null, runningAt: null, endedAt: 't' }, outcome: 'stopped' }] }).success).toBe(true);
+  });
+});
+
+// PRD 2482 s2: the board's runner carries `githubApp` and its job `needsApp`, both optional, so a board without them still parses.
+describe('the board\'s GitHub App facts (PRD 2482)', () => {
+  const job = { id: '00000000-0000-4000-8000-000001830201', line: '/omni:bug-fix 314', repo: 'acme/widgets', toRunner: null, toFleet: null, sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: 'QA dashboard', status: 'queued', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: null, reason: null, queuedAt: 't', claimedAt: null, runningAt: null, endedAt: null };
+  const runner = { id: '00000000-0000-4000-8000-0000018300c1', name: 'shared', owner: '00000000-0000-4000-8000-0000018300b1', fleet: null, slots: 1, used: 0, repos: ['acme/widgets'], version: '0.0.530', lastSeenAt: 't', state: 'online' };
+
+  it('parses a job and a runner without the two fields, which read as absent', () => {
+    expect(JobReplySchema.parse({ job }).job.needsApp).toBeUndefined();
+    expect(RunnerReplySchema.parse({ runner }).runner.githubApp).toBeUndefined();
+  });
+
+  it('parses them with the fields, and refuses anything but a boolean', () => {
+    expect(JobReplySchema.parse({ job: { ...job, needsApp: true } }).job.needsApp).toBe(true);
+    expect(RunnerReplySchema.parse({ runner: { ...runner, githubApp: false } }).runner.githubApp).toBe(false);
+    expect(JobReplySchema.safeParse({ job: { ...job, needsApp: 'yes' } }).success).toBe(false);
+    expect(RunnerReplySchema.safeParse({ runner: { ...runner, githubApp: 1 } }).success).toBe(false);
   });
 });

@@ -248,6 +248,13 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       m.workspaceId === workspaceId && userIds.includes(m.userId) && m.login ? [[m.userId, m.login] as const] : []
     )))),
     keyNames: (workspaceId, keyIds) => Promise.resolve(new Map(KEYS.filter((k) => k.workspaceId === workspaceId && keyIds.includes(k.id)).map((k) => [k.id, k.name] as const))),
+    jobsNeedingApp: (jobs) => {
+      state.calls.push(`jobs needing app ${jobs.map((job) => job.id).join(',')}`);
+      return Promise.resolve(new Set(jobs.flatMap((job) => {
+        const row = state.jobs.find((j) => j.id === job.id);
+        return row && needsAppJob(row) ? [job.id] : [];
+      })));
+    },
     appOfJob: (jobId) => {
       state.calls.push(`app of job ${jobId}`);
       const job = state.jobs.find((j) => j.id === jobId);
