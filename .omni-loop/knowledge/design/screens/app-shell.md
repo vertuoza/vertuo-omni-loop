@@ -30,7 +30,7 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
   one for the reviews, merges and laws whose turn is yours, spoken `Waiting: <n> yours` (PRD 2377); at the foot
   Settings, then Docs · Release notes (each opening a new tab), then `Omni Loop v<version>`.
 - **The top bar** (`nav/AppBar.tsx`): the section's sprite at 2× in a tile and the trail to the page
-  (`Work › PRDs`); then the theme switch (Omni, Light, Dark), Game mode, the Anti-loop switch (PRD 2490: `Anti-loop` to /anti, `Omni loop` back to /app in anti-loop mode), the bell (its own shared
+  (`Work › PRDs`); then the theme switch (Omni, Light, Dark), Game mode, the Anti-loop switch (PRD 2490: `Anti-loop` to /anti, `Omni loop` back to /app in anti-loop mode; issue 2505: it wears the loop it opens, that loop's signal, `--ask-loop-anti` or `--ask-loop-omni`, and that loop's crest at 1× in a chip on the ground, mirrored on the way to the anti-loop), the bell (its own shared
   screen, `notifications`) and you (the avatar opening the user menu: your name and login, My
   profile, Sign out; `nav/UserMenu.tsx`).
 - **The page** in `<main class="ask-main">`, drawn by each page's own screen.
@@ -99,3 +99,4 @@ Anti-work.
 - /omni:visual-fix #1996, pick B by @pierrederval on 2026-10-15: .omni-loop/delivery/visual/1996-ideas-keeps-menu/before-after.html
 - /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html (the Waiting entry and its badge)
 - /omni:brainstorm, PRD 2490: .omni-loop/delivery/shipped/2490-anti-loop-placeholder/before-after.html (the Anti-loop switch and anti-loop mode)
+- /omni:visual-fix #2505, pick B by @pierrederval on 2026-10-23: .omni-loop/delivery/visual/2505-anti-loop-button-colours/before-after.html
