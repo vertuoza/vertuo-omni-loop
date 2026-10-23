@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
 import {
-  BugFixListSchema, DESCRIPTION_MAX, JobSchema, ListQuerySchema, LIMIT_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, PUBLIC_API_ERRORS,
-  StartBugFixSchema, StartMegaBugFixSchema, type ListQuery, type PublicApiErrorCode,
+  ACTING_FOR_MAX, AnswerJobSchema, BugFixListSchema, CancelJobSchema, DESCRIPTION_MAX, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, LIMIT_MAX,
+  MEGA_DESCRIPTION_MAX, NOTIFY_URL_MAX, PrdListSchema, PUBLIC_API_ERRORS, QuestionsSchema, RelaunchJobSchema, StartBugFixSchema, StartMegaBugFixSchema, type ListQuery, type PublicApiErrorCode,
 } from './public-api.contract';
 import type { ApiKeyCaller, PublicApiService, Answered } from './public-api.service';
 
@@ -15,10 +15,18 @@ import type { ApiKeyCaller, PublicApiService, Answered } from './public-api.serv
 //   POST /api/v1/mega-bug-fixes            202 job: queues /omni:mega-bug-fix in a plan repository; never 404,
 //                                          so a 404 there is a deployment older than the route
 //   GET /api/v1/jobs/{id}                  200 job: a job a key of the workspace queued, else 404
+//   GET /api/v1/jobs/{id}/lines?limit=&cursor=  200 {data, next_cursor}: that job's lines, oldest first (PRD 2425 s4)
+//   GET /api/v1/jobs/{id}/questions        200 questions: what the job asked, where it stands, who closed it (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/answers         202 job: the resume of the job, queued as the key that sent it (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/dismiss         200 job: the questions closed with no answer and nothing queued (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/cancel          200 job: cancelled at once, or asked to stop when running (PRD 2425 s7)
+//   POST /api/v1/jobs/{id}/relaunch        202 job: the job sent again or resumed, as the key that sent the first (PRD 2425 s7)
 //
 // The key is checked first: no `Authorization: Bearer oma_…`, or a key api_key_of() does not answer live
-// (unknown, revoked, its maker gone), is 401, and nothing else runs. The query is read next: a bad `limit`
-// or `cursor` is 422 naming it. Each answer is checked against the contract before it leaves, never
+// (unknown, revoked, its maker gone), is 401, and nothing else runs. The query (or, for a POST, the body)
+// is read next: a bad `limit` or `cursor`, or a body that is not the route's, is 422 naming it. A second
+// answer or dismissal is 409 `conflict` (BR-PRODUCT-12: the first close wins), and so is a cancel of an ended job and a relaunch of a job
+// the page offers neither Send again nor Resume for, or that was carried on already. Each answer is checked against the contract before it leaves, never
 // cached; each refusal is `{error: {code, message}}` (./public-api.contract.ts). A failure is 500, logged,
 // its message never carrying a stack or the database's words.
 
@@ -37,10 +45,26 @@ const QUERY_RULES: Readonly<Record<keyof ListQuery, string>> = {
   cursor: 'cursor: the `next_cursor` the last page answered, unchanged.',
 };
 
-const BAD_BODY = `The body must be {"repo": "owner/name", "description": "<1 to ${String(DESCRIPTION_MAX)} characters>", "runner"?: "<name>", "fleet"?: "<fleet>"}.`;
-const BAD_MEGA_BODY = `The body must be {"repo": "<a plan repository, owner/name>", "description": "<its issue's URL, or the bug, 1 to ${String(MEGA_DESCRIPTION_MAX)} characters, no --flag>", "runner"?: "<name>", "fleet"?: "<fleet>"}, and nothing else.`;
+const ACTING_FOR_RULE = `"acting_for"?: "<whom the key acts for, 1 to ${String(ACTING_FOR_MAX)} characters: letters of any alphabet, digits, spaces and . _ ' @ - · only>"`;
+const NOTIFY_URL_RULE = `"notify_url"?: "<an https link on a public host to ping when the job changes, ${String(NOTIFY_URL_MAX)} characters at most, with no user name or password>"`;
+const BAD_BODY = `The body must be {"repo": "owner/name", "description": "<1 to ${String(DESCRIPTION_MAX)} characters>", "runner"?: "<name>", "fleet"?: "<fleet>", ${ACTING_FOR_RULE}, ${NOTIFY_URL_RULE}}.`;
+const BAD_MEGA_BODY = `The body must be {"repo": "<a plan repository, owner/name>", "description": "<its issue's URL, or the bug, 1 to ${String(MEGA_DESCRIPTION_MAX)} characters, no --flag>", "runner"?: "<name>", "fleet"?: "<fleet>", ${ACTING_FOR_RULE}, ${NOTIFY_URL_RULE}}, and nothing else.`;
+const BAD_ANSWER_BODY = `The body must be {"answers": {"<question>": "<answer, 1 to 2000 characters>"}, ${ACTING_FOR_RULE}}: one answer to each question, one to four in all, and nothing else.`;
+const BAD_ACTING_BODY = `The body must be empty, or {${ACTING_FOR_RULE}}, and nothing else.`;
 const NO_SUCH_JOB = 'No such job.';
 const MAX_BODY_CHARS = 4 * 1024;
+
+/** What a POST answers and reads: the status of a success, the longest body, and whether an empty body is `{}`. */
+type PostRules = { status: 200 | 202; max: number; emptyIsObject: boolean };
+
+/** A start: 202, a short body that must be there. */
+const STARTING: PostRules = { status: 202, max: MAX_BODY_CHARS, emptyIsObject: false };
+/** An answer: 202 with the resume job; up to four answers of 2,000 characters under questions of 1,000 fit in 16 KiB. */
+const ANSWERING: PostRules = { status: 202, max: 16 * 1024, emptyIsObject: false };
+/** A dismissal or a cancel: 200 with the job; it needs nothing, so no body is as good as `{}`. */
+const ACTING: PostRules = { status: 200, max: MAX_BODY_CHARS, emptyIsObject: true };
+/** A relaunch: 202 with the new job; it needs nothing either. */
+const RELAUNCHING: PostRules = { status: 202, max: MAX_BODY_CHARS, emptyIsObject: true };
 
 const BEARER = /^Bearer[ \t]+(\S+)[ \t]*$/i;
 
@@ -107,13 +131,13 @@ export function listBugFixes(request: Request, deps: PublicApiDeps): Promise<Res
   return list(request, deps, BugFixListSchema, (service, key, query, origin) => service.bugFixes(key, query, origin));
 }
 
-/** The body of a start as `schema` reads it: the refusal names the field it refuses, one it does not know
- * included, then `rule`. */
-async function bodyOf<T>(request: Request, schema: z.ZodType<T>, rule: string): Promise<T | Response> {
+/** The body of a POST as `schema` reads it: the refusal names the field it refuses, one it does not know
+ * included, then `rule`. A body over the route's limit is read as none that fits, and an empty one as `{}` where the route allows it. */
+async function bodyOf<T>(request: Request, schema: z.ZodType<T>, rule: string, how: PostRules): Promise<T | Response> {
   const text = await request.text();
   let json: unknown = null;
   try {
-    json = text.length > MAX_BODY_CHARS ? null : JSON.parse(text);
+    json = text.length > how.max ? null : JSON.parse(how.emptyIsObject && text.trim() === '' ? '{}' : text);
   } catch {
     json = null;
   }
@@ -124,34 +148,77 @@ async function bodyOf<T>(request: Request, schema: z.ZodType<T>, rule: string): 
   return refusal('invalid_request', typeof field === 'string' ? `${field}: ${rule}` : rule);
 }
 
-/** Answers a start: the key, then the body `schema` reads, then `serve`'s job, 202. */
-function start<T>(
-  request: Request, deps: PublicApiDeps, schema: z.ZodType<T>, rule: string,
+/** Answers a POST: the key, then the body `schema` reads, then `serve`'s job, with the status `how` says. */
+function post<T>(
+  request: Request, deps: PublicApiDeps, how: PostRules, schema: z.ZodType<T>, rule: string,
   serve: (service: PublicApiService, key: ApiKeyCaller, body: T) => Promise<Answered<unknown>>,
 ): Promise<Response> {
   return asKey(request, deps, async (service, key) => {
-    const body = await bodyOf(request, schema, rule);
+    const body = await bodyOf(request, schema, rule, how);
     if (body instanceof Response) return body;
     const served = await serve(service, key, body);
-    return served.ok ? reply(202, JobSchema.parse(served.value)) : refusal(served.code, served.message);
+    return served.ok ? reply(how.status, JobSchema.parse(served.value)) : refusal(served.code, served.message);
   });
+}
+
+/** Runs `serve` for the job `id`: an id that is no uuid is a job that does not exist, and never reaches the database, whose uuid column would refuse it. */
+function ofJob<T>(id: string, serve: (job: string) => Promise<Answered<T>>): Promise<Answered<T>> {
+  return z.uuid().safeParse(id).success ? serve(id) : Promise.resolve<Answered<T>>({ ok: false, code: 'not_found', message: NO_SUCH_JOB });
 }
 
 /** POST /api/v1/bug-fixes: queues the bug fix on the runners and answers 202 with the job. */
 export function startBugFix(request: Request, deps: PublicApiDeps): Promise<Response> {
-  return start(request, deps, StartBugFixSchema, BAD_BODY, (service, key, body) => service.startBugFix(key, body));
+  return post(request, deps, STARTING, StartBugFixSchema, BAD_BODY, (service, key, body) => service.startBugFix(key, body));
 }
 
 /** POST /api/v1/mega-bug-fixes: queues the mega bug fix in a plan repository and answers 202 with the job. */
 export function startMegaBugFix(request: Request, deps: PublicApiDeps): Promise<Response> {
-  return start(request, deps, StartMegaBugFixSchema, BAD_MEGA_BODY, (service, key, body) => service.startMegaBugFix(key, body));
+  return post(request, deps, STARTING, StartMegaBugFixSchema, BAD_MEGA_BODY, (service, key, body) => service.startMegaBugFix(key, body));
 }
 
 /** GET /api/v1/jobs/{id}: a job a key of the key's workspace queued; any other is 404. */
 export function getJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
   return asKey(request, deps, async (service, key) => {
-    if (!z.uuid().safeParse(id).success) return refusal('not_found', NO_SUCH_JOB);
-    const served = await service.job(key, id);
+    const served = await ofJob(id, (job) => service.job(key, job));
     return served.ok ? reply(200, JobSchema.parse(served.value)) : refusal(served.code, served.message);
   });
+}
+
+/** GET /api/v1/jobs/{id}/lines: the lines of a job a key of the key's workspace queued, oldest first, a page at a
+ * time; any other job is 404, as for the job itself. */
+export function getJobLines(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return list(request, deps, JobLineListSchema, (service, key, query) => ofJob(id, (job) => service.jobLines(key, job, query)));
+}
+
+/** GET /api/v1/jobs/{id}/questions: what a job a key of the key's workspace queued asked, where it stands and who closed it (PRD 2425 s6);
+ * a job that asked none, and any other, is 404. */
+export function getJobQuestions(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return asKey(request, deps, async (service, key) => {
+    const served = await ofJob(id, (job) => service.jobQuestions(key, job));
+    return served.ok ? reply(200, QuestionsSchema.parse(served.value)) : refusal(served.code, served.message);
+  });
+}
+
+/** POST /api/v1/jobs/{id}/answers: answers the questions of a job a key of the key's workspace queued, and answers 202 with the
+ * job that resumes it (PRD 2425 s6). The body is read before the job, as a start's is before its repository. */
+export function answerJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return post(request, deps, ANSWERING, AnswerJobSchema, BAD_ANSWER_BODY, (service, key, body) => ofJob(id, (job) => service.answerJob(key, job, body)));
+}
+
+/** POST /api/v1/jobs/{id}/dismiss: closes the questions of a job a key of the key's workspace queued with no answer, queueing nothing,
+ * and answers 200 with the job (PRD 2425 s6). */
+export function dismissJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return post(request, deps, ACTING, DismissJobSchema, BAD_ACTING_BODY, (service, key, body) => ofJob(id, (job) => service.dismissJob(key, job, body)));
+}
+
+/** POST /api/v1/jobs/{id}/cancel: cancels a job a key of the key's workspace queued, as the Runners page's Cancel does, and answers 200 with the
+ * job (PRD 2425 s7): ended at once when it had not started, asked to stop when it runs; an ended job is 409. */
+export function cancelJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return post(request, deps, ACTING, CancelJobSchema, BAD_ACTING_BODY, (service, key, body) => ofJob(id, (job) => service.cancelJob(key, job, body)));
+}
+
+/** POST /api/v1/jobs/{id}/relaunch: sends a job a key of the key's workspace queued again or resumes it, as the Runners page offers, and answers
+ * 202 with the new job (PRD 2425 s7); a job the page offers neither for, and one carried on already, is 409. */
+export function relaunchJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return post(request, deps, RELAUNCHING, RelaunchJobSchema, BAD_ACTING_BODY, (service, key, body) => ofJob(id, (job) => service.relaunchJob(key, job, body)));
 }

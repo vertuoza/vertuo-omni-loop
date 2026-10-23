@@ -52,3 +52,28 @@ export function decodeCursor(text: string, list: CursorList): Cursor | null {
   const [, createdAt, id] = read.data;
   return { list, createdAt, id };
 }
+
+// A job's lines (PRD 2425 s4) page the same way, but by the keyset the table has: the job's own sequence
+// number, `seq > last`, so a page never repeats or skips a line while the runner appends more. The cursor is
+// tagged with its job as well as its list, so a cursor reads on in the job it was made for and in no other.
+
+/** Where a page of a job's lines ends: the job, and its last line's sequence number. */
+export type LinesCursor = { job: string; seq: number };
+
+/** The largest sequence number the database holds (`runner_job_lines.seq` is an integer). */
+const SEQ_MAX = 2_147_483_647;
+
+/** The cursor after the line `last` of a job's lines, opaque and safe in an address. */
+export function encodeLinesCursor(last: LinesCursor): string {
+  return toBase64url(JSON.stringify(['lines', last.job, last.seq]));
+}
+
+/** The cursor `text` names for the lines of `job`, or null when it is not one of that job's. */
+export function decodeLinesCursor(text: string, job: string): LinesCursor | null {
+  const decoded = fromBase64url(text);
+  const value = decoded === null ? undefined : jsonOf(decoded);
+  const read = z.tuple([z.literal('lines'), z.literal(job), z.number().int().min(1).max(SEQ_MAX)]).safeParse(value);
+  if (!read.success) return null;
+  const [, , seq] = read.data;
+  return { job, seq };
+}

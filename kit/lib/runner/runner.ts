@@ -81,8 +81,8 @@ import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubTo
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
-import { fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
-import type { RunOutcome } from './log.ts';
+import { bugFixReading, fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
+import type { BugFixReading, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import type { PluginKeeper } from './plugin.ts';
 import { notReleased } from './release.ts';
@@ -318,13 +318,15 @@ function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
 }
 
 /**
- * Sends a job's report. One that carries what was released, or an outcome, and is refused is sent again
- * without them: an app older than PRD 2175, 2223 or 2375 refuses a field it does not know, and the job's status must still reach it.
+ * Sends a job's report. One that carries what was released, an outcome, or a bug fix's pull requests, and
+ * is refused is sent again without them: an app older than PRD 2175, 2223, 2375 or 2425 refuses a field it
+ * does not know, or an outcome word it has no value for, and the job's status must still reach it.
  */
 async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
   const update = hideTokens(loop, job, raw);
-  const { released, releaseError, outcome, slicesMerged, slicesTotal, ...rest } = update;
-  if (released === undefined && releaseError === undefined && outcome === undefined && slicesMerged === undefined && slicesTotal === undefined) return sendCounted(loop, job, update);
+  const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, ...rest } = update;
+  const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs];
+  if (newer.every((field) => field === undefined)) return sendCounted(loop, job, update);
   try {
     return await sendCounted(loop, job, update);
   } catch (error) {
@@ -539,16 +541,38 @@ async function withSlices(loop: Loop, job: RunnerJob, place: Place, update: JobU
   }
 }
 
+/** What a `/omni:bug-fix` or `/omni:mega-bug-fix` job's log says of its end (PRD 2425); `null` for any other job. */
+function bugFixOf(log: string, line: string): BugFixReading | null {
+  const checked = checkRunnerLine(line);
+  return checked.ok && (checked.skill === 'bug-fix' || checked.skill === 'mega-bug-fix') ? bugFixReading(log) : null;
+}
+
+/** The fields a done bug fix's log adds to its report (PRD 2425): what the log does not say is left out. */
+function bugFixFields({ outcome, fixedBy, prs }: BugFixReading): Pick<JobUpdate, 'outcome' | 'fixedBy' | 'prs'> {
+  return { ...(outcome === null ? {} : { outcome }), ...(fixedBy === null ? {} : { fixedBy }), ...(prs.length === 0 ? {} : { prs }) };
+}
+
+/**
+ * `failed`, the status of a bug fix that did not end done, with the pull requests its log names, the
+ * draft it left included, and no outcome (PRD 2425); as it is for any other job, or a log naming none.
+ */
+function failedWithPrs(failed: JobUpdate, log: string, line: string): JobUpdate {
+  const reading = bugFixOf(log, line);
+  return reading === null || reading.prs.length === 0 ? failed : { ...failed, prs: reading.prs };
+}
+
 /** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
 function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
   if (exitCode === 0) {
     const done: JobUpdate = { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: 0 };
+    const bugFix = bugFixOf(log, job.line);
     const outcome = outcomeOf(log, job.line);
-    return outcome === null ? done : { ...done, outcome };
+    // A mega bug fix whose hand-off ends on the line that resumes it reads `stopped` (#2449), whatever its Outcome word.
+    return { ...done, ...(bugFix === null ? {} : bugFixFields(bugFix)), ...(outcome === null ? {} : { outcome }) };
   }
-  return { status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
+  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` }, log, job.line);
 }
 
 /** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
@@ -557,7 +581,7 @@ function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
 function vanished(log: string, job: RunnerJob): JobUpdate {
   const reason = 'the job stopped before it wrote its exit code';
   const outcome = outcomeOf(log, job.line);
-  if (outcome === null || outcome === 'stopped') return { status: 'failed', logTail: logTail(log), reason };
+  if (outcome === null || outcome === 'stopped') return failedWithPrs({ status: 'failed', logTail: logTail(log), reason }, log, job.line);
   return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
 }
 
@@ -597,7 +621,7 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
     const log = readLog(loop, job.id, place.log);
     if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
     if (!loop.terminal.alive(place.session)) return vanished(readLog(loop, job.id, place.log), job);
-    if (loop.now() - started > loop.timeoutMs) return killed(loop, job.id, place, { status: 'failed', reason: 'timeout' });
+    if (loop.now() - started > loop.timeoutMs) return killed(loop, job.id, place, failedWithPrs({ status: 'failed', reason: 'timeout' }, log, job.line));
     const noApp = await appLacking(loop, job);
     if (noApp !== null) return killed(loop, job.id, place, { status: 'failed', reason: noApp });
     if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });

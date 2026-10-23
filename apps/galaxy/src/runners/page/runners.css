@@ -53,6 +53,7 @@
 .runners-line { min-width: 0; }
 .runners-prd { display: block; font-size: 12px; margin-top: 4px; }
 .runners-why {display: block; color: var(--ask-red); font-size: 12px; margin-top: 4px; }
+.runners-by { display: block; color: var(--ask-muted); font-size: 12px; margin-top: 4px; }
 
 .runners-fleet { display: grid; gap: 4px; }
 .runners-fleet select {

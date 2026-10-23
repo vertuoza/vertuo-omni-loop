@@ -9,7 +9,7 @@ import { answerRunnerJob, dismissRunnerJob, readJobQuestions, type Called } from
 import { ANSWER_CHARS, type JobQuestions } from '../runners.contract';
 import { repoName } from './model';
 import {
-  answersOf, closed, demoPort, drawerMove, issueUrl, LOADING, NONE, opened, readingOf, refusedAsClosed, withAnswer, WORDS, type AnswerState, type NeedHumanPort, type Reading,
+  answersOf, closed, closedAfter, demoPort, drawerMove, issueUrl, LOADING, NONE, opened, readingOf, refusedAsClosed, withAnswer, WORDS, type AnswerState, type NeedHumanPort, type Reading,
 } from './need-human';
 import './need-human.css';
 
@@ -136,7 +136,8 @@ function NeedHumanDrawer({ id, repo, port, seed, onClose, onSent }: {
     }
     setBusy(false);
     const words = refusedAsClosed(called.error);
-    if (words !== null && reading.kind === 'open') setReading({ kind: 'closed', words, issue: reading.row.issue });
+    // Someone came first: the row read again names who, an API key by its name, which the refusal's words may not.
+    if (words !== null && reading.kind === 'open') setReading(closedAfter(words, await port.read(id), reading.row.issue));
     else setProblem(called.error);
   }
   const answers = asked !== null && current !== null ? answersOf(asked, current) : null;

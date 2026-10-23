@@ -30,7 +30,10 @@ import type { RunnersService, Served } from './runners.service';
 // The caller is checked first: signed out, 401, and nothing else runs. A runner's routes take a bearer
 // access token (`omni signin`, or a traded OMNI_TOKEN), checked with the Auth server; the browser's
 // take the page's session. A token never answers or dismisses a question (BR-PRODUCT-94): any bearer
-// header on those two routes is a 403. The service then reads and writes as the service role, holding
+// header on those two routes is a 403. The one reading that widens (PRD 2425 s6) is a workspace's API
+// key, which answers and dismisses only a job a key of its workspace sent, and only through the public
+// API (../public-api, /api/v1/jobs/<id>/answers and /dismiss): the kit's sign-in and every other bearer
+// still get this 403. The service then reads and writes as the service role, holding
 // the rules itself (./runners.service.ts). Each answer is checked against the contract before it leaves;
 // each refusal is `{error}` in plain words (./runners.contract.ts). A failure is 500, logged.
 

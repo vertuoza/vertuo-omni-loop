@@ -25,7 +25,7 @@ import { field, jsonObject } from '../ask/schema.ts';
 import type { JsonObject } from '../ask/schema.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
 import type { Sample } from './health.ts';
-import type { RunOutcome } from './log.ts';
+import type { BugFixOutcome, RunOutcome } from './log.ts';
 import type { JobQuestionList } from './questions.ts';
 import type { MachineTokens, TokenCounts } from './tokens.ts';
 
@@ -109,8 +109,15 @@ export type JobUpdate = {
   released?: number[];
   /** Why releasing them failed, at most 200 characters, or `null` when nothing failed (PRD 2175). */
   releaseError?: string | null;
-  /** What a done `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223); never sent for any other job. */
-  outcome?: RunOutcome | null;
+  /**
+   * What a done `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), or the word a done
+   * `/omni:bug-fix` or `/omni:mega-bug-fix` job's `Outcome:` line gave (PRD 2425); never sent for any other job.
+   */
+  outcome?: RunOutcome | BugFixOutcome | null;
+  /** The pull request a done bug fix proved had already fixed the bug, from its `Fixed by:` line (PRD 2425); left out when it names none. */
+  fixedBy?: string;
+  /** The pull requests a bug fix's log names with a `PR:` line, of any repository, in order, at most 50 (PRD 2425): sent done or failed, left out when it names none. */
+  prs?: string[];
   /** The PRD's slices merged and its slices in all, read from its board when a job ended `stopped` (PRD 2375); left out when the board cannot be read. */
   slicesMerged?: number;
   slicesTotal?: number;
@@ -163,7 +170,9 @@ const PrdJobSchema = z.object({
   prUrl: z.string().nullable(),
   exitCode: z.number().nullable(),
   reason: z.string().nullable(),
-  outcome: z.enum(['answers', 'held', 'ready', 'human', 'stopped']).nullable().optional().transform((value) => value ?? null),
+  // A bug fix (PRD 2425) has outcomes of its own, which a PRD's follower has no word for: they, and any word
+  // that comes later, read as none, so one such job never makes a whole list unreadable.
+  outcome: z.enum(['answers', 'held', 'ready', 'human', 'stopped']).nullable().optional().catch(null).transform((value) => value ?? null),
   queuedAt: z.string(),
 });
 export type PrdJob = z.output<typeof PrdJobSchema>;
