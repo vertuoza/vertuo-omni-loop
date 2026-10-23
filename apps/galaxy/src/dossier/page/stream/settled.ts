@@ -7,7 +7,16 @@ import { completePage, DossierStream, type DossierStreamProps } from './DossierS
 // streamed page (./DossierStream.tsx) is its complete page; anything else is itself. The tests then
 // render it to static markup, and read its props, as before the page streamed.
 
+/** A PRD's page whose approval, send and runners are late (PRD 2401 s4, ../DossierRoute.tsx's WithLateParts): the page once they settled. */
+interface LateParts { late: Promise<unknown>; live: (read: unknown) => Promise<ReactNode>; read: unknown; children: (late: unknown) => ReactNode }
+const isLateParts = (props: object): props is LateParts => 'late' in props && 'shell' in props && 'live' in props && 'children' in props;
+
 export async function settledPage(node: ReactNode): Promise<ReactElement> {
+  if (isValidElement<object>(node) && isLateParts(node.props)) {
+    const { late, live, read, children } = node.props;
+    const [seen, page] = await Promise.all([live(read), late.then((parts) => settledPage(children(parts)))]);
+    return createElement(Fragment, null, seen, page);
+  }
   if (isValidElement<DossierStreamProps>(node) && node.type === DossierStream) {
     const { props } = node;
     const [live, page] = await Promise.all([props.live(props.read), completePage(props)]);

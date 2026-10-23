@@ -69,8 +69,8 @@ function partsOf(value: string): [string, string | null] {
 export function pulseOf(read: DossierRead): LivePulse | null {
   if (!read.rounds) return null;
   const latest: Partial<Record<PulseKind, number>> = {};
-  // A PRD's three kinds and its voice (PRD 822), as dossier_list() pulses them; a fix's rounds and record
-  // are not watched (PRD 627).
+  // A PRD's three kinds and its voice (PRD 822), as dossier_repos() pulses them (PRD 2401 s3); a fix's
+  // rounds and record are not watched (PRD 627).
   for (const version of read.versions) if (isPulseKind(version.kind)) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
   const pulse: LivePulse = { asked: read.rounds.length, answered: read.rounds.filter((r) => r.status === 'answered').length, latest };
   const github = githubPulse(read.dossier.prd, read.github);

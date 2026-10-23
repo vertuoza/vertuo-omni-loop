@@ -211,13 +211,17 @@ export type DossierVersionRow = {
   uploaded_by: string | null;
   commit_sha: string | null;
   created_at: string;
+  /** PRD 2401 s3: a plan version's slice count, stored as it was added
+   * (supabase/migrations/20261231090000_dossier_light_reads.sql); 0 when the plan declares no slice the
+   * kit reads; null for every other kind and for a plan added before it. A row read without it is unknown. */
+  slices?: number | null | undefined;
 };
 
 /** A version read whole (PRD 1548): what `omni dossier get` writes to a scratch file. */
 type LatestContent = { id: string; version: number; sha256: string; content: string; created_at: string };
 
 export const DOSSIER_COLUMNS ='id, workspace_id, home_repo, prd, kind, title, opened_by, created_at, numbered_at, birthplace';
-export const VERSION_COLUMNS = 'id, dossier_id, kind, bytes, source, uploaded_by, commit_sha, created_at';
+export const VERSION_COLUMNS = 'id, dossier_id, kind, bytes, source, uploaded_by, commit_sha, created_at, slices';
 
 export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
   return {
@@ -368,15 +372,46 @@ export const LIST_FIELDS = [
   'last_activity',
 ] as const satisfies ReadonlyArray<keyof DossierListRow>;
 
-/** Every dossier the caller may read, newest activity first; or only `dossierId`'s, when given. */
-export async function dossierList(db: Pick<SupabaseClient, 'rpc'>, dossierId: string | null = null): Promise<DossierListRow[]> {
-  return settle<DossierListRow[]>('read the history', await db.rpc('dossier_list', { p_dossier: dossierId })) ?? [];
+/** Every dossier the caller may read, newest activity first; or only `dossierId`'s, when given; and
+ * only those of `kind`, filtered by the database (PRD 2401 s3), when given. */
+export async function dossierList(
+  db: Pick<SupabaseClient, 'rpc'>, dossierId: string | null = null, kind: PushKind | null = null,
+): Promise<DossierListRow[]> {
+  // A call without a kind names none, as before PRD 2401: the function reads a missing one as every kind.
+  const args = kind === null ? { p_dossier: dossierId } : { p_dossier: dossierId, p_kind: kind };
+  return settle<DossierListRow[]>('read the history', await db.rpc('dossier_list', args)) ?? [];
+}
+
+// ── One dossier's repositories (PRD 2401 s3) ────────────────────────────────────
+// dossier_repos() (supabase/migrations/20261231090000_dossier_light_reads.sql) gives one dossier's
+// repositories, as dossier_list() gives them, its rounds asked and answered, and how many versions it
+// has of each kind, without numbering every version: what a page's chips and its change check read. It
+// runs as the caller, so row-level security decides: a dossier they may not read gives no row.
+
+/** One dossier's repositories and pulse, as dossier_repos() returns them. */
+export type DossierReposRow = {
+  id: string;
+  /** The home repository first, then the others in order, each once, in lower case. */
+  repos: string[];
+  /** How many versions it has of each kind: the latest's number. */
+  latest: Partial<Record<ArtifactKind, number>>;
+  asked: number;
+  answered: number;
+};
+
+/** The columns dossier_repos() returns, in its order. */
+export const REPOS_FIELDS = ['id', 'repos', 'latest', 'asked', 'answered'] as const satisfies ReadonlyArray<keyof DossierReposRow>;
+
+/** The dossier's repositories and pulse, or null when the caller may not read it, or it is gone. */
+export async function dossierRepos(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierReposRow | null> {
+  return (settle<DossierReposRow[]>('read the repositories', await db.rpc('dossier_repos', { p_dossier: dossierId })) ?? [])[0] ?? null;
 }
 
 // ── The change check (PRD 384, part 5) ──────────────────────────────────────────
 // The open page asks every 2 s whether anything changed: how many rounds, how many answered, and the
-// latest version number of each artifact. dossier_list() with the dossier named answers exactly that in
-// one row, as the caller, so the page's own access rule decides: no new function, no migration.
+// latest version number of each artifact. dossier_repos() answers exactly that in one row, as the
+// caller, so the page's own access rule decides (PRD 2401 s3: before it, dossier_list() with the
+// dossier named, which numbered every version of it).
 
 /** What the change check compares: counts, never rows; the latest version of a PRD's kinds, its voice's
  * included (PRD 822), so a new voice.json version refreshes the page. */
@@ -384,12 +419,12 @@ export type DossierPulse = { asked: number; answered: number; latest: Partial<Re
 
 /** The dossier's pulse, or null when the caller may not read it, or it is gone. */
 export async function dossierPulse(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierPulse | null> {
-  // dossier_list()'s row as it came, unparsed: each field read is checked.
-  const row: Partial<Pick<DossierListRow, 'latest' | 'asked' | 'answered'>> | undefined = (await dossierList(db, dossierId))[0];
+  // dossier_repos()'s row as it came, unparsed: each field read is checked.
+  const row: Partial<Pick<DossierReposRow, 'asked' | 'answered'>> & { latest?: unknown } | null = await dossierRepos(db, dossierId);
   if (!row) return null;
   const latest: Partial<Record<PulseKind, number>> = {};
   for (const kind of PULSE_KINDS) {
-    const version = row.latest?.[kind]?.version;
+    const version = propertyOf(row.latest, kind);
     if (typeof version === 'number') latest[kind] = version;
   }
   return { asked: row.asked ?? 0, answered: row.answered ?? 0, latest };

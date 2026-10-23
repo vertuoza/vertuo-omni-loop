@@ -281,6 +281,12 @@ export function runnersRepository(db: RunnersDb) {
     runner: async (id: string): Promise<RunnerRow | null> =>
       parsed(db.from('runners').select(RUNNER_COLUMNS).eq('id', id).maybeSingle(), RunnerRow.nullable(), 'runners'),
 
+    /** These runners, in one read; one that is gone is not in the answer. */
+    runnersByIds: async (ids: readonly string[]): Promise<RunnerRow[]> => {
+      if (ids.length === 0) return [];
+      return parsed(db.from('runners').select(RUNNER_COLUMNS).in('id', [...ids]), z.array(RunnerRow), 'runners');
+    },
+
     runnerNamed: async (workspaceId: string, name: string): Promise<RunnerRow | null> =>
       parsed(db.from('runners').select(RUNNER_COLUMNS).eq('workspace_id', workspaceId).eq('name', name).maybeSingle(), RunnerRow.nullable(), 'runners'),
 

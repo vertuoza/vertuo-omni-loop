@@ -145,6 +145,20 @@ describe('the rows', () => {
   });
 });
 
+describe('several runners at once (PRD 2401 s4)', () => {
+  it('are read in one query, none at all when none is asked for', async () => {
+    const mo = runnerRow({ id: MO, name: 'mo' });
+    const shared = runnerRow({ id: SHARED, name: 'shared' });
+    const { db, lines } = fakeDb([{ data: [mo, shared], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.runnersByIds([MO, SHARED])).toEqual([mo, shared]);
+    expect(await repository.runnersByIds([])).toEqual([]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/^from\("runners"\)\.select\("[^"]+"\)\.in\("id",/);
+    expect(lines[0]).toContain(`.in("id",["${MO}","${SHARED}"])`);
+  });
+});
+
 // A key's GitHub App (PRD 2433 s7): the two service-role functions of
 // supabase/migrations/20261228090000_api_key_github_apps.sql, and the runner's `github_app` column.
 describe('a key\'s GitHub App (PRD 2433)', () => {

@@ -7,20 +7,22 @@ import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/de
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import '../../src/product-filter/product-filter.css';
-import { productListScope } from '../../src/product-filter/ProductFilter';
-import type { ProductLabels } from '../../src/product-filter/product-filter.service';
+import { ProductFilter } from '../../src/product-filter/ProductFilter';
+import { scopeDossiers, type ProductLabels } from '../../src/product-filter/product-filter.service';
 import {
-  HISTORY_CALLBACK, HISTORY_PATH, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
-  rosterReader, whoLogin, type CurrentStages, type OpenCounts, type Whom,
+  HISTORY_CALLBACK, HISTORY_PATH, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts, rosterReader,
+  whoLogin, type CurrentStages, type OpenCounts, type Whom,
 } from '../../src/dossier/page/history';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
-import { readHistory } from '../../src/dossier/page/source';
+import { readHistory, startListScope } from '../../src/dossier/page/source';
 import { ofWork } from '../../src/dossier/page/work';
 import { PrdListLoading } from '../../src/skeleton/pages';
 import { Streamed } from '../../src/skeleton/Streamed';
 import { countsOf } from '../../src/stages/outbox/recount';
 import { prdOutboxStore, type OutboxCounts, type PrdOutboxStore } from '../../src/stages/outbox/store';
 import { prdKey, stageStore } from '../../src/stages/store';
+import { createTimings } from '../../src/dossier/page/timing';
+import { ServerTimingMark } from '../../src/dossier/page/timing-mark';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
 // first, filtered by repository (any of a dossier's repositories) and by draft or PRD, and searched by
@@ -34,7 +36,8 @@ import { prdKey, stageStore } from '../../src/stages/store';
 // PRD 587: the numbered rows' current stages are read from the stored stages, as the signed-in person,
 // for the stage bar, `?stage=` and each row's pill; stages that cannot be read show none. The demo has no
 // stored stage, so only its answered drafts read idea.
-// PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs.
+// PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs. PRD 2401 s3: the
+// database leaves the fixes out (dossier_list(p_kind => 'prd')), so the list never reads them.
 // PRD 657 s4: a signed-in person's list streams in its own block, under the list's skeleton (the
 // heading, the filters' place and the rows'), so the frame is sent before the dossiers are read. The
 // filters stream with the rows: their repositories and the empty list's words come from the same read.
@@ -75,27 +78,33 @@ export default async function HistoryRoute({ searchParams }: Props) {
     const rows = ofWork(demoHistory(Date.now()), 'prd');
     return listing(rows, DEMO_VIEWER, await readOpenCounts(historyToRead(rows, filters, DEMO_VIEWER), DEMO_READER));
   }
-  const session = await dossierSession(mode);
+  // PRD 2401 s1: each read is timed under its name and the timings are said at the end of the page.
+  const timings = createTimings();
+  const session = await timings.time('viewer', dossierSession(mode));
   if (!session) return <DossiersClosed />;
   const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={HISTORY_CALLBACK} error={one(query.signin_error)} what="history" />;
 
   /** The list as the signed-in person reads it: the dossiers, then their open questions and stages. */
   async function history(userId: string): Promise<ReactNode> {
+    // PRD 2401 s4: what the scope and `who=<login>` read once the rows are known starts now, beside the list.
+    const early = startListScope(db, userId, login, rosterReader(db));
     let listed: DossierListRow[];
     try {
-      listed = ofWork(await readHistory(db), 'prd');
+      // PRD 2401 s3: the database lists the PRDs alone, the fixes never read.
+      listed = await timings.time('dossier_list', readHistory(db, 'prd'));
     } catch (error) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
-    const { rows, above, labels } = await productListScope(HISTORY_PATH)(db, listed, query);
-    const whom = login ? await readLoginIds(rows, login, rosterReader(db)) : undefined;
+    const { rows, filter, unreadable, labels } = await timings.time('scope', scopeDossiers(early.scope, listed, query, HISTORY_PATH));
+    const above = <ProductFilter filter={filter} unreadable={unreadable} />;
+    const whom = login ? await timings.time('login_ids', readLoginIds(rows, login, early.roster)) : undefined;
     const [open, stages] = await Promise.all([
-      readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),
-      readCurrentStages(rows, stageStore(db)),
+      timings.time('counts', readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db))),
+      timings.time('stages', readCurrentStages(rows, stageStore(db))),
     ]);
-    return <>{above}{listing(rows, userId, open, stages, whom, labels)}</>;
+    return <>{above}{listing(rows, userId, open, stages, whom, labels)}<ServerTimingMark timings={timings} /></>;
   }
   return <Streamed read={history(user.id)} skeleton={<PrdListLoading />} failed={<DossierDatabaseDown />}>{(list) => list}</Streamed>;
 }

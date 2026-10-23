@@ -43,7 +43,10 @@
 // dossier `me` may read (or only the one named), its repositories (home first, then its rounds' and, for
 // a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
-// activity (its opening, numbering, versions and rounds asked or answered), newest first.
+// activity (its opening, numbering, versions and rounds asked or answered), newest first. Since PRD
+// 2401 s3 (supabase/migrations/20261231090000_dossier_light_reads.sql) it lists only p_kind's dossiers
+// when given, dossier_repos(dossier) gives one dossier's repositories, rounds and version counts as
+// the history does, and each plan version keeps its slice count as the kit counts it (0 for none).
 //
 // A PRD's product (PRD 1364): each workspace's products and their repositories, seeded by a test
 // (seedProduct), and dossier_push()'s birth rule of supabase/migrations/20261129100000_prd_product.sql:
@@ -65,6 +68,7 @@ import {
   type DossierRoundRow, type PushedArtifactKind, type PushKind, type RoundRule,
 } from './store';
 import { FAKE_WORKSPACE, userOf, type FakeAccount } from '../ask/store.fake';
+import { parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 type Row = Record<string, unknown>;
@@ -92,6 +96,8 @@ type FakeProduct = { id: string; workspace_id: string; name: string; repos: stri
 export type FakeVersion = {
   id: string; dossier_id: string; kind: string; content: string; sha256: string; bytes: number;
   source: 'kit' | 'github'; uploaded_by: string | null; commit_sha: string | null; git_blob: string | null; created_at: string;
+  /** PRD 2401 s3: a plan's slice count, set as it is added (0 for none); null for any other kind. */
+  slices: number | null;
 };
 
 /** What workspace_roster() adds to a member (PRD 652): each left out reads null. */
@@ -117,6 +123,15 @@ export type FakeLedgerEvent = { workspace_id: string; type: string; planet: numb
 
 const REPO =/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
 const sha256 = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
+
+/** plan_slice_count(): how many slices a plan declares, as the kit counts them; 0 when it reads none. */
+function sliceCount(plan: string): number {
+  try {
+    return parsePlanSlices(plan).length;
+  } catch {
+    return 0;
+  }
+}
 const refuse = (code: string, message: string): Result => ({ data: null, error: { code, message } });
 
 /** A check's value, or the refusal it ends the call with. */
@@ -222,6 +237,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     tables.dossier_versions.push({
       id: newId(), dossier_id: dossier.id, kind, content, sha256: hash, bytes: Buffer.byteLength(content, 'utf8'),
       source, uploaded_by: uploadedBy, commit_sha: commitSha, git_blob: null, created_at: clock(),
+      slices: kind === 'plan' ? sliceCount(content) : null,
     });
     return ofKind.length + 1;
   }
@@ -524,12 +540,14 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     }).sort((a, b) => at(a.created_at) - at(b.created_at) || a.round_id.localeCompare(b.round_id));
   }
 
-  /** dossier_list(): each dossier `me` may read, or only `dossierId`'s, as the history lists it. */
-  function list(me: FakeAccount | null, dossierId: unknown): DossierListRow[] {
+  /** dossier_list(): each dossier `me` may read, or only `dossierId`'s, and only those of `kind` when
+   * given (PRD 2401 s3), as the history lists it. */
+  function list(me: FakeAccount | null, dossierId: unknown, kind: unknown = null): DossierListRow[] {
     if (!me) return [];
     // A concept (PRD 1272) is left out: the history's rows are of the kinds the pages read, and the
     // concept's own list comes with its pages. The database's dossier_list() does list it.
-    const dossiers = tables.dossiers.filter((d) => isMember(me, d.workspace_id) && (dossierId === null || dossierId === undefined || d.id === dossierId));
+    const named = (value: unknown, of: string) => value === null || value === undefined || value === of;
+    const dossiers = tables.dossiers.filter((d) => isMember(me, d.workspace_id) && named(dossierId, d.id) && named(kind, d.kind));
     return dossiers.flatMap((d): DossierListRow[] => {
       const { kind, home_repo: home } = d;
       // A product PRD (PRD 1548) is left out: the history's rows name a home repository, and the pages
@@ -563,6 +581,16 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     }).sort((a, b) => Date.parse(b.last_activity) - Date.parse(a.last_activity) || a.id.localeCompare(b.id));
   }
 
+  /** dossier_repos() (PRD 2401 s3): the one dossier's repositories and rounds, as the history lists
+   * them, and how many versions it has of each kind; none when `me` may not read it. */
+  function repos(me: FakeAccount | null, dossierId: unknown) {
+    return list(me, dossierId).map(({ id, repos: chips, asked, answered }) => {
+      const latest: Record<string, number> = {};
+      for (const version of tables.dossier_versions) if (version.dossier_id === id) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
+      return { id, repos: chips, latest, asked, answered };
+    });
+  }
+
   /** One of the functions, called as `me`. */
   function call(me: FakeAccount | null, name: string, args: Row): Result {
     if (name === 'dossier_open') return open(me, args);
@@ -574,7 +602,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       return state.rosterDown ? refuse('57014', 'canceling statement due to statement timeout') : { data: roster(me, workspace), error: null };
     }
     if (name === 'dossier_rounds') return { data: rounds(me, args.p_dossier), error: null };
-    if (name === 'dossier_list') return { data: list(me, args.p_dossier), error: null };
+    if (name === 'dossier_list') return { data: list(me, args.p_dossier, args.p_kind), error: null };
+    if (name === 'dossier_repos') return { data: repos(me, args.p_dossier), error: null };
     return refuse('PGRST202', `Could not find the function public.${name}`);
   }
 
