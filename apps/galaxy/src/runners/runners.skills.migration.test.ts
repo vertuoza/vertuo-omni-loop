@@ -65,8 +65,10 @@ describe('set_repository_runner_skill()', () => {
 
   it('holds the runners\' fixed list, the contract\'s and the kit\'s, so a fixed skill\'s name is never allowed', () => {
     const fixed = /fixed text\[\] := array\[([^\]]*)\]/.exec(fn)?.[1] ?? '';
-    expect(fixed.split(',').map((name) => name.trim().replace(/^'|'$/g, ''))).toEqual(RUNNER_SKILLS.filter((skill) => skill !== 'retro-apply'));
-    // PRD 2338: retro-apply joined the list after this migration shipped; a later migration adds it to the database's.
+    // retro-apply (PRD 2338), rewind and knowledge-add (PRD 2410) joined the list after this migration
+    // shipped; a later migration adds them to the database's.
+    const addedLater: readonly string[] = ['retro-apply', 'rewind', 'knowledge-add'];
+    expect(fixed.split(',').map((name) => name.trim().replace(/^'|'$/g, ''))).toEqual(RUNNER_SKILLS.filter((skill) => !addedLater.includes(skill)));
   });
 
   it('refuses a repository the workspace does not list, or removed, with P0002', () => {

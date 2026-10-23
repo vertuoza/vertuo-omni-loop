@@ -27,7 +27,7 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
-export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply'] as const;
+export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add'] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
 /** The longest line a runner runs, skill included: the kit's own `LINE_MAX`, which `omni runner` checks
