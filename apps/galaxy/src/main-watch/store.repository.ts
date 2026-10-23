@@ -1,4 +1,4 @@
-// The one way the page reads a PRD's watch on main (supabase/migrations/20261229090000_main_watch.sql):
+// The one way the page reads a PRD's watch on main (supabase/migrations/20261230090000_main_watch.sql):
 // public.prd_main_watch and public.prd_main_breaks, through the port of ./store.ts, as the signed-in
 // member, so row-level security keeps each workspace's rows to its members. A repository is kept in lower
 // case, as a dossier's home_repo is. A refusal throws with Supabase's reason; a row whose status or kind

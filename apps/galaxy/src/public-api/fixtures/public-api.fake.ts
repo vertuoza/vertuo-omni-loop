@@ -1,7 +1,8 @@
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { runnersService } from '../../runners/runners.service';
-import { API_KEY, fakeStore, OLGA, T0, WORKSPACE } from '../../runners/fixtures/store.fake';
+import { API_KEY, fakeStore, OLGA, OTHER_KEY, T0, WORKSPACE } from '../../runners/fixtures/store.fake';
 import { hashApiKey } from '../keys/secret';
+import { notifier } from '../notify';
 import type { PRD_STAGES } from '../public-api.contract';
 import type { DossierPage, DossierRow, KeyGithubApp, KeyRow, ListedKind, ProductRow, PublicApiRepository, StageRow } from '../public-api.repository';
 
@@ -39,6 +40,8 @@ export const SECRETS = {
   runners: secret('runnersAll'),
   /** The same workspace's, limited to demo-org/other. */
   runnersLimited: secret('runnersLimited'),
+  /** The same workspace's second key, every repository (PRD 2425): it reads the jobs the first sent. */
+  runnersOther: secret('runnersOther'),
   /** Shaped as a key, but no key's. */
   unknown: secret('nobody'),
 } as const;
@@ -52,6 +55,7 @@ const KEYS: StoredKey[] = [
   { secret: SECRETS.orphaned, row: { key_id: 'k-orphaned', workspace_id: NORTHWIND, repos: [], made_by: BEN, name: 'Ben’s tool' }, revoked: false, makerLeft: true },
   { secret: SECRETS.runners, row: { key_id: API_KEY, workspace_id: WORKSPACE, repos: [], made_by: OLGA, name: 'QA dashboard' }, revoked: false, makerLeft: false },
   { secret: SECRETS.runnersLimited, row: { key_id: 'k-runners-limited', workspace_id: WORKSPACE, repos: ['demo-org/other'], made_by: OLGA, name: 'Limited' }, revoked: false, makerLeft: false },
+  { secret: SECRETS.runnersOther, row: { key_id: OTHER_KEY, workspace_id: WORKSPACE, repos: [], made_by: OLGA, name: 'Support bot' }, revoked: false, makerLeft: false },
   { secret: SECRETS.south, row: { key_id: 'k-south', workspace_id: SOUTHWIND, repos: [], made_by: DAN, name: 'South tool' }, revoked: false, makerLeft: false },
 ];
 
@@ -97,6 +101,43 @@ export function fakePublicApi() {
     return dossier;
   };
 
+  // The runners' own rules over their own fake store: what a key starts and follows a job with, and the live
+  // lines (PRD 1904) the lines route reads.
+  const { store, state: runnersState } = fakeStore();
+
+  // The link a job pings (PRD 2425 s8): the real notifier over a fake network. A name resolves through `hosts` (an unknown one does
+  // not resolve), a post is recorded in `posts` and answers `answer.status`, and the hand-over to "after the response" waits for
+  // `flushPings()`, as Next's after() does. Nothing here reaches the network.
+  const hosts = new Map<string, string[]>([
+    ['hooks.example.com', ['93.184.216.34']],
+    ['intranet.example.com', ['10.1.2.3']],
+    ['loopback.example.com', ['127.0.0.1']],
+  ]);
+  const posts: { url: string; address: string; body: string }[] = [];
+  const pingLogs: string[] = [];
+  const answer = { status: 200 };
+  const pending: (() => Promise<void>)[] = [];
+  const pinger = notifier({
+    net: {
+      resolve: (host) => {
+        const found = hosts.get(host);
+        return found === undefined ? Promise.reject(new Error('ENOTFOUND')) : Promise.resolve(found);
+      },
+      fetch: ({ url, address, body }) => {
+        posts.push({ url, address, body });
+        return Promise.resolve(answer.status);
+      },
+    },
+    sleep: () => Promise.resolve(),
+    timer: () => () => undefined,
+    log: (line) => { pingLogs.push(line); },
+    later: (task) => { pending.push(task); },
+  });
+  const flushPings = async (): Promise<void> => {
+    for (let task = pending.shift(); task !== undefined; task = pending.shift()) await task();
+  };
+  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() }, null, pinger);
+
   const repository: PublicApiRepository = {
     async keyOf(hash) {
       calls.push('keyOf');
@@ -114,6 +155,14 @@ export function fakePublicApi() {
         .sort(newestFirst)
         .slice(0, page.take)
         .map(({ id, prd, product_seq, product_id, title, home_repo, created_at }) => ({ id, prd, product_seq, product_id, title, home_repo, created_at })));
+    },
+    jobLines(page) {
+      calls.push('jobLines');
+      return Promise.resolve(runnersState.lines
+        .filter((row) => row.workspace_id === page.workspace && row.job_id === page.job && row.seq > page.after)
+        .sort((a, b) => a.seq - b.seq)
+        .slice(0, page.take)
+        .map(({ seq, text }) => ({ seq, text })));
     },
     products(workspace, ids) {
       calls.push('products');
@@ -135,16 +184,19 @@ export function fakePublicApi() {
     },
   };
 
-  // The runners' own rules over their own fake store: what a key starts and follows a job with.
-  const { store, state: runnersState } = fakeStore();
-  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() });
-
   return {
     repository,
     runners,
     runnersState,
     dossiers,
     calls,
+    /** The names the fake resolver knows (each to its addresses), the posts the notifier made, what it logged, and the status the link answers. */
+    hosts,
+    posts,
+    pingLogs,
+    answer,
+    /** Runs the pings handed over since the last flush, as the response having gone. */
+    flushPings,
     add,
     /** A repository PRD, numbered `n`. */
     prd: (workspace: string, repo: string, n: number, more: Partial<FakeDossier> = {}) =>

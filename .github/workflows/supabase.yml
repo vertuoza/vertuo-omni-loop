@@ -387,7 +387,7 @@ jobs:
         # nothing, and nobody signed in writes one (PRD 2338).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_sender.sql
       - name: What a runner job's ending may say
-        # A job's outcome is one of answers, held, ready, human or stopped and nothing else; its slice
+        # A job's outcome is one of the words a job ends on and nothing else (PRD 2425 adds six); its slice
         # count is both numbers or neither, with 0 <= merged <= total; members read the columns, nobody
         # signed in writes them (PRD 2375).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_outcome.sql
@@ -402,6 +402,13 @@ jobs:
         # api_key_of() runs for the service role only and answers nothing for a revoked key, a key whose
         # maker left, a business link or a kit token; last used moves once a minute (PRD 2022).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/api_keys.sql
+      - name: Who may answer and dismiss a job an API key sent, and whose it stays
+        # A key closes the round of a job a key sent, and only a live key of the job's workspace whose maker
+        # is still a member and whose repositories hold the job's; a person or a key closes a round, never
+        # both, and the first close wins. The resume of a key's job keeps the key and its maker whoever
+        # answered, and a job already continued is not answered again; the new outcome words, the pull
+        # requests a job opened and the key that acted are stored and read by members only (PRD 2425).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/api_key_jobs.sql
       - name: Who attaches an API key's GitHub App, and which runner takes the jobs of a key that holds one
         # Only an owner of the key's workspace attaches, replaces or removes the App of a live API key; any
         # member lists its slug, an owner also its last mint, nobody the sealed key, and the tables are read

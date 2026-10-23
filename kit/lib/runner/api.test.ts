@@ -176,6 +176,15 @@ describe('runnerApi() terminal reads (PRD 2251)', () => {
     expect(await api(body({ jobs: [job] })).client.prdJobs('acme/widgets', parsePrd(7))).toEqual([job]);
   });
 
+  it("reads a job whose outcome is a bug fix's word, or one it does not know, as none, so a PRD's list stays readable (PRD 2425)", async () => {
+    const job = { id: 'j1', line: '/omni:bug-fix 7', status: 'done', runner: 'box-1', prUrl: null, exitCode: 0, reason: null, queuedAt: 't' };
+    for (const outcome of ['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked', 'whatever-comes-next']) {
+      expect(await api(body({ jobs: [{ ...job, outcome }] })).client.prdJobs('acme/widgets', parsePrd(7))).toEqual([{ ...job, outcome: null }]);
+    }
+    const yolo = { ...job, line: '/omni:yolo 7', outcome: 'human' };
+    expect(await api(body({ jobs: [yolo, { ...job, outcome: 'stuck' }] })).client.prdJobs('acme/widgets', parsePrd(7))).toEqual([yolo, { ...job, outcome: null }]);
+  });
+
   it('names a repository outside the workspace, an answer it cannot read and an unreachable app', async () => {
     await expect(api(status(403)).client.runners('a/b')).rejects.toThrow(new RunnerRefused('refused (403: this repository is not in your workspace)'));
     await expect(api(body({ nope: 1 })).client.prdJobs('a/b', parsePrd(1))).rejects.toThrow(RunnerRefused);

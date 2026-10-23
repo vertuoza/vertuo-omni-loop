@@ -1,6 +1,6 @@
 // The main watch's store (PRD 2410), as the service role (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 // the retro's runner queue's pair): the App has no person's session. It writes what the migration
-// `20261229090000_main_watch.sql` lets the service role write, and nothing else:
+// `20261230090000_main_watch.sql` lets the service role write, and nothing else:
 //
 //   open    the workspace the App's installation belongs to (`workspaces.github_installation_id`, so
 //           a watch goes to no other workspace), then one `prd_main_watch` row per lane, `watching`;

@@ -3821,6 +3821,8 @@ export type Database = {
           asked_at: string
           closed_at: string | null
           closed_by: string | null
+          closed_by_key: string | null
+          closed_for: string | null
           issue: number
           job_id: string
           lead: string
@@ -3833,6 +3835,8 @@ export type Database = {
           asked_at?: string
           closed_at?: string | null
           closed_by?: string | null
+          closed_by_key?: string | null
+          closed_for?: string | null
           issue: number
           job_id: string
           lead: string
@@ -3845,6 +3849,8 @@ export type Database = {
           asked_at?: string
           closed_at?: string | null
           closed_by?: string | null
+          closed_by_key?: string | null
+          closed_for?: string | null
           issue?: number
           job_id?: string
           lead?: string
@@ -3853,6 +3859,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "runner_job_questions_closed_by_key_fkey"
+            columns: ["closed_by_key"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "runner_job_questions_job_id_fkey"
             columns: ["job_id"]
@@ -3878,16 +3891,22 @@ export type Database = {
       }
       runner_jobs: {
         Row: {
+          acting_for: string | null
           cancel_requested: boolean
+          cancelled_by_key: string | null
+          cancelled_for: string | null
           claimed_at: string | null
           continues: string | null
           ended_at: string | null
           exit_code: number | null
+          fixed_by: string | null
           id: string
           line: string
           log_tail: string
+          notify_url: string | null
           outcome: string | null
           pr_url: string | null
+          prs: Json
           queued_at: string
           reason: string | null
           release_error: string | null
@@ -3907,16 +3926,22 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          acting_for?: string | null
           cancel_requested?: boolean
+          cancelled_by_key?: string | null
+          cancelled_for?: string | null
           claimed_at?: string | null
           continues?: string | null
           ended_at?: string | null
           exit_code?: number | null
+          fixed_by?: string | null
           id?: string
           line: string
           log_tail?: string
+          notify_url?: string | null
           outcome?: string | null
           pr_url?: string | null
+          prs?: Json
           queued_at?: string
           reason?: string | null
           release_error?: string | null
@@ -3936,16 +3961,22 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          acting_for?: string | null
           cancel_requested?: boolean
+          cancelled_by_key?: string | null
+          cancelled_for?: string | null
           claimed_at?: string | null
           continues?: string | null
           ended_at?: string | null
           exit_code?: number | null
+          fixed_by?: string | null
           id?: string
           line?: string
           log_tail?: string
+          notify_url?: string | null
           outcome?: string | null
           pr_url?: string | null
+          prs?: Json
           queued_at?: string
           reason?: string | null
           release_error?: string | null
@@ -3965,6 +3996,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "runner_jobs_cancelled_by_key_fkey"
+            columns: ["cancelled_by_key"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "runner_jobs_continues_fkey"
             columns: ["continues"]
@@ -6751,16 +6789,22 @@ export type Database = {
       runner_claim: {
         Args: { p_runner: string }
         Returns: {
+          acting_for: string | null
           cancel_requested: boolean
+          cancelled_by_key: string | null
+          cancelled_for: string | null
           claimed_at: string | null
           continues: string | null
           ended_at: string | null
           exit_code: number | null
+          fixed_by: string | null
           id: string
           line: string
           log_tail: string
+          notify_url: string | null
           outcome: string | null
           pr_url: string | null
+          prs: Json
           queued_at: string
           reason: string | null
           release_error: string | null
@@ -6787,18 +6831,30 @@ export type Database = {
         }
       }
       runner_job_answer: {
-        Args: { p_answers: Json; p_by: string; p_job: string }
+        Args: {
+          p_acting_for?: string
+          p_answers: Json
+          p_by?: string
+          p_job: string
+          p_key?: string
+        }
         Returns: {
+          acting_for: string | null
           cancel_requested: boolean
+          cancelled_by_key: string | null
+          cancelled_for: string | null
           claimed_at: string | null
           continues: string | null
           ended_at: string | null
           exit_code: number | null
+          fixed_by: string | null
           id: string
           line: string
           log_tail: string
+          notify_url: string | null
           outcome: string | null
           pr_url: string | null
+          prs: Json
           queued_at: string
           reason: string | null
           release_error: string | null
@@ -6824,13 +6880,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      runner_job_closer_check: {
+        Args: {
+          p_acting_for: string
+          p_by: string
+          p_job_key: string
+          p_key: string
+          p_repo: string
+          p_workspace: string
+        }
+        Returns: undefined
+      }
       runner_job_dismiss: {
-        Args: { p_by: string; p_job: string }
+        Args: {
+          p_acting_for?: string
+          p_by?: string
+          p_job: string
+          p_key?: string
+        }
         Returns: {
           answers: Json | null
           asked_at: string
           closed_at: string | null
           closed_by: string | null
+          closed_by_key: string | null
+          closed_for: string | null
           issue: number
           job_id: string
           lead: string

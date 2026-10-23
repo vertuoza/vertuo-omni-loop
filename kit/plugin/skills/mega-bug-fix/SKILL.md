@@ -62,8 +62,16 @@ check's.
 
 **All or nothing across targets.** A target that cannot be cloned or pushed to stops the whole fix:
 a bug half-fixed across repositories is worse than none. Comment on the issue naming the target and
-the reason, and push nothing to any other target. Every other stop rule is `/omni:bug-fix`'s, said
-once for the whole fix.
+the reason, and push nothing to any other target: the hand-off carries `Outcome: blocked`. Every other
+stop rule is `/omni:bug-fix`'s, said once for the whole fix.
+
+**The outcome line** (PRD 2425). Every end writes `/omni:bug-fix`'s `Outcome: <word>` line to the
+hand-off, the same seven words written the same way (its **The outcome line**), at the same stop rules:
+`Outcome: pr-opened` at step 10's hand-off, `Outcome: already-fixed` at stop rule 3, `Outcome: need-human`
+at stop rule 2 or at step 6's stop on a runner whose `omni runner ask` exited 0, `Outcome: needs-brainstorm`
+at step 6's stop anywhere else or on an answer `Design it first`, `Outcome: not-a-bug` at stop rule 1,
+`Outcome: stuck` at stop rule 5, and `Outcome: blocked` at stop rule 6 or 7 and wherever **All or nothing
+across targets** stops the fix. A `--product <key>` run writes them the same.
 
 ## Input
 
@@ -246,8 +254,9 @@ any target:
 /omni:mega-brainstorm <the issue's line>
 ```
 
-On a runner, with `OMNI_UNATTENDED` set, ask the person on the job before that comment goes up:
-**Asking on a runner**, below.
+The hand-off carries `Outcome: needs-brainstorm`. On a runner, with `OMNI_UNATTENDED` set, ask the person
+on the job before that comment goes up: **Asking on a runner**, below, where an ask that went through
+ends on `Outcome: need-human`.
 
 ## 7. Each target, in the plan's order
 
@@ -278,8 +287,8 @@ differs:
   tool the session lacks and no CI run of it) is stop rule 7: the comment on the plan repository's
   issue names the target, the suspect, its **Production** line and the YAML line to commit in the
   target's `.omni-loop/config.yml`, and nothing is pushed to any other target (**All or nothing across
-  targets**); the reproduction stays on its pushed branch in that target. Each target PR's
-  reproduction line names its level.
+  targets**); the reproduction stays on its pushed branch in that target, and the hand-off carries
+  `Outcome: blocked`. Each target PR's reproduction line names its level.
 - **Stop rule 3 names the fix,** as `/omni:bug-fix`'s **Who fixed it** does, in that target's clone,
   and writes the same comment on the issue in the plan repository: `Fixed by #<n>` for a pull
   request of the plan repository, `Fixed by <PR URL>` for one in a target, only for a candidate proven
@@ -288,7 +297,8 @@ differs:
   committed preflight, on the reproduction committed alone in a detached worktree at each commit; a
   target without a preflight proves nothing here, so its candidates are `Maybe:` lines. The skill never
   closes the issue. A product run has no issue: it posts nothing, and the hand-off carries the same
-  comment's text.
+  comment's text. The hand-off carries `Outcome: already-fixed`, then `Fixed by: <PR URL>` for the proven
+  candidate only, never for a `Maybe:` one.
 - **Mutation:** the line is `Mutation: not run in a target`.
 - **The PR,** through `/omni:pr --repo <slug>`, a standalone PR into the target's default branch,
   draft until its red and its fix are pushed. Its body starts with `Part of <plan slug>#<n>`
@@ -367,7 +377,7 @@ As `/omni:bug-fix` step 12, in the plan repository:
 As `/omni:bug-fix` step 13: the issue, the fix plan, each target PR in merge order, the record PR,
 the fix's page, and what was proven and what was not, per target (the red, the preflight or CI, the
 guard, the mutation line, the `omni bug` line). With `--prd <prd>`, add that
-`/omni:mega-pr-care <prd>` now looks after these PRs too. Then:
+`/omni:mega-pr-care <prd>` now looks after these PRs too. Then the line `Outcome: pr-opened`, then:
 
 > Review the PRs and merge them in this order, the record PR last.
 
@@ -398,15 +408,15 @@ where `--issue <n>` is the plan repository's issue. On exit 0, post step 6's sto
 first line and edited in place on a rerun: it starts with `<!-- omni-bug:need-human -->` and ends on the
 line `omni runner ask` printed, `Waiting for an answer on Omni: <the Runners page link, with
 ?answer=<job>>`, in place of the `/omni:mega-brainstorm` line. Then end with exit 0, pushing nothing to
-any target. On any other exit, post step 6's stop comment as it is, with the `/omni:mega-brainstorm`
-line, and end as step 6 says.
+any target, the hand-off carrying `Outcome: need-human`. On any other exit, post step 6's stop comment as
+it is, with the `/omni:mega-brainstorm` line, and end as step 6 says, with `Outcome: needs-brainstorm`.
 
 ## Resuming with answers
 
 Only with `--answers <job>` (PRD 2255), as `/omni:bug-fix`'s **Resuming with answers**, with these
 differences. All of it runs in the plan repository. Read the answers with
 `node .omni-loop/bin/omni.mjs runner answers <job>`; when it exits 1, or the row holds no answers, stop
-with the line it printed and touch nothing, pushing nothing to any target.
+with the line it printed and touch nothing, pushing nothing to any target: `Outcome: blocked`.
 
 Post the decision on the plan repository's issue, starting `<!-- omni-bug:decision -->`, with
 `Decided in Omni by @<login>`, the line `Job <job>` and each question with its answer, found by its first
@@ -416,8 +426,9 @@ settle the decision step 6 stopped on, and that one only, so a line crossed for 
 stop. Every pull request opens as written, and a person merges each one, the record PR last.
 
 When an answer is `Design it first`, stop with the `/omni:mega-brainstorm` line, pushing nothing to any
-target, and end with exit 0. When the fix meets another decision, it asks again, as **Asking on a
-runner**. With `--product <key>` there is no issue to resume on: stop with one line saying so.
+target, and end with exit 0, the hand-off carrying `Outcome: needs-brainstorm`. When the fix meets another
+decision, it asks again, as **Asking on a runner**. With `--product <key>` there is no issue to resume on:
+stop with one line saying so, and `Outcome: blocked`.
 
 ## Resuming a stopped fix
 
@@ -478,6 +489,8 @@ reads this section.
 - **Never push to one target while another cannot be reached:** all or nothing.
 - **Never change a contract in a way that breaks today's consumer:** that is the
   `/omni:mega-brainstorm` line.
+- **Never write a `Fixed by` line for a pull request that is not proven,** in the comment or in the
+  hand-off, nor two `Outcome:` lines.
 - **Never ask on a job unless `OMNI_UNATTENDED` is set,** and never carry on from answers that could not
   be read: stop with the line `omni runner answers` printed.
 - **Never create a label in a target,** and never run a command from an imported copy's playbook.

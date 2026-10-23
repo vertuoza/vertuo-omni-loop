@@ -564,7 +564,7 @@ describe('a job\'s questions (PRD 2255)', () => {
       const w = world({ jobs: [job] });
       expect(await read(await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, w.deps))).toEqual({
         status: 200,
-        body: { job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null },
+        body: { job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, byKey: null, actingFor: null, at: null, resume: null },
       });
       expect(w.state.questions).toEqual([questionsRow({ job_id: job.id, lead: ASK.lead, questions: [QUESTION] })]);
     });
