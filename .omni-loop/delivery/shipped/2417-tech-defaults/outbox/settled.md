@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-23
 - Slice: s1
 - Wave: 1
+- Became: ADR-0127
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Before s5 merges, one constant and its tests. After a workspace's settings repos
 - Raised: 2026-10-23
 - Slice: s1
 - Wave: 1
+- Became: ADR-0128
 
 ### The answer, as it was given
 
@@ -176,6 +178,7 @@ A constant: moving the line into the page body or into the forms' own schema is 
 - Raised: 2026-10-23
 - Slice: s1
 - Wave: 1
+- Stays here: A one-line test edit to fit the slice's files; it records no lasting product guarantee or build decision worth keeping beyond the ledger.
 
 ### The answer, as it was given
 
@@ -254,6 +257,7 @@ One line of one test; reverting it means moving the curated pages out of the kit
 - Raised: 2026-10-23
 - Slice: s3
 - Wave: 2
+- Became: ADR-0129
 
 ### The answer, as it was given
 
@@ -331,6 +335,7 @@ Changing the choice later costs one small function and its test; no stored data 
 - Raised: 2026-10-23
 - Slice: s6
 - Wave: 3
+- Stays here: A temporary navigation placement within one slice's territory, mostly about layout; nothing lasting for the knowledge base.
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ Until then, a member reaches the page only by its address or from the page itsel
 - Raised: 2026-10-23
 - Slice: s6
 - Wave: 3
+- Stays here: An interim fallback until the app's build ships the kit templates; it is a local deployment workaround, not a lasting product guarantee or design decision.
 
 ### The answer, as it was given
 
@@ -487,6 +493,7 @@ On a deployment without the templates, a page the settings repository lacks is n
 - Raised: 2026-10-23
 - Slice: s7
 - Wave: 4
+- Stays here: A local choice about file placement and one check line; the call-sites check itself already enforces the lasting rule, and moving it later is trivial.
 
 ### The answer, as it was given
 
@@ -564,6 +571,7 @@ Folding the writer into omni-settings.github.ts later is a file move and one lin
 - Raised: 2026-10-23
 - Slice: s7
 - Wave: 4
+- Became: ADR-0130
 
 ### The answer, as it was given
 
@@ -642,6 +650,7 @@ Reusing an open pull request later means the writer first looks for an open bran
 - Raised: 2026-10-23
 - Slice: s7
 - Wave: 4
+- Became: BR-PRODUCT-128, P-PRODUCT-106
 
 ### The answer, as it was given
 
