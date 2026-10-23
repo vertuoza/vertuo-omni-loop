@@ -48,6 +48,23 @@
   .head { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); }
   .keys .row { grid-template-columns: minmax(0, 1.3fr) 96px minmax(0, 1.3fr) 82px 70px; }
   .jobs .row { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.3fr) 76px; }
+  .keys.member .row { grid-template-columns: minmax(0, 1.3fr) 96px minmax(0, 1.3fr) 82px; }
+  .keys.withapp .row { grid-template-columns: minmax(0, 1.2fr) 96px minmax(0, .9fr) minmax(0, 1.25fr) 82px 70px; }
+  .keys.withapp.member .row { grid-template-columns: minmax(0, 1.2fr) 96px minmax(0, .9fr) minmax(0, 1.1fr) 82px; }
+  .keys .row { align-items: start; }
+  .app { display: grid; gap: 4px; justify-items: start; }
+  .slug { font: 500 13px/1.4 var(--ask-mono); }
+  .acts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; justify-self: start; }
+  .owners { margin: 0; color: var(--ask-muted); font-size: 14px; font-style: italic; }
+  .form { display: grid; gap: 12px; max-width: 900px; padding: 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+  .form .ftitle { font-weight: 700; }
+  .field { display: grid; gap: 4px; min-width: 0; }
+  .field > span { font-size: 14px; color: var(--ask-muted); }
+  .field input { width: 100%; min-width: 0; padding: 10px 12px; border: 1.5px solid var(--ask-line-strong); border-radius: 8px; background: var(--ask-sunk); color: var(--ask-ink); font: 16px/1.3 var(--ask-body); }
+  .file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .refusal { margin: 0; color: var(--ask-red); }
   .name { font-weight: 700; }
   code.k { font: 500 12.5px/1.4 var(--ask-mono); color: var(--ask-muted); }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; font: 500 12px/1.6 var(--ask-mono); }
@@ -60,22 +77,23 @@
   .secret .val { display: flex; gap: 8px; align-items: center; }
   .secret .val code { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; background: var(--ask-sunk); border-radius: 8px; font: 500 13px/1.4 var(--ask-mono); }
   .empty { padding: 26px 16px; text-align: center; color: var(--ask-muted); font-size: 14px; }
-  @media (max-width: 700px) { .keys .row, .jobs .row { grid-template-columns: 1fr auto; } .head { display: none; } .hide-s { display: none; } }
+  @media (max-width: 700px) { .keys .row, .jobs .row { grid-template-columns: 1fr auto; } .keys.member .row, .keys.withapp .row, .keys.withapp.member .row { grid-template-columns: 1fr; } .head { display: none; } .hide-s { display: none; } }
 </style>
 </head>
 <body>
 <main>
-<p class="lead">Settings › API keys at /app/settings/api-keys (PRD 2022), drawn inside the app shell, which is its own shared screen. The names and keys are examples.</p>
+<p class="lead">Settings › API keys at /app/settings/api-keys (PRD 2022; the GitHub App column and its attach form, PRD 2433), drawn inside the app shell, which is its own shared screen. The names, keys and slugs are examples.</p>
 <div style="margin:16px 0"><div class="frame">
         <div class="bar">Settings › <b>API keys</b></div>
         <div class="tabs"><span class="tab">Fleets</span><span class="tab">Repositories</span><span class="tab">Business</span><span class="tab">Products</span><span class="tab">Jev</span><span class="tab on">API keys</span></div>
         <div class="page" data-screen="api-keys">
           <div class="head-row"><h4>API keys</h4><button class="btn primary" type="button" data-primary>New key</button></div>
           <p class="muted"><a href="#" style="color:var(--ask-cyan)">API reference</a></p>
-          <div class="table keys">
-            <div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span>Last used</span><span></span></div>
-            <div class="row"><span><span class="name">QA dashboard</span><br><span class="muted">@pierrederval · Oct 15</span></span><code class="k">oma_…9fQe</code><span class="chips"><span class="chip">backend-php</span></span><span class="muted">2 min ago</span><button class="btn" type="button">Revoke</button></div>
-            <div class="row"><span><span class="name">Weekly digest</span><br><span class="muted">@irisa · Oct 12</span></span><code class="k">oma_…A1c0</code><span class="muted">All repositories</span><span class="muted">Never</span><button class="btn" type="button">Revoke</button></div>
+          <div class="table keys withapp">
+            <div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span>GitHub App</span><span>Last used</span><span></span></div>
+            <div class="row"><span><span class="name">QA dashboard</span><br><span class="muted">@ada · Oct 15</span></span><code class="k">oma_…9fQe</code><span class="chips"><span class="chip">backend-php</span></span><span class="app"><span class="slug">acme-fixer</span><span class="muted">last token Oct 21</span><span class="acts"><button class="btn sm" type="button">Replace</button><button class="btn sm" type="button">Remove</button></span></span><span class="muted">2 min ago</span><button class="btn" type="button">Revoke</button></div>
+            <div class="row"><span><span class="name">Weekly digest</span><br><span class="muted">@irisa · Oct 12</span></span><code class="k">oma_…A1c0</code><span class="muted">All repositories</span><span class="app"><span class="muted">—</span><span class="acts"><button class="btn sm" type="button">Attach a GitHub App</button></span></span><span class="muted">Never</span><button class="btn" type="button">Revoke</button></div>
+            <div class="row"><span><span class="name">Nightly audit</span><br><span class="muted">@ada · Oct 18</span></span><code class="k">oma_…Zr82</code><span class="chips"><span class="chip">backend-php</span></span><span class="app"><span class="slug">acme-triage</span><span class="muted">no token yet</span><span class="acts"><button class="btn sm" type="button">Replace</button><button class="btn sm" type="button">Remove</button></span></span><span class="muted">Never</span><button class="btn" type="button">Revoke</button></div>
           </div>
         </div></div><div style="margin:16px 0"><div class="frame">
         <div class="bar">Settings › <b>API keys</b></div>
@@ -93,6 +111,56 @@
             <span class="muted">You will not see this key again.</span>
             <pre>curl https://www.omni-loop.xyz/api/v1/prds \
   -H "Authorization: Bearer oma_Xk3…9fQe"</pre>
+          </div>
+        </div>
+      </div></div>
+<div style="margin:16px 0"><div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <div class="head-row"><h4>API keys</h4><button class="btn" type="button">New key</button></div>
+          <form class="form" aria-label="Attach a GitHub App">
+            <div class="ftitle">Attach a GitHub App to Weekly digest</div>
+            <label class="field"><span>App ID</span><input type="text" value="3141592" readonly></label>
+            <div class="field"><span>Private key file</span><span class="file"><button class="btn sm" type="button">Choose file</button><span class="muted">acme-fixer.pem</span></span></div>
+            <div class="actions"><button class="btn primary" type="button" data-primary>Attach</button><button class="btn" type="button">Cancel</button></div>
+          </form>
+        </div>
+      </div></div>
+<div style="margin:16px 0"><div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <div class="head-row"><h4>API keys</h4><button class="btn" type="button">New key</button></div>
+          <form class="form" aria-label="Attach a GitHub App">
+            <div class="ftitle">Attach a GitHub App to Weekly digest</div>
+            <label class="field"><span>App ID</span><input type="text" value="3141592" readonly></label>
+            <div class="field"><span>Private key file</span><span class="file"><button class="btn sm" type="button">Choose file</button><span class="muted">acme-fixer.pem</span></span></div>
+            <div class="actions"><button class="btn primary" type="button" data-primary>Attach</button><button class="btn" type="button">Cancel</button></div>
+          </form>
+          <p class="refusal" role="alert">GitHub refused this App ID and private key.</p>
+        </div>
+      </div></div>
+<div style="margin:16px 0"><div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <div class="head-row"><h4>API keys</h4><button class="btn" type="button">New key</button></div>
+          <form class="form" aria-label="Attach a GitHub App">
+            <div class="ftitle">Attach a GitHub App to Weekly digest</div>
+            <label class="field"><span>App ID</span><input type="text" value="3141592" readonly></label>
+            <div class="field"><span>Private key file</span><span class="file"><button class="btn sm" type="button">Choose file</button><span class="muted">acme-fixer.pem</span></span></div>
+            <div class="actions"><button class="btn primary" type="button" data-primary>Attach</button><button class="btn" type="button">Cancel</button></div>
+          </form>
+          <p class="refusal" role="alert">Attaching a GitHub App isn't available on this deployment.</p>
+        </div>
+      </div></div>
+<div style="margin:16px 0"><div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <h4>API keys</h4>
+          <p class="owners">Only owners make or revoke keys.</p>
+          <div class="table keys withapp member">
+            <div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span>GitHub App</span><span>Last used</span></div>
+            <div class="row"><span><span class="name">QA dashboard</span><br><span class="muted">@ada · Oct 15</span></span><code class="k">oma_…9fQe</code><span class="chips"><span class="chip">backend-php</span></span><span class="app"><span class="slug">acme-fixer</span></span><span class="muted">2 min ago</span></div>
+            <div class="row"><span><span class="name">Weekly digest</span><br><span class="muted">@irisa · Oct 12</span></span><code class="k">oma_…A1c0</code><span class="muted">All repositories</span><span class="app"><span class="muted">—</span></span><span class="muted">Never</span></div>
           </div>
         </div>
       </div></div>

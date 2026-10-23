@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EnvError, GAME_VARIABLES, gitWithoutPrompt, OMNI_TOKEN_PATTERN, PLATFORM_VARIABLES, omniTokenOf, readEnv, requireGroup, SUPABASE, VARIABLES, withGithubToken, withStepVariables, WORKSPACE } from './read.ts';
-import { runnerJobOf, runnerJobVariables, unattendedOf } from './read.ts';
+import { gitConfigVariables, githubAppOf, githubAppVariables, runnerJobOf, runnerJobVariables, runnerSenderVariables, unattendedOf } from './read.ts';
 
 const SECRET = 'sk-fake-secret-0123456789';
 /** A kit token as `omni setup-token` prints it: `omk_` and 43 base64url characters. */
@@ -20,16 +20,21 @@ describe('readEnv', () => {
       omniToken: null,
       session: { remote: false, display: false },
       runnerSender: null,
+      githubApp: null,
       claudeToken: null,
       heartbeat: true,
       ask: null,
     });
   });
 
-  it("reads a runner job's sender only when both its variables are set, and stops nothing when one is", () => {
-    expect(readEnv({ OMNI_SENT_BY: 'ada', OMNI_RUNNER: 'box-1' }).runnerSender).toEqual({ sentBy: 'ada', runner: 'box-1' });
+  it("reads a runner job's sender only when its runner and one of its two senders are set, and stops nothing when one is missing", () => {
+    expect(readEnv({ OMNI_SENT_BY: 'ada', OMNI_RUNNER: 'box-1' }).runnerSender).toEqual({ sentBy: 'ada', sentByKey: null, runner: 'box-1' });
+    expect(readEnv({ OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' }).runnerSender).toEqual({ sentBy: null, sentByKey: 'deploy bot', runner: 'box-1' });
+    expect(readEnv({ OMNI_SENT_BY: 'ada', OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' }).runnerSender).toEqual({ sentBy: 'ada', sentByKey: 'deploy bot', runner: 'box-1' });
     expect(readEnv({ OMNI_SENT_BY: 'ada' }).runnerSender).toBeNull();
+    expect(readEnv({ OMNI_SENT_BY_KEY: 'deploy bot' }).runnerSender).toBeNull();
     expect(readEnv({ OMNI_RUNNER: 'box-1' }).runnerSender).toBeNull();
+    expect(readEnv({ OMNI_SENT_BY: '', OMNI_SENT_BY_KEY: '', OMNI_RUNNER: 'box-1' }).runnerSender).toBeNull();
   });
 
   it('gives each group typed when its variables are set', () => {
@@ -301,5 +306,58 @@ describe('the runner job (PRD 2175)', () => {
     const set = runnerJobVariables('job-7', 'box-1');
     expect(runnerJobOf(set)).toEqual({ job: 'job-7', runner: 'box-1' });
     expect(unattendedOf(set)).toBe(true);
+  });
+});
+
+// PRD 2433 s2: the GitHub App a key's job runs as, and what the sender of a key's job is called.
+describe('the GitHub App a job runs as (PRD 2433)', () => {
+  it('reads OMNI_GITHUB_APP trimmed, and none when it is unset or blank', () => {
+    expect(githubAppOf({ OMNI_GITHUB_APP: ' acme-fixer[bot] ' })).toBe('acme-fixer[bot]');
+    expect(githubAppOf({ OMNI_GITHUB_APP: '   ' })).toBeNull();
+    expect(githubAppOf({ OMNI_GITHUB_APP: '' })).toBeNull();
+    expect(githubAppOf({})).toBeNull();
+    expect(readEnv({ OMNI_GITHUB_APP: 'acme-fixer[bot]' }).githubApp).toBe('acme-fixer[bot]');
+    expect(readEnv({ OMNI_GITHUB_APP: ' ' }).githubApp).toBeNull();
+  });
+
+  it("names the variables a job running as an app gets: its login and the bot as git's author and committer", () => {
+    expect(githubAppVariables({ login: 'acme-fixer[bot]', email: '4242+acme-fixer[bot]@users.noreply.github.com' })).toEqual({
+      OMNI_GITHUB_APP: 'acme-fixer[bot]',
+      GIT_AUTHOR_NAME: 'acme-fixer[bot]',
+      GIT_AUTHOR_EMAIL: '4242+acme-fixer[bot]@users.noreply.github.com',
+      GIT_COMMITTER_NAME: 'acme-fixer[bot]',
+      GIT_COMMITTER_EMAIL: '4242+acme-fixer[bot]@users.noreply.github.com',
+    });
+  });
+
+  it("numbers git's configuration passed through the environment, in the order given, and counts it", () => {
+    expect(gitConfigVariables([['credential.helper', ''], ['url.https://github.com/.insteadOf', 'git@github.com:']])).toEqual({
+      GIT_CONFIG_COUNT: '2',
+      GIT_CONFIG_KEY_0: 'credential.helper',
+      GIT_CONFIG_VALUE_0: '',
+      GIT_CONFIG_KEY_1: 'url.https://github.com/.insteadOf',
+      GIT_CONFIG_VALUE_1: 'git@github.com:',
+    });
+    expect(gitConfigVariables([])).toEqual({ GIT_CONFIG_COUNT: '0' });
+  });
+
+  it("names a job's sender as the key's name for a key's job, else as the person's login, else as nothing", () => {
+    expect(runnerSenderVariables({ sentBy: 'ada', sentByKey: null }, 'box-1')).toEqual({ OMNI_SENT_BY: 'ada', OMNI_RUNNER: 'box-1' });
+    expect(runnerSenderVariables({ sentBy: null, sentByKey: 'deploy bot' }, 'box-1')).toEqual({ OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' });
+    // A key's job names the key, never the person who made it: the login its sender carries stays off its session.
+    expect(runnerSenderVariables({ sentBy: 'API key deploy bot (@ada)', sentByKey: 'deploy bot' }, 'box-1')).toEqual({ OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' });
+    expect(runnerSenderVariables({ sentBy: null, sentByKey: null }, 'box-1')).toEqual({});
+    // A person's name that is empty names no one: the job carries no sender at all.
+    expect(runnerSenderVariables({ sentBy: '', sentByKey: null }, 'box-1')).toEqual({});
+  });
+
+  it("lists the new variables as the platform's, never one a README names", () => {
+    expect(PLATFORM_VARIABLES).toEqual(expect.arrayContaining(['OMNI_GITHUB_APP', 'OMNI_SENT_BY_KEY']));
+    expect(VARIABLES).not.toContain('OMNI_GITHUB_APP');
+    expect(VARIABLES).not.toContain('OMNI_SENT_BY_KEY');
+  });
+
+  it('reads the sender a key job sets back, whole', () => {
+    expect(readEnv(runnerSenderVariables({ sentBy: null, sentByKey: 'deploy bot' }, 'box-1')).runnerSender).toEqual({ sentBy: null, sentByKey: 'deploy bot', runner: 'box-1' });
   });
 });
