@@ -239,6 +239,10 @@ When a retro keeps a lesson, the Omni App queues `/omni:retro-apply --retro <ret
 same line is in the retro pull request's body, to run in your terminal): each lesson becomes a rule in a
 playbook form, or stays here with its reason, and the retro pull request quotes each one for you to approve
 before you merge it.
+When a shipped PRD breaks main within seven days of its merge (a red job on its merge commit, a revert of
+one of its pull requests, or a regression traced to it), the Omni App queues `/omni:rewind <n>` for a
+runner, once: it walks back from the break to the spec and proposes, on the PRD's Main tab, where the
+break started and what would have stopped it, for you to approve or reject.
 Three more labels say a state rather than a kind:
 
 - **`omni:in-progress`**: an agent is working on this pull request right now. Leave it be.
@@ -533,6 +537,7 @@ omni board 7
 | `/omni:pr` | a pull request of the loop is red or conflicts; the skills run it for you | the pull request green, or stuck, with the reason |
 | `/omni:enforce <issue>` | a law issue (`omni:law`) waits for its test ([Laws and their tests](#laws-and-their-tests)) | one pull request a person merges: the law's test, seen red with the law broken and green with it restored |
 | `/omni:retro-apply --retro <n>` | never by hand unless no runner took it: the retro pull request's body carries the line when a kept lesson has no outcome | each kept lesson settled on the retro pull request's branch: a rule appended to its playbook slot and quoted in the body, or the reason it stays here, or one question; it never merges |
+| `/omni:rewind <n>` | never by hand unless no runner took it: a shipped PRD's page reads **Broke main**, and its Main tab carries the line until a rewind ran | the PRD's Main tab listing where the break started, each finding with its check, its evidence and its fix, for you to approve or reject; it writes nothing to the repository and never merges |
 | `/omni:invade` | once, after the install; with `--refresh` when the repository has changed a lot | one docs pull request: the knowledge base |
 | `/omni:status` | you want to see where the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |

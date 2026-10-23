@@ -18,6 +18,12 @@ describe('the line check', () => {
     expect(checkLine('/omni:retro-apply --retro 2360')).toEqual({ ok: true, kind: 'omni', skill: 'retro-apply', args: '--retro 2360' });
   });
 
+  it('lets the main watch\'s line /omni:rewind <n> through, and /omni:knowledge-add, which a finding\'s Approve queues (PRD 2410)', () => {
+    expect(checkLine('/omni:rewind 2410')).toEqual({ ok: true, kind: 'omni', skill: 'rewind', args: '2410' });
+    expect(checkLine('/omni:knowledge-add add the glossary term main watch')).toMatchObject({ ok: true, kind: 'omni', skill: 'knowledge-add' });
+    expect(linePrd('/omni:rewind 2410')).toBe(2410);
+  });
+
   it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
     expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
   });

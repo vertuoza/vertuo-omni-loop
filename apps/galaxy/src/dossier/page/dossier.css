@@ -934,3 +934,18 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .prd-timeline-title { font-size: 14px; margin: 0 0 6px; }
 .prd-gap { padding-left: 16px; }
 .prd-gap-longest .prd-gap-mark { color: var(--ask-ink); }
+
+/* ── PRD 2410, s3: the Main cell of the facts strip and the Main tab ── */
+.dossier-main a { text-decoration: none; }
+.dossier-main-broke strong { color: var(--ask-red); }
+.dossier-main-clean strong { color: var(--ask-green); }
+.main-status { margin: 0 0 12px; overflow-wrap: anywhere; }
+.main-broke strong { color: var(--ask-red); }
+.main-clean strong { color: var(--ask-green); }
+.main-unread { margin: 0 0 12px; padding-left: 18px; }
+.main-breaks { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 10px; max-width: 960px; min-width: 0; }
+.main-break { margin: 0; padding: 10px 14px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-red); border-radius: 8px; overflow-wrap: anywhere; }
+.main-break p { margin: 0; }
+.main-break-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.main-kind { font: 700 12px/1 var(--ask-body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ask-red); }
+.main-rewind h2 { margin: 16px 0 8px; font-size: 15px; }

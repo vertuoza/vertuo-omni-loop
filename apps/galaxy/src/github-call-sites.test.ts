@@ -29,6 +29,8 @@ const SITES: Record<string, Kind> = {
   'apps/galaxy/src/knowledge/github.ts': 'client',
   'apps/galaxy/src/loop/github.ts': 'client',
   'apps/galaxy/src/outbox/send.ts': 'person',
+  /** An approved Omni-setup finding's one issue on the kit's repository (PRD 2410, s7). */
+  'apps/galaxy/src/rewind/kit-issue.ts': 'client',
   'apps/galaxy/src/public-api/keys/github-app.ts': 'jwt',
   'apps/galaxy/src/signup/github-app.ts': 'jwt',
   'apps/galaxy/src/stages/sync/github.ts': 'client',

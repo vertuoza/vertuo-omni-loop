@@ -28,7 +28,8 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   says `Queued for <target>` once sent, shown only when the workspace has one; Copy link, Delete
   draft for a draft's opener); the
   facts strip (Stage, with its time line under the stage words: `Idea → merged: <total> · Longest: <step>, <duration>`,
-  or `Running for <total> · Now: <step>, <duration>` (PRD 2370); Approval for a PRD born on the server, Repo or Repos, On GitHub with when
+  or `Running for <total> · Now: <step>, <duration>` (PRD 2370); Approval for a PRD born on the server, Main for a shipped PRD (PRD 2410: Watching · n days left,
+  Clean, Broke main or Could not check), Repo or Repos, On GitHub with when
   GitHub was last read, Opened, with the opener's face); then the tabs. From 900 × 700 px the box
   is pinned while the page scrolls (`PinnedHead.tsx`).
 - **The approve screen,** under the head, for a viewer allowed to approve while the PRD waits or
@@ -38,7 +39,9 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   rounds that shaped it and an `N to answer` badge; Timeline (PRD 2370), the PRD's milestones, then one
   lane per repository it lands in, each step between two with its duration and who it waits on, the
   longest marked; Outbox (`OutboxPane.tsx`), PR care
-  (`CarePane.tsx`), Proof, Launch (its own screen, `launch`), Retro; each artifact tab with a version picker.
+  (`CarePane.tsx`), Proof, Launch (its own screen, `launch`), Main (PRD 2410: on a shipped PRD, what broke main, each with
+  its link, then the rewind's findings, each a card with its check, where it started, its fix, and
+  Approve or Reject), Retro; each artifact tab with a version picker.
 - **The play dock** in the page's corner when the agent works on the dossier, saying "▶ Play while the agent works" (`LiveRefresh`).
 
 ## States
@@ -51,7 +54,8 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   the page streams, the parts only GitHub knows saying they are being read.
 - **An empty artifact tab:** "The spec has no version yet." and the like, read muted; Outbox empty:
   "No decision yet: the outbox fills while the PRD is built." Retro empty: "The retro is written
-  when the feature PR merges."
+  when the feature PR merges." Main with no rewind yet (PRD 2410): the breaks, then "No rewind yet"
+  with the `/omni:rewind <n>` line; a failed one says why.
 - **Demo:** the demo dossier in development, without a database.
 - **A fix's id** at `/prd/<id>` is sent to `/visual/<id>` or `/bugs/<id>`, the query kept.
 - **After a draft is deleted:** `?deleted=1` says it is gone.
@@ -59,9 +63,10 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 ## Words
 
 Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbox, PR care, Proof, Launch,
-Retro (`dossier/page/view.ts`). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
-each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval,
-Repo, Repos, On GitHub, Opened.
+Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
+each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval, Main,
+Repo, Repos, On GitHub, Opened. Main's words (PRD 2410): Watching · n days left, Clean, Broke main,
+Could not check; on a finding: Approve, Reject.
 
 ## Refusals
 
@@ -72,6 +77,9 @@ Repo, Repos, On GitHub, Opened.
 - It is the one app page that does not use the full width (`apps/galaxy/src/page-width.test.ts`).
 
 ## Open questions
+
+- Where the Main tab sits among the tabs (PRD 2410 draws it before Retro), and whether a Clean PRD
+  shows it at all.
 
 - Which is the page's one primary action? The stage's button, Approve and an outbox answer can each
   be the next step; the code does not rank them.
@@ -98,3 +106,4 @@ Repo, Repos, On GitHub, Opened.
 - /omni:think-big, concept #2024, crowned L on 2026-10-15: .omni-loop/delivery/inbox/concepts/2024-launch/vision.html (Launch replaces Pitch)
 - /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
 - /omni:brainstorm, PRD 2370: .omni-loop/delivery/shipped/2370-prd-timeline/before-after.html (the time line and the Timeline tab)
+- /omni:brainstorm, PRD 2410: .omni-loop/delivery/shipped/2410-broke-main/before-after.html

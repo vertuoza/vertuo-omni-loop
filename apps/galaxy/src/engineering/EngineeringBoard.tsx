@@ -8,6 +8,8 @@ import { PeriodSwitch } from '../dashboard/board/PeriodSwitch';
 import type { Period } from '../dashboard/board/period';
 import { faceOf } from '../people/face';
 import { PersonChip } from '../people/PersonChip';
+import { workPath } from '../dossier/page/work';
+import type { BrokeMain } from './broke-main';
 import { durationWords } from './duration';
 import { SORTS, type EngineeringValue, type HealthKind, type LoopHealth, type MergedDay, type NeedsFixRate, type Ranked, type SortKey } from './tally';
 import type { TimePerStep } from './steps';
@@ -99,7 +101,30 @@ function NeedsFixLine({ rate }: { rate: NeedsFixRate }) {
   );
 }
 
-function LoopHealthPanel({ health, rate }: { health: LoopHealth; rate: NeedsFixRate }) {
+/** PRDs that broke main (PRD 2410 s4): the share of those whose watch ended, those still watched apart, and the ones that broke. */
+function BrokeMainLines({ broke }: { broke: BrokeMain | null }) {
+  if (broke === null) return null;
+  return (
+    <>
+      <p className="eng-health-rate">
+        <b>{`${n(broke.broke)} of ${n(broke.ended)} PRD${broke.ended === 1 ? '' : 's'} broke main`}</b>{' '}<b>{`· ${broke.share}%`}</b>
+        {broke.watching > 0 ? ` · ${n(broke.watching)} more still watched` : ''}
+      </p>
+      {broke.list.length === 0 ? null : (
+        <ol className="eng-health-rows eng-broke-rows">
+          {broke.list.map((p) => (
+            <li key={`${p.repository}#${p.prd}`} className="eng-health-row">
+              {p.dossier === null ? <span>{`${p.repository}#${p.prd}`}</span> : <a href={workPath('prd', p.dossier)}>{`${p.repository}#${p.prd}`}</a>}
+              <span className="eng-health-age">{p.what}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </>
+  );
+}
+
+function LoopHealthPanel({ health, rate, broke }: { health: LoopHealth; rate: NeedsFixRate; broke: BrokeMain | null }) {
   return (
     <section className="board-chart board-card eng-health" aria-labelledby="eng-health">
       <h2 id="eng-health">Loop health</h2>
@@ -118,6 +143,7 @@ function LoopHealthPanel({ health, rate }: { health: LoopHealth; rate: NeedsFixR
       {health.more > 0 ? <p className="eng-health-more">{`and ${n(health.more)} more`}</p> : null}
       <h3 className="eng-health-part">In the period</h3>
       <NeedsFixLine rate={rate} />
+      <BrokeMainLines broke={broke} />
     </section>
   );
 }
@@ -270,7 +296,7 @@ export function EngineeringBoard({ board, period, query, repo }: EngineeringBoar
           <Tiles tiles={board.tiles} />
           <div className="board-charts">
             <OmniLoop omni={board.omni} />
-            <LoopHealthPanel health={board.health} rate={board.needsFixRate} />
+            <LoopHealthPanel health={board.health} rate={board.needsFixRate} broke={board.brokeMain} />
             <PerDay days={board.perDay} period={period} />
           </div>
           <TimePerStepPanel steps={board.steps} />

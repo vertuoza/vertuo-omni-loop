@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engineering mockup</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), for the mockups only. */
+  --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+  --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c;
+  --ask-yellow: #ff3ea5; --ask-on-yellow: #07061c; --ask-cyan: #6ff0ff; --ask-green: #4ee08a;
+  --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.caption { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+
+/* The mockups: the PRD page and the Engineering board, in theme Omni. */
+.mock { background: var(--ask-ground); color: var(--ask-ink); font: 14px/1.5 var(--ask-body); border-radius: 8px; padding: 14px; display: grid; gap: 12px; }
+.mock a { color: var(--ask-cyan); }
+.m-head { background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
+.m-title { margin: 0; font-size: 17px; line-height: 1.3; }
+.m-num { color: var(--ask-plasma); }
+.m-facts { display: flex; flex-wrap: wrap; gap: 8px 0; margin: 0; }
+.m-fact { padding: 0 12px; border-left: 1px solid var(--ask-line-strong); display: grid; gap: 4px; }
+.m-fact:first-child { border-left: 0; padding-left: 0; }
+.m-fact dt { font: 700 10px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+.m-fact dd { margin: 0; font-size: 13px; }
+.m-stage { font: 600 11px/1 var(--ask-mono); padding: 5px 8px; border-radius: 999px; background: var(--ask-plasma); color: var(--ask-on-plasma); }
+.m-main { font: 700 12px/1 var(--ask-body); padding: 5px 9px; border-radius: 999px; }
+.m-main.is-broke { background: var(--ask-yellow); color: var(--ask-on-yellow); }
+.m-tabs { display: flex; gap: 2px; flex-wrap: wrap; border-top: 1px solid var(--ask-line-strong); padding-top: 6px; }
+.m-tab { padding: 4px 8px; font-weight: 700; font-size: 13px; color: var(--ask-ink); text-decoration: none; border-bottom: 3px solid transparent; }
+.m-tab[aria-current="page"] { border-bottom-color: var(--ask-plasma); }
+.m-tab small { font: 600 11px/1 var(--ask-mono); color: var(--ask-muted); }
+.m-pane { display: grid; gap: 10px; }
+.m-pane h5 { margin: 0; font-size: 14px; }
+.m-row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.m-kind { font: 600 11px/1 var(--ask-mono); padding: 4px 7px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-ink); white-space: nowrap; }
+.m-hint { color: var(--ask-muted); font-size: 13px; }
+.m-card { background: var(--ask-sunk); border: 1.5px solid var(--ask-line-strong); border-radius: 8px; padding: 10px; display: grid; gap: 6px; }
+.m-card p { margin: 0; }
+.m-actions { display: flex; gap: 8px; }
+.m-button { padding: 6px 12px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font: 700 13px/1.2 var(--ask-body); }
+.m-button.is-primary { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+.m-board { display: grid; gap: 8px; }
+.m-board h5 { margin: 0; font-size: 15px; }
+.m-board h6 { margin: 4px 0 0; font-size: 12px; color: var(--ask-muted); text-transform: uppercase; letter-spacing: .06em; }
+.m-big { font: 700 22px/1 var(--ask-body); }
+.m-list { margin: 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<p class="caption">The Engineering page's Loop health card at /app/engineering, after PRD 2410, in theme Omni. Numbers invented.</p>
+<div class="mock" data-screen="engineering">
+<section class="m-board" aria-label="Loop health">
+<h5>Loop health</h5>
+<h6>Right now</h6>
+<p>Nothing stuck right now</p>
+<h6>In the period</h6>
+<p>2 of 31 slices needed a fix</p>
+<p><span class="m-big">3 of 20</span> PRDs broke main · 15%</p>
+<p class="m-hint">4 more still watched.</p>
+<ol class="m-list"><li><a href="#">PRD 2300</a> CI red</li><li><a href="#">PRD 2312</a> reverted</li><li><a href="#">PRD 2331</a> regression</li></ol>
+<p><a class="m-button" href="#" data-primary>See the pull requests</a></p>
+</section>
+</div>
+</body>
+</html>

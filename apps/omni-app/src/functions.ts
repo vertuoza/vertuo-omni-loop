@@ -1,4 +1,4 @@
-// The thirteen Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The fourteen Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
 // the approved check (PRD 1548), reading a product PRD's record as the service role and, for a ◆ PRD of a repository,
@@ -10,7 +10,9 @@
 // the hourly escalation sweep (PRD 1794), which lists the App's installations as the App itself, the fix row stamp
 // (PRD 2011), which stamps a bug record's Fixes rows as the service role when their pull request merges, closes or
 // reopens, and is handed no GitHub, and the knowledge pack (PRD 2011), which keeps a repository's knowledge folder
-// and flow config as a pack, as the service role, when a merge touches them, at background priority. Every
+// and flow config as a pack, as the service role, when a merge touches them, at background priority. The main watch
+// (PRD 2410) keeps a merged PRD's seven days on main in its tables as the service role, finds its installation on
+// each target as the retro does, and queues `/omni:rewind` on its first break through the retro's runner queue. Every
 // installation call spends the installation's budget through the shared client (PRD 902), on the store galaxy writes
 // too; the retro also looks up its installation on each target of a multi-repository PRD as the App itself (PRD 1130).
 // A test hands `octokitFor` a stubbed GitHub.
@@ -45,6 +47,8 @@ import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
 import { runnerQueue } from './retro/runner-queue.ts';
 import { loggedClient, noteTo } from './run-log/run-log.ts';
+import { createMainWatch } from './main-watch/main-watch.ts';
+import { mainWatchStore } from './main-watch/store.ts';
 import { createServerEventRecheck } from './server-event/recheck.ts';
 import { targetsReader } from './server-event/targets.ts';
 
@@ -92,5 +96,12 @@ export function appFunctions(
     escalation: createEscalation({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
     fixRowStamp: createFixRowStamp({ client: inngest, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
     knowledgePack: createKnowledgePack({ client: inngest, octokitFor, store: env.supabase ? knowledgePackStore(env.supabase) : null }),
+    mainWatch: createMainWatch({
+      client: inngest,
+      octokitFor,
+      appOctokit: appOctokitFor(env.githubApp),
+      store: env.supabase ? mainWatchStore(env.supabase) : null,
+      queue: env.supabase ? runnerQueue(env.supabase) : null,
+    }),
   };
 }

@@ -4,13 +4,16 @@ import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { settle, UNREADABLE, type Read } from '../dashboard/part';
 import { periodWindow, type Period } from '../dashboard/board/period';
 import type { Database } from '../../../../supabase/database.types.ts';
-import { allPages } from '../data/all-pages';
+import { z } from 'zod';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { allPages, parsedPages } from '../data/all-pages';
 import { memberWorkspace, type Workspace } from '../data/workspace';
 import { loadPeople, peopleOf, type People } from '../people/load';
 import { readTracked } from '../profile/stored';
 import { milestoneStore } from '../timeline/store.repository';
 import type { WorkspaceMilestone } from '../timeline/store';
 import { loginsShown, withPeople } from './faced';
+import type { MainWatchRow } from './broke-main';
 import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
 // /app/engineering's read (PRD 612 s3), as the signed-in person, so row-level security decides what
@@ -35,6 +38,8 @@ export interface EngineeringReads {
   reviews(from: Date, to: Date, repos: string[]): Promise<ReviewRow[]>;
   /** The workspace's PRD milestones (PRD 2370 s6), for the Time per step panel. */
   milestones(): Promise<WorkspaceMilestone[]>;
+  /** The main watch lanes (PRD 2410 s4) of PRDs merged around `from` or later, of those repositories. */
+  mainWatch(from: Date, repos: string[]): Promise<MainWatchRow[]>;
   /** The workspace's people directory (PRD 652), to resolve each login shown to a face. */
   people(): Promise<People>;
 }
@@ -63,13 +68,14 @@ export async function loadEngineeringRepository(reads: EngineeringReads, repo: s
 async function boardOf(reads: EngineeringReads, tracked: string[], { period, sort, now }: EngineeringRequest): Promise<Read<EngineeringValue>> {
   const window = periodWindow(period, now);
   if (tracked.length === 0) return engineeringOf({ tracked, pullRequests: [], reviews: [] }, window, sort, now);
-  const [pullRequests, reviews, milestones] = await Promise.all([
+  const [pullRequests, reviews, milestones, mainWatch] = await Promise.all([
     settle('the pull requests', () => reads.pullRequests(window.from, tracked)),
     settle('the reviews', () => reads.reviews(window.from, window.to, tracked)),
     settle('the PRD milestones', () => reads.milestones()),
+    settle('the main watch', () => reads.mainWatch(window.from, tracked)),
   ]);
-  if (pullRequests === UNREADABLE || reviews === UNREADABLE || milestones === UNREADABLE) return UNREADABLE;
-  const board = engineeringOf({ tracked, pullRequests, reviews, milestones }, window, sort, now);
+  if (pullRequests === UNREADABLE || reviews === UNREADABLE || milestones === UNREADABLE || mainWatch === UNREADABLE) return UNREADABLE;
+  const board = engineeringOf({ tracked, pullRequests, reviews, milestones, mainWatch },window, sort, now);
   if (loginsShown(board).length === 0) return board;
   return withPeople(board, await peopleFor(reads));
 }
@@ -127,6 +133,13 @@ type StoredPullRequest = {
 };
 type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
 
+const StoredWatch = z.object({ repository: z.string(), prd: PrdNumberSchema, lane: z.string(), status: z.string(), merged_at: z.string() });
+const StoredBreak = z.object({ repository: z.string(), prd: PrdNumberSchema, lane: z.string(), title: z.string() });
+const StoredDossier = z.object({ id: z.string(), home_repo: z.string().nullable(), prd: PrdNumberSchema.nullable() });
+const DAY = 86_400_000;
+/** The table refuses any other status; an unknown one reads as still watching, never clean. */
+const statusOf = (status: string): MainWatchRow['status'] => (status === 'clean' || status === 'broke' ? status : 'watching');
+
 const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed, base, head, draft, labels, head_committed_at, status_state, needs_fix_at';
 
 export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace: string): EngineeringReads {
@@ -163,6 +176,43 @@ export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace
         .order('reviewer', { ascending: true })
         .range(start, end));
       return rows.map((r) => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
+    },
+    async mainWatch(from, repos) {
+      // A PRD's lanes merge close together: read from two weeks before the window so none of its lanes is missed.
+      const since = new Date(from.getTime() - 14 * DAY).toISOString();
+      const watch = await parsedPages('the main watch', StoredWatch, 'engineering: prd_main_watch', (start, end) => db
+        .from('prd_main_watch')
+        .select('repository, prd, lane, status, merged_at')
+        .eq('workspace_id', workspace)
+        .in('repository', repos.map((r) => r.toLowerCase()))
+        .gte('merged_at', since)
+        .order('repository', { ascending: true })
+        .order('prd', { ascending: true })
+        .order('lane', { ascending: true })
+        .range(start, end));
+      if (watch.length === 0) return [];
+      const prds = [...new Set(watch.map((w) => w.prd))];
+      const breaks = await parsedPages('the main breaks', StoredBreak, 'engineering: prd_main_breaks', (start, end) => db
+        .from('prd_main_breaks')
+        .select('repository, prd, lane, title, at')
+        .eq('workspace_id', workspace)
+        .in('prd', prds)
+        .order('at', { ascending: true })
+        .order('source', { ascending: true })
+        .range(start, end));
+      const dossiers = await parsedPages('the PRD pages', StoredDossier, 'engineering: dossiers', (start, end) => db
+        .from('dossiers')
+        .select('id, home_repo, prd')
+        .eq('workspace_id', workspace)
+        .in('prd', prds)
+        .order('id', { ascending: true })
+        .range(start, end));
+      const dossierOf = new Map(dossiers.map((d) => [`${(d.home_repo ?? '').toLowerCase()}#${d.prd}`, d.id]));
+      return watch.map((w) => ({
+        repository: w.repository, prd: w.prd, status: statusOf(w.status), mergedAt: w.merged_at,
+        breaks: breaks.filter((b) => b.repository === w.repository && b.prd === w.prd && b.lane === w.lane).map((b) => b.title),
+        dossier: dossierOf.get(`${w.repository}#${w.prd}`) ?? null,
+      }));
     },
     milestones() {
       return milestoneStore(db).workspaceMilestones(workspace);
