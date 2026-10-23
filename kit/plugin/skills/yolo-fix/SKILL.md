@@ -214,6 +214,11 @@ the whole feature, acceptance, push, the body, the gate), then `/omni:yolo` §5 
 Then release as `/omni:yolo` §6 does: remove `labels.inProgress` (unless the Stuck path swapped it
 for `labels.needsFix`) and write the final status comment, `done` or `stuck`.
 
+Then run `node .omni-loop/bin/omni.mjs worktrees prune --prd <n>`, as `/omni:yolo` §6 does, gate
+green or red: it removes the worktrees of the merged slices and reworks and the PRD's feature and
+phase-0 worktrees once they are clean and pushed, keeps a red, stopped or blocked one while the
+feature PR is open, and exits 0 whatever it keeps. Keep its `kept <path> · <reason>` lines for step 8.
+
 ## 8. Hand off
 
 Report, in one block: the PRD's page beside its number, as `/omni:yolo` §7 prints it (run
@@ -222,7 +227,8 @@ anything else `PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n
 the hand-off); what step 3 settled (agreed or drifted, by question number) and whether a
 round was posted; the leftovers adopted; every drifted item, the rework sub-PR that closed it, the
 bound it stayed inside, any territory breach; each rework not merged, with its reason; the checks
-that ran and did not; the gate verdict and the feature PR's state.
+that ran and did not; each worktree the prune kept, one line `kept <path> · <reason>`; the gate verdict
+and the feature PR's state.
 
 **With nothing answered, nothing drifted and nothing unclear,** say so plainly: no settle sub-PR,
 no rework sub-PR, no round comment. Step 7 still refreshes the outbox comment.

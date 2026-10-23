@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2485: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>PRD 2485: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div>
+<p>Every slice of a wave is built in its own worktree under <code>.claude/worktrees/</code>, a full copy of the repository with its own <code>node_modules</code>. Nothing ever removes it: after a few yolos a developer's disk holds dozens of them (about 186 GB on one laptop), and the feature worktree of each brainstorm stays too.</p>
+<p>The person who notices a full disk deletes folders by hand, with no way to tell which still hold work that was never pushed.</p>
+<pre><span class="line ctx">$ git worktree list</span><span class="line ctx">…/vertuo-omni-loop                      [main]</span><span class="line ctx">…/.claude/worktrees/agent-a1f3          [feat/quotes--s1]</span><span class="line ctx">…/.claude/worktrees/agent-b72c          [feat/quotes--s2]</span><span class="line ctx">…/.claude/worktrees/agent-c09e          [feat/quotes--s3]</span><span class="line ctx">…/.claude/worktrees/quotes              [feat/quotes]</span><span class="line ctx">… 40 more</span></pre>
+</div>
+<div><div class="label">After</div>
+<p>Once the wave merges a slice's sub-PR, it removes that slice's worktree. At the end of the yolo, the PRD's leftovers go too: the merged slices' worktrees and its feature worktree. A red, stopped or blocked slice keeps its worktree, so someone can see why it failed, and the hand-off names it.</p>
+<p>Nothing that is uncommitted, unpushed, in use or not the kit's own is ever removed. <code>omni worktrees prune --dry-run</code> shows what would go, and when a session starts one line says when there is something left to clean.</p>
+<pre><span class="line ctx">$ omni worktrees prune</span><span class="line add">removed .claude/worktrees/agent-c09e · 1.4 GB</span><span class="line add">removed .claude/worktrees/quotes · 1.2 GB</span><span class="line ctx">kept .claude/worktrees/agent-d44a · uncommitted</span><span class="line ctx">kept .claude/worktrees/agent-e81b · red slice</span><span class="line add">freed 2.6 GB</span></pre>
+</div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — Pixel perfect: no screen changes</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="gap">
+<h4>Flow</h4>
+<p>To settle — diagram not rendered: no Playwright browser on this machine (chromium headless shell missing).</p>
+<details><summary>Diagram source</summary>
+<pre><code>flowchart TD
+  W["/omni:wave step 4: sub-PR merged"] -->|"omni worktrees remove &lt;path&gt;"| E
+  Y["/omni:yolo before hand-off\n/omni:yolo-fix at its end"] -->|"omni worktrees prune --prd n"| E
+  P["a person"] -->|"omni worktrees prune [--dry-run]"| E
+  S["SessionStart hook"] -->|"omni worktrees hint"| H["one line or nothing\nno network, no board"]
+  E["the engine: kit/lib/worktrees"] --> G["git worktree list --porcelain\ngit status, git fetch, git branch -r --contains"]
+  E --> B["omni board &lt;prd&gt; --json\nslice state, feature PR state"]
+  E --> L["lsof / proc: is a process inside?"]
+  E -->|"safe"| R["git worktree remove\ngit branch -d"]
+  E -->|"kept: reason"| K["reported, never forced"]
+</code></pre>
+</details>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<p>One release of the kit: <code>kit/dist/omni.mjs</code> rebuilt with the command, the three skills and the hook in the same release. A repository starts cleaning once it runs <code>omni update</code>. No migration, no server change.</p>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — no table: the kit reads git and the board, and stores nothing.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>omni worktrees list [--json]</code></td><td><span class="badge added">added</span></td><td>—</td><td>every worktree, <code>kit</code> or <code>other</code>, each kit one <code>safe</code> or <code>kept: &lt;reason&gt;</code></td><td>kit</td></tr>
+<tr><td><code>omni worktrees prune [--prd &lt;n&gt;] [--dry-run]</code></td><td><span class="badge added">added</span></td><td>—</td><td>removes every safe one; <code>removed</code> / <code>kept</code> / <code>would remove</code> lines, then <code>freed &lt;total&gt;</code>; exit 0</td><td>kit</td></tr>
+<tr><td><code>omni worktrees remove &lt;path&gt;</code></td><td><span class="badge added">added</span></td><td>—</td><td>the same rules on one worktree the caller names, detached included</td><td>kit</td></tr>
+<tr><td><code>omni worktrees hint</code></td><td><span class="badge added">added</span></td><td>—</td><td>one line or nothing, under a second, no network</td><td>kit</td></tr>
+<tr><td><code>SessionStart</code> hook</td><td>changed</td><td>constituents, kb index, sync</td><td>the same, then <code>omni worktrees hint || true</code></td><td>kit</td></tr>
+</table>
+<p>No breaking row: four verbs and one hook are added, nothing removed or changed in shape.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">Today</div><p><code>/omni:wave</code> merges a sub-PR and moves on; <code>/omni:yolo</code> hands off; the slice and feature worktrees stay on disk forever.</p></div>
+<div><div class="label">After</div><p><code>/omni:wave</code> step 4 and <strong>Inline wave</strong> run <code>omni worktrees remove</code> after each merged or done slice and report its line; <code>/omni:yolo</code> and <code>/omni:yolo-fix</code> run <code>omni worktrees prune --prd &lt;n&gt;</code> before their hand-off, which names each kept worktree with its path and reason.</p></div>
+</div>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>
