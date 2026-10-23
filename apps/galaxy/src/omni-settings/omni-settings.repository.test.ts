@@ -21,9 +21,27 @@ function fakeDb(tables: Record<string, Answer>) {
       };
       return builder;
     },
+    rpc(name: string, args: Record<string, unknown>) {
+      calls.push(`rpc ${name} ${JSON.stringify(args)}`);
+      return Promise.resolve(tables[`rpc ${name}`] ?? { data: null, error: null });
+    },
   };
   return { db: db as unknown as OmniSettingsDb, calls };
 }
+
+describe('omniSettingsRepository.isOwner (PRD 2417, s7)', () => {
+  it('asks the database whether the caller owns the workspace', async () => {
+    const { db, calls } = fakeDb({ 'rpc is_owner': { data: true, error: null } });
+    expect(await omniSettingsRepository(db).isOwner('w1')).toBe(true);
+    expect(calls).toEqual(['rpc is_owner {"workspace":"w1"}']);
+  });
+
+  it('reads anything but true as not the owner, and throws when the read fails', async () => {
+    expect(await omniSettingsRepository(fakeDb({ 'rpc is_owner': { data: false, error: null } }).db).isOwner('w1')).toBe(false);
+    expect(await omniSettingsRepository(fakeDb({}).db).isOwner('w1')).toBe(false);
+    await expect(omniSettingsRepository(fakeDb({ 'rpc is_owner': { data: null, error: { message: 'boom' } } }).db).isOwner('w1')).rejects.toThrow('boom');
+  });
+});
 
 describe('omniSettingsRepository.workspacesListing', () => {
   it('reads the live listings, then the workspaces they name', async () => {

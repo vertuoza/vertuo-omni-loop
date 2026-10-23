@@ -2,6 +2,8 @@ import { Notice } from '../ask/page/Notice';
 import { SectionTabs } from '../nav/SectionTabs';
 import { SETTINGS_TABS, type SectionTab } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
+import type { PlaybookEditing } from './omni-settings.client';
+import type { SettingsPageLoad } from './load';
 import type { PlaybookPagesView } from './omni-settings.contract';
 import { PlaybookView } from './PlaybookView';
 
@@ -19,7 +21,14 @@ export type PlaybookScreenView =
   | { kind: 'sign-in' }
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
-  | ({ kind: 'playbook' } & PlaybookPagesView);
+  | ({ kind: 'playbook'; editing?: PlaybookEditing | null } & PlaybookPagesView);
+
+/** The screen for what the page loaded: each page's edit for an owner only (s7), none for a member. */
+export function playbookScreenOf(load: SettingsPageLoad): PlaybookScreenView {
+  if (load.kind !== 'playbook') return load;
+  const { repository, commit, reason, pages } = load;
+  return { kind: 'playbook', repository, commit, reason, pages, editing: load.owner ? { kind: 'database', workspace: load.workspace.id } : null };
+}
 
 export function PlaybookScreen({ view }: { view: PlaybookScreenView }) {
   return (
@@ -57,6 +66,6 @@ function PlaybookBody({ view }: { view: PlaybookScreenView }) {
         </Notice>
       );
     case 'playbook':
-      return <PlaybookView view={view} />;
+      return <PlaybookView view={view} editing={view.editing ?? null} />;
   }
 }

@@ -1,5 +1,7 @@
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { FORM_IDS } from 'omni-loop/kit/lib/playbook/forms.ts';
 import { settingsFilePath } from 'omni-loop/kit/lib/omni-settings/layout.ts';
+import { readSettingsPage } from 'omni-loop/kit/lib/omni-settings/page.ts';
 import type { PlaybookPage, PlaybookPagesView, SettingsFile, SettingsPlaybook } from './omni-settings.contract';
 import type { OmniSettingsRepository, SettingsWorkspace } from './omni-settings.repository';
 
@@ -90,9 +92,12 @@ export function playbookPages(playbook: SettingsPlaybook, curated: readonly Sett
 }
 
 export function omniSettingsPagesService(
-  store: Pick<OmniSettingsRepository, 'workspaceById'>, github: SettingsGithub, curated: () => readonly SettingsFile[],
+  store: Pick<OmniSettingsRepository, 'workspaceById' | 'isOwner'>, github: SettingsGithub, curated: () => readonly SettingsFile[],
 ) {
   return {
+    /** Whether the caller owns the workspace, so the page shows them each page's edit (s7). */
+    owner: (workspaceId: string): Promise<boolean> => store.isOwner(workspaceId),
+
     /** The tech playbook the workspace's page shows, or null when the caller reads no such workspace. */
     async pages(workspaceId: string): Promise<PlaybookPagesView | null> {
       const workspace = await store.workspaceById(workspaceId);
@@ -103,3 +108,89 @@ export function omniSettingsPagesService(
   };
 }
 export type OmniSettingsPagesService = ReturnType<typeof omniSettingsPagesService>;
+
+// A workspace owner's change to a page (PRD 2417, s7), proposed as a pull request in the settings
+// repository, as the Omni app. Nothing is stored on the Omni page (Never 6): the text lives only in the
+// pull request until a person merges it, and the next `omni sync` of each repository reads it then.
+//
+// - Only a workspace owner proposes (`is_owner`); anyone else, and a workspace the caller does not
+//   read, is refused (`not-owner`) before anything else is read.
+// - The page is a form the kit reads, and its text one the copy's writer keeps (s1's
+//   `readSettingsPage`): a text the next sync would skip is refused with its reason (`not-a-page`).
+// - The settings repository is the one the page is read from (`settingsRepositoryOf`); none, or the
+//   Omni app not installed there or unable to reach it, is said so.
+// - A text the settings repository already holds opens nothing (`unchanged`).
+// - Each proposal opens its own branch, `omni-settings/<form>-<UTC time>`, off the default branch's
+//   head, and one pull request into the default branch naming who proposed it.
+
+/** The change the writer makes: the file, its new text, the branch it goes on and the pull request's words. */
+export type PlaybookChange = { path: string; text: string; branch: string; message: string; title: string; body: string };
+
+/** A pull request opened in the settings repository. */
+export type ProposedPullRequest = { number: PrNumber; url: string };
+
+/** What the writer did: opened a pull request, found the page already reading so, or could not reach the repository. */
+export type ProposeOutcome = { kind: 'opened'; pullRequest: ProposedPullRequest } | { kind: 'unchanged' } | { kind: 'unreachable' };
+
+/** What the edit writes on GitHub, as the Omni app. */
+export type SettingsPullRequests = {
+  installationFor: SettingsGithub['installationFor'];
+  /** Cuts `change.branch` from the default branch, writes the file on it and opens the pull request;
+   * opens nothing when the file already reads so. Throws when GitHub refuses a step. */
+  propose(installation: number, repository: string, change: PlaybookChange): Promise<ProposeOutcome>;
+};
+
+/** A proposal's answer: the pull request opened, or why none was. */
+export type Proposal =
+  | { ok: true; repository: string; pullRequest: ProposedPullRequest }
+  | { ok: false; kind: 'not-owner' | 'no-settings-repository' }
+  | { ok: false; kind: 'not-a-page'; reason: string }
+  | { ok: false; kind: 'not-installed' | 'unreachable' | 'unchanged'; repository: string };
+
+/** A page's text as committed: line ends as `\n`, one at the end. */
+export function committedText(text: string): string {
+  return `${text.replace(/\r\n?/g, '\n').replace(/\n*$/, '')}\n`;
+}
+
+/** `at` as a branch name's stamp: `20261023-120000`, UTC. */
+const stamp = (at: number) => new Date(at).toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+
+/** The change `login` proposes to `form`'s page, at `path` of the settings repository. */
+export function playbookChange(form: string, path: string, text: string, login: string, at: number): PlaybookChange {
+  return {
+    path,
+    text,
+    branch: `omni-settings/${form}-${stamp(at)}`,
+    message: `docs(settings): the ${form} page, proposed on the Omni page by @${login}`,
+    title: `Playbook: a new ${form} page, from the Omni page`,
+    body: [
+      `@${login} proposed this change to the \`${form}\` page of the workspace's tech playbook, on the Omni page.`,
+      'Nothing is stored on the Omni page: the text lives only in this pull request. Once a person merges it, every repository of the workspace reads the new text on its next `omni sync`.',
+    ].join('\n\n'),
+  };
+}
+
+export function omniSettingsEditService(
+  store: Pick<OmniSettingsRepository, 'workspaceById' | 'isOwner'>, github: SettingsPullRequests, clock: () => number = Date.now,
+) {
+  return {
+    /** Proposes `text` as the page `form` of `workspace`'s settings repository, as `login`. */
+    async propose(edit: { workspace: string; form: string; text: string }, login: string): Promise<Proposal> {
+      const workspace = await store.workspaceById(edit.workspace);
+      if (!workspace || !(await store.isOwner(workspace.id))) return { ok: false, kind: 'not-owner' };
+      const path = settingsFilePath(edit.form);
+      const text = committedText(edit.text);
+      const page = readSettingsPage({ form: edit.form, text });
+      if (!page.ok) return { ok: false, kind: 'not-a-page', reason: page.reason };
+      if (path === null) return { ok: false, kind: 'not-a-page', reason: `${edit.form} is not a form the kit reads` };
+      const repository = settingsRepositoryOf(workspace);
+      if (repository === null) return { ok: false, kind: 'no-settings-repository' };
+      const installation = await github.installationFor({ github_org: workspace.githubOrg, github_installation_id: workspace.installation });
+      if (installation === null) return { ok: false, kind: 'not-installed', repository };
+      const outcome = await github.propose(installation, repository, playbookChange(edit.form, path, text, login, clock()));
+      if (outcome.kind !== 'opened') return { ok: false, kind: outcome.kind, repository };
+      return { ok: true, repository, pullRequest: outcome.pullRequest };
+    },
+  };
+}
+export type OmniSettingsEditService = ReturnType<typeof omniSettingsEditService>;

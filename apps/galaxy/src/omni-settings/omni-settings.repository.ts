@@ -5,8 +5,13 @@ import { orThrow, parseRows } from '../data/parse-rows';
 // The Omni settings area's storage (PRD 2417, s3; ADR-0095): the workspaces that list a repository,
 // on the signed-in caller's client, so row-level security decides which ones they read. No rule lives
 // here: which workspace answers and what its settings repository is, is omni-settings.service.ts's.
+// The edit (s7) asks one more thing, whether the caller owns a workspace, through `is_owner()`, so the
+// database's own rule decides it.
 
-export type OmniSettingsDb = Pick<SupabaseClient, 'from'>;
+export type OmniSettingsDb = Pick<SupabaseClient, 'from' | 'rpc'>;
+
+/** What a database function answers, before it is read. */
+type RpcAnswer = { data: unknown; error: { message: string } | null };
 
 const Listing = z.object({ workspace_id: z.string() });
 const WORKSPACE_COLUMNS = 'id, github_org, github_installation_id, plan_repo';
@@ -50,6 +55,13 @@ export function omniSettingsRepository(db: OmniSettingsDb) {
     /** The workspace `id` when the caller reads it, else null (PRD 2417, s6: the page's own read). */
     async workspaceById(id: string): Promise<SettingsWorkspace | null> {
       return (await workspacesOf(db, [id], `the workspace ${id}`))[0] ?? null;
+    },
+
+    /** Whether the caller owns the workspace `id` (PRD 2417, s7: only an owner proposes a change). */
+    async isOwner(id: string): Promise<boolean> {
+      const answer: RpcAnswer = await db.rpc('is_owner', { workspace: id });
+      if (answer.error) throw new Error(`read your role in the workspace ${id}: ${answer.error.message}`);
+      return answer.data === true;
     },
   };
 }

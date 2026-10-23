@@ -4,7 +4,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { NO_SETTINGS_REPOSITORY, SOURCE_LABEL, pageBody, pageTitle } from './PlaybookView';
-import { PLAYBOOK_PATH, PlaybookScreen, type PlaybookScreenView } from './PlaybookScreen';
+import { PLAYBOOK_PATH, PlaybookScreen, playbookScreenOf, type PlaybookScreenView } from './PlaybookScreen';
 
 // Settings → Playbook as the server renders it (PRD 2417, s6): every page with its text and whose it
 // is, a workspace with no settings repository and the one thing to do, the situations before the
@@ -77,6 +77,32 @@ describe('the playbook page', () => {
     });
     expect(text(html)).toContain('acme/plans holds no settings playbook page yet.');
     expect(pageOf(html, 'review')).toContain('data-source="kit"');
+  });
+
+  it('shows each page\'s edit to a workspace owner only (s7)', () => {
+    const owner = render({ ...FILLED, editing: { kind: 'database', workspace: 'w-acme' } });
+    expect(pageOf(owner, 'review')).toContain('Propose a change');
+    expect(pageOf(owner, 'definition-of-done')).toContain('aria-label="Propose a change to Definition of done"');
+    expect(text(pageOf(owner, 'review'))).toContain('Fix, push back or ask.');
+    expect(text(render({ ...FILLED, editing: { kind: 'demo' } }))).toContain('Propose a change');
+    for (const member of [render(FILLED), render({ ...FILLED, editing: null })]) {
+      expect(member).not.toContain('Propose a change');
+      expect(member).not.toContain('omni-settings-edit');
+    }
+  });
+
+  it('gives the screen an owner\'s edit from what the page loaded, and a member none', () => {
+    const loaded = { kind: 'playbook' as const, workspace: { id: 'w-acme', name: 'Acme' }, repository: 'acme/plans', commit: COMMIT, reason: null, pages: [] };
+    expect(playbookScreenOf({ ...loaded, owner: true })).toEqual({
+      kind: 'playbook', repository: 'acme/plans', commit: COMMIT, reason: null, pages: [], editing: { kind: 'database', workspace: 'w-acme' },
+    });
+    expect(playbookScreenOf({ ...loaded, owner: false })).toMatchObject({ kind: 'playbook', editing: null });
+    expect(playbookScreenOf({ kind: 'unreadable' })).toEqual({ kind: 'unreadable' });
+  });
+
+  it('shows no edit where there is no settings repository to open a pull request in', () => {
+    const html = render({ kind: 'playbook', editing: { kind: 'database', workspace: 'w-acme' }, repository: null, commit: null, reason: 'none', pages: [] });
+    expect(html).not.toContain('Propose a change');
   });
 
   it('says the situation when there is no playbook to show', () => {
