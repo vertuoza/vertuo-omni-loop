@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The Runners page names the key and whom it acted for, and a second cancel or relaunch answers 409, so the page and the app never fight over a job.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every field came in additive, the lines read from a cursor, and the ping carries only the job, the event and the time, to a host checked before each call.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "My app does what the Runners page does for its own jobs, and a job answered on the page stays ours to follow.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I see which key sent, answered or cancelled a job, and for whom; widening who may answer still waits for its owner's word, as it should.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Already fixed, and by which pull request, reaches the app when the job ends, so the customer hears it the same day.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
     }
   ]
 }
