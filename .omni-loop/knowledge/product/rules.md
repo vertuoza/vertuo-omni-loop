@@ -658,3 +658,15 @@ Stated: 2026-10-22
 Decided: nobody — adopted when raised (medium), 2026-10-22
 Merged: @pierrederval, 2026-10-22, PR #2371
 Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-125
+
+A repository's Runner skills block lists a folder only when it holds a skill file whose name is valid and equals the folder's name, and that name is not one of the loop's own skills; any other folder is left out.
+
+Serves: P-PRODUCT-103
+Source: .omni-loop/delivery/shipped/2313-runner-repo-skills/outbox/settled.md, entry s3-02-s3-which-folders-are-skills, PRD #2313
+Enforced by: apps/galaxy/src/repositories/skills.test.ts, apps/galaxy/src/runners/runners.skills.migration.test.ts
+Stated: 2026-10-21
+Decided: nobody — adopted when raised (medium), 2026-10-21
+Merged: @pierrederval, 2026-10-21, PR #2316
+Proposed: harvest 2026-10-22

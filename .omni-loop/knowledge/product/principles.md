@@ -854,3 +854,12 @@ Why: People read the timeline to know when a PRD is really finished. Leaving out
 Source: .omni-loop/delivery/shipped/2370-prd-timeline/outbox/settled.md, entry s4-02-plan-repository-own-lane, PRD #2370
 Merged: @pierrederval, 2026-10-22, PR #2371
 Proposed: harvest 2026-10-22
+
+## P-PRODUCT-103
+
+The app only offers a skill to allow when a runner can actually find it and allowing it is possible; it never offers a choice that would be refused.
+
+Why: Showing skills that cannot be found or allowed would invite choices that silently fail or are refused by the database.
+Source: .omni-loop/delivery/shipped/2313-runner-repo-skills/outbox/settled.md, entry s3-02-s3-which-folders-are-skills, PRD #2313
+Merged: @pierrederval, 2026-10-21, PR #2316
+Proposed: harvest 2026-10-22
