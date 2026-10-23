@@ -1,5 +1,5 @@
 {
-  "description": "Ask mode: while it is on in a checkout, AskUserQuestion is answered on a web page, a tab per terminal. Silent otherwise. The heartbeat: after any tool call, at most once a minute, the Omni page learns this session is working; silent when signed out or with dossiers off. The constituents: when a session starts, the product's Statement and Never list print first, from the Omni page or the last copy synced. Then a capped index of its knowledge (words to use, Legal entries, personas), the full text a command away. The sync status is refreshed in the background, never blocking the session.",
+  "description": "Ask mode: while it is on in a checkout, AskUserQuestion is answered on a web page, a tab per terminal. Silent otherwise. The heartbeat: after any tool call, at most once a minute, the Omni page learns this session is working; silent when signed out or with dossiers off. The constituents: when a session starts, the product's Statement and Never list print first, from the Omni page or the last copy synced. Then a capped index of its knowledge (words to use, Legal entries, personas), the full text a command away. The sync status is refreshed in the background, never blocking the session. The worktrees: when a session starts, one line says how many of the kit's worktrees can be removed, and the command that removes them, or nothing; it only suggests, never removes.",
   "hooks": {
     "SessionStart": [
       {
@@ -25,6 +25,15 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" sync --background || true",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" worktrees hint || true",
             "timeout": 10
           }
         ]
