@@ -71,6 +71,10 @@ A test outside them never runs.
 - A floor in `mutation/floor.json` never goes down, and no module leaves it:
   `scripts/mutation-floor.test.ts` refuses either against `origin/main`'s copy. Raising one to a
   module's new score, rounded down, is an ordinary edit.
+- A test credential is never written whole: it is built at runtime (`'ghp_' + 'a'.repeat(36)`), and a
+  change that adds one runs `gitleaks git --config .gitleaks.toml --log-opts=origin/<base>..HEAD .`
+  before its first push, since CI scans every commit and a later one never clears a fake (retro of
+  PRD 2433, #2469).
 
 ## Test data
 <!-- slot: data · optional -->
