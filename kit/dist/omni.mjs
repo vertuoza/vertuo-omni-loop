@@ -70,7 +70,7 @@ var require_identity = __commonJS({
     var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
     var isAlias = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === ALIAS;
     var isDocument = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === DOC;
-    var isMap = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === MAP;
+    var isMap2 = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === MAP;
     var isPair = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === PAIR;
     var isScalar = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === SCALAR;
     var isSeq = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === SEQ;
@@ -106,7 +106,7 @@ var require_identity = __commonJS({
     exports.isAlias = isAlias;
     exports.isCollection = isCollection;
     exports.isDocument = isDocument;
-    exports.isMap = isMap;
+    exports.isMap = isMap2;
     exports.isNode = isNode;
     exports.isPair = isPair;
     exports.isScalar = isScalar;
@@ -4272,9 +4272,9 @@ var require_resolve_flow_collection = __commonJS({
     var blockMsg = "Block collections are not allowed within flow collections";
     var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
     function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
-      const isMap = fc.start.source === "{";
-      const fcName = isMap ? "flow map" : "flow sequence";
-      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const isMap2 = fc.start.source === "{";
+      const fcName = isMap2 ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap2 ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
       const coll = new NodeClass(ctx.schema);
       coll.flow = true;
       const atRoot = ctx.atRoot;
@@ -4310,7 +4310,7 @@ var require_resolve_flow_collection = __commonJS({
             offset = props.end;
             continue;
           }
-          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key2))
+          if (!isMap2 && ctx.options.strict && utilContainsNewline.containsNewline(key2))
             onError(
               key2,
               // checked by containsNewline()
@@ -4350,7 +4350,7 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep5 && !props.found) {
+        if (!isMap2 && !sep5 && !props.found) {
           const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep5, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
@@ -4373,7 +4373,7 @@ var require_resolve_flow_collection = __commonJS({
             startOnNewline: false
           });
           if (valueProps.found) {
-            if (!isMap && !props.found && ctx.options.strict) {
+            if (!isMap2 && !props.found && ctx.options.strict) {
               if (sep5)
                 for (const st of sep5) {
                   if (st === valueProps.found)
@@ -4405,7 +4405,7 @@ var require_resolve_flow_collection = __commonJS({
           const pair = new Pair.Pair(keyNode, valueNode);
           if (ctx.options.keepSourceTokens)
             pair.srcToken = collItem;
-          if (isMap) {
+          if (isMap2) {
             const map2 = coll;
             if (utilMapIncludes.mapIncludes(ctx, map2.items, keyNode))
               onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
@@ -4421,7 +4421,7 @@ var require_resolve_flow_collection = __commonJS({
           offset = valueNode ? valueNode.range[2] : valueProps.end;
         }
       }
-      const expectedEnd = isMap ? "}" : "]";
+      const expectedEnd = isMap2 ? "}" : "]";
       const [ce, ...ee] = fc.end;
       let cePos = offset;
       if (ce?.source === expectedEnd)
@@ -7338,7 +7338,7 @@ var require_public_api = __commonJS({
         return docs;
       return Object.assign([], { empty: true }, composer$1.streamInfo());
     }
-    function parseDocument(source2, options = {}) {
+    function parseDocument2(source2, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -7364,7 +7364,7 @@ var require_public_api = __commonJS({
       } else if (options === void 0 && reviver && typeof reviver === "object") {
         options = reviver;
       }
-      const doc = parseDocument(src, options);
+      const doc = parseDocument2(src, options);
       if (!doc)
         return null;
       doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
@@ -7400,7 +7400,7 @@ var require_public_api = __commonJS({
     }
     exports.parse = parse11;
     exports.parseAllDocuments = parseAllDocuments;
-    exports.parseDocument = parseDocument;
+    exports.parseDocument = parseDocument2;
     exports.stringify = stringify4;
   }
 });
@@ -29365,9 +29365,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     if (!response.ok) return null;
     const fresh = freshTokens(await bodyOf4(response));
     if (!fresh) return null;
-    const kept = renewed(current, fresh);
-    tokens2.write(host, kept);
-    return kept;
+    const kept2 = renewed(current, fresh);
+    tokens2.write(host, kept2);
+    return kept2;
   }
   async function trade(omniToken, repo = null) {
     let response;
@@ -29384,9 +29384,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     }
     const fresh = freshTokens(body);
     if (!fresh) throw new AskCallError(`OMNI_TOKEN: ${host} answered with no access token`, { status: response.status });
-    const kept = renewed({ access_token: "" }, fresh);
-    tokens2.write(host, kept);
-    return { tokens: kept, reply: fresh };
+    const kept2 = renewed({ access_token: "" }, fresh);
+    tokens2.write(host, kept2);
+    return { tokens: kept2, reply: fresh };
   }
   async function currentTokens() {
     const held2 = tokens2.read(host);
@@ -29617,6 +29617,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
     readConstituents: (repo) => call("GET", `/api/constituents?${new URLSearchParams({ repo })}`),
+    /** PRD 2417: the tech playbook of the settings repository of the workspace `repo` (owner/name) belongs to, as the
+     * caller; `../omni-settings/schema.ts` shapes the answer, and `../omni-settings/sync.ts` reads it. */
+    readOmniSettings: (repo) => call("GET", `/api/omni-settings/playbook?${new URLSearchParams({ repo })}`),
     /** PRD 2268: adds or edits one Legal entry or Glossary term of the product `repo` belongs to (`product`, when
      * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
      * `entry` names the item an edit changes, by the id or term the reads print.
@@ -34208,11 +34211,11 @@ function answerableQuestions(numbering, items, adopted) {
   const questions2 = [];
   for (const entry3 of numbering) {
     const open3 = itemsById.get(entry3.id);
-    const kept = adoptedById.get(entry3.id);
+    const kept2 = adoptedById.get(entry3.id);
     if (open3 !== void 0) {
       questions2.push({ ...entry3, item: open3, adoptedEntry: null });
-    } else if (kept !== void 0) {
-      const { entry: adoptedEntry, item: item2 } = kept;
+    } else if (kept2 !== void 0) {
+      const { entry: adoptedEntry, item: item2 } = kept2;
       questions2.push({ ...entry3, item: item2, adoptedEntry });
     }
   }
@@ -34666,14 +34669,14 @@ function answerableQuestions2({
   adopted = []
 }) {
   const open3 = new Map(items.map((item2) => [item2.id, item2]));
-  const kept = /* @__PURE__ */ new Map();
+  const kept2 = /* @__PURE__ */ new Map();
   for (const entry3 of adopted) {
     const parsed2 = parseItem(entry3.itemText, null);
-    if (parsed2.ok) kept.set(entry3.id, parsed2.item);
+    if (parsed2.ok) kept2.set(entry3.id, parsed2.item);
   }
   const questions2 = [];
   for (const { number: number5, id } of numbering) {
-    const item2 = open3.get(id) ?? kept.get(id);
+    const item2 = open3.get(id) ?? kept2.get(id);
     if (!item2) continue;
     questions2.push({
       number: number5,
@@ -35528,9 +35531,9 @@ function parseApprovalReply(body) {
   return parsed2.success ? parsed2.data : null;
 }
 function treeFileOf(ctx, prd2, file2) {
-  const kept = ARTIFACT_KINDS.find((entry3) => entry3.kind === file2.kind);
-  if (!kept || !ctx.layout.whereIs(prd2)) return file2.path;
-  return kept.pathOf(ctx.layout, prd2) ?? file2.path;
+  const kept2 = ARTIFACT_KINDS.find((entry3) => entry3.kind === file2.kind);
+  if (!kept2 || !ctx.layout.whereIs(prd2)) return file2.path;
+  return kept2.pathOf(ctx.layout, prd2) ?? file2.path;
 }
 var squeezed = (content) => content.replace(/\s+/g, "");
 function driftOf(ctx, prd2, file2) {
@@ -37843,18 +37846,18 @@ function runnableFrontier(rows2) {
     leftRivals.add(right);
     rightRivals.add(left);
   }
-  const kept = [];
+  const kept2 = [];
   const excluded = [];
   for (const row of inWave) {
     const rivals = collidesWith.get(row.id);
-    const alreadyKeptRival = rivals && kept.some((keptRow) => rivals.has(keptRow.id));
+    const alreadyKeptRival = rivals && kept2.some((keptRow) => rivals.has(keptRow.id));
     if (alreadyKeptRival) excluded.push(row.id);
-    else kept.push(row);
+    else kept2.push(row);
   }
   return {
     wave,
-    takeable: kept.map((row) => row.id),
-    runnable: kept.filter((row) => row.state === "runnable").map((row) => row.id),
+    takeable: kept2.map((row) => row.id),
+    runnable: kept2.filter((row) => row.state === "runnable").map((row) => row.id),
     excluded,
     collisions: collisions2
   };
@@ -38696,26 +38699,26 @@ function landingPlan({
   repo = null
 }) {
   const mine = slices.filter((slice) => repo === null || slice.repo === repo);
-  const kept = landings.filter((landing) => mine.some((slice) => slice.landing === landing.landing));
+  const kept2 = landings.filter((landing) => mine.some((slice) => slice.landing === landing.landing));
   const chain = landingBranches(branches, {
     topic,
-    landings: kept.map((landing, index2) => ({ landing: index2 + 1, name: landing.name }))
+    landings: kept2.map((landing, index2) => ({ landing: index2 + 1, name: landing.name }))
   });
-  return kept.map((landing, index2) => ({
+  return kept2.map((landing, index2) => ({
     landing: index2 + 1,
     planLanding: landing.landing,
-    count: kept.length,
+    count: kept2.length,
     name: landing.name,
     mergeWhen: landing.mergeWhen,
     branch: chain[index2]?.branch ?? "",
     base: index2 === 0 ? defaultBranch2 : chain[index2 - 1]?.branch ?? defaultBranch2,
-    titleSuffix: kept.length > 1 ? ` (${index2 + 1}/${kept.length})` : "",
-    mergeAfter: mergeAfterOf(kept, index2),
+    titleSuffix: kept2.length > 1 ? ` (${index2 + 1}/${kept2.length})` : "",
+    mergeAfter: mergeAfterOf(kept2, index2),
     slices: mine.filter((slice) => slice.landing === landing.landing).map(({ id, title }) => ({ id, title }))
   }));
 }
-function mergeAfterOf(kept, index2) {
-  const before2 = kept[index2 - 1];
+function mergeAfterOf(kept2, index2) {
+  const before2 = kept2[index2 - 1];
   return index2 === 0 || before2 === void 0 ? null : { landing: index2, name: before2.name };
 }
 function mergeAfterLine(step3) {
@@ -38775,8 +38778,8 @@ function readCopy(root, product2) {
   } catch {
     return null;
   }
-  const kept = CopySchema.safeParse(value);
-  return kept.success && kept.data.product === product2 ? { readAt: kept.data.readAt, targets: kept.data.targets } : null;
+  const kept2 = CopySchema.safeParse(value);
+  return kept2.success && kept2.data.product === product2 ? { readAt: kept2.data.readAt, targets: kept2.data.targets } : null;
 }
 function writeCopy(root, copy) {
   ensureLocalDir(root);
@@ -39905,8 +39908,8 @@ function set2(rest, json3, { ctx, stdout, stderr }) {
   const { ceilings, added } = result2;
   if (added.length > 0) writeCeilings(where, ceilings);
   for (const { target: target3, ceiling } of added) println(stdout, `set ${target3} ${ceiling}`);
-  const kept = Object.keys(ceilings).length - added.length;
-  println(stdout, `budget set context \u2014 ${added.length} first ceiling(s) written to ${file2}; ${kept} kept as they were.`);
+  const kept2 = Object.keys(ceilings).length - added.length;
+  println(stdout, `budget set context \u2014 ${added.length} first ceiling(s) written to ${file2}; ${kept2} kept as they were.`);
   return 0;
 }
 var budget = {
@@ -40504,11 +40507,11 @@ function knowledgeOfReply(reply, repo) {
   const { state, product: product2, legal = [], glossary = [], personas = [] } = parsed2.data;
   if (state === "archived" && product2) throw new KnowledgeStop("archived", archivedLine(product2.name));
   if (!product2) throw new KnowledgeStop("none", `no product knowledge: ${repo} belongs to no product on the Omni page`);
-  const kept = personas.flatMap((one) => {
+  const kept2 = personas.flatMap((one) => {
     const persona = PersonaSchema.safeParse(one);
     return persona.success ? [{ name: persona.data.name, stance: persona.data.stance }] : [];
   });
-  return { product: product2.name, legal, glossary, personas: kept };
+  return { product: product2.name, legal, glossary, personas: kept2 };
 }
 function readCopy2(root) {
   let value;
@@ -40517,8 +40520,8 @@ function readCopy2(root) {
   } catch {
     return null;
   }
-  const kept = CopySchema2.safeParse(value);
-  return kept.success ? kept.data : null;
+  const kept2 = CopySchema2.safeParse(value);
+  return kept2.success ? kept2.data : null;
 }
 function readCachedKnowledge(root) {
   let text15;
@@ -40533,8 +40536,8 @@ function readCachedKnowledge(root) {
   } catch {
     return { state: "unreadable" };
   }
-  const kept = CopySchema2.safeParse(value);
-  return kept.success ? { state: "cached", ...kept.data } : { state: "unreadable" };
+  const kept2 = CopySchema2.safeParse(value);
+  return kept2.success ? { state: "cached", ...kept2.data } : { state: "unreadable" };
 }
 var unanswered2 = (error62) => error62.status === null || error62.status >= 500;
 async function productKnowledge({ repo, root, now: now2, fetchBusiness }) {
@@ -44202,12 +44205,12 @@ function readRetro(root, file2) {
   return { ok: false, violation: `${file2}: not a retro record \u2014 ${why3}` };
 }
 function keptLessons(doc) {
-  const kept = /* @__PURE__ */ new Map();
-  for (const run2 of doc.runs) for (const [finding, issue2] of Object.entries(run2.issues ?? {})) kept.set(finding, issue2.number);
-  return kept;
+  const kept2 = /* @__PURE__ */ new Map();
+  for (const run2 of doc.runs) for (const [finding, issue2] of Object.entries(run2.issues ?? {})) kept2.set(finding, issue2.number);
+  return kept2;
 }
-function lessonOf(doc, finding, kept) {
-  const issue2 = kept.get(finding);
+function lessonOf(doc, finding, kept2) {
+  const issue2 = kept2.get(finding);
   return `PRD ${String(doc.prd)}, lesson \`${finding}\`${issue2 === void 0 ? "" : ` (#${String(issue2)})`}`;
 }
 function retroFiles(ctx) {
@@ -44217,17 +44220,17 @@ function retroFiles(ctx) {
   );
 }
 function gradeOutcomes(ctx, file2, doc) {
-  const kept = keptLessons(doc);
+  const kept2 = keptLessons(doc);
   const entries4 = doc.runs.flatMap((run2) => Object.entries(run2.outcomes ?? {}));
   const violations = entries4.flatMap(([finding, outcome]) => {
     const problem = outcomeProblem(outcome, { ctx });
-    return problem === null ? [] : [`${file2}: ${lessonOf(doc, finding, kept)}: ${problem}`];
+    return problem === null ? [] : [`${file2}: ${lessonOf(doc, finding, kept2)}: ${problem}`];
   });
   return { violations, outcomes: entries4.length, settled: new Set(entries4.map(([finding]) => finding)) };
 }
 function unsettled(file2, doc, settled2) {
-  const kept = keptLessons(doc);
-  return [...kept.keys()].filter((finding) => !settled2.has(finding)).map((finding) => `${file2}: ${lessonOf(doc, finding, kept)}: kept, with no outcome \u2014 it becomes a rule (became: playbook/<form>#<slot>) or stays here (staysHere: <why>)`);
+  const kept2 = keptLessons(doc);
+  return [...kept2.keys()].filter((finding) => !settled2.has(finding)).map((finding) => `${file2}: ${lessonOf(doc, finding, kept2)}: kept, with no outcome \u2014 it becomes a rule (became: playbook/<form>#<slot>) or stays here (staysHere: <why>)`);
 }
 function gradeRetros({ ctx, retro: retro2 }) {
   const files = retroFiles(ctx);
@@ -44574,8 +44577,8 @@ function formLaws(text15) {
   return slot2 ? parseLaws(slot2.body.text) : [];
 }
 function decidedText(text15, dropStatus) {
-  const kept = dropStatus ? text15.replace(STATUS_LINE, "") : text15;
-  return lines(kept).filter((line2) => !line2.startsWith("> Amended ")).join("\n").trim();
+  const kept2 = dropStatus ? text15.replace(STATUS_LINE, "") : text15;
+  return lines(kept2).filter((line2) => !line2.startsWith("> Amended ")).join("\n").trim();
 }
 var newLines = (before2, after) => after.filter((line2) => !before2.includes(line2));
 function gradeLocked(where, { owner, changed, before: before2, after, shape, reads }) {
@@ -45349,10 +45352,10 @@ function readCache(root, repo) {
   } catch {
     return null;
   }
-  const kept = ConstituentsCacheSchema.safeParse(value);
-  if (!kept.success || kept.data.repo !== repo) return null;
-  const read3 = constituentsOf(kept.data.read);
-  return read3 ? { syncedAt: kept.data.syncedAt, read: read3 } : null;
+  const kept2 = ConstituentsCacheSchema.safeParse(value);
+  if (!kept2.success || kept2.data.repo !== repo) return null;
+  const read3 = constituentsOf(kept2.data.read);
+  return read3 ? { syncedAt: kept2.data.syncedAt, read: read3 } : null;
 }
 function writeCache(root, { repo, syncedAt, read: read3 }) {
   ensureLocalDir(root);
@@ -45751,7 +45754,7 @@ function findFile(dir, names) {
   return null;
 }
 function proseLines(text15) {
-  const kept = [];
+  const kept2 = [];
   let fence = null;
   for (const line2 of text15.split("\n")) {
     const mark = /^\s*(```+|~~~+)/.exec(line2);
@@ -45761,9 +45764,9 @@ function proseLines(text15) {
       else if (opener === fence) fence = null;
       continue;
     }
-    if (fence === null) kept.push(line2);
+    if (fence === null) kept2.push(line2);
   }
-  return kept;
+  return kept2;
 }
 function titleOf2(file2) {
   for (const line2 of proseLines(readText3(file2))) {
@@ -46787,13 +46790,13 @@ function touched(io, given) {
   } catch {
     return formatTouched({ ui: "unknown", reason: `cannot read ${base} \u2014 fetch it or pass another base` });
   }
-  const kept = dropIgnored(designIgnore(design2), changed);
+  const kept2 = dropIgnored(designIgnore(design2), changed);
   const dir = designScreensDir(io.ctx.config);
   const { screens: library } = readScreens(join77(io.ctx.root, dir));
-  const hit = screensTouched(library, kept);
+  const hit = screensTouched(library, kept2);
   return [
-    ...formatTouched(designTouched(design2, kept)),
-    ...formatScreensTouched(hit, screensRead(library, kept)),
+    ...formatTouched(designTouched(design2, kept2)),
+    ...formatScreensTouched(hit, screensRead(library, kept2)),
     ...formatStaleMocks(staleMocks(hit, changed, dir))
   ];
 }
@@ -47022,9 +47025,9 @@ async function titleOf3({ key: key2, seq, title }, folder, { client, repo }) {
   const given = title ?? folder.title;
   if (given) return given;
   if (seq === null) throw usageError("omni dossier push --new: give it a title, with --title or a spec.md whose front matter has one.");
-  const kept = field(await client.findProductDossier({ key: key2, seq, repo }), "title");
-  if (!isText4(kept)) throw new AskCallError("no title in the reply", { status: 500 });
-  return kept;
+  const kept2 = field(await client.findProductDossier({ key: key2, seq, repo }), "title");
+  if (!isText4(kept2)) throw new AskCallError("no title in the reply", { status: 500 });
+  return kept2;
 }
 function reportPush(result2, folder, { stdout, stderr }, addedLine2) {
   const prdId = field(result2, "prdId");
@@ -47099,9 +47102,9 @@ function versionOf(entry3) {
 }
 function addedLine({ added, unchanged }) {
   const got = Array.isArray(added) ? added.flatMap((a) => versionOf(a) ?? []) : [];
-  const kept = Array.isArray(unchanged) ? unchanged.filter(isText5) : [];
+  const kept2 = Array.isArray(unchanged) ? unchanged.filter(isText5) : [];
   const parts = [`added: ${got.length ? got.map(({ kind, version: version3 }) => `${kind} v${version3}`).join(", ") : "none"}`];
-  if (kept.length) parts.push(`unchanged: ${kept.join(", ")}`);
+  if (kept2.length) parts.push(`unchanged: ${kept2.join(", ")}`);
   return parts.join(" \xB7 ");
 }
 async function open2(title, { ctx, repo, client, home, session: session2, stdout, stderr, now: now2 }) {
@@ -49146,16 +49149,16 @@ function proofOf({
   exists: exists2
 }) {
   const status5 = new Map(changed.map((file2) => [file2.path, file2.status]));
-  const kept = [];
+  const kept2 = [];
   const dropped = [];
   for (const path of new Set(proposed.map((p) => p.trim()))) {
     const given = status5.get(path);
     if (given === "removed") dropped.push({ path, reason: `removed by #${pr}` });
     else if (!KEPT_STATUSES.includes(given ?? "")) dropped.push({ path, reason: `not changed by #${pr}` });
     else if (!exists2(path)) dropped.push({ path, reason: "no longer in the tree" });
-    else kept.push(path);
+    else kept2.push(path);
   }
-  return { kept, dropped };
+  return { kept: kept2, dropped };
 }
 function makeNumbering({ ctx, taken }) {
   const highest = /* @__PURE__ */ new Map();
@@ -49285,7 +49288,7 @@ function servedBy2(reply, nextPrinciple) {
   const principleId = nextPrinciple();
   return { serves: principleId, principleId };
 }
-var enforcedValue = (kept) => kept.length > 0 ? kept.join(", ") : "unenforced";
+var enforcedValue = (kept2) => kept2.length > 0 ? kept2.join(", ") : "unenforced";
 function writeRegisterEntry({
   ctx,
   files,
@@ -49366,8 +49369,8 @@ function lawIssueBody({ entry: entry3, register: register2, statement: statement
     "The law is written `Enforced by: pending #<this issue>` until `/omni:enforce` writes its test, sees it red with the law broken and green restored, and names the test there."
   ].join("\n");
 }
-function lawPath(kept, worth, worthALaw2) {
-  if (kept.length > 0) return { path: "proven" };
+function lawPath(kept2, worth, worthALaw2) {
+  if (kept2.length > 0) return { path: "proven" };
   const counted5 = worth ?? (worthALaw2 === void 0 ? null : { worth: worthALaw2, decidedBy: CLASSIFIER, confidence: null });
   if (counted5 === null) return { path: "legacy" };
   return { path: counted5.worth ? "yes" : "no", worth: counted5 };
@@ -49605,9 +49608,9 @@ async function classifyCandidate({
     title: "omni harvest"
   });
   if (answer.ok) {
-    const kept = check5.safeParse(answer.reply);
-    if (kept.success) return { id: candidate.id, reply: kept.data, reason: null, error: null };
-    return { id: candidate.id, reply: null, reason: `the model's reply could not be read: ${kept.error.message}`, error: null };
+    const kept2 = check5.safeParse(answer.reply);
+    if (kept2.success) return { id: candidate.id, reply: kept2.data, reason: null, error: null };
+    return { id: candidate.id, reply: null, reason: `the model's reply could not be read: ${kept2.error.message}`, error: null };
   }
   const reason2 = answer.error === REFUSED ? `${REFUSED_TWICE}: ${answer.reason}` : `the model could not be asked: ${answer.reason}`;
   return { id: candidate.id, reply: null, reason: reason2, error: answer.error === NO_KEY ? NO_KEY : answer.error };
@@ -49639,8 +49642,8 @@ function lawQuestions({
   classified,
   prdTitle: prdTitle2
 }) {
-  const kept = keptPaths(prepared.changed ?? []);
-  const proven = (paths = []) => paths.some((path) => kept.includes(path.trim()) && existsSync62(join90(ctx.root, path.trim())));
+  const kept2 = keptPaths(prepared.changed ?? []);
+  const proven = (paths = []) => paths.some((path) => kept2.includes(path.trim()) && existsSync62(join90(ctx.root, path.trim())));
   return classified.flatMap(({ id, reply }) => {
     if (!reply || reply.kind !== "rule" && reply.kind !== "invariant") return [];
     if (reply.worthALaw === void 0 || proven(reply.enforcedBy)) return [];
@@ -49688,12 +49691,12 @@ function finishHarvest({
     });
     let result2 = attempt12(null);
     if (failures(result2).length > 0) {
-      const kept = [];
+      const kept2 = [];
       for (const entry3 of result2.placed) {
-        const trial = attempt12([...kept, entry3.id]);
+        const trial = attempt12([...kept2, entry3.id]);
         const failed4 = failures(trial);
         if (failed4.length > 0) dropped.set(entry3.id, `the checks refused it: ${failed4.join("; ")}`);
-        else kept.push(entry3.id);
+        else kept2.push(entry3.id);
       }
       result2 = attempt12(null);
     }
@@ -52212,8 +52215,8 @@ async function resolveAgents(named5, { interactive, ask: ask6 }) {
   if ("error" in parsed2) throw usageError(`omni init: ${parsed2.error}.`);
   return parsed2.agents;
 }
-async function chooseAgents(root, { kept, named: named5, fallback: fallback5, interactive, ask: ask6 }) {
-  const agents = kept ? kept.agents : await resolveAgents(named5, { interactive, ask: ask6 });
+async function chooseAgents(root, { kept: kept2, named: named5, fallback: fallback5, interactive, ask: ask6 }) {
+  const agents = kept2 ? kept2.agents : await resolveAgents(named5, { interactive, ask: ask6 });
   const refused3 = needsCopies(agents ?? fallback5) ? copiesRefusal(root) : null;
   if (refused3) throw usageError(`omni init: ${refused3}`);
   return agents ? { agents } : {};
@@ -52279,17 +52282,17 @@ var init = {
       return 0;
     }
     const keepConfig = !force && existsSync68(configPath);
-    const kept = keepConfig ? parseConfig(readFileSync80(configPath, "utf8"), CONFIG_FILE) : null;
+    const kept2 = keepConfig ? parseConfig(readFileSync80(configPath, "utf8"), CONFIG_FILE) : null;
     const copyBin = force || !existsSync68(binPath);
     if (copyBin && !bundle) {
       throw usageError(
         `omni init: this omni runs from the kit source, which is never installed as ${BIN_FILE2}; run \`${installCommand(kitHome({ exec }))}\` instead.`
       );
     }
-    const agentsKey = await chooseAgents(root, { kept, named: agentFlags.values, fallback: defaults.agents, interactive, ask: ask6 });
+    const agentsKey = await chooseAgents(root, { kept: kept2, named: agentFlags.values, fallback: defaults.agents, interactive, ask: ask6 });
     const branch = switchToInstallBranch(root, { exec });
     let config3;
-    if (kept === null) {
+    if (kept2 === null) {
       const commands = await resolveCommands(root, flags, { interactive, ask: ask6 });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
@@ -52299,7 +52302,7 @@ var init = {
       mkdirSync26(dirname25(configPath), { recursive: true });
       writeFileSync37(configPath, text15);
     } else {
-      config3 = kept;
+      config3 = kept2;
     }
     if (copyBin) {
       mkdirSync26(dirname25(binPath), { recursive: true });
@@ -53527,11 +53530,11 @@ var SEPARATOR = " \xB7 ";
 var INDENT = "       ";
 var bytes = (text15) => Buffer.byteLength(text15, "utf8");
 function fit(items, budget2, command2) {
-  for (let kept = items.length; kept > 0; kept -= 1) {
-    const text15 = items.slice(0, kept).join(SEPARATOR);
-    const more = items.length - kept;
+  for (let kept2 = items.length; kept2 > 0; kept2 -= 1) {
+    const text15 = items.slice(0, kept2).join(SEPARATOR);
+    const more = items.length - kept2;
     const full = more === 0 ? text15 : `${text15}${SEPARATOR}\u2026 ${more} more: ${command2}`;
-    if (bytes(full) <= budget2) return { text: full, kept };
+    if (bytes(full) <= budget2) return { text: full, kept: kept2 };
   }
   return { text: `\u2026 ${items.length} more: ${command2}`, kept: 0 };
 }
@@ -53544,7 +53547,7 @@ function indexLines({ product: product2, glossary, legal, personas = [] }, synce
     { label: "Legal: ", items: legal.map(legalItem), hint: "sources: omni kb legal", command: "omni kb legal" },
     { label: "Personas: ", items: personas.map(personaItem), hint: "who they are: omni business show", command: "omni business show" }
   ].filter((section6) => section6.items.length > 0);
-  const kept = [];
+  const kept2 = [];
   const lines3 = [`Knowledge of ${product2} (${synced}): words to use, laws to respect, people to build for.`];
   let left = cap - bytes(lines3[0] ?? "") - sections.length * 2;
   sections.forEach(({ label: label2, items, hint, command: command2 }, i) => {
@@ -53554,9 +53557,9 @@ function indexLines({ product: product2, glossary, legal, personas = [] }, synce
     const section6 = [`${label2}${body.text}`, arrow];
     left -= section6.reduce((total, line2) => total + bytes(line2), 0);
     lines3.push(...section6);
-    kept.push(body.kept);
+    kept2.push(body.kept);
   });
-  const keptOf = (label2) => kept[sections.findIndex((section6) => section6.label === label2)] ?? 0;
+  const keptOf = (label2) => kept2[sections.findIndex((section6) => section6.label === label2)] ?? 0;
   const has2 = (label2) => sections.some((section6) => section6.label === label2);
   const words4 = has2("Words: ") ? glossary.slice(0, keptOf("Words: ")) : [];
   const legalShown = has2("Legal: ") ? legal.slice(0, keptOf("Legal: ")) : [];
@@ -55064,15 +55067,15 @@ function refuse2(stderr, line2) {
 function blocksStart(standing4, takeOver) {
   return standing4 === "live" || standing4 === "sleeping" || standing4 === "silent" && !takeOver;
 }
-function loopBody(body, kept, plan2) {
-  if (!kept || kept.state !== "running") return "no loop (omni loop push start)";
-  return body(kept, plan2);
+function loopBody(body, kept2, plan2) {
+  if (!kept2 || kept2.state !== "running") return "no loop (omni loop push start)";
+  return body(kept2, plan2);
 }
-function startingBody(prepared, kept, plan2, at2) {
+function startingBody(prepared, kept2, plan2, at2) {
   if (!plan2) return "no loop plan (omni next --plan)";
-  if (!kept) return prepared.body(plan2);
-  const standing4 = loopState(kept, at2);
-  return blocksStart(standing4, prepared.takeOver) ? standingLine(kept, standing4) : prepared.body(plan2);
+  if (!kept2) return prepared.body(plan2);
+  const standing4 = loopState(kept2, at2);
+  return blocksStart(standing4, prepared.takeOver) ? standingLine(kept2, standing4) : prepared.body(plan2);
 }
 async function sendBody(client, body) {
   let reply;
@@ -55083,29 +55086,29 @@ async function sendBody(client, body) {
   }
   return answerOf3(reply) ?? "refused (no loop in the reply)";
 }
-function sentVersionOf(plan2, kept) {
-  return plan2?.version ?? kept?.planVersion ?? 1;
+function sentVersionOf(plan2, kept2) {
+  return plan2?.version ?? kept2?.planVersion ?? 1;
 }
-function nextWakeAfter(event, wake2, kept) {
+function nextWakeAfter(event, wake2, kept2) {
   if (event === "tick") return wake2;
   if (event === "stop") return null;
-  return kept?.nextWakeAt ?? null;
+  return kept2?.nextWakeAt ?? null;
 }
-function planVersionAfter(event, sentVersion, kept) {
-  return event === "tick" ? Math.max(sentVersion, kept?.planVersion ?? 1) : kept?.planVersion ?? sentVersion;
+function planVersionAfter(event, sentVersion, kept2) {
+  return event === "tick" ? Math.max(sentVersion, kept2?.planVersion ?? 1) : kept2?.planVersion ?? sentVersion;
 }
-function loopAfter({ body, plan: plan2, kept, repo, wake: wake2, at: at2, roadmap: roadmap2 }, answer) {
+function loopAfter({ body, plan: plan2, kept: kept2, repo, wake: wake2, at: at2, roadmap: roadmap2 }, answer) {
   const seenAt = new Date(at2).toISOString();
   if (body.event === "start" && plan2) {
     return { loopId: answer.loopId, repo, prds: [...plan2.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version, roadmap: roadmap2 };
   }
-  const sentVersion = sentVersionOf(plan2, kept);
+  const sentVersion = sentVersionOf(plan2, kept2);
   return {
-    ...kept ?? { loopId: answer.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion },
+    ...kept2 ?? { loopId: answer.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion },
     state: answer.state,
     seenAt,
-    nextWakeAt: nextWakeAfter(body.event, wake2, kept),
-    planVersion: planVersionAfter(body.event, sentVersion, kept),
+    nextWakeAt: nextWakeAfter(body.event, wake2, kept2),
+    planVersion: planVersionAfter(body.event, sentVersion, kept2),
     ...body.event === "tick" ? { last: { step: body.step, prd: body.prd, action: body.action, result: body.result, at: seenAt } } : {}
   };
 }
@@ -55137,29 +55140,29 @@ async function push3(args, io) {
   const askUrl2 = ctx.config.ask.url;
   if (!askUrl2) return refuse2(io.stderr, "off");
   const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
-  const kept = readLocalLoop(ctx.root);
-  const body = prepared.needsLoop ? loopBody(prepared.body, kept, plan2) : startingBody(prepared, kept, plan2, at2);
+  const kept2 = readLocalLoop(ctx.root);
+  const body = prepared.needsLoop ? loopBody(prepared.body, kept2, plan2) : startingBody(prepared, kept2, plan2, at2);
   if (typeof body === "string") return refuse2(io.stderr, body);
   const roadmap2 = body.event === "start" ? roadmapDriving(ctx, body.prds) : null;
-  return sendAndKeep({ askUrl: askUrl2, root: ctx.root, repo, body, plan: plan2, kept, wake: prepared.wake, at: at2, roadmap: roadmap2 }, io);
+  return sendAndKeep({ askUrl: askUrl2, root: ctx.root, repo, body, plan: plan2, kept: kept2, wake: prepared.wake, at: at2, roadmap: roadmap2 }, io);
 }
 function status3(args, { cwd, stdout, exec, now: now2 }) {
   const { positional, flags } = parseArgs("loop status", args, { booleans: ["json"] });
   if (positional.length) throw usageError(USAGE30);
   const ctx = loadContext(cwd, { exec });
-  const kept = readLocalLoop(ctx.root);
+  const kept2 = readLocalLoop(ctx.root);
   const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
-  const state = kept ? loopState(kept, now2()) : null;
+  const state = kept2 ? loopState(kept2, now2()) : null;
   if (flags.json) {
-    println(stdout, JSON.stringify({ loop: kept ? { ...kept, state } : null, plan: plan2 }, null, 2));
+    println(stdout, JSON.stringify({ loop: kept2 ? { ...kept2, state } : null, plan: plan2 }, null, 2));
     return 0;
   }
-  if (!kept || !state) {
+  if (!kept2 || !state) {
     println(stdout, "none");
     return 0;
   }
-  const planPart = plan2 ? `plan v${plan2.version}, ${plan2.steps.length} steps` : `plan v${kept.planVersion}`;
-  println(stdout, `${state}: ${kept.loopId} on ${kept.repo} \xB7 PRDs ${kept.prds.join(", ")} \xB7 ${planPart}`);
+  const planPart = plan2 ? `plan v${plan2.version}, ${plan2.steps.length} steps` : `plan v${kept2.planVersion}`;
+  println(stdout, `${state}: ${kept2.loopId} on ${kept2.repo} \xB7 PRDs ${kept2.prds.join(", ")} \xB7 ${planPart}`);
   return 0;
 }
 function usage(stderr) {
@@ -55359,8 +55362,8 @@ function writeLastResult(root, result2) {
   ensureLocalDir(root);
   const file2 = join108(root, lastResultFile(result2.roadmap));
   mkdirSync27(dirname26(file2), { recursive: true });
-  const kept = { ...entries(root, result2.roadmap), [result2.machine]: LastResultSchema.parse(result2) };
-  writeFileSync40(file2, `${JSON.stringify(kept, null, 2)}
+  const kept2 = { ...entries(root, result2.roadmap), [result2.machine]: LastResultSchema.parse(result2) };
+  writeFileSync40(file2, `${JSON.stringify(kept2, null, 2)}
 `);
 }
 function lastResultOf(results, { roadmap: roadmap2, machine, checkedAt }) {
@@ -56783,8 +56786,8 @@ async function startPlan(prds, { reader, out, json: json3, roadmap: roadmap2 }) 
   else for (const line2 of formatPlan(plan2)) out(line2);
   return 0;
 }
-function currentPlan(kept, inputs, root) {
-  const last = kept.at(-1);
+function currentPlan(kept2, inputs, root) {
+  const last = kept2.at(-1);
   if (last === void 0) {
     const plan2 = planLoop(inputs);
     writeLoopPlans(root, [plan2]);
@@ -56792,7 +56795,7 @@ function currentPlan(kept, inputs, root) {
   }
   const next2 = replan(last, inputs);
   if (next2 === null) return { plan: last, replanned: null };
-  writeLoopPlans(root, [...kept, next2]);
+  writeLoopPlans(root, [...kept2, next2]);
   return { plan: next2, replanned: replanLine(next2) };
 }
 function liveOf({ verdicts, inputs, reads }, gates) {
@@ -56807,9 +56810,9 @@ function liveOf({ verdicts, inputs, reads }, gates) {
     slices: new Map(inputs.prds.map((input2) => [input2.prd, input2.slices ?? []]))
   };
 }
-async function followKept(prds, kept, { reader, out, json: json3, roadmap: roadmap2 }) {
+async function followKept(prds, kept2, { reader, out, json: json3, roadmap: roadmap2 }) {
   const read3 = await readAll2(prds, reader, roadmap2 ?? null);
-  const { plan: plan2, replanned } = currentPlan(kept, read3.inputs, reader.ctx.root);
+  const { plan: plan2, replanned } = currentPlan(kept2, read3.inputs, reader.ctx.root);
   const gates = roadmap2 ? await gatesOf(roadmap2, read3.reads, reader) : null;
   const live = liveOf(read3, gates);
   const { config: config3 } = reader.ctx;
@@ -56865,10 +56868,10 @@ async function printVerdicts(named5, { reader, out, json: json3 }) {
   return 0;
 }
 async function tick(named5, io) {
-  const kept = readLoopPlans(io.reader.ctx.root);
-  const last = kept.at(-1);
-  if (named5.length === 0) return last === void 0 ? followKept(await yoursOrRefuse(io.reader, ""), [], io) : followKept(last.prds, kept, io);
-  if (last !== void 0 && samePrds(named5, last)) return followKept(last.prds, kept, io);
+  const kept2 = readLoopPlans(io.reader.ctx.root);
+  const last = kept2.at(-1);
+  if (named5.length === 0) return last === void 0 ? followKept(await yoursOrRefuse(io.reader, ""), [], io) : followKept(last.prds, kept2, io);
+  if (last !== void 0 && samePrds(named5, last)) return followKept(last.prds, kept2, io);
   return printVerdicts(named5, io);
 }
 function roadmapOf(n, ctx) {
@@ -56881,9 +56884,9 @@ function roadmapOf(n, ctx) {
 function driveRoadmap(roadmap2, plan2, io) {
   const prds = [...new Set(roadmap2.prds.map((row) => row.prd))].sort((a, b) => a - b);
   if (plan2) return startPlan(prds, io);
-  const kept = readLoopPlans(io.reader.ctx.root);
-  const last = kept.at(-1);
-  return followKept(prds, last !== void 0 && samePrds(prds, last) ? kept : [], io);
+  const kept2 = readLoopPlans(io.reader.ctx.root);
+  const last = kept2.at(-1);
+  return followKept(prds, last !== void 0 && samePrds(prds, last) ? kept2 : [], io);
 }
 async function drive(named5, { plan: plan2, roadmap: roadmap2 }, io) {
   if (roadmap2 !== null) return driveRoadmap(roadmap2, plan2, io);
@@ -57961,8 +57964,8 @@ function cached2(root, now2) {
   return parsed2.data.runners;
 }
 async function readRunners({ root, repo, askUrl: askUrl2, tokens: tokens2, fetch, now: now2 }) {
-  const kept = cached2(root, now2);
-  if (kept !== void 0) return kept;
+  const kept2 = cached2(root, now2);
+  if (kept2 !== void 0) return kept2;
   if (!attempt10(() => tokens2.read(credentialsHost(askUrl2)), null)) return void 0;
   let runners = null;
   try {
@@ -61605,9 +61608,9 @@ function skipLine6(error62) {
 }
 var machineOf = (io) => io.machine ?? machineName();
 function keptResult(ctx, n, io) {
-  const kept = readLastResult(ctx.root, n, machineOf(io));
-  if (kept === null) return null;
-  const { machine, checkedAt, rows: rows2 } = kept;
+  const kept2 = readLastResult(ctx.root, n, machineOf(io));
+  if (kept2 === null) return null;
+  const { machine, checkedAt, rows: rows2 } = kept2;
   return { machine, checkedAt, rows: rows2 };
 }
 async function pushInputs(n, io, given) {
@@ -63373,8 +63376,8 @@ var refreshOf = (loop2, job2, file2) => ({
 async function appLacking(loop2, job2) {
   const file2 = job2.github === null ? null : githubTokenFile(loop2.home, job2.id);
   if (file2 === null) return null;
-  const kept = await keepGithubToken(refreshOf(loop2, job2.id, file2));
-  return kept.token === null ? `github app: ${kept.failed}` : null;
+  const kept2 = await keepGithubToken(refreshOf(loop2, job2.id, file2));
+  return kept2.token === null ? `github app: ${kept2.failed}` : null;
 }
 async function watch2(loop2, job2, place, live) {
   const started = loop2.now();
@@ -63431,9 +63434,9 @@ async function releasedAs(loop2, release2, ended2, ran) {
   let ghToken = null;
   let lacking = null;
   if (ran) {
-    const kept = file2 === null ? null : await keepGithubToken(refreshOf(loop2, ended2.id, file2));
-    if (kept === null || kept.token === null) lacking = notReleased(`github app: ${kept === null ? "the job has no token kept on this machine" : kept.failed}`);
-    else ghToken = kept.token.token;
+    const kept2 = file2 === null ? null : await keepGithubToken(refreshOf(loop2, ended2.id, file2));
+    if (kept2 === null || kept2.token === null) lacking = notReleased(`github app: ${kept2 === null ? "the job has no token kept on this machine" : kept2.failed}`);
+    else ghToken = kept2.token.token;
   }
   const done = lacking ?? release2({ id: ended2.id, runner: loop2.name, repo: ended2.repo, reason: ended2.reason, ghToken });
   const hide2 = (text15) => ghToken === null ? text15 : maskTokens(text15, jobTokens(loop2.home, ended2.id));
@@ -64079,7 +64082,7 @@ async function githubTokenOfJob(args, io) {
   if (asked === "nothing") return 0;
   const own2 = ownJobToken(runnerJobOf(io.env), io.home ?? homedir4());
   if ("refusal" in own2) return refused2(io.stderr, own2.refusal);
-  const kept = await keepGithubToken({
+  const kept2 = await keepGithubToken({
     file: own2.file,
     runner: own2.runner,
     job: own2.job,
@@ -64087,9 +64090,9 @@ async function githubTokenOfJob(args, io) {
     now: io.now ?? Date.now,
     sleep: (ms) => (io.sleep ?? delay2)(ms)
   });
-  if (kept.token === null) return refused2(io.stderr, `github app: ${kept.failed}`);
+  if (kept2.token === null) return refused2(io.stderr, `github app: ${kept2.failed}`);
   println(io.stdout, asked === "credential" ? `username=x-access-token
-password=${kept.token.token}` : kept.token.token);
+password=${kept2.token.token}` : kept2.token.token);
   return 0;
 }
 function githubTokenAsked(args) {
@@ -64634,8 +64637,8 @@ function syncStatus(facts2, sync3) {
   const checkedAt = new Date(facts2.now).toISOString();
   const setupDone = facts2.setupDoneAt !== null;
   const found2 = sync3.order.map((check5) => ({ check: check5, raw: checkFindings2(check5, facts2, sync3, setupDone) }));
-  const kept = found2.flatMap(({ check: check5, raw }) => leveled(check5, raw, sync3.levels[check5]));
-  const findings2 = kept.map(({ finding }) => finding);
+  const kept2 = found2.flatMap(({ check: check5, raw }) => leveled(check5, raw, sync3.levels[check5]));
+  const findings2 = kept2.map(({ finding }) => finding);
   const mainPulled = !found2.some(({ check: check5, raw }) => check5 === "main" && raw?.some(({ severity }) => severity === "red"));
   const steps = setupSteps(facts2, mainPulled);
   const done = steps.filter((step3) => step3.done).length;
@@ -64647,7 +64650,7 @@ function syncStatus(facts2, sync3) {
   const record2 = { checkedAt, status: status5, setupDoneAt: facts2.setupDoneAt ?? checkedAt, setup: null, findings: findings2 };
   if (status5 === "green") return { ...record2, headline: null, fix: null };
   const headline2 = headlineOf(findings2, sync3.order, status5);
-  return { ...record2, headline: headline2?.text ?? null, fix: fixLine(kept, facts2.defaultBranch, headline2) };
+  return { ...record2, headline: headline2?.text ?? null, fix: fixLine(kept2, facts2.defaultBranch, headline2) };
 }
 function headlineOf(findings2, order2, severity) {
   for (const check5 of order2) {
@@ -66159,12 +66162,12 @@ function readTargetKits(root) {
     return {};
   }
 }
-function targetKit(io, repo, kept, found2) {
+function targetKit(io, repo, kept2, found2) {
   const path = `repos/${repo}/contents/${BIN_FILE}`;
   const base = { cwd: io.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GH_BUDGET_MS, maxBuffer: BIN_MAX_BYTES };
   try {
     const sha = io.exec("gh", ["api", path, "--jq", ".sha"], base).trim();
-    const known2 = kept[repo];
+    const known2 = kept2[repo];
     if (known2?.sha === sha) {
       found2[repo] = known2;
       return { repo, version: known2.version };
@@ -66180,9 +66183,9 @@ function targetKit(io, repo, kept, found2) {
 function targetsOf2(io) {
   const repos = targetRepos(io);
   if (repos.length === 0) return [];
-  const kept = readTargetKits(io.root);
+  const kept2 = readTargetKits(io.root);
   const found2 = {};
-  const facts2 = repos.map((repo) => targetKit(io, repo, kept, found2));
+  const facts2 = repos.map((repo) => targetKit(io, repo, kept2, found2));
   try {
     ensureLocalDir(io.root);
     writeJsonAt(join149(io.root, TARGET_KITS_FILE), found2);
@@ -66248,6 +66251,145 @@ var knowledgeFacts = (io) => gatherKnowledge(io);
 
 // kit/lib/sync/page.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/omni-settings/sync.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/omni-settings/copy.ts
+init_define_OMNI_BUNDLE();
+import { mkdirSync as mkdirSync39, readFileSync as readFileSync119, rmSync as rmSync23, writeFileSync as writeFileSync58 } from "node:fs";
+import { dirname as dirname27, join as join150 } from "node:path";
+
+// kit/lib/omni-settings/layout.ts
+init_define_OMNI_BUNDLE();
+function formRelativePath(form2) {
+  if (!FORM_IDS.includes(form2)) return null;
+  return form2 === DECISIONS_FORM ? "adr/README.md" : `playbook/${form2}.md`;
+}
+
+// kit/lib/omni-settings/page.ts
+init_define_OMNI_BUNDLE();
+var import_yaml10 = __toESM(require_dist(), 1);
+var FRONT_MATTER_BLOCK7 = /^(---\r?\n)([\s\S]*?)(\r?\n---(?:\r?\n|$)[\s\S]*)$/;
+var OWNER_KEY = "owner";
+var LOGIN = /^@?[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/;
+var OwnerSchema = external_exports.array(external_exports.string().regex(LOGIN)).min(1).nullable();
+var OWNER_SHAPE = "owner: a list of GitHub logins, or null for the law owners";
+function splitOwner(text15) {
+  const block = FRONT_MATTER_BLOCK7.exec(text15);
+  if (!block) return null;
+  const [, open3 = "", raw = "", rest = ""] = block;
+  const doc = (0, import_yaml10.parseDocument)(raw);
+  if (doc.errors.length > 0 || !(0, import_yaml10.isMap)(doc.contents) || !doc.has(OWNER_KEY)) return { text: text15, owner: null };
+  const data = doc.toJS({ maxAliasCount: 0 });
+  const owner = data !== null && typeof data === "object" ? Reflect.get(data, OWNER_KEY) : null;
+  doc.delete(OWNER_KEY);
+  return { text: `${open3}${doc.toString().replace(/\r?\n$/, "")}${rest}`, owner };
+}
+var firstError = (errors) => errors[0] ?? "does not parse as a form";
+function readSettingsPage(file2) {
+  if (!FORM_IDS.includes(file2.form)) return { ok: false, reason: `${file2.form} is not a form the kit reads` };
+  const split = splitOwner(file2.text) ?? { text: file2.text, owner: null };
+  const owners2 = OwnerSchema.safeParse(split.owner);
+  if (!owners2.success) return { ok: false, reason: OWNER_SHAPE };
+  const parsed2 = parseForm(split.text);
+  if (!parsed2.ok) return { ok: false, reason: firstError(parsed2.errors) };
+  if (parsed2.form.id !== file2.form) return { ok: false, reason: `its front matter says form: ${parsed2.form.id}` };
+  const logins = owners2.data?.map((login2) => login2.replace(/^@/, "")) ?? null;
+  return { ok: true, page: { form: file2.form, owners: logins, text: split.text } };
+}
+
+// kit/lib/omni-settings/schema.ts
+init_define_OMNI_BUNDLE();
+var FORM_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+var SLUG5 = /^[\w.-]+\/[\w.-]+$/;
+var COMMIT5 = /^[0-9a-f]{7,40}$/;
+var SettingsFileSchema = external_exports.object({ form: external_exports.string().regex(FORM_NAME, "a form id, lower case words joined by -"), text: external_exports.string() }).strict();
+var SettingsSourceSchema = external_exports.object({ repository: external_exports.string().regex(SLUG5, "owner/name"), commit: external_exports.string().regex(COMMIT5, "a git commit"), readAt: external_exports.iso.datetime() }).strict();
+var SettingsPlaybookSchema = external_exports.object({
+  repository: external_exports.string().regex(SLUG5, "owner/name").nullable(),
+  commit: external_exports.string().regex(COMMIT5, "a git commit").nullable(),
+  files: external_exports.array(SettingsFileSchema),
+  reason: external_exports.string().min(1).nullable()
+}).strict().superRefine((reply, context) => {
+  if (reply.repository === null !== (reply.commit === null)) {
+    context.addIssue({ code: "custom", path: ["commit"], message: "a commit is read from a settings repository: both are set, or neither" });
+  }
+  if (reply.repository === null && reply.files.length > 0) {
+    context.addIssue({ code: "custom", path: ["files"], message: "no settings repository holds no file" });
+  }
+  if (reply.files.length === 0 && reply.reason === null) {
+    context.addIssue({ code: "custom", path: ["reason"], message: "an empty list says why" });
+  }
+  if (reply.files.length > 0 && reply.reason !== null) {
+    context.addIssue({ code: "custom", path: ["reason"], message: "only an empty list carries a reason" });
+  }
+});
+
+// kit/lib/omni-settings/copy.ts
+var SETTINGS_COPY_RECORD = "source.json";
+var SkippedSchema = external_exports.object({ form: external_exports.string(), reason: external_exports.string() }).strict();
+var RecordSchema = SettingsSourceSchema.extend({ forms: external_exports.array(external_exports.string()), skipped: external_exports.array(SkippedSchema) }).strict();
+function sortFiles(files) {
+  const pages = [];
+  const skipped3 = [];
+  for (const file2 of files) {
+    const read3 = readSettingsPage(file2);
+    if (!read3.ok) skipped3.push({ form: file2.form, reason: read3.reason });
+    else if (pages.some((page2) => page2.form === file2.form)) skipped3.push({ form: file2.form, reason: "appears twice: the first is kept" });
+    else pages.push(read3.page);
+  }
+  return { pages, skipped: skipped3 };
+}
+function writeSettingsCopy({ root, files, source: source2 }) {
+  const from = SettingsSourceSchema.parse(source2);
+  const { pages, skipped: skipped3 } = sortFiles(files);
+  const folder = levelFolder("omni settings");
+  const absolute = join150(root, folder);
+  ensureLocalDir(root);
+  mkdirSync39(absolute, { recursive: true });
+  rmSync23(join150(absolute, "playbook"), { recursive: true, force: true });
+  rmSync23(join150(absolute, defined(formRelativePath("decisions"), "the decisions form\u2019s path")), { force: true });
+  for (const page2 of pages) {
+    const path = join150(absolute, defined(formRelativePath(page2.form), `the path of ${page2.form}`));
+    mkdirSync39(dirname27(path), { recursive: true });
+    writeFileSync58(path, page2.text);
+  }
+  const written = pages.map(({ form: form2 }) => form2);
+  const record2 = RecordSchema.parse({ ...from, forms: written, skipped: skipped3 });
+  writeFileSync58(join150(absolute, SETTINGS_COPY_RECORD), `${JSON.stringify(record2, null, 2)}
+`);
+  return { folder, written, skipped: skipped3 };
+}
+
+// kit/lib/omni-settings/sync.ts
+var kept = (why3) => ({ state: "kept", why: why3 });
+async function refreshSettingsCopy(io) {
+  const controller = new AbortController();
+  const bounded = (url2, init3) => io.fetch(url2, { ...init3, signal: init3.signal ? AbortSignal.any([init3.signal, controller.signal]) : controller.signal });
+  const client = askClient({ baseUrl: io.askUrl, host: io.host, tokens: io.tokens, fetch: bounded });
+  let timer;
+  const late = new Promise((_, reject2) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject2(new AskCallError("GET /api/omni-settings/playbook: timed out"));
+    }, io.budgetMs);
+  });
+  try {
+    const reply = SettingsPlaybookSchema.safeParse(await Promise.race([client.readOmniSettings(io.repo), late]));
+    if (!reply.success) return kept("the page\u2019s answer did not read");
+    const { repository, commit, files, reason: reason2 } = reply.data;
+    if (repository === null || commit === null) return kept(reason2 ?? "no settings repository");
+    const { written } = writeSettingsCopy({ root: io.root, files, source: { repository, commit, readAt: new Date(io.now).toISOString() } });
+    return { state: "refreshed", written };
+  } catch (error62) {
+    return kept(error62 instanceof AskCallError && error62.status !== null ? `the page answered ${String(error62.status)}` : "the page did not answer");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// kit/lib/sync/page.ts
 var PAGE_BUDGET_MS = 3e3;
 var NO_PAGE = { na: "no Omni page" };
 function lapsed(expiresAt, now2) {
@@ -66294,15 +66436,16 @@ async function gatherPage(io, deps = {}) {
   const tokens2 = deps.tokens ?? homeTokens();
   const copy = repo ? readCache(io.root, repo) : null;
   const copyAt = copy === null ? null : Date.parse(copy.syncedAt);
-  const kept = copyAt !== null && Number.isFinite(copyAt) ? copyAt : null;
-  if (!signedInTo(tokens2, host, io.now)) return { signedIn: false, syncedAt: kept, answering: false };
-  if (!repo) return { signedIn: true, syncedAt: kept, answering: false };
-  const read3 = await refreshed(
-    { tokens: tokens2, fetch: deps.fetch ?? globalThis.fetch, budgetMs: deps.budgetMs ?? PAGE_BUDGET_MS },
-    { askUrl: askUrl2, host, repo, root: io.root, now: io.now }
-  );
-  if (read3 === "refused") return { signedIn: false, syncedAt: kept, answering: false };
-  return { signedIn: true, syncedAt: read3 ? io.now : kept, answering: read3 };
+  const kept2 = copyAt !== null && Number.isFinite(copyAt) ? copyAt : null;
+  if (!signedInTo(tokens2, host, io.now)) return { signedIn: false, syncedAt: kept2, answering: false };
+  if (!repo) return { signedIn: true, syncedAt: kept2, answering: false };
+  const reach6 = { tokens: tokens2, fetch: deps.fetch ?? globalThis.fetch, budgetMs: deps.budgetMs ?? PAGE_BUDGET_MS };
+  const [read3] = await Promise.all([
+    refreshed(reach6, { askUrl: askUrl2, host, repo, root: io.root, now: io.now }),
+    refreshSettingsCopy({ ...reach6, askUrl: askUrl2, host, repo, root: io.root, now: io.now })
+  ]);
+  if (read3 === "refused") return { signedIn: false, syncedAt: kept2, answering: false };
+  return { signedIn: true, syncedAt: read3 ? io.now : kept2, answering: read3 };
 }
 var pageFacts = (io) => gatherPage(io);
 
@@ -66466,12 +66609,12 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync93, mkdtempSync as mkdtempSync5, readFileSync as readFileSync119, rmSync as rmSync23 } from "node:fs";
+import { existsSync as existsSync93, mkdtempSync as mkdtempSync5, readFileSync as readFileSync120, rmSync as rmSync24 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
-import { join as join150 } from "node:path";
+import { join as join151 } from "node:path";
 var USAGE51 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync5(join150(tmpdir5(), "omni-update-"));
+  const dir = mkdtempSync5(join151(tmpdir5(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -66483,7 +66626,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
-    rmSync23(dir, { recursive: true, force: true });
+    rmSync24(dir, { recursive: true, force: true });
   }
 }
 function rootOf(cwd, exec) {
@@ -66494,10 +66637,10 @@ function rootOf(cwd, exec) {
   }
 }
 function claudeListed(root) {
-  const file2 = root ? join150(root, CONFIG_FILE) : null;
+  const file2 = root ? join151(root, CONFIG_FILE) : null;
   if (!file2 || !existsSync93(file2)) return true;
   try {
-    return parseConfig(readFileSync119(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
+    return parseConfig(readFileSync120(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
   } catch {
     return true;
   }
