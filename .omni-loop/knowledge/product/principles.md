@@ -837,7 +837,7 @@ Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, en
 Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-17, PR #2130
 
-## P-PRODUCT-102
+## P-PRODUCT-104
 
 Adding a way to group the knowledge never hides a law from an agent; a repository that has not adopted the grouping sees every law it saw before.
 
@@ -846,7 +846,7 @@ Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/se
 Merged: @pierrederval, 2026-10-22, PR #2348
 Proposed: harvest 2026-10-22
 
-## P-PRODUCT-103
+## P-PRODUCT-105
 
 The knowledge shown for a change never leaves a rule unseen merely because the map cannot place it.
 

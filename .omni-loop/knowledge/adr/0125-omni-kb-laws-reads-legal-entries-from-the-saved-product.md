@@ -1,4 +1,4 @@
-# ADR-0120 — omni kb laws reads Legal entries from the saved product knowledge copy, never the Omni page
+# ADR-0125 — omni kb laws reads Legal entries from the saved product knowledge copy, never the Omni page
 
 **Status:** adopted · **Date:** 2026-10-22 · **PRD:** #2346 · **Decided:** nobody — adopted when raised (medium), 2026-10-22 · **Merged:** @pierrederval, 2026-10-22, PR #2348
 

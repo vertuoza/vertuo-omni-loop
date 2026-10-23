@@ -174,7 +174,7 @@ Reverting means putting the old role words back in both files, which also revert
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 3
-- Became: BR-PRODUCT-124, P-PRODUCT-102
+- Became: BR-PRODUCT-126, P-PRODUCT-104
 
 ### The answer, as it was given
 
@@ -254,7 +254,7 @@ One condition in the lookup and the expectations of the unmapped tests.
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 3
-- Became: BR-PRODUCT-125, P-PRODUCT-103
+- Became: BR-PRODUCT-127, P-PRODUCT-105
 
 ### The answer, as it was given
 
@@ -333,7 +333,7 @@ One condition each in the lookup, and the tests that pin them.
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 3
-- Became: ADR-0120
+- Became: ADR-0125
 
 ### The answer, as it was given
 
