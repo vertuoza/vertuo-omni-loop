@@ -83,10 +83,10 @@ export function fixLineOf(job: Pick<Job, 'line'>): string | null {
   return number === undefined ? null : `/omni:yolo-fix ${number}`;
 }
 
-/** A job's status in words. */
-export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Ended }, now: Date): string {
+/** A job's status in words. `cannotRun`: the job is queued and no runner can ever take it (`cannotRunReason` found a reason). */
+export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Ended }, now: Date, cannotRun = false): string {
   switch (job.status) {
-    case 'queued': return 'Queued';
+    case 'queued': return cannotRun ? 'Cannot run' : 'Queued';
     case 'claimed': return 'Starting';
     case 'running': {
       const from = job.runningAt ?? job.claimedAt;
@@ -102,8 +102,9 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
   }
 }
 
-/** The tone a status is drawn in. */
-export function statusTone(status: Job['status'], outcome?: Ended): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
+/** The tone a status is drawn in; a queued job that cannot run is drawn as a failed one. */
+export function statusTone(status: Job['status'], outcome?: Ended, cannotRun = false): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
+  if (status === 'queued' && cannotRun) return 'fail';
   if (status === 'done' && outcome === 'stopped') return 'fail';
   if (status === 'done' && (outcome === 'answers' || outcome === 'held' || outcome === 'human')) return 'wait';
   if (status === 'queued') return 'queue';
@@ -144,6 +145,32 @@ export function targetOf(job: Pick<Job, 'toRunner' | 'toFleet'>): Target {
 
 /** A fleet's label, or its key when the workspace no longer lists it. */
 const fleetLabel = (fleet: string, fleets: readonly Fleet[]): string => fleets.find((f) => f.name === fleet)?.label ?? fleet;
+
+/** Whether a runner could take a queued job, by the rules of `runner_claim()` that need no state of the runner: the job went to
+ * it, to its fleet, or to any runner and it has no fleet; and it holds the job's repository. Online, offline, busy or paused
+ * does not count: such a runner takes the job once it is back, free or unpaused. The Waiting line and Cannot run share it. */
+export function couldTake(job: Pick<Job, 'toRunner' | 'toFleet' | 'repo'>, runner: Pick<Runner, 'id' | 'fleet' | 'repos'>): boolean {
+  const target = job.toRunner !== null ? runner.id === job.toRunner : job.toFleet !== null ? runner.fleet === job.toFleet : runner.fleet === null;
+  return target && runner.repos.includes(job.repo);
+}
+
+/** Why a queued job can never be taken (the first reason that applies), or null: the job is not queued, or a runner could take it. */
+export function cannotRunReason(
+  job: Pick<Job, 'status' | 'toRunner' | 'toFleet' | 'repo'>,
+  runners: readonly Pick<Runner, 'id' | 'name' | 'fleet' | 'repos'>[],
+  fleets: readonly Fleet[],
+): string | null {
+  if (job.status !== 'queued' || runners.some((runner) => couldTake(job, runner))) return null;
+  if (job.toRunner !== null) {
+    const sent = runners.find((runner) => runner.id === job.toRunner);
+    return sent === undefined ? 'The runner it was sent to is gone' : `${sent.name} does not hold ${job.repo}`;
+  }
+  if (job.toFleet !== null) {
+    const fleet = job.toFleet;
+    return fleets.some((f) => f.name === fleet) ? `No runner of ${fleetLabel(fleet, fleets)} holds ${job.repo}` : `Fleet ${fleet} is gone`;
+  }
+  return `No runner holds ${job.repo}`;
+}
 
 /** A runner's name, by its id. */
 const runnerName = (id: string, runners: readonly Pick<Runner, 'id' | 'name'>[]): string => runners.find((r) => r.id === id)?.name ?? 'A runner';
