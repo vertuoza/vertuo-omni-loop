@@ -6,6 +6,7 @@
 import { isAbsolute, relative } from 'node:path';
 import { WorkSliceIdSchema } from '../ids.ts';
 import type { WorkSliceId } from '../ids.ts';
+import type { Config } from '../types.ts';
 
 /** One worktree of the repository. `branch` is the short name, `null` in detached HEAD. */
 export type Worktree = {
@@ -25,7 +26,7 @@ export type WorktreeKind =
   | { readonly kind: 'other' };
 
 /** The branch templates the kit cuts its worktrees on, as the config declares them. */
-export type KitBranches = { readonly slice: string; readonly feature: string; readonly phase0: string };
+export type KitBranches = Readonly<Pick<Config['branches'], 'slice' | 'feature' | 'phase0'>>;
 
 const HEADS = 'refs/heads/';
 

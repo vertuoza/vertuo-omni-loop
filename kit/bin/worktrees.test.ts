@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { WorktreeBoard } from '../lib/worktrees/engine.ts';
+import type { BoardSeam, WorktreeBoard } from '../lib/worktrees/engine.ts';
 import { makeRepo, realExec } from '../test/fixture.ts';
 import type { FakeExec } from '../test/fixture.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
@@ -23,7 +23,7 @@ const git = (cwd: string, ...args: string[]) =>
 /** A board where every slice of PRD 7 is merged and the feature PR is open. */
 const MERGED: WorktreeBoard = { featureOpen: true, slices: { s1: 'merged', s2: 'merged' } };
 
-type Seams = { board?: (prd: number) => Promise<WorktreeBoard | string>; processes?: () => readonly string[] | null; exec?: FakeExec };
+type Seams = { board?: BoardSeam; processes?: () => readonly string[] | null; exec?: FakeExec };
 
 /**
  * A repository whose `main` is on a bare `file://` remote, with PRD 7 (`widgets`) in its inbox.
@@ -358,7 +358,7 @@ describe('omni worktrees hint (PRD 2485)', () => {
     const result = await run(repo.root, ['hint']);
     expect(performance.now() - started).toBeLessThan(1000);
     expect(result.out).toBe('50 worktrees of the kit can be removed: omni worktrees prune\n');
-  }, 30_000);
+  });
 });
 
 describe('omni help worktrees (PRD 2485)', () => {
