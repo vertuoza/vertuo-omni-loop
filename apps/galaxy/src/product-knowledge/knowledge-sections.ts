@@ -4,11 +4,11 @@ import type { SectionTab } from '../nav/section-tabs';
 import { newestFirst, sortOf, type Sort } from '../nav/sortable-list';
 import { knowledgeTabHref, type GlossaryEntry, type KnowledgeTab, type LegalEntry, type Person } from './product-knowledge.contract';
 
-// The Knowledge home's sections (PRD 2240 s3): the six entries of the sub-menu in their order, their
+// The Knowledge home's sections (PRD 2240 s3; Repositories, PRD 2419 s1): the seven entries of the sub-menu in their order, their
 // addresses under /app/products/<id>/knowledge, the count each list section shows, and the rows and
 // columns of the Legal and Glossary lists. Pure: the pages and the sub-menu draw from it.
 
-export const SECTION_KEYS = ['constituents', 'personas', 'legal', 'glossary', 'pitch', 'settings'] as const;
+export const SECTION_KEYS = ['constituents', 'personas', 'legal', 'glossary', 'pitch', 'repositories', 'settings'] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 
 interface SectionDef {
@@ -23,6 +23,7 @@ export const SECTIONS: Readonly<Record<SectionKey, SectionDef>> = {
   legal: { label: 'Legal', list: true },
   glossary: { label: 'Glossary', list: true },
   pitch: { label: 'Pitch', list: false },
+  repositories: { label: 'Repositories', list: false },
   settings: { label: 'Settings', list: false },
 };
 
