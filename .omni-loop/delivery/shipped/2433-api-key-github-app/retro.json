@@ -1,0 +1,1081 @@
+{
+  "prd": 2433,
+  "runs": [
+    {
+      "run": "merge",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 2433,
+        "title": "An API key's job runs on GitHub as the calling app's own GitHub App, never as a person",
+        "topic": "api-key-github-app",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/2433-api-key-github-app"
+      },
+      "featurePr": {
+        "number": 2434,
+        "title": "feat(api): an API key's job runs on GitHub as the calling app's own GitHub App (PRD 2433)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2434",
+        "openedAt": "2026-10-22T16:30:35Z",
+        "mergedAt": "2026-10-23T07:01:02Z",
+        "mergeSha": "dd149cc07ea3fd09f37a5faf498e6227cd0d4b89"
+      },
+      "kinds": {
+        "churn": {
+          "added": 7671,
+          "churn": 127,
+          "commits": 42,
+          "files": [
+            {
+              "added": 502,
+              "churn": 27,
+              "commits": 3,
+              "finalAdded": 475,
+              "path": "kit/lib/runner/runner-github.test.ts",
+              "percent": 6
+            },
+            {
+              "added": 192,
+              "churn": 18,
+              "commits": 2,
+              "finalAdded": 174,
+              "path": "kit/lib/runner/github-token.ts",
+              "percent": 10
+            },
+            {
+              "added": 193,
+              "churn": 12,
+              "commits": 2,
+              "finalAdded": 181,
+              "path": "apps/galaxy/src/runners/runners.service.ts",
+              "percent": 7
+            },
+            {
+              "added": 396,
+              "churn": 12,
+              "commits": 3,
+              "finalAdded": 384,
+              "path": "supabase/migrations/20261228090000_api_key_github_apps.sql",
+              "percent": 3
+            },
+            {
+              "added": 354,
+              "churn": 9,
+              "commits": 4,
+              "finalAdded": 345,
+              "path": "kit/bin/commands/runner.test.ts",
+              "percent": 3
+            },
+            {
+              "added": 96,
+              "churn": 9,
+              "commits": 2,
+              "finalAdded": 87,
+              "path": "kit/bin/commands/runner.ts",
+              "percent": 10
+            },
+            {
+              "added": 63,
+              "churn": 5,
+              "commits": 3,
+              "finalAdded": 58,
+              "path": "apps/galaxy/src/runners/fixtures/store.fake.ts",
+              "percent": 9
+            },
+            {
+              "added": 242,
+              "churn": 4,
+              "commits": 3,
+              "finalAdded": 238,
+              "path": "kit/lib/runner/github-token.test.ts",
+              "percent": 2
+            },
+            {
+              "added": 668,
+              "churn": 4,
+              "commits": 3,
+              "finalAdded": 664,
+              "path": "supabase/checks/api_key_github_apps.sql",
+              "percent": 1
+            },
+            {
+              "added": 93,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 90,
+              "path": "apps/galaxy/src/public-api/public-api.installation.test.ts",
+              "percent": 3
+            },
+            {
+              "added": 59,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 56,
+              "path": "apps/galaxy/src/runners/fixtures/github.fake.ts",
+              "percent": 5
+            },
+            {
+              "added": 171,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 168,
+              "path": "kit/lib/runner/github-refresh.ts",
+              "percent": 2
+            },
+            {
+              "added": 161,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 158,
+              "path": "kit/lib/runner/runner.ts",
+              "percent": 2
+            },
+            {
+              "added": 15,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 13,
+              "path": "apps/galaxy/src/public-api/openapi.ts",
+              "percent": 15
+            },
+            {
+              "added": 116,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 114,
+              "path": "apps/galaxy/src/public-api/page/model.ts",
+              "percent": 2
+            },
+            {
+              "added": 163,
+              "churn": 2,
+              "commits": 3,
+              "finalAdded": 161,
+              "path": "apps/galaxy/src/public-api/page/render.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 308,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 306,
+              "path": "apps/galaxy/src/runners/runners.github-app.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 209,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 208,
+              "path": "apps/galaxy/src/public-api/keys/github-app.test.ts",
+              "percent": 0
+            },
+            {
+              "added": 18,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 17,
+              "path": "apps/galaxy/src/public-api/page/api-keys.css",
+              "percent": 6
+            },
+            {
+              "added": 38,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 37,
+              "path": "apps/galaxy/src/public-api/page/demo.test.ts",
+              "percent": 3
+            },
+            {
+              "added": 109,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 108,
+              "path": "apps/galaxy/src/public-api/page/model.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 34,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 33,
+              "path": "apps/galaxy/src/runners/runners.repository.ts",
+              "percent": 3
+            },
+            {
+              "added": 49,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 48,
+              "path": "kit/bin/github.test.ts",
+              "percent": 2
+            },
+            {
+              "added": 159,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 158,
+              "path": "kit/lib/runner/github-app.test.ts",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 7544,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s1-01-queued-jobs-stay-app-jobs.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s1-02-revoke-erases-the-sealed-key-by-trigger.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s1-03-runners-table-test-allows-the-new-column.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s2-01-app-token-in-a-file.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s2-02-app-identity-github-only.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s2-03-gh-shim-shared.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s2-04-key-sender-own-variable.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s2-05-register-app-only-when-able.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s3-01-the-session-finds-the-page-in-the-token-file.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s3-02-an-app-job-with-no-token-left-is-released-as-nothing.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s3-03-release-asks-a-fresh-token-when-it-is-late.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s3-04-stranded-app-jobs-are-recognized-before-the-cleanup.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s4-01-pair-checked-before-owner.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s4-02-token-needs-named-repositories.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s4-03-list-new-github-caller.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s6-01-send-check-needs-key-keyed-app-read.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s7-01-token-covers-the-jobs-own-repository-only.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s7-02-refresh-refusals-say-stop-or-try-again.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/s9-01-guide-never-says-private-key.md",
+              ".omni-loop/delivery/outbox/2433-api-key-github-app/settled.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 11,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 11
+            },
+            {
+              "check": "gitleaks",
+              "red": 4,
+              "redCommits": [
+                "12fb34c",
+                "c027fd0",
+                "fadec56"
+              ],
+              "redSlices": [
+                "s2"
+              ],
+              "redThenGreen": [],
+              "runs": 35
+            },
+            {
+              "check": "open-source",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 35
+            },
+            {
+              "check": "quick",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 27
+            },
+            {
+              "check": "settle",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 33
+            }
+          ],
+          "redRuns": [
+            {
+              "attempt": 1,
+              "check": "gitleaks",
+              "commit": "12fb34c",
+              "counts": null,
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             6f22e5b714330facb874f65c5bda82525e6c001d -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 6f22e5b71 Merge 12fb34c88fae2073299eb197100e85bba0d1c823 into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n6f22e5b714330facb874f65c5bda82525e6c001d\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: 12fb34c88fae2073299eb197100e85bba0d1c823\n##[endgroup]\n5:23PM INF 2 commits scanned.\n5:23PM INF scanned ~81602 bytes (81.60 KB) in 201ms\n5:23PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/d831ddac-404e-4ad7-8634-3b3152036cfa' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119976085280,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39822198961/job/119976085280"
+            },
+            {
+              "attempt": 1,
+              "check": "gitleaks",
+              "commit": "c027fd0",
+              "counts": null,
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             a71910f4df361d5cb90e1b893de299dda05fc98a -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at a71910f4d Merge c027fd0dec1b75127ba39b284163193f0d5db27b into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\na71910f4df361d5cb90e1b893de299dda05fc98a\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: c027fd0dec1b75127ba39b284163193f0d5db27b\n##[endgroup]\n5:34PM INF 4 commits scanned.\n5:34PM INF scanned ~91188 bytes (91.19 KB) in 120ms\n5:34PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/5ecaa417-0720-4b5c-8dce-20e11be53a6a' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119982097274,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39823933564/job/119982097274"
+            },
+            {
+              "attempt": 1,
+              "check": "gitleaks",
+              "commit": "fadec56",
+              "counts": null,
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             70c539f898586ce63d28b45fc5c6401b7367f51f -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 70c539f89 Merge fadec560a5dd5d27531275b95ea0fc63c21ad943 into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n70c539f898586ce63d28b45fc5c6401b7367f51f\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: fadec560a5dd5d27531275b95ea0fc63c21ad943\n##[endgroup]\n5:50PM INF 5 commits scanned.\n5:50PM INF scanned ~91362 bytes (91.36 KB) in 211ms\n5:50PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/4eb5ebe3-0feb-443c-bba4-f2fef7e07949' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119990070469,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826216013/job/119990070469"
+            },
+            {
+              "attempt": 1,
+              "check": "gitleaks",
+              "commit": "fadec56",
+              "counts": null,
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             70c539f898586ce63d28b45fc5c6401b7367f51f -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 70c539f89 Merge fadec560a5dd5d27531275b95ea0fc63c21ad943 into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n70c539f898586ce63d28b45fc5c6401b7367f51f\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: fadec560a5dd5d27531275b95ea0fc63c21ad943\n##[endgroup]\n5:51PM INF 5 commits scanned.\n5:51PM INF scanned ~91362 bytes (91.36 KB) in 183ms\n5:51PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/278236c4-b039-4cdb-84ac-cb6d62fe7f40' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119990341725,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826293330/job/119990341725"
+            }
+          ],
+          "slices": [
+            "s1",
+            "s2",
+            "s8",
+            "s3",
+            "s4",
+            "s5",
+            "s6",
+            "s7",
+            "s9"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 5,
+            "commits": 26,
+            "red": 4,
+            "runs": 141,
+            "slices": 9
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 17,
+            "agreed": 1,
+            "byRank": {
+              "high": 1,
+              "human-action": 1,
+              "medium": 17
+            },
+            "drifted": 1,
+            "drifts": [
+              {
+                "id": "s7-01-token-covers-the-jobs-own-repository-only",
+                "rank": "high",
+                "reworkedBy": "#2456",
+                "slice": "s7"
+              }
+            ],
+            "file": ".omni-loop/delivery/shipped/2433-api-key-github-app/outbox/settled.md",
+            "raised": 19,
+            "reworked": 1
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2435
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2436
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2437
+                ],
+                "slice": "s8",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2444
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2445
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2450
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2451
+                ],
+                "slice": "s6",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2452
+                ],
+                "slice": "s7",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2455
+                ],
+                "slice": "s9",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 10,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 2434,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2434"
+              },
+              {
+                "pr": 2435,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2435"
+              },
+              {
+                "pr": 2436,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2436"
+              },
+              {
+                "pr": 2437,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s8",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2437"
+              },
+              {
+                "pr": 2444,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2444"
+              },
+              {
+                "pr": 2445,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2445"
+              },
+              {
+                "pr": 2450,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2450"
+              },
+              {
+                "pr": 2451,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s6",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2451"
+              },
+              {
+                "pr": 2452,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s7",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2452"
+              },
+              {
+                "pr": 2455,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s9",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2455"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 5,
+              "graded": 9,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "apps/galaxy/src/runners/runners.migration.test.ts"
+                ],
+                "files": 8,
+                "pr": 2435,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2435"
+              },
+              {
+                "breaches": [],
+                "files": 23,
+                "pr": 2436,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2436"
+              },
+              {
+                "breaches": [],
+                "files": 4,
+                "pr": 2437,
+                "shared": [],
+                "slice": "s8",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2437"
+              },
+              {
+                "breaches": [],
+                "files": 17,
+                "pr": 2444,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2444"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/github-call-sites.test.ts"
+                ],
+                "files": 18,
+                "pr": 2445,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2445"
+              },
+              {
+                "breaches": [],
+                "files": 8,
+                "pr": 2450,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2450"
+              },
+              {
+                "breaches": [
+                  "supabase/checks/api_key_github_apps.sql",
+                  "supabase/database.types.ts",
+                  "supabase/migrations/20261228090000_api_key_github_apps.sql"
+                ],
+                "files": 17,
+                "pr": 2451,
+                "shared": [],
+                "slice": "s6",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2451"
+              },
+              {
+                "breaches": [],
+                "files": 17,
+                "pr": 2452,
+                "shared": [],
+                "slice": "s7",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2452"
+              },
+              {
+                "breaches": [],
+                "files": 3,
+                "pr": 2455,
+                "shared": [],
+                "slice": "s9",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2455"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "kit/lib/runner/",
+              "kit/bin/commands/runner."
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-10-23T07:01:02Z",
+            "minutes": 870,
+            "number": 2434,
+            "openedAt": "2026-10-22T16:30:35Z",
+            "readyAt": "2026-10-22T22:32:47Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2434"
+          },
+          "medianMinutes": 61,
+          "sliceCount": 9,
+          "slices": [
+            {
+              "closedAt": "2026-10-22T17:53:15Z",
+              "mergedAt": "2026-10-22T17:53:15Z",
+              "mergedWave": 1,
+              "minutes": 75,
+              "openedAt": "2026-10-22T16:38:11Z",
+              "plannedWave": 1,
+              "pr": 2435,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2435"
+            },
+            {
+              "closedAt": "2026-10-22T17:54:20Z",
+              "mergedAt": "2026-10-22T17:54:20Z",
+              "mergedWave": 1,
+              "minutes": 76,
+              "openedAt": "2026-10-22T16:38:48Z",
+              "plannedWave": 1,
+              "pr": 2436,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2436"
+            },
+            {
+              "closedAt": "2026-10-22T17:54:53Z",
+              "mergedAt": "2026-10-22T17:54:53Z",
+              "mergedWave": 1,
+              "minutes": 75,
+              "openedAt": "2026-10-22T16:39:25Z",
+              "plannedWave": 1,
+              "pr": 2437,
+              "slice": "s8",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2437"
+            },
+            {
+              "closedAt": "2026-10-22T19:08:06Z",
+              "mergedAt": "2026-10-22T19:08:06Z",
+              "mergedWave": 2,
+              "minutes": 61,
+              "openedAt": "2026-10-22T18:07:22Z",
+              "plannedWave": 2,
+              "pr": 2444,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2444"
+            },
+            {
+              "closedAt": "2026-10-22T19:08:44Z",
+              "mergedAt": "2026-10-22T19:08:44Z",
+              "mergedWave": 2,
+              "minutes": 61,
+              "openedAt": "2026-10-22T18:07:39Z",
+              "plannedWave": 2,
+              "pr": 2445,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2445"
+            },
+            {
+              "closedAt": "2026-10-22T20:59:27Z",
+              "mergedAt": "2026-10-22T20:59:27Z",
+              "mergedWave": 3,
+              "minutes": 61,
+              "openedAt": "2026-10-22T19:58:23Z",
+              "plannedWave": 3,
+              "pr": 2450,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2450"
+            },
+            {
+              "closedAt": "2026-10-22T21:35:45Z",
+              "mergedAt": "2026-10-22T21:35:45Z",
+              "mergedWave": 3,
+              "minutes": 97,
+              "openedAt": "2026-10-22T19:58:40Z",
+              "plannedWave": 3,
+              "pr": 2451,
+              "slice": "s6",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2451"
+            },
+            {
+              "closedAt": "2026-10-22T21:00:02Z",
+              "mergedAt": "2026-10-22T21:00:02Z",
+              "mergedWave": 3,
+              "minutes": 61,
+              "openedAt": "2026-10-22T19:59:12Z",
+              "plannedWave": 3,
+              "pr": 2452,
+              "slice": "s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2452"
+            },
+            {
+              "closedAt": "2026-10-22T22:17:02Z",
+              "mergedAt": "2026-10-22T22:17:02Z",
+              "mergedWave": 4,
+              "minutes": 33,
+              "openedAt": "2026-10-22T21:43:34Z",
+              "plannedWave": 4,
+              "pr": 2455,
+              "slice": "s9",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2455"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 4,
+            "planned": 4
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "drift:s7-01-token-covers-the-jobs-own-repository-only",
+          "kind": "drift",
+          "title": "A decision of slice s7 drifted",
+          "happened": "The answer to decision `s7-01-token-covers-the-jobs-own-repository-only` (rank high, slice s7) disagreed with what was built; rework #2456 brought the build back in line.",
+          "evidence": [
+            {
+              "label": "settled.md",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/dd149cc07ea3fd09f37a5faf498e6227cd0d4b89/.omni-loop/delivery/shipped/2433-api-key-github-app/outbox/settled.md"
+            },
+            {
+              "label": "#2456",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2456"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F1"
+        },
+        {
+          "id": "repeated-red:gitleaks",
+          "kind": "repeated-red",
+          "title": "Check gitleaks was red again and again",
+          "happened": "The check `gitleaks` was red on 3 commits in 1 slice (s2): 4 of its 35 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.",
+          "evidence": [
+            {
+              "label": "gitleaks on 12fb34c in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39822198961/job/119976085280",
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             6f22e5b714330facb874f65c5bda82525e6c001d -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 6f22e5b71 Merge 12fb34c88fae2073299eb197100e85bba0d1c823 into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n6f22e5b714330facb874f65c5bda82525e6c001d\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: 12fb34c88fae2073299eb197100e85bba0d1c823\n##[endgroup]\n5:23PM INF 2 commits scanned.\n5:23PM INF scanned ~81602 bytes (81.60 KB) in 201ms\n5:23PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/d831ddac-404e-4ad7-8634-3b3152036cfa' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "gitleaks on c027fd0 in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39823933564/job/119982097274",
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             a71910f4df361d5cb90e1b893de299dda05fc98a -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at a71910f4d Merge c027fd0dec1b75127ba39b284163193f0d5db27b into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\na71910f4df361d5cb90e1b893de299dda05fc98a\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: c027fd0dec1b75127ba39b284163193f0d5db27b\n##[endgroup]\n5:34PM INF 4 commits scanned.\n5:34PM INF scanned ~91188 bytes (91.19 KB) in 120ms\n5:34PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/5ecaa417-0720-4b5c-8dce-20e11be53a6a' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "gitleaks on fadec56 in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826216013/job/119990070469",
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             70c539f898586ce63d28b45fc5c6401b7367f51f -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 70c539f89 Merge fadec560a5dd5d27531275b95ea0fc63c21ad943 into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n70c539f898586ce63d28b45fc5c6401b7367f51f\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: fadec560a5dd5d27531275b95ea0fc63c21ad943\n##[endgroup]\n5:50PM INF 5 commits scanned.\n5:50PM INF scanned ~91362 bytes (91.36 KB) in 211ms\n5:50PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/4eb5ebe3-0feb-443c-bba4-f2fef7e07949' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "gitleaks on fadec56 in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826293330/job/119990341725",
+              "excerpt": " * [new tag]             v0.0.463                  -> v0.0.463\n * [new tag]             v0.0.464                  -> v0.0.464\n * [new tag]             v0.0.465                  -> v0.0.465\n * [new tag]             v0.0.466                  -> v0.0.466\n * [new tag]             v0.0.467                  -> v0.0.467\n * [new tag]             v0.0.468                  -> v0.0.468\n * [new tag]             v0.0.469                  -> v0.0.469\n * [new tag]             v0.0.47                   -> v0.0.47\n * [new tag]             v0.0.470                  -> v0.0.470\n * [new tag]             v0.0.471                  -> v0.0.471\n * [new tag]             v0.0.472                  -> v0.0.472\n * [new tag]             v0.0.473                  -> v0.0.473\n * [new tag]             v0.0.474                  -> v0.0.474\n * [new tag]             v0.0.475                  -> v0.0.475\n * [new tag]             v0.0.476                  -> v0.0.476\n * [new tag]             v0.0.477                  -> v0.0.477\n * [new tag]             v0.0.478                  -> v0.0.478\n * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.504                  -> v0.0.504\n * [new tag]             v0.0.505                  -> v0.0.505\n * [new tag]             v0.0.506                  -> v0.0.506\n * [new tag]             v0.0.507                  -> v0.0.507\n * [new tag]             v0.0.508                  -> v0.0.508\n * [new tag]             v0.0.509                  -> v0.0.509\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.510                  -> v0.0.510\n * [new tag]             v0.0.511                  -> v0.0.511\n * [new tag]             v0.0.512                  -> v0.0.512\n * [new tag]             v0.0.513                  -> v0.0.513\n * [new tag]             v0.0.514                  -> v0.0.514\n * [new tag]             v0.0.515                  -> v0.0.515\n * [new tag]             v0.0.516                  -> v0.0.516\n * [new tag]             v0.0.517                  -> v0.0.517\n * [new tag]             v0.0.518                  -> v0.0.518\n * [new tag]             v0.0.519                  -> v0.0.519\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.520                  -> v0.0.520\n * [new tag]             v0.0.521                  -> v0.0.521\n * [new tag]             v0.0.522                  -> v0.0.522\n * [new tag]             v0.0.523                  -> v0.0.523\n * [new tag]             v0.0.524                  -> v0.0.524\n * [new tag]             v0.0.525                  -> v0.0.525\n * [new tag]             v0.0.526                  -> v0.0.526\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             70c539f898586ce63d28b45fc5c6401b7367f51f -> pull/2436/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2436/merge\nNote: switching to 'refs/remotes/pull/2436/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 70c539f89 Merge fadec560a5dd5d27531275b95ea0fc63c21ad943 into 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n70c539f898586ce63d28b45fc5c6401b7367f51f\n##[group]Removing auth\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\n##[endgroup]\n##[group]Run archive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\narchive=\"gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz\"\ncurl -fsSL -o \"$RUNNER_TEMP/$archive\" \"https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive\"\necho \"$GITLEAKS_SHA256  $RUNNER_TEMP/$archive\" > \"$RUNNER_TEMP/gitleaks.sha256\"\nsha256sum -c \"$RUNNER_TEMP/gitleaks.sha256\"\ntar -xzf \"$RUNNER_TEMP/$archive\" -C \"$RUNNER_TEMP\" gitleaks\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n##[endgroup]\n/home/runner/work/_temp/gitleaks_8.30.1_linux_x64.tar.gz: OK\n##[group]Run \"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\n\"$RUNNER_TEMP/gitleaks\" git --config .gitleaks.toml --redact --no-banner --log-opts=\"$BASE_SHA..$HEAD_SHA\" .\nshell: /usr/bin/bash -e {0}\nenv:\n  GITLEAKS_VERSION: 8.30.1\n  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\n  BASE_SHA: 5b3ba4efb38096dbf5e7252e0e8f74580e44658c\n  HEAD_SHA: fadec560a5dd5d27531275b95ea0fc63c21ad943\n##[endgroup]\n5:51PM INF 5 commits scanned.\n5:51PM INF scanned ~91362 bytes (91.36 KB) in 183ms\n5:51PM WRN leaks found: 8\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/278236c4-b039-4cdb-84ac-cb6d62fe7f40' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            }
+          ],
+          "source": "ci",
+          "ref": "F2"
+        },
+        {
+          "id": "territory:s1",
+          "kind": "territory",
+          "title": "Slice s1 changed files outside its territory",
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/runners/runners.migration.test.ts`.",
+          "evidence": [
+            {
+              "label": "#2435",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2435/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F3"
+        },
+        {
+          "id": "territory:s4",
+          "kind": "territory",
+          "title": "Slice s4 changed files outside its territory",
+          "happened": "Slice s4 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/github-call-sites.test.ts`.",
+          "evidence": [
+            {
+              "label": "#2445",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2445/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F4"
+        },
+        {
+          "id": "territory:s6",
+          "kind": "territory",
+          "title": "Slice s6 changed files outside its territory",
+          "happened": "Slice s6 changed 3 paths outside its territory and off the plan’s shared ground: `supabase/checks/api_key_github_apps.sql`, `supabase/database.types.ts`, `supabase/migrations/20261228090000_api_key_github_apps.sql`.",
+          "evidence": [
+            {
+              "label": "#2451",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2451/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F5"
+        }
+      ],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": [
+          {
+            "field": "findings.territory:s1.whyItMatters",
+            "reason": "it holds a word the rules refuse"
+          },
+          {
+            "field": "findings.territory:s4.whyItMatters",
+            "reason": "it holds a word the rules refuse"
+          },
+          {
+            "field": "findings.territory:s6.whyItMatters",
+            "reason": "it holds a digit"
+          }
+        ]
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "The repeated red secret scan yields a new lesson about scanning credential-handling changes before pushing; the drift and the 3 territory breaches repeat known patterns."
+      },
+      "lessons": [
+        {
+          "text": "A slice that handles credentials runs the secret scan over its own commits before every push. Any test credential it adds is built so it cannot be read as a real secret, so the scan is clear on the first push.",
+          "findings": [
+            "repeated-red:gitleaks"
+          ]
+        }
+      ],
+      "issues": {
+        "repeated-red:gitleaks": {
+          "number": 2469,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2469",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
