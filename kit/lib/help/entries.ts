@@ -362,7 +362,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
-      'mega-bug-fix, visual-fix, plan, pitch, prove and retro-apply run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
+      'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind and knowledge-add run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
       'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
       'pins is updated (once, however many slots start together), and one still older fails the job ' +
@@ -1929,6 +1929,31 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:retro-apply --retro 2300',
       result: "the retro PR's body quoting each new rule with its slot, or its reason, and omni check retro green",
+    },
+  },
+  {
+    name: 'rewind',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:rewind <n>'],
+    label: '/omni:rewind <n>',
+    summary: 'find where a PRD that broke main went wrong',
+    detail:
+      "Walks PRD n, which broke main, back from the break to its spec: it reads the breaks with omni rewind " +
+      'facts, starts from the break itself, then runs seven checks in order (the reviews, the CI, the pull ' +
+      'request bodies against the pull-requests form, the waves, the plan, the spec and its answers, the ' +
+      'knowledge). It writes the premise every earlier fix assumed and tests it before naming the one cause. ' +
+      'Each finding names its check, where it started (repository, omni-setup or knowledge), its evidence ' +
+      'links and its fix, a repository fix at the strongest level that would have stopped the break: ' +
+      'architecture, types, a lint, a test, docs last. It sends them with omni rewind push to the PRD\'s Main ' +
+      'tab, as proposals a member approves or rejects, each signed as written by an agent. It refuses, in one ' +
+      'line, a PRD that did not break main; it writes nothing to the repository and never merges. The Omni ' +
+      'app queues it for a runner on the first break.',
+    group: 'everyday',
+    when: "Use it when a PRD's page reads Broke main, no rewind ran yet, and no runner took the job.",
+    example: {
+      type: '/omni:rewind 2410',
+      result: "the PRD's Main tab listing each finding with its check, where it started, its evidence and its fix",
     },
   },
   {
