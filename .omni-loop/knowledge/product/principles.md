@@ -837,7 +837,7 @@ Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, en
 Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-17, PR #2130
 
-## P-PRODUCT-101
+## P-PRODUCT-103
 
 The app only offers a skill to allow when a runner can actually find it and allowing it is possible; it never offers a choice that would be refused.
 
