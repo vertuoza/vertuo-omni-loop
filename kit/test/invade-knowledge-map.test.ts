@@ -34,3 +34,14 @@ describe('the knowledge map in /omni:invade and /omni:mega-invade (PRD 2346)', (
     expect(text).toContain('`layers` key beside its `flow`');
   });
 });
+
+describe('/omni:invade leaves unproven pages to the Omni-settings default (PRD 2417)', () => {
+  it('writes only the pages it proves, names the rest from omni kb status, and still copies no default text', () => {
+    const text = read('invade');
+    const section = `### Pages it cannot prove${text.split('\n### Pages it cannot prove')[1]?.split('\n## ')[0] ?? ''}`;
+    for (const word of ['left unwritten', 'Omni-settings default', 'kit default', 'omni.mjs kb status', 'reads the Omni settings', 'never copies']) {
+      expect(section, word).toContain(word);
+    }
+    expect(text).toContain('Never copies a kit default or an Omni-settings default into a form');
+  });
+});
