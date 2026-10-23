@@ -21,7 +21,7 @@ import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'waiting' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'waiting' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -45,7 +45,7 @@ export interface SidebarItem {
 }
 
 export interface SidebarGroup {
-  id: 'dashboard' | 'work';
+  id: 'dashboard' | 'work' | 'anti';
   label: string;
   items: readonly SidebarItem[];
 }
@@ -97,6 +97,19 @@ export const SIDEBAR: readonly SidebarGroup[] = [
   },
 ];
 
+/** The anti-loop mode's one group (PRD 2490), drawn in place of Dashboard and Work on /anti and
+ * /anti/work; the foot stays. */
+export const ANTI_SIDEBAR: readonly SidebarGroup[] = [
+  {
+    id: 'anti',
+    label: 'Anti-loop',
+    items: [
+      { id: 'anti-dashboard', label: 'Anti-dashboard', path: '/anti', sprite: 'menu-home' },
+      { id: 'anti-work', label: 'Anti-work', path: '/anti/work', sprite: 'menu-engineering' },
+    ],
+  },
+];
+
 /** Where /app/settings lands (PRD 733): its Fleets page. */
 export const SETTINGS_LANDING = '/app/settings/fleets';
 
@@ -130,7 +143,7 @@ export const OMNI: readonly SidebarItem[] = [
 type Entry = { item: SidebarItem; page: SidebarPage | null; group: SidebarGroup | null; path: string };
 
 const ENTRIES: readonly Entry[] = [
-  ...SIDEBAR.flatMap((group) => group.items.map((item) => ({ item, group }))),
+  ...[...SIDEBAR, ...ANTI_SIDEBAR].flatMap((group) => group.items.map((item) => ({ item, group }))),
   ...[SETTINGS, ...OMNI].map((item) => ({ item, group: null })),
 ].flatMap(({ item, group }) => [
   { item, page: null, group, path: item.path },

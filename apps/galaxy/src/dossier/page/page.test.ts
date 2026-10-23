@@ -114,7 +114,7 @@ const { default: HistoryPage } = await import('../../../app/prd/page.tsx');
 const { default: Layout } = await import('../../../app/prd/layout.tsx');
 const { GET: sandboxRoute } = await import('../../../app/prd/[id]/v/[version]/page/route.ts');
 const { settledPage } = await import('./stream/settled');
-const { DossierStream } = await import('./stream/DossierStream');
+const { WithLateParts } = await import('./DossierRoute');
 
 let numbered = '';
 let draft = '';
@@ -383,7 +383,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     given.summary.mockReturnValue(new Promise(() => {}));
     given.token = 'bob';
     const page = (await Page({ params: Promise.resolve({ id: numbered }), searchParams: Promise.resolve({}) })) as ReactElement;
-    expect(page.type).toBe(DossierStream);
+    expect(page.type).toBe(WithLateParts);
     await vi.waitFor(() => { expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 }); });
   });
 

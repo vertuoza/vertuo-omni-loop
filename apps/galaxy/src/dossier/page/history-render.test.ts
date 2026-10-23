@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
@@ -242,7 +243,7 @@ describe('the stages (PRD 587)', () => {
     stages: historyStageBar(rows, filters, 'u-pierre', new Map(), stages),
   }));
   const bar = (html: string) =>
-    [...html.matchAll(/<a class="stage-stop stage-(passed|current)"( aria-current="page")? href="([^"]+)" style="text-decoration:none">([^<]+) <small>(\d+)<\/small><\/a>/g)]
+    [...html.matchAll(/<a class="stage-stop stage-(passed|current)"( aria-current="page")? style="text-decoration:none" href="([^"]+)">([^<]+) <small>(\d+)<\/small><\/a>/g)]
       .map((m) => [m[4], Number(m[5]), m[3]?.replaceAll('&amp;', '&'), m[1] === 'current']);
 
   it('shows the bar above the list, the seven stages in order with their counts, each a link', () => {
@@ -262,7 +263,7 @@ describe('the stages (PRD 587)', () => {
     const html = render({ who: 'all', stage: 'building' });
     expect(bar(html).find(([label]) => label === 'building')).toEqual(['building', 1, '/prd?who=all', true]);
     expect(bar(html).filter(([, , , current]) => current)).toHaveLength(1);
-    expect(html).toContain('aria-current="page" href="/prd?who=all" style="text-decoration:none">building');
+    expect(html).toContain('aria-current="page" style="text-decoration:none" href="/prd?who=all">building');
     expect(html.match(/class="dossier-history-row"/g)).toHaveLength(1);
     expect(html).toContain('<input type="hidden" name="stage" value="building"/>');
     expect(html).toContain('<a class="dossier-history-clear" href="/prd?who=all">Clear</a>');
@@ -317,5 +318,30 @@ describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
   it('draws no "Opened by" line under Mine or All', () => {
     expect(history()).not.toContain('Opened by');
     expect(history({ who: 'mine' })).not.toContain('Opened by');
+  });
+});
+
+// PRD 2401 s2: a click on a row, a filter, Clear or a tab is a client navigation, prefetched when it
+// comes into view, with /prd/[id]'s skeleton sent at once. next/link writes aria-current before href
+// (the regexes above read that order); these read the sources, since a static render cannot show a prefetch.
+describe('client navigation (PRD 2401)', () => {
+  const source = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8');
+
+  it('draws rows, filters, Clear, the stage bar and the PRD tabs with next/link', () => {
+    const history = source('./DossierHistory.tsx');
+    const page = source('./DossierPage.tsx');
+    expect(history).toContain("import Link from 'next/link'");
+    expect(page).toContain("import Link from 'next/link'");
+    for (const cls of ['dossier-history-who', 'dossier-history-clear', 'dossier-history-row', 'dossier-history-to-all']) {
+      expect(history).toContain(`<Link className="${cls}"`);
+    }
+    expect(history).toMatch(/<Link\s+key=\{s\.id\}/);
+    expect(history).not.toMatch(/<a\s+key=\{s\.id\}/);
+    expect(page).toContain('<Link key={t.kind} className={t.empty');
+  });
+
+  it("has a loading.tsx for /prd/[id] that shows the PRD's skeleton", () => {
+    const loading = readFileSync(new URL('../../../app/prd/[id]/loading.tsx', import.meta.url), 'utf8');
+    expect(loading).toContain('DossierLoading');
   });
 });

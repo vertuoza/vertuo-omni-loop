@@ -1,6 +1,6 @@
 import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
-import { OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
+import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 
@@ -230,5 +230,27 @@ describe('badgeOf', () => {
   it('gives no badge at 0, nor to any other entry: only Questions, PRDs, Runners and Waiting count (PRD 733, PRD 2255, PRD 2377)', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
     for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+  });
+});
+
+describe('ANTI_SIDEBAR (PRD 2490)', () => {
+  it('holds one Anti-loop group with Anti-dashboard and Anti-work, each with a 16 px sprite', () => {
+    expect(ANTI_SIDEBAR.map((g) => [g.id, g.label, g.items.map((i) => [i.id, i.label, i.path])])).toEqual([
+      ['anti', 'Anti-loop', [['anti-dashboard', 'Anti-dashboard', '/anti'], ['anti-work', 'Anti-work', '/anti/work']]],
+    ]);
+    for (const entry of ANTI_SIDEBAR.flatMap((g) => g.items)) expect([SPRITE_DEFS[present(entry.sprite, entry.id)]?.w, SPRITE_DEFS[present(entry.sprite, entry.id)]?.h], entry.id).toEqual([16, 16]);
+  });
+
+  it('reads /anti and /anti/work as those entries, and the trail Anti-loop › …', () => {
+    expect(currentItem('/anti')).toBe('anti-dashboard');
+    expect(currentItem('/anti/work')).toBe('anti-work');
+    expect(pageTrail('/anti')?.crumbs).toEqual([{ label: 'Anti-loop' }, { label: 'Anti-dashboard' }]);
+    expect(pageTrail('/anti/work')?.crumbs).toEqual([{ label: 'Anti-loop' }, { label: 'Anti-work' }]);
+  });
+
+  it('leaves every forward path as it was', () => {
+    expect(currentItem('/app')).toBe('home');
+    expect(currentItem('/app/settings/fleets')).toBe('settings');
+    expect(pageTrail('/app')?.crumbs).toEqual([{ label: 'Dashboard' }, { label: 'Home' }]);
   });
 });

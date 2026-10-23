@@ -4,8 +4,14 @@ import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
 import { fakeSupabase as askFake } from '../../ask/store.fake';
-import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
+import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed, startListScope } from './source';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { createTimings } from './timing';
+import { createElement, type ReactElement } from 'react';
+import { prerender } from 'react-dom/static';
+import { WithLateParts, shellOf } from './DossierRoute';
+import { approvalView } from './approval';
+import { DEMO_VIEWER, demoDossier } from './demo';
 
 vi.mock('server-only', () => ({}));
 
@@ -46,6 +52,20 @@ describe('reading a dossier as the viewer', () => {
     expect(read?.versions.map((v) => [v.kind, v.uploaded_by])).toEqual([['spec', ADA.id], ['before-after', ADA.id], ['before-after', BOB.id]]);
     expect(read?.versions[0]).not.toHaveProperty('content');
     expect(read?.members.map((m) => m.email).sort()).toEqual(['ada@example.com', 'bob@example.com']);
+  });
+
+  it('times each read under its name, for the Server-Timing of the page (PRD 2401 s1)', async () => {
+    const { as, numbered } = await world();
+    const timings = createTimings();
+    await readDossier(as('bob'), numbered, BOB.id, timings);
+    expect(timings.entries().map((entry) => entry.name).sort()).toEqual(['answerable', 'dossier', 'members', 'people', 'repos', 'rounds', 'versions']);
+  });
+
+  it('times only the dossier when the viewer may not read it', async () => {
+    const { as, numbered } = await world();
+    const timings = createTimings();
+    await readDossier(as('carl'), numbered, null, timings);
+    expect(timings.entries().map((entry) => entry.name)).toEqual(['dossier']);
   });
 
   it('gives a member of another workspace nothing, as if it never was', async () => {
@@ -273,6 +293,20 @@ describe('reading the history', () => {
     expect(rows[2]).toMatchObject({ prd: null, repos: ['acme/plans'], last_activity: at('08:00') });
   });
 
+  it('lists only the kind asked for, the database filtering them, and every kind otherwise (PRD 2401 s3)', async () => {
+    const { fake, draft, reminders, widgets } = await history();
+    await fake.client('bob').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 8, p_kind: 'bug', p_title: 'Widgets crack', p_draft: null, p_artifacts: [{ kind: 'bug-record', content: 'the record' }],
+    });
+    const client = fake.client('bob');
+    const calls: Array<[string, Record<string, unknown>]> = [];
+    const recorded = { from: client.from, rpc: (name: string, args: Record<string, unknown>) => { calls.push([name, args]); return client.rpc(name, args); } };
+    expect((await readHistory(recorded as never, 'prd')).map((r) => r.id)).toEqual([reminders, widgets, draft]);
+    expect(calls).toEqual([['dossier_list', { p_dossier: null, p_kind: 'prd' }]]);
+    expect(await readHistory(recorded as never)).toHaveLength(4);
+    expect(calls.at(-1)).toEqual(['dossier_list', { p_dossier: null }]);
+  });
+
   it('gives a member of another workspace its own dossiers alone, and someone signed out nothing', async () => {
     const { as, elsewhere } = await history();
     expect((await readHistory(as('carl'))).map((r) => [r.id, r.repos])).toEqual([[elsewhere, ['other/stuff', 'other/secret']]]);
@@ -290,9 +324,26 @@ describe('reading the history', () => {
         name === 'dossier_list' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args),
     };
     const read = await readDossier(failing as never, reminders);
-    expect(read?.repos).toBeNull();
-    expect(read?.rounds).toHaveLength(2);
+    expect(read?.repos).toEqual(['acme/plans', 'acme/core', 'acme/gadgets', 'acme/widgets']);
+    const down = {
+      from: client.from,
+      rpc: (name: string, args: Record<string, unknown>) =>
+        name === 'dossier_repos' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args),
+    };
+    const unread = await readDossier(down as never, reminders);
+    expect(unread?.repos).toBeNull();
+    expect(unread?.rounds).toHaveLength(2);
     quiet.mockRestore();
+  });
+
+  it('chips them from dossier_repos(), the one dossier\'s own read, never the history\'s (PRD 2401 s3)', async () => {
+    const { fake, reminders } = await history();
+    const client = fake.client('bob');
+    const names: string[] = [];
+    const recorded = { from: client.from, rpc: (name: string, args: Record<string, unknown>) => { names.push(name); return client.rpc(name, args); } };
+    await readDossier(recorded as never, reminders);
+    expect(names).toContain('dossier_repos');
+    expect(names).not.toContain('dossier_list');
   });
 });
 
@@ -331,6 +382,15 @@ describe('reading the change check (PRD 384)', () => {
     const read = await readDossier(as('bob'), numbered);
     assertDefined(read, 'the dossier, read');
     expect(signature(pulseOf(read))).toBe(signature(await readPulse(as('bob'), numbered)));
+  });
+
+  it('reads the pulse through dossier_repos(), never the history\'s dossier_list() (PRD 2401 s3)', async () => {
+    const { fake, numbered } = await world();
+    const client = fake.client('bob');
+    const names: string[] = [];
+    const recorded = { rpc: (name: string, args: Record<string, unknown>) => { names.push(name); return client.rpc(name, args); } };
+    expect(await readPulse(recorded as never, numbered)).toEqual({ asked: 0, answered: 0, latest: { spec: 1, 'before-after': 2 } });
+    expect(names).toEqual(['dossier_repos']);
   });
 
   it('reads nothing for someone who cannot read the dossier, or an id that is not a dossier\'s', async () => {
@@ -467,6 +527,53 @@ describe('the plan\'s slice count, for the stage (PRD 426)', () => {
     expect(await readPlanSlices(as('bob'), read.versions)).toBe(3);
   });
 
+  /** A client of `token` that records the columns each read of dossier_versions selects. */
+  const recordingVersions = (fake: Awaited<ReturnType<typeof world>>['fake'], token: string) => {
+    const client = fake.client(token);
+    const selected: string[] = [];
+    const from = (table: 'dossiers' | 'dossier_versions') => {
+      const query = client.from(table);
+      if (table !== 'dossier_versions') return query;
+      const select = query.select.bind(query);
+      return Object.assign(query, { select: (columns?: string) => { selected.push(columns ?? '*'); return select(columns); } });
+    };
+    return { db: { from, rpc: client.rpc } as never, selected };
+  };
+
+  it('reads the stored count of the latest plan version, and never its body (PRD 2401 s3)', async () => {
+    const { fake, as, numbered } = await world();
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: PLAN([row('s1'), row('s2')]) }] });
+    const read = await readDossier(as('bob'), numbered);
+    assertDefined(read, 'the dossier, read');
+    expect(read.versions.find((v) => v.kind === 'plan')?.slices).toBe(2);
+    const { db, selected } = recordingVersions(fake, 'bob');
+    expect(await readPlanSlices(db, read.versions)).toBe(2);
+    expect(selected).toEqual([]);
+  });
+
+  it('reads a stored count of none as no slice, without the body (PRD 2401 s3)', async () => {
+    const { fake, as, numbered } = await world();
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan\n\nNo table.\n' }] });
+    const read = await readDossier(as('bob'), numbered);
+    assertDefined(read, 'the dossier, read');
+    expect(read.versions.find((v) => v.kind === 'plan')?.slices).toBe(0);
+    const { db, selected } = recordingVersions(fake, 'bob');
+    expect(await readPlanSlices(db, read.versions)).toBeNull();
+    expect(selected).toEqual([]);
+  });
+
+  it('counts from the body of a plan version added before the count was stored (PRD 2401 s3)', async () => {
+    const { fake, as, numbered } = await world();
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: PLAN([row('s1'), row('s2'), row('s3')]) }] });
+    for (const version of fake.tables.dossier_versions) version.slices = null;
+    const read = await readDossier(as('bob'), numbered);
+    assertDefined(read, 'the dossier, read');
+    const { db, selected } = recordingVersions(fake, 'bob');
+    expect(await readPlanSlices(db, read.versions)).toBe(3);
+    expect(selected).toEqual(['content']);
+    expect(await readPlanSlices(db, read.versions.map((version) => ({ ...version, slices: undefined })))).toBe(3);
+  });
+
   it('is null with no plan version, or one with no slice table', async () => {
     const { fake, as, numbered } = await world();
     const versions = async () => {
@@ -479,5 +586,131 @@ describe('the plan\'s slice count, for the stage (PRD 426)', () => {
     await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan\n\nNo table.\n' }] });
     expect(await readPlanSlices(as('bob'), await versions())).toBeNull();
     vi.restoreAllMocks();
+  });
+});
+
+describe('the answerable rounds start beside the other reads (PRD 2401 s4)', () => {
+  it('are read while the dossier\'s other reads are still pending', async () => {
+    const BOBBY = { id: '00000000-0000-4000-8000-0000000000b2', email: 'bobby@example.com' };
+    const fake = fakeSupabase({ ada: ADA, bobby: BOBBY }, { [FAKE_WORKSPACE]: 'acme' });
+    const pushed = await fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'spec', content: SPEC }],
+    });
+    const id = (pushed.data as { id: string }).id;
+    const [round] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [{ created_at: '2026-09-28T10:00:00.000Z', prd: parsePrd(7) }]).rounds;
+    assertDefined(round, 'the round');
+    fake.seedShare(round.id, BOBBY.id, ADA.id);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let sharesRead = false;
+    const client = fake.client('bobby');
+    // The directory's roster waits on the gate: the shares must be read while it does.
+    const slow = {
+      rpc: (fn: string, args: Record<string, unknown>) => (fn === 'workspace_roster'
+        ? gate.then(() => client.rpc(fn as 'workspace_roster', args as never))
+        : client.rpc(fn, args)),
+      from: (table: string) => {
+        if (table === 'ask_shares') sharesRead = true;
+        return client.from(table as 'dossiers');
+      },
+    } as never;
+    const reading = readDossier(slow, id, BOBBY.id);
+    await vi.waitFor(() => { expect(sharesRead).toBe(true); });
+    release();
+    expect((await reading)?.answerable).toEqual([round.id]);
+  });
+});
+
+describe('a PRD\'s shell streams without its approval, send and runners (PRD 2401 s4)', () => {
+  const html = async (element: ReactElement, within?: number) => {
+    const stop = new AbortController();
+    if (within) setTimeout(() => { stop.abort(); }, within);
+    return new Response((await prerender(element, { signal: stop.signal, onError: () => {} })).prelude).text();
+  };
+
+  it('is sent while the late parts are pending, and replaced by the page with them once they settle', async () => {
+    const late = Promise.resolve(['approved']);
+    const never = new Promise<string[]>(() => {});
+    const page = (parts: string[]) => createElement('p', null, `with ${parts.join(',')}`);
+    const check = () => Promise.resolve(createElement('i', null, 'the change check'));
+    const element = (pending: Promise<string[]>) => createElement('main', null, createElement(WithLateParts<string[]>, {
+      late: pending, shell: createElement('p', null, 'the shell'), live: check, read: demoDossier(Date.parse('2026-09-29T10:00:00Z')), children: page,
+    }));
+    const sent = await html(element(never), 30);
+    expect(sent).toContain('the shell');
+    expect(sent).toContain('the change check');
+    expect(sent).not.toContain('with ');
+    const done = await html(element(late));
+    expect(done).toContain('with approved');
+  });
+
+  it('leaves out of its shell what a server-born PRD\'s approval says, never the rest', () => {
+    const read = demoDossier(Date.parse('2026-09-29T10:00:00Z'));
+    const server = { ...read, dossier: { ...read.dossier, birthplace: 'server' as const } };
+    expect(approvalView(server, DEMO_VIEWER)).not.toBeNull();
+    expect(approvalView(shellOf(server), DEMO_VIEWER)).toBeNull();
+    expect(shellOf(server)).toMatchObject({ dossier: { id: server.dossier.id, prd: server.dossier.prd, title: server.dossier.title }, versions: server.versions });
+    expect(shellOf(read)).toBe(read);
+  });
+});
+
+describe('the list\'s scope reads, started beside dossier_list (PRD 2401 s4)', () => {
+  const WS = '00000000-0000-4000-8000-0000000000e1';
+  const OTHER_WS = '00000000-0000-4000-8000-0000000000e2';
+
+  /** A client that records every table read and rpc, answering the viewer's workspaces and one product. */
+  function recording(workspaces: string[] | 'down') {
+    const calls: string[] = [];
+    const answer = (table: string): { data: unknown; error: { message: string } | null } => {
+      if (table === 'workspace_members') return workspaces === 'down' ? { data: null, error: { message: 'down' } } : { data: workspaces.map((workspace_id) => ({ workspace_id })), error: null };
+      if (table === 'products') return { data: [{ id: 'p1', name: 'Mobile', workspace_id: WS, key: 'mobile' }, { id: 'p2', name: 'Web', workspace_id: OTHER_WS, key: 'web' }], error: null };
+      return { data: [], error: null };
+    };
+    const chain = (table: string): unknown => new Proxy({}, {
+      get: (_, key: string) => (key === 'then'
+        ? (resolve: (value: unknown) => unknown) => resolve(answer(table))
+        : () => chain(table)),
+    });
+    const db = {
+      from: (table: string) => { calls.push(table); return chain(table); },
+    } as never;
+    const roster = (workspace: string) => {
+      calls.push(`workspace_roster:${workspace}`);
+      return Promise.resolve([{ user_id: 'u1', github_login: 'Mo' }]);
+    };
+    return { db, calls, roster };
+  }
+
+  it('reads the products, their dossiers and numbers, and the rosters of the viewer\'s workspaces at once', async () => {
+    const { db, calls, roster } = recording([WS, OTHER_WS]);
+    const early = startListScope(db, 'u1', 'mo', roster);
+    expect(calls).toEqual(['workspace_members']);
+    expect(await early.scope.products([WS])).toEqual([{ id: 'p1', name: 'Mobile', workspace_id: WS, key: 'mobile' }]);
+    await early.scope.dossierProducts([WS]);
+    await early.scope.dossierNumbers([WS, OTHER_WS]);
+    expect(await early.roster(WS)).toEqual([{ user_id: 'u1', github_login: 'Mo' }]);
+    expect(calls.filter((call) => call === 'products')).toHaveLength(1);
+    expect(calls.sort()).toEqual(['dossiers', 'dossiers', 'products', 'workspace_members', `workspace_roster:${OTHER_WS}`, `workspace_roster:${WS}`].sort());
+  });
+
+  it('reads no roster without a login', async () => {
+    const { db, calls, roster } = recording([WS]);
+    const early = startListScope(db, 'u1', null, roster);
+    await early.scope.products([WS]);
+    expect(calls.some((call) => call.startsWith('workspace_roster'))).toBe(false);
+  });
+
+  it('reads as it was, after the list, a workspace it did not read or when the viewer\'s workspaces cannot be read', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const covering = recording([WS]);
+    const early = startListScope(covering.db, 'u1', null, covering.roster);
+    await early.scope.products([WS, OTHER_WS]);
+    expect(covering.calls.filter((call) => call === 'products')).toHaveLength(2);
+    const down = recording('down');
+    const none = startListScope(down.db, 'u1', 'mo', down.roster);
+    expect(await none.scope.products([WS])).not.toHaveLength(0);
+    expect(down.calls.filter((call) => call === 'products')).toHaveLength(1);
+    expect(await none.roster(WS)).toEqual([{ user_id: 'u1', github_login: 'Mo' }]);
+    quiet.mockRestore();
   });
 });

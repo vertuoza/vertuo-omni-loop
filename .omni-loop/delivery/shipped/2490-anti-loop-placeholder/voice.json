@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Two routes and a token set are small enough to review, but a second colour set on every control is where a contrast slip hides.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A mode with two empty pages and a mirrored logo is exactly the fluff I expect from this tool. Show me one real thing in it, or don't ship it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Nice to have a corner for the tech team, but it ships nothing I can show a customer.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A place of our own for the harness and the retros is what I have been missing to keep the teams aligned.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "It stays out of my way: the forward loop I use every day does not change.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A mode with two empty pages and a mirrored logo is exactly the fluff I expect from this tool. Show me one real thing in it, or don't ship it.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:Irisa ~ · persona:F-E Developer ~ · persona:Paul - Product Manager ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every anti-loop text and edge pair is tested at AA in all three themes, and the mirror is pixels, not a CSS hack: that I trust.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Still two pages that say 'not open yet'. Honest, at least: nothing is stored and a revert removes it all.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Small and out of the way; I would rather the next PRD puts the retros in it quickly.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The URL is the mode, so I can send the team a link to /anti/work and everyone lands in the same place.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "No page outside /anti changes, so nothing I ship to customers moves.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The anti-loop colours pass every AA pair, the mirror is drawn as pixels, and the forward pages only gained one link: nothing else moved.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "It shipped as promised: two pages that say they are not open yet. Clean and revertible, but still nothing I can use.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "A button and two empty rooms; fine, as long as the next PRD fills them quickly.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The team has an address of its own now, /anti/work, that I can send to everyone.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My dashboard and the pages I ship from are as they were; the new button is easy to ignore.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ~ · persona:B-E DEv ✗"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { INK } from './palette.ts';
+import { ASK_ANTI } from './tokens.ts';
 import { drawLogo, LOGO_DRAWINGS, LOGO_FORMS, logoPixels, logoSvg } from './logo.ts';
 import type { LogoArt, LogoDrawing } from './logo.ts';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
@@ -221,4 +222,55 @@ describe('the logo', () => {
   it('refuses a form it does not have', () => {
     expect(() => logoPixels('wordmark' as LogoDrawing)).toThrow(/unknown logo form/);
   });
+});
+
+describe('the mirrored logo (anti-loop mode)', () => {
+  const ANTI_SIGNAL = ASK_ANTI.omni.plasma;
+
+  for (const form of LOGO_DRAWINGS) {
+    describe(form, () => {
+      const art = logoPixels(form);
+      const flipped = logoPixels(form, { mirror: true });
+
+      it('is the pixels reversed column for column, the ring recoloured', () => {
+        expect(flipped.w).toBe(art.w);
+        expect(flipped.h).toBe(art.h);
+        for (let y = 0; y < art.h; y++) {
+          for (let x = 0; x < art.w; x++) {
+            const original = at(art, art.w - 1 - x, y);
+            const mirrored = at(flipped, x, y);
+            if (!RAMP.includes(original)) expect(mirrored, `${x},${y}`).toBe(original);
+            else expect(RAMP.includes(mirrored), `${x},${y}`).toBe(false);
+          }
+        }
+      });
+
+      it('draws its ring in the anti-loop signal colour', () => {
+        const used = new Set(flipped.pixels);
+        expect(used.has(ANTI_SIGNAL)).toBe(true);
+        for (const c of RAMP) expect(used.has(c ?? null), String(c)).toBe(false);
+        expect(used.has(INK.navyDark)).toBe(true);
+      });
+
+      it('mirrors the one-colour variant too, with no ring colour', () => {
+        const mono = logoPixels(form, { mono: true });
+        const monoFlipped = logoPixels(form, { mono: true, mirror: true });
+        for (let y = 0; y < mono.h; y++) {
+          for (let x = 0; x < mono.w; x++) expect(at(monoFlipped, x, y)).toBe(at(mono, mono.w - 1 - x, y));
+        }
+      });
+
+      it('is an SVG at whole-number scales only', () => {
+        expect(logoSvg(form, { mirror: true, scale: 3 })).toContain(`width="${art.w * 3}"`);
+        expect(logoSvg(form, { mirror: true, scale: 3 })).toContain(ANTI_SIGNAL);
+        expect(() => logoSvg(form, { mirror: true, scale: 1.5 })).toThrow(/whole number/);
+      });
+
+      it('leaves the unmirrored drawing as it was', () => {
+        expect(logoPixels(form, { mirror: false })).toBe(art);
+        expect(logoSvg(form, { mirror: false })).toBe(logoSvg(form));
+        expect(logoSvg(form)).not.toContain(ANTI_SIGNAL);
+      });
+    });
+  }
 });

@@ -4,7 +4,7 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton } from './actions';
 import {
-  afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
@@ -140,9 +140,9 @@ function ReleaseLine({ note }: { note: ReleaseNote }) {
 }
 
 /** A job's status: its words, or Answered · fixing / fixed linking the fix, or Answered (PRD 2270). */
-function StatusWords({ job, now, answered }: { job: Job; now: Date; answered: Answered | null }) {
-  const words = answered === null ? statusWords(job, now) : answered.fix === null ? answered.words : <a href={`#job-${answered.fix}`}>{answered.words}</a>;
-  return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome)}${canAnswer(job) ? ' is-human' : ''}`}>{words}</span>;
+function StatusWords({ job, now, answered, cannotRun }: { job: Job; now: Date; answered: Answered | null; cannotRun: boolean }) {
+  const words = answered === null ? statusWords(job, now, cannotRun) : answered.fix === null ? answered.words : <a href={`#job-${answered.fix}`}>{answered.words}</a>;
+  return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome, cannotRun)}${canAnswer(job) ? ' is-human' : ''}`}>{words}</span>;
 }
 
 /** Under Cancelled, which API key cancelled the job (PRD 2425); nothing for any other job. */
@@ -151,8 +151,19 @@ function CancelledBy({ job }: { job: Job }) {
   return words === null ? null : <span className="runners-by" data-content>{words}</span>;
 }
 
+/** Under Cannot run, why no runner can take the job (PRD 2482); nothing for any other job. */
+function CannotRunWhy({ reason }: { reason: string | null }) {
+  return reason === null ? null : <span className="runners-why" data-content>{reason}</span>;
+}
+
+/** Under Queued, why the runners that could take the job are paused (PRD 2102); nothing for any other job. */
+function WaitingWhy({ words }: { words: string | null }) {
+  return words === null ? null : <span className="runners-why">{words}</span>;
+}
+
 function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[] }) {
-  const waiting = waitingWords(job, board.runners);
+  const cannotRun = cannotRunReason(job, board.runners, fleets);
+  const waiting = cannotRun === null ? waitingWords(job, board.runners) : null;
   const tokens = jobTokensWords(job);
   const prd = prdLineOf(job, prds);
   const retro = retroLineOf(job, retros);
@@ -168,12 +179,13 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
       <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}{retro !== null && <small className="runners-muted runners-made-by"> <a href={retro.href}>{retro.words}</a></small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
-        <StatusWords job={job} now={now} answered={answered} />
+        <StatusWords job={job} now={now} answered={answered} cannotRun={cannotRun !== null} />
+        <CannotRunWhy reason={cannotRun} />
         <CancelledBy job={job} />
         {after !== null && job.continues && <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span>}
         {slicesWords(job) !== null && <span className="runners-why" data-content>{slicesWords(job)}</span>}
         {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
-        {waiting !== null && <span className="runners-why">{waiting}</span>}
+        <WaitingWhy words={waiting} />
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
       </span>
       <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} /></span>

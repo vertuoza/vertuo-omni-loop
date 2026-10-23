@@ -144,8 +144,8 @@ describe('an offline runner', () => {
 
 describe('why a queued job waits', () => {
   const runner = (id: string, fleet: string | null, state: Runner['state'], paused: string | null) =>
-    ({ id, name: `runner-${id}`, fleet, state, health: health({ paused }) });
-  const queued = { status: 'queued' as const, toRunner: null, toFleet: null };
+    ({ id, name: `runner-${id}`, fleet, state, repos: ['acme/widgets'], health: health({ paused }) });
+  const queued = { status: 'queued' as const, toRunner: null, toFleet: null, repo: 'acme/widgets' };
 
   it('names the one runner a job can go to', () => {
     const runners = [runner('a', null, 'online', 'memory 91%'), runner('b', null, 'online', null)];
@@ -161,6 +161,15 @@ describe('why a queued job waits', () => {
     const runners = [runner('a', 'comets', 'online', 'load 14.2 on 8 cores'), runner('b', null, 'online', null)];
     expect(waitingWords({ ...queued, toFleet: 'comets' }, runners)).toBe('Waiting: runner-a paused (load 14.2 on 8 cores)');
     expect(waitingWords(queued, runners)).toBeNull();
+  });
+
+  it('ignores, for a job sent to any runner, a paused runner that has a fleet, as the claim does', () => {
+    expect(waitingWords(queued, [runner('a', 'comets', 'online', 'memory 91%')])).toBeNull();
+    expect(waitingWords(queued, [runner('a', 'comets', 'online', 'memory 91%'), runner('b', null, 'online', 'disk 6 GB free')])).toBe('Waiting: runner-b paused (disk 6 GB free)');
+  });
+
+  it('ignores a runner that does not hold the job\'s repository', () => {
+    expect(waitingWords({ ...queued, repo: 'acme/gadgets' }, [runner('a', null, 'online', 'memory 91%')])).toBeNull();
   });
 
   it('shows nothing when some unpaused runner could take it, or one is offline', () => {

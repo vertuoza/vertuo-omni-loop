@@ -1,4 +1,6 @@
 import 'server-only';
+import type { ReactNode } from 'react';
+import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { serviceDb } from '../../data/sign-in-live';
@@ -28,6 +30,8 @@ import { dossierView, readPick, type DossierRead } from './view';
 import type { VoiceCast, VoiceView } from './voice';
 import { readShownVoice, readVoiceCast } from './voice-source';
 import { kindOf, misrouted, rowKind } from './work';
+import { createTimings } from './timing';
+import { ServerTimingMark } from './timing-mark';
 import { readDockPlayer } from './dock-player';
 import { questionsHref } from './working';
 import type { WorkKind } from '../store';
@@ -140,11 +144,9 @@ async function fixingRead(dossier: DossierRead['dossier'], prd: PrdNumber): Prom
   try {
     const db = serviceDb();
     const jobs = await continuationsRepository(db).prdJobs(dossier.workspace_id, dossier.home_repo, prd);
-    const names = new Map<string, string>();
-    for (const id of new Set(jobs.flatMap((job) => (job.runner_id === null ? [] : [job.runner_id])))) {
-      const runner = await runnersRepository(db).runner(id);
-      if (runner) names.set(id, runner.name);
-    }
+    // PRD 2401 s4: the runners of those jobs are read in one query, not one each.
+    const ids = [...new Set(jobs.flatMap((job) => (job.runner_id === null ? [] : [job.runner_id])))];
+    const names = new Map((await runnersRepository(db).runnersByIds(ids)).map((runner): [string, string] => [runner.id, runner.name]));
     return fixingOf(prd, jobs.map((job) => ({ ...job, runner: job.runner_id === null ? null : names.get(job.runner_id) ?? null })));
   } catch (error) {
     console.error(error);
@@ -271,14 +273,48 @@ async function productOutboxOf(db: Db, dossier: DossierRead['dossier'], tab: str
   return rows === null ? null : productOutboxView(rows);
 }
 
+/** The change check of a numbered PRD's page, outside what waits for the approval, Send to terminal and the runner, so it stays mounted. */
+async function LivePart({ live, read }: { live: (read: DossierRead) => Promise<ReactNode>; read: DossierRead }) {
+  return <>{await live(read)}</>;
+}
+
+/** The page's shell: as the database has it, with nothing of a ◆ PRD's approval, which the page says as soon as it is read. */
+export const shellOf = (read: DossierRead): DossierRead => (
+  read.dossier.birthplace === 'server' ? { ...read, dossier: { ...read.dossier, birthplace: 'repo' } } : read
+);
+
+async function Settled<T>({ late, children }: { late: Promise<T>; children: (late: T) => ReactNode }) {
+  return <>{children(await late)}</>;
+}
+
+export interface WithLatePartsProps<T> {
+  late: Promise<T>;
+  shell: ReactNode;
+  /** The change check, from the page `read` as the database has it: beside what waits, never inside it. */
+  live: (read: DossierRead) => Promise<ReactNode>;
+  read: DossierRead;
+  children: (late: T) => ReactNode;
+}
+
+/** Sends `shell` at once and, once `late` has settled, the page `children` makes of it in its place (PRD 2401 s4). */
+export function WithLateParts<T>({ late, shell, live, read, children }: WithLatePartsProps<T>) {
+  return (
+    <>
+      <Suspense fallback={null}><LivePart live={live} read={read} /></Suspense>
+      <Suspense fallback={shell}><Settled late={late}>{children}</Settled></Suspense>
+    </>
+  );
+}
+
 /** The page of dossier `id` on `route`'s route: /prd/<id>, /visual/<id> or /bugs/<id>. */
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const pick = readPick(query);
+  const timings = createTimings(); // PRD 2401 s1: the page's reads, each by name
   const mode = serverEnv().mode;
 
   if (mode === 'demo') return demoPage(route, id, query, pick);
-  const session = await dossierSession(mode);
+  const session = await timings.time('viewer', dossierSession(mode));
   if (!session) return <DossiersClosed />;
   const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={dossierCallbackPath(id)} error={one(query.signin_error)} />;
@@ -287,7 +323,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const proofs = isDossierId(id) ? readProofs(proofStore(db), id, { sign: pick.tab === 'proof', version: pick.version }) : Promise.resolve(null);
   const pitches = isDossierId(id) ? readPitches(pitchStore(db), id, { sign: pick.tab === 'pitch', pitch: pick.pitch ?? null }) : Promise.resolve(null);
   try {
-    read = await readDossier(db, id, user.id);
+    read = await readDossier(db, id, user.id, timings);
   } catch (error) {
     console.error(error);
     return <DossierDatabaseDown />;
@@ -314,15 +350,28 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   };
   const { prd } = read.dossier;
   if (prd !== null && kindOf(read.dossier) === 'prd') {
-    const approval = approvalOf(db, read, user.id);
-    const send = liveSendSetup(user.id, dossier.workspace_id, dossier.home_repo);
-    const fixing = fixingRead(dossier, prd);
-    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval), fixing: await fixing };
+    // PRD 2401 s4: the approval, Send to terminal and the fixing runner are started now and awaited by a
+    // Suspense of their own below: the page's shell is sent without them.
+    const late = Promise.all([
+      timings.time('approval', approvalOf(db, read, user.id)),
+      timings.time('send', liveSendSetup(user.id, dossier.workspace_id, dossier.home_repo)),
+      timings.time('fixing', fixingRead(dossier, prd)),
+    ]);
+    read = { ...read, proofs: await timings.time('proofs', proofs), pitches: await timings.time('pitches', pitches) };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
     const voice = shownVoice(first, (shownId) => readContent(db, shownId), () => readVoiceCast(db, dossier.workspace_id));
-    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read, prd)} markdown={markdown} voice={voice} supabase={env} live={live} send={await send} />;
+    const reads = prdReads(db, read, prd);
+    const page = (seen: DossierRead, send: Awaited<typeof late>[1], timing: ReactNode) => (
+      <DossierStream read={seen} me={user.id} pick={pick} reads={reads} markdown={markdown} voice={voice} supabase={env} live={() => null} send={send} timing={timing} />
+    );
+    const base = read;
+    return (
+      <WithLateParts late={late} shell={page(shellOf(base), null, null)} live={live} read={base}>
+        {([approval, send, fixing]) => page({ ...base, ...approval, fixing }, send, <ServerTimingMark timings={timings} />)}
+      </WithLateParts>
+    );
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);

@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { BrandLogo } from './BrandLogo';
 import { TopBar } from './TopBar';
+import { logoSvg } from '@omni/design';
 import { item, present } from '../ask/test/test-item';
 
 // The one OMNI LOOP logo (issue 956): the crest and the wordmark, linked to /app, drawn the same in the
@@ -30,5 +31,15 @@ describe('the logo', () => {
   it('is the one the sidebar shows', () => {
     const source = readFileSync(new URL('./Sidebar.tsx', import.meta.url), 'utf8');
     expect(source).toContain('<BrandLogo className="app-sidebar-crest"');
+  });
+});
+
+describe('the anti-loop logo (PRD 2490)', () => {
+  it('reads ANTI LOOP then the mirrored crest, linked to /anti', () => {
+    expect(render({ mode: 'anti' })).toBe(`<a class="brand-logo" href="/anti"><span class="ask-mark">ANTI LOOP</span><span class="brand-logo-crest" aria-hidden="true">${logoSvg('mark', { scale: 2, mirror: true, title: null })}</span></a>`);
+  });
+
+  it('is unchanged in the forward mode', () => {
+    expect(render({ mode: 'omni' })).toBe(render());
   });
 });
