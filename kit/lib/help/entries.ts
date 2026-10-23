@@ -871,8 +871,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'rewind',
     kind: 'command',
     who: 'skills',
-    usage: ['omni rewind facts <prd> [--json]', 'omni rewind push <prd> --file <findings.json>'],
-    summary: 'read a PRD\'s watch on main, and send the rewind\'s findings to its page',
+    usage: [
+      'omni rewind facts <prd> [--json]',
+      'omni rewind push <prd> --file <findings.json>',
+      'omni rewind outcome <finding>',
+      "  (--pr <n> | --already <rule> | --asks '<question>')",
+    ],
+    summary: 'read a PRD\'s watch on main, send the rewind\'s findings to its page, and record what became of an approved one',
     detail:
       "facts prints the PRD's status on main per repository (watching, clean or broke), each break with its " +
       'link, and the findings already on its page; it says so when the PRD has no watch. push sends a file of ' +
@@ -880,7 +885,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'member to approve or reject. It refuses, naming the finding and sending nothing, one with no evidence ' +
       'link, an origin other than repository, omni-setup or knowledge, a check other than main, reviews, ci, ' +
       'bodies, waves, plan, spec or knowledge, and one already proposed (the same check, origin and evidence). ' +
-      'Both need the terminal sign-in of a member of the PRD\'s workspace.',
+      'outcome records, once, what was done with a finding a member approved, on the id its card carries: ' +
+      '--pr <n> names the pull request that proposes the rule, --already <rule> the rule that already says it ' +
+      '(one line), --asks <question> the one question asked. The PRD\'s Main tab then shows it on the card. It ' +
+      'refuses, recording nothing and exiting 1, a finding not approved and a second outcome of the same ' +
+      'finding (an outcome is never rewritten), and, exiting 2, none or more than one of the three. ' +
+      'All three need the terminal sign-in of a member of the PRD\'s workspace.',
   },
   {
     name: 'item',

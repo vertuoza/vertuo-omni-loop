@@ -1,5 +1,5 @@
-// `omni rewind facts` and `omni rewind push` (PRD 2410, s5), seen from the outside: through `main()` on a
-// fixture repository, against a small server that answers the two routes, with the sign-in an in-memory store.
+// `omni rewind facts`, `omni rewind push` (PRD 2410, s5) and `omni rewind outcome` (PRD 2498, s2), seen from the outside: through `main()` on a
+// fixture repository, against a small server that answers the routes, with the sign-in an in-memory store.
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
 import { writeFileSync } from 'node:fs';
@@ -135,6 +135,73 @@ describe('omni rewind push', () => {
     expect((await omni(['push', '7', '--file', 'nope.json'], run)).err).toContain('cannot read nope.json');
     expect((await omni(['push', '7', ...sentFile(run, 'not json')], run)).err).toContain('is not JSON');
     expect(run.seen).toEqual([]);
+  });
+});
+
+describe('omni rewind outcome', () => {
+  const ID = '6f1c1b1e-8a0e-4c1f-9d55-2c1f7b0e9a11';
+  const route = `/api/rewind/findings/${ID}/outcome`;
+  const answered = { status: 200, body: { outcome: 'recorded' } };
+
+  it('sends a proposed rule with its pull request, and prints it', async () => {
+    const run = await checkout(() => answered);
+    const result = await omni(['outcome', ID, '--pr', '42'], run);
+    expect(result).toEqual({ code: 0, out: `rewind outcome — finding ${ID}: rule proposed in PR #42.\n`, err: '' });
+    expect(run.seen).toEqual([{ method: 'POST', url: route, body: { outcome: 'proposed', pr: 42 } }]);
+  });
+
+  it('sends the rule that already says it', async () => {
+    const run = await checkout(() => answered);
+    const result = await omni(['outcome', ID, '--already', 'playbook/testing#where-tests-live'], run);
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('already said by playbook/testing#where-tests-live');
+    expect(run.seen).toEqual([{ method: 'POST', url: route, body: { outcome: 'already', note: 'playbook/testing#where-tests-live' } }]);
+  });
+
+  it('sends the question asked', async () => {
+    const run = await checkout(() => answered);
+    const result = await omni(['outcome', ID, '--asks', 'Which form holds it?'], run);
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('asks Which form holds it?');
+    expect(run.seen).toEqual([{ method: 'POST', url: route, body: { outcome: 'asks', note: 'Which form holds it?' } }]);
+  });
+
+  it.each([
+    ['no outcome', [], 'give exactly one of'],
+    ['two outcomes', ['--pr', '4', '--asks', 'Why?'], 'give exactly one of'],
+    ['a pull request that is not a number', ['--pr', 'four'], '--pr must be a positive number'],
+    ['a pull request of zero', ['--pr', '0'], '--pr must be a positive number'],
+    ['a blank rule', ['--already', '  '], '--already needs'],
+    ['a rule on two lines', ['--already', 'a\nb'], '--already is one line'],
+    ['a rule too long', ['--already', 'x'.repeat(201)], '--already is one line'],
+    ['a blank question', ['--asks', ' '], '--asks needs'],
+    ['a question too long', ['--asks', 'x'.repeat(2001)], '--asks is at most'],
+    ['a flag with no value', ['--pr'], '--pr needs a value'],
+  ])('exits 2 on %s, and calls nothing', async (_, flags, line) => {
+    const run = await checkout(() => answered);
+    const result = await omni(['outcome', ID, ...flags], run);
+    expect(result.code).toBe(2);
+    expect(result.err).toContain(line);
+    expect(run.seen).toEqual([]);
+  });
+
+  it.each([[['outcome', '--pr', '4']], [['outcome', 'not-an-id', '--pr', '4']], [['outcome', ID, ID, '--pr', '4']]])('exits 2 on %j', async (args) => {
+    const run = await checkout(() => answered);
+    expect((await omni(args, run)).code).toBe(2);
+    expect(run.seen).toEqual([]);
+  });
+
+  it('prints the page\'s refusal of a second outcome, and records nothing', async () => {
+    const run = await checkout(() => ({ status: 409, body: { error: 'This finding already has an outcome: an outcome is never rewritten.' } }));
+    const result = await omni(['outcome', ID, '--pr', '9'], run);
+    expect(result).toEqual({ code: 1, out: '', err: 'omni rewind outcome: This finding already has an outcome: an outcome is never rewritten. Nothing recorded.\n' });
+  });
+
+  it('says so when signed out', async () => {
+    const run = await checkout(() => answered);
+    const result = await omni(['outcome', ID, '--pr', '9'], { ...run, tokens: { read: () => null, write: () => undefined } });
+    expect(result.code).toBe(1);
+    expect(result.err).toContain('no sign-in');
   });
 });
 

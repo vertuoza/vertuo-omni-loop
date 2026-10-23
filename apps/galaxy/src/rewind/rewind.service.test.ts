@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { RewindFinding } from 'omni-loop/kit/lib/rewind/findings.ts';
 import { AGENT_LINE } from './rewind.approval';
 import type { DecidableFinding, FindingView } from './rewind.contract';
@@ -13,7 +13,7 @@ const finding = (more: Partial<RewindFinding> = {}): RewindFinding => ({
   check: 'ci', origin: 'repository', happened: 'The lint was red and merged.', evidence: ['https://a.test/1'], fix: 'Require the lint.', ...more,
 });
 const view = (more: Partial<FindingView> = {}): FindingView => ({
-  id: 'f1', check: 'ci', origin: 'repository', happened: 'x', evidence: ['https://a.test/1'], fix: 'y', state: 'proposed', reason: null, decidedBy: null, decidedAt: null, ...more,
+  id: 'f1', check: 'ci', origin: 'repository', happened: 'x', evidence: ['https://a.test/1'], fix: 'y', state: 'proposed', reason: null, decidedBy: null, decidedAt: null, outcome: null, ...more,
 });
 
 function ports(more: Partial<RewindPorts> & { stored?: FindingView[] } = {}) {
@@ -23,6 +23,8 @@ function ports(more: Partial<RewindPorts> & { stored?: FindingView[] } = {}) {
     mainWatch: () => Promise.resolve({ watches: [], breaks: [] }),
     findings: () => Promise.resolve(more.stored ?? []),
     insert: (_w, _r, _p, found) => { inserted.push([...found]); return Promise.resolve('ok'); },
+    workspaceOfFinding: () => Promise.resolve('w1'),
+    recordOutcome: () => Promise.resolve(null),
     ...more,
   };
   return { service: rewindService(fake), inserted };
@@ -38,6 +40,31 @@ describe('facts', () => {
     const stored = [view()];
     const { service } = ports({ stored, mainWatch: () => Promise.resolve({ watches: [], breaks: [] }) });
     expect(await service.facts('acme/widgets', PRD)).toEqual({ ok: true, value: { watches: [], breaks: [], findings: stored } });
+  });
+});
+
+describe('outcome (PRD 2498, s2)', () => {
+  const ID = '6f1c1b1e-8a0e-4c1f-9d55-2c1f7b0e9a11';
+
+  it('records the outcome in the workspace of the finding the caller reads', async () => {
+    const calls: unknown[] = [];
+    const { service } = ports({ recordOutcome: (workspace, id, body) => { calls.push([workspace, id, body]); return Promise.resolve(null); } });
+    expect(await service.outcome(ID, { outcome: 'proposed', pr: parsePr(42) })).toEqual({ ok: true, value: { outcome: 'proposed' } });
+    expect(calls).toEqual([['w1', ID, { outcome: 'proposed', pr: parsePr(42) }]]);
+  });
+
+  it('answers missing for a finding the caller reads none of, and records nothing', async () => {
+    const calls: unknown[] = [];
+    const { service } = ports({ workspaceOfFinding: () => Promise.resolve(null), recordOutcome: () => { calls.push(1); return Promise.resolve(null); } });
+    expect(await service.outcome(ID, { outcome: 'asks', note: 'Which form?' })).toMatchObject({ ok: false, kind: 'missing' });
+    expect(calls).toEqual([]);
+  });
+
+  it('keeps the database\'s refusal: a second outcome, a finding not approved, a caller not allowed', async () => {
+    for (const kind of ['recorded', 'unapproved', 'not-allowed'] as const) {
+      const { service } = ports({ recordOutcome: () => Promise.resolve({ kind, error: `no: ${kind}` }) });
+      expect(await service.outcome(ID, { outcome: 'already', note: 'playbook/testing#x' })).toEqual({ ok: false, kind, error: `no: ${kind}` });
+    }
   });
 });
 

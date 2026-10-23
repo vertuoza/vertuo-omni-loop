@@ -64,6 +64,22 @@ function stateLine(f: FindingView): string {
   return `${STATE_WORDS[f.state]}${by}${on}${why}`;
 }
 
+/** What became of an approved finding (PRD 2498, s2): the pull request that proposes the rule, the rule that
+ * already says it, or the question asked; a knowledge finding still waiting says the rule is being proposed. */
+function OutcomeLine({ finding: f }: { finding: FindingView }) {
+  const outcome = f.outcome;
+  if (outcome === null) return f.origin === 'knowledge' ? <p className="main-finding-outcome ask-hint">Proposing the rule…</p> : null;
+  if (outcome.kind === 'proposed') {
+    return (
+      <p className="main-finding-outcome">
+        {outcome.url?.startsWith('https://') ? <a href={outcome.url} target="_blank" rel="noopener noreferrer">Rule proposed in PR #{outcome.pr}</a> : <>Rule proposed in PR #{outcome.pr}</>}
+      </p>
+    );
+  }
+  if (outcome.kind === 'already') return <p className="main-finding-outcome">Already said by <code>{outcome.rule}</code></p>;
+  return <p className="main-finding-outcome">{outcome.question}</p>;
+}
+
 /** One finding of the rewind: its check, where the break started, what happened, the links it stands on and its
  * fix (PRD 2410, s5); a proposed one carries Approve and Reject for the member reading it (s7). */
 function Finding({ finding: f, primary }: { finding: FindingView; primary: boolean }) {
@@ -83,6 +99,7 @@ function Finding({ finding: f, primary }: { finding: FindingView; primary: boole
         ))}
       </ul>
       <p className="main-finding-fix"><strong>Fix:</strong> {f.fix}</p>
+      {f.state === 'approved' && <OutcomeLine finding={f} />}
       {f.state === 'proposed' && <FindingDecision finding={f.id} primary={primary} />}
     </li>
   );
