@@ -10,12 +10,12 @@ const EDIT = { workspace: 'w-acme', form: 'review', text: '# Review\n' };
 const OPENED = { repository: 'acme/plan', pullRequest: { number: 42, url: 'https://github.com/acme/plan/pull/42' } };
 
 function fetchAnswering(answer: () => Response) {
-  const sent: { url: string; init: RequestInit }[] = [];
-  const fetch = (url: string | URL | Request, init?: RequestInit) => {
-    sent.push({ url: String(url), init: init ?? {} });
+  const sent: { url: unknown; init: RequestInit }[] = [];
+  const fetch: typeof globalThis.fetch = (url, init) => {
+    sent.push({ url, init: init ?? {} });
     return Promise.resolve(answer());
   };
-  return { fetch: fetch as typeof globalThis.fetch, sent };
+  return { fetch, sent };
 }
 
 describe('proposePage', () => {
@@ -25,7 +25,8 @@ describe('proposePage', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]?.url).toBe(PLAYBOOK_PROPOSAL_ROUTE);
     expect(sent[0]?.init.method).toBe('POST');
-    expect(JSON.parse(String(sent[0]?.init.body))).toEqual(EDIT);
+    const body = sent[0]?.init.body;
+    expect(typeof body === 'string' ? JSON.parse(body) : null).toEqual(EDIT);
   });
 
   it('answers the route\'s own words for a refusal', async () => {
