@@ -18,6 +18,7 @@ const EXPECTED = {
     { hooks: [{ type: 'command', command: omni('constituents'), timeout: 10 }] },
     { hooks: [{ type: 'command', command: omni('kb index'), timeout: 10 }] },
     { hooks: [{ type: 'command', command: omni('sync --background'), timeout: 10 }] },
+    { hooks: [{ type: 'command', command: omni('worktrees hint'), timeout: 10 }] },
   ],
   PreToolUse: [{ matcher: 'AskUserQuestion', hooks: [{ type: 'command', command: omni('ask hook pre'), timeout: 600 }] }],
   PostToolUse: [
