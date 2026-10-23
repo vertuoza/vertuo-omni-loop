@@ -5662,8 +5662,8 @@ var require_cst_visit = __commonJS({
     visit3.REMOVE = REMOVE;
     visit3.itemAtPath = (cst, path) => {
       let item2 = cst;
-      for (const [field2, index2] of path) {
-        const tok = item2?.[field2];
+      for (const [field3, index2] of path) {
+        const tok = item2?.[field3];
         if (tok && "items" in tok) {
           item2 = tok.items[index2];
         } else
@@ -5673,8 +5673,8 @@ var require_cst_visit = __commonJS({
     };
     visit3.parentCollection = (cst, path) => {
       const parent = visit3.itemAtPath(cst, path.slice(0, -1));
-      const field2 = path[path.length - 1][0];
-      const coll = parent?.[field2];
+      const field3 = path[path.length - 1][0];
+      const coll = parent?.[field3];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
@@ -5683,11 +5683,11 @@ var require_cst_visit = __commonJS({
       let ctrl = visitor(item2, path);
       if (typeof ctrl === "symbol")
         return ctrl;
-      for (const field2 of ["key", "value"]) {
-        const token = item2[field2];
+      for (const field3 of ["key", "value"]) {
+        const token = item2[field3];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path.concat([[field2, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path.concat([[field3, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5697,7 +5697,7 @@ var require_cst_visit = __commonJS({
               i -= 1;
             }
           }
-          if (typeof ctrl === "function" && field2 === "key")
+          if (typeof ctrl === "function" && field3 === "key")
             ctrl = ctrl(item2, path);
         }
       }
@@ -7464,7 +7464,7 @@ init_define_OMNI_BUNDLE();
 // kit/bin/omni.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync16 } from "node:child_process";
-import { realpathSync as realpathSync5 } from "node:fs";
+import { realpathSync as realpathSync6 } from "node:fs";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
 // kit/lib/config.ts
@@ -11005,14 +11005,14 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     const shape = zod.def.shape;
     const propValues = {};
     for (const key2 in shape) {
-      const field2 = shape[key2]._zod;
-      if (field2.values) {
+      const field3 = shape[key2]._zod;
+      if (field3.values) {
         if (!Object.prototype.hasOwnProperty.call(propValues, key2)) {
           assignProp(propValues, key2, /* @__PURE__ */ new Set());
         }
-        for (const v of field2.values)
+        for (const v of field3.values)
           propValues[key2].add(v);
-        if (field2.optin !== void 0)
+        if (field3.optin !== void 0)
           propValues[key2].add(void 0);
       }
     }
@@ -12522,7 +12522,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve18) {
+function isRecursive(inst, stack, resolve19) {
   const cached4 = recursive.get(inst);
   if (cached4 !== void 0)
     return cached4 ? PROVEN : NONE;
@@ -12532,7 +12532,7 @@ function isRecursive(inst, stack, resolve18) {
   let result2 = NONE;
   const check5 = (child) => {
     if (result2 !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve18);
+      const answer = isRecursive(child, stack, resolve19);
       if (answer > result2)
         result2 = answer;
     }
@@ -12543,7 +12543,7 @@ function isRecursive(inst, stack, resolve18) {
       const desc = Object.getOwnPropertyDescriptor(sh, key2);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve18) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve19) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -12607,7 +12607,7 @@ function isRecursive(inst, stack, resolve18) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve18 ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve19 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -24014,8 +24014,8 @@ var objectProcessor = (schema, ctx, _json, params) => {
   }
   const requiredKeys = [];
   for (const key2 of Object.keys(shape)) {
-    const field2 = def.shape[key2];
-    if (ctx.io === "input" ? inputOptin(field2) === void 0 : field2._zod.optout === void 0) {
+    const field3 = def.shape[key2];
+    if (ctx.io === "input" ? inputOptin(field3) === void 0 : field3._zod.optout === void 0) {
       requiredKeys.push(key2);
     }
   }
@@ -28216,8 +28216,8 @@ function parseOrThrow(schema, value, shape) {
   const parsed2 = schema.safeParse(value, { error: KIT_MESSAGES });
   if (parsed2.success) return parsed2.data;
   const issue2 = parsed2.error.issues[0];
-  const field2 = issue2 && issue2.path.length ? `${issue2.path.join(".")}: ` : "";
-  throw new Error(`${shape}: ${field2}${issue2?.message ?? "invalid"}`);
+  const field3 = issue2 && issue2.path.length ? `${issue2.path.join(".")}: ` : "";
+  throw new Error(`${shape}: ${field3}${issue2?.message ?? "invalid"}`);
 }
 
 // kit/lib/ids.ts
@@ -28370,8 +28370,8 @@ function readFrontMatter(raw) {
   return {
     errors: result2.error.issues.map((issue2) => {
       const keys = issue2.code === "unrecognized_keys" ? ` (${issue2.keys.join(", ")})` : "";
-      const field2 = issue2.path.length > 0 ? `${issue2.path.join(".")}: ` : "";
-      return `front matter ${field2}${issue2.message}${keys}`;
+      const field3 = issue2.path.length > 0 ? `${issue2.path.join(".")}: ` : "";
+      return `front matter ${field3}${issue2.message}${keys}`;
     })
   };
 }
@@ -31755,9 +31755,9 @@ function parseOutboxItem(text15, { file: file2 = null } = {}) {
   if (errors.length > 0 || read3.data === null) return { ok: false, errors };
   const fm = read3.data;
   const itemSections2 = {};
-  for (const [heading2, field2] of Object.entries(SECTION_FIELD)) {
+  for (const [heading2, field3] of Object.entries(SECTION_FIELD)) {
     const content = sections[heading2];
-    if (content !== void 0) itemSections2[field2] = content;
+    if (content !== void 0) itemSections2[field3] = content;
   }
   if (parsedOptions !== void 0) itemSections2.options = parsedOptions;
   const item2 = {
@@ -31971,7 +31971,7 @@ function lawsFor(ctx) {
     }
     return invariants;
   };
-  function resolve18(bearsOn) {
+  function resolve19(bearsOn) {
     if (bearsOn === "none") return { ok: true };
     const adr = ADR_ID.exec(bearsOn);
     if (adr) {
@@ -31994,7 +31994,7 @@ function lawsFor(ctx) {
     if (source2 === "claudeMdInvariants") return invariantSet().has(bearsOn);
     return false;
   }
-  return Object.freeze({ source: source2, resolve: resolve18, floorsHigh });
+  return Object.freeze({ source: source2, resolve: resolve19, floorsHigh });
 }
 
 // kit/lib/outbox/account.ts
@@ -32827,15 +32827,15 @@ function checkItemText(file2, text15, { laws: laws2 }) {
       )
     );
   } else {
-    for (const { heading: heading2, field: field2 } of PLAIN_SECTION_FIELDS) {
-      for (const problem of plainWordsProblems(item2.sections[field2])) {
+    for (const { heading: heading2, field: field3 } of PLAIN_SECTION_FIELDS) {
+      for (const problem of plainWordsProblems(item2.sections[field3])) {
         violations.push(describe3(file2, `"## ${heading2}" ${problem}`));
       }
     }
   }
-  for (const { heading: heading2, field: field2 } of FUN_SECTION_FIELDS) {
-    if (item2.sections[field2] === void 0) continue;
-    for (const problem of funLineProblems(item2.sections[field2])) {
+  for (const { heading: heading2, field: field3 } of FUN_SECTION_FIELDS) {
+    if (item2.sections[field3] === void 0) continue;
+    for (const problem of funLineProblems(item2.sections[field3])) {
       violations.push(describe3(file2, `"## ${heading2}" ${problem}`));
     }
   }
@@ -33079,8 +33079,8 @@ function serverOutboxStore({ ctx, connect: connect2, now: now2 }) {
       const product2 = productPrd(prd2);
       if (out !== null) return writeInto(out, id, text15);
       const ref = refOf(product2, id);
-      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product2, file: ref, name: `${id}.md`, text: text15, taken: /* @__PURE__ */ new Set() });
-      if (refusal4 !== null) throw new Error(`${ref}: ${refusal4}`);
+      const refusal5 = itemRefusal({ laws: lawsFor(ctx), prd: product2, file: ref, name: `${id}.md`, text: text15, taken: /* @__PURE__ */ new Set() });
+      if (refusal5 !== null) throw new Error(`${ref}: ${refusal5}`);
       await put(product2, text15, false);
       return ref;
     },
@@ -33165,9 +33165,9 @@ function serverOutboxStore({ ctx, connect: connect2, now: now2 }) {
     },
     // A product PRD's questions are answered on its Questions tab: no reply on GitHub settles one.
     replies(request2) {
-      return new Promise((resolve18) => {
+      return new Promise((resolve19) => {
         productPrd(request2.prd);
-        resolve18({ settled: [], failed: [], held: [], round: null });
+        resolve19({ settled: [], failed: [], held: [], round: null });
       });
     },
     async prComment(prd2) {
@@ -34481,8 +34481,8 @@ function settledInOutbox(ctx, prd2) {
   return existsSync26(settledFile) ? parseSettledEntries(readFileSync24(settledFile, "utf8"), ctx.markers) : [];
 }
 function promised(run2) {
-  return new Promise((resolve18) => {
-    resolve18(run2());
+  return new Promise((resolve19) => {
+    resolve19(run2());
   });
 }
 function gitOutboxStore(ctx) {
@@ -35175,12 +35175,12 @@ var FrontMatterSchema2 = external_exports.object({
   kind: external_exports.enum(CONCEPT_KINDS),
   scale: external_exports.enum(CONCEPT_SCALES)
 }).strict();
-function fieldFault(field2, value) {
-  if (value === void 0) return `no "${field2}" field.`;
-  if (field2 === "concept") return `concept is "${value}", not a positive whole number (the concept's issue).`;
-  if (field2 === "title") return "title is empty.";
-  const allowed = field2 === "kind" ? CONCEPT_KINDS : CONCEPT_SCALES;
-  return `${field2} is "${value}", not one of ${allowed.join(", ")}.`;
+function fieldFault(field3, value) {
+  if (value === void 0) return `no "${field3}" field.`;
+  if (field3 === "concept") return `concept is "${value}", not a positive whole number (the concept's issue).`;
+  if (field3 === "title") return "title is empty.";
+  const allowed = field3 === "kind" ? CONCEPT_KINDS : CONCEPT_SCALES;
+  return `${field3} is "${value}", not one of ${allowed.join(", ")}.`;
 }
 function frontMatter(raw) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
@@ -35194,7 +35194,7 @@ function frontMatter(raw) {
     }
   }
   const faulty = new Set(parsed2.error.issues.map((issue2) => issue2.path[0]).filter(Boolean));
-  for (const field2 of FRONT_FIELDS.filter((name3) => faulty.has(name3))) errors.push(`front matter: ${fieldFault(field2, data[field2])}`);
+  for (const field3 of FRONT_FIELDS.filter((name3) => faulty.has(name3))) errors.push(`front matter: ${fieldFault(field3, data[field3])}`);
   return { data: null, errors, scale };
 }
 function sectionFaults(sections) {
@@ -35309,18 +35309,18 @@ var isText2 = (value) => typeof value === "string" && value.trim().length > 0;
 function countSentences2(text15) {
   return text15.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
-function citationProblems(citations, field2) {
+function citationProblems(citations, field3) {
   if (!Array.isArray(citations) || citations.length === 0) {
-    return [`${field2} must cite at least one persona:<name> or claim id.`];
+    return [`${field3} must cite at least one persona:<name> or claim id.`];
   }
   return citations.flatMap(
-    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field2}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
+    (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field3}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text15, field2) {
-  if (!isText2(text15)) return [`${field2} must be a sentence.`];
+function lineProblems(text15, field3) {
+  if (!isText2(text15)) return [`${field3} must be a sentence.`];
   const count5 = countSentences2(text15);
-  return count5 > MAX_SENTENCES ? [`${field2} holds ${count5} sentences; two at most.`] : [];
+  return count5 > MAX_SENTENCES ? [`${field3} holds ${count5} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
   const at2 = `personas[${i}]`;
@@ -35822,16 +35822,16 @@ var IDLE_MS = 45e3;
 var backoffMs = (failures) => [1e3, 2e3, 5e3][failures - 1] ?? 1e4;
 var SIGNED_OUT_LINE = "no sign-in (omni signin) \xB7 held";
 function pause(ms, signal) {
-  return new Promise((resolve18) => {
+  return new Promise((resolve19) => {
     if (signal.aborted) {
-      resolve18();
+      resolve19();
       return;
     }
     const timer = setTimeout(done, ms);
     function done() {
       clearTimeout(timer);
       signal.removeEventListener("abort", done);
-      resolve18();
+      resolve19();
     }
     signal.addEventListener("abort", done, { once: true });
   });
@@ -35849,10 +35849,10 @@ function waitingLine(prd2, asking) {
 var approvedLine = (prd2, login2, at2, pinned) => `\u2713 PRD ${Number(prd2)} approved by ${login2} \xB7 ${at2} \xB7 ${pinned} ${pinned === 1 ? "file" : "files"} pinned`;
 var short = (sha) => sha.slice(0, 7);
 function aborted2(signal) {
-  return new Promise((resolve18) => {
-    if (signal.aborted) resolve18("aborted");
+  return new Promise((resolve19) => {
+    if (signal.aborted) resolve19("aborted");
     else signal.addEventListener("abort", () => {
-      resolve18("aborted");
+      resolve19("aborted");
     }, { once: true });
   });
 }
@@ -36758,8 +36758,8 @@ function readAnswerFile(value) {
   if (parsed2.success) return { ok: true, value: parsed2.data };
   const issue2 = parsed2.error.issues.at(0);
   const unknown2 = issue2?.code === "unrecognized_keys" ? issue2.keys.slice(0, 1) : [];
-  const field2 = [...issue2?.path ?? [], ...unknown2].map(String).join(".");
-  return { ok: false, field: field2 || "(file)", message: issue2?.message ?? "not an answer file" };
+  const field3 = [...issue2?.path ?? [], ...unknown2].map(String).join(".");
+  return { ok: false, field: field3 || "(file)", message: issue2?.message ?? "not an answer file" };
 }
 function answersAsGiven(answers2) {
   const questions2 = Object.keys(answers2).map((question) => ({ question }));
@@ -36818,12 +36818,12 @@ var SLOW_DOWN_S = 2;
 var positive2 = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
 var text7 = (value) => typeof value === "string" && value.length > 0;
 function wait2(ms, signal) {
-  return new Promise((resolve18) => {
+  return new Promise((resolve19) => {
     const timer = setTimeout(done, ms);
     function done() {
       clearTimeout(timer);
       signal.removeEventListener("abort", done);
-      resolve18();
+      resolve19();
     }
     signal.addEventListener("abort", done);
   });
@@ -36975,8 +36975,8 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
   let settle4 = { resolve: () => {
   }, reject: () => {
   } };
-  const caught = new Promise((resolve18, reject2) => {
-    settle4 = { resolve: resolve18, reject: reject2 };
+  const caught = new Promise((resolve19, reject2) => {
+    settle4 = { resolve: resolve19, reject: reject2 };
   });
   caught.catch(() => {
   });
@@ -37010,8 +37010,8 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
   });
   let closedResolve = () => {
   };
-  const closed = new Promise((resolve18) => {
-    closedResolve = resolve18;
+  const closed = new Promise((resolve19) => {
+    closedResolve = resolve19;
   });
   let timer = void 0;
   function finish2(outcome) {
@@ -37023,11 +37023,11 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
     });
     server.closeAllConnections();
   }
-  await new Promise((resolve18, reject2) => {
+  await new Promise((resolve19, reject2) => {
     server.once("error", reject2);
     server.listen(0, HOST, () => {
       server.off("error", reject2);
-      resolve18();
+      resolve19();
     });
   });
   const listening = server.address();
@@ -37066,7 +37066,7 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
 init_define_OMNI_BUNDLE();
 function firstOf(contenders) {
   if (contenders.length === 0) return Promise.reject(new Error("a race needs at least one contender: no contender given"));
-  return new Promise((resolve18, reject2) => {
+  return new Promise((resolve19, reject2) => {
     let won = false;
     const failed4 = /* @__PURE__ */ new Set();
     contenders.forEach((contender) => {
@@ -37075,7 +37075,7 @@ function firstOf(contenders) {
           if (won) return;
           won = true;
           await Promise.all(contenders.filter((other) => other !== contender && !failed4.has(other)).map(async (other) => other.close()));
-          resolve18(value);
+          resolve19(value);
         },
         (error62) => {
           if (won) return;
@@ -37090,8 +37090,8 @@ function firstOf(contenders) {
 // kit/bin/synchronous.ts
 init_define_OMNI_BUNDLE();
 function synchronous(run2) {
-  return (...args) => new Promise((resolve18) => {
-    resolve18(run2(...args));
+  return (...args) => new Promise((resolve19) => {
+    resolve19(run2(...args));
   });
 }
 
@@ -40426,10 +40426,10 @@ function postReply({ thread, verdict: verdict2, body }, { ctx, stdout, stderr, e
   const ghEnv = githubEnv(ctx, { exec, env });
   try {
     const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv }));
-    const resolve18 = verdict2 !== "asked";
-    if (resolve18) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
+    const resolve19 = verdict2 !== "asked";
+    if (resolve19) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
     const url2 = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
-    println(stdout, JSON.stringify({ thread, verdict: verdict2, url: url2, resolved: resolve18 }));
+    println(stdout, JSON.stringify({ thread, verdict: verdict2, url: url2, resolved: resolve19 }));
     return 0;
   } catch (error62) {
     if (!(error62 instanceof Error) || error62.name !== "GitHubError") throw error62;
@@ -40588,7 +40588,7 @@ function claimOf(raw) {
   if (!value.id.startsWith(`${kind}#`)) return null;
   const state = value.state ?? "confirmed";
   if (!STATES.includes(state)) return null;
-  const orNull = (field2) => isText3(field2) ? field2 : null;
+  const orNull = (field3) => isText3(field3) ? field3 : null;
   return {
     id: value.id,
     kind,
@@ -40848,9 +40848,9 @@ function frontMatter2(raw, schema) {
       }
       continue;
     }
-    const field2 = String(issue2.path[0] ?? "(front matter)");
-    const value = data[field2];
-    errors.push(value === void 0 ? `front matter: no "${field2}" field.` : `front matter: ${field2} is "${value}": ${issue2.message}.`);
+    const field3 = String(issue2.path[0] ?? "(front matter)");
+    const value = data[field3];
+    errors.push(value === void 0 ? `front matter: no "${field3}" field.` : `front matter: ${field3} is "${value}": ${issue2.message}.`);
   }
   return { data: null, errors };
 }
@@ -40952,16 +40952,16 @@ function cardField(label2) {
 }
 function cardOf(lines3) {
   const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
-  let field2 = null;
+  let field3 = null;
   for (const line2 of lines3) {
     const labelled3 = CARD_LINE.exec(line2);
     if (labelled3) {
-      field2 = cardField(group(labelled3, 1));
-      if (field2 !== null) card[field2] = group(labelled3, 2).trim();
+      field3 = cardField(group(labelled3, 1));
+      if (field3 !== null) card[field3] = group(labelled3, 2).trim();
     } else if (line2.trim() === "") {
-      field2 = null;
-    } else if (field2 !== null) {
-      card[field2] = `${card[field2] ?? ""} ${line2.trim()}`.trim();
+      field3 = null;
+    } else if (field3 !== null) {
+      card[field3] = `${card[field3] ?? ""} ${line2.trim()}`.trim();
     }
   }
   return { ...card, command: card.command === null ? null : codeCell(card.command) };
@@ -41178,7 +41178,7 @@ function fixFaults({ id, fix, who: who2 }) {
 function cardFaults({ id, who: who2, card }) {
   if (who2 === "agent") return [];
   if (card === null) return [`${id}: has no card; a check or person row has a "### ${id}" card under the table.`];
-  return CARD_LINES.filter(([field2]) => card[field2] === null || card[field2] === "").map(([, label2]) => `${id}: its card has no "${label2}" line.`);
+  return CARD_LINES.filter(([field3]) => card[field3] === null || card[field3] === "").map(([, label2]) => `${id}: its card has no "${label2}" line.`);
 }
 function prerequisiteViolations(roadmap2, rows2) {
   return (roadmap2.prerequisites ?? []).flatMap((prerequisite) => [
@@ -42949,8 +42949,8 @@ function parseSpec(text15, { file: file2 = null } = {}) {
         }
         continue;
       }
-      const field2 = issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)";
-      errors.push(withFile2(file2, `${field2}: ${issue2.message}`));
+      const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)";
+      errors.push(withFile2(file2, `${field3}: ${issue2.message}`));
     }
   }
   if (errors.length > 0 || !parsed2.success) return { ok: false, errors };
@@ -43668,8 +43668,8 @@ function findLevelContradictions(ctx) {
     };
   });
 }
-function findUnresolvedCitations(file2, text15, resolve18) {
-  return idsCitedIn(text15).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve18(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
+function findUnresolvedCitations(file2, text15, resolve19) {
+  return idsCitedIn(text15).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve19(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
 }
 function findWishes(entries4) {
   return entries4.filter((entry3) => entry3.kind === "principle" && servedBy(entries4, entry3.id).length === 0).map(
@@ -43691,7 +43691,7 @@ function gradeKnowledge({
   glossaryText
 }) {
   const knowledge2 = readKnowledge({ ctx });
-  const resolve18 = (id) => knowledge2.entries.find((entry3) => entry3.id === id);
+  const resolve19 = (id) => knowledge2.entries.find((entry3) => entry3.id === id);
   const text15 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
     ...findLayoutViolations(ctx, knowledge2, { glossaryText: text15 }),
@@ -43706,7 +43706,7 @@ function gradeKnowledge({
     ...findThesisViolations(ctx, knowledge2.entries),
     ...findOwnersBlockViolations(ctx, knowledge2),
     ...findLevelContradictions(ctx),
-    ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve18))
+    ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve19))
   ];
   return {
     violations: violations.map(formatViolation),
@@ -44449,9 +44449,9 @@ var FRONT_MATTER3 = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 var DATE4 = /^\d{4}-\d{2}-\d{2}$/;
 var AMENDMENT = /^> Amended /;
 var SECTION = /^## (.+?)\s*$/;
-var name = (field2) => external_exports.string({ message: `${field2} must be text` }).trim().min(1, `${field2} is required`);
-var optional2 = (field2) => name(field2).nullable().default(null);
-var list2 = (field2) => external_exports.array(name(field2), { message: `${field2} must be a bracketed list, e.g. [a, b]` }).nullable().default([]).transform((value) => value ?? []);
+var name = (field3) => external_exports.string({ message: `${field3} must be text` }).trim().min(1, `${field3} is required`);
+var optional2 = (field3) => name(field3).nullable().default(null);
+var list2 = (field3) => external_exports.array(name(field3), { message: `${field3} must be a bracketed list, e.g. [a, b]` }).nullable().default([]).transform((value) => value ?? []);
 var date5 = external_exports.coerce.string().regex(DATE4, "locked-on must be a YYYY-MM-DD date").nullable().default(null);
 var ScreenFrontMatter = external_exports.object({
   screen: name("screen"),
@@ -44504,7 +44504,7 @@ function parseScreen(text15, file2) {
   const lockedBy = read3.data["locked-by"];
   const lockedOn = read3.data["locked-on"];
   if (status5 === "locked") {
-    const missing2 = [["locked-by", lockedBy], ["locked-on", lockedOn], ["quote", quote]].flatMap(([field2, value]) => value === null ? [field2] : []);
+    const missing2 = [["locked-by", lockedBy], ["locked-on", lockedOn], ["quote", quote]].flatMap(([field3, value]) => value === null ? [field3] : []);
     if (missing2.length) return fail2(`a locked screen needs locked-by, locked-on and quote \u2014 missing ${missing2.join(", ")}`);
   }
   const body = readBody2(text15.slice(fence[0].length));
@@ -48620,7 +48620,7 @@ function parseJson(text15) {
   }
 }
 function wait3(ms) {
-  return new Promise((resolve18) => setTimeout(resolve18, ms));
+  return new Promise((resolve19) => setTimeout(resolve19, ms));
 }
 
 // kit/lib/knowledge/pipeline.ts
@@ -48829,10 +48829,10 @@ var PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
 var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 var RECORD_ID = /^ADR-(\d{4})$/;
-function capped2(field2, max) {
-  return external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`).max(max, `${field2} is over its cap of ${max} characters`);
+function capped2(field3, max) {
+  return external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`).max(max, `${field3} is over its cap of ${max} characters`);
 }
-var text10 = (field2) => external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`);
+var text10 = (field3) => external_exports.string({ error: (issue2) => issue2.input === void 0 ? `${field3} is required` : `${field3} must be text` }).trim().min(1, `${field3} is required`);
 var statement = capped2("statement", CAPS.statement);
 var reason = capped2("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
@@ -50185,6 +50185,15 @@ var ENTRIES = deepFreeze([
     usage: ["omni config [key.path]"],
     summary: "this repository's config, or one value of it",
     detail: "The repository's config, .omni-loop/config.yml with every default filled in, as JSON; with a key path such as paths.delivery, that one value alone. Every skill reads its folders, branches, labels and commands from here rather than spelling them."
+  },
+  {
+    name: "worktrees",
+    kind: "command",
+    who: "you",
+    label: "omni worktrees \u2026",
+    usage: ["omni worktrees list [--json]", "omni worktrees prune [--prd <n>] [--dry-run]", "omni worktrees remove <path>", "omni worktrees hint"],
+    summary: "remove the kit's worktrees once their work is pushed",
+    detail: "A worktree is the kit's when it sits under the worktrees folder on a slice, feature or phase-0 branch; every other one is never touched. A kit worktree is kept, with its reason, while it has an uncommitted change, a commit no remote branch holds, a slice still claimed or red while its feature PR is open, or a process working inside it. list prints every worktree and each verdict, safe or kept. prune removes the safe ones (of one PRD with --prd), printing removed or kept per worktree and the space freed; --dry-run removes nothing. remove applies the same rules to one worktree, a detached one included. hint prints how many could go, with no network. It removes with git worktree remove and git branch -d, never by force, and exits 0 whatever it keeps."
   },
   {
     name: "credits",
@@ -52611,10 +52620,10 @@ var NEW_USAGE = "usage: omni item new --prd <n>|<key>-<n> --slice <id> --file <f
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>|<key>-<n>";
 var USAGE26 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-function funLine2(field2) {
-  return external_exports.string().trim().min(1, `${field2} must not be empty`).superRefine((value, refinement) => {
+function funLine2(field3) {
+  return external_exports.string().trim().min(1, `${field3} must not be empty`).superRefine((value, refinement) => {
     for (const problem of funLineProblems(value)) {
-      refinement.addIssue({ code: "custom", message: `${field2} ${problem}` });
+      refinement.addIssue({ code: "custom", message: `${field3} ${problem}` });
     }
   }).optional();
 }
@@ -52662,8 +52671,8 @@ function readItemInput(ctx, path) {
   const result2 = ItemInputSchema.safeParse(parsed2, { error: KIT_MESSAGES });
   if (!result2.success) {
     const issue2 = result2.error.issues[0];
-    const field2 = issue2 && issue2.path.length > 0 ? issue2.path.join(".") : "(json)";
-    throw usageError(`omni item new: ${path}: "${field2}" \u2014 ${issue2?.message}.`);
+    const field3 = issue2 && issue2.path.length > 0 ? issue2.path.join(".") : "(json)";
+    throw usageError(`omni item new: ${path}: "${field3}" \u2014 ${issue2?.message}.`);
   }
   return result2.data;
 }
@@ -53661,8 +53670,8 @@ var GhCompareSchema = external_exports.looseObject({
 function firstIssue(error62) {
   const [issue2] = error62.issues;
   if (issue2 === void 0) return error62.message;
-  const field2 = issue2.path.length > 0 ? issue2.path.join(".") : "(answer)";
-  return `${field2}: ${issue2.message}`;
+  const field3 = issue2.path.length > 0 ? issue2.path.join(".") : "(answer)";
+  return `${field3}: ${issue2.message}`;
 }
 
 // kit/lib/plan-repo/targets.ts
@@ -55286,8 +55295,8 @@ var FIX_LIMIT_MS = 10 * 6e4;
 function isMet(state) {
   return state !== "waits";
 }
-var sleep = (ms) => new Promise((resolve18) => {
-  setTimeout(resolve18, ms).unref();
+var sleep = (ms) => new Promise((resolve19) => {
+  setTimeout(resolve19, ms).unref();
 });
 var message = (error62) => error62 instanceof Error ? error62.message : String(error62);
 async function within2(probe, ms, timer) {
@@ -55371,10 +55380,10 @@ import { hostname as hostname3 } from "node:os";
 import { join as join109 } from "node:path";
 var MAX_OUTPUT = 4 * 1024 * 1024;
 var ranAndFailed = (error62) => typeof error62.code === "number" || error62.killed === true || error62.signal != null;
-var liveShell = (file2, args, { cwd, timeoutMs }) => new Promise((resolve18, reject2) => {
+var liveShell = (file2, args, { cwd, timeoutMs }) => new Promise((resolve19, reject2) => {
   execFile(file2, [...args], { cwd, timeout: timeoutMs, maxBuffer: MAX_OUTPUT, encoding: "utf8" }, (error62, stdout, stderr) => {
-    if (error62 === null) resolve18({ code: 0, stdout, stderr });
-    else if (ranAndFailed(error62)) resolve18({ code: typeof error62.code === "number" ? error62.code : null, stdout, stderr });
+    if (error62 === null) resolve19({ code: 0, stdout, stderr });
+    else if (ranAndFailed(error62)) resolve19({ code: typeof error62.code === "number" ? error62.code : null, stdout, stderr });
     else reject2(new Error(error62.message, { cause: error62 }));
   });
 });
@@ -58984,11 +58993,11 @@ function textsAt(value, path, at2) {
   return Array.isArray(value) ? value.flatMap((item2, n) => textsAt(item2, rest, `${at2}.${n}`)) : [];
 }
 function wordsOf4(scene2, at2) {
-  return WORD_FIELDS.flatMap(([field2, limit]) => textsAt(scene2, field2.split("."), at2).map((piece) => ({ ...piece, limit })));
+  return WORD_FIELDS.flatMap(([field3, limit]) => textsAt(scene2, field3.split("."), at2).map((piece) => ({ ...piece, limit })));
 }
 var TITLE_FIELDS = Object.freeze(["title", "text", "closing"]);
 function titlesOf(scene2, index2) {
-  return TITLE_FIELDS.flatMap((field2) => textsAt(scene2, [field2], `scenes.${index2}`)).map(({ path, text: text15 }) => ({ path, markers: text15.split(ACCENT_MARKER).length - 1 }));
+  return TITLE_FIELDS.flatMap((field3) => textsAt(scene2, [field3], `scenes.${index2}`)).map(({ path, text: text15 }) => ({ path, markers: text15.split(ACCENT_MARKER).length - 1 }));
 }
 function accentErrors(scene2, index2) {
   return titlesOf(scene2, index2).filter(({ markers }) => markers % 2 === 1).map(({ path }) => ({ path, message: `an accent is left open: close it with another ${ACCENT_MARKER}` }));
@@ -59856,9 +59865,9 @@ function hasFfmpeg2(exec) {
   }
 }
 var pad2 = (value) => String(value).padStart(2, "0");
-function pitchRunDir(worktrees, prd2, audience, now2 = /* @__PURE__ */ new Date()) {
+function pitchRunDir(worktrees2, prd2, audience, now2 = /* @__PURE__ */ new Date()) {
   const stamp2 = `${now2.getFullYear()}${pad2(now2.getMonth() + 1)}${pad2(now2.getDate())}-${pad2(now2.getHours())}${pad2(now2.getMinutes())}${pad2(now2.getSeconds())}`;
-  return join131(worktrees, `pitch-${prd2}`, `${audience}-${stamp2}`);
+  return join131(worktrees2, `pitch-${prd2}`, `${audience}-${stamp2}`);
 }
 var PITCH_JSON = "pitch.json";
 var isRecord7 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -60388,9 +60397,9 @@ async function start(args, { cwd, stdout, stderr, exec, tokens: tokens2, home, f
   const ctx = loadContext(cwd, { exec });
   const askUrl2 = ctx.config.ask.url;
   const store = signedInStore(askUrl2, { tokens: tokens2, home });
-  const refusal4 = refusalHere(ctx, prd2, { exec, store });
-  if (refusal4 !== null || store === null || !askUrl2) {
-    println(stderr, refusal4 ?? REFUSAL.noSignIn);
+  const refusal5 = refusalHere(ctx, prd2, { exec, store });
+  if (refusal5 !== null || store === null || !askUrl2) {
+    println(stderr, refusal5 ?? REFUSAL.noSignIn);
     return 1;
   }
   const repo = ctx.config.repo.slug;
@@ -60627,17 +60636,17 @@ async function pushProof({
   read: read3 = readFileSync107,
   newRunId = randomUUID3
 }) {
-  const kindOf5 = kind ? { kind } : {};
+  const kindOf6 = kind ? { kind } : {};
   let runId;
   if (run2.files.length) {
-    const reply = await client.requestProofUploads({ repo, prd: prd2, ...kindOf5, files: run2.files.map(({ name: name3, bytes: bytes2, type }) => ({ name: name3, bytes: bytes2, type })) });
+    const reply = await client.requestProofUploads({ repo, prd: prd2, ...kindOf6, files: run2.files.map(({ name: name3, bytes: bytes2, type }) => ({ name: name3, bytes: bytes2, type })) });
     const given = linksOf4(reply, run2.files);
     for (const [index2, file2] of run2.files.entries()) await client.upload(at(given.links, index2, `the upload link of ${file2.name}`), read3(file2.path), file2.type);
     runId = given.runId;
   } else {
     runId = newRunId();
   }
-  const registered = await client.registerProof({ repo, prd: prd2, ...kindOf5, run: runId, commit: run2.commit, url: run2.url, criteria: run2.criteria });
+  const registered = await client.registerProof({ repo, prd: prd2, ...kindOf6, run: runId, commit: run2.commit, url: run2.url, criteria: run2.criteria });
   const tab = isRecord8(registered) ? registered.url : void 0;
   if (!isText8(tab)) throw new ProofReplyError("no link in the reply");
   const stable = (name3) => `${new URL(tab).origin}/api/proofs/${runId}/${name3}`;
@@ -62099,8 +62108,8 @@ function machineReads(home) {
     freemem,
     meminfo: () => linux ? readFileSync112("/proc/meminfo", "utf8") : null,
     statfs: () => {
-      const worktrees = join139(home, "wt");
-      return statfsSync(existsSync88(worktrees) ? worktrees : home);
+      const worktrees2 = join139(home, "wt");
+      return statfsSync(existsSync88(worktrees2) ? worktrees2 : home);
     }
   };
 }
@@ -62296,12 +62305,12 @@ function rawLogPath(log) {
   return `${log.replace(/\.log$/, "")}.jsonl`;
 }
 function run(file2, args, { cwd, stdin, log, out, env, stdout }) {
-  return new Promise((resolve18) => {
+  return new Promise((resolve19) => {
     let child;
     try {
       child = spawn2(file2, args, { cwd, stdio: [stdin, "pipe", "pipe"], ...env ? { env } : {} });
     } catch {
-      resolve18(127);
+      resolve19(127);
       return;
     }
     const write2 = (chunk) => {
@@ -62313,10 +62322,10 @@ function run(file2, args, { cwd, stdin, log, out, env, stdout }) {
     child.on("error", () => {
       appendFileSync(log, `${file2}: could not be started
 `);
-      resolve18(127);
+      resolve19(127);
     });
     child.on("close", (code) => {
-      resolve18(code ?? 1);
+      resolve19(code ?? 1);
     });
   });
 }
@@ -63017,14 +63026,14 @@ function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
   return { count: count5, bytes: bytes2 };
 }
 function sweep2(options) {
-  const worktrees = sweepWorktrees(options);
+  const worktrees2 = sweepWorktrees(options);
   let branches = 0;
   for (const checkout of options.checkouts.values()) {
     pruneWorktrees(options.exec, checkout);
     branches += sweepBranches(options, checkout);
   }
   const logs = sweepLogs(options);
-  return { worktrees: worktrees.count, branches, logs: logs.count, bytes: worktrees.bytes + logs.bytes };
+  return { worktrees: worktrees2.count, branches, logs: logs.count, bytes: worktrees2.bytes + logs.bytes };
 }
 var count4 = (n, one, many) => `${String(n)} ${n === 1 ? one : many}`;
 function sizeText(bytes2) {
@@ -63047,11 +63056,11 @@ var FINAL_TRIES = 8;
 var HEALTH_EVERY_MS = 15e3;
 var SWEEP_MS = 60 * 60 * 1e3;
 var KEEP_LOGS_DAYS = 14;
-var sleepFor = (ms, signal) => new Promise((resolve18) => {
+var sleepFor = (ms, signal) => new Promise((resolve19) => {
   const done = () => {
     clearTimeout(timer);
     signal?.removeEventListener("abort", done);
-    resolve18();
+    resolve19();
   };
   const timer = setTimeout(done, ms);
   signal?.addEventListener("abort", done, { once: true });
@@ -63070,7 +63079,7 @@ var readText4 = (path) => {
 };
 var readLog = (loop2, job2, path) => maskTokens(readText4(path), jobTokens(loop2.home, job2));
 function loopOf(options) {
-  const refusal4 = new AbortController();
+  const refusal5 = new AbortController();
   let refused3 = null;
   const { firstMs, maxMs } = options.backoff ?? BACKOFF;
   return {
@@ -63080,10 +63089,10 @@ function loopOf(options) {
     tickMs: options.tickMs ?? TICK_MS,
     firstMs,
     maxMs,
-    halt: AbortSignal.any([options.stop, refusal4.signal]),
+    halt: AbortSignal.any([options.stop, refusal5.signal]),
     refuse(error62) {
       refused3 ??= error62.message;
-      refusal4.abort();
+      refusal5.abort();
     },
     refused: () => refused3,
     running: 0,
@@ -63105,8 +63114,8 @@ function wake(loop2) {
 }
 async function unpaused(loop2) {
   if (loop2.pause.reason !== null && !loop2.halt.aborted) {
-    await new Promise((resolve18) => {
-      loop2.waiting.add(resolve18);
+    await new Promise((resolve19) => {
+      loop2.waiting.add(resolve19);
     });
   }
   return !loop2.halt.aborted;
@@ -63159,7 +63168,7 @@ async function sendUpdate(loop2, job2, raw) {
   const update2 = hideTokens(loop2, job2, raw);
   const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, ...rest } = update2;
   const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs];
-  if (newer.every((field2) => field2 === void 0)) return sendCounted(loop2, job2, update2);
+  if (newer.every((field3) => field3 === void 0)) return sendCounted(loop2, job2, update2);
   try {
     return await sendCounted(loop2, job2, update2);
   } catch (error62) {
@@ -66578,11 +66587,411 @@ var visual = branchVerdictCommand({
   grade: ({ ctx, number: number5, commits, base, exec }) => visualVerdict({ ctx, issue: number5, commits, laws: fixLaws(ctx, number5, base, exec) })
 });
 
+// kit/bin/commands/worktrees.ts
+init_define_OMNI_BUNDLE();
+import { join as join151 } from "node:path";
+
+// kit/lib/worktrees/engine.ts
+init_define_OMNI_BUNDLE();
+import { resolve as resolve18 } from "node:path";
+
+// kit/lib/worktrees/list.ts
+init_define_OMNI_BUNDLE();
+import { isAbsolute as isAbsolute12, relative as relative6 } from "node:path";
+var HEADS = "refs/heads/";
+function field2(lines3, key2) {
+  const line2 = lines3.find((candidate) => candidate.startsWith(`${key2} `));
+  return line2?.slice(key2.length + 1);
+}
+var flagged = (lines3, key2) => lines3.some((line2) => line2 === key2 || line2.startsWith(`${key2} `));
+function parseWorktreeList(text15) {
+  const out = [];
+  for (const block of text15.split(/\n\s*\n/)) {
+    const lines3 = block.split("\n").filter((line2) => line2 !== "");
+    const path = field2(lines3, "worktree");
+    if (path === void 0) continue;
+    const ref = field2(lines3, "branch");
+    out.push({
+      path,
+      head: field2(lines3, "HEAD") ?? null,
+      branch: ref === void 0 ? null : ref.startsWith(HEADS) ? ref.slice(HEADS.length) : ref,
+      locked: flagged(lines3, "locked"),
+      prunable: flagged(lines3, "prunable")
+    });
+  }
+  return out;
+}
+var NAME4 = "[a-z0-9]+(?:-[a-z0-9]+)*";
+var escape6 = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function shapePattern(template) {
+  const seen = /* @__PURE__ */ new Set();
+  const source2 = template.split(/(\{topic\}|\{slice\})/).map((part) => {
+    if (part !== "{topic}" && part !== "{slice}") return escape6(part);
+    const name3 = part.slice(1, -1);
+    if (seen.has(name3)) return `\\k<${name3}>`;
+    seen.add(name3);
+    return `(?<${name3}>${NAME4})`;
+  }).join("");
+  return new RegExp(`^${source2}$`);
+}
+function isInside(folder, path) {
+  const rest = relative6(folder, path);
+  return rest !== "" && !rest.startsWith("..") && !isAbsolute12(rest);
+}
+function shapeOf(branch, branches) {
+  const shapes = ["slice", "feature", "phase0"];
+  for (const shape of shapes) {
+    const groups = shapePattern(branches[shape]).exec(branch)?.groups;
+    const topic = groups?.topic;
+    if (topic === void 0) continue;
+    const slice = WorkSliceIdSchema.safeParse(groups?.slice);
+    return { kind: "kit", shape, topic, slice: slice.success ? slice.data : null };
+  }
+  return { kind: "other" };
+}
+function kindOf5(worktree, { folder, branches }) {
+  if (worktree.branch === null || !isInside(folder, worktree.path)) return { kind: "other" };
+  return shapeOf(worktree.branch, branches);
+}
+
+// kit/lib/worktrees/engine.ts
+var SEP = " \xB7 ";
+function folderOf3(seams, all) {
+  const main2 = all[0];
+  return main2 === void 0 ? null : seams.host.realpath(resolve18(main2.path, seams.folder));
+}
+function survey(seams) {
+  const [main2, ...linked2] = parseWorktreeList(seams.host.list());
+  if (main2 === void 0) return [];
+  const all = [main2, ...linked2.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)];
+  const folder = folderOf3(seams, all);
+  if (folder === null) return [];
+  return all.map((worktree) => {
+    const real2 = seams.host.realpath(worktree.path);
+    return { ...worktree, real: real2, is: kindOf5({ path: real2, branch: worktree.branch }, { folder, branches: seams.branches }) };
+  });
+}
+function startRun(seams, worktrees2) {
+  const heads = worktrees2.flatMap((worktree) => worktree.head === null || worktree.prunable ? [] : [worktree.head]);
+  return { seams, unpushed: heads.length === 0 ? /* @__PURE__ */ new Set() : seams.host.unpushed(heads), cwds: void 0, boards: /* @__PURE__ */ new Map() };
+}
+function gitLine(text15) {
+  const line2 = text15.split("\n").find((candidate) => candidate.trim() !== "") ?? "git refused";
+  return line2.replace(/^(?:error|fatal|warning): /, "").trim();
+}
+function boardOf2(topic, run2) {
+  const prd2 = run2.seams.prdOf(topic);
+  if (prd2 === null) return Promise.resolve(`no PRD folder for ${topic}`);
+  const known2 = run2.boards.get(prd2);
+  if (known2 !== void 0) return known2;
+  const pending = run2.seams.board(prd2);
+  run2.boards.set(prd2, pending);
+  return pending;
+}
+function sliceReason(board2, slice) {
+  if (!board2.featureOpen) return null;
+  const state = Object.hasOwn(board2.slices, slice) ? board2.slices[slice] : void 0;
+  if (state === "merged") return null;
+  return state === "in-flight" || state === "claimed-stale" ? "claimed" : "red slice";
+}
+async function boardReason({ is }, run2) {
+  if (is.kind !== "kit" || is.slice === null) return null;
+  const board2 = await boardOf2(is.topic, run2);
+  return typeof board2 === "string" ? `no board: ${board2}` : sliceReason(board2, is.slice);
+}
+function inUse(worktree, run2) {
+  if (run2.cwds === void 0) run2.cwds = run2.seams.host.cwds();
+  if (run2.cwds === null) return true;
+  return run2.cwds.some((cwd) => cwd === worktree.real || isInside(worktree.real, cwd));
+}
+async function gitReason(worktree, run2) {
+  if (worktree.prunable) return "prunable";
+  let status5;
+  try {
+    status5 = await run2.seams.host.status(worktree.path);
+  } catch (error62) {
+    return `unreadable: ${gitLine(error62 instanceof Error ? error62.message : String(error62))}`;
+  }
+  if (status5.trim() !== "") return "uncommitted";
+  return worktree.head === null || run2.unpushed.has(worktree.head) ? "unpushed" : null;
+}
+async function keepReason(worktree, run2) {
+  const reason2 = await gitReason(worktree, run2) ?? await boardReason(worktree, run2);
+  if (reason2 !== null) return reason2;
+  if (inUse(worktree, run2)) return "in use";
+  return worktree.locked ? "locked" : null;
+}
+var UNITS2 = ["KB", "MB", "GB", "TB"];
+function formatSize(bytes2) {
+  if (bytes2 < 1024) return `${bytes2} B`;
+  let value = bytes2 / 1024;
+  let unit3 = 0;
+  while (value >= 1024 && unit3 < UNITS2.length - 1) {
+    value /= 1024;
+    unit3 += 1;
+  }
+  return unit3 === 0 ? `${Math.round(value)} ${UNITS2[0]}` : `${value.toFixed(1)} ${UNITS2[unit3]}`;
+}
+async function listWorktrees(seams) {
+  seams.host.fetch();
+  const all = survey(seams);
+  const run2 = startRun(seams, all);
+  const out = [];
+  for (const worktree of all) {
+    const { is } = worktree;
+    if (is.kind === "other") {
+      out.push({ path: worktree.path, branch: worktree.branch, kind: "other", prd: null, verdict: null });
+      continue;
+    }
+    const reason2 = await keepReason(worktree, run2);
+    out.push({ path: worktree.path, branch: worktree.branch, kind: "kit", prd: seams.prdOf(is.topic), verdict: reason2 === null ? "safe" : `kept: ${reason2}` });
+  }
+  return out;
+}
+function removeNow(host, { path, branch }, { size, bytes: bytes2 }) {
+  const refused3 = host.remove(path);
+  if (refused3 !== null) return { line: `kept ${path}${SEP}${refused3}`, freed: 0 };
+  const kept = branch === null ? null : host.deleteBranch(branch);
+  const tail = kept === null ? "" : `${SEP}branch ${String(branch)} kept: ${kept}`;
+  return { line: `removed ${path}${SEP}${size}${tail}`, freed: bytes2 };
+}
+async function removeIfSafe(worktree, run2, dryRun) {
+  const reason2 = await keepReason(worktree, run2);
+  if (reason2 !== null) return { line: `kept ${worktree.path}${SEP}${reason2}`, freed: 0 };
+  const bytes2 = run2.seams.host.size(worktree.path);
+  const size = bytes2 === null ? "size unknown" : formatSize(bytes2);
+  if (dryRun) return { line: `would remove ${worktree.path}${SEP}${size}`, freed: bytes2 ?? 0 };
+  return removeNow(run2.seams.host, worktree, { size, bytes: bytes2 ?? 0 });
+}
+async function pruneWorktrees2(seams, { prd: prd2, dryRun }) {
+  seams.host.fetch();
+  const chosen = survey(seams).filter(({ is }) => is.kind === "kit" && (prd2 === null || seams.prdOf(is.topic) === prd2));
+  const run2 = startRun(seams, chosen);
+  const lines3 = [];
+  let total = 0;
+  for (const worktree of chosen) {
+    const { line: line2, freed } = await removeIfSafe(worktree, run2, dryRun);
+    lines3.push(line2);
+    total += freed;
+  }
+  lines3.push(`${dryRun ? "would free" : "freed"} ${formatSize(total)}`);
+  return lines3;
+}
+async function removeWorktree(seams, { path, cwd }) {
+  seams.host.fetch();
+  const all = survey(seams);
+  const wanted = seams.host.realpath(resolve18(cwd, path));
+  const worktree = all.find((candidate) => candidate.real === wanted);
+  if (worktree === void 0) return `no worktree at ${path}`;
+  const folder = folderOf3(seams, all);
+  const detachedInside = worktree.branch === null && folder !== null && isInside(folder, worktree.real);
+  if (worktree.is.kind === "other" && !detachedInside) return `kept ${worktree.path}${SEP}not the kit's`;
+  return (await removeIfSafe(worktree, startRun(seams, [worktree]), false)).line;
+}
+async function isClean(host, path) {
+  try {
+    return (await host.status(path)).trim() === "";
+  } catch {
+    return false;
+  }
+}
+async function worktreesHint(seams) {
+  const kit = survey(seams).filter((worktree) => worktree.is.kind === "kit" && !worktree.locked && !worktree.prunable);
+  const heads = kit.flatMap(({ head }) => head === null ? [] : [head]);
+  const unpushed = heads.length === 0 ? /* @__PURE__ */ new Set() : seams.host.unpushed(heads);
+  const pushed = kit.filter(({ head }) => head !== null && !unpushed.has(head));
+  const clean = await Promise.all(pushed.map(({ path }) => isClean(seams.host, path)));
+  const count5 = clean.filter(Boolean).length;
+  if (count5 === 0) return null;
+  return `${count5} ${count5 === 1 ? "worktree" : "worktrees"} of the kit can be removed: omni worktrees prune`;
+}
+
+// kit/lib/worktrees/host.ts
+init_define_OMNI_BUNDLE();
+import { execFile as execFile2 } from "node:child_process";
+import { readdirSync as readdirSync41, readlinkSync, realpathSync as realpathSync5 } from "node:fs";
+function refusal4(error62) {
+  const stderr = propertyOf(error62, "stderr");
+  const text15 = typeof stderr === "string" ? stderr : Buffer.isBuffer(stderr) ? stderr.toString("utf8") : "";
+  return gitLine(text15 === "" && error62 instanceof Error ? error62.message : text15);
+}
+function procCwds() {
+  let pids;
+  try {
+    pids = readdirSync41("/proc").filter((name3) => /^\d+$/.test(name3));
+  } catch {
+    return null;
+  }
+  return pids.flatMap((pid) => {
+    try {
+      return [readlinkSync(`/proc/${pid}/cwd`)];
+    } catch {
+      return [];
+    }
+  });
+}
+function lsofCwds(exec) {
+  try {
+    const text15 = exec("lsof", ["-a", "-d", "cwd", "-F", "n"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+    return text15.split("\n").flatMap((line2) => line2.startsWith("n") ? [line2.slice(1)] : []);
+  } catch {
+    return null;
+  }
+}
+function processCwds(platform2, exec) {
+  if (platform2 === "linux") return procCwds();
+  if (platform2 === "darwin") return lsofCwds(exec);
+  return null;
+}
+function gitHost({ root, remote, exec, cwds }) {
+  const git9 = (args, cwd = root) => exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const attempt12 = (args) => {
+    try {
+      git9(args);
+      return null;
+    } catch (error62) {
+      return refusal4(error62);
+    }
+  };
+  return {
+    list: () => git9(["worktree", "list", "--porcelain"]),
+    fetch() {
+      try {
+        git9(["fetch", "--quiet", remote]);
+      } catch {
+      }
+    },
+    unpushed(heads) {
+      try {
+        const out = git9(["rev-list", ...heads, "--not", `--remotes=${remote}`]);
+        const unreached = new Set(out.split("\n").filter(Boolean));
+        return new Set(heads.filter((head) => unreached.has(head)));
+      } catch {
+        return new Set(heads);
+      }
+    },
+    // Asynchronous, so that `hint` reads every worktree at once; `--no-optional-locks` never writes
+    // the index of a worktree someone may be working in.
+    status: (path) => new Promise((resolve19, reject2) => {
+      execFile2("git", ["--no-optional-locks", "status", "--porcelain"], { cwd: path, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }, (error62, stdout, stderr) => {
+        if (error62) reject2(new Error(gitLine(stderr === "" ? error62.message : stderr)));
+        else resolve19(stdout);
+      });
+    }),
+    remove: (path) => attempt12(["worktree", "remove", path]),
+    deleteBranch: (branch) => attempt12(["branch", "-d", branch]),
+    size(path) {
+      try {
+        const kib = Number(exec("du", ["-sk", path], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).split(/\s/)[0]);
+        return Number.isFinite(kib) ? kib * 1024 : null;
+      } catch {
+        return null;
+      }
+    },
+    cwds,
+    realpath(path) {
+      try {
+        return realpathSync5(path);
+      } catch {
+        return path;
+      }
+    }
+  };
+}
+
+// kit/bin/commands/worktrees.ts
+var USAGE52 = "usage: omni worktrees list [--json] | prune [--prd <n>] [--dry-run] | remove <path> | hint";
+var VERBS5 = {
+  list(command2, rest) {
+    const { positional, flags } = parseArgs(command2, rest, { booleans: ["json"] });
+    return positional.length === 0 ? { verb: "list", json: flags.json === true } : null;
+  },
+  prune(command2, rest) {
+    const { positional, flags } = parseArgs(command2, rest, { values: ["prd"], booleans: ["dry-run"] });
+    if (positional.length !== 0) return null;
+    return { verb: "prune", prd: flags.prd === void 0 ? null : prdArg(command2, "--prd", flags.prd), dryRun: flags["dry-run"] === true };
+  },
+  remove(command2, rest) {
+    const [path, ...more] = parseArgs(command2, rest).positional;
+    return path === void 0 || more.length > 0 ? null : { verb: "remove", path };
+  },
+  hint: (command2, rest) => parseArgs(command2, rest).positional.length === 0 ? { verb: "hint" } : null
+};
+function callOf(args) {
+  const [verb2 = "", ...rest] = args;
+  const parse11 = Object.hasOwn(VERBS5, verb2) ? VERBS5[verb2] : void 0;
+  const call = parse11 === void 0 ? null : parse11(`worktrees ${verb2}`, rest);
+  if (call === null) throw usageError(`omni worktrees: ${USAGE52}`);
+  return call;
+}
+function prdOfTopic(ctx) {
+  const { inbox, shipped } = ctx.layout.dirs;
+  const folders = [...prdFoldersIn(join151(ctx.root, inbox)), ...prdFoldersIn(join151(ctx.root, shipped))];
+  return (topic) => folders.find(({ name: name3 }) => parseFolderName(name3)?.topic === topic)?.prd ?? null;
+}
+function omniBoard(ctx, io) {
+  return async (prd2) => {
+    try {
+      const reads = loopReadsFor(ctx, io);
+      const built = await buildBoard(prd2, { ctx, reads: boardReads(reads), exec: io.exec });
+      const repo = repoSlug("worktrees", ctx, void 0);
+      const perLanding = await Promise.all(built.landings.map(({ branch }) => reads.changes({ repo, state: "all", head: branch })));
+      const featureOpen = perLanding.some((changes) => changes.length === 0 || changes.some(({ state }) => state === "open" || state === "draft"));
+      const board2 = { featureOpen, slices: Object.fromEntries(built.result.slices.map((row) => [row.id, row.state])) };
+      return board2;
+    } catch (error62) {
+      return errorMessage(error62).split("\n")[0] ?? "the board cannot be read";
+    }
+  };
+}
+function printList(stdout, entries4) {
+  for (const entry3 of entries4) {
+    const branch = entry3.branch ?? "detached";
+    const verdict2 = entry3.verdict === null ? "" : ` \xB7 ${entry3.verdict}`;
+    println(stdout, `${entry3.kind.padEnd(5)}  ${entry3.path} \xB7 ${branch}${verdict2}`);
+  }
+}
+async function runCall(call, seams, { stdout, cwd }) {
+  if (call.verb === "list") {
+    const entries4 = await listWorktrees(seams);
+    if (call.json) println(stdout, JSON.stringify({ worktrees: entries4 }, null, 2));
+    else printList(stdout, entries4);
+  } else if (call.verb === "prune") {
+    for (const line2 of await pruneWorktrees2(seams, { prd: call.prd, dryRun: call.dryRun })) println(stdout, line2);
+  } else if (call.verb === "remove") {
+    println(stdout, await removeWorktree(seams, { path: call.path, cwd }));
+  } else {
+    const hint = await worktreesHint(seams);
+    if (hint !== null) println(stdout, hint);
+  }
+}
+var worktrees = {
+  withoutContext: true,
+  async run(args, io) {
+    const call = callOf(args);
+    try {
+      const ctx = loadContext(io.cwd, { exec: io.exec });
+      const seams = {
+        host: gitHost({ root: ctx.root, remote: ctx.config.repo.remote, exec: io.exec, cwds: io.processes ?? (() => processCwds(process.platform, io.exec)) }),
+        board: io.board ?? omniBoard(ctx, io),
+        branches: ctx.config.branches,
+        folder: ctx.config.worktrees,
+        prdOf: prdOfTopic(ctx)
+      };
+      await runCall(call, seams, { stdout: io.stdout, cwd: io.cwd });
+      return 0;
+    } catch (error62) {
+      println(io.stderr, `omni worktrees: ${errorMessage(error62).split("\n")[0] ?? "the repository cannot be read"}`);
+      return 1;
+    }
+  }
+};
+
 // kit/bin/commands/index.ts
-var COMMAND_TABLE = Object.freeze({ config: config2, "before-after": beforeAfter, prd, budget, approval, wait, status: status4, settle: settle3, adopt, replies, answers, comment, ship, harvest, retro, rewind, check: check2, claim: claim3, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, sync: sync2 });
+var COMMAND_TABLE = Object.freeze({ config: config2, "before-after": beforeAfter, prd, budget, approval, wait, status: status4, settle: settle3, adopt, replies, answers, comment, ship, harvest, retro, rewind, check: check2, claim: claim3, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, sync: sync2, worktrees });
 
 // kit/bin/omni.ts
-var USAGE52 = `usage: omni <command> [args]
+var USAGE53 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -66695,7 +67104,7 @@ async function main(argv, {
   const name3 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command2 = Object.hasOwn(COMMAND_TABLE, name3) ? COMMAND_TABLE[name3] : void 0;
   if (!command2) {
-    stderr.write(USAGE52);
+    stderr.write(USAGE53);
     return 2;
   }
   try {
@@ -66717,7 +67126,7 @@ async function main(argv, {
     throw error62;
   }
 }
-var invoked = process.argv[1] && realpathSync5(process.argv[1]) === realpathSync5(self);
+var invoked = process.argv[1] && realpathSync6(process.argv[1]) === realpathSync6(self);
 if (invoked) {
   const argv = process.argv.slice(2);
   const fail2 = (error62) => {
