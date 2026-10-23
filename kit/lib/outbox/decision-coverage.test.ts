@@ -718,3 +718,40 @@ describe('lawsAwaitingOwners — only a CODEOWNER’s approval clears law-locked
     expect(lawsAwaitingOwners([], { ownersOf, approvers: [] })).toEqual({ awaiting: [], approvedBy: [] });
   });
 });
+
+// Issue 2387: a law moved into a file the base branch's CODEOWNERS does not list. Its approvers fall
+// back to the law owners the base config names, so an owner's approval clears it.
+describe('lawsAwaitingOwners — a file no person owns falls back to the law owners (issue 2387)', () => {
+  const fired = (law: string, path: string) => ({ path, status: 'M', rule: LAW_LOCKED, law });
+  const ownersOf = (path: string) => (path === 'product/rules.md' ? ['@ann'] : []);
+  const moved = [fired('BR-1', 'product/rules.md'), fired('BR-1', 'domains/ask/rules.md')];
+
+  it('a law owner’s approval clears a law moved into a file nobody owns', () => {
+    expect(lawsAwaitingOwners(moved, { ownersOf, approvers: ['ann'], lawOwners: ['ann'] })).toEqual({ awaiting: [], approvedBy: ['ann'] });
+  });
+
+  it('without that approval, the law waits for the law owners, named', () => {
+    expect(lawsAwaitingOwners(moved, { ownersOf, approvers: [], lawOwners: ['ann', 'bob'] }).awaiting).toEqual([
+      { law: 'BR-1', reason: 'no-approval', paths: ['product/rules.md', 'domains/ask/rules.md'], owners: ['@ann', '@bob'] },
+    ]);
+  });
+
+  it('takes a law owner written with or without @, and never a team as a person', () => {
+    expect(lawsAwaitingOwners(moved, { ownersOf, approvers: ['ann'], lawOwners: ['@ann'] })).toEqual({ awaiting: [], approvedBy: ['ann'] });
+    expect(lawsAwaitingOwners([fired('BR-1', 'domains/ask/rules.md')], { ownersOf, approvers: ['core'], lawOwners: ['acme/core'] }).awaiting).toEqual([
+      { law: 'BR-1', reason: 'no-codeowner', paths: ['domains/ask/rules.md'], owners: [] },
+    ]);
+  });
+
+  it('given no law owners at all, a file nobody owns fails closed, as before', () => {
+    expect(lawsAwaitingOwners([fired('BR-1', 'domains/ask/rules.md')], { ownersOf, approvers: ['ann'] }).awaiting).toEqual([
+      { law: 'BR-1', reason: 'no-codeowner', paths: ['domains/ask/rules.md'], owners: [] },
+    ]);
+  });
+
+  it('with no law owners either, it still fails closed', () => {
+    expect(lawsAwaitingOwners(moved, { ownersOf, approvers: ['ann'], lawOwners: [] }).awaiting).toEqual([
+      { law: 'BR-1', reason: 'no-codeowner', paths: ['domains/ask/rules.md'], owners: ['@ann'] },
+    ]);
+  });
+});

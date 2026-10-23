@@ -263,17 +263,21 @@ export type LawAwaiting = { law: string; reason: 'no-codeowner' | 'no-approval';
 /**
  * What still holds each law `law-locked` fired on (PRD 1726). Every file that fired it must be
  * approved by a person CODEOWNERS lists for that file (`ownersOf`, read from the base branch), among
- * `approvers` (the logins whose review approves the head). A file no person owns holds its law as
- * `no-codeowner`, whatever was approved (fail closed); otherwise a file none of its owners approved
- * holds it as `no-approval`. `paths` are the files holding it, `owners` the persons who could clear
- * them. `approvedBy`: the approvers who cleared a file.
+ * `approvers` (the logins whose review approves the head). A file no person in CODEOWNERS owns falls
+ * back to `lawOwners`, the logins the base branch's config names as law owners (issue 2387: a law
+ * moved into a new file, or a new domain's file, is still cleared by a law owner's approval). With
+ * neither, the file holds its law as `no-codeowner`, whatever was approved (fail closed); otherwise a
+ * file none of its owners approved holds it as `no-approval`. `paths` are the files holding it,
+ * `owners` the persons who could clear them. `approvedBy`: the approvers who cleared a file.
  */
 export function lawsAwaitingOwners(
   fired: readonly LockedLawChange[],
-  { ownersOf, approvers }: { ownersOf: (path: string) => string[]; approvers: readonly string[] },
+  { ownersOf, approvers, lawOwners = [] }: { ownersOf: (path: string) => string[]; approvers: readonly string[]; lawOwners?: readonly string[] },
 ): { awaiting: LawAwaiting[]; approvedBy: string[] } {
+  const fallback = lawOwners.map((login) => `@${login.replace(/^@/, '')}`).filter(isPersonOwner);
   const files = fired.map(({ law, path }) => {
-    const persons = ownersOf(path).filter(isPersonOwner);
+    const listed = ownersOf(path).filter(isPersonOwner);
+    const persons = listed.length > 0 ? listed : fallback;
     return { law, path, persons, approved: approvers.filter((login) => isOwnedBy(persons, login)) };
   });
   const awaiting: LawAwaiting[] = [];
