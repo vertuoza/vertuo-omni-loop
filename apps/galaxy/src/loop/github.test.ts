@@ -1,7 +1,9 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { memoryGithubStore } from '@omni/github';
+import { careState } from 'omni-loop/kit/lib/care/state.ts';
 import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
+import { LoopChangeDetailSchema } from 'omni-loop/kit/lib/loop-reads/contract.ts';
 import { changeOf, checkRunState, commitStatusState, githubLoopHost, issueOf, MAX_LIST_PAGES, MAX_PAGES, stateOf } from './github';
 import { ChangeDetailSchema, ChangeSchema, ChangesQuerySchema, CommentsQuerySchema, IssueDetailSchema, IssueSchema, IssuesQuerySchema } from './loop.contract';
 import { HostSpent, HostUnreadable } from './loop.service';
@@ -74,8 +76,8 @@ const thread = (id: string, more: Record<string, unknown> = {}) => ({
 
 type World = {
   installed?: boolean;
-  /** The head commit's check runs, as GitHub lists them. */
-  checkRuns?: { name: string; status: string; conclusion: string | null }[];
+  /** The head commit's check runs, as GitHub lists them; each one's id is its place in the list unless it says. */
+  checkRuns?: { id?: number; name: string; status: string; conclusion: string | null }[];
   /** The head commit's statuses, as GitHub's combined status lists them. */
   statuses?: { context: string; state: string }[];
   /** The pull request's review threads, as GraphQL pages them. */
@@ -309,6 +311,41 @@ describe('githubLoopHost: one change', () => {
         { id: 'PRRT_2', path: null, line: null, resolved: true, comments: [{ author: null, body: 'ok', createdAt: '2026-10-11T10:00:00Z' }] },
       ],
     });
+  });
+
+  it('answers the newest run of each check, so a run superseded on the same head no longer turns the care state red (#2468)', async () => {
+    // #2456's head: GitHub lists newest first, and keeps a superseded workflow run's check runs beside the new run's.
+    const { host } = fakeGithub({
+      pulls: [pull(4)],
+      checkRuns: [
+        { id: 120119738190, name: 'quick', status: 'completed', conclusion: 'success' },
+        { id: 120118941575, name: 'gitleaks', status: 'completed', conclusion: 'success' },
+        { id: 120118832107, name: 'quick', status: 'completed', conclusion: 'cancelled' },
+        { id: 120118538829, name: 'gitleaks', status: 'completed', conclusion: 'success' },
+      ],
+    });
+    const change = LoopChangeDetailSchema.parse(await host.change('acme/widgets', parsePr(4)));
+    expect(careState({ change, comments: [] }, { statusMarker: null, needsFixLabel: null }).checks).toMatchObject({ state: 'green', failed: [] });
+    expect(change.review.checks).toEqual([{ name: 'quick', state: 'success' }, { name: 'gitleaks', state: 'success' }]);
+  });
+
+  it('takes the run of a check with the greatest id wherever GitHub lists it, and leaves a check run once as it ended', async () => {
+    const { host } = fakeGithub({
+      pulls: [pull(4)],
+      checkRuns: [
+        { id: 3, name: 'test', status: 'completed', conclusion: 'failure' },
+        { id: 7, name: 'lint', status: 'completed', conclusion: 'success' },
+        { id: 5, name: 'test', status: 'completed', conclusion: 'success' },
+        { id: 8, name: 'lint', status: 'queued', conclusion: null },
+        { id: 4, name: 'test', status: 'completed', conclusion: 'cancelled' },
+        { id: 2, name: 'build', status: 'completed', conclusion: 'cancelled' },
+      ],
+    });
+    expect((await host.change('acme/widgets', parsePr(4)))?.review.checks).toEqual([
+      { name: 'test', state: 'success' },
+      { name: 'lint', state: 'pending' },
+      { name: 'build', state: 'failure' },
+    ]);
   });
 
   it('answers mergeable null while GitHub has not worked it out, and no checks nor threads when none', async () => {

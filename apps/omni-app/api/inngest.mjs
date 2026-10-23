@@ -7125,8 +7125,13 @@ var SESSION = envGroup({
 });
 var RUNNER_SENDER = envGroup({
   label: "the runner job's sender",
-  schema: z27.object({ sentBy: z27.string().optional(), runner: z27.string().optional() }),
-  variables: { sentBy: "OMNI_SENT_BY", runner: "OMNI_RUNNER" }
+  schema: z27.object({ sentBy: z27.string().optional(), sentByKey: z27.string().optional(), runner: z27.string().optional() }),
+  variables: { sentBy: "OMNI_SENT_BY", sentByKey: "OMNI_SENT_BY_KEY", runner: "OMNI_RUNNER" }
+});
+var GITHUB_APP2 = envGroup({
+  label: "the GitHub App a job runs as",
+  schema: z27.object({ login: z27.string() }),
+  variables: { login: "OMNI_GITHUB_APP" }
 });
 var CLAUDE_TOKEN = envGroup({
   label: "the Claude token",
@@ -7165,7 +7170,7 @@ var PACKAGE_MANAGER = envGroup({
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, GITHUB_APP2, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync19, rmSync as rmSync6, writeFileSync as writeFileSync7 } from "node:fs";

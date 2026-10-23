@@ -12,6 +12,9 @@
 // A job report the app answers 409 is not a refusal: the job ended meanwhile (cancelled, or failed as
 // `runner lost`), so the runner stops that job alone, as for a cancel.
 //
+// A job that runs as the Omni GitHub App (PRD 2433) asks `githubToken` for a fresh installation token
+// before the one it holds runs out; a reply the runner cannot read is a refusal, never a token.
+//
 // A job's questions (PRD 2255) are the other client here, `jobQuestionsApi`: `omni runner ask` and
 // `omni runner answers` run inside a job's session, not in the runner, and what they print is the app's own
 // words, so a refusal there carries the app's `error` rather than `refused (<status>)` alone.
@@ -53,18 +56,37 @@ export class RunnerRefused extends Error {
 /** What `register` answers: the runner's id. */
 const RegisteredSchema = z.object({ id: z.union([z.string().min(1), z.number()]).transform(String) });
 
+/**
+ * The GitHub App a key's job runs as (PRD 2433): an installation token, when it expires, and the app's
+ * bot, its login (`<slug>[bot]`) and its email. A `github` that holds less than all four never reads as
+ * none: the job is not handed over, so no machine account runs it.
+ */
+const GithubGrantSchema = z.object({
+  token: z.string().min(1),
+  expiresAt: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'a date'),
+  login: z.string().min(1),
+  email: z.string().min(1),
+});
+
+/** A fresh token of a job's GitHub App (PRD 2433, s3): what `POST /api/runners/jobs/<id>/github-token` answers. */
+const FreshTokenSchema = z.object({ token: GithubGrantSchema.shape.token, expiresAt: GithubGrantSchema.shape.expiresAt });
+
 /** A job `next` hands over. `allowedSkills` are the skills of its repository's own an owner allowed,
- * read when it was claimed (PRD 2313): an older app sends none, and the job allows none, as before. */
+ * read when it was claimed (PRD 2313): an older app sends none, and the job allows none, as before.
+ * `github` is the app a key's job runs as and `sentByKey` the key's name (PRD 2433): an older app sends
+ * neither, and the job reads as a person's. */
 const JobSchema = z.object({
   id: z.union([z.string().min(1), z.number()]).transform(String),
   line: z.string(),
   repo: z.string(),
   sentBy: z.string().nullish().transform((value) => value ?? null),
   allowedSkills: z.array(z.string()).nullish().transform((value) => value ?? []),
+  github: GithubGrantSchema.nullish().transform((value) => value ?? null),
+  sentByKey: z.string().nullish().transform((value) => value ?? null),
 });
 
-/** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, and the
- * repository's own skills it may run. */
+/** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, the
+ * repository's own skills it may run, the GitHub App it runs as and the API key that sent it. */
 export type RunnerJob = z.output<typeof JobSchema>;
 
 /** What a job update answers: whether a cancel waits. */
@@ -100,8 +122,11 @@ export type HealthLimits = { maxMemory: number; minDiskGb: number; maxLoad: numb
 /** A health report: the machine's sample, why it is paused and at which limits, and its tokens of the last 5 h and today. Numbers only. */
 export type HealthReport = Sample & { paused?: string | null; limits?: HealthLimits; tokens?: MachineTokens };
 
-/** What the runner says about itself when it registers. */
-export type Registration = { name: string; slots: number; repos: string[]; version: string };
+/**
+ * What the runner says about itself when it registers. `githubApp` says it can run a job as an API key's
+ * GitHub App (PRD 2433): the app hands a job of a key with an app only to a runner that said so.
+ */
+export type Registration = { name: string; slots: number; repos: string[]; version: string; githubApp: boolean };
 
 export type RunnerApi = {
   register(registration: Registration): Promise<{ id: string }>;
@@ -110,6 +135,11 @@ export type RunnerApi = {
   update(job: string, update: JobUpdate): Promise<{ cancel: boolean }>;
   /** Sends the machine's health: throws `RunnerUnreachable` or `RunnerRefused` as every call, and the runner only prints it. */
   health(runner: string, report: HealthReport): Promise<void>;
+  /**
+   * A fresh token of the GitHub App job `job` runs as (PRD 2433, s3), `POST /api/runners/jobs/<id>/github-token`,
+   * with the runner's own sign-in. Throws `RunnerRefused` with the app's own words, or `RunnerUnreachable`.
+   */
+  githubToken(job: string): Promise<{ token: string; expiresAt: string }>;
 };
 
 /** A runner of the workspace, as the terminal reads it (`GET /api/runners?repo=`). */
@@ -281,6 +311,12 @@ export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
       // A 403 is another owner's runner, not a refused sign-in: it is named as the refusal it is.
       const response = await call('POST', `/api/runners/${segment(runner)}/health`, { body: report, timeoutMs: HEALTH_MS, allow: [403] });
       if (response.status === 403) throw new RunnerRefused('refused (403)');
+    },
+    async githubToken(job) {
+      // A refusal is the app's own words (a job that ended more than 10 minutes ago, another runner's job): they are the reason the job ends on.
+      const reply = FreshTokenSchema.safeParse(await json(await call('POST', `/api/runners/jobs/${segment(job)}/github-token`, { words: true })));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no token)');
+      return reply.data;
     },
     async runners(repo) {
       const reply = z.object({ runners: z.array(KitRunnerSchema) }).safeParse(await json(await call('GET', `/api/runners?${new URLSearchParams({ repo })}`, { allow: [403] }).then(forbidden)));

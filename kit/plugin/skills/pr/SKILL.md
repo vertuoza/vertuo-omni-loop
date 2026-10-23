@@ -27,6 +27,14 @@ There are two modes. **Claim** opens a slice's draft sub-PR before the slice is 
 `/omni:do-work` (run alone) and `/omni:wave` ask for it. **Lifecycle** is the default: it opens or
 picks up a PR and watches it until it is done or stuck.
 
+**Under `OMNI_GITHUB_APP`.** While `OMNI_GITHUB_APP` is set (a runner job that runs as an API key's own
+GitHub App, PRD 2433), everything this skill writes on GitHub is that app's, and no person is named in
+it: request no reviewer on any pull request, even one the `pull-requests` form names; add no assignee to
+a pull request or an issue; and mention no `@login` in anything written on GitHub (a body, a comment, a
+commit message). Where a step below writes `@<login>` (the `Law-Change-Approved-By` line), write the login
+with no `@`. A `CODEOWNERS` file still makes GitHub request its owners: that is the repository's own rule,
+outside the job. With `OMNI_GITHUB_APP` unset, nothing here applies.
+
 ## Three kinds
 
 | Kind | Base | Label | Link line | Graded by |

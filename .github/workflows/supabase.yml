@@ -395,6 +395,13 @@ jobs:
         # api_key_of() runs for the service role only and answers nothing for a revoked key, a key whose
         # maker left, a business link or a kit token; last used moves once a minute (PRD 2022).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/api_keys.sql
+      - name: Who attaches an API key's GitHub App, and which runner takes the jobs of a key that holds one
+        # Only an owner of the key's workspace attaches, replaces or removes the App of a live API key; any
+        # member lists its slug, an owner also its last mint, nobody the sealed key, and the tables are read
+        # by no one signed in. Revoking the key, by either function, deletes the row. The service role alone
+        # opens a job's App; a runner without githubApp never takes the job of a key that holds an App, or
+        # one queued while it did (PRD 2433).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/api_key_github_apps.sql
       - name: Who archives and restores a product, and what stops answering for it
         # Only a workspace's owner archives or restores a product; a member no longer reads it, an owner
         # does. Every lookup the kit and agents use skips it, the owner's too, and says so in words; a call

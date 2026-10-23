@@ -56,7 +56,7 @@ type Pull = z.infer<typeof Pull>;
 const Pulls = z.array(Pull);
 const Files = z.array(z.object({ filename: z.string() }));
 const Commit = z.object({ commit: z.object({ committer: z.object({ date: z.string() }).nullable() }) });
-const CheckRun = z.object({ name: z.string(), status: z.string(), conclusion: z.string().nullable().optional().default(null) });
+const CheckRun = z.object({ id: z.number(), name: z.string(), status: z.string(), conclusion: z.string().nullable().optional().default(null) });
 type CheckRun = z.infer<typeof CheckRun>;
 const CheckRuns = z.object({ check_runs: z.array(CheckRun) });
 const CombinedStatus = z.object({ statuses: z.array(z.object({ context: z.string(), state: z.string() })) });
@@ -137,6 +137,18 @@ export function checkRunState({ status, conclusion }: Pick<CheckRun, 'status' | 
   if (conclusion === 'success') return 'success';
   if (conclusion === 'skipped') return 'skipped';
   return FAILED_RUN.has(conclusion) ? 'failure' : 'neutral';
+}
+
+/** The newest run of each check, in the order GitHub first lists its name. GitHub keeps the latest run of a
+ * check per check suite only, so a workflow run a later one superseded on the same head stays listed beside
+ * it (#2468); a newer run has a greater id. */
+function newestRuns(runs: readonly CheckRun[]): CheckRun[] {
+  const newest = new Map<string, CheckRun>();
+  for (const run of runs) {
+    const kept = newest.get(run.name);
+    if (kept === undefined || run.id > kept.id) newest.set(run.name, run);
+  }
+  return [...newest.values()];
 }
 
 /** A commit status's state, in the loop's words. */
@@ -283,8 +295,8 @@ export function githubLoopHost({ creds, fetch: send = (url, init) => fetch(url, 
     return threads;
   }
 
-  /** The checks on a commit: its check runs (GitHub lists the latest of each), then its commit statuses
-   * (the latest of each context). */
+  /** The checks on a commit: the newest run of each check, then its commit statuses (GitHub lists the
+   * latest of each context). */
   async function checksOf(repo: string, sha: string): Promise<Check[]> {
     const runs: CheckRun[] = [];
     for (let page = 1; page <= MAX_PAGES; page += 1) {
@@ -301,7 +313,7 @@ export function githubLoopHost({ creds, fetch: send = (url, init) => fetch(url, 
     const statuses = combined === null ? null : CombinedStatus.safeParse(combined);
     if (statuses && !statuses.success) throw malformed(statusRoute);
     return [
-      ...runs.map((run) => ({ name: run.name, state: checkRunState(run) })),
+      ...newestRuns(runs).map((run) => ({ name: run.name, state: checkRunState(run) })),
       ...(statuses?.data.statuses ?? []).map((status) => ({ name: status.context, state: commitStatusState(status.state) })),
     ];
   }

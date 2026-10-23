@@ -3,7 +3,7 @@ import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {
   AnswerRequestSchema, AskRequestSchema, FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobQuestionsSchema, JobReplySchema,
-  JobUpdateReplySchema, JobUpdateSchema, KitRunnersSchema, NextQuerySchema, PrdJobsQuerySchema, PrdJobsSchema, RegisterReplySchema, RegisterRequestSchema,
+  GithubTokenReplySchema, JobUpdateReplySchema, JobUpdateSchema, KitRunnersSchema, NextQuerySchema, PrdJobsQuerySchema, PrdJobsSchema, RegisterReplySchema, RegisterRequestSchema,
   RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, RunnersQuerySchema, SendRequestSchema,
 } from './runners.contract';
 import type { RunnersService, Served } from './runners.service';
@@ -15,6 +15,7 @@ import type { RunnersService, Served } from './runners.service';
 //   GET   /api/runners/next?runner=<id>    the kit's sign-in   holds up to 40 s: the job claimed, or 204
 //   POST  /api/runners/jobs/<id>           the kit's sign-in   a report: status, log tail, live lines, PR link, exit code
 //   POST  /api/runners/<id>/health         the kit's sign-in   the runner's machine, every 15 s (PRD 2102)
+//   POST  /api/runners/jobs/<id>/github-token  the kit's sign-in  a fresh token of the App the job runs as, for the job's own runner (PRD 2433)
 //   GET   /api/runners/jobs/<id>/lines     either              a job's live lines after `after` (PRD 1904; the kit's, PRD 2251)
 //   GET   /api/runners?repo=               the kit's sign-in   the runners of the repository's workspace (PRD 2251)
 //   GET   /api/runners/jobs?repo=&prd=     the kit's sign-in   the PRD's jobs in the repository, newest first (PRD 2251)
@@ -51,7 +52,7 @@ const NO_DATABASE = 'Runners are not available here: this deployment has no data
 const NO_SERVICE = 'Runners are not available here: this deployment has no service role.';
 const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The runners could not answer. Try again.';
-const BAD_REGISTER = 'The body must be {"name": "<name>", "slots": <1 to 8>, "repos": ["owner/name", …], "version": "<kit version>"}.';
+const BAD_REGISTER = 'The body must be {"name": "<name>", "slots": <1 to 8>, "repos": ["owner/name", …], "version": "<kit version>", "githubApp"?: true | false}.';
 const BAD_NEXT = 'Name the runner as `runner=<id>`.';
 const BAD_REPORT = 'The body must be {"status": "running" | "done" | "failed" | "cancelled", "logTail"?, "from"? with "lines"? (at most 2,000 of 600 characters), "prUrl"?, "exitCode"?, "reason"?}.';
 const BAD_HEALTH = 'The body must be {"cpu", "load1", "cores", "memUsed", "memTotal", "diskFree", "diskTotal"}, each a number of 0 or more or null, with "paused"? (80 characters or null) and "limits"? ({"maxMemory", "minDiskGb", "maxLoad"}), and nothing else.';
@@ -152,6 +153,13 @@ export async function reportJob(request: Request, id: string, deps: RunnersDeps)
     const body = await bodyAs(request, JobUpdateSchema, MAX_REPORT_CHARS);
     return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_REPORT) : service.update(caller, id, body);
   });
+}
+
+/** POST /api/runners/jobs/<id>/github-token: a fresh token of the App the job runs as, only for the runner that holds the job (PRD 2433). */
+export async function refreshGithubToken(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  return answer(await kitCaller(request, deps), deps, GithubTokenReplySchema, (service, caller) => (
+    IdSchema.safeParse(id).success ? service.githubToken(caller, id) : Promise.resolve(refuse(RUNNER_REFUSALS.missing, BAD_ID))
+  ));
 }
 
 /** POST /api/runners/<id>/health: a runner's machine, from its owner; answers when the server took it. */
