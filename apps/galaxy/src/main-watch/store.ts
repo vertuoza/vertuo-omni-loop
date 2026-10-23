@@ -1,5 +1,5 @@
 // A PRD's watch on main (PRD 2410, s3): what the Omni App recorded in public.prd_main_watch and
-// public.prd_main_breaks (supabase/migrations/20261228090000_main_watch.sql) once the PRD merged. This is
+// public.prd_main_breaks (supabase/migrations/20261229090000_main_watch.sql) once the PRD merged. This is
 // the page's read port: a PRD's watches, one per lane (a repository it merged into), and the signals that
 // broke them. The Omni App writes, as the service role; the page reads as the signed-in member. The
 // Supabase store is ./store.repository.ts.

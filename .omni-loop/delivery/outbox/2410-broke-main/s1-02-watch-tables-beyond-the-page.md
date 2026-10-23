@@ -31,7 +31,7 @@ B. B. Only what the page drew: the next slices read a break's name and parent fr
 
 ## What I had to decide
 
-Whether `supabase/migrations/20261228090000_main_watch.sql` keeps its additions to the drawn shape: `prd_main_breaks.title` and `parent` (green, red or unknown, a ci-red only); a fourth table, `rewind_finding_events`, the decision's event the plan asks for; `rewind_findings_once`, a unique index on the check, origin and evidence of a PRD; caps (20 https links of 500 characters, 4000 characters of text, a one-line reason of 500); and the App inserting only a finding's content, never its state. Decided by: Jev (hardToRevert 0.48) · agent said false
+Whether `supabase/migrations/20261229090000_main_watch.sql` keeps its additions to the drawn shape: `prd_main_breaks.title` and `parent` (green, red or unknown, a ci-red only); a fourth table, `rewind_finding_events`, the decision's event the plan asks for; `rewind_findings_once`, a unique index on the check, origin and evidence of a PRD; caps (20 https links of 500 characters, 4000 characters of text, a one-line reason of 500); and the App inserting only a finding's content, never its state. Decided by: Jev (hardToRevert 0.48) · agent said false
 
 ## What I did meanwhile
 

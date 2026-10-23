@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const root = (path: string) => fileURLToPath(new URL(`../../../../${path}`, import.meta.url));
 const read = (path: string) => readFileSync(root(path), 'utf8');
-const NAME = '20261228090000_main_watch.sql';
+const NAME = '20261229090000_main_watch.sql';
 const MIGRATION = read(`supabase/migrations/${NAME}`);
 const CODE = MIGRATION.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 const TYPES = read('supabase/database.types.ts');

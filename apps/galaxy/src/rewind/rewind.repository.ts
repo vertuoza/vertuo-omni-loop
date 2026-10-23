@@ -9,7 +9,7 @@ import type { KnowledgeProposal } from './rewind.approval';
 import { FindingStateSchema, type DecidableFinding, type DecisionRefusal, type FindingView } from './rewind.contract';
 
 // The rewind's storage (PRD 2410, s5; ADR-0095): public.rewind_findings and the watch that says whose a
-// PRD is (supabase/migrations/20261228090000_main_watch.sql). Reads run on the caller's client, as the
+// PRD is (supabase/migrations/20261229090000_main_watch.sql). Reads run on the caller's client, as the
 // signed-in member, so row-level security keeps each workspace's rows to its members; the Omni service
 // role alone inserts a finding, and only the columns the rewind writes: a finding is proposed, never
 // decided here (a decision is rewind_finding_approve()/reject(), s7). It holds no rule. A refusal throws

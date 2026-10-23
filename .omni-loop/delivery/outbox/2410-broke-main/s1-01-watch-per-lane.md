@@ -36,7 +36,7 @@ Whether `prd_main_watch` is keyed by the PRD's repository, its number and a `lan
 
 ## What I did meanwhile
 
-Built as option A in supabase/migrations/20261228090000_main_watch.sql: the key is (workspace_id, repository, prd, lane), and a one-lane PRD has its own repository as its lane. s2, s3 and s4 read and write it so.
+Built as option A in supabase/migrations/20261229090000_main_watch.sql: the key is (workspace_id, repository, prd, lane), and a one-lane PRD has its own repository as its lane. s2, s3 and s4 read and write it so.
 
 ## What it costs to change later
 
