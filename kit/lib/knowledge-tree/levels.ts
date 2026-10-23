@@ -59,13 +59,13 @@ type Ctx = Pick<Context, 'root' | 'layout' | 'config'>;
 export type LevelCopy = { level: CopyLevel; folder: string; ctx: Ctx };
 
 /** `ctx` with its knowledge paths moved into the copy at `folder`. */
-function levelContext(ctx: Ctx, folder: string): Ctx {
+function levelContext(ctx: Pick<Ctx, 'root' | 'config'>, folder: string): Ctx {
   const paths = { delivery: ctx.config.paths.delivery, knowledge: folder, playbook: `${folder}/playbook`, adr: `${folder}/adr` };
   return Object.freeze({ root: ctx.root, config: ctx.config, layout: foldersLayout(ctx.root, paths) });
 }
 
 /** Every copy present in the checkout at `ctx`, bottom-up; `[]` when there is none. */
-export function levelCopies({ ctx }: { ctx: Ctx }): LevelCopy[] {
+export function levelCopies({ ctx }: { ctx: Pick<Ctx, 'root' | 'config'> }): LevelCopy[] {
   return COPY_LEVELS.flatMap((level) => {
     const folder = COPY_FOLDERS[level];
     const absolute = join(ctx.root, folder);

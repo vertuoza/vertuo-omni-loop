@@ -141,7 +141,7 @@ export function readDecisions({
   const held = new Set(records.map((record) => record.number));
   const inherited: DecisionRecord[] = [];
   if (ctx.config) {
-    for (const copy of levelCopies({ ctx: { root: ctx.root, layout: ctx.layout as Context['layout'], config: ctx.config } })) {
+    for (const copy of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
       const own = readFolder(ctx.root, copy.ctx.layout.adrDir.replace(/\/+$/, ''), copy.level);
       const taken = new Set(held);
       for (const record of own) if (!taken.has(record.number)) inherited.push(record);
