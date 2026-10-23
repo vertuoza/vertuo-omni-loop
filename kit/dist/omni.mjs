@@ -30453,6 +30453,9 @@ var COPY_FOLDERS = Object.freeze({
   "plan repo": `${TREE_DIR}/plan-repo`,
   "omni settings": `${TREE_DIR}/omni-settings`
 });
+function levelFolder(level) {
+  return COPY_FOLDERS[level];
+}
 function levelContext(ctx, folder) {
   const paths = { delivery: ctx.config.paths.delivery, knowledge: folder, playbook: `${folder}/playbook`, adr: `${folder}/adr` };
   return Object.freeze({ root: ctx.root, config: ctx.config, layout: foldersLayout(ctx.root, paths) });
@@ -39566,14 +39569,15 @@ function tagsOf(text15) {
   const domain2 = headerDomain(text15);
   return { ...layers.length > 0 ? { layers } : {}, ...domain2 === null ? {} : { domain: domain2 } };
 }
-function readDecisions({ ctx }) {
-  const dir = ctx.layout.adrDir.replace(/\/+$/, "");
-  const absolute = join47(ctx.root, dir);
+var levelOf = (record2) => record2.level ?? "repo";
+function readFolder(root, dir, level) {
+  const absolute = join47(root, dir);
   const names = existsSync35(absolute) ? readdirSync16(absolute, { withFileTypes: true }).filter((entry3) => entry3.isFile() && RECORD2.test(entry3.name)).map((entry3) => entry3.name).sort() : [];
-  const records = names.map((name3) => {
+  return names.map((name3) => {
     const file2 = `${dir}/${name3}`;
-    const text15 = readFileSync38(join47(ctx.root, file2), "utf8");
+    const text15 = readFileSync38(join47(root, file2), "utf8");
     return {
+      ...level === "repo" ? {} : { level },
       number: name3.match(RECORD2)?.[1] ?? "",
       file: file2,
       title: text15.match(TITLE2)?.[1] ?? null,
@@ -39581,11 +39585,27 @@ function readDecisions({ ctx }) {
       ...tagsOf(text15)
     };
   });
+}
+function readDecisions({
+  ctx
+}) {
+  const dir = ctx.layout.adrDir.replace(/\/+$/, "");
+  const records = readFolder(ctx.root, dir, "repo");
   const byNumber2 = /* @__PURE__ */ new Map();
   for (const record2 of records) byNumber2.set(record2.number, [...byNumber2.get(record2.number) ?? [], record2.file]);
   const shared2 = [...byNumber2].filter(([, files]) => files.length > 1).map(([number5, files]) => ({ number: number5, files }));
   const highest = records.reduce((max, record2) => Math.max(max, Number(record2.number)), 0);
-  return { dir, records, shared: shared2, next: String(highest + 1).padStart(4, "0") };
+  const held2 = new Set(records.map((record2) => record2.number));
+  const inherited = [];
+  if (ctx.config) {
+    for (const copy of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
+      const own2 = readFolder(ctx.root, copy.ctx.layout.adrDir.replace(/\/+$/, ""), copy.level);
+      const taken = new Set(held2);
+      for (const record2 of own2) if (!taken.has(record2.number)) inherited.push(record2);
+      for (const record2 of own2) held2.add(record2.number);
+    }
+  }
+  return { dir, records: [...records, ...inherited], shared: shared2, next: String(highest + 1).padStart(4, "0") };
 }
 
 // kit/lib/budgets/measure.ts
@@ -39595,8 +39615,15 @@ var LATEST_RECORDS = 20;
 function recordLines({ dir, records, shared: shared2, next: next2 }, all) {
   const lines3 = [`## Records  [read live from ${dir}]`];
   if (records.length === 0) lines3.push("No decision records yet.");
-  const older2 = all ? 0 : Math.max(0, records.length - LATEST_RECORDS);
-  lines3.push(...records.slice(older2).map(({ number: number5, file: file2, title }) => `${number5}  ${title ?? file2}`));
+  const tagged = records.some((record2) => levelOf(record2) !== "repo");
+  const own2 = records.filter((record2) => levelOf(record2) === "repo");
+  const inherited = records.filter((record2) => levelOf(record2) !== "repo");
+  const older2 = all ? 0 : Math.max(0, own2.length - LATEST_RECORDS);
+  lines3.push(
+    ...[...own2.slice(older2), ...inherited].map(
+      (record2) => `${record2.number}  ${record2.title ?? record2.file}${tagged ? `  [${levelOf(record2)}]` : ""}`
+    )
+  );
   if (older2 > 0) lines3.push(`\u2026 ${older2} older records: omni kb show decisions --all`);
   lines3.push(...shared2.map(({ number: number5, files }) => `! ${number5} is used by ${files.length} records: ${files.join(", ")}`));
   lines3.push(`Next free number: ${next2}`);
@@ -43013,6 +43040,35 @@ function writeOwnersBlock(ctx) {
   return { file: file2, wrote: true, paths };
 }
 
+// kit/lib/knowledge-tree/product.ts
+init_define_OMNI_BUNDLE();
+var PRODUCT_LEVELS = Object.freeze(["omni settings", "plan repo", "repo"]);
+function knowledgeRootOf(ctx, level) {
+  return level === "repo" ? ctx.layout.knowledgeRoot : levelFolder(level);
+}
+function productEntries({ ctx }) {
+  return PRODUCT_LEVELS.flatMap((level) => {
+    const { entries: entries4 } = readKnowledge({ ctx: { root: ctx.root, layout: { knowledgeRoot: knowledgeRootOf(ctx, level) } } });
+    return entries4.map((entry3) => ({ level, entry: entry3 }));
+  });
+}
+function statementOf(entry3) {
+  return entry3.statement.replace(/\s+/g, " ").trim();
+}
+function difference(lower, higher) {
+  if (lower.kind !== higher.kind) return "kind";
+  return statementOf(lower) === statementOf(higher) ? null : "statement";
+}
+function findContradictions(entries4) {
+  return entries4.flatMap(
+    (lower, index2) => entries4.slice(0, index2).flatMap((higher) => {
+      if (higher.level === lower.level || higher.entry.id !== lower.entry.id) return [];
+      const on2 = difference(lower.entry, higher.entry);
+      return on2 === null ? [] : [{ lower, higher, on: on2 }];
+    })
+  );
+}
+
 // kit/lib/knowledge/check-knowledge.ts
 var DEFAULT_LAWS_MAX = 20;
 function violation(file2, id, detail) {
@@ -43449,6 +43505,19 @@ function findOwnersBlockViolations(ctx, knowledge2) {
   if (ctx.copyOf) return [];
   return ownersBlockProblems(ctx, knowledge2).map((text15) => ({ text: text15 }));
 }
+function aKind(kind) {
+  if (kind === null) return "an entry of no kind";
+  return `${/^[aeiou]/.test(kind) ? "an" : "a"} ${kind}`;
+}
+function findLevelContradictions(ctx) {
+  if (ctx.copyOf) return [];
+  return findContradictions(productEntries({ ctx })).map(({ lower, higher, on: on2 }) => {
+    const differs = on2 === "kind" ? `${aKind(lower.entry.kind)} against ${aKind(higher.entry.kind)}` : `"${statementOf(lower.entry)}" against "${statementOf(higher.entry)}"`;
+    return {
+      text: `${lower.entry.file}: ${lower.entry.id} [${lower.level}] contradicts ${higher.entry.id} [${higher.level}] in ${higher.entry.file} \u2014 ${differs}: a level may add to the product knowledge above it, never change it \u2014 say it as the level above does, or give the new entry an id of its own.`
+    };
+  });
+}
 function findUnresolvedCitations(file2, text15, resolve17) {
   return idsCitedIn(text15).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve17(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
 }
@@ -43486,6 +43555,7 @@ function gradeKnowledge({
     ...findDecisionTagViolations(ctx, knowledge2),
     ...findThesisViolations(ctx, knowledge2.entries),
     ...findOwnersBlockViolations(ctx, knowledge2),
+    ...findLevelContradictions(ctx),
     ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve17))
   ];
   return {
@@ -43550,6 +43620,20 @@ import { join as join62 } from "node:path";
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync44, readFileSync as readFileSync50 } from "node:fs";
 import { join as join61 } from "node:path";
+var SOURCE_LEVEL = Object.freeze({
+  repo: "repo",
+  "plan-repo": "plan repo",
+  "omni-settings": "omni settings",
+  kit: "kit default"
+});
+function levelCounts(sections) {
+  const counts2 = {};
+  for (const level of LEVELS) {
+    const n = sections.filter(({ source: source2 }) => SOURCE_LEVEL[source2] === level).length;
+    if (n > 0) counts2[level] = n;
+  }
+  return counts2;
+}
 function blobHash(path, { ctx, exec }) {
   try {
     return exec("git", ["hash-object", "--", path], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -43601,6 +43685,7 @@ function playbookStatus({ ctx, exec }) {
       state: resolved.state,
       source: formSource(resolved),
       sections: resolved.sections.map(({ slot: slot2, source: source2 }) => ({ slot: slot2, source: source2 })),
+      levels: levelCounts(resolved.sections),
       questions: (form2?.slots ?? []).flatMap((slot2) => slot2.body.questions.map((question) => ({ slot: slot2.id, question }))),
       stale: staleEvidence(form2?.evidence ?? [], { ctx, exec }).map(({ path, hash: hash2, now: now2 }) => ({ path, hash: hash2, now: now2 }))
     };
@@ -53737,8 +53822,10 @@ function copyLines(targets2) {
 function statusText({ frontDoor, forms, registers, targets: targets2, ungoverned }) {
   const width = Math.max(...forms.map(({ form: form2 }) => form2.length));
   const lines3 = [`kb status \u2014 ${forms.length} form(s) in ${frontDoor}`];
-  for (const { form: form2, kind, state, source: source2, questions: questions3, stale: stale3 } of forms) {
+  const tree = forms.some(({ levels }) => levels["plan repo"] !== void 0 || levels["omni settings"] !== void 0);
+  for (const { form: form2, kind, state, source: source2, levels, questions: questions3, stale: stale3 } of forms) {
     const counts2 = [];
+    if (tree) counts2.push(LEVELS.flatMap((level) => levels[level] === void 0 ? [] : [`${levels[level]} ${level}`]).join(", "));
     if (questions3.length > 0) counts2.push(`${questions3.length} open question(s)`);
     if (stale3.length > 0) counts2.push(`${stale3.length} stale evidence`);
     const columns3 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source2]).padEnd(11), counts2.join(" \xB7 ")];

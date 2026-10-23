@@ -8317,8 +8317,36 @@ function briefingLaws(ctx) {
 }
 
 // kit/lib/playbook/decisions.ts
-import { existsSync as existsSync25, readdirSync as readdirSync11, readFileSync as readFileSync24 } from "node:fs";
+import { existsSync as existsSync26, readdirSync as readdirSync11, readFileSync as readFileSync24 } from "node:fs";
+import { join as join36 } from "node:path";
+
+// kit/lib/knowledge-tree/levels.ts
+import { existsSync as existsSync25, statSync as statSync5 } from "node:fs";
 import { join as join35 } from "node:path";
+var LEVELS = Object.freeze(["repo", "plan repo", "omni settings", "kit default"]);
+var COPY_LEVELS = ["plan repo", "omni settings"];
+var TREE_DIR = `${LOCAL_DIR}/tree`;
+var COPY_FOLDERS = Object.freeze({
+  "plan repo": `${TREE_DIR}/plan-repo`,
+  "omni settings": `${TREE_DIR}/omni-settings`
+});
+function levelFolder(level) {
+  return COPY_FOLDERS[level];
+}
+function levelContext(ctx, folder) {
+  const paths = { delivery: ctx.config.paths.delivery, knowledge: folder, playbook: `${folder}/playbook`, adr: `${folder}/adr` };
+  return Object.freeze({ root: ctx.root, config: ctx.config, layout: foldersLayout(ctx.root, paths) });
+}
+function levelCopies({ ctx }) {
+  return COPY_LEVELS.flatMap((level) => {
+    const folder = COPY_FOLDERS[level];
+    const absolute = join35(ctx.root, folder);
+    if (!existsSync25(absolute) || !statSync5(absolute).isDirectory()) return [];
+    return [{ level, folder, ctx: levelContext(ctx, folder) }];
+  });
+}
+
+// kit/lib/playbook/decisions.ts
 var RECORD = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
@@ -8342,14 +8370,15 @@ function tagsOf(text15) {
   const domain = headerDomain(text15);
   return { ...layers.length > 0 ? { layers } : {}, ...domain === null ? {} : { domain } };
 }
-function readDecisions({ ctx }) {
-  const dir = ctx.layout.adrDir.replace(/\/+$/, "");
-  const absolute = join35(ctx.root, dir);
-  const names = existsSync25(absolute) ? readdirSync11(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
-  const records = names.map((name) => {
+var levelOf = (record) => record.level ?? "repo";
+function readFolder(root, dir, level) {
+  const absolute = join36(root, dir);
+  const names = existsSync26(absolute) ? readdirSync11(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
+  return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text15 = readFileSync24(join35(ctx.root, file), "utf8");
+    const text15 = readFileSync24(join36(root, file), "utf8");
     return {
+      ...level === "repo" ? {} : { level },
       number: name.match(RECORD)?.[1] ?? "",
       file,
       title: text15.match(TITLE2)?.[1] ?? null,
@@ -8357,41 +8386,32 @@ function readDecisions({ ctx }) {
       ...tagsOf(text15)
     };
   });
+}
+function readDecisions({
+  ctx
+}) {
+  const dir = ctx.layout.adrDir.replace(/\/+$/, "");
+  const records = readFolder(ctx.root, dir, "repo");
   const byNumber = /* @__PURE__ */ new Map();
   for (const record of records) byNumber.set(record.number, [...byNumber.get(record.number) ?? [], record.file]);
   const shared = [...byNumber].filter(([, files]) => files.length > 1).map(([number, files]) => ({ number, files }));
   const highest = records.reduce((max, record) => Math.max(max, Number(record.number)), 0);
-  return { dir, records, shared, next: String(highest + 1).padStart(4, "0") };
+  const held = new Set(records.map((record) => record.number));
+  const inherited = [];
+  if (ctx.config) {
+    for (const copy of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
+      const own = readFolder(ctx.root, copy.ctx.layout.adrDir.replace(/\/+$/, ""), copy.level);
+      const taken = new Set(held);
+      for (const record of own) if (!taken.has(record.number)) inherited.push(record);
+      for (const record of own) held.add(record.number);
+    }
+  }
+  return { dir, records: [...records, ...inherited], shared, next: String(highest + 1).padStart(4, "0") };
 }
 
 // kit/lib/playbook/resolve.ts
 import { existsSync as existsSync27, readdirSync as readdirSync12, readFileSync as readFileSync25, statSync as statSync6 } from "node:fs";
 import { join as join37 } from "node:path";
-
-// kit/lib/knowledge-tree/levels.ts
-import { existsSync as existsSync26, statSync as statSync5 } from "node:fs";
-import { join as join36 } from "node:path";
-var LEVELS = Object.freeze(["repo", "plan repo", "omni settings", "kit default"]);
-var COPY_LEVELS = ["plan repo", "omni settings"];
-var TREE_DIR = `${LOCAL_DIR}/tree`;
-var COPY_FOLDERS = Object.freeze({
-  "plan repo": `${TREE_DIR}/plan-repo`,
-  "omni settings": `${TREE_DIR}/omni-settings`
-});
-function levelContext(ctx, folder) {
-  const paths = { delivery: ctx.config.paths.delivery, knowledge: folder, playbook: `${folder}/playbook`, adr: `${folder}/adr` };
-  return Object.freeze({ root: ctx.root, config: ctx.config, layout: foldersLayout(ctx.root, paths) });
-}
-function levelCopies({ ctx }) {
-  return COPY_LEVELS.flatMap((level) => {
-    const folder = COPY_FOLDERS[level];
-    const absolute = join36(ctx.root, folder);
-    if (!existsSync26(absolute) || !statSync5(absolute).isDirectory()) return [];
-    return [{ level, folder, ctx: levelContext(ctx, folder) }];
-  });
-}
-
-// kit/lib/playbook/resolve.ts
 var LEVEL_SOURCE = Object.freeze({ "plan repo": "plan-repo", "omni settings": "omni-settings" });
 var CONFIG_PLACEHOLDER = /\{config:([^{}\s]+)\}/g;
 function configValue(config, key) {
@@ -8577,8 +8597,15 @@ var LATEST_RECORDS = 20;
 function recordLines2({ dir, records, shared, next }, all) {
   const lines = [`## Records  [read live from ${dir}]`];
   if (records.length === 0) lines.push("No decision records yet.");
-  const older = all ? 0 : Math.max(0, records.length - LATEST_RECORDS);
-  lines.push(...records.slice(older).map(({ number, file, title }) => `${number}  ${title ?? file}`));
+  const tagged = records.some((record) => levelOf(record) !== "repo");
+  const own = records.filter((record) => levelOf(record) === "repo");
+  const inherited = records.filter((record) => levelOf(record) !== "repo");
+  const older = all ? 0 : Math.max(0, own.length - LATEST_RECORDS);
+  lines.push(
+    ...[...own.slice(older), ...inherited].map(
+      (record) => `${record.number}  ${record.title ?? record.file}${tagged ? `  [${levelOf(record)}]` : ""}`
+    )
+  );
   if (older > 0) lines.push(`\u2026 ${older} older records: omni kb show decisions --all`);
   lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(", ")}`));
   lines.push(`Next free number: ${next}`);
@@ -11877,6 +11904,34 @@ function ownersBlockProblems(ctx, knowledge = readKnowledge({ ctx })) {
   return [`${file}: its "${OWNERS_BEGIN}" block is out of date with the locked laws and laws.owners \u2014 run omni kb owners.`];
 }
 
+// kit/lib/knowledge-tree/product.ts
+var PRODUCT_LEVELS = Object.freeze(["omni settings", "plan repo", "repo"]);
+function knowledgeRootOf(ctx, level) {
+  return level === "repo" ? ctx.layout.knowledgeRoot : levelFolder(level);
+}
+function productEntries({ ctx }) {
+  return PRODUCT_LEVELS.flatMap((level) => {
+    const { entries } = readKnowledge({ ctx: { root: ctx.root, layout: { knowledgeRoot: knowledgeRootOf(ctx, level) } } });
+    return entries.map((entry) => ({ level, entry }));
+  });
+}
+function statementOf(entry) {
+  return entry.statement.replace(/\s+/g, " ").trim();
+}
+function difference(lower2, higher) {
+  if (lower2.kind !== higher.kind) return "kind";
+  return statementOf(lower2) === statementOf(higher) ? null : "statement";
+}
+function findContradictions(entries) {
+  return entries.flatMap(
+    (lower2, index) => entries.slice(0, index).flatMap((higher) => {
+      if (higher.level === lower2.level || higher.entry.id !== lower2.entry.id) return [];
+      const on = difference(lower2.entry, higher.entry);
+      return on === null ? [] : [{ lower: lower2, higher, on }];
+    })
+  );
+}
+
 // kit/lib/knowledge/check-knowledge.ts
 var DEFAULT_LAWS_MAX = 20;
 function violation(file, id, detail) {
@@ -12313,6 +12368,19 @@ function findOwnersBlockViolations(ctx, knowledge) {
   if (ctx.copyOf) return [];
   return ownersBlockProblems(ctx, knowledge).map((text15) => ({ text: text15 }));
 }
+function aKind(kind) {
+  if (kind === null) return "an entry of no kind";
+  return `${/^[aeiou]/.test(kind) ? "an" : "a"} ${kind}`;
+}
+function findLevelContradictions(ctx) {
+  if (ctx.copyOf) return [];
+  return findContradictions(productEntries({ ctx })).map(({ lower: lower2, higher, on }) => {
+    const differs = on === "kind" ? `${aKind(lower2.entry.kind)} against ${aKind(higher.entry.kind)}` : `"${statementOf(lower2.entry)}" against "${statementOf(higher.entry)}"`;
+    return {
+      text: `${lower2.entry.file}: ${lower2.entry.id} [${lower2.level}] contradicts ${higher.entry.id} [${higher.level}] in ${higher.entry.file} \u2014 ${differs}: a level may add to the product knowledge above it, never change it \u2014 say it as the level above does, or give the new entry an id of its own.`
+    };
+  });
+}
 function findUnresolvedCitations(file, text15, resolve3) {
   return idsCitedIn(text15).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
@@ -12350,6 +12418,7 @@ function gradeKnowledge({
     ...findDecisionTagViolations(ctx, knowledge),
     ...findThesisViolations(ctx, knowledge.entries),
     ...findOwnersBlockViolations(ctx, knowledge),
+    ...findLevelContradictions(ctx),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve3))
   ];
   return {
