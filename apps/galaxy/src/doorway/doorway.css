@@ -12,6 +12,7 @@
 .doorway-main {
   position: relative;
   align-content: center;
+  justify-items: center;
   gap: 24px;
   padding-top: 48px;
   padding-bottom: 48px;

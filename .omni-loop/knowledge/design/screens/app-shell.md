@@ -3,7 +3,7 @@ screen: app-shell
 status: draft
 kind: shared
 mock: app-shell.html
-implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css, apps/galaxy/src/switch/AntiLoopButton.tsx]
+implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css, apps/galaxy/src/switch/AntiLoopButton.tsx, apps/galaxy/src/ask/ask.css]
 reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/(shell)/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/app/ideas/layout.tsx, apps/galaxy/app/anti/layout.tsx, apps/galaxy/src/ideas/IdeasFrame.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
 routes: [/app, /app/runners, /app/waiting, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual, /ideas/<owner>/<repo>, /anti, /anti/work]
 supersedes: null
@@ -33,7 +33,9 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
   (`Work › PRDs`); then the theme switch (Omni, Light, Dark), Game mode, the Anti-loop switch (PRD 2490: `Anti-loop` to /anti, `Omni loop` back to /app in anti-loop mode; issue 2505: it wears the loop it opens, that loop's signal, `--ask-loop-anti` or `--ask-loop-omni`, and that loop's crest at 1× in a chip on the ground, mirrored on the way to the anti-loop), the bell (its own shared
   screen, `notifications`) and you (the avatar opening the user menu: your name and login, My
   profile, Sign out; `nav/UserMenu.tsx`).
-- **The page** in `<main class="ask-main">`, drawn by each page's own screen.
+- **The page** in `<main class="ask-main">`, drawn by each page's own screen. The main area stretches
+  every page, and its skeleton, to its full width from the gutter, even a page that sets no width of
+  its own (issue 2511, `ask/ask.css`); nothing in it is centred.
 
 ## States
 
@@ -100,3 +102,4 @@ Anti-work.
 - /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html (the Waiting entry and its badge)
 - /omni:brainstorm, PRD 2490: .omni-loop/delivery/shipped/2490-anti-loop-placeholder/before-after.html (the Anti-loop switch and anti-loop mode)
 - /omni:visual-fix #2505, pick B by @pierrederval on 2026-10-23: .omni-loop/delivery/visual/2505-anti-loop-button-colours/before-after.html
+- /omni:visual-fix #2511, pick A by @pierrederval on 2026-10-23: .omni-loop/delivery/visual/2511-pages-full-width/before-after.html

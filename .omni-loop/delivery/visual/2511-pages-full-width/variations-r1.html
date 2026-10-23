@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Full-width pages: variations</title><style>
+body{margin:0;background:#0c0b24;color:#fff;font:15px/1.5 system-ui,sans-serif;padding:24px 16px}
+h2.k{font-size:18px;margin:32px 0 6px}.why{color:#c9c6ee;max-width:900px;margin:0 0 12px}
+.screen{display:flex;border:1px solid #3a1458;border-radius:10px;overflow:hidden;background:#07061c;min-height:380px;max-width:1200px}
+.side{width:64px;border-right:1px solid #3a1458;padding:14px 8px;display:grid;align-content:start;gap:40px;background:#0b0a26}
+.fold{border:1.5px solid #b0489a;border-radius:6px;text-align:center;color:#ff3ea5}.nav-on{height:30px;border:1.5px solid #ff3ea5;border-radius:6px;margin-left:-8px}
+.frame{flex:1;display:flex;flex-direction:column;min-width:0}
+.bar{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:2px solid #b0489a;background:#12103a;font-size:13px;flex-wrap:wrap}
+.crumb{flex:1;color:#a9a6d9}.crumb b{color:#fff}.sw{border:1px solid #b0489a;border-radius:999px;padding:3px 8px;color:#a9a6d9}.sw i{font-style:normal;background:#ff3ea5;color:#07061c;border-radius:999px;padding:1px 6px}
+.game{background:#ff3ea5;color:#07061c;border-radius:6px;padding:4px 8px;font-weight:700}.omni{background:#ffd84a;color:#07061c;border-radius:6px;padding:4px 8px;font-weight:700}
+.main{display:grid;align-content:start;gap:16px;padding:24px 24px 40px}
+.main h1{margin:0 0 8px;font-size:28px}.main p{margin:6px 0}
+.cap{color:#a9a6d9;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.skel{display:grid;gap:10px}.bone{display:block;height:14px;border-radius:6px;background:#3a1458}
+.measure p{max-width:70ch}
+.head{border-bottom:1px solid #3a1458;padding-bottom:10px;margin-bottom:8px}
+.panel{border:1px solid #b0489a;border-radius:12px;background:#12103a;padding:16px 18px}
+</style></head><body>
+<h1>Pages full width by default (#2511), round 1</h1>
+<p class="why">The line: pages are not full width by default, and a skeleton then shows wrongly; they should be 100% wide. Shown on the Anti-dashboard, the page in the screenshot, with a skeleton below each to show the loading state.</p>
+<h2 class="k">Today</h2><p class="why">Today: the main area centres every page that does not set its own width. This page and any skeleton shrink to their content and sit in the middle.</p>
+<div class="screen" data-screen="today">
+  <div class="side"><span class="fold">&laquo;</span><span class="nav-on"></span></div>
+  <div class="frame">
+    <div class="bar"><span class="crumb">Anti-loop &rsaquo; <b>Anti-dashboard</b></span><span class="sw"><i>Omni</i> Light Dark</span><span class="game">Game mode</span><span class="omni" data-primary>Omni loop</span></div>
+    <main class="main" style="justify-items:center"><section><h1>Anti-dashboard</h1><p>Harness, architecture and retros, at a glance.</p><p>Not open yet.</p></section><div class="cap">while it loads:</div><div class="skel" style="width:max-content"><span class="bone" style="width:14em;height:22px"></span><span class="bone" style="width:9em"></span></div></main>
+  </div>
+</div>
+<h2 class="k">A</h2><p class="why">A. Full width, left. Every page fills the area from the gutter, edge to edge; a skeleton fills it too. Nothing else changes.</p>
+<div class="screen" data-screen="A">
+  <div class="side"><span class="fold">&laquo;</span><span class="nav-on"></span></div>
+  <div class="frame">
+    <div class="bar"><span class="crumb">Anti-loop &rsaquo; <b>Anti-dashboard</b></span><span class="sw"><i>Omni</i> Light Dark</span><span class="game">Game mode</span><span class="omni" data-primary>Omni loop</span></div>
+    <main class="main" style="justify-items:stretch"><section><h1>Anti-dashboard</h1><p>Harness, architecture and retros, at a glance.</p><p>Not open yet.</p></section><div class="cap">while it loads:</div><div class="skel"><span class="bone" style="width:14em;height:22px"></span><span class="bone" style="width:100%"></span><span class="bone" style="width:100%"></span></div></main>
+  </div>
+</div>
+<h2 class="k">B</h2><p class="why">B. Full width, prose kept readable. The page fills the area, but a paragraph stops at about 70 characters per line; blocks, tables and skeletons still use the whole width.</p>
+<div class="screen" data-screen="B">
+  <div class="side"><span class="fold">&laquo;</span><span class="nav-on"></span></div>
+  <div class="frame">
+    <div class="bar"><span class="crumb">Anti-loop &rsaquo; <b>Anti-dashboard</b></span><span class="sw"><i>Omni</i> Light Dark</span><span class="game">Game mode</span><span class="omni" data-primary>Omni loop</span></div>
+    <main class="main" style="justify-items:stretch"><section class="measure"><h1>Anti-dashboard</h1><p>Harness, architecture and retros, at a glance.</p><p>Not open yet.</p></section><div class="cap">while it loads:</div><div class="skel"><span class="bone" style="width:14em;height:22px"></span><span class="bone" style="width:100%"></span><span class="bone" style="width:100%"></span></div></main>
+  </div>
+</div>
+<h2 class="k">C</h2><p class="why">C. Full width, with a title band. The page fills the area and its title sits on a rule that runs the whole width, so the edge of the page is visible even when it is nearly empty.</p>
+<div class="screen" data-screen="C">
+  <div class="side"><span class="fold">&laquo;</span><span class="nav-on"></span></div>
+  <div class="frame">
+    <div class="bar"><span class="crumb">Anti-loop &rsaquo; <b>Anti-dashboard</b></span><span class="sw"><i>Omni</i> Light Dark</span><span class="game">Game mode</span><span class="omni" data-primary>Omni loop</span></div>
+    <main class="main" style="justify-items:stretch"><section><div class="head"><h1>Anti-dashboard</h1></div><p>Harness, architecture and retros, at a glance.</p><p>Not open yet.</p></section><div class="cap">while it loads:</div><div class="skel"><span class="bone" style="width:14em;height:22px"></span><span class="bone" style="width:100%"></span><span class="bone" style="width:100%"></span></div></main>
+  </div>
+</div>
+<h2 class="k">D</h2><p class="why">D. Full width, in a panel. The page fills the area inside a framed surface, so even an empty page and its skeleton show the full width.</p>
+<div class="screen" data-screen="D">
+  <div class="side"><span class="fold">&laquo;</span><span class="nav-on"></span></div>
+  <div class="frame">
+    <div class="bar"><span class="crumb">Anti-loop &rsaquo; <b>Anti-dashboard</b></span><span class="sw"><i>Omni</i> Light Dark</span><span class="game">Game mode</span><span class="omni" data-primary>Omni loop</span></div>
+    <main class="main" style="justify-items:stretch"><section class="panel"><h1>Anti-dashboard</h1><p>Harness, architecture and retros, at a glance.</p><p>Not open yet.</p></section><div class="cap">while it loads:</div><div class="panel"><div class="skel"><span class="bone" style="width:14em;height:22px"></span><span class="bone" style="width:100%"></span><span class="bone" style="width:100%"></span></div></div></main>
+  </div>
+</div>
+</body></html>
