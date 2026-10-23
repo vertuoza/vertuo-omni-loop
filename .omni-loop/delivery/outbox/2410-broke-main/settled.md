@@ -1332,3 +1332,328 @@ B or C is a few lines of the card's component; no data changes.
 ```
 
 <!-- /omni-outbox-settled: s7-06-reject-asks-its-reason-beside-it -->
+
+<!-- omni-outbox-settled: s1-01-watch-per-lane -->
+
+## s1-01-watch-per-lane — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-23T08:17:56Z
+- Channel: feature pull request #2414
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2414#issuecomment-6360616792
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s1
+- Wave: 1
+- Stays here: a choice of this PRD's tables, written in its migration and spec; it states no lasting rule about the product
+
+### The answer, as it was given
+
+```text
+A. A. One watch per PRD and lane: the PRD's own repository and number, and the repository it merged into (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-01-watch-per-lane
+prd: 2410
+slice: s1
+rank: high
+bears-on: none
+raised: 2026-10-22
+wave: 1
+---
+
+## The question, in plain words
+
+When one PRD lands in several repositories, how should its watch on main be kept: one per repository it landed in, still tied to the PRD it came from?
+
+## The decision, in plain words
+
+Each PRD keeps one watch for every repository it landed in, and each watch still names the PRD's own home and number. The rewind's findings belong to the PRD as a whole.
+
+## The intro, for fun
+
+One PRD, three repositories, one question: who is watching which main?
+
+## The punchline, for fun
+
+Everyone watches their own main, and the PRD still knows they are all family.
+
+## The options, in plain words
+
+A. A. One watch per PRD and lane: the PRD's own repository and number, and the repository it merged into (built).
+B. B. One watch per repository merged into and PRD number, as the page drew it: a plan repository's PRD can then share its number with a target's own PRD.
+C. C. One watch per PRD, its lanes kept as a list inside the one row.
+
+## What I had to decide
+
+Whether `prd_main_watch` is keyed by the PRD's repository, its number and a `lane` (the repository merged into), as `prd_milestones` is (built), instead of the before/after page's `repository` and `prd` alone. Breaks carry the lane; `rewind_findings` carry the PRD's repository and number, with no lane and no foreign key to a watch. Decided by: Jev (hardToRevert 0.54) · agent said true
+
+## What I did meanwhile
+
+Built as option A in supabase/migrations/20261229090000_main_watch.sql: the key is (workspace_id, repository, prd, lane), and a one-lane PRD has its own repository as its lane. s2, s3 and s4 read and write it so.
+
+## What it costs to change later
+
+Changing the key once rows exist in production is a migration that rewrites them; before the feature PR merges it is an edit of this one migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the page drew `repository` and `prd` only; whether it meant the target repository there is not said, and a plan repository's PRD number would then collide with the target's own PRD of the same number
+- (author) a finding has no foreign key to a watch, so the table does not itself refuse a finding for a PRD that has none: that is left to s5's endpoint
+
+```
+
+<!-- /omni-outbox-settled: s1-01-watch-per-lane -->
+
+<!-- omni-outbox-settled: s1-02-watch-tables-beyond-the-page -->
+
+## s1-02-watch-tables-beyond-the-page — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-23T08:17:56Z
+- Channel: feature pull request #2414
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2414#issuecomment-6360616792
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s1
+- Wave: 1
+- Stays here: what the main watch's tables hold is this PRD's design, kept in its migration; no rule beyond it
+
+### The answer, as it was given
+
+```text
+A. A. Keep the additions as built: a break's name and its parent's result, the decisions' log, the database refusing a repeated finding, the caps.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-watch-tables-beyond-the-page
+prd: 2410
+slice: s1
+rank: high
+bears-on: none
+raised: 2026-10-22
+wave: 1
+---
+
+## The question, in plain words
+
+Should the database hold a little more than the before and after page drew, so the next slices have what they show and the database refuses what must never happen?
+
+## The decision, in plain words
+
+Each break keeps its name and whether the commit before it was green, and each decision on a finding goes into a log of its own. The database itself refuses the same finding twice, oversized findings, and a finding stored as already decided.
+
+## The intro, for fun
+
+The drawing had three boxes; the database grew a fourth while nobody was looking.
+
+## The punchline, for fun
+
+It only keeps receipts, and it never accepts the same receipt twice.
+
+## The options, in plain words
+
+A. A. Keep the additions as built: a break's name and its parent's result, the decisions' log, the database refusing a repeated finding, the caps.
+B. B. Only what the page drew: the next slices read a break's name and parent from GitHub, a decision lives on the finding alone, and only the kit refuses a repeated finding.
+
+## What I had to decide
+
+Whether `supabase/migrations/20261229090000_main_watch.sql` keeps its additions to the drawn shape: `prd_main_breaks.title` and `parent` (green, red or unknown, a ci-red only); a fourth table, `rewind_finding_events`, the decision's event the plan asks for; `rewind_findings_once`, a unique index on the check, origin and evidence of a PRD; caps (20 https links of 500 characters, 4000 characters of text, a one-line reason of 500); and the App inserting only a finding's content, never its state. Decided by: Jev (hardToRevert 0.48) · agent said false
+
+## What I did meanwhile
+
+Built as option A and proven by supabase/checks/main_watch.sql; s2 writes the title and parent, s3 shows them, s5 maps a refused repeat to its own refusal.
+
+## What it costs to change later
+
+Each addition is dropped by a follow-up migration; the caps are constants of the migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the caps (20 links, 500 and 4000 characters) are not measured against real rewinds
+- (author) the event log holds decisions only, not the proposal itself, whose time is on the finding
+
+```
+
+<!-- /omni-outbox-settled: s1-02-watch-tables-beyond-the-page -->
+
+<!-- omni-outbox-settled: s2-05-main-watch-setting-in-the-rule-proof -->
+
+## s2-05-main-watch-setting-in-the-rule-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-23T08:17:56Z
+- Channel: feature pull request #2414
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2414#issuecomment-6360616792
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-23
+- Raised: 2026-10-22
+- Slice: s2
+- Wave: 2
+- Stays here: where one setting's test sits; BR-PRODUCT-23's own tests are unchanged, and the testing form already says where tests live
+
+### The answer, as it was given
+
+```text
+A. Test the new setting in that file, beside the rule's tests, and add it to the file's list of settings (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-05-main-watch-setting-in-the-rule-proof
+prd: 2410
+slice: s2
+rank: high
+bears-on: BR-PRODUCT-23
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+May the new on and off setting for the watch be tested in the file that proves the rule about the signature's name and email?
+
+## The decision, in plain words
+
+Yes: the new setting is tested in that file, beside the rule's tests, as the last few settings were, and the file's list of every setting now names it. The rule's own tests are unchanged.
+
+## The intro, for fun
+
+The rule's proof keeps a list of every setting, and a new setting cannot hide from a list.
+
+## The punchline, for fun
+
+The rule's own tests did not move; the new neighbour just signed the guest book.
+
+## The options, in plain words
+
+A. Test the new setting in that file, beside the rule's tests, and add it to the file's list of settings (built).
+B. Move the new setting's test to a file of its own; the list of settings in the rule's file still has to name it.
+
+## What I had to decide
+
+Whether s2 adds its `mainWatch.enabled` test to `kit/lib/config.test.ts`, which proves BR-PRODUCT-23, beside the retro guards' test (PRD 2338), and adds `mainWatch` to the test that lists every key `parseConfig` returns; BR-PRODUCT-23's own tests are left as they were. Decided by: Jev (hardToRevert 0.70) · agent said true
+
+## What I did meanwhile
+
+Built as option A: one new test and one word in the key list of `kit/lib/config.test.ts`; `omni check coverage` names the file as a law proof.
+
+## What it costs to change later
+
+Moving the new test to a file of its own is a cut and a paste; the key list has to name the setting wherever it lives.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the testing form asks that tests of other behaviour leave a proof's file untouched, while the plan gives this slice `kit/lib/config.test.ts` and the key list there must name every setting
+
+```
+
+<!-- /omni-outbox-settled: s2-05-main-watch-setting-in-the-rule-proof -->
+
+<!-- omni-outbox-settled: s7-05-decision-first-then-the-work -->
+
+## s7-05-decision-first-then-the-work — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-23T08:17:56Z
+- Channel: feature pull request #2414
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2414#issuecomment-6360616792
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-12
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 5
+- Stays here: how Approve orders its two steps is this PRD's behaviour, written in its code and tests; no product rule beyond it
+
+### The answer, as it was given
+
+```text
+A. Record the decision first, then send; a failed send is said on the card, never retried (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-05-decision-first-then-the-work
+prd: 2410
+slice: s7
+rank: high
+bears-on: BR-PRODUCT-12
+raised: 2026-10-23
+wave: 5
+---
+
+## The question, in plain words
+
+Approve both records a decision and sends work (a job, a proposal or an issue). Which comes first, and what happens when sending fails?
+
+## The decision, in plain words
+
+The decision is recorded first, so two members clicking at once send the work once. When the work then fails to go, the approval stays, the card says what was not sent and what to run instead, and nothing retries it.
+
+## The intro, for fun
+
+Two members clicked Approve in the same second, and the robot had to pick a winner.
+
+## The punchline, for fun
+
+First click wins the vote; the second one gets a polite already done.
+
+## The options, in plain words
+
+A. Record the decision first, then send; a failed send is said on the card, never retried (built).
+B. Send first, then record the decision.
+C. Keep whether the work went beside each approval, with a Send again button.
+
+## What I had to decide
+
+Pick A to keep the decision first, B to send first and record after, or C to keep a sent or failed mark beside each approval with a Send again button.
+
+## What I did meanwhile
+
+POST /api/rewind/findings/<id>/approve checks the finding is still proposed, records the decision through rewind_finding_approve, which locks the finding and refuses a second one, and only then queues the job, files the proposal or opens the issue. A follow-up that fails is logged and answered as Approved, but … with the line to run from a terminal or where to do it by hand; the decision is never rewritten (BR-PRODUCT-12).
+
+## What it costs to change later
+
+B risks the same job or issue sent twice when two members click at once. C is a new column on the findings table, a migration, and a retry route.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) What Approve sent is said on the card once, after the click; a reload shows who approved and when, not whether the job or the issue went.
+- (author) A follow-up that failed is not recorded anywhere a later reader sees, except the server's log.
+
+```
+
+<!-- /omni-outbox-settled: s7-05-decision-first-then-the-work -->
