@@ -223,38 +223,44 @@ function levelAnswer(slotId: string, levels: readonly LevelForm[]): { level: Cop
   return null;
 }
 
-/** One slot, resolved from the repository's slot (or `null`), then the levels', over the template's. */
-function resolveSlot(
-  kitSlot: Slot,
-  repoSlot: Slot | null,
-  { ctx, formId, file, levels, problems }: { ctx: Ctx; formId: string; file: string; levels: readonly LevelForm[]; problems: string[] },
-): Section {
+/** What resolving one slot reads, beside the slots themselves. */
+type SlotIo = { ctx: Ctx; formId: string; file: string; levels: readonly LevelForm[]; problems: string[] };
+
+/** The kit default for `kitSlot`, filled from the config; `holes` are the repository's own open
+ * questions for it, `null` when it asks none. */
+function kitDefault(kitSlot: Slot, holes: string[] | null, { ctx, formId, problems }: Omit<SlotIo, 'file' | 'levels'>): Section {
   const base = { slot: kitSlot.id, heading: kitSlot.heading };
-  const body = repoSlot?.body ?? null;
-
-  if (repoSlot !== null && body?.kind === 'text') {
-    return { ...base, source: 'repo', label: repoLabel(repoSlot), text: body.text, questions: body.questions };
-  }
-  if (repoSlot !== null && body?.kind === 'pointer') {
-    return resolvePointer(base, body.see, { ctx, heading: repoSlot.heading, file, problems });
-  }
-
-  const answer = levelAnswer(kitSlot.id, levels);
-  if (answer && body?.kind === 'holes') {
-    return { ...base, source: 'hole', label: `[hole · ${answer.level}]`, text: answer.text, questions: body.questions };
-  }
-  if (answer) return { ...base, source: LEVEL_SOURCE[answer.level], label: `[${answer.level}]`, text: answer.text, questions: answer.questions };
-
   const kit = fillConfig(kitSlot.body.text, ctx.config);
   for (const { key, reason } of kit.unresolved) {
     problems.push(`kit default ${formId}#${kitSlot.id}: {config:${key}} ${reason}`);
   }
   const kitHoles = kitSlot.body.kind === 'holes';
-  if (body?.kind === 'holes') {
-    return { ...base, source: 'hole', label: '[hole]', text: kitHoles ? '' : kit.text, questions: body.questions };
-  }
+  if (holes) return { ...base, source: 'hole', label: '[hole]', text: kitHoles ? '' : kit.text, questions: holes };
   if (kitHoles) return { ...base, source: 'hole', label: '[hole]', text: '', questions: kitSlot.body.questions };
   return { ...base, source: 'kit', label: '[kit default]', text: kit.text, questions: [] };
+}
+
+/** A slot the repository does not answer: the nearest level's text, else the kit default. `holes`
+ * are the repository's own open questions for it, `null` when it asks none. */
+function fallThrough(kitSlot: Slot, holes: string[] | null, io: SlotIo): Section {
+  const answer = levelAnswer(kitSlot.id, io.levels);
+  if (!answer) return kitDefault(kitSlot, holes, io);
+  const base = { slot: kitSlot.id, heading: kitSlot.heading };
+  if (holes) return { ...base, source: 'hole', label: `[hole · ${answer.level}]`, text: answer.text, questions: holes };
+  return { ...base, source: LEVEL_SOURCE[answer.level], label: `[${answer.level}]`, text: answer.text, questions: answer.questions };
+}
+
+/** One slot, resolved from the repository's slot (or `null`), then the levels', over the template's. */
+function resolveSlot(kitSlot: Slot, repoSlot: Slot | null, io: SlotIo): Section {
+  const base = { slot: kitSlot.id, heading: kitSlot.heading };
+  const body = repoSlot?.body ?? null;
+  if (repoSlot !== null && body?.kind === 'text') {
+    return { ...base, source: 'repo', label: repoLabel(repoSlot), text: body.text, questions: body.questions };
+  }
+  if (repoSlot !== null && body?.kind === 'pointer') {
+    return resolvePointer(base, body.see, { ctx: io.ctx, heading: repoSlot.heading, file: io.file, problems: io.problems });
+  }
+  return fallThrough(kitSlot, body?.kind === 'holes' ? body.questions : null, io);
 }
 
 /**
