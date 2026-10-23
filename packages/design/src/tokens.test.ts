@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { INK, PALETTE } from './palette.ts';
-import { ASK, ASK_TEXT_PAIRS, ASK_UI_PAIRS, COLOURS, contrast, cssName, tokensCss } from './tokens.ts';
+import { ASK, ASK_ANTI, ASK_TEXT_PAIRS, ASK_UI_PAIRS, COLOURS, contrast, cssName, tokensCss } from './tokens.ts';
 import type { AskTheme } from './tokens.ts';
 
 const committed = () => readFileSync(new URL('../tokens.css', import.meta.url), 'utf8');
@@ -156,6 +156,42 @@ describe('Ask\'s tokens', () => {
     for (const on of ['ground', 'surface', 'sunk']) {
       expect(ASK_UI_PAIRS.some((p) => p.text === 'lineStrong' && p.on === on), on).toBe(true);
     }
+  });
+
+  describe('anti-loop (Rewind Light)', () => {
+    const anti = (theme: AskTheme) => ({ ...ASK[theme], ...ASK_ANTI[theme] });
+
+    it('override the seven tokens of the concept in each theme and nothing else', () => {
+      for (const theme of themes) {
+        expect(Object.keys(ASK_ANTI[theme]).sort(), theme).toEqual(['line', 'lineStrong', 'onPlasma', 'onYellow', 'plasma', 'plasmaSoft', 'yellow']);
+        for (const value of Object.values(ASK_ANTI[theme])) expect(value).toMatch(/^#[0-9a-f]{6}$/);
+      }
+      expect(ASK_ANTI.omni.plasma).toBe('#ff3ea5');
+      expect(ASK_ANTI.light.plasma).toBe('#b0127a');
+      expect(ASK_ANTI.dark.plasma).toBe('#ff5fb4');
+    });
+
+    it('pass 4.5:1 for every text pair in all three themes', () => {
+      const failures: string[] = [];
+      for (const theme of themes) {
+        for (const { text, on, where } of ASK_TEXT_PAIRS) {
+          const ratio = contrast(anti(theme)[text], anti(theme)[on]);
+          if (ratio < 4.5) failures.push(`${theme}: ${text} on ${on} (${where}) is ${ratio.toFixed(2)}:1`);
+        }
+      }
+      expect(failures).toEqual([]);
+    });
+
+    it('pass 3:1 for every edge pair in all three themes', () => {
+      const failures: string[] = [];
+      for (const theme of themes) {
+        for (const { text, on, where } of ASK_UI_PAIRS) {
+          const ratio = contrast(anti(theme)[text], anti(theme)[on]);
+          if (ratio < 3) failures.push(`${theme}: ${text} on ${on} (${where}) is ${ratio.toFixed(2)}:1`);
+        }
+      }
+      expect(failures).toEqual([]);
+    });
   });
 
   it('name only tokens the table has', () => {
