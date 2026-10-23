@@ -29657,6 +29657,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     /** PRD 2410: sends the rewind's findings for PRD `prd` of `repo` (`omni rewind push`).
      * @returns {Promise<{ added: number }>} */
     pushRewind: ({ repo, prd: prd2, findings: findings2 }) => call("POST", "/api/rewind/findings", { body: { repo, prd: prd2, findings: findings2 } }),
+    /** PRD 2498: records, once, what `/omni:rewind-apply` did with the approved finding `finding` (`omni rewind outcome`).
+     * @returns {Promise<{ outcome: string }>} */
+    outcomeRewind: ({ finding, body }) => call("POST", `/api/rewind/findings/${segment(finding)}/outcome`, { body }),
     /** PRD 1246: adds an idea to `repo`'s board (owner/name), for a member of the workspace that lists
      * it. @returns {Promise<{ id: string, url: string }>} */
     addIdea: ({ repo, title, pitch: pitch2, lane }) => call("POST", "/api/ideas", { body: { repo, title, pitch: pitch2, lane } }),
@@ -36499,11 +36502,11 @@ async function preHook({
     writeRound(root, toolUseId, { roundId, status: status5 });
   };
   keep("open");
-  const outcome = await awaitRound({ client, roundId, questions: questions2, deadline, callMs: limits.callMs, now: now2 });
-  switch (outcome.kind) {
+  const outcome2 = await awaitRound({ client, roundId, questions: questions2, deadline, callMs: limits.callMs, now: now2 });
+  switch (outcome2.kind) {
     case "answered": {
       keep("answered");
-      const { answers: answers2, attachments } = outcome;
+      const { answers: answers2, attachments } = outcome2;
       return preOutput(toolInput, await withScreenshots({ root, client, roundId, answers: answers2, attachments, deadline, now: now2 }));
     }
     case "closed":
@@ -36689,12 +36692,12 @@ async function settle2({ root, client, asked, waitMs, callMs = CALL_MS, now: now
   const { roundId, questions: questions2, terminalId } = asked;
   const recorder = recording(client);
   const deadline = now2() + waitMs;
-  const outcome = await awaitRound({ client: recorder.client, roundId, questions: questions2, deadline, callMs, now: now2 });
+  const outcome2 = await awaitRound({ client: recorder.client, roundId, questions: questions2, deadline, callMs, now: now2 });
   const elsewhere = (reason2) => ({ kind: "elsewhere", reason: reason2, round: roundId });
-  switch (outcome.kind) {
+  switch (outcome2.kind) {
     case "answered": {
       const shots = [];
-      const answers2 = await withScreenshots({ root, client, roundId, answers: outcome.answers, attachments: outcome.attachments, shots, deadline, now: now2 });
+      const answers2 = await withScreenshots({ root, client, roundId, answers: outcome2.answers, attachments: outcome2.attachments, shots, deadline, now: now2 });
       clearAsked(root, roundId);
       return { kind: "answered", round: roundId, answers: answers2, shots };
     }
@@ -36897,9 +36900,9 @@ async function startDevice(options) {
       await sleep2(seconds4 * 1e3, stop.signal);
       stillOpen();
       if (now2() >= deadline) throw new DeviceError("expired");
-      const outcome = await pollOnce(seconds4);
-      if (typeof outcome !== "number") return outcome;
-      seconds4 = outcome;
+      const outcome2 = await pollOnce(seconds4);
+      if (typeof outcome2 !== "number") return outcome2;
+      seconds4 = outcome2;
     }
   }
   let polling = null;
@@ -37014,10 +37017,10 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
     closedResolve = resolve19;
   });
   let timer = void 0;
-  function finish2(outcome) {
+  function finish2(outcome2) {
     done = true;
     clearTimeout(timer);
-    outcome();
+    outcome2();
     server.close(() => {
       closedResolve();
     });
@@ -37303,12 +37306,12 @@ var whoami = {
       println(stdout, who2);
       return 0;
     }
-    const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch }).renew();
-    if (outcome === "refused") {
+    const outcome2 = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch }).renew();
+    if (outcome2 === "refused") {
       println(stderr, `the sign-in of ${accountOf(entry3, "this computer")} to ${host} is no longer valid: run \`omni signin\` again`);
       return 1;
     }
-    println(stdout, outcome === "renewed" ? who2 : `${who2} (not checked: ${host} is unreachable)`);
+    println(stdout, outcome2 === "renewed" ? who2 : `${who2} (not checked: ${host} is unreachable)`);
     return 0;
   }
 };
@@ -37441,17 +37444,17 @@ function pageOf(root, { vars, tokens: tokens2, fetch }) {
   if (!store.read(mode.host)) return { reason: `not signed in to ${mode.host}: run omni signin, or set OMNI_TOKEN` };
   return { host: mode.host, client: askClient({ baseUrl: mode.baseUrl, host: mode.host, tokens: store, fetch }) };
 }
-function report2(outcome, { stdout, stderr }) {
-  if (outcome.kind === "answered") {
-    println(stdout, JSON.stringify({ round: outcome.round, answers: outcome.answers, shots: outcome.shots }));
+function report2(outcome2, { stdout, stderr }) {
+  if (outcome2.kind === "answered") {
+    println(stdout, JSON.stringify({ round: outcome2.round, answers: outcome2.answers, shots: outcome2.shots }));
     return 0;
   }
-  if (outcome.kind === "open") {
-    println(stdout, `round ${outcome.round}`);
+  if (outcome2.kind === "open") {
+    println(stdout, `round ${outcome2.round}`);
     return STILL_WAITING;
   }
-  const send4 = outcome.round === null ? "" : `; send the answer from your chat with omni ask answer ${outcome.round} --file <a.json>`;
-  println(stderr, outcome.reason === "unattended" ? "unattended" : `omni ask: ${outcome.reason}${send4}`);
+  const send4 = outcome2.round === null ? "" : `; send the answer from your chat with omni ask answer ${outcome2.round} --file <a.json>`;
+  println(stderr, outcome2.reason === "unattended" ? "unattended" : `omni ask: ${outcome2.reason}${send4}`);
   return ASK_ELSEWHERE;
 }
 var titleOf = (root, exec) => () => sessionTitle({ slug: loadConfig(root).repo.slug, branch: currentBranch(root, exec), root });
@@ -44164,18 +44167,18 @@ import { join as join67 } from "node:path";
 init_define_OMNI_BUNDLE();
 var LessonOutcomeSchema = external_exports.union([external_exports.object({ became: external_exports.string() }).strict(), external_exports.object({ staysHere: external_exports.string() }).strict()]);
 var LessonOutcomesSchema = external_exports.record(external_exports.string(), LessonOutcomeSchema);
-function outcomeLine(outcome) {
-  if ("became" in outcome) return `- **Became:** \`${outcome.became}\``;
-  return `- **Stays here:** ${outcome.staysHere.trim().split(/\s+/).join(" ")}`;
+function outcomeLine(outcome2) {
+  if ("became" in outcome2) return `- **Became:** \`${outcome2.became}\``;
+  return `- **Stays here:** ${outcome2.staysHere.trim().split(/\s+/).join(" ")}`;
 }
 function outcomeProblem(value, { ctx }) {
   const parsed2 = LessonOutcomeSchema.safeParse(value);
   if (!parsed2.success) return "the outcome is neither { became } nor { staysHere }";
-  const outcome = parsed2.data;
-  if ("staysHere" in outcome) return outcome.staysHere.trim() ? null : "stays here with no reason";
-  if (!outcome.became) return "became names no playbook slot";
-  const resolved = resolvePlaybookId(outcome.became, { ctx });
-  return resolved.ok ? null : `became ${outcome.became} does not resolve \u2014 ${resolved.reason}`;
+  const outcome2 = parsed2.data;
+  if ("staysHere" in outcome2) return outcome2.staysHere.trim() ? null : "stays here with no reason";
+  if (!outcome2.became) return "became names no playbook slot";
+  const resolved = resolvePlaybookId(outcome2.became, { ctx });
+  return resolved.ok ? null : `became ${outcome2.became} does not resolve \u2014 ${resolved.reason}`;
 }
 
 // kit/lib/retro/check-retro.ts
@@ -44219,8 +44222,8 @@ function retroFiles(ctx) {
 function gradeOutcomes(ctx, file2, doc) {
   const kept = keptLessons(doc);
   const entries4 = doc.runs.flatMap((run2) => Object.entries(run2.outcomes ?? {}));
-  const violations = entries4.flatMap(([finding, outcome]) => {
-    const problem = outcomeProblem(outcome, { ctx });
+  const violations = entries4.flatMap(([finding, outcome2]) => {
+    const problem = outcomeProblem(outcome2, { ctx });
     return problem === null ? [] : [`${file2}: ${lessonOf(doc, finding, kept)}: ${problem}`];
   });
   return { violations, outcomes: entries4.length, settled: new Set(entries4.map(([finding]) => finding)) };
@@ -47881,10 +47884,10 @@ function readVerdict(point2, output2) {
   const last = lines3.at(-1) ?? "";
   const match = VERDICT.exec(last);
   if (!match) return { ok: false, why: "no verdict" };
-  const [, named5 = "", outcome, rest = ""] = match;
+  const [, named5 = "", outcome2, rest = ""] = match;
   if (named5 !== point2) return { ok: false, why: `no verdict \u2014 the last line is ${named5}'s verdict` };
   const text15 = rest.trim();
-  return outcome === "pass" ? { ok: true, note: text15 === "" ? null : text15 } : { ok: false, why: text15 === "" ? "fail" : text15 };
+  return outcome2 === "pass" ? { ok: true, note: text15 === "" ? null : text15 } : { ok: false, why: text15 === "" ? "fail" : text15 };
 }
 function verdictLine(point2, verdict2) {
   if (verdict2.ok) return verdict2.note === null ? "ok" : `ok ${verdict2.note}`;
@@ -48496,17 +48499,17 @@ function runCheck(check5, value) {
   }
 }
 async function ask5({ fetch, sleep: sleep2, call, deadline, key: key2, title, body }) {
-  let outcome = { ok: false, status: "timeout", retry: false };
+  let outcome2 = { ok: false, status: "timeout", retry: false };
   for (let attempt12 = 1; attempt12 <= call.attempts; attempt12 += 1) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return { ok: false, status: "timeout" };
-    outcome = await once({ fetch, key: key2, title, body, signal: AbortSignal.timeout(remaining) });
-    if (outcome.ok || !outcome.retry || attempt12 === call.attempts) return outcome;
+    outcome2 = await once({ fetch, key: key2, title, body, signal: AbortSignal.timeout(remaining) });
+    if (outcome2.ok || !outcome2.retry || attempt12 === call.attempts) return outcome2;
     const pause4 = call.backoffMs[attempt12 - 1] ?? call.backoffMs.at(-1) ?? 0;
-    if (Date.now() + pause4 >= deadline) return outcome;
+    if (Date.now() + pause4 >= deadline) return outcome2;
     await sleep2(pause4);
   }
-  return outcome;
+  return outcome2;
 }
 async function once({
   fetch,
@@ -50334,9 +50337,14 @@ var ENTRIES = deepFreeze([
     name: "rewind",
     kind: "command",
     who: "skills",
-    usage: ["omni rewind facts <prd> [--json]", "omni rewind push <prd> --file <findings.json>"],
-    summary: "read a PRD's watch on main, and send the rewind's findings to its page",
-    detail: "facts prints the PRD's status on main per repository (watching, clean or broke), each break with its link, and the findings already on its page; it says so when the PRD has no watch. push sends a file of findings (check, origin, what happened, evidence links, fix) to the PRD's Main tab as proposals for a member to approve or reject. It refuses, naming the finding and sending nothing, one with no evidence link, an origin other than repository, omni-setup or knowledge, a check other than main, reviews, ci, bodies, waves, plan, spec or knowledge, and one already proposed (the same check, origin and evidence). Both need the terminal sign-in of a member of the PRD's workspace."
+    usage: [
+      "omni rewind facts <prd> [--json]",
+      "omni rewind push <prd> --file <findings.json>",
+      "omni rewind outcome <finding>",
+      "  (--pr <n> | --already <rule> | --asks '<question>')"
+    ],
+    summary: "read a PRD's watch on main, send the rewind's findings to its page, and record what became of an approved one",
+    detail: "facts prints the PRD's status on main per repository (watching, clean or broke), each break with its link, and the findings already on its page; it says so when the PRD has no watch. push sends a file of findings (check, origin, what happened, evidence links, fix) to the PRD's Main tab as proposals for a member to approve or reject. It refuses, naming the finding and sending nothing, one with no evidence link, an origin other than repository, omni-setup or knowledge, a check other than main, reviews, ci, bodies, waves, plan, spec or knowledge, and one already proposed (the same check, origin and evidence). outcome records, once, what was done with a finding a member approved, on the id its card carries: --pr <n> names the pull request that proposes the rule, --already <rule> the rule that already says it (one line), --asks <question> the one question asked. The PRD's Main tab then shows it on the card. It refuses, recording nothing and exiting 1, a finding not approved and a second outcome of the same finding (an outcome is never rewritten), and, exiting 2, none or more than one of the three. All three need the terminal sign-in of a member of the PRD's workspace."
   },
   {
     name: "item",
@@ -52022,9 +52030,9 @@ function installPlugin({ exec, kitHome: kitHome2 }) {
   }
   return { outcome: "installed" };
 }
-function pluginLines({ outcome }, { kitHome: kitHome2 }) {
-  if (outcome === "installed") return { status: [`  plugin  installed ${ID2}, run /reload-plugins in an open Claude Code`], todo: [] };
-  if (outcome === "already") return { status: [`  plugin  ${ID2} installed already`], todo: [] };
+function pluginLines({ outcome: outcome2 }, { kitHome: kitHome2 }) {
+  if (outcome2 === "installed") return { status: [`  plugin  installed ${ID2}, run /reload-plugins in an open Claude Code`], todo: [] };
+  if (outcome2 === "already") return { status: [`  plugin  ${ID2} installed already`], todo: [] };
   return {
     status: [`  plugin  could not install ${ID2} from here`],
     todo: [`/plugin marketplace add ${kitHome2 ?? PLACEHOLDER_HOME}`, `/plugin install ${ID2}`]
@@ -52054,11 +52062,11 @@ async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   return { outcome: "signed-in", host, email: who(entry3), ...line2 ? { line: line2 } : {} };
 }
 var who = (entry3) => textOf5(entry3.email) ?? textOf5(entry3.login);
-function signInLines({ outcome, host, email: email3, line: line2, why: why3 }) {
-  if (outcome === "signed-in" && line2) return { status: [`  signin  ${line2}`], todo: [] };
-  if (outcome === "signed-in") return { status: [`  signin  signed in to ${host} as ${email3}`], todo: [] };
-  if (outcome === "already") return { status: [`  signin  signed in to ${host} already, as ${email3}`], todo: [] };
-  if (outcome === "later") return { status: [`  signin  not signed in to ${host}: ${why3}`], todo: ["omni signin"] };
+function signInLines({ outcome: outcome2, host, email: email3, line: line2, why: why3 }) {
+  if (outcome2 === "signed-in" && line2) return { status: [`  signin  ${line2}`], todo: [] };
+  if (outcome2 === "signed-in") return { status: [`  signin  signed in to ${host} as ${email3}`], todo: [] };
+  if (outcome2 === "already") return { status: [`  signin  signed in to ${host} already, as ${email3}`], todo: [] };
+  if (outcome2 === "later") return { status: [`  signin  not signed in to ${host}: ${why3}`], todo: ["omni signin"] };
   return { status: ["  signin  skipped: ask.url is not set"], todo: [] };
 }
 
@@ -52431,7 +52439,7 @@ function conflictingPrinciples(ids2, laws2) {
   return named5;
 }
 function recordingDecision({
-  outcome,
+  outcome: outcome2,
   rank: rank2,
   writesItem,
   settleAsAdopted = false,
@@ -52440,8 +52448,8 @@ function recordingDecision({
   reason: reason2
 }) {
   return {
-    outcome,
-    sliceStatus: STATUS_FOR_OUTCOME[outcome],
+    outcome: outcome2,
+    sliceStatus: STATUS_FOR_OUTCOME[outcome2],
     rank: rank2,
     writesItem,
     settleAsAdopted,
@@ -52698,8 +52706,8 @@ async function nextItemId(prd2, slice, slug, { store, out }) {
   }
   throw usageError(`omni item new: ${slice} under PRD ${prd2} has already spent every number 01-99.`);
 }
-function jsonOutcome({ outcome, rank: rank2 = null, id = null, file: file2 = null, adopted = false, reason: reason2 = null }) {
-  return JSON.stringify({ outcome, rank: rank2, id, file: file2, adopted, reason: reason2 });
+function jsonOutcome({ outcome: outcome2, rank: rank2 = null, id = null, file: file2 = null, adopted = false, reason: reason2 = null }) {
+  return JSON.stringify({ outcome: outcome2, rank: rank2, id, file: file2, adopted, reason: reason2 });
 }
 function newRequest(args, ctx) {
   const { positional, flags } = parseArgs("item new", args, {
@@ -60880,9 +60888,9 @@ async function renewedToken(askUrl2, { tokens: tokens2, home, fetch, callMs }) {
   const host = credentialsHost(askUrl2);
   const store = tokens2 ?? homeTokens(home ? { home } : void 0);
   if (!store.read(host)) return { line: NO_SIGN_IN6 };
-  const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} }).renew();
-  if (outcome === "renewed") return { host, token: defined(store.read(host), `the sign-in of ${host}`).access_token };
-  return { line: outcome === "refused" ? NO_SIGN_IN6 : "unreachable" };
+  const outcome2 = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} }).renew();
+  if (outcome2 === "renewed") return { host, token: defined(store.read(host), `the sign-in of ${host}`).access_token };
+  return { line: outcome2 === "refused" ? NO_SIGN_IN6 : "unreachable" };
 }
 function sessionFor(token, host) {
   try {
@@ -60994,7 +61002,7 @@ function withOutcomeLine(markdown, finding, line2) {
   while (lines3[end3 - 1]?.trim() === "") end3 -= 1;
   return [...lines3.slice(0, end3), line2, ...lines3.slice(end3)].join("\n");
 }
-function recordOutcome({ ctx, prd: prd2, finding, outcome }) {
+function recordOutcome({ ctx, prd: prd2, finding, outcome: outcome2 }) {
   const where = ctx.layout.whereIs(prd2);
   if (where === null) return refuse5(`PRD ${String(prd2)} has no folder in ${ctx.layout.dirs.inbox} or ${ctx.layout.dirs.shipped}`);
   const json3 = `${where.dir}/retro.json`;
@@ -61011,16 +61019,16 @@ function recordOutcome({ ctx, prd: prd2, finding, outcome }) {
   const run2 = keptBy(runs2, finding);
   if (run2 === -1) return refuse5(`PRD ${String(prd2)} kept no lesson for \`${finding}\``);
   if (hasOutcome(runs2, finding)) return refuse5(`PRD ${String(prd2)}, lesson \`${finding}\` already has an outcome \u2014 an outcome is never rewritten`);
-  const problem = outcomeProblem(outcome, { ctx });
+  const problem = outcomeProblem(outcome2, { ctx });
   if (problem !== null) return refuse5(problem);
   const written = runs2.map((each, index2) => {
     if (index2 !== run2) return each;
     const outcomes = KeyedSchema.parse(each.outcomes) ?? {};
-    return { ...each, outcomes: { ...outcomes, [finding]: outcome } };
+    return { ...each, outcomes: { ...outcomes, [finding]: outcome2 } };
   });
   const markdownFile = `${where.dir}/retro.md`;
   const markdownPath = join136(ctx.root, markdownFile);
-  const marked = existsSync86(markdownPath) ? withOutcomeLine(readFileSync109(markdownPath, "utf8"), finding, outcomeLine(outcome)) : null;
+  const marked = existsSync86(markdownPath) ? withOutcomeLine(readFileSync109(markdownPath, "utf8"), finding, outcomeLine(outcome2)) : null;
   writeFileSync52(join136(ctx.root, json3), `${JSON.stringify({ ...doc, runs: written }, null, 2)}
 `);
   if (marked !== null) writeFileSync52(markdownPath, marked);
@@ -61042,8 +61050,8 @@ ${USAGE37}`);
 }
 var retro = {
   run: synchronous((args, { ctx, stdout, stderr }) => {
-    const { prd: prd2, finding, outcome } = requestOf2(args);
-    const recorded = recordOutcome({ ctx, prd: prd2, finding, outcome });
+    const { prd: prd2, finding, outcome: outcome2 } = requestOf2(args);
+    const recorded = recordOutcome({ ctx, prd: prd2, finding, outcome: outcome2 });
     if (!recorded.ok) {
       println(stderr, `omni retro: ${recorded.reason}. Nothing written.`);
       return 1;
@@ -61136,8 +61144,41 @@ function checkFindings(sent) {
   return { ok: true, findings: findings2 };
 }
 
+// kit/lib/rewind/outcome.ts
+init_define_OMNI_BUNDLE();
+var ALREADY_MAX = 200;
+var ASKS_MAX = 2e3;
+var FindingIdSchema = external_exports.uuid();
+var DIGITS3 = /^\d+$/;
+function outcomeOf2(flags) {
+  const given = [flags.pr, flags.already, flags.asks].filter((value) => value !== void 0).length;
+  if (given !== 1) return { ok: false, error: "give exactly one of --pr <n>, --already <rule> or --asks <question>." };
+  if (flags.pr !== void 0) {
+    const pr = Number(flags.pr);
+    return DIGITS3.test(flags.pr) && Number.isSafeInteger(pr) && pr > 0 ? { ok: true, value: { outcome: "proposed", pr } } : { ok: false, error: `--pr must be a positive number, got "${flags.pr}".` };
+  }
+  if (flags.already !== void 0) {
+    const note2 = flags.already.trim();
+    if (note2 === "") return { ok: false, error: "--already needs the rule that already says it." };
+    if (note2.length > ALREADY_MAX || /[\r\n]/.test(note2)) return { ok: false, error: `--already is one line of at most ${String(ALREADY_MAX)} characters.` };
+    return { ok: true, value: { outcome: "already", note: note2 } };
+  }
+  const note = (flags.asks ?? "").trim();
+  if (note === "") return { ok: false, error: "--asks needs the question." };
+  if (note.length > ASKS_MAX) return { ok: false, error: `--asks is at most ${String(ASKS_MAX)} characters.` };
+  return { ok: true, value: { outcome: "asks", note } };
+}
+function outcomeLine2(finding, outcome2) {
+  if (outcome2.outcome === "proposed") return `rewind outcome \u2014 finding ${finding}: rule proposed in PR #${String(outcome2.pr)}.`;
+  if (outcome2.outcome === "already") return `rewind outcome \u2014 finding ${finding}: already said by ${outcome2.note}.`;
+  return `rewind outcome \u2014 finding ${finding}: asks ${outcome2.note}`;
+}
+
 // kit/bin/commands/rewind.ts
-var USAGE38 = "usage: omni rewind facts <prd> [--json] | omni rewind push <prd> --file <findings.json>";
+var USAGE38 = [
+  "usage: omni rewind facts <prd> [--json] | omni rewind push <prd> --file <findings.json>",
+  "       | omni rewind outcome <finding> (--pr <n> | --already <rule> | --asks '<question>')"
+].join("\n");
 function refusalLine4(error62, host) {
   if (!(error62 instanceof AskCallError)) throw error62;
   const { status: status5, reason: reason2 } = error62;
@@ -61184,42 +61225,59 @@ function fileJson(cwd, name3) {
     return { error: `${name3} is not JSON.` };
   }
 }
-async function facts(prd2, json3, io, options) {
-  const stop = (line2) => {
-    println(io.stderr, `omni rewind facts: ${line2}`);
+function stopper(io, verb2, tail = "") {
+  return (line2) => {
+    println(io.stderr, `omni rewind ${verb2}: ${line2}${tail}`);
     return 1;
   };
+}
+async function onPage(io, options, stop, work) {
   const reached = reach5(io, options);
   if (typeof reached === "string") return stop(reached);
   try {
-    const reply = await reached.client.readRewind({ repo: reached.repo, prd: prd2 });
-    const read3 = factsOf(reply);
-    if (!read3) return stop("the Omni page answered something this kit does not read");
-    if (json3) println(io.stdout, JSON.stringify(read3));
-    else for (const line2 of factLines(prd2, read3)) println(io.stdout, line2);
-    return 0;
+    return await work(reached);
   } catch (error62) {
     return stop(refusalLine4(error62, reached.host));
   }
 }
+async function facts(prd2, json3, io, options) {
+  const stop = stopper(io, "facts");
+  return onPage(io, options, stop, async ({ client, repo }) => {
+    const read3 = factsOf(await client.readRewind({ repo, prd: prd2 }));
+    if (!read3) return stop("the Omni page answered something this kit does not read");
+    if (json3) println(io.stdout, JSON.stringify(read3));
+    else for (const line2 of factLines(prd2, read3)) println(io.stdout, line2);
+    return 0;
+  });
+}
 async function push4(prd2, file2, io, options) {
-  const stop = (line2) => {
-    println(io.stderr, `omni rewind push: ${line2} Nothing sent.`);
-    return 1;
-  };
+  const stop = stopper(io, "push", " Nothing sent.");
   const sent = fileJson(io.cwd, file2);
   if ("error" in sent) return stop(sent.error);
   const checked5 = checkFindings(sent.value);
   if (!checked5.ok) return stop(checked5.error);
-  const reached = reach5(io, options);
-  if (typeof reached === "string") return stop(reached);
-  try {
-    await reached.client.pushRewind({ repo: reached.repo, prd: prd2, findings: checked5.findings });
+  return onPage(io, options, stop, async ({ client, repo }) => {
+    await client.pushRewind({ repo, prd: prd2, findings: checked5.findings });
     println(io.stdout, `rewind push \u2014 PRD ${String(prd2)}: ${String(checked5.findings.length)} finding(s) sent to its page, proposed for a member to approve or reject.`);
     return 0;
-  } catch (error62) {
-    return stop(refusalLine4(error62, reached.host));
-  }
+  });
+}
+async function outcome(finding, sent, io, options) {
+  const body = sent.outcome === "proposed" ? { outcome: sent.outcome, pr: sent.pr } : { outcome: sent.outcome, note: sent.note };
+  return onPage(io, options, stopper(io, "outcome", " Nothing recorded."), async ({ client }) => {
+    await client.outcomeRewind({ finding, body });
+    println(io.stdout, outcomeLine2(finding, sent));
+    return 0;
+  });
+}
+function outcomeArgs(rest) {
+  const { positional, flags } = parseArgs("rewind", rest, { values: ["pr", "already", "asks"] });
+  const [finding] = positional;
+  if (positional.length !== 1 || finding === void 0) throw usageError(USAGE38);
+  if (!FindingIdSchema.safeParse(finding).success) throw usageError("omni rewind outcome: the finding is the id on its card (a UUID).");
+  const named5 = outcomeOf2(flags);
+  if (!named5.ok) throw usageError(`omni rewind outcome: ${named5.error}`);
+  return { finding, sent: named5.value };
 }
 var rewind = {
   withoutContext: true,
@@ -61238,6 +61296,10 @@ var rewind = {
       const [prdText] = positional;
       if (positional.length !== 1 || flags.file === void 0) throw usageError(USAGE38);
       return push4(prdArg("rewind", "the PRD", prdText), flags.file, io, options);
+    }
+    if (verb2 === "outcome") {
+      const { finding, sent } = outcomeArgs(rest);
+      return outcome(finding, sent, io, options);
     }
     throw usageError(USAGE38);
   }
@@ -61394,8 +61456,8 @@ function atLeast(have, want) {
   return true;
 }
 var node2 = async (env) => {
-  const { result: result2, outcome } = await command(env, "node", ["--version"]);
-  if (!outcome.ok) return outcome;
+  const { result: result2, outcome: outcome2 } = await command(env, "node", ["--version"]);
+  if (!outcome2.ok) return outcome2;
   const have = result2.stdout.trim();
   const want = wantedNode(env);
   return want === null || atLeast(have, want) ? OK : notOk(`node is ${have}; the repository needs ${want} or later`);
@@ -61443,8 +61505,8 @@ function labelNames(listed2) {
   }
 }
 async function missingLabels(env) {
-  const { result: result2, outcome } = await command(env, "gh", LABEL_LIST);
-  if (!outcome.ok) return outcome;
+  const { result: result2, outcome: outcome2 } = await command(env, "gh", LABEL_LIST);
+  if (!outcome2.ok) return outcome2;
   const names = labelNames(result2.stdout);
   if (names === null) return notOk("the label list could not be read");
   return loopLabels(env.labels).filter((label2) => !names.has(label2.name.toLowerCase()));
@@ -61459,15 +61521,15 @@ var createLabels = async (env) => {
   const missing2 = await missingLabels(env);
   if (!Array.isArray(missing2)) return missing2;
   for (const { name: name3, color, description } of missing2) {
-    const { outcome } = await command(env, "gh", ["label", "create", name3, "--color", color, "--description", description]);
-    if (!outcome.ok) return outcome;
+    const { outcome: outcome2 } = await command(env, "gh", ["label", "create", name3, "--color", color, "--description", description]);
+    if (!outcome2.ok) return outcome2;
   }
   return OK;
 };
 var EXAMPLE = ".env.example";
 async function missingEnvFiles(env) {
-  const { result: result2, outcome } = await command(env, "git", ["ls-files", "--", EXAMPLE, `**/${EXAMPLE}`]);
-  if (!outcome.ok) return outcome;
+  const { result: result2, outcome: outcome2 } = await command(env, "git", ["ls-files", "--", EXAMPLE, `**/${EXAMPLE}`]);
+  if (!outcome2.ok) return outcome2;
   const examples = [...new Set(result2.stdout.split("\n").map((line2) => line2.trim()).filter((line2) => line2.endsWith(EXAMPLE)))];
   return examples.map((example) => [example, `${example.slice(0, -EXAMPLE.length)}.env`]).filter(([, file2]) => !env.files.exists(file2));
 }
@@ -62455,8 +62517,8 @@ var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
 var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
 function runOutcome(log, prd2, skill) {
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(lastLine3(log));
-  const outcome = match?.[1] !== void 0 && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : void 0;
-  if (outcome !== void 0 && match?.[2] === String(prd2)) return outcome;
+  const outcome2 = match?.[1] !== void 0 && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : void 0;
+  if (outcome2 !== void 0 && match?.[2] === String(prd2)) return outcome2;
   return skill === void 0 ? null : "stopped";
 }
 function lastLine3(log) {
@@ -63166,8 +63228,8 @@ function hideTokens(loop2, job2, update2) {
 }
 async function sendUpdate(loop2, job2, raw) {
   const update2 = hideTokens(loop2, job2, raw);
-  const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, ...rest } = update2;
-  const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs];
+  const { released, releaseError, outcome: outcome2, slicesMerged, slicesTotal, fixedBy, prs, ...rest } = update2;
+  const newer = [released, releaseError, outcome2, slicesMerged, slicesTotal, fixedBy, prs];
   if (newer.every((field3) => field3 === void 0)) return sendCounted(loop2, job2, update2);
   try {
     return await sendCounted(loop2, job2, update2);
@@ -63314,7 +63376,7 @@ function startSession(loop2, job2, place, note, app) {
     return false;
   }
 }
-function outcomeOf2(log, line2) {
+function outcomeOf3(log, line2) {
   const checked5 = checkRunnerLine(line2);
   if (!checked5.ok) return null;
   const args = checked5.args.trim();
@@ -63339,8 +63401,8 @@ function bugFixOf(log, line2) {
   const checked5 = checkRunnerLine(line2);
   return checked5.ok && (checked5.skill === "bug-fix" || checked5.skill === "mega-bug-fix") ? bugFixReading(log) : null;
 }
-function bugFixFields({ outcome, fixedBy, prs }) {
-  return { ...outcome === null ? {} : { outcome }, ...fixedBy === null ? {} : { fixedBy }, ...prs.length === 0 ? {} : { prs } };
+function bugFixFields({ outcome: outcome2, fixedBy, prs }) {
+  return { ...outcome2 === null ? {} : { outcome: outcome2 }, ...fixedBy === null ? {} : { fixedBy }, ...prs.length === 0 ? {} : { prs } };
 }
 function failedWithPrs(failed4, log, line2) {
   const reading = bugFixOf(log, line2);
@@ -63352,16 +63414,16 @@ function ended(log, exitText, job2) {
   if (exitCode === 0) {
     const done = { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, job2.repo), exitCode: 0 };
     const bugFix = bugFixOf(log, job2.line);
-    const outcome = outcomeOf2(log, job2.line);
-    return { ...done, ...bugFix === null ? {} : bugFixFields(bugFix), ...outcome === null ? {} : { outcome } };
+    const outcome2 = outcomeOf3(log, job2.line);
+    return { ...done, ...bugFix === null ? {} : bugFixFields(bugFix), ...outcome2 === null ? {} : { outcome: outcome2 } };
   }
   return failedWithPrs({ status: "failed", logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` }, log, job2.line);
 }
 function vanished(log, job2) {
   const reason2 = "the job stopped before it wrote its exit code";
-  const outcome = outcomeOf2(log, job2.line);
-  if (outcome === null || outcome === "stopped") return failedWithPrs({ status: "failed", logTail: logTail(log), reason: reason2 }, log, job2.line);
-  return { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, job2.repo), exitCode: null, reason: reason2, outcome };
+  const outcome2 = outcomeOf3(log, job2.line);
+  if (outcome2 === null || outcome2 === "stopped") return failedWithPrs({ status: "failed", logTail: logTail(log), reason: reason2 }, log, job2.line);
+  return { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, job2.repo), exitCode: null, reason: reason2, outcome: outcome2 };
 }
 function killed(loop2, job2, place, update2) {
   loop2.terminal.stop(place.session);

@@ -2,7 +2,7 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { findingKey, type RewindFinding } from 'omni-loop/kit/lib/rewind/findings.ts';
 import type { MainWatchRead } from '../main-watch/store';
 import { approvalOf, leakOf, type ApprovalPlan, type KnowledgeProposal } from './rewind.approval';
-import type { DecidableFinding, DecisionRefusal, DecisionReply, FindingView, FollowUp, RewindRefusal } from './rewind.contract';
+import type { DecidableFinding, DecisionRefusal, DecisionReply, FindingView, FollowUp, OutcomeBody, RewindRefusal } from './rewind.contract';
 
 // The rewind's rules (PRD 2410, s5; ADR-0095): what a member of a PRD's workspace reads of its watch, and
 // what the rewind may propose.
@@ -21,6 +21,10 @@ export type RewindPorts = {
   mainWatch(workspace: string, repo: string, prd: PrdNumber): Promise<MainWatchRead>;
   findings(workspace: string, repo: string, prd: PrdNumber): Promise<FindingView[]>;
   insert(workspace: string, repo: string, prd: PrdNumber, findings: readonly RewindFinding[]): Promise<'ok' | 'duplicate'>;
+  /** The workspace of the finding `id`, as the caller reads it; null when they read none. */
+  workspaceOfFinding(id: string): Promise<string | null>;
+  /** Records the finding's outcome as the caller; why the database refused it, or null. */
+  recordOutcome(workspace: string, id: string, body: OutcomeBody): Promise<{ kind: RewindRefusal; error: string } | null>;
 };
 
 type RewindFacts = MainWatchRead & { findings: FindingView[] };
@@ -52,6 +56,16 @@ export function rewindService(ports: RewindPorts) {
         return refused('duplicate', `A finding of this push was already proposed for PRD ${String(prd)}.`);
       }
       return { ok: true, value: { added: findings.length } };
+    },
+
+    /** Records, once, what was done with the approved finding `id` (PRD 2498, s2). A finding of another
+     * workspace reads as no finding (BR-PRODUCT-63); a second outcome, or one on a finding not approved, is the
+     * database's refusal, since it locks the finding (BR-PRODUCT-12). */
+    async outcome(id: string, body: OutcomeBody): Promise<Outcome<{ outcome: OutcomeBody['outcome'] }>> {
+      const workspace = await ports.workspaceOfFinding(id);
+      if (workspace === null) return refused('missing', 'No such finding on a PRD of your workspace.');
+      const no = await ports.recordOutcome(workspace, id, body);
+      return no ? refused(no.kind, no.error) : { ok: true, value: { outcome: body.outcome } };
     },
   };
 }
