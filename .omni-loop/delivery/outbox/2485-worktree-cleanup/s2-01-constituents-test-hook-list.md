@@ -14,7 +14,7 @@ The session-start hook list gained a worktree line, and the test that copies tha
 
 ## The decision, in plain words
 
-The slice adds one session-start line, and the test that copies the hook list sits outside its territory, so it was left alone. Until that test follows, the full test run stays red on that one test.
+The slice adds one session-start line, and the test that copies the hook list sits outside its territory. The wave took option A: the test now lists the fourth line too, so the full test run is green on it.
 
 ## The intro, for fun
 
@@ -26,8 +26,8 @@ One line of expected data is all that separates them.
 
 ## The options, in plain words
 
-A. A. Update the constituents test expectation to include the worktree hint entry (what the slice would do next).
-B. B. Keep the hook and leave the constituents test pinned to three entries, accepting a red test on the feature branch.
+A. Update the constituents test expectation to include the worktree hint entry (what the slice would do next).
+B. Keep the hook and leave the constituents test pinned to three entries, accepting a red test on the feature branch.
 
 ## What I had to decide
 
@@ -35,7 +35,7 @@ Add the worktree hint entry to the expected SessionStart list in kit/bin/constit
 
 ## What I did meanwhile
 
-The sub-PR stays draft with the preflight red on this one test. Everything else in the slice is green.
+The wave added the fourth expected entry to kit/bin/constituents.test.ts on the slice branch (a territory breach, named in the wave's report), and the sub-PR's preflight went green on it.
 
 ## What it costs to change later
 
