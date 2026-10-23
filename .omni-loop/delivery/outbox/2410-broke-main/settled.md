@@ -937,3 +937,398 @@ B is a small change to the Main tab and one line of the skill.
 ```
 
 <!-- /omni-outbox-settled: s6-03-finding-signed-in-its-fix -->
+
+<!-- omni-outbox-settled: s7-01-finding-sent-as-a-plain-line -->
+
+## s7-01-finding-sent-as-a-plain-line — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-finding-sent-as-a-plain-line
+prd: 2410
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 5
+---
+
+## The question, in plain words
+
+When a member approves a finding, the job a runner gets cannot carry the finding in quotes as the spec wrote it, because the runner refuses quotes and long lines. How should the finding travel to the job?
+
+## The decision, in plain words
+
+The job carries the finding as a plain description: the delivery it came from, then what happened (or the fix, for a knowledge finding), with every character a runner refuses dropped and the line cut at a word to fit.
+
+## The intro, for fun
+
+The runner only reads plain letters, and the finding arrived wearing quotes and dashes.
+
+## The punchline, for fun
+
+So it travels light: no quotes, no frills, just the story in one line.
+
+## The options, in plain words
+
+A. Send the finding as a plain description, cut to fit the runner's line (built).
+B. Send a link to the finding, and teach the job to read it in full.
+C. Let the runner's line take one quoted argument, as the spec wrote it.
+
+## What I had to decide
+
+Pick A to keep the plain description, B to send a link to the finding that the job reads in full, or C to let the runner take one quoted argument.
+
+## What I did meanwhile
+
+Approve on a repository finding queues /omni:bug-fix rewind of PRD <n>: <what happened>, and on another knowledge finding /omni:knowledge-add rewind of PRD <n>: <its fix>, each at most 200 characters, every character other than letters, digits, spaces and ._/:#- dropped, and a run of dashes made one, so the text never reads as a flag. The runner's own line check accepts every line built this way (rewind.approval.test.ts).
+
+## What it costs to change later
+
+B needs the job to read the finding back from the page (a read the runner's sign-in does not make today) and a change to the two skills' inputs; C changes the runner's line check in the kit and the app, which every runner then has to update to.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A finding longer than the line loses its tail: bug-fix opens its issue from the cut description, so its first words carry the whole bug.
+- (author) Whether the job should also carry the finding's fix, and not only what happened, was not asked; the line has no room for both.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-finding-sent-as-a-plain-line -->
+
+<!-- omni-outbox-settled: s7-02-approved-knowledge-rule-writes-nothing -->
+
+## s7-02-approved-knowledge-rule-writes-nothing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-approved-knowledge-rule-writes-nothing
+prd: 2410
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 5
+---
+
+## The question, in plain words
+
+Approving a finding about the playbook or a register sends a job that writes nothing: the helper it starts refuses to write with nobody at the screen, and it does not write playbook or register rules at all. Is that acceptable for now, though the spec promises the rule gets written?
+
+## The decision, in plain words
+
+Approve sends the job as the spec says, and the card tells the member right after the click that, on a runner, it writes nothing yet and the rule still waits for a person to write it.
+
+## The intro, for fun
+
+The member said yes, the helper was called, and the helper only works when someone is watching.
+
+## The punchline, for fun
+
+So the yes is kept on file, and the rule waits politely for a human pen.
+
+## The options, in plain words
+
+A. Queue /omni:knowledge-add as the spec says; the card says it writes nothing on a runner yet (built).
+B. Queue nothing: record the approval and say the rule waits for a person to write it.
+C. Teach /omni:knowledge-add to propose a playbook or register rule with nobody at the screen, in a follow-up PRD.
+
+## What I had to decide
+
+Pick A to keep sending the job with the warning, B to send nothing and only record the approval, or C to give the helper a way to propose a playbook or register rule with nobody at the screen, in a follow-up PRD. Decided by: Jev (hardToRevert 0.48) · agent said true
+
+## What I did meanwhile
+
+A knowledge finding that names no glossary term (in backticks or quotes) and no Legal code (L-<CODE>) queues /omni:knowledge-add rewind of PRD <n>: <its fix> on a runner, sent by the member who approved. The skill stops at once under OMNI_UNATTENDED (settled item s6-01), and it only handles constituents, Legal entries and glossary terms, so nothing is written. The card's answer reads: Queued /omni:knowledge-add on a runner of the workspace, sent by you. On a runner it writes nothing yet: the rule still waits for a person to write it.
+
+## What it costs to change later
+
+B is one branch of the approval plan and one sentence of the card. C is a change to the knowledge-add skill (an unattended path that proposes a playbook or register rule for its owner, never writes it) and to the runner's docs, outside this PRD's territory; Approve itself would not change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec promises that Approve on a playbook or register finding gets the rule written; with the skill as it is, that promise is not kept on a runner, and the member is told so only on the card.
+- (author) Whether an unattended knowledge-add should propose (wait for the section's owner) or apply was not asked.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-approved-knowledge-rule-writes-nothing -->
+
+<!-- omni-outbox-settled: s7-03-glossary-or-legal-read-from-the-fix -->
+
+## s7-03-glossary-or-legal-read-from-the-fix — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-glossary-or-legal-read-from-the-fix
+prd: 2410
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 5
+---
+
+## The question, in plain words
+
+A finding does not say in a field whether it is about a glossary word or a Legal entry, and a proposal needs the word and its meaning, or the code and the statement. How does Approve tell them apart and fill them in?
+
+## The decision, in plain words
+
+Approve reads the finding's fix for the word it names in quotes, or the Legal code it names, and files the fix's own words as the proposal for the owner to read. A finding that names neither goes to the knowledge helper instead.
+
+## The intro, for fun
+
+The finding said add this word, and left the robot to guess which word.
+
+## The punchline, for fun
+
+So it only files the ones that point at their word; the vague ones go to the helper.
+
+## The options, in plain words
+
+A. Read the word or the code from the fix, and file nothing when it names neither (built).
+B. Give a finding explicit fields for its glossary word or Legal code, filled in by the rewind.
+C. Ask the member for the word and its meaning, or the code and its statement, on Approve.
+
+## What I had to decide
+
+Pick A to keep reading the fix, B to give a finding explicit fields for the word and its meaning (or the code and statement) that the rewind fills in, or C to ask the member for them on Approve.
+
+## What I did meanwhile
+
+A knowledge finding whose fix names a Legal code (L-GDPR) files a Legal proposal under that code, its statement the fix cut to 400 characters, its source the rewind of the PRD and the evidence links; one whose fix says glossary and names a term in backticks or quotes files a glossary proposal, its meaning the fix cut to 400 characters. Both go through the product's own proposal function as the member, on the repository's product, for the kind's owner to decide. Any other knowledge finding queues /omni:knowledge-add.
+
+## What it costs to change later
+
+B is a new optional field in the finding's shape: the table, omni rewind push, the rewind skill and this plan change together, no data to move. C adds a small form to the card, which the voice objection asked to avoid.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The fix's words are the meaning or the statement as the rewind wrote them, the agent's closing line left out; the owner may find them wordier than a glossary meaning should be.
+- (author) A Legal entry's source is meant to be the law it comes from; the rewind names none, so the source holds the PRD and the evidence links instead.
+- (author) A glossary word that already exists makes the database refuse the proposal; the card then says it was not filed and to propose it on the Knowledge tab.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-glossary-or-legal-read-from-the-fix -->
+
+<!-- omni-outbox-settled: s7-04-kit-issue-without-evidence-links -->
+
+## s7-04-kit-issue-without-evidence-links — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-04-kit-issue-without-evidence-links
+prd: 2410
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 5
+---
+
+## The question, in plain words
+
+The spec says an approved setup finding opens an issue on the kit's public repository holding exactly the card's text, but the card also shows links into the workspace's own repository. What should leave the workspace?
+
+## The decision, in plain words
+
+The issue holds the card's words (the check, where it started, what happened and the fix) but not its links, and a finding whose words name the workspace's repository is refused before it is approved, so a member can only reject it.
+
+## The intro, for fun
+
+The finding wanted to post its receipts in public, and the receipts had the company's address on them.
+
+## The punchline, for fun
+
+The story goes out, the receipts stay home.
+
+## The options, in plain words
+
+A. Send the card's words without its links, and refuse a finding that names the repository (built).
+B. Send the card's text with its evidence links.
+C. Let the member edit the text before the issue opens.
+
+## What I had to decide
+
+Pick A to keep the links at home and refuse a finding that names the repository, B to send the links too, or C to let the member edit the text before it leaves.
+
+## What I did meanwhile
+
+Approve on an Omni-setup finding opens one issue on the kit's repository as the Omni app, titled Rewind: and the first line of what happened, its body the check, Started in: The Omni setup, what happened and the fix with the agent's closing line. When what happened or the fix names the workspace's repository (owner/name) or links GitHub under its owner, the approve route answers 422 and nothing is decided; in the kit's own repository nothing is refused, since the issue opens at home.
+
+## What it costs to change later
+
+B is one line of the issue's body; C adds an edit box to the card and a check that the edited text still names no repository.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The check catches the repository's full name and its GitHub links only: a code name, a customer or a person named in plain words would still leave; the rewind skill is asked not to write them in a setup finding.
+- (author) A refused finding can only be rejected, and the same finding is never proposed again, so the setup problem is then raised by hand or not at all.
+
+```
+
+<!-- /omni-outbox-settled: s7-04-kit-issue-without-evidence-links -->
+
+<!-- omni-outbox-settled: s7-06-reject-asks-its-reason-beside-it -->
+
+## s7-06-reject-asks-its-reason-beside-it — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-23
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-23
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-06-reject-asks-its-reason-beside-it
+prd: 2410
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-23
+wave: 5
+---
+
+## The question, in plain words
+
+The page's drawing shows each finding with only Approve and Reject, and the spec lets a rejection carry an optional reason. Where does the member type it?
+
+## The decision, in plain words
+
+Reject first opens a small optional field beside it, then a second Reject sends the rejection with or without a reason; Approve stays one click, and only the first open finding's Approve is the page's main button.
+
+## The intro, for fun
+
+Saying no is easy; saying why takes one more box.
+
+## The punchline, for fun
+
+The box only shows up when you are already saying no.
+
+## The options, in plain words
+
+A. Open an optional reason field when Reject is clicked, then reject (built).
+B. Reject in one click, with no reason.
+C. Show the optional reason field on every card at rest.
+
+## What I had to decide
+
+Pick A to keep the field that opens on Reject, B to reject in one click with no reason, or C to show the reason field on every card at rest.
+
+## What I did meanwhile
+
+A proposed finding shows Approve and Reject, as the before/after page draws them. Reject opens a field (Why, if you like) with Reject and Cancel; Enter or Reject sends it. The first proposed finding's Approve carries the page's primary look, the others the quiet one, as the drawing shows.
+
+## What it costs to change later
+
+B or C is a few lines of the card's component; no data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Rejecting takes two clicks, where the voice's answer promised one click per proposal; approving keeps one.
+
+```
+
+<!-- /omni-outbox-settled: s7-06-reject-asks-its-reason-beside-it -->
