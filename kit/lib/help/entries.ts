@@ -850,6 +850,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'rewritten.',
   },
   {
+    name: 'rewind',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni rewind facts <prd> [--json]', 'omni rewind push <prd> --file <findings.json>'],
+    summary: 'read a PRD\'s watch on main, and send the rewind\'s findings to its page',
+    detail:
+      "facts prints the PRD's status on main per repository (watching, clean or broke), each break with its " +
+      'link, and the findings already on its page; it says so when the PRD has no watch. push sends a file of ' +
+      'findings (check, origin, what happened, evidence links, fix) to the PRD\'s Main tab as proposals for a ' +
+      'member to approve or reject. It refuses, naming the finding and sending nothing, one with no evidence ' +
+      'link, an origin other than repository, omni-setup or knowledge, a check other than main, reviews, ci, ' +
+      'bodies, waves, plan, spec or knowledge, and one already proposed (the same check, origin and evidence). ' +
+      'Both need the terminal sign-in of a member of the PRD\'s workspace.',
+  },
+  {
     name: 'item',
     kind: 'command',
     who: 'skills',
