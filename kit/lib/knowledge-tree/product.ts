@@ -26,8 +26,11 @@ export type ProductLevel = (typeof PRODUCT_LEVELS)[number];
 /** One register entry, with the level it was read from. */
 export type LevelEntry = { level: ProductLevel; entry: KnowledgeEntry };
 
-/** A lower level's entry that says otherwise than a higher level's, under the same id. */
-export type Contradiction = { lower: LevelEntry; higher: LevelEntry };
+/**
+ * A lower level's entry that says otherwise than a higher level's, under the same id: `on` is what
+ * differs first, its kind or else its statement.
+ */
+export type Contradiction = { lower: LevelEntry; higher: LevelEntry; on: 'kind' | 'statement' };
 
 /** Where `level`'s knowledge folder lies in the checkout: the repository's own, or its copy. */
 function knowledgeRootOf(ctx: KnowledgeCtx, level: ProductLevel): string {
@@ -42,9 +45,15 @@ export function productEntries({ ctx }: { ctx: KnowledgeCtx }): LevelEntry[] {
   });
 }
 
-/** What an entry says, for comparing two levels: its kind and its statement, spacing collapsed. */
-function meaning(entry: KnowledgeEntry): string {
-  return `${entry.kind ?? ''}\n${entry.statement.replace(/\s+/g, ' ').trim()}`;
+/** An entry's statement as compared between levels: its spacing collapsed. */
+export function statementOf(entry: KnowledgeEntry): string {
+  return entry.statement.replace(/\s+/g, ' ').trim();
+}
+
+/** What differs first between two entries of one id, or `null` when the lower one only restates the higher. */
+function difference(lower: KnowledgeEntry, higher: KnowledgeEntry): Contradiction['on'] | null {
+  if (lower.kind !== higher.kind) return 'kind';
+  return statementOf(lower) === statementOf(higher) ? null : 'statement';
 }
 
 /**
@@ -54,9 +63,10 @@ function meaning(entry: KnowledgeEntry): string {
  */
 export function findContradictions(entries: readonly LevelEntry[]): Contradiction[] {
   return entries.flatMap((lower, index) =>
-    entries
-      .slice(0, index)
-      .filter((higher) => higher.level !== lower.level && higher.entry.id === lower.entry.id && meaning(higher.entry) !== meaning(lower.entry))
-      .map((higher) => ({ lower, higher })),
+    entries.slice(0, index).flatMap((higher) => {
+      if (higher.level === lower.level || higher.entry.id !== lower.entry.id) return [];
+      const on = difference(lower.entry, higher.entry);
+      return on === null ? [] : [{ lower, higher, on }];
+    }),
   );
 }

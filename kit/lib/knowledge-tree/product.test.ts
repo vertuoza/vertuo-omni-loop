@@ -95,6 +95,16 @@ describe('findContradictions — a lower level may add to a higher one, never ch
     expect(contradictions(files)).toEqual(['repo X-GEARS-WIDGETS-1 × plan repo X-GEARS-WIDGETS-1']);
   });
 
+  it('says what differs: the kind before the statement', () => {
+    const cross = (kind: string, statement: string) => ['# Widgets and gears', '', '## X-GEARS-WIDGETS-1', '', statement, '', `Kind: ${kind}`, ''].join('\n');
+    const on = (repo: string, plan: string) => {
+      const { ctx } = makeRepo({ files: { [`${REPO}/cross-domain/gears--widgets.md`]: repo, [`${PLAN}/cross-domain/gears--widgets.md`]: plan } });
+      return findContradictions(productEntries({ ctx })).map((found) => found.on);
+    };
+    expect(on(cross('rule', 'A gear stops.'), cross('invariant', 'A gear turns.'))).toEqual(['kind']);
+    expect(on(cross('rule', 'A gear stops.'), cross('rule', 'A gear turns.'))).toEqual(['statement']);
+  });
+
   it('never compares two entries of the same level: an id reused inside one folder is the id check’s', () => {
     const files = { ...at(REPO, rules('A widget is red.')), [`${REPO}/domains/widgets/rules.md`]: '# Rules\n\n## BR-PRODUCT-1\n\nA widget is blue.\n' };
     expect(contradictions(files)).toEqual([]);
