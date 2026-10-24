@@ -1,0 +1,640 @@
+<title>Omni Runner Fleet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<style>
+  /* Layout: one reading column of 1160px; the fleet diagram is the hero, every section after it zooms into one part of it.
+     Colours are the Omni theme of @omni/design (ASK.omni), dark first; the light theme is ASK.light. */
+  :root {
+    --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --line-strong: #5a60c4;
+    --ink: #f2f4ff; --muted: #8a90d6; --signal: #ffd84a; --signal-soft: #2a2350; --on-signal: #07061c;
+    --cyan: #6ff0ff; --green: #4ee08a; --red: #ff6b86; --crest-shadow: #6a2fd0; --star: rgba(242, 244, 255, .5);
+    --pixel: "Press Start 2P", ui-monospace, monospace;
+    --display: "Anton", Impact, "Arial Narrow", sans-serif;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ground: #f5f4fc; --surface: #ffffff; --sunk: #eceaf8; --line: #d9d6ee; --line-strong: #85819f;
+      --ink: #17153d; --muted: #4f5486; --signal: #6a2fd0; --signal-soft: #efe7ff; --on-signal: #ffffff;
+      --cyan: #0b6f86; --green: #15703f; --red: #b3122f; --crest-shadow: #d9d6ee; --star: rgba(23, 21, 61, .14);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #f5f4fc; --surface: #ffffff; --sunk: #eceaf8; --line: #d9d6ee; --line-strong: #85819f;
+    --ink: #17153d; --muted: #4f5486; --signal: #6a2fd0; --signal-soft: #efe7ff; --on-signal: #ffffff;
+    --cyan: #0b6f86; --green: #15703f; --red: #b3122f; --crest-shadow: #d9d6ee; --star: rgba(23, 21, 61, .14);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--ground); color: var(--ink); font: 16px/1.6 var(--body); }
+  .wrap { max-width: 1160px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 64px; display: grid; gap: 56px; }
+  a { color: var(--cyan); text-underline-offset: 3px; }
+  code, .mono { font-family: var(--mono); font-size: .86em; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  p { margin: 0; }
+  .tag { font: 400 10px/1.4 var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .tag.signal { color: var(--signal); }
+
+  /* Hero */
+  .hero { display: grid; gap: 18px; position: relative; padding-block: 8px; }
+  .hero::before { content: ""; position: absolute; inset: -40px -16px auto; height: 260px; pointer-events: none; z-index: -1;
+    background-image: radial-gradient(1px 1px at 12% 30%, var(--star), transparent), radial-gradient(1px 1px at 38% 12%, var(--star), transparent),
+      radial-gradient(1.5px 1.5px at 64% 40%, var(--star), transparent), radial-gradient(1px 1px at 82% 18%, var(--star), transparent),
+      radial-gradient(1px 1px at 92% 58%, var(--star), transparent), radial-gradient(1.5px 1.5px at 24% 70%, var(--star), transparent),
+      radial-gradient(1px 1px at 52% 80%, var(--star), transparent), radial-gradient(1px 1px at 72% 66%, var(--star), transparent); }
+  h1 { font: 400 clamp(48px, 8vw, 88px)/0.95 var(--display); letter-spacing: .01em; text-transform: uppercase; color: var(--signal);
+    display: inline-block; transform: skewX(-12deg); transform-origin: left bottom; text-shadow: 4px 4px 0 var(--crest-shadow); justify-self: start; padding-left: 6px; }
+  .lede { max-width: 66ch; font-size: 19px; line-height: 1.55; }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fact { display: inline-flex; gap: 8px; align-items: baseline; padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 14px; color: var(--muted); }
+  .fact b { color: var(--ink); font: 400 11px/1 var(--pixel); }
+
+  /* Sections */
+  section { display: grid; gap: 20px; }
+  .head { display: grid; gap: 8px; max-width: 72ch; }
+  .head h2 { font: 700 26px/1.2 var(--body); }
+  .head p { color: var(--muted); }
+
+  /* Diagram */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface);
+    color: var(--ink); font: 700 13px/1 var(--body); cursor: pointer; }
+  .chip:hover { border-color: var(--ink); }
+  .chip[aria-pressed="true"] { background: var(--signal-soft); border-color: var(--signal); }
+  .chip:focus-visible, button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .swatch { width: 18px; height: 0; border-top: 3px solid; }
+  .sw-commands { border-color: var(--signal); }
+  .sw-reports { border-color: var(--cyan); border-top-style: dashed; }
+  .sw-work { border-color: var(--green); }
+  .sw-access { border-color: var(--muted); border-top-style: dotted; }
+  .stage { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--sunk); -webkit-overflow-scrolling: touch; }
+  .dia { display: block; width: 100%; min-width: 900px; height: auto; }
+  .dia text { font-family: var(--body); font-size: 13px; fill: var(--ink); }
+  .dia .t-tag { font-family: var(--pixel); font-size: 8px; letter-spacing: .04em; fill: var(--muted); }
+  .dia .t-name { font-family: var(--pixel); font-size: 9px; }
+  .dia .t-small { font-size: 11.5px; }
+  .dia .t-mono { font-family: var(--mono); font-size: 11.5px; }
+  .dia .t-micro { font-family: var(--mono); font-size: 10px; }
+  .dia .t-muted { fill: var(--muted); }
+  .dia .t-signal { fill: var(--signal); }
+  .dia .t-red { fill: var(--red); }
+  .dia .t-green { fill: var(--green); }
+  .dia .t-cyan { fill: var(--cyan); }
+  .dia .box { fill: var(--surface); stroke: var(--line-strong); stroke-width: 2; }
+  .dia .box-off { stroke-dasharray: 6 5; }
+  .dia .box-server { stroke: var(--signal); }
+  .dia .shadow { fill: var(--line-strong); opacity: .55; }
+  .dia .inner { fill: var(--sunk); stroke: var(--line); stroke-width: 1; }
+  .dia .tailnet { fill: none; stroke: var(--cyan); stroke-width: 1.5; stroke-dasharray: 9 6; }
+  .dia .group { fill: var(--ground); stroke: var(--line); stroke-width: 1.5; }
+  .dia .sep { stroke: var(--line); stroke-width: 1; }
+  .dia .dot-busy { fill: var(--signal); }
+  .dia .dot-off { fill: var(--red); }
+  .dia .is-off > :not(.box):not(.shadow) { opacity: .7; }
+  .dia .bar-bg { fill: var(--line); }
+  .dia .bar-fill { fill: var(--cyan); }
+  .dia .bar-hot { fill: var(--red); }
+  .dia .acct { stroke-width: 1.2; fill: none; stroke: var(--line-strong); }
+  .dia .acct-active { fill: var(--signal-soft); stroke: var(--signal); }
+  .dia .acct-out { stroke: var(--red); }
+  .dia .acct-t-ready { fill: var(--muted); }
+  .dia .acct-t-active { fill: var(--ink); font-weight: 600; }
+  .dia .acct-t-out { fill: var(--red); }
+  .dia .ln { fill: none; stroke-width: 2.5; }
+  .dia .ln-commands { stroke: var(--signal); }
+  .dia .ln-reports { stroke: var(--cyan); stroke-dasharray: 7 5; }
+  .dia .ln-work { stroke: var(--green); }
+  .dia .ln-access { stroke: var(--muted); stroke-dasharray: 2 5; stroke-linecap: round; }
+  .dia .ln-plain { stroke: var(--line-strong); stroke-width: 2; }
+  .dia .hd-commands { fill: var(--signal); }
+  .dia .hd-reports { fill: var(--cyan); }
+  .dia .hd-work { fill: var(--green); }
+  .dia .hd-access { fill: var(--muted); }
+  .dia .hd-plain { fill: var(--line-strong); }
+  .dia .lane { transition: opacity .2s; }
+  .dia[data-hl] .lane { opacity: .14; }
+  .dia[data-hl="commands"] .l-commands, .dia[data-hl="reports"] .l-reports,
+  .dia[data-hl="work"] .l-work, .dia[data-hl="access"] .l-access { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) {
+    .dia .ln-reports { animation: flow 1.2s linear infinite; }
+    @keyframes flow { to { stroke-dashoffset: 12; } }
+  }
+  .caption { color: var(--muted); font-size: 14px; max-width: 80ch; }
+
+  /* The nine traits */
+  .traits { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .trait { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+  .trait p { font-size: 15px; }
+  .trait .where { color: var(--muted); font-size: 13px; }
+
+  /* Anatomy */
+  .stack { display: grid; gap: 6px; }
+  .layer { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(0, 260px); gap: 16px; align-items: center; padding: 14px 18px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line-strong); }
+  .layer.l-top { border-left-color: var(--signal); }
+  .layer.l-new { border-left-color: var(--cyan); }
+  .layer h3 { font: 400 10px/1.5 var(--pixel); letter-spacing: .05em; color: var(--ink); }
+  .layer p { font-size: 15px; }
+  .layer .mono { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .key { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); }
+  .key span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .key .k-top::before { background: var(--signal); } .key .k-new::before { background: var(--cyan); } .key .k-today::before { background: var(--line-strong); }
+
+  /* Flows */
+  .flows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .flow { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+  .flow h3 { font: 700 18px/1.3 var(--body); }
+  .flow ol { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 10px; }
+  .flow li { counter-increment: s; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; font-size: 15px; line-height: 1.5; }
+  .flow li::before { content: counter(s); font: 400 9px/26px var(--pixel); text-align: center; width: 26px; height: 26px; border-radius: 6px; background: var(--sunk); border: 1px solid var(--line-strong); color: var(--signal); }
+  .flow .end { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+
+  /* Contract */
+  .contract { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  pre { margin: 0; padding: 16px 18px; background: var(--sunk); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto;
+    font: 12.5px/1.6 var(--mono); color: var(--ink); }
+  pre .c { color: var(--muted); } pre .k { color: var(--cyan); } pre .s { color: var(--green); } pre .n { color: var(--signal); }
+  .notes { display: grid; gap: 12px; }
+  .note { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; font-size: 15px; }
+  .note h3 { font: 700 15px/1.3 var(--body); }
+
+  /* Tables */
+  .tbl { overflow-x: auto; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--line); }
+  thead th { border-top: 0; background: var(--sunk); font: 700 12px/1.2 var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  tbody th { font-weight: 700; width: 22%; }
+  td.dim { color: var(--muted); }
+  .pill { display: inline-block; font: 700 12px/1 var(--body); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); white-space: nowrap; }
+  .pill.new { border-color: var(--cyan); color: var(--cyan); }
+  .pill.keep { border-color: var(--green); color: var(--green); }
+  .pill.change { border-color: var(--signal); color: var(--signal); }
+
+  /* Questions */
+  .qs { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .q { border: 1px dashed var(--line-strong); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; }
+  .q h3 { font: 700 16px/1.35 var(--body); }
+  .q p { font-size: 14px; color: var(--muted); }
+  .q .lean { color: var(--ink); }
+
+  footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+
+  @media (max-width: 900px) {
+    .flows, .contract { grid-template-columns: minmax(0, 1fr); }
+    .layer { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  }
+  @media (max-width: 420px) { .qs { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="tag signal">Omni Loop · mini project</span>
+    <h1>Runner fleet</h1>
+    <p class="lede">Four machines that do one thing: run coding agents for the loop. The Omni Loop server hands them work. They open pull requests on GitHub or send their work back to Omni, and they report every token, every approximate dollar and every gigabyte as they go.</p>
+    <div class="facts">
+      <span class="fact"><b>4</b> runners</span>
+      <span class="fact"><b>2</b> physical, always on</span>
+      <span class="fact"><b>2</b> Hetzner, low availability</span>
+      <span class="fact"><b>3</b> agent CLIs, one account each</span>
+      <span class="fact"><b>0</b> open ports</span>
+    </div>
+  </header>
+
+  <section id="architecture" aria-labelledby="h-arch">
+    <div class="head">
+      <span class="tag">Architecture</span>
+      <h2 id="h-arch">Who talks to whom</h2>
+      <p>Pick a channel to trace it. Every runner keeps one connection open to the Omni Loop server, so commands reach a machine in an office or in a Hetzner rack the same way.</p>
+    </div>
+    <div class="legend" role="group" aria-label="Highlight a channel">
+      <button class="chip" type="button" id="hl-all" data-hl="" aria-pressed="true">All channels</button>
+      <button class="chip" type="button" id="hl-commands" data-hl="commands" aria-pressed="false"><i class="swatch sw-commands"></i>Commands</button>
+      <button class="chip" type="button" id="hl-reports" data-hl="reports" aria-pressed="false"><i class="swatch sw-reports"></i>Reports</button>
+      <button class="chip" type="button" id="hl-work" data-hl="work" aria-pressed="false"><i class="swatch sw-work"></i>Work and pull requests</button>
+      <button class="chip" type="button" id="hl-access" data-hl="access" aria-pressed="false"><i class="swatch sw-access"></i>Operator access</button>
+    </div>
+    <div class="stage">
+      <svg class="dia" id="dia" viewBox="0 0 1120 660" role="img" aria-labelledby="dia-title dia-desc">
+        <title id="dia-title">The Omni runner fleet</title>
+        <desc id="dia-desc">The team sends a line from the Omni page to the Omni Loop server, which holds the job queue and leases, the runner registry, the token and cost meter and the loop's state. The server sends commands to four runners inside a Tailscale tailnet: two physical machines in the office, always on, and two Hetzner cloud machines with low availability, one of which is shown offline with its job requeued. Runners report their model, tokens, approximate cost and CPU, memory and disk to the server, send their work back to Omni, and open pull requests on GitHub. An operator reaches every runner over SSH through the tailnet.</desc>
+        <defs>
+          <marker id="m-commands" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hd-commands"/></marker>
+          <marker id="m-reports" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hd-reports"/></marker>
+          <marker id="m-work" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hd-work"/></marker>
+          <marker id="m-access" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hd-access"/></marker>
+          <marker id="m-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hd-plain"/></marker>
+        </defs>
+
+        <!-- Team -->
+        <rect x="23" y="43" width="230" height="86" rx="8" class="shadow"/>
+        <rect x="20" y="40" width="230" height="86" rx="8" class="box"/>
+        <text x="36" y="64" class="t-tag">TEAM</text>
+        <text x="36" y="88">Omni page · Send to terminal</text>
+        <text x="36" y="108" class="t-small t-muted">PRDs, bugs, PR care, retros, API keys</text>
+        <line x1="135" y1="126" x2="135" y2="174" class="ln ln-plain" marker-end="url(#m-plain)"/>
+
+        <!-- Omni Loop server -->
+        <rect x="23" y="183" width="230" height="300" rx="8" class="shadow"/>
+        <rect x="20" y="180" width="230" height="300" rx="8" class="box box-server"/>
+        <text x="36" y="206" class="t-tag t-signal">OMNI LOOP SERVER</text>
+        <rect x="34" y="220" width="202" height="54" rx="6" class="inner"/>
+        <text x="46" y="242" font-weight="700">Job queue and leases</text>
+        <text x="46" y="261" class="t-small t-muted">who runs what, until when</text>
+        <rect x="34" y="282" width="202" height="54" rx="6" class="inner"/>
+        <text x="46" y="304" font-weight="700">Runner registry</text>
+        <text x="46" y="323" class="t-small t-muted">state, slots, repos, CLIs</text>
+        <rect x="34" y="344" width="202" height="54" rx="6" class="inner"/>
+        <text x="46" y="366" font-weight="700">Meter</text>
+        <text x="46" y="385" class="t-small t-muted">tokens × price list = cost</text>
+        <rect x="34" y="406" width="202" height="54" rx="6" class="inner"/>
+        <text x="46" y="428" font-weight="700">Loop state</text>
+        <text x="46" y="447" class="t-small t-muted">outbox, proofs, dossiers, logs</text>
+
+        <!-- Lanes between the server and the fleet -->
+        <g class="lane l-commands">
+          <text x="262" y="258" class="t-tag t-signal">COMMANDS</text>
+          <line x1="252" y1="270" x2="396" y2="270" class="ln ln-commands" marker-end="url(#m-commands)"/>
+          <text x="262" y="290" class="t-small t-muted">run · cancel · drain</text>
+        </g>
+        <g class="lane l-reports">
+          <text x="262" y="328" class="t-tag t-cyan">REPORTS</text>
+          <line x1="398" y1="340" x2="254" y2="340" class="ln ln-reports" marker-end="url(#m-reports)"/>
+          <text x="262" y="360" class="t-small t-muted">model · tokens · cost</text>
+          <text x="262" y="376" class="t-small t-muted">CPU · memory · disk</text>
+        </g>
+        <g class="lane l-work">
+          <text x="262" y="412" class="t-tag" style="fill: var(--green)">WORK</text>
+          <line x1="398" y1="424" x2="254" y2="424" class="ln ln-work" marker-end="url(#m-work)"/>
+          <text x="262" y="444" class="t-small t-muted">outbox · proofs · logs</text>
+        </g>
+
+        <!-- Operator -->
+        <rect x="23" y="543" width="230" height="96" rx="8" class="shadow"/>
+        <rect x="20" y="540" width="230" height="96" rx="8" class="box"/>
+        <text x="36" y="564" class="t-tag">OPERATOR</text>
+        <text x="36" y="588">Laptop on the tailnet</text>
+        <text x="36" y="608" class="t-small t-muted">ssh · tmux attach · omni update</text>
+        <g class="lane l-access">
+          <text x="262" y="576" class="t-tag">SSH</text>
+          <line x1="252" y1="588" x2="396" y2="588" class="ln ln-access" marker-end="url(#m-access)"/>
+          <text x="262" y="608" class="t-small t-muted">over Tailscale only</text>
+        </g>
+
+        <!-- Tailnet and its two groups -->
+        <rect x="400" y="20" width="500" height="620" rx="14" class="tailnet"/>
+        <text x="418" y="44" class="t-tag t-cyan">TAILNET · TAILSCALE</text>
+        <text x="882" y="44" text-anchor="end" class="t-small t-muted">every inbound port closed</text>
+
+        <rect x="416" y="58" width="468" height="282" rx="10" class="group"/>
+        <text x="432" y="84" class="t-tag">PHYSICAL · ON-PREM</text>
+        <text x="868" y="84" text-anchor="end" class="t-small t-muted">always on · long jobs</text>
+
+        <rect x="416" y="350" width="468" height="282" rx="10" class="group"/>
+        <text x="432" y="376" class="t-tag">CLOUD · HETZNER</text>
+        <text x="868" y="376" text-anchor="end" class="t-small t-red">low availability · may vanish</text>
+
+        <g class="runner">
+<rect x="435" y="103" width="214" height="224" rx="8" class="shadow"/>
+<rect x="432" y="100" width="214" height="224" rx="8" class="box"/>
+<circle cx="452" cy="123" r="5" class="dot-busy"/>
+<text x="464" y="127" class="t-name">ATELIER-01</text>
+<text x="630" y="127" text-anchor="end" class="t-tag t-signal">BUSY</text>
+<text x="448" y="147" class="t-small t-muted">Mac Studio · office</text>
+<line x1="448" y1="158" x2="630" y2="158" class="sep"/>
+<text x="448" y="179" class="t-mono">/omni:yolo 2513</text>
+<text x="448" y="199" class="">Claude Code · Opus 5.5</text>
+<text x="448" y="219" class="t-mono t-muted">4.12M tok</text>
+<text x="630" y="219" text-anchor="end" class="t-mono t-green">≈ $18.40</text>
+<text x="448" y="242" class="t-micro t-muted">CPU</text>
+<rect x="486" y="236" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="486" y="236" width="67" height="6" rx="3" class="bar-fill"/>
+<text x="630" y="242" text-anchor="end" class="t-micro">62%</text>
+<text x="448" y="260" class="t-micro t-muted">MEM</text>
+<rect x="486" y="254" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="486" y="254" width="77" height="6" rx="3" class="bar-fill"/>
+<text x="630" y="260" text-anchor="end" class="t-micro">71%</text>
+<text x="448" y="278" class="t-micro t-muted">DISK</text>
+<rect x="486" y="272" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="486" y="272" width="41" height="6" rx="3" class="bar-fill"/>
+<text x="630" y="278" text-anchor="end" class="t-micro">38%</text>
+<rect x="448" y="294" width="56" height="18" rx="9" class="acct acct-active"/>
+<text x="476" y="307" text-anchor="middle" class="t-micro acct-t-active">claude</text>
+<rect x="510" y="294" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="538" y="307" text-anchor="middle" class="t-micro acct-t-ready">codex</text>
+<rect x="572" y="294" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="600" y="307" text-anchor="middle" class="t-micro acct-t-ready">gemini</text>
+</g>
+<g class="runner">
+<rect x="657" y="103" width="214" height="224" rx="8" class="shadow"/>
+<rect x="654" y="100" width="214" height="224" rx="8" class="box"/>
+<circle cx="674" cy="123" r="5" class="dot-busy"/>
+<text x="686" y="127" class="t-name">ATELIER-02</text>
+<text x="852" y="127" text-anchor="end" class="t-tag t-signal">BUSY</text>
+<text x="670" y="147" class="t-small t-muted">Linux tower · office</text>
+<line x1="670" y1="158" x2="852" y2="158" class="sep"/>
+<text x="670" y="179" class="t-mono">/omni:bug-fix #418</text>
+<text x="670" y="199" class="">Codex CLI · gpt-5-codex</text>
+<text x="670" y="219" class="t-mono t-muted">1.78M tok</text>
+<text x="852" y="219" text-anchor="end" class="t-mono t-green">≈ $6.10</text>
+<text x="670" y="242" class="t-micro t-muted">CPU</text>
+<rect x="708" y="236" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="708" y="236" width="52" height="6" rx="3" class="bar-fill"/>
+<text x="852" y="242" text-anchor="end" class="t-micro">48%</text>
+<text x="670" y="260" class="t-micro t-muted">MEM</text>
+<rect x="708" y="254" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="708" y="254" width="59" height="6" rx="3" class="bar-fill"/>
+<text x="852" y="260" text-anchor="end" class="t-micro">55%</text>
+<text x="670" y="278" class="t-micro t-muted">DISK</text>
+<rect x="708" y="272" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="708" y="272" width="66" height="6" rx="3" class="bar-fill"/>
+<text x="852" y="278" text-anchor="end" class="t-micro">61%</text>
+<rect x="670" y="294" width="56" height="18" rx="9" class="acct acct-out"/>
+<text x="698" y="307" text-anchor="middle" class="t-micro acct-t-out">claude</text>
+<rect x="732" y="294" width="56" height="18" rx="9" class="acct acct-active"/>
+<text x="760" y="307" text-anchor="middle" class="t-micro acct-t-active">codex</text>
+<rect x="794" y="294" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="822" y="307" text-anchor="middle" class="t-micro acct-t-ready">gemini</text>
+</g>
+<g class="runner">
+<rect x="435" y="395" width="214" height="224" rx="8" class="shadow"/>
+<rect x="432" y="392" width="214" height="224" rx="8" class="box"/>
+<circle cx="452" cy="415" r="5" class="dot-busy"/>
+<text x="464" y="419" class="t-name">HZ-FSN-01</text>
+<text x="630" y="419" text-anchor="end" class="t-tag t-signal">BUSY</text>
+<text x="448" y="439" class="t-small t-muted">Hetzner CCX33 · Falkenstein</text>
+<line x1="448" y1="450" x2="630" y2="450" class="sep"/>
+<text x="448" y="471" class="t-mono">/omni:pr-care 2490</text>
+<text x="448" y="491" class="">Claude Code · Sonnet 5.5</text>
+<text x="448" y="511" class="t-mono t-muted">0.61M tok</text>
+<text x="630" y="511" text-anchor="end" class="t-mono t-green">≈ $1.90</text>
+<text x="448" y="534" class="t-micro t-muted">CPU</text>
+<rect x="486" y="528" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="486" y="528" width="24" height="6" rx="3" class="bar-fill"/>
+<text x="630" y="534" text-anchor="end" class="t-micro">22%</text>
+<text x="448" y="552" class="t-micro t-muted">MEM</text>
+<rect x="486" y="546" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="486" y="546" width="32" height="6" rx="3" class="bar-fill"/>
+<text x="630" y="552" text-anchor="end" class="t-micro">30%</text>
+<text x="448" y="570" class="t-micro t-muted">DISK</text>
+<rect x="486" y="564" width="108" height="6" rx="3" class="bar-bg"/>
+<rect x="486" y="564" width="26" height="6" rx="3" class="bar-fill"/>
+<text x="630" y="570" text-anchor="end" class="t-micro">24%</text>
+<rect x="448" y="586" width="56" height="18" rx="9" class="acct acct-active"/>
+<text x="476" y="599" text-anchor="middle" class="t-micro acct-t-active">claude</text>
+<rect x="510" y="586" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="538" y="599" text-anchor="middle" class="t-micro acct-t-ready">codex</text>
+<rect x="572" y="586" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="600" y="599" text-anchor="middle" class="t-micro acct-t-ready">gemini</text>
+</g>
+<g class="runner is-off">
+<rect x="657" y="395" width="214" height="224" rx="8" class="shadow"/>
+<rect x="654" y="392" width="214" height="224" rx="8" class="box box-off"/>
+<circle cx="674" cy="415" r="5" class="dot-off"/>
+<text x="686" y="419" class="t-name">HZ-NBG-02</text>
+<text x="852" y="419" text-anchor="end" class="t-tag t-red">OFFLINE</text>
+<text x="670" y="439" class="t-small t-muted">Hetzner CCX33 · Nuremberg</text>
+<line x1="670" y1="450" x2="852" y2="450" class="sep"/>
+<text x="670" y="471" class="t-mono">/omni:plan 2521 · parked</text>
+<text x="670" y="491" class="t-red t-small">Reclaimed 12 min ago</text>
+<text x="670" y="511" class="t-mono t-muted">Lease expired</text>
+<text x="852" y="511" text-anchor="end" class="t-mono t-muted">requeued</text>
+<text x="670" y="534" class="t-micro t-muted">CPU</text>
+<rect x="708" y="528" width="108" height="6" rx="3" class="bar-bg"/>
+<text x="852" y="534" text-anchor="end" class="t-micro t-muted">—</text>
+<text x="670" y="552" class="t-micro t-muted">MEM</text>
+<rect x="708" y="546" width="108" height="6" rx="3" class="bar-bg"/>
+<text x="852" y="552" text-anchor="end" class="t-micro t-muted">—</text>
+<text x="670" y="570" class="t-micro t-muted">DISK</text>
+<rect x="708" y="564" width="108" height="6" rx="3" class="bar-bg"/>
+<text x="852" y="570" text-anchor="end" class="t-micro t-muted">—</text>
+<rect x="670" y="586" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="698" y="599" text-anchor="middle" class="t-micro acct-t-ready">claude</text>
+<rect x="732" y="586" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="760" y="599" text-anchor="middle" class="t-micro acct-t-ready">codex</text>
+<rect x="794" y="586" width="56" height="18" rx="9" class="acct acct-ready"/>
+<text x="822" y="599" text-anchor="middle" class="t-micro acct-t-ready">gemini</text>
+</g>
+
+        <!-- GitHub -->
+        <g class="lane l-work">
+          <text x="912" y="316" class="t-tag" style="fill: var(--green)">PRs</text>
+          <line x1="902" y1="330" x2="956" y2="330" class="ln ln-work" marker-end="url(#m-work)"/>
+        </g>
+        <rect x="963" y="273" width="140" height="114" rx="8" class="shadow"/>
+        <rect x="960" y="270" width="140" height="114" rx="8" class="box"/>
+        <text x="976" y="296" class="t-tag">GITHUB</text>
+        <text x="976" y="320">Branches</text>
+        <text x="976" y="340">Pull requests</text>
+        <text x="976" y="360" class="t-small t-muted">review replies</text>
+        <text x="960" y="410" class="t-small t-muted">as each runner's own</text>
+        <text x="960" y="426" class="t-small t-muted">gh account, or an</text>
+        <text x="960" y="442" class="t-small t-muted">API key's GitHub App</text>
+      </svg>
+    </div>
+    <p class="caption">The figures inside each runner are examples. Atelier-02 has turned over from Claude to Codex after its Claude account ran out, and hz-nbg-02 was reclaimed by Hetzner: its lease expired and its job went back to the queue with its pushed branch.</p>
+  </section>
+
+  <section id="traits" aria-labelledby="h-traits">
+    <div class="head">
+      <span class="tag">The brief</span>
+      <h2 id="h-traits">Nine things every runner does</h2>
+      <p>Each one maps to the part of the runner that carries it, described further down.</p>
+    </div>
+    <div class="traits">
+      <div class="trait"><span class="tag signal">Tooling</span><p>Has the toolchain to produce code in any of the workspace's repositories: git, gh, Node and pnpm, Python and uv, Go, Rust, a JDK, Docker for test databases.</p><span class="where">Toolchain image</span></div>
+      <div class="trait"><span class="tag signal">Access</span><p>Is reached over Tailscale, never over a public port. SSH, tmux and logs all go through the tailnet.</p><span class="where">tailscaled · Tailscale SSH</span></div>
+      <div class="trait"><span class="tag signal">Agents</span><p>Runs a coding agent's terminal: Claude Code, Codex CLI, or another CLI behind the same adapter.</p><span class="where">Agent adapters</span></div>
+      <div class="trait"><span class="tag signal">Reports</span><p>Says what it is doing, with which model, how many tokens and roughly what it costs, every 15 seconds.</p><span class="where">Meter · report channel</span></div>
+      <div class="trait"><span class="tag signal">Resume</span><p>Picks its jobs back up after a restart, from the last checkpoint it wrote.</p><span class="where">Job journal</span></div>
+      <div class="trait"><span class="tag signal">Anywhere</span><p>Runs the same on a physical machine or a cloud machine. Only its placement labels differ.</p><span class="where">Runner labels · placement</span></div>
+      <div class="trait"><span class="tag signal">LLM only</span><p>Is dedicated to coding agents. No CI, no hosting, no production credentials, no customer data.</p><span class="where">Machine policy</span></div>
+      <div class="trait"><span class="tag signal">Health</span><p>Reports its CPU, memory and disk, and pauses itself before one of them runs out.</p><span class="where">Health sampler</span></div>
+      <div class="trait"><span class="tag signal">Turnover</span><p>Holds one account per CLI and moves to the next one by itself when an account runs out of tokens.</p><span class="where">Account pool</span></div>
+    </div>
+  </section>
+
+  <section id="anatomy" aria-labelledby="h-anatomy">
+    <div class="head">
+      <span class="tag">Inside a runner</span>
+      <h2 id="h-anatomy">One machine, seven layers</h2>
+      <p>The same stack on all four machines. The top layer is the <code>omni runner</code> process the kit already ships; the layers in cyan are what this project adds.</p>
+    </div>
+    <div class="key"><span class="k-top">The runner process</span><span class="k-new">New in this project</span><span class="k-today">In the kit today</span></div>
+    <div class="stack">
+      <div class="layer l-top"><h3>Runner</h3><p>Holds the connection to Omni, takes leases, runs each job in its own worktree and tmux session, releases claims when a job ends.</p><span class="mono">omni runner --name atelier-01 --slots 2</span></div>
+      <div class="layer l-new"><h3>Agent adapters</h3><p>One interface over every CLI: start, resume, stream its steps, read its usage. Claude Code and Codex first; any CLI that prints its usage can join.</p><span class="mono">claude · codex · gemini</span></div>
+      <div class="layer l-new"><h3>Account pool</h3><p>One signed-in account per CLI, each with its state (ready, active, out until a reset time) and the order to turn over in.</p><span class="mono">~/.config/omni/accounts.yml</span></div>
+      <div class="layer l-new"><h3>Job journal</h3><p>Written at every step: the job, its worktree, branch, last pushed commit, agent session and a handoff note. Read first on boot.</p><span class="mono">~/.omni/runner/journal/&lt;job&gt;.json</span></div>
+      <div class="layer"><h3>Meter and health</h3><p>Samples CPU, load, memory and disk; counts tokens per model. Today it sends tokens; with a price list it also sends an approximate cost.</p><span class="mono">health line · PRD 2102</span></div>
+      <div class="layer l-new"><h3>Toolchain image</h3><p>One reproducible image, the same on the office machines and on Hetzner, rebuilt when a repository needs a new tool.</p><span class="mono">mise · Docker · cloud-init</span></div>
+      <div class="layer"><h3>Network</h3><p>Tailscale joins the machine to the tailnet with every inbound port closed. The runner only ever dials out.</p><span class="mono">tailscale up --ssh</span></div>
+    </div>
+  </section>
+
+  <section id="flows" aria-labelledby="h-flows">
+    <div class="head">
+      <span class="tag">Flows</span>
+      <h2 id="h-flows">A job, a turnover, a restart</h2>
+      <p>The three sequences the runner has to get right.</p>
+    </div>
+    <div class="flows">
+      <article class="flow">
+        <span class="tag signal">A job, end to end</span>
+        <h3>From Send to a pull request</h3>
+        <ol>
+          <li>Someone presses Send to terminal on the Omni page, an API key calls, or <code>/omni:drive</code> starts a step.</li>
+          <li>Omni queues the job. A runner that holds the repository, has a free slot and an account with tokens left takes a lease on it.</li>
+          <li>The command arrives on the runner's open connection: the line, the repository and the preferred CLI.</li>
+          <li>The runner makes a fresh worktree, opens tmux session <code>job-&lt;id&gt;</code> and starts the agent.</li>
+          <li>Every 15 seconds it reports the step, the model, the tokens, the cost and its health. The lease is renewed with each report.</li>
+          <li>The job ends with a pull request on GitHub, or with its work on Omni: outbox items, a proof, a dossier. The worktree is removed.</li>
+        </ol>
+      </article>
+      <article class="flow">
+        <span class="tag signal">Turnover</span>
+        <h3>When an account runs out</h3>
+        <ol>
+          <li>The meter sees the CLI's own signal: a usage-limit message, the plan's 5-hour or weekly window, or the budget set for that account.</li>
+          <li>The runner marks the account out, with its reset time, and sends no new turn to it.</li>
+          <li>It checkpoints the job: commits and pushes the branch, writes the journal and a handoff note of what is done and what is next.</li>
+          <li>It starts the next CLI that has tokens, in the same worktree, with the handoff note as its first message.</li>
+          <li>The report names the turnover, so the job shows which model did which part and what each part cost.</li>
+          <li>At the reset time the account reads ready again, and new jobs start on the preferred CLI.</li>
+        </ol>
+        <p class="end">When every account is out, the runner reads Paused: no tokens. It takes no new job, and Omni sends work to the other runners.</p>
+      </article>
+      <article class="flow">
+        <span class="tag signal">Restart</span>
+        <h3>Picking jobs back up</h3>
+        <ol>
+          <li>The runner starts and reads its journal before it asks for new work.</li>
+          <li>For each job in the journal, it asks Omni to renew the lease. If Omni already gave the job to another runner, it drops its copy.</li>
+          <li>Otherwise it reopens the worktree on the last pushed commit and resumes the agent's session (<code>claude --resume</code>, <code>codex resume</code>).</li>
+          <li>If the session is gone, it starts the agent fresh with the handoff note.</li>
+          <li>The job's row on the Runners page reads Resumed, with how long it was down.</li>
+        </ol>
+        <p class="end">A runner that never comes back, a reclaimed Hetzner machine for instance, goes quiet. After 90 seconds its lease expires and the job returns to the queue with its pushed branch, for any runner that holds the repository.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="contract" aria-labelledby="h-contract">
+    <div class="head">
+      <span class="tag">Report contract</span>
+      <h2 id="h-contract">What a runner says every 15 seconds</h2>
+      <p>One message per runner carries its health, each running job, and the state of its accounts. These are atelier-02's figures from the diagram.</p>
+    </div>
+    <div class="contract">
+<pre><span class="c">// POST /api/runners/report · atelier-02</span>
+{
+  <span class="k">"runner"</span>: <span class="s">"atelier-02"</span>,
+  <span class="k">"labels"</span>: [<span class="s">"physical"</span>, <span class="s">"office"</span>],
+  <span class="k">"at"</span>: <span class="s">"2026-10-24T14:07:15Z"</span>,
+  <span class="k">"health"</span>: {
+    <span class="k">"cpu"</span>: <span class="n">0.48</span>, <span class="k">"load"</span>: [<span class="n">3.9</span>, <span class="n">8</span>],
+    <span class="k">"memGb"</span>: { <span class="k">"used"</span>: <span class="n">17.6</span>, <span class="k">"total"</span>: <span class="n">32</span> },
+    <span class="k">"diskGb"</span>: { <span class="k">"free"</span>: <span class="n">312</span>, <span class="k">"total"</span>: <span class="n">800</span> }
+  },
+  <span class="k">"jobs"</span>: [{
+    <span class="k">"id"</span>: <span class="s">"job_8807"</span>,
+    <span class="k">"line"</span>: <span class="s">"/omni:bug-fix #418"</span>,
+    <span class="k">"step"</span>: <span class="s">"fix written · tests red to green"</span>,
+    <span class="k">"cli"</span>: <span class="s">"codex"</span>, <span class="k">"model"</span>: <span class="s">"gpt-5-codex"</span>,
+    <span class="k">"turnover"</span>: { <span class="k">"from"</span>: <span class="s">"claude"</span>, <span class="k">"at"</span>: <span class="s">"14:02"</span>, <span class="k">"why"</span>: <span class="s">"weekly limit"</span> },
+    <span class="k">"tokens"</span>: { <span class="k">"in"</span>: <span class="n">1290000</span>, <span class="k">"out"</span>: <span class="n">84000</span>, <span class="k">"cacheRead"</span>: <span class="n">410000</span> },
+    <span class="k">"costUsd"</span>: { <span class="k">"approx"</span>: <span class="n">6.10</span>, <span class="k">"basis"</span>: <span class="s">"list price"</span> },
+    <span class="k">"checkpoint"</span>: <span class="s">"a41f9c2"</span>
+  }],
+  <span class="k">"accounts"</span>: {
+    <span class="k">"claude"</span>: { <span class="k">"state"</span>: <span class="s">"out"</span>, <span class="k">"resetsAt"</span>: <span class="s">"18:00"</span> },
+    <span class="k">"codex"</span>:  { <span class="k">"state"</span>: <span class="s">"active"</span> },
+    <span class="k">"gemini"</span>: { <span class="k">"state"</span>: <span class="s">"ready"</span> }
+  }
+}</pre>
+      <div class="notes">
+        <div class="note"><h3>Cost is an estimate</h3><p>Tokens are counted exactly; cost is tokens times the public list price of the model, kept on the server so one price change applies to every runner. On a subscription account it reads as what the same work would cost through the API.</p></div>
+        <div class="note"><h3>The report is the heartbeat</h3><p>Each report renews the runner's leases. No report for 90 seconds and its jobs go back to the queue, which is what makes a Hetzner machine that disappears safe.</p></div>
+        <div class="note"><h3>Secrets never leave</h3><p>Tokens of the accounts stay on the machine. The report names an account by its CLI, and the runner masks every secret in the lines it streams, as it already does for a GitHub App token.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="placement" aria-labelledby="h-placement">
+    <div class="head">
+      <span class="tag">Placement</span>
+      <h2 id="h-placement">What runs where</h2>
+      <p>The office machines are always on; the Hetzner machines can disappear. Omni places each job by its label and by how much it loses if its machine goes.</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th scope="col">Work</th><th scope="col">Physical · office</th><th scope="col">Hetzner · cloud</th><th scope="col">Why</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Long builds: <code>/omni:yolo</code>, <code>/omni:wave</code></th><td>Preferred</td><td class="dim">When the office is full</td><td class="dim">Hours of agent time; a lost machine costs a resume.</td></tr>
+          <tr><th scope="row">Short steps: <code>/omni:pr-care</code>, <code>/omni:plan</code>, <code>/omni:prove</code></th><td>Yes</td><td>Preferred</td><td class="dim">Minutes long, checkpointed early, cheap to redo.</td></tr>
+          <tr><th scope="row">Fixes: <code>/omni:bug-fix</code>, <code>/omni:visual-fix</code></th><td>Yes</td><td>Yes</td><td class="dim">Each step pushes its branch, so any runner can take it over.</td></tr>
+          <tr><th scope="row">A burst: a roadmap driven by <code>/omni:drive</code></th><td>Fills first</td><td>Takes the overflow</td><td class="dim">Hetzner adds slots while the queue is long.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="today" aria-labelledby="h-today">
+    <div class="head">
+      <span class="tag">Today → this project</span>
+      <h2 id="h-today">What the kit already does, and what changes</h2>
+      <p>The runner exists in the kit (<code>omni runner</code>, the Runners page). This project builds on it.</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th scope="col">Capability</th><th scope="col">In the kit today</th><th scope="col">This project</th><th scope="col"></th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Getting work</th><td class="dim">The runner asks the Omni page for work; it opens no port.</td><td>Same connection, held open, so Omni can also cancel, drain and renew leases as commands.</td><td><span class="pill keep">Keep</span></td></tr>
+          <tr><th scope="row">Reaching the machine</th><td class="dim">Tailscale suggested in the guide.</td><td>Every runner joins the tailnet; Tailscale SSH is the only way in.</td><td><span class="pill change">Change</span></td></tr>
+          <tr><th scope="row">Agent CLIs</th><td class="dim">Claude Code only.</td><td>Claude Code, Codex CLI and others behind one adapter.</td><td><span class="pill new">New</span></td></tr>
+          <tr><th scope="row">Accounts</th><td class="dim">One Claude token; at the weekly limit every job fails until it resets.</td><td>One account per CLI, turned over by itself, Paused: no tokens when all are out.</td><td><span class="pill new">New</span></td></tr>
+          <tr><th scope="row">Reports</th><td class="dim">CPU, memory, disk and tokens on the health line.</td><td>Plus the model of each job, the turnovers and an approximate cost.</td><td><span class="pill change">Change</span></td></tr>
+          <tr><th scope="row">Restart</th><td class="dim">Restarting while a job runs marks it runner lost; a person sends it again.</td><td>The journal resumes the job on boot; a lost runner's job is requeued with its branch.</td><td><span class="pill new">New</span></td></tr>
+          <tr><th scope="row">Machines</th><td class="dim">Any Unix machine, set up by hand.</td><td>One image for office and Hetzner, labels for placement.</td><td><span class="pill change">Change</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="questions" aria-labelledby="h-questions">
+    <div class="head">
+      <span class="tag">Open questions</span>
+      <h2 id="h-questions">Five answers that would change the drawing</h2>
+      <p>Each shows the choice the page assumes, so the drawing can stand until it is answered.</p>
+    </div>
+    <div class="qs">
+      <div class="q"><h3>Does a job turn over mid-way, or only between jobs?</h3><p>Moving from Claude to Codex in the middle of a job keeps it going but mixes two models' work in one pull request.</p><p class="lean">Assumed: mid-way, at a checkpoint, with a handoff note.</p></div>
+      <div class="q"><h3>Does Omni push commands, or do runners keep dialling out?</h3><p>With the Omni server on the tailnet it could reach runners directly; dialling out works behind any firewall and keeps today's model.</p><p class="lean">Assumed: runners dial out and hold the connection.</p></div>
+      <div class="q"><h3>What does low availability mean on Hetzner?</h3><p>Machines that can be reclaimed at any time, machines switched off at night to save money, or both. It decides whether the fleet should start and stop them itself.</p><p class="lean">Assumed: they can vanish without warning.</p></div>
+      <div class="q"><h3>Whose accounts are they?</h3><p>One set of accounts per runner, or one pool the server hands out so a second runner never uses an account that is already out.</p><p class="lean">Assumed: one set per runner, as you described.</p></div>
+      <div class="q"><h3>Which cost does the page show?</h3><p>On a subscription plan nothing is billed per token. The page can show the list-price equivalent, or a share of the plan's monthly price.</p><p class="lean">Assumed: the list-price equivalent, labelled approximate.</p></div>
+    </div>
+  </section>
+
+  <footer>Drawn in the Omni theme of <code>@omni/design</code>. Runner names, jobs and figures are examples. The runner of the kit today is described in the guide's Runners page and on the <code>runners</code> screen of the screen library.</footer>
+</div>
+
+<script>
+  (function () {
+    var dia = document.getElementById('dia');
+    var chips = document.querySelectorAll('.legend .chip');
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var hl = chip.getAttribute('data-hl');
+        if (hl) dia.setAttribute('data-hl', hl); else dia.removeAttribute('data-hl');
+        chips.forEach(function (c) { c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
+      });
+    });
+  })();
+</script>
