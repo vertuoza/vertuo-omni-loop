@@ -82,6 +82,16 @@ describe('the rows', () => {
     expect(await repository.job('j2')).toMatchObject({ outcome: null });
   });
 
+  it('read a job\'s follow-ups with the row, selecting the column, and a list out of shape as none (PRD 2508)', async () => {
+    const followUps = [{ repos: ['demo-org/app'], summary: 'One problem the run saw.' }];
+    const crooked = { ...jobRow({ status: 'done' }), follow_ups: 'nope' };
+    const { db, lines } = fakeDb([{ data: jobRow({ status: 'done', follow_ups: followUps }), error: null }, { data: crooked, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.job('j1')).toMatchObject({ follow_ups: followUps });
+    expect(lines[0]).toContain('follow_ups');
+    expect(await repository.job('j2')).toMatchObject({ follow_ups: [] });
+  });
+
   it('read what a bug fix reported and what a key did with the row, selecting the columns, and a value out of shape as none (PRD 2425)', async () => {
     const proved = 'https://github.com/demo-org/app/pull/512';
     const job = jobRow({ status: 'done', outcome: 'already-fixed', fixed_by: proved, prs: ['https://github.com/demo-org/app/pull/549'], acting_for: 'Jane D.', cancelled_by_key: 'k1', cancelled_for: 'Sam' });

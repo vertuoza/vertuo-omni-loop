@@ -120,6 +120,7 @@ const jobOf = (job: KeyJob): ApiJob => ({
   id: job.id, line: job.line, repo: job.repo, status: job.status, runner: job.runner, pr_url: job.prUrl, exit_code: job.exitCode,
   reason: job.reason, queued_at: job.queuedAt, claimed_at: job.claimedAt, running_at: job.runningAt, ended_at: job.endedAt,
   outcome: job.outcome === null ? null : OUTCOME_WORDS[job.outcome], fixed_by: job.fixedBy, prs: job.prs.flatMap(pullRequestOf),
+  follow_ups: job.followUps.map(({ repos, summary }) => ({ repos, summary })),
   questions: job.questions === null ? null : { state: job.questions },
   continues: job.continues, continued_by: job.continuedBy, acting_for: job.actingFor,
   cancelled_by: job.cancelledBy === null ? null : { key: job.cancelledBy.key, acting_for: job.cancelledBy.actingFor },

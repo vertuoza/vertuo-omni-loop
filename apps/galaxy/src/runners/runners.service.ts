@@ -315,21 +315,25 @@ function reportRefusal(job: JobRow, report: JobUpdate): Served<never> | null {
 /** The word a report's outcome is stored as: a bug fix's `need-human` is the `human` the server sets for open questions (PRD 2425). */
 const storedOutcome = (word: JobUpdate['outcome']): JobPatch['outcome'] => (word === 'need-human' ? 'human' : word);
 
+/** The columns only a done report writes: its outcome (PRD 2223), the proved pull request (PRD 2425), the follow-ups it saw
+ * and left alone (PRD 2508) and the slice count of a stopped job (PRD 2375). A failed or cancelled report's are never stored. */
+function doneColumns(report: JobUpdate): JobPatch {
+  if (report.status !== 'done') return {};
+  return {
+    outcome: storedOutcome(report.outcome), fixed_by: report.fixedBy, follow_ups: report.followUps,
+    slices_merged: report.slicesMerged, slices_total: report.slicesTotal,
+  };
+}
+
 /** The columns a report writes: its status, what it carries, and the time it starts or ends the run. */
 function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
-  const done = report.status === 'done';
   const carried = {
     log_tail: report.logTail === undefined ? undefined : cutLogTail(report.logTail),
     pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason, tokens: report.tokens,
     released: report.released, release_error: report.releaseError,
-    // Only a done job has an outcome (PRD 2223): a failed or cancelled report's is never stored. Nor has it a proved
-    // pull request (PRD 2425); the pull requests it opened are stored whatever its end, a failed run's draft first.
-    outcome: done ? storedOutcome(report.outcome) : undefined,
-    fixed_by: done ? report.fixedBy : undefined,
+    // The pull requests it opened are stored whatever its end, a failed run's draft first (PRD 2425).
     prs: report.prs,
-    // The slice count of a stopped job (PRD 2375): stored with its outcome, on a done report only.
-    slices_merged: report.status === 'done' ? report.slicesMerged : undefined,
-    slices_total: report.status === 'done' ? report.slicesTotal : undefined,
+    ...doneColumns(report),
   };
   const given: JobPatch = Object.fromEntries(Object.entries(carried).filter(([, column]) => column !== undefined));
   const starts = report.status === 'running' && job.running_at === null;
@@ -355,10 +359,10 @@ type KeyJobReads = { runner: string | null; questions: QuestionsRow | null; cont
 
 /** What a key reads of what a bug fix did (PRD 2425): how it ended, the pull request it proved had fixed the bug (with
  * already-fixed only), the pull requests it opened, its questions' state and its log tail. */
-function keyDidOf(row: JobRow, questions: QuestionsRow | null): Pick<KeyJob, 'outcome' | 'fixedBy' | 'prs' | 'questions' | 'logTail'> {
+function keyDidOf(row: JobRow, questions: QuestionsRow | null): Pick<KeyJob, 'outcome' | 'fixedBy' | 'prs' | 'followUps' | 'questions' | 'logTail'> {
   const outcome = keyOutcome(row);
   return {
-    outcome, fixedBy: outcome === 'already-fixed' ? row.fixed_by ?? null : null, prs: row.prs ?? [],
+    outcome, fixedBy: outcome === 'already-fixed' ? row.fixed_by ?? null : null, prs: row.prs ?? [], followUps: row.follow_ups ?? [],
     questions: questions && questionsState(questions), logTail: row.log_tail === '' ? null : row.log_tail,
   };
 }
