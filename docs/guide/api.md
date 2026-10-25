@@ -226,14 +226,7 @@ never as an error.
   follow-ups. Any outcome can carry them, `stuck` and `need_human` included. They are an agent's
   words, not a verdict: say so wherever you show one.
 
-```json
-"follow_ups": [
-  {
-    "repos": ["demo-org/nimbus-backend-php"],
-    "summary": "The kernel's Peppol check sends company data the e-invoicing service rejects and reads every rejection as \"not registered\"."
-  }
-]
-```
+  For example, `{"repos": ["demo-org/nimbus-backend-php"], "summary": "The Peppol check sends company data the service rejects."}`.
 
 ### Fix a follow-up
 
