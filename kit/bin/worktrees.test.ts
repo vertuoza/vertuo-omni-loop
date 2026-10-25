@@ -3,11 +3,11 @@
 // working directories are injected seams: no test reads GitHub, the Omni page or the machine's processes.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptions } from 'node:child_process';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BoardSeam, WorktreeBoard } from '../lib/worktrees/engine.ts';
 import { makeRepo, realExec } from '../test/fixture.ts';
 import type { FakeExec } from '../test/fixture.ts';
@@ -29,14 +29,17 @@ type Seams = { board?: BoardSeam; processes?: () => readonly string[] | null; ex
  * A repository whose `main` is on a bare `file://` remote, with PRD 7 (`widgets`) in its inbox.
  * `add(name, branch)` adds a worktree under the worktrees folder on a new branch cut from `main`
  * (`null`: detached), commits one file in it, and pushes it unless told not to.
+ * The root and every worktree are handed back by their real paths, as git lists them and `lsof` reports
+ * them: `os.tmpdir()` need not be one (on macOS it sits under the `/var` symlink, #2523).
  */
 function fixture() {
   const remote = mkdtempSync(join(tmpdir(), 'omni-remote-'));
   git(remote, 'init', '--bare', '-q', '-b', 'main');
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': CONFIG, '.omni-loop/delivery/inbox/0007-widgets/spec.md': '# Widgets\n', '.gitignore': '.claude/\n' } });
+  const root = realpathSync(repo.root);
   git(repo.root, 'remote', 'add', 'origin', pathToFileURL(remote).href);
   git(repo.root, 'push', '-q', 'origin', 'main');
-  const add = (name: string, branch: string | null, { push = true, upstream = true, at = join(repo.root, FOLDER, name) } = {}) => {
+  const add = (name: string, branch: string | null, { push = true, upstream = true, at = join(root, FOLDER, name) } = {}) => {
     if (branch === null) git(repo.root, 'worktree', 'add', '-q', '--detach', at, 'main');
     else git(repo.root, 'worktree', 'add', '-q', '-b', branch, at, 'main');
     writeFileSync(join(at, `${name}.txt`), `${name}\n`);
@@ -44,11 +47,11 @@ function fixture() {
     git(at, 'commit', '-q', '-m', `work in ${name}`);
     if (push && branch !== null) git(at, 'push', '-q', ...(upstream ? ['-u'] : []), 'origin', branch);
     if (push && branch === null) git(at, 'push', '-q', 'origin', `HEAD:refs/heads/${name}`);
-    return at;
+    return realpathSync(at);
   };
   const worktrees = () => git(repo.root, 'worktree', 'list', '--porcelain');
   const branches = () => git(repo.root, 'branch', '--format=%(refname:short)').split('\n').filter(Boolean);
-  return { ...repo, remote, add, worktrees, branches };
+  return { ...repo, root, remote, add, worktrees, branches };
 }
 
 async function run(root: string, args: string[], seams: Seams = {}) {
@@ -371,5 +374,31 @@ describe('omni help worktrees (PRD 2485)', () => {
     const code = await main(['help', 'worktrees'], { cwd: makeRepo().root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => 0 } });
     expect(code).toBe(0);
     for (const verb of ['list', 'prune', 'remove', 'hint']) expect(out.join('')).toContain(`omni worktrees ${verb}`);
+  });
+});
+
+describe('paths reached through a symlink (#2523)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('removes the worktree it is given by a path through a symlink, printing the path git lists', async () => {
+    const repo = fixture();
+    const path = repo.add('slice', 'feat/widgets--s1');
+    const link = join(mkdtempSync(join(tmpdir(), 'omni-link-')), 'repo');
+    symlinkSync(repo.root, link);
+    expect((await run(repo.root, ['remove', join(link, FOLDER, 'slice')])).out).toMatch(new RegExp(`^removed ${path} · ${SIZE}\n$`));
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it('the fixture hands the tests the paths git lists, when the temporary folder is reached through a symlink', () => {
+    const link = join(mkdtempSync(join(tmpdir(), 'omni-link-')), 'tmp');
+    symlinkSync(mkdtempSync(join(tmpdir(), 'omni-real-')), link);
+    vi.stubEnv('TMPDIR', link);
+    const repo = fixture();
+    const slice = repo.add('slice', 'feat/widgets--s1');
+    const outside = repo.add('outside', null, { at: join(mkdtempSync(join(tmpdir(), 'omni-out-')), 'outside') });
+    const listed = repo.worktrees().split('\n').flatMap((line) => (line.startsWith('worktree ') ? [line.slice('worktree '.length)] : []));
+    expect(listed.sort()).toEqual([repo.root, slice, outside].sort());
   });
 });
