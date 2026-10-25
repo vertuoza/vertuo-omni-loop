@@ -236,7 +236,7 @@ describe('bugFixReading (PRD 2425)', () => {
 
   it('leaves the pull request it proved out of the ones it opened, since it opened none of them', () => {
     const log = [`10:00:00 Outcome: already-fixed`, `10:00:00 Fixed by: ${pr('acme/widgets', 12)}`, `10:00:00 PR: ${pr('acme/widgets', 12)}`, `10:00:00 PR: ${pr('acme/widgets', 20)}`].join('\n');
-    expect(bugFixReading(log)).toEqual({ outcome: 'already-fixed', fixedBy: pr('acme/widgets', 12), prs: [pr('acme/widgets', 20)] });
+    expect(bugFixReading(log)).toEqual({ outcome: 'already-fixed', fixedBy: pr('acme/widgets', 12), prs: [pr('acme/widgets', 20)], followUps: [] });
   });
 
   it('reads all three from one log, as a runner meets it', () => {
@@ -247,7 +247,63 @@ describe('bugFixReading (PRD 2425)', () => {
       '10:00:09 Outcome: pr-opened',
       '10:00:09 > Review the PR and merge it if it is right.',
     ].join('\n');
-    expect(bugFixReading(log)).toEqual({ outcome: 'pr-opened', fixedBy: null, prs: [pr('acme/widgets', 31)] });
+    expect(bugFixReading(log)).toEqual({ outcome: 'pr-opened', fixedBy: null, prs: [pr('acme/widgets', 31)], followUps: [] });
+  });
+
+  describe('follow-ups (PRD 2508)', () => {
+    const line = 'Follow-up: demo-org/nimbus-backend-php · The Peppol check sends company data the service rejects (4,110 times).';
+    const first = { repos: ['demo-org/nimbus-backend-php'], summary: 'The Peppol check sends company data the service rejects (4,110 times).' };
+
+    it('reads a valid line', () => {
+      expect(bugFixReading(`${line}\n`).followUps).toEqual([first]);
+    });
+
+    it('reads two lines in order, and several repositories of one', () => {
+      const second = { repos: ['demo-org/api', 'demo-org/web'], summary: 'A second thing.' };
+      expect(bugFixReading(`${line}\nFollow-up: demo-org/api,demo-org/web · A second thing.\n`).followUps).toEqual([first, second]);
+    });
+
+    it('reads a timestamped line', () => {
+      expect(bugFixReading(`10:00:09 ${line}\n`).followUps).toEqual([first]);
+    });
+
+    it('skips each line that does not read', () => {
+      const eleven = Array.from({ length: 11 }, (_, index) => `demo-org/r${String(index)}`).join(',');
+      for (const bad of [
+        'Follow-up: demo-org/api no separator',
+        'Follow-up: api · not owner/name',
+        'Follow-up: demo-org/api, demo-org/web · a space after the comma',
+        `Follow-up: ${eleven} · too many repositories`,
+        'Follow-up: demo-org/api · ',
+        'Follow-up:  · demo-org/api',
+        '- Follow-up: demo-org/api · bulleted',
+        '**Follow-up:** demo-org/api · bold',
+      ]) expect(bugFixReading(`${bad}\n`).followUps).toEqual([]);
+    });
+
+    it('keeps ten repositories', () => {
+      const ten = Array.from({ length: 10 }, (_, index) => `demo-org/r${String(index)}`);
+      expect(bugFixReading(`Follow-up: ${ten.join(',')} · ok\n`).followUps).toEqual([{ repos: ten, summary: 'ok' }]);
+    });
+
+    it('cuts a summary over 300 characters to 300', () => {
+      const [only] = bugFixReading(`Follow-up: demo-org/api · ${'x'.repeat(400)}\n`).followUps;
+      expect(only?.summary).toBe('x'.repeat(300));
+    });
+
+    it('keeps a summary seen twice once, the first', () => {
+      expect(bugFixReading(`${line}\nFollow-up: demo-org/other · ${first.summary}\n`).followUps).toEqual([first]);
+    });
+
+    it('keeps the first five of six lines', () => {
+      const log = Array.from({ length: 6 }, (_, index) => `Follow-up: demo-org/api · problem ${String(index)}`).join('\n');
+      expect(bugFixReading(log).followUps.map((each) => each.summary)).toEqual(['problem 0', 'problem 1', 'problem 2', 'problem 3', 'problem 4']);
+    });
+
+    it('leaves outcome, fixedBy and prs as they were', () => {
+      const log = `Outcome: pr-opened\n${line}\nPR: ${pr('acme/widgets', 3)}\n`;
+      expect(bugFixReading(log)).toEqual({ outcome: 'pr-opened', fixedBy: null, prs: [pr('acme/widgets', 3)], followUps: [first] });
+    });
   });
 });
 

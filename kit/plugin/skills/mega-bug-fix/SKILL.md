@@ -73,6 +73,18 @@ at step 6's stop anywhere else or on an answer `Design it first`, `Outcome: not-
 `Outcome: stuck` at stop rule 5, and `Outcome: blocked` at stop rule 6 or 7 and wherever **All or nothing
 across targets** stops the fix. A `--product <key>` run writes them the same.
 
+**The follow-up line** (PRD 2508). At any end, a run that saw a problem and did not fix it writes one
+`Follow-up:` line for it, written as `/omni:bug-fix`'s **The follow-up line** says, after the `Outcome:`
+line and before the hand-off's closing line: one line per problem, plain text with no bullet, no quote,
+no bold, no code span, at most five, the repositories and the summary split by ` · `. Its repositories are
+the ones the problem lives in, one `owner/name` or several, comma-separated with no space. It states what
+the run saw, never a guess and never a `Maybe:`, never the bug this job fixed, never a customer's, a
+tenant's or a person's name and never a secret.
+
+```text
+Follow-up: demo-org/nimbus-backend-php,demo-org/nimbus-web · The invoice export reads a null VAT number in 212 rows of the nightly log.
+```
+
 ## Input
 
 | input | example | what it is |
@@ -377,7 +389,8 @@ As `/omni:bug-fix` step 12, in the plan repository:
 As `/omni:bug-fix` step 13: the issue, the fix plan, each target PR in merge order, the record PR,
 the fix's page, and what was proven and what was not, per target (the red, the preflight or CI, the
 guard, the mutation line, the `omni bug` line). With `--prd <prd>`, add that
-`/omni:mega-pr-care <prd>` now looks after these PRs too. Then the line `Outcome: pr-opened`, then:
+`/omni:mega-pr-care <prd>` now looks after these PRs too. Then the line `Outcome: pr-opened`, then one
+`Follow-up:` line for each problem the run saw and did not fix (**The follow-up line**), then:
 
 > Review the PRs and merge them in this order, the record PR last.
 

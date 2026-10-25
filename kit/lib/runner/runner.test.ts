@@ -521,6 +521,29 @@ describe('the bug fix report (PRD 2425, s2)', () => {
     expect(careful).not.toHaveProperty('outcome');
   });
 
+  it.each(['/omni:bug-fix 612', '/omni:mega-bug-fix 612'])('sends the follow-ups of a done %s, in order', async (line) => {
+    const log = handOff('Outcome: pr-opened', 'Follow-up: acme/api · First thing.', 'Follow-up: acme/api,acme/web · Second thing.');
+    const report = await last(line, log);
+    expect(report).toMatchObject({ status: 'done', followUps: [{ repos: ['acme/api'], summary: 'First thing.' }, { repos: ['acme/api', 'acme/web'], summary: 'Second thing.' }] });
+  });
+
+  it('sends no follow-ups for a bug fix with none, a refused report or a yolo job', async () => {
+    expect(await last('/omni:bug-fix 612', handOff('Outcome: pr-opened'))).not.toHaveProperty('followUps');
+    const log = handOff('Outcome: pr-opened', 'Follow-up: acme/api · A thing.');
+    expect(await last('/omni:bug-fix 612', log, '1\n')).not.toHaveProperty('followUps');
+    expect(await last('/omni:yolo 7', `${log}/omni:yolo 7\n`)).not.toHaveProperty('followUps');
+  });
+
+  it('sends a report an app refusing followUps again without them, its other fields kept', async () => {
+    const log = `10:00:00 PR: ${pr('acme/widgets', 31)}\n${handOff('Outcome: pr-opened', 'Follow-up: acme/api · A thing.')}`;
+    const sent = await jobEnding('/omni:bug-fix 612', log, '0\n', { refusing: (update) => update.followUps !== undefined });
+    const ends = sent.filter((update) => update.status === 'done');
+    expect(ends).toHaveLength(2);
+    expect(ends[0]).toMatchObject({ followUps: [{ repos: ['acme/api'], summary: 'A thing.' }] });
+    expect(ends[1]).toMatchObject({ status: 'done', exitCode: 0, outcome: 'pr-opened', prs: [pr('acme/widgets', 31)] });
+    expect(ends[1]).not.toHaveProperty('followUps');
+  });
+
   it('sends a final report an older app refuses for the new fields again without them, and the job\'s status still reaches it', async () => {
     const log = `10:00:00 PR: ${pr('acme/widgets', 31)}\n${handOff('Outcome: pr-opened')}`;
     const sent = await jobEnding('/omni:bug-fix 612', log, '0\n', { refusing: (update) => update.prs !== undefined || update.fixedBy !== undefined || update.outcome !== undefined });
