@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, slicesMerged?, slicesTotal?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running and for 10 minutes after it ends (PRD 2433) → {token, expiresAt}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
@@ -197,6 +197,18 @@ const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancell
 /** A pull request's link. */
 const PrUrlSchema = z.string().max(300).regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/);
 
+/** The most follow-ups a job keeps, repositories a follow-up names and characters its summary holds (PRD 2508). */
+const FOLLOW_UPS_MAX = 5;
+const FOLLOW_UP_REPOS_MAX = 10;
+const FOLLOW_UP_SUMMARY_MAX = 300;
+
+/** A problem a bug fix or a mega bug fix saw and left alone (PRD 2508): the repositories it lives in and one sentence of what the run saw. */
+const FollowUpSchema = z.object({
+  repos: z.array(RepoSchema).min(1).max(FOLLOW_UP_REPOS_MAX),
+  summary: z.string().min(1).max(FOLLOW_UP_SUMMARY_MAX),
+}).strict();
+export type JobFollowUp = z.infer<typeof FollowUpSchema>;
+
 /** The tokens a transcript holds, as four counts (PRD 2102): input, output, cache read and cache write. Numbers only. */
 const TokenCountsSchema = z.object({
   input: z.number().int().nonnegative(),
@@ -248,6 +260,8 @@ export const JobUpdateSchema = z.object({
   fixedBy: PrUrlSchema.optional(),
   /** Every pull request a bug fix or a mega bug fix opened, in order, at most 50 (PRD 2425), stored in `runner_jobs.prs`. */
   prs: z.array(PrUrlSchema).max(PRS_MAX).optional(),
+  /** The problems a bug fix or a mega bug fix saw and did not fix, at most five (PRD 2508), stored in `runner_jobs.follow_ups`. */
+  followUps: z.array(FollowUpSchema).max(FOLLOW_UPS_MAX).optional(),
   /** The PRD's slices merged and its slices in all, read when a job ended `stopped` (PRD 2375), stored in `runner_jobs.slices_merged` and `slices_total`. */
   slicesMerged: z.number().int().nonnegative().optional(),
   slicesTotal: z.number().int().nonnegative().optional(),
@@ -382,6 +396,8 @@ export type KeyJob = {
   fixedBy: string | null;
   /** Every pull request the job opened, in order. */
   prs: string[];
+  /** The problems the run saw and did not fix (PRD 2508), in order; empty for a job with none, a job of another skill and a runner on an older kit. */
+  followUps: JobFollowUp[];
   /** Whether the questions the job asked are open, answered or dismissed; null when it asked none. */
   questions: JobQuestions['state'] | null;
   /** The job this one carries on, and the newest job that carries this one on. */

@@ -637,6 +637,7 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 Print, in a few lines: the issue, the PR, the fix's page beside it, what was proven and what was
 not (the red line, the preflight, the `omni bug` line, the guard, the mutation line), each item a
 change to a law raised and the law it bears on, then the line `Outcome: pr-opened` (**The outcome
+line**), then one `Follow-up:` line for each problem the run saw and did not fix (**The follow-up
 line**), then:
 
 > Review the PR and merge it if it is right.
@@ -647,7 +648,8 @@ app, say the fix has no page yet and give its issue, `https://github.com/<repo.s
 
 **A person merges.** After a stop, the hand-off is the issue, the comment the stop posted (and the
 `/omni:brainstorm` line, after **The stop**), the worktree left behind, when there is one, and the
-`Outcome:` line the stop rule names (**The outcome line**).
+`Outcome:` line the stop rule names (**The outcome line**), then its `Follow-up:` lines, if the run
+saw any (**The follow-up line**).
 
 ## Asking on a runner
 
@@ -750,6 +752,26 @@ never another.
 Stop rule 3 adds one line after it, `Fixed by: <PR URL>`, and only for a pull request **Who fixed it**
 has proven: its full link, whichever repository it is in, on a line of its own. A `Maybe:` candidate
 never gets one, nor does any other end, and a run that proved none writes none.
+
+**The follow-up line** (PRD 2508). At any end, a run that saw a problem and did not fix it writes one
+`Follow-up:` line for it, after the `Outcome:` line and before the hand-off's closing line. A fix stays
+one cause and one pull request, so the problem is left for an app to offer a fix on, and the line is
+for the program that reads it:
+
+```text
+Follow-up: demo-org/nimbus-backend-php · The kernel's Peppol check sends company data the e-invoicing service rejects (4,110 times).
+```
+
+- One line per problem, plain text that starts its line and stands alone on it: no bullet, no quote,
+  no bold, no code span. The paragraph a person reads may say the same in prose.
+- **The repositories:** one or more `owner/name`, comma-separated with no space, the ones the problem
+  lives in as far as the run saw. At most ten. Then ` · `, then the summary.
+- **The summary:** one sentence of what the run saw (a count, a file, a log line, a check), at most
+  300 characters. Never a guess: a `Maybe:` never becomes a follow-up.
+- **Never** the bug this job fixed, never a customer's, a tenant's or a person's name, and never a
+  secret: an app outside the workspace reads it.
+- **At most five** lines, at any outcome: a `stuck` or `already-fixed` run may have seen one too. A run
+  that saw none writes none.
 
 ## Stop rules
 

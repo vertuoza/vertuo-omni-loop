@@ -360,6 +360,17 @@ describe('following a job and what it did (PRD 2425 s3)', () => {
   };
 
   describe('what the job did', () => {
+    it('reads the follow-ups the job stored, in order, and [] for a job with none and a row from an older runner (PRD 2508)', async () => {
+      const api = fakePublicApi();
+      const followUps = [{ repos: ['demo-org/app'], summary: 'One problem the run saw.' }, { repos: ['demo-org/a', 'demo-org/b'], summary: 'Another.' }];
+      const two = seed(api, { outcome: 'pr-opened', prs: [PR], follow_ups: followUps });
+      expect(valueOf(await read(api, SECRETS.runners, two.id)).follow_ups).toEqual(followUps);
+      const none = seed(api, { outcome: 'pr-opened', prs: [PR], follow_ups: [] });
+      expect(valueOf(await read(api, SECRETS.runners, none.id)).follow_ups).toEqual([]);
+      const older = seed(api, { outcome: 'pr-opened', prs: [PR] });
+      expect(valueOf(await read(api, SECRETS.runners, older.id)).follow_ups).toEqual([]);
+    });
+
     it('reads already_fixed with the pull request the fix proved, and no pull request of its own', async () => {
       const api = fakePublicApi();
       const job = seed(api, { outcome: 'already-fixed', fixed_by: PROVED, prs: [] });
@@ -538,7 +549,7 @@ describe('following a job and what it did (PRD 2425 s3)', () => {
       const api = fakePublicApi();
       const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { repo: 'demo-org/app', description: 'Issue 548 totals' });
       expect(valueOf(started)).toMatchObject({
-        status: 'queued', outcome: null, fixed_by: null, prs: [], questions: null, continues: null, continued_by: null,
+        status: 'queued', outcome: null, fixed_by: null, prs: [], follow_ups: [], questions: null, continues: null, continued_by: null,
         acting_for: null, cancelled_by: null, log_tail: null,
       });
     });

@@ -204,6 +204,10 @@ export const JobSchema = z.object({
   }),
   fixed_by: z.url().nullable().meta({ description: 'With `already_fixed` only: the pull request the bug fix proved had already fixed the bug. null otherwise.', example: 'https://github.com/acme/backend/pull/512' }),
   prs: z.array(PullRequestSchema).meta({ description: 'Every pull request the job opened, in the order it opened them (a mega bug fix: its target pull requests, then its record). Empty when it opened none; a failed or stuck job lists its draft here.' }),
+  follow_ups: z.array(z.object({
+    repos: z.array(z.string()).meta({ description: 'The repositories the problem lives in, each `owner/name`: one for a bug fix, several for a mega bug fix.', example: ['acme/backend'] }),
+    summary: z.string().meta({ description: 'One sentence of what the run saw, at most 300 characters.', example: 'The Peppol check sends company data the e-invoicing service rejects (4,110 times).' }),
+  })).meta({ description: 'The problems a bug fix or a mega bug fix saw on its way and did not fix, in order, at most five. Always an array: empty for a job with none, a job of another skill and a runner from before it did.' }),
   questions: z.object({
     state: z.enum(['open', 'answered', 'dismissed']).meta({ description: 'open until the questions are answered or dismissed.', example: 'open' }),
   }).nullable().meta({ description: 'The questions the job asked, or null when it asked none.' }),

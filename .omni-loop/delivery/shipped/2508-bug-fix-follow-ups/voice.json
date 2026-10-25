@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One bug fix finds the next one and I launch it from the same place: more fixes shipped from one ticket.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A customer's ticket can end with every pull request it needs, without me writing a second issue by hand.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each follow-up stays its own issue and its own record, so the board still says who fixed what.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A second fix still goes through its own reproduction and its own reviewed pull request, so nothing slips into production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "If the model can write a follow-up on every run, we'll launch runners chasing fluff, which is what I already hold against AI tools.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "If the model can write a follow-up on every run, we'll launch runners chasing fluff, which is what I already hold against AI tools.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The app reads the follow-ups and offers the next fix, with nothing to parse.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The ticket's key travels to the follow-up issue, so the customer's ticket shows every pull request.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One issue, one bug folder, one record per fix: the history stays readable.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The field is additive and every follow-up's fix is proven red before it is fixed, like the first.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A follow-up has to say what the run saw, at most five, and a person clicks: that is plumbing, not fluff.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-25",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "When a bug fix ends, my app gets each problem it left alone as data, with its repositories, and offers the next fix without anyone writing a second issue.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The next fix starts as its own issue that says which ticket found it, so the customer's ticket can show every pull request it led to.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Omni files nothing and launches nothing by itself: each follow-up becomes a new issue and a new reviewed fix, so the board still says who fixed what.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The new field is always a list, empty for older runners and other skills, so a client written for the earlier job fields keeps working as it is.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A follow-up is only what the run saw, never a guess and at most five, and nothing runs until someone picks one; I will judge it by how many turn out to be real.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    }
+  ]
+}
