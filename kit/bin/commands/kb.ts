@@ -71,7 +71,12 @@ import { knowledgeWrite } from '../kb-write.ts';
 type KbFlags = { json?: true; all?: true };
 
 /** The map `omni kb status` prints. */
-export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnType<typeof copiesStatus>; ungoverned: number };
+export type StatusMap = ReturnType<typeof playbookStatus> & {
+  targets: ReturnType<typeof copiesStatus>;
+  ungoverned: number;
+  /** The pages with a section read from the Omni-settings level; absent when no page does (PRD 2417). */
+  readsOmniSettings?: string[];
+};
 
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
@@ -154,7 +159,7 @@ function copyLines(targets: StatusMap['targets']): string[] {
  * The map as text: a line per form, then each register folder's laws and proposals, then each
  * imported copy, then every open question, then every stale evidence entry.
  */
-function statusText({ frontDoor, forms, registers, targets, ungoverned }: StatusMap): string {
+function statusText({ frontDoor, forms, registers, targets, ungoverned, readsOmniSettings }: StatusMap): string {
   const width = Math.max(...forms.map(({ form }) => form.length));
   const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
   // A column per level only when a level above the repository answers something (PRD 2416, s2).
@@ -171,6 +176,7 @@ function statusText({ frontDoor, forms, registers, targets, ungoverned }: Status
   const stale = forms.flatMap(({ form, file, stale: entries }) =>
     entries.map(({ path, hash, now }) => `  ${form} (${file}): ${path}@${hash} — ${now === null ? 'gone' : `now ${now.slice(0, 7)}`}`),
   );
+  if (readsOmniSettings !== undefined) lines.push(`reads the Omni settings: ${readsOmniSettings.join(', ')}`);
   lines.push(...registerLines(registers));
   if (ungoverned > 0) lines.push(`Rules with no Governs: ${ungoverned} — omni kb laws --paths never shows them: give each a "Governs:" line.`);
   lines.push(...copyLines(targets));
@@ -181,10 +187,13 @@ function statusText({ frontDoor, forms, registers, targets, ungoverned }: Status
 
 function status(positional: string[], flags: KbFlags, { ctx, stdout, exec }: CommandIo): number {
   if (positional.length > 0) throw usageError('usage: omni kb status [--json]');
+  const playbook = playbookStatus({ ctx, exec });
+  const readsOmniSettings = playbook.forms.filter(({ levels }) => levels['omni settings'] !== undefined).map(({ form }) => form);
   const map: StatusMap = {
-    ...playbookStatus({ ctx, exec }),
+    ...playbook,
     targets: copiesStatus({ ctx, exec }),
     ungoverned: disclose(readKnowledge({ ctx }).entries, null, null).ungoverned,
+    ...(readsOmniSettings.length > 0 ? { readsOmniSettings } : {}),
   };
   println(stdout, flags.json ? JSON.stringify(map, null, 2) : statusText(map));
   return 0;

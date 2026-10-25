@@ -15,6 +15,7 @@ const APP_BAR = sheet('./nav/app-bar.css');
 const DASH = sheet('./dashboard/dashboard.css');
 const KNOWLEDGE = sheet('./knowledge/knowledge.css');
 const DOCS = sheet('./docs/docs.css');
+const DOORWAY = sheet('./doorway/doorway.css');
 
 /** The body of every `@media <query> { … }` block in `css`, joined. */
 function media(css: string, query: string): string {
@@ -106,6 +107,14 @@ describe('every app page but the PRD page', () => {
     expect(has(css, selector, 'justify-self')).toEqual(['start']);
     expect(has(css, selector, 'margin').concat(has(css, selector, 'margin-inline'))
       .filter((m) => m.includes('auto'))).toEqual([]);
+  });
+
+  it('stretches a page that sets no width of its own, so it and its skeleton are full width (issue 2511)', () => {
+    expect(has(ASK, '.ask-main', 'justify-items')).toEqual(['stretch']);
+  });
+
+  it('keeps the doorway card centred, the one page that is a card on the ground (issue 2511)', () => {
+    expect(has(DOORWAY, '.doorway-main', 'justify-items')).toEqual(['center']);
   });
 
   it('keeps a docs article at 900 px, as the spec and the plan', () => {

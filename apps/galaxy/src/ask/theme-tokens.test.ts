@@ -70,6 +70,22 @@ describe('the anti-loop declarations (PRD 2490)', () => {
   });
 });
 
+describe('the loop tokens (issue 2505)', () => {
+  const rules = themeCss().split('\n');
+
+  it('gives every theme both loops\' signal and the text on it, whatever the mode', () => {
+    for (const theme of ['omni', 'light', 'dark'] as const) {
+      const rule = rules.find((r) => r.startsWith(`:is(html:has(.ask[data-ask-theme="${theme}"]), `));
+      expect(rule, theme).toContain(`--ask-loop-omni: ${ASK[theme].plasma};`);
+      expect(rule, theme).toContain(`--ask-loop-omni-on: ${ASK[theme].onPlasma};`);
+      expect(rule, theme).toContain(`--ask-loop-anti: ${ASK_ANTI[theme].plasma};`);
+      expect(rule, theme).toContain(`--ask-loop-anti-on: ${ASK_ANTI[theme].onPlasma};`);
+    }
+    expect(rules.find((r) => r.startsWith('.ask:not([data-ask-theme])'))).toContain(`--ask-loop-anti: ${ASK_ANTI.omni.plasma};`);
+    for (const r of rules.filter((x) => x.includes('data-ask-mode="anti"'))) expect(r).not.toContain('--ask-loop-');
+  });
+});
+
 describe('the stylesheet', () => {
   const css = readFileSync(new URL('./ask.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   /** Every innermost rule, as its selector and its declarations. */

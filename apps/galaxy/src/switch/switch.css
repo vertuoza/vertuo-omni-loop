@@ -30,6 +30,34 @@
 }
 .game-mode-glyph { flex: none; }
 
+/* ── The Anti-loop switch (PRD 2490, issue 2505) ─────────────────────────────
+   Game mode's shape, filled with the loop it opens rather than the page's own signal, and that loop's
+   crest at 1× in a chip on the ground. */
+
+.ask .anti-loop-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 8px;
+  font: 700 13px/1 var(--ask-body);
+  white-space: nowrap;
+  text-decoration: none;
+}
+.ask .anti-loop-button[data-to='anti'] { background: var(--ask-loop-anti); color: var(--ask-loop-anti-on); }
+.ask .anti-loop-button[data-to='omni'] { background: var(--ask-loop-omni); color: var(--ask-loop-omni-on); }
+.ask .anti-loop-button:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.anti-loop-crest {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--ask-ground);
+}
+.anti-loop-crest svg { display: block; image-rendering: pixelated; }
+
 /* ── The dialog: Switch to game mode? ─────────────────────────────────────── */
 
 /* No padding of its own, so a click on the dialog itself is a click on its backdrop. */
