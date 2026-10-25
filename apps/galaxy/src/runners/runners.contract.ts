@@ -207,7 +207,7 @@ const FollowUpSchema = z.object({
   repos: z.array(RepoSchema).min(1).max(FOLLOW_UP_REPOS_MAX),
   summary: z.string().min(1).max(FOLLOW_UP_SUMMARY_MAX),
 }).strict();
-export type FollowUp = z.infer<typeof FollowUpSchema>;
+export type JobFollowUp = z.infer<typeof FollowUpSchema>;
 
 /** The tokens a transcript holds, as four counts (PRD 2102): input, output, cache read and cache write. Numbers only. */
 const TokenCountsSchema = z.object({
@@ -397,7 +397,7 @@ export type KeyJob = {
   /** Every pull request the job opened, in order. */
   prs: string[];
   /** The problems the run saw and did not fix (PRD 2508), in order; empty for a job with none, a job of another skill and a runner on an older kit. */
-  followUps: FollowUp[];
+  followUps: JobFollowUp[];
   /** Whether the questions the job asked are open, answered or dismissed; null when it asked none. */
   questions: JobQuestions['state'] | null;
   /** The job this one carries on, and the newest job that carries this one on. */
