@@ -64,6 +64,8 @@ const JobRow = z.object({
   fixed_by: z.string().nullable().catch(null).optional(),
   /** Every pull request a bug fix opened, as links in order (PRD 2425); a list out of shape reads as none. */
   prs: z.array(z.string()).catch([]).optional(),
+  /** The problems a bug fix saw and did not fix (PRD 2508), in order; a list out of shape reads as none. */
+  follow_ups: z.array(z.object({ repos: z.array(z.string()), summary: z.string() })).catch([]).optional(),
   /** Whom the app said it acted for when it queued the job (PRD 2425). */
   acting_for: z.string().nullable().catch(null).optional(),
   /** The https link its changes are pinged to, which a relaunch and a resume of it keep (PRD 2425); one out of shape reads as none. */
@@ -85,7 +87,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, fixed_by, prs, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -168,7 +170,7 @@ export type KeyStart = { actingFor?: string | undefined; notifyUrl?: string | un
 export type NewRelaunch = NewJob & { continues: string; actingFor: string | null; notifyUrl: string | null };
 
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'follow_ups' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 

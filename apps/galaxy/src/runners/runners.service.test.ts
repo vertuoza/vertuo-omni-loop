@@ -1599,11 +1599,23 @@ describe('what a bug fix reports and what a key reads of its job (PRD 2425 s3)',
       expect(w.state.jobs[0]).not.toHaveProperty('fixed_by');
     });
 
+    it('stores the follow-ups of a done report, in order, and none of a failed one (PRD 2508)', async () => {
+      const followUps = [{ repos: ['demo-org/app'], summary: 'One problem the run saw.' }, { repos: ['demo-org/app', 'demo-org/plan'], summary: 'Another one.' }];
+      const done = running();
+      const w = world({ jobs: [done] });
+      value(await w.service.update(OLGA, done.id, { status: 'done', exitCode: 0, outcome: 'pr-opened', prs: [PR], followUps }));
+      expect(w.state.jobs[0]).toMatchObject({ follow_ups: followUps });
+      const failed = running();
+      const f = world({ jobs: [failed] });
+      value(await f.service.update(OLGA, failed.id, { status: 'failed', exitCode: 1, followUps }));
+      expect(f.state.jobs[0]).not.toHaveProperty('follow_ups');
+    });
+
     it('stores none of them for a report that carries none, as before this PRD', async () => {
       const job = running();
       const w = world({ jobs: [job] });
       value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0 }));
-      for (const column of ['outcome', 'fixed_by', 'prs']) expect(w.state.jobs[0], column).not.toHaveProperty(column);
+      for (const column of ['outcome', 'fixed_by', 'prs', 'follow_ups']) expect(w.state.jobs[0], column).not.toHaveProperty(column);
     });
 
     it('still reads Need human for a bug fix that ended with its questions open, whatever word it reported', async () => {
@@ -1732,6 +1744,14 @@ describe('what a bug fix reports and what a key reads of its job (PRD 2425 s3)',
       expect((await keyJobOf(ended({ status: 'cancelled', cancelled_by_key: '00000000-0000-4000-8000-0000018302ff' }))).cancelledBy).toEqual({ key: 'unknown key', actingFor: null });
     });
 
+    it('reads the follow-ups the job stored, in order, and none for a row from an older runner (PRD 2508)', async () => {
+      const followUps = [{ repos: ['demo-org/app'], summary: 'One.' }, { repos: ['demo-org/a', 'demo-org/b'], summary: 'Two.' }];
+      expect((await keyJobOf(ended({ outcome: 'pr-opened', follow_ups: followUps }))).followUps).toEqual(followUps);
+      expect((await keyJobOf(ended({ outcome: 'pr-opened', follow_ups: [] }))).followUps).toEqual([]);
+      expect((await keyJobOf(ended({ outcome: 'pr-opened' }))).followUps).toEqual([]);
+      expect((await keyJobOf(running())).followUps).toEqual([]);
+    });
+
     it('reads the log tail the Runners page keeps, or none while the job has none', async () => {
       expect((await keyJobOf(running({ log_tail: '12:04:31 Bash: pnpm test\nDone: PR 549' }))).logTail).toBe('12:04:31 Bash: pnpm test\nDone: PR 549');
       expect((await keyJobOf(running())).logTail).toBeNull();
@@ -1740,7 +1760,7 @@ describe('what a bug fix reports and what a key reads of its job (PRD 2425 s3)',
     it('reads a job just queued with nothing of the above', async () => {
       const queued = value(await world().service.sendByKey({ id: API_KEY, name: 'QA dashboard', workspace: WORKSPACE, maker: OLGA }, { repo: 'demo-org/app', line: '/omni:bug-fix 548 totals' }));
       expect(queued).toMatchObject({
-        outcome: null, fixedBy: null, prs: [], questions: null, continues: null, continuedBy: null, actingFor: null, cancelledBy: null, logTail: null,
+        outcome: null, fixedBy: null, prs: [], followUps: [], questions: null, continues: null, continuedBy: null, actingFor: null, cancelledBy: null, logTail: null,
       });
     });
 

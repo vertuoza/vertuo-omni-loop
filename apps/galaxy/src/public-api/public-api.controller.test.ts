@@ -270,7 +270,7 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
     const api = fakePublicApi();
     const body: unknown = await (await startBugFix(post(FIX), deps(api))).json();
     expect(body).toMatchObject({
-      outcome: null, fixed_by: null, prs: [], questions: null, continues: null, continued_by: null, acting_for: null, cancelled_by: null, log_tail: null,
+      outcome: null, fixed_by: null, prs: [], follow_ups: [], questions: null, continues: null, continued_by: null, acting_for: null, cancelled_by: null, log_tail: null,
     });
     expect(JobSchema.parse(body)).toEqual(body);
   });

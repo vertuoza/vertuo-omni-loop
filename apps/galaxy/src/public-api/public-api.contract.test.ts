@@ -174,6 +174,7 @@ describe('a job a key follows, with what it did (PRD 2425 s3)', () => {
     pr_url: 'https://github.com/acme/backend/pull/549', exit_code: 0, reason: null,
     queued_at: '2026-10-15T13:41:50.481+00:00', claimed_at: '2026-10-15T13:42:00.000+00:00', running_at: '2026-10-15T13:42:10.000+00:00', ended_at: '2026-10-15T13:50:00.000+00:00',
     outcome: 'pr_opened', fixed_by: null, prs: [{ url: 'https://github.com/acme/backend/pull/549', repo: 'acme/backend', number: 549 }],
+    follow_ups: [{ repos: ['acme/backend'], summary: 'The Peppol check sends company data the service rejects.' }],
     questions: null, continues: null, continued_by: null, acting_for: null, cancelled_by: null, log_tail: null,
   };
 
@@ -240,14 +241,14 @@ describe('a job a key follows, with what it did (PRD 2425 s3)', () => {
   });
 
   it('refuses a job missing any new field, so a client may rely on all of them', () => {
-    for (const field of ['outcome', 'fixed_by', 'prs', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail']) {
+    for (const field of ['outcome', 'fixed_by', 'prs', 'follow_ups', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail']) {
       const without = Object.fromEntries(Object.entries(JOB).filter(([name]) => name !== field));
       expect(JobSchema.safeParse(without).error?.issues[0]?.path, field).toEqual([field]);
     }
   });
 
   it('describes each new field for the reference', () => {
-    for (const field of ['outcome', 'fixed_by', 'prs', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail'] as const) {
+    for (const field of ['outcome', 'fixed_by', 'prs', 'follow_ups', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail'] as const) {
       expect(JobSchema.shape[field].meta()?.description, field).toEqual(expect.any(String));
     }
   });

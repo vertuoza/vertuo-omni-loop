@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PRS_MAX } from 'omni-loop/kit/lib/runner/log.ts';
-import { STORED_OUTCOMES } from './runners.contract';
+import { JobUpdateSchema, STORED_OUTCOMES } from './runners.contract';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
 const MIGRATION = read('supabase/migrations/20261208090000_runner_job_lines.sql');
@@ -215,5 +215,20 @@ describe('the fix-when-answered migration (PRD 2270)', () => {
     expect(TYPES).toContain('foreignKeyName: "runner_jobs_continues_fkey"');
     expect(TYPES).toMatch(/repositories: \{\n\s+Row: \{[^}]*collected_until: string \| null\n\s+fix_when_answered: boolean\n/);
     expect(TYPES).toContain('set_repository_fix_when_answered: {\n        Args: { p_full_name: string; p_on: boolean; p_workspace: string }');
+  });
+});
+
+describe('the follow-ups migration (PRD 2508)', () => {
+  const FOLLOW_UPS = read('supabase/migrations/20270101090000_bug_fix_follow_ups.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+
+  it('adds runner_jobs.follow_ups, an array of at most the five entries the contract lets a report carry, [] by default', () => {
+    expect(FOLLOW_UPS).toContain("add column follow_ups jsonb not null default '[]'");
+    expect(FOLLOW_UPS).toContain("jsonb_typeof(follow_ups) = 'array'");
+    expect(FOLLOW_UPS).toContain('jsonb_array_length(follow_ups) <= 5');
+    expect(JobUpdateSchema.safeParse({ status: 'done', followUps: Array.from({ length: 5 }, () => ({ repos: ['demo-org/app'], summary: 's' })) }).success).toBe(true);
+  });
+
+  it('is named in the database\'s types, so the repository reads the column it selects', () => {
+    expect(TYPES).toContain('follow_ups: Json');
   });
 });
