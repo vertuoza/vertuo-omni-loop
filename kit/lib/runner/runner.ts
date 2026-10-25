@@ -333,7 +333,8 @@ async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ ca
     if (!(error instanceof RunnerRefused)) throw error;
     // An app from before PRD 2508 refuses `followUps` alone: the fields of PRD 2425 and the others are tried again first.
     if (followUps === undefined) return sendCounted(loop, job, rest);
-    const withoutFollowUps = { ...rest, released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs };
+    const withoutFollowUps: JobUpdate = { ...update };
+    delete withoutFollowUps.followUps;
     try {
       return await sendCounted(loop, job, withoutFollowUps);
     } catch (again) {
