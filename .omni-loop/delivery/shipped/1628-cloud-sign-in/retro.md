@@ -2,7 +2,7 @@
 prd: 1628
 feature-pr: 1629
 merge-sha: f92f7bf
-runs: [merge]
+runs: [merge, day-14]
 model: anthropic/claude-opus-5.5
 rules: 1
 judge: 1
@@ -10,33 +10,33 @@ judge: 1
 
 # Retro — PRD 1628, Sign in from a cloud session
 
-The sign-in work for cloud sessions was delivered across its slices, but the first slice stalled on the same red CI check across several commits. Each time, the committed database types file did not match what the migrations generate. The first red came from a new column missing from the types. The later two came from a hand edit that dropped one space after a function name. Two slices also touched files outside their declared territory: the first changed the app's README, and the fifth changed the docs guide and its tests.
+The sign-in work for cloud sessions was delivered across several slices, and most of the friction sat in one place. The `check` job went red on three commits of the first slice. Every time, the committed `supabase/database.types.ts` had drifted from what the migrations generate: first a missing column, then the same one-character spacing difference twice in a row. Two slices also changed files outside their declared territory: a README in one, and the docs guide with its tests in another. None of these blocked delivery. The repeated red does show that a generated file was edited by hand instead of regenerated.
 
 ## Findings
 
-### F1 · Committed database types kept drifting from the migrations — `repeated-red:check` · [#1649](https://github.com/vertuoza/vertuo-omni-loop/issues/1649)
+### F1 · Generated database types drifted from the migrations on three commits — `repeated-red:check` · [#1649](https://github.com/vertuoza/vertuo-omni-loop/issues/1649)
 
 - **What happened:** The check `check` was red on 3 commits in 1 slice (s1): 3 of its 8 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.
-- **Why it matters:** The `check` job stayed red on several commits of the first slice. Each failure was the types guard finding that `supabase/database.types.ts` differed from what the migrations generate: first a missing new column, then a single missing space after a function name. Every round cost a full CI run just to find out the generated file had been patched by hand instead of regenerated.
-- **Proposed lesson:** When a slice adds a migration, regenerate the committed database types with the repository's own script against a fresh local database, and commit that output as is. Never hand-edit the generated file, since the guard compares it exactly and catches even a spacing difference.
-- **Kept:** Neither the knowledge nor the earlier lessons say that generated database types must be regenerated rather than hand-edited, and this cost three red runs.
+- **Why it matters:** _Dropped: it holds a word the rules refuse._
+- **Proposed lesson:** After adding or changing a migration, regenerate `supabase/database.types.ts` by running `node scripts/supabase-types.ts` against a fresh database, and commit its output unchanged. Never patch the generated file by hand, since its exact formatting is checked.
+- **Kept:** Neither the knowledge nor earlier lessons say generated database types must be regenerated rather than hand-edited, and the same drift repeated across three commits.
 - **Evidence:** [check on 8623746 in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38167508628/job/114553025212), [check on 68f989c in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38168504188/job/114555963538), [check on d124a7a in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38171469301/job/114564789378)
 
-### F2 · First slice edited the app README outside its territory — `territory:s1`
+### F2 · A README edit landed outside the slice's territory — `territory:s1`
 
 - **What happened:** Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/README.md`.
-- **Why it matters:** A path changed outside the declared territory and off shared ground makes the plan's ownership table less reliable, and it can collide with another slice's work.
+- **Why it matters:** The slice touched a README that its plan row did not declare. Small documentation edits like this can collide with other slices and make the plan's territory table less trustworthy.
 - **Evidence:** [#1631](https://github.com/vertuoza/vertuo-omni-loop/pull/1631/files)
 
-### F3 · Fifth slice changed the docs guide and its tests outside its territory — `territory:s5`
+### F3 · Docs guide and its tests changed outside the slice's territory — `territory:s5`
 
 - **What happened:** Slice s5 changed 3 paths outside its territory and off the plan’s shared ground: `apps/galaxy/src/docs/docs.test.ts`, `apps/galaxy/src/docs/guide.test.ts`, `apps/galaxy/src/docs/guide.ts`.
-- **Why it matters:** The guide and its tests act as a central file that several features register in. Changing them without declaring them as shared ground leaves room for clashes between slices.
+- **Why it matters:** The slice edited the shared docs guide and two docs tests that its plan row did not list. A central file several features register into is a likely collision point between slices.
 - **Evidence:** [#1641](https://github.com/vertuoza/vertuo-omni-loop/pull/1641/files)
 
 ## Proposed lessons
 
-- When a slice adds a migration, regenerate the committed database types with the repository's own script against a fresh local database, and commit that output as is. Never hand-edit the generated file, since the guard compares it exactly and catches even a spacing difference. (F1)
+- Regenerate the database types file with `node scripts/supabase-types.ts` after any migration change and commit the output as is; a hand-patched generated file keeps the check red. (F1)
 
 ## Timeline
 
@@ -59,7 +59,7 @@ The sign-in work for cloud sessions was delivered across its slices, but the fir
 - Friction: 0 slices stuck, 0 labelled `omni:needs-fix`, 0 claimed more than once.
 - Review: 6 pull requests — 0 reviews, 0 review threads, 0 red-circle bot findings, 0 threads unresolved at the merge.
 
-Findings: F2 · First slice edited the app README outside its territory; F3 · Fifth slice changed the docs guide and its tests outside its territory
+Findings: F2 · A README edit landed outside the slice's territory; F3 · Docs guide and its tests changed outside the slice's territory
 
 ## Checks
 
@@ -77,7 +77,7 @@ Red runs:
 | [check](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38168504188/job/114555963538) | s1 | `68f989c` | no test named: its last lines are kept as an excerpt |
 | [check](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38171469301/job/114564789378) | s1 | `d124a7a` | no test named: its last lines are kept as an excerpt |
 
-Findings: F1 · Committed database types kept drifting from the migrations · [#1649](https://github.com/vertuoza/vertuo-omni-loop/issues/1649)
+Findings: F1 · Generated database types drifted from the migrations on three commits · [#1649](https://github.com/vertuoza/vertuo-omni-loop/issues/1649)
 
 ## Churn
 
@@ -94,3 +94,8 @@ Rules version 1; the thresholds this run used:
 - Churn: a line range rewritten in 3 or more commits; a file whose churn is at least 50% of its final added lines and at least 40 lines.
 - After merge: the `bug` issues naming the PRD within 14 days of the merge.
 - At most 5 issues per run, most severe first: bug, override, drift, repeated-red or flaky, failing-test, review, friction, territory, churn, slow-slice.
+
+## After merge
+
+- No `bug` issue naming #1628 was opened within 14 days of the merge.
+- 4 GitHub Actions jobs ran on the merge commit `f92f7bf`: 3 green, 0 red, 1 neither.
