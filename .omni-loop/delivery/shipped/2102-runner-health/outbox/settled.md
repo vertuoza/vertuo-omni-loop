@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-16
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off territory exception and a local typing choice; the new SQL check running in the supabase workflow is already ADR-0028's convention.
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Low. Reverting either edit is a one-file change: without the fake's methods the 
 - Raised: 2026-10-16
 - Slice: s2
 - Wave: 2
+- Became: ADR-0117
 
 ### The answer, as it was given
 
