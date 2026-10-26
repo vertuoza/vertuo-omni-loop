@@ -21,6 +21,7 @@ The sign-in work for cloud sessions was delivered across several slices, and mos
 - **Proposed lesson:** After adding or changing a migration, regenerate `supabase/database.types.ts` by running `node scripts/supabase-types.ts` against a fresh database, and commit its output unchanged. Never patch the generated file by hand, since its exact formatting is checked.
 - **Kept:** Neither the knowledge nor earlier lessons say generated database types must be regenerated rather than hand-edited, and the same drift repeated across three commits.
 - **Evidence:** [check on 8623746 in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38167508628/job/114553025212), [check on 68f989c in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38168504188/job/114555963538), [check on d124a7a in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/38171469301/job/114564789378)
+- **Stays here:** playbook/conventions#naming already states it: "The database types are generated, never written" — regenerated with node scripts/supabase-types.ts from a fresh local database, checked by the pre-push hook and the supabase workflow; the rule already cites #1649.
 
 ### F2 · A README edit landed outside the slice's territory — `territory:s1`
 

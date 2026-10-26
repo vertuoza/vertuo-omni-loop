@@ -685,6 +685,11 @@
           "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/1649",
           "state": "open"
         }
+      },
+      "outcomes": {
+        "repeated-red:check": {
+          "staysHere": "playbook/conventions#naming already states it: \"The database types are generated, never written\" — regenerated with node scripts/supabase-types.ts from a fresh local database, checked by the pre-push hook and the supabase workflow; the rule already cites #1649."
+        }
       }
     },
     {
