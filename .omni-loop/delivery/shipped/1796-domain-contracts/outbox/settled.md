@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off territory choice inside this slice, cheap to revert; nothing lasting about how the product behaves or is built.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Two lines each; reverting either is a one-line edit with no stored shape involve
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Became: ADR-0118
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Two constants in kit/lib/knowledge/check-knowledge.ts; loosening either later br
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Became: ADR-0119
 
 ### The answer, as it was given
 
