@@ -83,11 +83,16 @@ repository as its default while none is chosen. The game, the dossiers and the p
      Repositories (`public.repositories` of the workspace, not removed), in that page's order, with
      **Save** and **Cancel**. When one is chosen, it also offers **Clear the choice**, which stores
      null: the line returns to **Plan repository by default**, or to **None**.
-   - The browser calls `set_workspace_settings_repository()` as the signed-in person, as Settings ›
-     Repositories calls its owner-only functions (`apps/galaxy/src/repositories/store.ts`); a
-     refusal is said in the line (42501: only the owner changes it; P0002: that repository is no
-     longer in this workspace), and nothing else on the page moves. After a save, the page reads
-     again, so the pages below come from the repository just chosen.
+   - The page posts the choice to a new galaxy route, `POST /api/omni-settings/settings-repository`
+     `{workspace, repository}` (`repository` null to clear), built like the proposal route beside
+     it (ADR-0095: client → controller → service → repository): the controller checks the session,
+     and the repository calls `set_workspace_settings_repository()` on the signed-in person's
+     client, so the database's own rule decides who may change it. It answers
+     `200 {repository}` (the stored name, or null), `403` for 42501, `404` for P0002, and `400` for
+     a body that does not read. A refusal is said in the line (403: `Only the workspace’s owner can
+     change it.`; 404: `That repository is no longer in this workspace. Reload the page.`), and
+     nothing else on the page moves. After a save, the page reads again, so the pages below come
+     from the repository just chosen.
    - The demo (`pnpm galaxy:dev`) keeps the same rules in memory, seen as an owner, starting in
      **Plan repository by default**.
    - The page's existing words that told the person to "Name a plan repository" go: the **None**
@@ -111,6 +116,7 @@ repository as its default while none is chosen. The game, the dossiers and the p
 | omni-loop | database | migration `<version>_settings_repository.sql` | conventions › A new migration takes the next free version ← `.omni-loop/knowledge/playbook/conventions.md` (Naming) |
 | omni-loop | database check | `supabase/checks/settings_repository.sql` | conventions › A new database check runs in CI ← `.omni-loop/knowledge/playbook/conventions.md` (Naming), beside `supabase/checks/repositories.sql` |
 | omni-loop | galaxy repository | `SettingsWorkspace.settingsRepository` | no written convention: follows `SettingsWorkspace.planRepo` ← `apps/galaxy/src/omni-settings/omni-settings.repository.ts:30` |
+| omni-loop | galaxy route | `POST /api/omni-settings/settings-repository` | no written convention: follows `/api/omni-settings/proposal` ← `apps/galaxy/app/api/omni-settings/proposal/route.ts:4` and `PLAYBOOK_PROPOSAL_ROUTE` ← `apps/galaxy/src/omni-settings/omni-settings.contract.ts:23` |
 | omni-loop | galaxy view | `SettingsRepositoryLine` (`apps/galaxy/src/omni-settings/SettingsRepositoryLine.tsx`) | no written convention: follows `PlaybookEditor.tsx` beside `PlaybookView.tsx` ← `apps/galaxy/src/omni-settings/PlaybookView.tsx:3` |
 
 ## Decisions
@@ -133,9 +139,11 @@ Taken with the person during the brainstorm:
 
 Taken without asking, the most reversible option:
 
-- **The browser calls the function directly,** as the signed-in person, as Settings › Repositories
-  does, rather than through a new API route: the database's own rule decides who may change it,
-  and the kit's routes keep their shape.
+- **A galaxy route, not a call from the browser.** Settings › Repositories calls its functions
+  from the browser, a breach `layering/baseline.json` still lists; a new one would fail the layering
+  guard (ADR-0095). The choice goes through `POST /api/omni-settings/settings-repository`, like the
+  proposal route, and the function still runs as the signed-in person, so the database's own rule
+  decides who may change it. The kit's routes keep their shape.
 - **Choose another in the default state.** The owner who does not want the plan repository can open
   the picker from the badge's line without keeping it first.
 - **Keep it only for a listed plan repository.** The function refuses a repository the workspace
@@ -170,7 +178,9 @@ In:
 - `apps/galaxy/src/omni-settings/omni-settings.repository.ts` and `omni-settings.service.ts`
   (`settingsRepositoryOf`'s order, the new column read);
 - Settings › Playbook: `apps/galaxy/src/omni-settings/` (the line, the picker, the view's new
-  fields, the load, the demo) and `apps/galaxy/app/app/settings/playbook/page.tsx`;
+  fields, the load, the demo, the choice's contract, client, controller, service and repository
+  call) and `apps/galaxy/app/app/settings/playbook/page.tsx`;
+- the route `apps/galaxy/app/api/omni-settings/settings-repository/route.ts`;
 - `docs/guide/playbook.md`;
 - the screen library's draft `settings-playbook`.
 
@@ -204,8 +214,10 @@ a vitest test.
   member (badge only); **None** for an owner (the picker) and a member; the picker lists the
   workspace's repositories and offers **Clear the choice** only when one is chosen; a refusal is
   said in the line.
-- **The call:** the browser store's tests: the function is called with `p_workspace` and
-  `p_full_name`, and 42501 and P0002 read as the page's words.
+- **The call:** the controller's tests, as `omni-settings.proposal.controller.test.ts` does: no
+  session is refused; a body that does not read is 400; the repository is called with
+  `p_workspace` and `p_full_name` (null to clear); 42501 answers 403 and P0002 404. The client's
+  tests: each answer reads as the page's words.
 
 ## Risks
 
