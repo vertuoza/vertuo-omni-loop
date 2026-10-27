@@ -9,7 +9,8 @@ phase0: server
 # A runner turns over to another account or agent when one runs out
 
 **Date:** 2026-10-27 · **PRD:** #2537 · **After:** PRD 1830 (runners), PRD 1894 (the Claude token
-for jobs), PRD 2102 (runner health and tokens), PRD 1890 (the kit's skills for other agents)
+for jobs), PRD 2102 (runner health and tokens), PRD 1890 (the kit's skills for other agents) · **Uses:** T3 Code 0.1.x
+(`t3`, MIT) on the runner's machine
 · **Touches:** `kit/lib/runner/` (`job.ts`, `runner.ts`, `api.ts`, `terminal.ts`, `plugin.ts`,
 `tokens.ts`, `steps.ts`, new `agents/` and `accounts.ts`), `kit/bin/commands/runner.ts`,
 `kit/lib/env/read.ts`, `apps/galaxy/src/runners/` (contract, service, repository, page),
@@ -36,51 +37,64 @@ open-weight model through OpenCode, cannot use them for its runner's jobs.
 
 ### 1. Agents behind one adapter (`kit/lib/runner/agents/`)
 
-An **agent** is a coding CLI the runner can start: `claude`, `codex` or `opencode`. Each has an
-adapter, a module with one shape:
+An **agent** is how the runner runs one account's work. There are two adapters, with one shape:
 
 | part | what it does |
 |---|---|
-| `check(account)` | the CLI is installed and signed in for that account, or one line saying why not |
+| `check(account)` | the account can run now, or one line saying why not |
 | `command(job, account, handoff?)` | the program, arguments, environment and stdin for one run in the job's worktree |
-| `step(line)` | one line of the CLI's output turned into the step line the log and the Terminal show, or nothing |
+| `step(event)` | one event of the run turned into the step line the log and the Terminal show, or nothing |
 | `usage(run)` | the run's tokens (`{input, output, cacheRead, cacheWrite}`) and the model's name, or `null` |
-| `limit(run)` | whether the run ended on the account's usage limit, and the reset time when the CLI says one |
-| `pressure(line)` | read while the run streams: the account's usage (a percent, or a warning status) with its reset time, and the run's context (`{used, window}` tokens), each `null` when the CLI does not say |
-| `session(run)` and `resume(job, account, session, prompt)` | the run's session id, and the command that continues that session with one more message |
+| `limit(run)` | whether the run ended on the account's usage limit, and the reset time when the agent says one |
+| `pressure(run)` | read while the run goes: the account's usage (a percent, or a warning status) with its reset time, and the run's context (`{used, window}` tokens), each `null` when the agent does not say |
+| `session(run)`, `interrupt(run)` and `resume(job, account, session, prompt)` | the run's session, a clean stop when the agent offers one (else `null`), and the command that continues that session with one more message |
 
-- **claude** is today's code moved behind the shape: `claude --dangerously-skip-permissions -p
-  --output-format stream-json --verbose`, the job line on stdin, the token as
-  `CLAUDE_CODE_OAUTH_TOKEN`, tokens from the transcripts (PRD 2102), the step lines of
-  `steps.ts`. Its limit is the usage-limit result in its stream. Its usage pressure is the stream's
-  `rate_limit_event`: `allowed_warning` is the warning, with its `resetsAt` and window (`five_hour`,
-  `seven_day`); it gives no percent. Its context is the last assistant message's input and cache
-  tokens against the model's window. It resumes with `claude -p --resume <session>`.
-- **codex** runs `codex exec --json --dangerously-bypass-approvals-and-sandbox` in the worktree, with
-  `CODEX_HOME` set to the account's folder (each account signed in there with `codex login`). Tokens
-  come from each `turn.completed` event's `usage`. Its limit is the "You've hit your usage limit"
-  message; the reset time is read from its "Try again in …". Its usage pressure is the
-  `rate_limits` of the latest `token_count` event in the session's file under `$CODEX_HOME/sessions/`
-  (`used_percent` of the 5-hour and weekly windows, with `resets_at`); its context is that event's
-  last input tokens against `model_context_window`. It resumes with `codex exec resume <session>`.
-- **opencode** runs `opencode run --format json --model <account's model>`, the account's key in
-  the environment variable the account names. Tokens come from each `step_finish` event. Its limit
-  is an `error` event the provider raised with a 429; the reset time is its `retry-after` when it
-  gives one. A provider key has no usage window: its pressure is the account's own daily `budget`
-  (tokens) against what the runner counted today. Its context is the last `step_finish` input tokens
-  against the model's window when the account names it (`contextWindow`), else `null`. It resumes
-  with `opencode run --session <session>`.
-- **The job line.** Claude gets the line as it is (`/omni:yolo 7`). Codex and OpenCode get it as
-  words: `Use the omni-yolo skill with these arguments: 7`. A repository's own skill (PRD 2313) runs
-  on Claude only.
-- **The skills.** Before a job on Codex or OpenCode, the runner writes the kit's skills, of the
-  version the job's repository pins, in that account's own skills folder on the machine
-  (`$CODEX_HOME/skills/omni-*` for Codex, OpenCode's global skills folder for OpenCode), the way it
-  keeps the Claude plugin current today (`plugin.ts`). It never writes them in the worktree. An
-  agent that cannot read a skills folder outside the repository takes no job, and its accounts read
-  `no skills` in the report.
-- **Recordings.** Each adapter is tested against recorded output in `kit/lib/runner/fixtures/`. A
-  CLI's output that does not parse is a step line printed as it is, never a crash.
+- **`t3`, the default agent: T3 Code runs the coding CLIs.** T3 Code (MIT, `t3` on npm) is a
+  server on the runner's machine that drives Claude Code (through the Claude Agent SDK), Codex
+  (through its app-server), OpenCode and others, each **provider instance** signed in to one
+  account (its own Claude config folder, `CODEX_HOME` or provider key, kept by T3 in files only its
+  user reads). The runner talks to it only through its command line, on the same machine:
+  - **A run** is `t3 thread start <worktree> - --provider <instance> --model <model> --wait --json`,
+    the message on stdin. It prints `{threadId, runId, status, reply, error}`; exit 1 is a run that
+    failed or stopped, exit 2 a run that waits for an answer, which the job treats as failed with
+    that reason. A thread runs in T3's **Full access** mode, as a job runs Claude today.
+  - **Step lines** come from `t3 thread show <thread> --json`, read every 5 seconds while the run
+    goes: each new message becomes a step line. They are coarser than today's: a message, not every
+    tool call.
+  - **The limit** is the thread's run ending with T3's usage-limit class and its reset time
+    (T3 reads Claude's `rate_limit_event` and Codex's `usageLimitExceeded` and rate limits itself).
+  - **Pressure** is the instance's usage percent per window and the thread's context use, as T3
+    exposes them to its own machine. A reading T3 does not expose to the command line or its MCP
+    endpoint on the host is `null`, and that trigger does not fire for this agent (section 3).
+  - **Resume** is `t3 thread send <thread> -`; **interrupt** is T3's own stop of the active run when
+    the host can call it, else `null`.
+  - **Tokens** are counted from each instance's transcripts, as PRD 2102 counts Claude's (the
+    instance's Claude config folder, its `CODEX_HOME` sessions), for the job's worktree: the command
+    line's output carries none.
+  - T3 keeps its own retry after a reset **off** (its `autoResumeLimitedThreads` setting): the runner
+    decides what happens after a limit.
+- **`claude`, the fallback: Claude Code run directly**, today's code moved behind the shape:
+  `claude --dangerously-skip-permissions -p --output-format stream-json --verbose`, the job line on
+  stdin, the token as `CLAUDE_CODE_OAUTH_TOKEN`, tokens from the transcripts (PRD 2102), the step
+  lines of `steps.ts`. Its limit is the usage-limit result in its stream; its pressure is the
+  stream's `rate_limit_event` (`allowed_warning`, with `resetsAt` and its window; no percent) and the
+  last assistant message's tokens against the model's window; it resumes with `claude -p --resume
+  <session>` and interrupts with `SIGINT`. It is what a runner with no accounts file uses, and what
+  an account names to work without T3.
+- **The job line.** A Claude instance gets the line as it is (`/omni:yolo 7`): the trial on T3 0.1.3
+  showed a T3 Claude thread lists every `/omni:` skill of the installed plugin. Codex and OpenCode
+  instances get it as words: `Use the omni-yolo skill with these arguments: 7`. A repository's own
+  skill (PRD 2313) runs on a Claude instance only.
+- **The skills for Codex and OpenCode.** Before a job on such an instance, the runner writes the
+  kit's skills, of the version the job's repository pins, in that instance's own skills folder
+  (`<CODEX_HOME>/skills/omni-*`, which Codex lists through its app-server; OpenCode's global skills
+  folder), the way it keeps the Claude plugin current today (`plugin.ts`). It never writes them in
+  the worktree. An instance whose agent reads no skills folder outside the repository takes no job,
+  and its account reads `no skills`.
+- **Recordings.** Each adapter is tested against recorded output in `kit/lib/runner/fixtures/`: the
+  `t3` command line's JSON (a run done, failed, at its limit, waiting for an answer, `thread show`
+  pages), and Claude's stream. Output that does not parse is a step line printed as it is, never a
+  crash.
 
 ### 2. Accounts (`kit/lib/runner/accounts.ts`)
 
@@ -90,44 +104,48 @@ repository:
 ```yaml
 accounts:
   - id: claude-1
-    agent: claude
-    secret: ~/.config/omni/secrets/claude-1     # its CLAUDE_CODE_OAUTH_TOKEN
+    instance: claude-1                          # a T3 provider instance, signed in in T3
+    model: claude-opus-5-5
   - id: claude-2
-    agent: claude
-    secret: ~/.config/omni/secrets/claude-2
+    instance: claude-2
+    model: claude-opus-5-5
   - id: codex-1
-    agent: codex
-    home: ~/.codex-1                            # its CODEX_HOME, signed in with codex login
+    instance: codex-1
+    model: gpt-5-codex
   - id: open-1
-    agent: opencode
+    instance: opencode-mistral
     model: mistral/devstral-medium-latest
-    secret: ~/.config/omni/secrets/open-1
-    secretEnv: MISTRAL_API_KEY
-    contextWindow: 128000
     budget: 20000000                            # tokens a day
     takes: [pr-care, plan, bug-fix]
+  - id: claude-direct
+    agent: claude                               # without T3, as today
+    secret: ~/.config/omni/secrets/claude-direct
 handoff:
   usage: 90                                     # percent of a usage window (default 90)
   context: 75                                   # percent of the model's context window (default 75)
 ```
 
+- **An account with `instance`** runs through T3; its `agent` is `t3` and needs no secret: the
+  sign-in lives in T3's instance. **An account with `agent: claude`** runs Claude directly, with its
+  `secret`.
 - **The order is the order of the file.** A job starts on the first account that is ready, whose
   `takes` allows the job's skill (no `takes`: any skill), and whose agent passed its check.
 - **`takes`** names the skills of `RUNNABLE_SKILLS` (`kit/lib/runner/line.ts`) an account may run or
   take over. A name outside that list is refused when the runner starts.
-- **No file:** the runner has one account, `claude`, from the token it reads today
+- **No file:** the runner has one account, `claude` run directly, from the token it reads today
   (`CLAUDE_CODE_OAUTH_TOKEN`, `kit/lib/env/read.ts`). A runner set up before this PRD runs exactly
-  as it did.
+  as it did, and needs no T3.
 - **`handoff`** sets the two planned thresholds, in whole percents from 50 to 99; `budget` (tokens a
-  day) and `contextWindow` (tokens) are whole positive numbers. Each is optional.
+  day) is a whole positive number. Each is optional.
 - **A malformed file** stops `omni runner` before it registers, naming the account and the field.
 - **States.** Each account is `ready`, `active` (a job runs on it), `out` until a reset time, or
-  `unusable` with a reason (`not signed in`, `no skills`, `not installed`). The runner keeps the
-  states in `~/.config/omni/accounts-state.json`, so a restart remembers an account that is out. At
-  its reset time an `out` account is `ready` again.
-- **Secrets stay on the machine.** A secret is read from its file when a run starts and passed to
-  that run's process only. It never enters the report, the log or the handoff note; the runner masks
-  it in every line it streams, as it does a GitHub App token.
+  `unusable` with a reason (`not signed in`, `no skills`, `T3 not running`, `no such instance`). The
+  runner keeps the states in `~/.config/omni/accounts-state.json`, so a restart remembers an account
+  that is out. At its reset time an `out` account is `ready` again.
+- **Secrets stay on the machine.** A direct account's secret is read from its file when a run starts
+  and passed to that run's process only; a T3 account's stays in T3. None enters the report, the
+  log or the handoff note; the runner masks it in every line it streams, as it does a GitHub App
+  token.
 
 ### 3. Handoffs, in the middle of a job
 
@@ -142,7 +160,9 @@ that says where the job stands. Three things start one:
 
 **A planned handoff, step by step:**
 
-1. The runner interrupts the run (`SIGINT`, then `SIGTERM` after 30 s). The CLI keeps its session.
+1. The runner stops the run through its adapter's `interrupt` (Claude direct: `SIGINT`, then `SIGTERM`
+   after 30 s; T3: its stop of the active run). The session is kept. An agent whose `interrupt` is
+   `null` hands off at the wall only, and its planned triggers are not read.
 2. **The agent writes its own note.** The runner resumes that session on the same account for one
    turn, with the message `Write the handoff note for whoever continues this job to <path>: what is
    done, what is next, the pull requests and branches open, and every decision you took. Change no
@@ -230,10 +250,12 @@ nothing.
 
 ### 9. The guide
 
-`docs/guide/runners.md` gains **Accounts and turnover** under **Set up a new runner**: the file,
-the order, `takes`, signing in Codex (`CODEX_HOME=… codex login`) and OpenCode (a provider key), what
-the chips and `Paused: no tokens left` mean, and two rows in **When something goes wrong** (`no
-skills`, `not signed in`).
+`docs/guide/runners.md` gains **Accounts and handoffs** under **Set up a new runner**: installing
+T3 Code as a service on the machine (`t3 service install`, bound to loopback or the tailnet), adding
+one provider instance per account and signing each in, T3's retry after a reset left off, the
+accounts file, the order, `takes`, the handoff thresholds, what the chips and `Paused: no tokens
+left` mean, and rows in **When something goes wrong** (`no skills`, `not signed in`, `T3 not
+running`).
 
 ## Conventions
 
@@ -246,9 +268,16 @@ skills`, `not signed in`).
 
 ## Decisions
 
-- **One adapter per CLI inside `omni runner`.** The person chose this over a client of the Agent
-  Client Protocol (newer, and Claude's bridge may not load the kit's plugin as `claude -p` does) and
-  over handing jobs to a T3 Code server (no public API, no turnover between agents).
+- **T3 Code runs the agents, behind the adapter; `omni runner` keeps the jobs and the handoffs.**
+  The person chose this after a trial of T3 0.1.3 on a laptop (2026-10-27): `t3 thread start …
+  --wait --json` ran a Claude thread headless in Full access and returned its status, and that
+  thread listed every `/omni:` skill. T3 already keeps several accounts per provider, reads Claude's
+  and Codex's limits with their reset times, and shows usage per account, which the first plan built
+  as three adapters. It does **not** move a thread to another instance when one runs out (its resume
+  refuses another instance), and its command line returns no tokens and no live steps: those stay
+  the runner's. The direct Claude adapter stays, so a runner works without T3, and a T3 that breaks
+  never stops it. Over the first plan's three direct adapters (Claude, `codex exec`, `opencode run`)
+  and over a client of the Agent Client Protocol.
 - **Turnover in the middle of a job.** The person chose this over failing and requeuing, and over
   turning over only between accounts of one agent. One pull request may hold two agents' work; the
   page and the pull request name each part.
@@ -275,9 +304,9 @@ skills`, `not signed in`).
 - **The outgoing agent writes its note; the runner's note is the fallback.** The person chose this.
   The agent knows what it decided and what is next; the runner can only read the log and git. After
   the wall the agent has no turn left, so the runner writes it.
-- **Claude's trigger is `allowed_warning`, not a percent.** Headless Claude Code reports a status and
-  a reset time, not a percent; its percent is only given to the status line. Codex's session files
-  give the percent.
+- **Claude run directly hands off on `allowed_warning`, not a percent.** Headless Claude Code
+  reports a status and a reset time, not a percent; its percent is only given to the status line.
+  Through T3, the trigger is the instance's percent wherever T3 shows it on the machine.
 - **90 % usage, 75 % context, three account changes and five fresh sessions.** The most reversible
   choices, taken without asking: each is a default or one constant.
 - **The same worktree, nothing pushed at turnover.** A push needs the repository's hooks to pass on
@@ -300,7 +329,7 @@ skills`, `not signed in`).
 
 ## Scope
 
-**In:** the three adapters, the accounts file and its states, turnover with the handoff note, the
+**In:** the T3 adapter and the direct Claude adapter, the kit's skills for Codex and OpenCode instances, the accounts file and its states, turnover with the handoff note, the
 pause, the `parts` and `accounts` reports, the migration, the Runners page's chips and parts, the
 pull request's parts line, the guide's section, the `runners` draft screen.
 
@@ -312,9 +341,11 @@ Tests live beside the code (`omni kb show testing`). None calls a real agent CLI
 Supabase: each CLI is a fake program on the `PATH` that replays a recording from
 `kit/lib/runner/fixtures/`.
 
-- **Each adapter** (`kit/lib/runner/agents/*.test.ts`): `command` for a job and for a takeover,
-  `step` on each recorded event, `usage` summed from a recording, `limit` on a recorded limit (with
-  and without a reset time), a crash that is not a limit, and output that does not parse.
+- **Each adapter** (`kit/lib/runner/agents/*.test.ts`), against a fake `t3` and a fake `claude` on
+  the `PATH` that replay recordings: `command` for a job and for a takeover, `step` on each recorded
+  event (T3: new messages of `thread show`), `usage` summed from recorded transcripts, `limit` on a
+  recorded limit (with and without a reset time), exit 2 (waiting for an answer), a crash that is not
+  a limit, T3 not running, an unknown instance, and output that does not parse.
 - **`accounts.test.ts`:** the file read, each malformed field refused with its account and field,
   `takes` outside `RUNNABLE_SKILLS` refused, no file giving today's one Claude account, states kept
   across a restart, an `out` account ready again at its reset time.
@@ -357,10 +388,18 @@ runner against an old server sends neither until the server accepts them (Soluti
   it is, and the note says what was under way. The pressure signals are the CLIs' own and may change
   without notice: a signal the adapter no longer reads only means no planned handoff, and the wall
   still turns over.
+- **T3 is alpha (0.1.x, nightly builds) and promises no stable interface.** The runner uses only its
+  command line on the same machine, pins the version the guide names, and every T3 output it reads is
+  a recording in the tests: a change shows as a red test when a recording is refreshed. A T3 account
+  that fails its check is `unusable`, and the next account, a direct Claude one included, takes the
+  job.
+- **Coarser step lines through T3.** A step is a message, not every tool call: the Terminal view
+  shows less while a T3 run goes.
 - **Codex and OpenCode have no sub-agents like Claude's.** A wave on them builds its slices one
   after another, as the briefing's **Parallel agents** says: slower, not wrong.
-- **Codex runs without its sandbox** on the runner. A runner is a machine dedicated to agents, with
-  no production credentials (the runner guide); this is the same trust Claude gets today.
+- **T3 runs agents in Full access** on the runner. A runner is a machine dedicated to agents, with
+  no production credentials (the runner guide); this is the same trust Claude gets today. T3 binds
+  to the machine's loopback (or its tailnet address) only.
 - **Accounts and plans.** Turning over between several subscription accounts of one provider may
   break that provider's terms. The guide says to use a seat or a key per account; the kit does not
   check it.
@@ -369,9 +408,10 @@ runner against an old server sends neither until the server accepts them (Soluti
 then runs on Claude only, from `CLAUDE_CODE_OAUTH_TOKEN` when it is set.
 
 **The Legal entries it touches:**
-- **L-GDPR-2** (credentials never stored or logged in clear): account secrets stay in files on the
-  machine, are passed to the run's process only, and are masked in every streamed line; the report
-  names an account by its id only.
+- **L-GDPR-2** (credentials never stored or logged in clear): a direct account's secret stays in a
+  file on the machine and is passed to the run's process only; a T3 account's sign-in stays in T3's
+  files, readable by its user only. Every streamed line is masked; the report names an account by
+  its id only.
 - **L-GDPR-5** (every service handling personal data on the product's behalf is named): the
   accounts are the workspace's own, chosen and paid by it on its own machine, as Claude is on a
   runner today; no data goes to OpenAI or Mistral on the product's behalf. Whether the guide must
@@ -423,3 +463,6 @@ Acceptance scenarios are off in this repository, so each criterion becomes ordin
    each agent, model and why it turned over.
 10. **Codex and OpenCode run the kit's skills** from their own folders, at the repository's pinned
    version, and no skill file appears in the job's pull request.
+11. **Through T3.** An account with `instance` runs its job as a T3 thread in the job's worktree; a
+   runner whose T3 is not running reads its T3 accounts `unusable · T3 not running` and runs the job
+   on its next account, a direct Claude one included.
