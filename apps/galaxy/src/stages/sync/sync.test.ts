@@ -144,6 +144,25 @@ describe('the stages sync route', () => {
     expect(store.stages.map((s) => s.repository)).toEqual(['globex/core']);
   });
 
+  it('reads a workspace\'s repositories four at a time, so a run of many fits its time, and answers them in order (#2529)', async () => {
+    const names = ['acme/a1', 'acme/a2', 'acme/a3', 'acme/a4', 'acme/a5', 'acme/a6'];
+    let reading = 0;
+    let most = 0;
+    const { d } = deps({
+      snapshot: async (_w, repo) => {
+        reading += 1;
+        most = Math.max(most, reading);
+        // The first repository is the slowest, so it finishes last.
+        await new Promise((resolve) => setTimeout(resolve, repo === 'acme/a1' ? 20 : 5));
+        reading -= 1;
+        return snap(repo);
+      },
+    }, { acme: names });
+    const body = await answerOf(await syncStages(post(`Bearer ${SECRET}`), d));
+    expect(most).toBe(4);
+    expect(body.repositories.map((r) => r.repository)).toEqual(names);
+  });
+
   it('writes nothing new on a rerun', async () => {
     const { d, store } = deps();
     await syncStages(post(`Bearer ${SECRET}`), d);
@@ -160,11 +179,14 @@ describe('the stages sync route', () => {
     const base = { ...d };
     d.snapshot = (w, repo, since) => { seen.push([repo, since]); return base.snapshot(w, repo, since); };
     await syncStages(post(`Bearer ${SECRET}`), d);
+    const first = seen.splice(0);
     await syncStages(post(`Bearer ${SECRET}`), { ...d, now: () => '2026-09-29T12:15:00.000Z' });
-    expect(seen).toEqual([
-      ['acme/widgets', null], ['acme/gears', null], ['globex/core', null],
+    // A workspace's repositories are read at once (#2529): each run's reads, whatever order they started in.
+    const byRepo = (reads: typeof seen) => reads.toSorted(([a], [b]) => a.localeCompare(b));
+    expect(byRepo(first)).toEqual([['acme/gears', null], ['acme/widgets', null], ['globex/core', null]]);
+    expect(byRepo(seen)).toEqual([
       // acme/gears holds no PRD issue: nothing tells when it was last synced, so it is read in full again.
-      ['acme/widgets', '2026-09-29T11:55:00.000Z'], ['acme/gears', null], ['globex/core', '2026-09-29T11:55:00.000Z'],
+      ['acme/gears', null], ['acme/widgets', '2026-09-29T11:55:00.000Z'], ['globex/core', '2026-09-29T11:55:00.000Z'],
     ]);
   });
 
