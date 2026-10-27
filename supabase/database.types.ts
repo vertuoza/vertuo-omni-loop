@@ -6962,11 +6962,7 @@ export type Database = {
       }
       runners_mark_lost: { Args: { p_cutoff: string }; Returns: number }
       set_fleet_project: {
-        Args: {
-          p_name: string
-          p_url: string
-          p_workspace: string
-        }
+        Args: { p_name: string; p_url: string; p_workspace: string }
         Returns: {
           color: string
           home: string | null
