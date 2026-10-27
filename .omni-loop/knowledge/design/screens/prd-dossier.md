@@ -107,4 +107,4 @@ Could not check; on a finding: Approve, Reject. An approved missing-rule finding
 - /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
 - /omni:brainstorm, PRD 2370: .omni-loop/delivery/shipped/2370-prd-timeline/before-after.html (the time line and the Timeline tab)
 - /omni:brainstorm, PRD 2410: .omni-loop/delivery/shipped/2410-broke-main/before-after.html
-- /omni:brainstorm, PRD 2498: .omni-loop/delivery/inbox/2498-rewind-apply/before-after.html
+- /omni:brainstorm, PRD 2498: .omni-loop/delivery/shipped/2498-rewind-apply/before-after.html
