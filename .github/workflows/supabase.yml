@@ -216,6 +216,12 @@ jobs:
         # are refused. Members read the repositories, pull requests and reviews; a stranger reads
         # nothing; nobody writes the three tables directly. vertuoza alone is seeded with six.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/repositories.sql
+      - name: Who may choose a workspace's settings repository
+        # PRD 2543: only the workspace's owner chooses it, through set_workspace_settings_repository(),
+        # stored trimmed and in lower case; a member, another workspace's owner and anyone signed out are
+        # refused (42501); a repository the workspace does not list, or removed, is refused (P0002); null
+        # or an empty name clears it; nobody signed in writes the column directly; plan_repo is untouched.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/settings_repository.sql
       - name: A repository in several products
         # PRD 1364: a repository links to any number of products, each link with its own role,
         # knowledge, read-at, read-only and consumes. Only an owner links and unlinks; a self-consume,

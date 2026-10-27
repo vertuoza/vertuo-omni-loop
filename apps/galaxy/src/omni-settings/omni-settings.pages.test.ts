@@ -9,8 +9,9 @@ import { omniSettingsPagesService, playbookPages, type SettingsGithub } from './
 // page lists the kit's first default; a workspace the caller cannot read is null.
 
 const COMMIT = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
-const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan' };
+const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null };
 const SETTINGS = '.omni-loop/settings';
+const NO_SETTINGS = 'This workspace has no settings repository: none is chosen and no plan repository is named.';
 const KIT: SettingsFile[] = [
   { form: 'review', text: 'kit review' },
   { form: 'definition-of-done', text: 'kit done' },
@@ -57,9 +58,23 @@ describe('the playbook pages of a workspace', () => {
     expect(view).toEqual({
       repository: null,
       commit: null,
-      reason: 'This workspace has no settings repository: no plan repository is named.',
+      reason: NO_SETTINGS,
       pages: [],
     });
+  });
+
+  it('reads the pages from the chosen settings repository, whatever the plan repository is (PRD 2543)', async () => {
+    const read: string[] = [];
+    const github: SettingsGithub = {
+      installationFor: () => Promise.resolve(77),
+      head: (_installation, repository) => { read.push(repository); return Promise.resolve(COMMIT); },
+      file: (_installation, repository, _commit, path) => { read.push(repository); return Promise.resolve(path === `${SETTINGS}/playbook/review.md` ? 'chosen review' : null); },
+    };
+    const chosen = { ...ACME, settingsRepository: 'acme/playbook' };
+    const view = await omniSettingsPagesService({ workspaceById: () => Promise.resolve(chosen), isOwner: () => Promise.resolve(true) }, github, () => KIT).pages('w-acme');
+    expect(view?.repository).toBe('acme/playbook');
+    expect(view?.pages[0]).toEqual({ form: 'review', text: 'chosen review', source: 'settings' });
+    expect(new Set(read)).toEqual(new Set(['acme/playbook']));
   });
 
   it('lists no page when the Omni app is not installed there', async () => {

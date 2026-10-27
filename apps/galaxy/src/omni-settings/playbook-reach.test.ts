@@ -13,7 +13,7 @@ import { PLAYBOOK_PATH, PlaybookScreen } from './PlaybookScreen';
 // (not installed there, or the repository not readable) is named, never shown as "No settings
 // repository yet", which is for a workspace naming none.
 
-const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan' };
+const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null };
 const KIT: SettingsFile[] = [{ form: 'review', text: 'kit review' }];
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 
