@@ -14,12 +14,13 @@ export type OmniSettingsDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 type RpcAnswer = { data: unknown; error: { message: string } | null };
 
 const Listing = z.object({ workspace_id: z.string() });
-const WORKSPACE_COLUMNS = 'id, github_org, github_installation_id, plan_repo';
+const WORKSPACE_COLUMNS = 'id, github_org, github_installation_id, plan_repo, settings_repository';
 const StoredWorkspace = z.object({
   id: z.string(),
   github_org: z.string().nullable(),
   github_installation_id: z.union([z.number(), z.string()]).nullable(),
   plan_repo: z.string().nullable(),
+  settings_repository: z.string().nullable(),
 });
 
 /** A workspace the caller reads, as the settings read needs it. */
@@ -28,6 +29,8 @@ export type SettingsWorkspace = {
   githubOrg: string | null;
   installation: number | null;
   planRepo: string | null;
+  /** The settings repository the owner chose (PRD 2543), owner/name in lower case, or null while none is. */
+  settingsRepository: string | null;
 };
 
 async function workspacesOf(db: OmniSettingsDb, ids: string[], what: string): Promise<SettingsWorkspace[]> {
@@ -38,6 +41,7 @@ async function workspacesOf(db: OmniSettingsDb, ids: string[], what: string): Pr
     githubOrg: row.github_org,
     installation: row.github_installation_id === null ? null : Number(row.github_installation_id),
     planRepo: row.plan_repo,
+    settingsRepository: row.settings_repository,
   }));
 }
 

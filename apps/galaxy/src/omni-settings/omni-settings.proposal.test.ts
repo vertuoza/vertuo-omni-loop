@@ -13,7 +13,7 @@ import {
 // reach it, and a page that already reads so open nothing. Nothing is stored anywhere but GitHub.
 
 const NOW = Date.parse('2026-10-23T12:34:56Z');
-const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan' };
+const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null };
 /** A page of `form` as the forms' parser reads one. */
 const page = (form: string, body: string) =>
   `---\nform: ${form}\nform-version: 1\nstate: filled\npoints-to: null\nevidence: []\ninvaded: null\nowner: null\n---\n\n${body}`;
@@ -48,6 +48,12 @@ describe('proposing a playbook page', () => {
     expect(proposed).toHaveLength(1);
     expect(proposed[0]).toMatchObject({ installation: 77, repository: 'acme/plan' });
     expect(proposed[0]?.change).toMatchObject({ path: '.omni-loop/settings/playbook/review.md', text: REVIEW, branch: 'omni-settings/review-20261023-123456' });
+  });
+
+  it('opens the pull request in the chosen settings repository, whatever the plan repository is (PRD 2543)', async () => {
+    const { answer, proposed } = propose({ workspace: { ...ACME, settingsRepository: 'acme/playbook' } });
+    expect(await answer).toMatchObject({ ok: true, repository: 'acme/playbook' });
+    expect(proposed.map((one) => one.repository)).toEqual(['acme/playbook']);
   });
 
   it('writes the decisions page beside the decision records', async () => {

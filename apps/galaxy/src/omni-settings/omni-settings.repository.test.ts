@@ -47,11 +47,24 @@ describe('omniSettingsRepository.workspacesListing', () => {
   it('reads the live listings, then the workspaces they name', async () => {
     const { db, calls } = fakeDb({
       repositories: { data: [{ workspace_id: 'w1' }], error: null },
-      workspaces: { data: [{ id: 'w1', github_org: 'acme', github_installation_id: '77', plan_repo: 'plan' }], error: null },
+      workspaces: { data: [{ id: 'w1', github_org: 'acme', github_installation_id: '77', plan_repo: 'plan', settings_repository: null }], error: null },
     });
-    expect(await omniSettingsRepository(db).workspacesListing('acme/app')).toEqual([{ id: 'w1', githubOrg: 'acme', installation: 77, planRepo: 'plan' }]);
+    expect(await omniSettingsRepository(db).workspacesListing('acme/app')).toEqual([{ id: 'w1', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null }]);
     expect(calls).toContain('repositories is removed_at null');
     expect(calls).toContain('workspaces in id w1');
+  });
+
+  it('selects the chosen settings repository beside the plan repository (PRD 2543)', async () => {
+    const { db, calls } = fakeDb({
+      workspaces: { data: [{ id: 'w1', github_org: 'acme', github_installation_id: 77, plan_repo: 'plan', settings_repository: 'acme/playbook' }], error: null },
+    });
+    expect(await omniSettingsRepository(db).workspaceById('w1')).toEqual({ id: 'w1', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: 'acme/playbook' });
+    expect(calls).toContain('workspaces select id, github_org, github_installation_id, plan_repo, settings_repository');
+  });
+
+  it('refuses a workspace row without the settings repository column', async () => {
+    const { db } = fakeDb({ workspaces: { data: [{ id: 'w1', github_org: 'acme', github_installation_id: 77, plan_repo: 'plan' }], error: null } });
+    await expect(omniSettingsRepository(db).workspaceById('w1')).rejects.toThrow();
   });
 
   it('answers none when no workspace lists it, and throws when a read fails', async () => {
