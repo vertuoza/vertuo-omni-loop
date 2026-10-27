@@ -9,8 +9,10 @@ import { omniSettingsPagesService, playbookPages, type SettingsGithub } from './
 // page lists the kit's first default; a workspace the caller cannot read is null.
 
 const COMMIT = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
-const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan' };
+const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null };
+const LISTED = ['acme/app', 'acme/plan', 'acme/playbook'];
 const SETTINGS = '.omni-loop/settings';
+const NO_SETTINGS = 'This workspace has no settings repository: none is chosen and no plan repository is named.';
 const KIT: SettingsFile[] = [
   { form: 'review', text: 'kit review' },
   { form: 'definition-of-done', text: 'kit done' },
@@ -24,7 +26,8 @@ function service({ workspace = ACME, files = {}, installation = 77 }: World = {}
     head: () => Promise.resolve(COMMIT),
     file: (_installation, _repository, _commit, path) => Promise.resolve(files[path] ?? null),
   };
-  return omniSettingsPagesService({ workspaceById: () => Promise.resolve(workspace), isOwner: (id) => Promise.resolve(id === 'w-acme') }, github, () => KIT);
+  const store = { workspaceById: () => Promise.resolve(workspace), isOwner: (id: string) => Promise.resolve(id === 'w-acme'), listedRepositories: () => Promise.resolve(LISTED) };
+  return omniSettingsPagesService(store, github, () => KIT);
 }
 
 describe('the playbook pages of a workspace', () => {
@@ -38,6 +41,7 @@ describe('the playbook pages of a workspace', () => {
         { form: 'review', text: 'own review', source: 'settings' },
         { form: 'definition-of-done', text: 'kit done', source: 'kit' },
       ],
+      choice: { chosen: null, plan: 'acme/plan', listed: LISTED },
     });
   });
 
@@ -57,9 +61,25 @@ describe('the playbook pages of a workspace', () => {
     expect(view).toEqual({
       repository: null,
       commit: null,
-      reason: 'This workspace has no settings repository: no plan repository is named.',
+      reason: NO_SETTINGS,
       pages: [],
+      choice: { chosen: null, plan: null, listed: LISTED },
     });
+  });
+
+  it('reads the pages from the chosen settings repository, whatever the plan repository is (PRD 2543)', async () => {
+    const read: string[] = [];
+    const github: SettingsGithub = {
+      installationFor: () => Promise.resolve(77),
+      head: (_installation, repository) => { read.push(repository); return Promise.resolve(COMMIT); },
+      file: (_installation, repository, _commit, path) => { read.push(repository); return Promise.resolve(path === `${SETTINGS}/playbook/review.md` ? 'chosen review' : null); },
+    };
+    const chosen = { ...ACME, settingsRepository: 'acme/playbook' };
+    const view = await omniSettingsPagesService({ workspaceById: () => Promise.resolve(chosen), isOwner: () => Promise.resolve(true), listedRepositories: () => Promise.resolve(LISTED) }, github, () => KIT).pages('w-acme');
+    expect(view?.repository).toBe('acme/playbook');
+    expect(view?.pages[0]).toEqual({ form: 'review', text: 'chosen review', source: 'settings' });
+    expect(new Set(read)).toEqual(new Set(['acme/playbook']));
+    expect(view?.choice).toEqual({ chosen: 'acme/playbook', plan: 'acme/plan', listed: LISTED });
   });
 
   it('lists no page when the Omni app is not installed there', async () => {

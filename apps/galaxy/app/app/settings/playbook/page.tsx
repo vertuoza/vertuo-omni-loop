@@ -13,7 +13,8 @@ import { PlaybookScreen, playbookScreenOf, type PlaybookScreenView } from '../..
 // /api/omni-settings/proposal); nothing is stored here. Rendered per request, as the signed-in person,
 // so row-level security decides which workspace is read; the repository's files are read as the Omni
 // app, server side only. In development (or OMNI_LOOP_DEMO=1), the demo, seen as an owner: one page of
-// the settings repository's own and one still on the kit's first default, whose edit opens nothing.
+// the settings repository's own and one still on the kit's first default, whose edit opens nothing, and
+// the Settings repository line starting in "Plan repository by default" (PRD 2543 s3), kept in memory.
 
 export const metadata: Metadata = { title: 'Playbook · OMNI LOOP' };
 
@@ -23,6 +24,8 @@ const DEMO: PlaybookScreenView = {
   repository: 'acme/plans',
   commit: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4',
   reason: null,
+  // As an owner who has not chosen yet: the plan repository is the default, and Keep it stores it in memory.
+  choice: { chosen: null, plan: 'acme/plans', listed: ['acme/app', 'acme/plans', 'acme/playbook'] },
   pages: [
     {
       form: 'review', source: 'settings',

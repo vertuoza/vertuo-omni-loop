@@ -4449,6 +4449,7 @@ export type Database = {
           id: string
           name: string
           plan_repo: string | null
+          settings_repository: string | null
           slug: string
           theme: Json
         }
@@ -4461,6 +4462,7 @@ export type Database = {
           id?: string
           name: string
           plan_repo?: string | null
+          settings_repository?: string | null
           slug: string
           theme?: Json
         }
@@ -4473,6 +4475,7 @@ export type Database = {
           id?: string
           name?: string
           plan_repo?: string | null
+          settings_repository?: string | null
           slug?: string
           theme?: Json
         }
@@ -7223,6 +7226,28 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_workspace_settings_repository: {
+        Args: { p_full_name: string; p_workspace: string }
+        Returns: {
+          created_at: string
+          game_since: string
+          github_account_type: string | null
+          github_installation_id: number | null
+          github_org: string | null
+          id: string
+          name: string
+          plan_repo: string | null
+          settings_repository: string | null
+          slug: string
+          theme: Json
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workspaces"
           isOneToOne: true
           isSetofReturn: false
         }
