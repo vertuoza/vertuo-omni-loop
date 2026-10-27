@@ -113,7 +113,7 @@ describe('POST /api/omni-settings/proposal', () => {
       return { status: res.status, body: (await res.json()) as unknown };
     };
     expect(await words({ workspace: { ...ACME, planRepo: null } })).toEqual({
-      status: 409, body: { error: 'This workspace has no settings repository: name a plan repository for it first.' },
+      status: 409, body: { error: 'This workspace has no settings repository: choose one on Settings › Playbook first.' },
     });
     expect(await words({ installation: null })).toEqual({
       status: 409, body: { error: 'The Omni app is not installed where acme/plan lives: install the Omni App: https://github.com/apps/omni' },

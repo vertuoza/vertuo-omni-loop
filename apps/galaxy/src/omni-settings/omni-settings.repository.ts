@@ -11,9 +11,16 @@ import { orThrow, parseRows } from '../data/parse-rows';
 export type OmniSettingsDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 /** What a database function answers, before it is read. */
-type RpcAnswer = { data: unknown; error: { message: string } | null };
+type RpcAnswer = { data: unknown; error: { message: string; code?: string } | null };
+
+const StoredChoice = z.object({ settings_repository: z.string().nullable() });
+
+/** What choosing the settings repository came to: the repository now stored (null once cleared), or why
+ * the database refused it (PRD 2543, s3): `not-owner` is 42501, `not-listed` is P0002. */
+export type SettingsChoice = { ok: true; repository: string | null } | { ok: false; kind: 'not-owner' | 'not-listed' };
 
 const Listing = z.object({ workspace_id: z.string() });
+const ListedName = z.object({ full_name: z.string() });
 const WORKSPACE_COLUMNS = 'id, github_org, github_installation_id, plan_repo, settings_repository';
 const StoredWorkspace = z.object({
   id: z.string(),
@@ -59,6 +66,28 @@ export function omniSettingsRepository(db: OmniSettingsDb) {
     /** The workspace `id` when the caller reads it, else null (PRD 2417, s6: the page's own read). */
     async workspaceById(id: string): Promise<SettingsWorkspace | null> {
       return (await workspacesOf(db, [id], `the workspace ${id}`))[0] ?? null;
+    },
+
+    /** The repositories the workspace lists and has not removed (full names), in Settings › Repositories'
+     * order (PRD 2543, s3): the ones its owner may choose from. */
+    async listedRepositories(workspace: string): Promise<string[]> {
+      const listed = await db.from('repositories').select('full_name').eq('workspace_id', workspace).is('removed_at', null);
+      if (listed.error) throw new Error(`read the repositories of ${workspace}: ${listed.error.message}`);
+      return orThrow(parseRows(ListedName, listed.data, 'omni-settings: repositories'))
+        .map((row) => row.full_name)
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase(), 'en'));
+    },
+
+    /** Stores `fullName` as the workspace's settings repository, null to clear it, as the signed-in caller
+     * (PRD 2543, s3): the database's own owner-only function decides who may, and which repository. */
+    async chooseSettingsRepository(workspace: string, fullName: string | null): Promise<SettingsChoice> {
+      const answer: RpcAnswer = await db.rpc('set_workspace_settings_repository', { p_workspace: workspace, p_full_name: fullName });
+      if (answer.error?.code === '42501') return { ok: false, kind: 'not-owner' };
+      if (answer.error?.code === 'P0002') return { ok: false, kind: 'not-listed' };
+      if (answer.error) throw new Error(`choose the settings repository of ${workspace}: ${answer.error.message}`);
+      const stored = StoredChoice.safeParse(answer.data);
+      if (!stored.success) throw new Error(`choose the settings repository of ${workspace}: the answer did not read`);
+      return { ok: true, repository: stored.data.settings_repository };
     },
 
     /** Whether the caller owns the workspace `id` (PRD 2417, s7: only an owner proposes a change). */

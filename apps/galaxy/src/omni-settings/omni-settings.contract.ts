@@ -13,7 +13,18 @@ export type PlaybookPage = { form: string; text: string; source: 'settings' | 'k
 /** The tech playbook of a workspace's settings repository, page by page: the repository the workspace
  * names (null with none, set even when the Omni app could not read it: issue 2538), the commit read
  * (null when none was), and why no page is listed when the reason is not null. */
-export type PlaybookPagesView = { repository: string | null; commit: string | null; reason: string | null; pages: PlaybookPage[] };
+export type PlaybookPagesView = {
+  repository: string | null;
+  commit: string | null;
+  reason: string | null;
+  pages: PlaybookPage[];
+  choice: RepositoryChoice;
+};
+
+/** Where the settings repository stands for a workspace (PRD 2543): the one its owner chose (owner/name,
+ * lower case, null while none is), its plan repository as owner/name (null when none is named), and the
+ * repositories it lists, in Settings › Repositories' order: the only ones the owner may choose from. */
+export type RepositoryChoice = { chosen: string | null; plan: string | null; listed: string[] };
 
 // A workspace owner's change to a page (PRD 2417, s7): what the page sends, and what the route answers.
 // Nothing here is stored: the text goes into a pull request in the settings repository, and only the
@@ -39,3 +50,21 @@ export const PlaybookProposedSchema = z.strictObject({
   pullRequest: z.strictObject({ number: PrNumberSchema, url: z.url() }),
 });
 export type PlaybookProposed = z.infer<typeof PlaybookProposedSchema>;
+
+// An owner's choice of the settings repository (PRD 2543, s3): what the page sends, and what the route
+// answers. The choice is stored by the database's own owner-only function; nothing else is kept here.
+
+/** Where the page sends a choice. */
+export const SETTINGS_REPOSITORY_ROUTE = '/api/omni-settings/settings-repository';
+
+const REPOSITORY_NAME = /^[\w.-]+\/[\w.-]+$/;
+
+/** A choice the page sends: the workspace and the repository's full name, null to clear the choice. */
+export const SettingsRepositoryChoiceSchema = z.strictObject({
+  workspace: z.string().min(1).max(64),
+  repository: z.string().max(200).regex(REPOSITORY_NAME).nullable(),
+});
+export type SettingsRepositoryChoice = z.infer<typeof SettingsRepositoryChoiceSchema>;
+
+/** The route's answer to a choice: the repository now stored, or null once the choice is cleared. */
+export const SettingsRepositoryChosenSchema = z.strictObject({ repository: z.string().regex(REPOSITORY_NAME).nullable() });

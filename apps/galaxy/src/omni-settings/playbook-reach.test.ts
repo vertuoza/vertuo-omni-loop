@@ -25,7 +25,7 @@ function pagesOf(installation: number | null) {
     head: () => Promise.resolve(null),
     file: () => Promise.resolve(null),
   };
-  return omniSettingsPagesService({ workspaceById: () => Promise.resolve(ACME), isOwner: () => Promise.resolve(true) }, github, () => KIT).pages('w-acme');
+  return omniSettingsPagesService({ workspaceById: () => Promise.resolve(ACME), isOwner: () => Promise.resolve(true), listedRepositories: () => Promise.resolve(['acme/plan']) }, github, () => KIT).pages('w-acme');
 }
 
 async function screenOf(installation: number | null): Promise<string> {
@@ -47,7 +47,7 @@ describe('reaching Settings › Playbook (issue 2538)', () => {
 describe('a settings repository the Omni app cannot read (issue 2538)', () => {
   it('is named, and says the Omni app cannot read it, not that the workspace has none', async () => {
     const view = await pagesOf(77);
-    expect(view).toEqual({ repository: 'acme/plan', commit: null, reason: 'The Omni app cannot read acme/plan.', pages: [] });
+    expect(view).toEqual({ repository: 'acme/plan', commit: null, reason: 'The Omni app cannot read acme/plan.', pages: [], choice: { chosen: null, plan: 'acme/plan', listed: ['acme/plan'] } });
     const shown = await screenOf(77);
     expect(shown).toContain('The Omni app cannot read acme/plan.');
     expect(shown).not.toContain('No settings repository yet');

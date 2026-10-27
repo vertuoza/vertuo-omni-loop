@@ -58,3 +58,29 @@
 }
 .omni-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .omni-settings-opened a { overflow-wrap: anywhere; }
+
+/* The Settings repository line in the head card (PRD 2543, s3): the repository named, or the badge of the
+   plan repository used by default, then its buttons; the picker is a label, a select and its buttons. The
+   select takes the card's width, up to the 900 px every form field of the app pages keeps. */
+.omni-settings-line { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.omni-settings-line p { margin: 0; overflow-wrap: anywhere; }
+.omni-settings-badge {
+  padding: 2px 10px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--ask-muted);
+}
+.omni-settings-picker { justify-items: stretch; }
+.omni-settings-picker label { font-weight: 700; color: var(--ask-ink); }
+.omni-settings-select {
+  width: 100%;
+  max-width: 900px;
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 10px;
+}

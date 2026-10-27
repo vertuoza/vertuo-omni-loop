@@ -1,7 +1,10 @@
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
-import { MAX_PAGE_CHARS, PlaybookEditSchema, PlaybookProposedSchema, SettingsPlaybookSchema, type PlaybookEdit } from './omni-settings.contract';
-import type { OmniSettingsEditService, OmniSettingsService, Proposal } from './omni-settings.service';
+import {
+  MAX_PAGE_CHARS, PlaybookEditSchema, PlaybookProposedSchema, SettingsPlaybookSchema, SettingsRepositoryChoiceSchema, SettingsRepositoryChosenSchema,
+  type PlaybookEdit, type SettingsRepositoryChoice,
+} from './omni-settings.contract';
+import type { OmniSettingsChoiceService, OmniSettingsEditService, OmniSettingsService, Proposal } from './omni-settings.service';
 
 // The Omni settings HTTP edge for the kit (PRD 2417, s3; ADR-0095), as a plain function of a Request,
 // so it is tested with a fake GitHub behind the real service and the route stays one line:
@@ -106,7 +109,7 @@ function refusalOf(proposal: Exclude<Proposal, { ok: true }>, form: string, inst
     case 'not-a-page':
       return refuse(422, `This text is not a ${form} page the kit reads: ${proposal.reason}.`);
     case 'no-settings-repository':
-      return refuse(409, 'This workspace has no settings repository: name a plan repository for it first.');
+      return refuse(409, 'This workspace has no settings repository: choose one on Settings › Playbook first.');
     case 'not-installed':
       return refuse(409, withInstallLink(`The Omni app is not installed where ${proposal.repository} lives: install the Omni App`, installLink));
     case 'unreachable':
@@ -132,4 +135,58 @@ export async function proposePlaybookPage(request: Request, deps: PlaybookPropos
   }
   if (!proposal.ok) return refusalOf(proposal, edit.form, deps.installLink);
   return reply(200, PlaybookProposedSchema.parse({ repository: proposal.repository, pullRequest: proposal.pullRequest }));
+}
+
+// An owner's choice of the settings repository (PRD 2543, s3), from Settings → Playbook:
+//
+//   POST /api/omni-settings/settings-repository {workspace, repository}   → 200 {repository}
+//
+// `repository` is a full name, or null to clear the choice. The page calls it with the signed-in person's
+// own session (their cookie), never a service key: the database's owner-only function decides who may and
+// which repository (one the workspace lists). Refusals follow ADR-0029, each `{error}` in plain words:
+// 400 a malformed body, 401 signed out, 403 a caller who does not own the workspace, 404 a repository the
+// workspace no longer lists, 502 the save failed, 503 no database here.
+
+export type SettingsRepositoryDeps = {
+  /** The caller's own session; null when nobody is signed in. Null itself: this deployment has no database. */
+  session: (() => Promise<{ service: OmniSettingsChoiceService } | null>) | null;
+  log: (line: string) => void;
+};
+
+const NO_CHOICE_DATABASE = 'Choosing the settings repository is not available here: this deployment has no database.';
+const BAD_CHOICE = 'Send {"workspace", "repository"}: the workspace and the repository\'s full name, or null to clear the choice.';
+/** The most bytes a choice's body may hold. */
+const MAX_CHOICE_BYTES = 2048;
+const ONLY_OWNER_CHOOSES = 'Only the workspace’s owner can change it.';
+const NO_LONGER_LISTED = 'That repository is no longer in this workspace. Reload the page.';
+const NOT_CHOSEN = 'The settings repository could not be saved. Try again in a moment.';
+
+/** The choice a POST carries, or null when it is not one. */
+async function choiceOf(request: Request): Promise<SettingsRepositoryChoice | null> {
+  const text = await request.text().catch(() => '');
+  if (text === '' || new TextEncoder().encode(text).length > MAX_CHOICE_BYTES) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const parsed = SettingsRepositoryChoiceSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export async function chooseSettingsRepository(request: Request, deps: SettingsRepositoryDeps): Promise<Response> {
+  if (!deps.session) return refuse(503, NO_CHOICE_DATABASE);
+  const caller = await deps.session();
+  if (!caller) return refuse(401, 'Sign in first to choose the settings repository.');
+  const choice = await choiceOf(request);
+  if (choice === null) return refuse(400, BAD_CHOICE);
+  try {
+    const chosen = await caller.service.choose(choice.workspace, choice.repository);
+    if (chosen.ok) return reply(200, SettingsRepositoryChosenSchema.parse({ repository: chosen.repository }));
+    return chosen.kind === 'not-owner' ? refuse(403, ONLY_OWNER_CHOOSES) : refuse(404, NO_LONGER_LISTED);
+  } catch (error) {
+    deps.log(`omni settings: ${error instanceof Error ? error.message : String(error)}`);
+    return refuse(502, NOT_CHOSEN);
+  }
 }

@@ -9,7 +9,7 @@ import type { OmniSettingsPagesService } from './omni-settings.service';
 // person in no workspace, a workspace they cannot read and a read that fails each have a name.
 
 const USER: Pick<User, 'id'> = { id: 'u-ada' };
-const VIEW: PlaybookPagesView = { repository: 'acme/plan', commit: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4', reason: null, pages: [{ form: 'review', text: 'x', source: 'kit' }] };
+const VIEW: PlaybookPagesView = { repository: 'acme/plan', commit: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4', reason: null, pages: [{ form: 'review', text: 'x', source: 'kit' }], choice: { chosen: null, plan: 'acme/plan', listed: ['acme/plan'] } };
 
 /** A client whose membership read answers `rows` (or fails with `error`). */
 function dbOf(rows: unknown[], error: string | null = null): SupabaseClient<Database> {
