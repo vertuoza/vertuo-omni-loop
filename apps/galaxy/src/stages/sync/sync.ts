@@ -8,7 +8,8 @@
 // (issue 642), so the 15-minute run does not spend the App's hourly GitHub budget. A workspace's
 // repositories are read four at a time and answered in their order, so the run fits the route's 300 s
 // (#2529); each step that takes 30 s or more is logged with how long it took, so a run cut off at 300 s
-// still says what was slow. A repository that
+// still says what was slow. A repository's stale snapshots are refreshed three at a time, and none is started
+// once the run has taken 200 s: those wait for the next run. A repository that
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
@@ -182,6 +183,12 @@ async function timed<T>(deps: SyncDeps, what: string, step: () => Promise<T>): P
   }
 }
 
+/** How many of a repository's stale snapshots are refreshed at once (#2529). */
+const SNAPSHOT_REFRESHES = 3;
+/** Once a run has taken this long, it starts no snapshot refresh: those wait 15 minutes for the next run, and
+ * the run ends well before the route's 300 s (#2529). */
+const SNAPSHOT_BUDGET_MS = 200_000;
+
 /** `each` of the items, at most `limit` at a time; what each gave, in the items' order. */
 async function inTurns<T, R>(items: readonly T[], limit: number, each: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = [];
@@ -193,9 +200,12 @@ async function inTurns<T, R>(items: readonly T[], limit: number, each: (item: T)
   return results;
 }
 
-/** Marks stale the repository's PRDs that changed, then refreshes each of its stale snapshots, one at a
- * time; logs, never throws. */
-async function refreshSnapshots(deps: SyncDeps, workspace: SyncWorkspace, repository: string, changed: readonly PrdNumber[], syncedAt: string): Promise<void> {
+/** Marks stale the repository's PRDs that changed, then refreshes its stale snapshots, SNAPSHOT_REFRESHES at a
+ * time, starting none once the run is `overdue`: those stay stale for the next run, and one line says how many
+ * (#2529). Logs, never throws. */
+async function refreshSnapshots(
+  deps: SyncDeps, workspace: SyncWorkspace, repository: string, changed: readonly PrdNumber[], syncedAt: string, overdue: () => boolean,
+): Promise<void> {
   const snapshots = deps.snapshots;
   if (!snapshots) return;
   if (changed.length > 0) {
@@ -212,13 +222,19 @@ async function refreshSnapshots(deps: SyncDeps, workspace: SyncWorkspace, reposi
     deps.log(`stages sync: the stale snapshots of ${repository} cannot be listed — ${why(error)}`);
     return;
   }
-  for (const dossier of stale) {
+  let left = 0;
+  await inTurns(stale, SNAPSHOT_REFRESHES, async (dossier) => {
+    if (overdue()) {
+      left += 1;
+      return;
+    }
     try {
       await snapshots.refresh(workspace, dossier);
     } catch (error) {
       deps.log(`stages sync: the snapshot of ${repository}#${dossier.prd} was not refreshed — ${why(error)}`);
     }
-  }
+  });
+  if (left > 0) deps.log(`stages sync: ${String(left)} stale snapshots of ${repository} wait for the next run`);
 }
 
 /** When the repository's milestones were last recorded; `stages` (its stages' last sync) without a milestone
@@ -327,7 +343,9 @@ async function recordRepoWaits(
 }
 
 /** Reads and records one repository; its counts, or throws with why it was skipped. */
-async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string, lanes: TargetLanes): Promise<SyncedRepo> {
+async function syncRepo(
+  deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string, lanes: TargetLanes, overdue: () => boolean,
+): Promise<SyncedRepo> {
   const since = await sinceOf(deps, workspace, repository);
   const snapshot = await timed(deps, `the snapshot of ${repository}`, () => deps.snapshot(workspace, repository, since));
   const serverBorn = await serverBornOf(deps, workspace, repository);
@@ -345,7 +363,7 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
       deps.log(`stages sync: the topic ${topic.topic} of ${repository}#${topic.prd} was not recorded — ${why(error)}`);
     }
   }
-  await timed(deps, `the stale snapshots of ${repository}`, () => refreshSnapshots(deps, workspace, repository, changedPrds(snapshot), syncedAt));
+  await timed(deps, `the stale snapshots of ${repository}`, () => refreshSnapshots(deps, workspace, repository, changedPrds(snapshot), syncedAt, overdue));
   if (deps.outbox) {
     const prds = [...new Set([...stages, ...topics].map((s) => s.prd))].sort((a, b) => a - b).map((prd) => ({ repository, prd }));
     try {
@@ -439,6 +457,8 @@ type SyncRun = { answer: Response; repos?: number };
 async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
   if (!bearerMatches(request, deps.secret)) return { answer: json(401, { error: 'A valid bearer secret is required.' }) };
   const syncedAt = deps.now();
+  const sinceStart = deps.timer?.();
+  const overdue = () => sinceStart !== undefined && sinceStart() >= SNAPSHOT_BUDGET_MS;
   let workspaces: SyncWorkspace[];
   try {
     workspaces = await deps.workspaces();
@@ -464,7 +484,7 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
     const lanes: TargetLanes = { held: new Set(), claimed: [] };
     const read = await inTurns(repositories, REPO_READS, async (repository): Promise<SyncedRepo | SkippedRepo> => {
       try {
-        return await timed(deps, repository, () => syncRepo(deps, workspace, repository, syncedAt, lanes));
+        return await timed(deps, repository, () => syncRepo(deps, workspace, repository, syncedAt, lanes, overdue));
       } catch (error) {
         deps.log(`stages sync: ${repository} of ${workspace.slug} is skipped — ${why(error)}`);
         return { workspace: workspace.slug, repository: repository.toLowerCase(), reason: why(error) };
