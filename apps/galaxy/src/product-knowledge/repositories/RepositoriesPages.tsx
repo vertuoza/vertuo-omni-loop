@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { repositoriesTabHref } from '../../product-repositories/repositories-tab.contract';
 import { Section } from '../KnowledgeLists';
 import { dayOf } from '../knowledge-sections';
+import { writeForRepositoryHref } from './write-for-repository';
 import {
   LEDE, LEVEL_LABELS, NO_REPOSITORY, noPackLine, ownersLine, shortSha,
   type RepositoriesData, type RepositoryKnowledge, type ShownPage, type ShownRecord,
@@ -22,13 +23,18 @@ function ReadFrom({ from, file }: { from: string | null; file: string | null }) 
 
 const LevelMark = ({ level }: { level: ShownPage['level'] }) => <span className="kn-level" data-level={level}>{LEVEL_LABELS[level]}</span>;
 
-function PageRow({ page }: { page: ShownPage }) {
+function PageRow({ page, repository }: { page: ShownPage; repository: string }) {
   return (
     <tr data-page={page.form}>
       <td><code>{page.form}</code>{page.title === null ? null : <> <span className="ask-muted">{page.title}</span></>}</td>
       <td><LevelMark level={page.level} /></td>
       <ReadFrom from={page.from} file={page.file} />
       <td>{ownersLine(page.owners)}</td>
+      <td>
+        {page.level === 'repo' ? '—' : (
+          <a className="kn-write" href={writeForRepositoryHref(repository, page.form)} target="_blank" rel="noreferrer">Write it for this repository</a>
+        )}
+      </td>
     </tr>
   );
 }
@@ -57,8 +63,8 @@ function Pack({ knowledge }: { knowledge: Extract<RepositoryKnowledge, { pack: o
       <h4>Playbook</h4>
       <div className="kn-scroll">
         <table className="kn-table">
-          <Head columns={['Page', 'Level', 'Read from', 'Owner']} />
-          <tbody>{pages.map((page) => <PageRow key={page.form} page={page} />)}</tbody>
+          <Head columns={['Page', 'Level', 'Read from', 'Owner', 'Write']} />
+          <tbody>{pages.map((page) => <PageRow key={page.form} page={page} repository={knowledge.repository} />)}</tbody>
         </table>
       </div>
       <h4>Decision records</h4>

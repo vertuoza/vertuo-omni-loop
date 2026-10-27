@@ -42,12 +42,28 @@ describe('the Repositories section', () => {
 
   it('marks each playbook page with its level, where it is read from and its owner', () => {
     const api = card('widgets/api');
-    expect(text(row(api, 'data-page', 'testing'))).toBe('testing Testing Repository widgets/api .omni-loop/knowledge/playbook/testing.md @anna');
+    expect(text(row(api, 'data-page', 'testing'))).toBe('testing Testing Repository widgets/api .omni-loop/knowledge/playbook/testing.md @anna —');
     expect(text(row(api, 'data-page', 'setup'))).toContain('Repository widgets/api .omni-loop/knowledge/playbook/setup.md @dev');
-    expect(text(row(api, 'data-page', 'ci'))).toBe('ci CI Plan repository widgets/plan .omni-loop/knowledge/playbook/ci.md @pat');
-    expect(text(row(api, 'data-page', 'review'))).toBe('review Review Omni settings widgets/plan .omni-loop/settings/playbook/review.md @pat');
-    expect(text(row(api, 'data-page', 'releasing'))).toBe('releasing Kit default — @anna');
+    expect(text(row(api, 'data-page', 'ci'))).toBe('ci CI Plan repository widgets/plan .omni-loop/knowledge/playbook/ci.md @pat Write it for this repository');
+    expect(text(row(api, 'data-page', 'review'))).toBe('review Review Omni settings widgets/plan .omni-loop/settings/playbook/review.md @pat Write it for this repository');
+    expect(text(row(api, 'data-page', 'releasing'))).toBe('releasing Kit default — @anna Write it for this repository');
     expect(row(api, 'data-page', 'ci')).toContain('data-level="plan repo"');
+  });
+
+  it('offers "Write it for this repository" on a page that reads a default, as a pull request link', () => {
+    const api = card('widgets/api');
+    for (const form of ['ci', 'review', 'releasing']) {
+      const href = /href="([^"]+)"/.exec(row(api, 'data-page', form))?.[1];
+      expect(href).toBe(`https://github.com/widgets/api/new/HEAD?filename=.omni-loop%2Fknowledge%2Fplaybook%2F${form}.md`);
+    }
+  });
+
+  it('offers none on a page the repository holds', () => {
+    const api = card('widgets/api');
+    for (const form of ['testing', 'setup']) {
+      expect(row(api, 'data-page', form)).not.toContain('Write it for this repository');
+      expect(row(api, 'data-page', form)).not.toContain('github.com');
+    }
   });
 
   it('marks each decision record with its level, where it is read from and its owner', () => {
