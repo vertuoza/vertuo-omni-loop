@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2543: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+  /* Ask's reading tokens, Omni theme (packages/design/src/tokens.ts › ASK.omni): the mockups only. */
+  --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170;
+  --ask-line-strong: #5a60c4; --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a;
+  --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c; --ask-cyan: #6ff0ff; --ask-red: #ff6b86;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.caption { color: var(--muted); font-size: 13px; margin: 6px 0 14px; }
+ol.journey { margin: 0; padding-left: 20px; }
+ol.journey li { margin: 2px 0; }
+
+/* The mockups: Settings › Playbook as omni-settings.css and ask.css draw it. */
+.mock { background: var(--ask-ground); color: var(--ask-ink); border-radius: 12px; padding: 12px; display: grid; gap: 10px; font: 15px/1.5 "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+.mock .tabsbar { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ask-muted); border-bottom: 1px solid var(--ask-line); padding-bottom: 6px; }
+.mock .tabsbar .on { color: var(--ask-ink); font-weight: 700; border-bottom: 2px solid var(--ask-plasma); }
+.mock .card { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 14px; display: grid; gap: 8px; justify-items: start; }
+.mock .card h5 { font-size: 20px; margin: 0; }
+.mock .card h6 { font-size: 16px; margin: 0; }
+.mock .muted { color: var(--ask-muted); margin: 0; font-size: 14px; }
+.mock a { color: var(--ask-cyan); }
+.mock code { color: var(--ask-ink); font-size: 13px; }
+.mock .btn { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 14px; border-radius: 10px; border: 0; background: var(--ask-plasma); color: var(--ask-on-plasma); }
+.mock .btn.quiet { background: transparent; color: var(--ask-ink); border: 1.5px solid var(--ask-line-strong); font-weight: 600; padding: 5px 12px; }
+.mock .link { background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: var(--ask-cyan); text-decoration: underline; }
+.mock .repo-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 14px; }
+.mock .repo-line strong { overflow-wrap: anywhere; }
+.mock .tag { padding: 2px 10px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-size: 13px; color: var(--ask-muted); }
+.mock .tag.default { color: var(--ask-ink); border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+.mock .picker { display: grid; gap: 8px; justify-items: start; width: 100%; }
+.mock .picker label { font-weight: 700; font-size: 14px; }
+.mock .select { width: 100%; max-width: 420px; padding: 7px 10px; border-radius: 10px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font-size: 14px; }
+.mock .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mock .page { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.mock .page strong { flex: 1 1 160px; }
+.mock .changed { outline: 2px dashed var(--ask-plasma); outline-offset: 3px; }
+.mock .refusal { color: var(--ask-red); font-size: 14px; font-weight: 700; margin: 0; }
+.states { display: grid; gap: 16px; }
+</style>
+</head>
+<body>
+<h1>PRD 2543: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div>
+<ol class="journey">
+<li>The playbook's pages are read from the workspace's plan repository, the same one the game, the dossiers and the points use.</li>
+<li>No page lets anyone choose it. A workspace with no plan repository reads "No settings repository yet" and is told to name a plan repository, with nothing to click.</li>
+<li>The guide gives SQL to set it, and setting it that way also moves the workspace's planets and points.</li>
+</ol>
+</div>
+<div><div class="label">After</div>
+<ol class="journey">
+<li>Settings › Playbook says, at the top, which repository the playbook is read from.</li>
+<li>While none is chosen, the plan repository is used by default, and the owner keeps it as the settings repository in one click.</li>
+<li>The owner can pick any repository the workspace lists, change it, or clear the choice to go back to the default.</li>
+<li>Members see which repository is read, with no control to change it.</li>
+<li>The game, the dossiers and the points keep reading the plan repository: choosing a settings repository moves nothing else.</li>
+</ol>
+</div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p class="caption">screens: settings-playbook · app-shell (unchanged). The Settings tabs and the page cards below are unchanged; the dashed outline marks what the PRD adds. The mockups use the Omni theme of Ask's reading tokens.</p>
+<div class="compare">
+<div><div class="label">Today · a plan repository named</div>
+<div class="mock" data-screen="settings-playbook-today">
+<div class="tabsbar"><span>Fleets</span><span>Repositories</span><span>Business</span><span>API keys</span><span>Jev</span><span class="on">Playbook</span></div>
+<section class="card">
+<h5>Playbook</h5>
+<p class="muted">How AI agents work in every repository of this workspace: the pages a repository does not write itself read the ones below.</p>
+<p class="muted">Read from <a href="#">acme/plans</a> at <code>3f2a9c1</code></p>
+</section>
+<div class="page"><strong>Review</strong><span class="tag">In your settings repository</span><button class="btn quiet" type="button" data-primary>Edit</button></div>
+<div class="page"><strong>Definition of done</strong><span class="tag">The kit’s first default</span></div>
+</div>
+<p class="caption">Nothing says that acme/plans is only borrowed from the plan repository, and nothing changes it. The word pass flags the head card's long sentence: it is today's, kept as it is.</p>
+</div>
+<div><div class="label">After · chosen, seen by the owner</div>
+<div class="mock" data-screen="settings-playbook-chosen">
+<div class="tabsbar"><span>Fleets</span><span>Repositories</span><span>Business</span><span>API keys</span><span>Jev</span><span class="on">Playbook</span></div>
+<section class="card">
+<h5>Playbook</h5>
+<p class="muted changed">The pages every repository’s agents read.</p>
+<div class="repo-line changed"><span>Settings repository: <strong>acme/playbook</strong></span><button class="link" type="button" data-primary>Change</button></div>
+<p class="muted">Read from <a href="#">acme/playbook</a> at <code>9b81c0d</code></p>
+</section>
+<div class="page"><strong>Review</strong><span class="tag">In your settings repository</span><button class="btn quiet" type="button">Edit</button></div>
+<div class="page"><strong>Definition of done</strong><span class="tag">The kit’s first default</span></div>
+</div>
+<p class="caption">A member sees the same line without Change. Change opens the picker in place of the line. The head card’s sentence is cut to six words, so it no longer explains at rest (the word pass’s finding on today).</p>
+</div>
+</div>
+
+<div class="states">
+<div class="compare">
+<div><div class="label">After · plan repository by default, seen by the owner</div>
+<div class="mock" data-screen="settings-playbook-default">
+<section class="card">
+<h5>Playbook</h5>
+<div class="repo-line changed"><span class="tag default">Using the plan repository acme/plans by default</span></div>
+<div class="row changed"><button class="btn" type="button" data-primary>Keep it as the settings repository</button><button class="link" type="button">Choose another</button></div>
+<p class="muted">Read from <a href="#">acme/plans</a> at <code>3f2a9c1</code></p>
+</section>
+</div>
+<p class="caption">One click stores acme/plans and the line reads as Chosen. A member sees the badge only. The button shows only when the plan repository is listed in Settings › Repositories.</p>
+</div>
+<div><div class="label">After · the picker, opened by Change</div>
+<div class="mock" data-screen="settings-playbook-picker">
+<section class="card">
+<h5>Playbook</h5>
+<div class="picker changed">
+<label for="pick">Settings repository</label>
+<div class="select" id="pick">acme/playbook ▾</div>
+<p class="muted">acme/playbook · acme/plans · acme/web</p>
+<div class="row"><button class="btn" type="button" data-primary>Save</button><button class="btn quiet" type="button">Cancel</button><button class="link" type="button">Clear the choice</button></div>
+<p class="refusal">Only the workspace’s owner can change it.</p>
+</div>
+</section>
+</div>
+<p class="caption">The list is the workspace's repositories, in Settings › Repositories' order. Clear the choice shows only when one is chosen, and returns to the default. The red line shows only after a refusal.</p>
+</div>
+</div>
+<div class="compare">
+<div><div class="label">Today · no plan repository</div>
+<div class="mock" data-screen="settings-playbook-none-today">
+<section class="card">
+<h5>Playbook</h5>
+</section>
+<section class="card">
+<h6>No settings repository yet</h6>
+<p class="muted">Name a plan repository for this workspace: its plain files hold the playbook every repository reads.</p>
+</section>
+</div>
+<p class="caption">It asks for a plan repository that no page can name. The word pass flags the long sentence; it is today's.</p>
+</div>
+<div><div class="label">After · no settings repository, seen by the owner</div>
+<div class="mock" data-screen="settings-playbook-none">
+<section class="card">
+<h5>Playbook</h5>
+</section>
+<section class="card changed">
+<h6>No settings repository yet</h6>
+<p class="muted">Choose the repository that holds the playbook.</p>
+<div class="picker">
+<label for="pick-none">Settings repository</label>
+<div class="select" id="pick-none">Choose a repository ▾</div>
+<div class="row"><button class="btn" type="button" data-primary>Save</button></div>
+</div>
+</section>
+</div>
+<p class="caption">A member reads the same card with "The workspace’s owner chooses it." in place of the picker.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase</h3>
+<div data-section="functional" data-state="na">
+<h4>Functional</h4>
+<p>N/A — the database keeps the owner's choice; what a person sees of it is galaxy's, above.</p>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — the database draws no screen.</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<figure class="mermaid-diagram" data-source="flowchart LR
+  owner[Owner's browser · Settings › Playbook] -- &quot;POST /api/omni-settings/settings-repository&quot; --&gt; route[galaxy server · controller, service, repository]
+  route -- &quot;rpc set_workspace_settings_repository, as the signed-in person&quot; --&gt; db[(Supabase · workspaces.settings_repository)]
+  db -- &quot;42501 not the owner · P0002 not listed&quot; --&gt; route
+  route -- &quot;200 · 403 · 404 · 400&quot; --&gt; owner
+  sync[omni sync · GET /api/omni-settings/playbook] --&gt; api[galaxy server · settingsRepositoryOf]
+  page[galaxy server · Settings › Playbook pages] --&gt; api
+  api -- &quot;reads settings_repository, else plan_repo&quot; --&gt; db
+  api -- &quot;the chosen repository, as the Omni app&quot; --&gt; gh[GitHub]
+  game[game, dossiers, points] -- &quot;plan_repo, unchanged&quot; --&gt; db"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="0 0 1334.125 439" style="max-width: 1334.125px;" class="flowchart" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#mermaid-0 .cluster-label text{fill:#333;}#mermaid-0 .cluster-label span{color:#333;}#mermaid-0 .cluster-label span p{background-color:transparent;}#mermaid-0 .label text,#mermaid-0 span{fill:#333;color:#333;}#mermaid-0 .node rect,#mermaid-0 .node circle,#mermaid-0 .node ellipse,#mermaid-0 .node polygon,#mermaid-0 .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#mermaid-0 .rough-node .label text,#mermaid-0 .node .label text,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-anchor:middle;}#mermaid-0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-0 .rough-node .label,#mermaid-0 .node .label,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-align:center;}#mermaid-0 .node.clickable{cursor:pointer;}#mermaid-0 .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#mermaid-0 .arrowheadPath{fill:#333333;}#mermaid-0 .edgePath .path{stroke:#333333;stroke-width:2.0px;}#mermaid-0 .flowchart-link{stroke:#333333;fill:none;}#mermaid-0 .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#mermaid-0 .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#mermaid-0 .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#mermaid-0 .cluster text{fill:#333;}#mermaid-0 .cluster span{color:#333;}#mermaid-0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-0 rect.text{fill:none;stroke-width:0;}#mermaid-0 .icon-shape,#mermaid-0 .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .icon-shape p,#mermaid-0 .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#mermaid-0 .icon-shape rect,#mermaid-0 .image-shape rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_owner_route_0" d="M268,69.725L288.833,67.438C309.667,65.15,351.333,60.575,392.337,60.502C433.341,60.43,473.683,64.859,493.853,67.074L514.024,69.289"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_route_db_1" d="M778,65.72L803.743,62.1C829.487,58.48,880.974,51.24,931.883,62.048C982.791,72.857,1033.121,101.714,1058.287,116.142L1083.452,130.571"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_db_route_2" d="M1086.922,151.053L1061.178,146.544C1035.435,142.035,983.948,133.018,933.121,124.982C882.294,116.946,832.128,109.891,807.044,106.364L781.961,102.837"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_route_owner_3" d="M518,113.569L497.167,118.307C476.333,123.046,434.667,132.523,393.65,132.671C352.633,132.819,312.267,123.637,292.084,119.046L271.9,114.456"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_sync_api_4" d="M268,222L288.833,222C309.667,222,351.333,222,392.35,226.591C433.367,231.181,473.733,240.363,493.916,244.954L514.1,249.544"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_page_api_5" d="M268,350L288.833,350C309.667,350,351.333,350,392.357,344.458C433.381,338.915,473.762,327.83,493.952,322.288L514.143,316.745"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_api_db_6" d="M774.068,241L800.467,232.833C826.866,224.667,879.663,208.333,931.141,198.337C982.618,188.34,1032.775,184.679,1057.854,182.849L1082.932,181.019"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_api_gh_7" d="M778,298.28L803.743,301.9C829.487,305.52,880.974,312.76,942.576,320.044C1004.179,327.327,1075.897,334.654,1111.756,338.318L1147.614,341.981"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_game_db_8" d="M757.953,404L787.038,404C816.122,404,874.292,404,937.497,374.664C1000.702,345.328,1068.943,286.655,1103.064,257.319L1137.184,227.983"></path></g><g class="edgeLabels"><g transform="translate(393, 56)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>POST /api/omni-settings/settings-repository</p></span></div></foreignObject></g></g><g transform="translate(932.4609375, 44)" class="edgeLabel"><g transform="translate(-129.4609375, -36)" class="label"><foreignObject height="72" width="258.921875"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>rpc set_workspace_settings_repository, as the signed-in person</p></span></div></foreignObject></g></g><g transform="translate(932.4609375, 124)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>42501 not the owner · P0002 not listed</p></span></div></foreignObject></g></g><g transform="translate(393, 142)" class="edgeLabel"><g transform="translate(-73.6171875, -12)" class="label"><foreignObject height="24" width="147.234375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>200 · 403 · 404 · 400</p></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(932.4609375, 192)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>reads settings_repository, else plan_repo</p></span></div></foreignObject></g></g><g transform="translate(932.4609375, 320)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>the chosen repository, as the Omni app</p></span></div></foreignObject></g></g><g transform="translate(932.4609375, 404)" class="edgeLabel"><g transform="translate(-79.640625, -12)" class="label"><foreignObject height="24" width="159.28125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>plan_repo, unchanged</p></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(138, 84)" id="flowchart-owner-0" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Owner's browser · Settings › Playbook</p></span></div></foreignObject></g></g><g transform="translate(648, 84)" id="flowchart-route-1" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>galaxy server · controller, service, repository</p></span></div></foreignObject></g></g><g transform="translate(1206.5234375, 172)" id="flowchart-db-3" class="node default"><path transform="translate(-119.6015625, -56.12943498219572)" style="" class="basic label-container" d="M0,16.419623321463813 a119.6015625,16.419623321463813 0,0,0 239.203125,0 a119.6015625,16.419623321463813 0,0,0 -239.203125,0 l0,79.41962332146382 a119.6015625,16.419623321463813 0,0,0 239.203125,0 l0,-79.41962332146382"></path><g transform="translate(-112.1015625, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="224.203125"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Supabase · workspaces.settings_repository</p></span></div></foreignObject></g></g><g transform="translate(138, 222)" id="flowchart-sync-8" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>omni sync · GET /api/omni-settings/playbook</p></span></div></foreignObject></g></g><g transform="translate(648, 280)" id="flowchart-api-9" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>galaxy server · settingsRepositoryOf</p></span></div></foreignObject></g></g><g transform="translate(138, 350)" id="flowchart-page-10" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>galaxy server · Settings › Playbook pages</p></span></div></foreignObject></g></g><g transform="translate(1206.5234375, 348)" id="flowchart-gh-15" class="node default"><rect height="54" width="109.859375" y="-27" x="-54.9296875" style="" class="basic label-container"></rect><g transform="translate(-24.9296875, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="49.859375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>GitHub</p></span></div></foreignObject></g></g><g transform="translate(648, 404)" id="flowchart-game-16" class="node default"><rect height="54" width="219.90625" y="-27" x="-109.953125" style="" class="basic label-container"></rect><g transform="translate(-79.953125, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="159.90625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>game, dossiers, points</p></span></div></foreignObject></g></g></g></g></g></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ol>
+<li>supabase: the migration (column, function, grants) applies through the <code>supabase</code> workflow's <code>deploy</code> job on merge. The column is nullable and filled by nothing, so the code before it reads exactly as today.</li>
+<li>galaxy: the release commit deploys the lookup and the page. One landing: the code reads the column only after the migration's job has run, and an empty column falls back to <code>plan_repo</code>.</li>
+</ol>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END · BACK-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — galaxy owns no table; the column is supabase's, below.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>POST /api/omni-settings/settings-repository</code> <code>{workspace, repository}</code></td><td>added</td><td>—</td><td><code>200 {repository}</code> (stored name or null) · <code>403</code> not the owner · <code>404</code> not listed · <code>400</code> a body that does not read</td><td>galaxy</td></tr>
+<tr><td><code>GET /api/omni-settings/playbook</code></td><td>changed</td><td>reads the plan repository</td><td>same shape; reads the chosen repository, else the plan repository</td><td>galaxy</td></tr>
+<tr><td><code>PlaybookPagesView</code> (page view, internal)</td><td>changed</td><td><code>repository, commit, reason, pages</code></td><td>adds the line's state (chosen, plan repository by default, none), the plan repository and the listed repositories</td><td>galaxy</td></tr>
+<tr><td><code>SettingsWorkspace</code> (internal)</td><td>changed</td><td><code>planRepo</code></td><td>adds <code>settingsRepository</code></td><td>galaxy</td></tr>
+</table>
+<p class="caption">No breaking row: the route's answer keeps every field and type (rule of /omni:brainstorm step 5; the conventions pages add none).</p>
+<div class="compare">
+<div><div class="label">BEFORE · settingsRepositoryOf</div><pre><span class="line ctx">const plan = workspace.planRepo?.trim() ?? '';</span><span class="line ctx">if (plan === '') return null;</span><span class="line ctx"># …</span></pre></div>
+<div><div class="label">AFTER · settingsRepositoryOf</div><pre><span class="line add">const chosen = workspace.settingsRepository?.trim() ?? '';</span><span class="line add">if (chosen !== '') return chosen;</span><span class="line ctx">const plan = workspace.planRepo?.trim() ?? '';</span><span class="line ctx">if (plan === '') return null;</span><span class="line ctx"># …</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<table><tr><th>reader</th><th>today</th><th>after</th></tr>
+<tr><td><code>omni sync</code> (through the route)</td><td>reads the plan repository</td><td>reads the chosen repository; the plan repository while none is chosen</td></tr>
+<tr><td>Settings › Playbook pages</td><td>read the plan repository</td><td>read the same repository as the route</td></tr>
+<tr><td>An owner's proposed page change</td><td>opens its pull request in the plan repository</td><td>opens it in the same repository as the route</td></tr>
+<tr><td>the game, the dossiers, the points</td><td>read <code>plan_repo</code></td><td>unchanged</td></tr>
+</table>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase <span class="badge" data-role>DATABASE</span></h3>
+<div data-section="db" data-state="filled">
+<h4>Database</h4>
+<figure class="mermaid-diagram" data-source="erDiagram
+  workspaces {
+    uuid id
+    text plan_repo
+    text settings_repository &quot;+ added&quot;
+  }
+  repositories {
+    uuid workspace_id
+    text full_name
+    timestamptz removed_at
+  }
+  workspaces ||--o{ repositories : lists"><svg aria-roledescription="er" role="graphics-document document" viewBox="0 0 213.25 320.3671875" style="max-width: 213.25px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-1"><style>#mermaid-1{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-1 .error-icon{fill:#552222;}#mermaid-1 .error-text{fill:#552222;stroke:#552222;}#mermaid-1 .edge-thickness-normal{stroke-width:1px;}#mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1 .marker{fill:#333333;stroke:#333333;}#mermaid-1 .marker.cross{stroke:#333333;}#mermaid-1 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1 p{margin:0;}#mermaid-1 .entityBox{fill:#ECECFF;stroke:#9370DB;}#mermaid-1 .attributeBoxOdd{fill:#ffffff;stroke:#9370DB;}#mermaid-1 .attributeBoxEven{fill:#f2f2f2;stroke:#9370DB;}#mermaid-1 .relationshipLabelBox{fill:hsl(80, 100%, 96.2745098039%);opacity:0.7;background-color:hsl(80, 100%, 96.2745098039%);}#mermaid-1 .relationshipLabelBox rect{opacity:0.5;}#mermaid-1 .relationshipLine{stroke:#333333;}#mermaid-1 .entityTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-1 #MD_PARENT_START{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 #MD_PARENT_END{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><marker orient="auto" markerHeight="240" markerWidth="190" refY="7" refX="0" id="MD_PARENT_START"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="19" id="MD_PARENT_END"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="0" id="ONLY_ONE_START"><path d="M9,0 L9,18 M15,0 L15,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="18" id="ONLY_ONE_END"><path d="M3,0 L3,18 M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="0" id="ZERO_OR_ONE_START"><circle r="6" cy="9" cx="21" fill="white" stroke="gray"></circle><path d="M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="30" id="ZERO_OR_ONE_END"><circle r="6" cy="9" cx="9" fill="white" stroke="gray"></circle><path d="M21,0 L21,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="18" id="ONE_OR_MORE_START"><path d="M0,18 Q 18,0 36,18 Q 18,36 0,18 M42,9 L42,27" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="27" id="ONE_OR_MORE_END"><path d="M3,9 L3,27 M9,18 Q27,0 45,18 Q27,36 9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="18" id="ZERO_OR_MORE_START"><circle r="6" cy="18" cx="48" fill="white" stroke="gray"></circle><path d="M0,18 Q18,0 36,18 Q18,36 0,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="39" id="ZERO_OR_MORE_END"><circle r="6" cy="18" cx="9" fill="white" stroke="gray"></circle><path d="M21,18 Q39,0 57,18 Q39,36 21,18" fill="none" stroke="gray"></path></marker></defs><path style="stroke: gray; fill: none;" marker-start="url(#ONLY_ONE_START)" marker-end="url(#ZERO_OR_MORE_END)" d="M106.625,110.184L106.625,118.517C106.625,126.85,106.625,143.517,106.625,160.184C106.625,176.85,106.625,193.517,106.625,201.85L106.625,210.184" class="er relationshipLine"></path><g transform="translate(20,20 )" id="entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1"><rect height="90.18359375" width="173.25" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(86.625,12)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1" class="er entityLabel">workspaces</text><rect height="22" width="29.75" y="24" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,35)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-1-type" class="er entityLabel">uuid</text><rect height="22" width="97.09375" y="24" x="29.75" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(34.75,35)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-1-name" class="er entityLabel">id</text><rect height="22" width="46.40625" y="24" x="126.84375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(131.84375,35)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-1-comment" class="er entityLabel"></text><rect height="22.091796875" width="29.75" y="46" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,57.0458984375)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-2-type" class="er entityLabel">text</text><rect height="22.091796875" width="97.09375" y="46" x="29.75" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(34.75,57.0458984375)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-2-name" class="er entityLabel">plan_repo</text><rect height="22.091796875" width="46.40625" y="46" x="126.84375" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(131.84375,57.0458984375)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-2-comment" class="er entityLabel"></text><rect height="22.091796875" width="29.75" y="68.091796875" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,79.1376953125)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-3-type" class="er entityLabel">text</text><rect height="22.091796875" width="97.09375" y="68.091796875" x="29.75" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(34.75,79.1376953125)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-3-name" class="er entityLabel">settings_repository</text><rect height="22.091796875" width="46.40625" y="68.091796875" x="126.84375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(131.84375,79.1376953125)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1-attr-3-comment" class="er entityLabel">+ added</text></g><g transform="translate(36.890625,210.18359375 )" id="entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6"><rect height="90.18359375" width="139.46875" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(69.734375,12)" y="0" x="0" id="text-entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6" class="er entityLabel">repositories</text><rect height="22.091796875" width="67.5625" y="24" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,35.0458984375)" y="0" x="0" id="text-entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6-attr-1-type" class="er entityLabel">uuid</text><rect height="22.091796875" width="71.90625" y="24" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,35.0458984375)" y="0" x="0" id="text-entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6-attr-1-name" class="er entityLabel">workspace_id</text><rect height="22" width="67.5625" y="46.091796875" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,57.091796875)" y="0" x="0" id="text-entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6-attr-2-type" class="er entityLabel">text</text><rect height="22" width="71.90625" y="46.091796875" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,57.091796875)" y="0" x="0" id="text-entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6-attr-2-name" class="er entityLabel">full_name</text><rect height="22.091796875" width="67.5625" y="68.091796875" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,79.1376953125)" y="0" x="0" id="text-entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6-attr-3-type" class="er entityLabel">timestamptz</text><rect height="22.091796875" width="71.90625" y="68.091796875" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,79.1376953125)" y="0" x="0" id="text-entity-repositories-f83afc29-b79a-5956-893e-14a5a18af8e6-attr-3-name" class="er entityLabel">removed_at</text></g><rect height="14" width="21.4375" y="153.1840057373047" x="95.90625" class="er relationshipLabelBox"></rect><text style="text-anchor: middle; dominant-baseline: middle; font-size: 12px;" y="160.1840057373047" x="106.625" id="rel1" class="er relationshipLabel">lists</text></svg></figure>
+<div class="compare">
+<div><div class="label">TODAY · workspaces</div><pre><span class="line ctx">plan_repo text …,</span><span class="line ctx"># …</span></pre></div>
+<div><div class="label">AFTER · workspaces</div><pre><span class="line ctx">plan_repo text …,</span><span class="line add">settings_repository text  -- owner/name, lower case; null: none chosen</span><span class="line ctx"># …</span></pre></div>
+</div>
+<table><tr><th>table</th><th>change</th><th>detail</th></tr>
+<tr><td><code>workspaces</code></td><td>column added</td><td><code>settings_repository text</code>, nullable, no default, with a column comment; migration <code>&lt;version&gt;_settings_repository.sql</code>, proven by <code>supabase/checks/settings_repository.sql</code></td></tr>
+</table>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>set_workspace_settings_repository(p_workspace uuid, p_full_name text) returns workspaces</code></td><td>added</td><td>—</td><td>security definer; <code>repository_owner_only</code> (42501); a listed, not removed repository or P0002; null clears; execute for <code>authenticated</code> only</td><td>supabase</td></tr>
+</table>
+<div class="compare">
+<div><div class="label">BEFORE</div><pre><span class="line ctx"># no function sets the settings repository</span></pre></div>
+<div><div class="label">AFTER</div><pre><span class="line add">create function public.set_workspace_settings_repository(</span><span class="line add">  p_workspace uuid, p_full_name text) returns public.workspaces</span><span class="line add">language plpgsql security definer set search_path = ''</span><span class="line add">-- repository_owner_only(p_workspace); listed or P0002; null clears</span><span class="line add">grant execute on function … to authenticated;</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="na">
+<h4>Behaviour</h4>
+<p>N/A — no existing function or policy reads differently; members already read their workspace's row, the new column with it.</p>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>

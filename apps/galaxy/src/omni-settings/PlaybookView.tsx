@@ -1,6 +1,7 @@
 import type { PlaybookEditing } from './omni-settings.client';
 import type { PlaybookPage, PlaybookPagesView } from './omni-settings.contract';
 import { PlaybookEditor } from './PlaybookEditor';
+import { SettingsRepositoryLine } from './SettingsRepositoryLine';
 
 // Settings → Playbook drawn (PRD 2417, s6): the tech playbook of the workspace's settings repository,
 // page by page. One card per page: its name, whose it is (the settings repository's own file, or the
@@ -14,8 +15,9 @@ export const SOURCE_LABEL: Record<PlaybookPage['source'], string> = {
   kit: 'The kit’s first default',
 };
 
-/** What a workspace with no settings repository does about it. */
-export const NO_SETTINGS_REPOSITORY = 'Name a plan repository for this workspace: its plain files hold the playbook every repository reads.';
+/** What a workspace with no settings repository does about it: the owner chooses one, a member waits for them. */
+export const NO_SETTINGS_REPOSITORY = 'Choose the repository that holds the playbook.';
+export const NO_SETTINGS_REPOSITORY_MEMBER = 'The workspace’s owner chooses it.';
 
 /** A form id as a page name: `definition-of-done` reads "Definition of done". */
 export function pageTitle(form: string): string {
@@ -31,7 +33,7 @@ export function pageBody(text: string): string {
 }
 
 export function PlaybookView({ view, editing = null }: {
-  view: Pick<PlaybookPagesView, 'repository' | 'commit' | 'reason' | 'pages'>;
+  view: Pick<PlaybookPagesView, 'repository' | 'commit' | 'reason' | 'pages' | 'choice'>;
   /** How an owner proposes a change; null for a member who is not an owner, who sees no edit control. */
   editing?: PlaybookEditing | null;
 }) {
@@ -40,9 +42,8 @@ export function PlaybookView({ view, editing = null }: {
     <div className="ask-col omni-settings">
       <section className="ask-card omni-settings-head">
         <h1>Playbook</h1>
-        <p className="ask-muted">
-          How AI agents work in every repository of this workspace: the pages a repository does not write itself read the ones below.
-        </p>
+        <p className="ask-muted">The pages every repository’s agents read.</p>
+        {!noRepository && <SettingsRepositoryLine choice={view.choice} editing={editing} />}
         {view.repository !== null && view.commit !== null && (
           <p className="ask-muted omni-settings-source">
             Read from <a href={`https://github.com/${view.repository}`}>{view.repository}</a> at <code>{view.commit.slice(0, 7)}</code>
@@ -52,7 +53,12 @@ export function PlaybookView({ view, editing = null }: {
       {noRepository && (
         <section className="ask-card omni-settings-empty" role="status">
           <h2>No settings repository yet</h2>
-          <p className="ask-muted">{NO_SETTINGS_REPOSITORY}</p>
+          {editing === null ? <p className="ask-muted">{NO_SETTINGS_REPOSITORY_MEMBER}</p> : (
+            <>
+              <p className="ask-muted">{NO_SETTINGS_REPOSITORY}</p>
+              <SettingsRepositoryLine choice={view.choice} editing={editing} />
+            </>
+          )}
         </section>
       )}
       {!noRepository && view.reason !== null && (

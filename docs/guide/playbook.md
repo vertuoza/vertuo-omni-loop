@@ -107,17 +107,20 @@ they feed two different levels.
 | | a product's plan repository | the workspace's plan repository |
 |---|---|---|
 | **what it is** | the repository that holds one product's plans and delivery | the repository that carries the workspace's PRD issues |
-| **where it is set** | the product home's **Repositories & approvers** tab, **Plan repository** card, by a workspace owner | the workspace's row in the Omni page's database; no screen sets it (see below) |
+| **where it is set** | the product home's **Repositories & approvers** tab, **Plan repository** card, by a workspace owner | the workspace's row in the Omni page's database, by its owner, through **Settings › Playbook** |
 | **its level in the playbook** | level 2, the plan repository | level 3, the Omni settings: it is also the **settings repository** |
 | **what is read from it** | its own playbook, `.omni-loop/knowledge/playbook/` | its settings folder, `.omni-loop/settings/` |
 
-So the workspace's plan repository plays a second role: it is the **settings repository**. Its
-`.omni-loop/settings/` folder holds the playbook every repository of the workspace reads where its
-own pages are silent. That folder sits beside its own knowledge folder, never inside it: the
-repository's own playbook is still its own, level 1 for itself.
+The workspace's **settings repository** is its own setting. It holds the playbook every repository
+of the workspace reads where its own pages are silent, in its `.omni-loop/settings/` folder. That
+folder sits beside its own knowledge folder, never inside it: the repository's own playbook is still
+its own, level 1 for itself.
 
-The two roles can be the same repository or two different ones. A workspace with no plan repository
-named has no settings repository, and level 3 is empty for every repository.
+The settings repository is chosen on **Settings › Playbook**. While none is chosen, the workspace's
+plan repository is its default, so the two can be the same repository or two different ones. A
+workspace with neither named has no settings repository, and level 3 is empty for every repository.
+Choosing a settings repository does not move the plan repository: the game, the dossiers and the
+points keep reading the plan repository as before.
 
 ## Settings › Playbook
 
@@ -154,25 +157,27 @@ A change is refused, with the reason in one line under the field, when:
 - the settings repository already holds this exact text;
 - the Omni app cannot reach the settings repository.
 
-**With no settings repository.** The page shows a card, **No settings repository yet**:
-*Name a plan repository for this workspace: its plain files hold the playbook every repository
-reads.* No page is listed. When the workspace names a settings repository the Omni app cannot reach,
+**With no settings repository.** The page shows a card, **No settings repository yet**, with the picker in it: the owner chooses the
+repository that holds the playbook. A member sees the card and is told that the workspace's owner
+chooses one. No page is listed. When the workspace names a settings repository the Omni app cannot reach,
 the page names it and says why instead: *The Omni app is not installed where `<owner>/<name>`
 lives.*, or *The Omni app cannot read `<owner>/<name>`.* A settings repository that holds no page yet shows a line
 saying so, and lists every page as the kit's first default.
 
-**How to set the settings repository.** It is the workspace's plan repository, the `plan_repo`
-column of the workspace's row in the Omni page's database. **No screen sets it today**: the
-**Plan repository** card on a product's Repositories & approvers tab sets the product's plan
-repository, not this one. Whoever runs the Omni page's database sets it, for example in the
-Supabase SQL editor:
+**How to set the settings repository.** A workspace owner opens **Settings › Playbook** and reads the
+**Settings repository** line in the head card:
 
-```sql terminal
-update public.workspaces set plan_repo = '<repository name>' where slug = '<workspace slug>';
-```
+- **Chosen**: the line names the settings repository. **Change** opens the picker.
+- **Plan repository by default**: no repository is chosen yet, and the plan repository is read as the
+  default. **Keep it as the settings repository** makes that default the choice in one click. It is
+  offered when the plan repository is one the workspace lists; otherwise, or to pick another, use
+  **Choose another**.
+- **None**: neither is named. The picker lists the workspace's repositories, the same list as
+  Settings › Repositories.
 
-The value is a repository name under the workspace's GitHub account (`plans`), or a full
-`<owner>/<name>`.
+The picker's **Save** stores the repository picked. **Clear the choice** (offered only once one is
+chosen) returns the line to the plan repository default, or to none. Only a workspace owner changes
+it; a member sees the line and the name of the repository it reads from.
 
 ## Knowledge › Repositories
 

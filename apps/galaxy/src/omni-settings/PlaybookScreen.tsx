@@ -23,8 +23,8 @@ export type PlaybookScreenView =
 /** The screen for what the page loaded: each page's edit for an owner only (s7), none for a member. */
 export function playbookScreenOf(load: SettingsPageLoad): PlaybookScreenView {
   if (load.kind !== 'playbook') return load;
-  const { repository, commit, reason, pages } = load;
-  return { kind: 'playbook', repository, commit, reason, pages, editing: load.owner ? { kind: 'database', workspace: load.workspace.id } : null };
+  const { repository, commit, reason, pages, choice } = load;
+  return { kind: 'playbook', repository, commit, reason, pages, choice, editing: load.owner ? { kind: 'database', workspace: load.workspace.id } : null };
 }
 
 export function PlaybookScreen({ view }: { view: PlaybookScreenView }) {

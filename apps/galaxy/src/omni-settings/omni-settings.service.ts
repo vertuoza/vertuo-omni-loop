@@ -2,16 +2,17 @@ import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { FORM_IDS } from 'omni-loop/kit/lib/playbook/forms.ts';
 import { settingsFilePath } from 'omni-loop/kit/lib/omni-settings/layout.ts';
 import { readSettingsPage } from 'omni-loop/kit/lib/omni-settings/page.ts';
-import type { PlaybookPage, PlaybookPagesView, SettingsFile, SettingsPlaybook } from './omni-settings.contract';
-import type { OmniSettingsRepository, SettingsWorkspace } from './omni-settings.repository';
+import type { PlaybookPage, PlaybookPagesView, RepositoryChoice, SettingsFile, SettingsPlaybook } from './omni-settings.contract';
+import type { OmniSettingsRepository, SettingsChoice, SettingsWorkspace } from './omni-settings.repository';
 
 // The Omni settings area's rules (PRD 2417, s3): what a repository reads of its workspace's tech
 // playbook.
 //
 // - The repository must be listed by a workspace the caller reads, else it is refused (`unlisted`).
-// - The settings repository is the workspace's plan repository (`plan_repo`, a name under its GitHub
-//   account). A workspace naming none has no settings repository: the reply is an empty list that says
-//   so (outbox item: which repository is the settings one when none is named).
+// - The settings repository is the one the workspace's owner chose (`settings_repository`, PRD 2543),
+//   else, while none is chosen, the workspace's plan repository (`plan_repo`, a name under its GitHub
+//   account). A workspace with neither has no settings repository: the reply is an empty list that
+//   says so. Nothing else reads the choice: the game, the dossiers and the points keep `plan_repo`.
 // - Each form's file under the settings folder (kit/lib/omni-settings/layout.ts) is read at the commit
 //   the repository's default branch is at, as the Omni app. A form with no file is left out; a
 //   settings repository with none answers an empty list and says why. A GitHub failure throws.
@@ -35,8 +36,20 @@ const empty = (reason: string, repository: string | null = null, commit: string 
   reason,
 });
 
-/** The settings repository a workspace names, as owner/name, or null when it names none. */
+/** The settings repository of a workspace, as owner/name: the one its owner chose, else its plan
+ * repository, else null. */
 export function settingsRepositoryOf(workspace: SettingsWorkspace): string | null {
+  return chosenRepositoryOf(workspace) ?? planRepositoryOf(workspace);
+}
+
+/** The settings repository the workspace's owner chose, or null while none is. */
+function chosenRepositoryOf(workspace: SettingsWorkspace): string | null {
+  const chosen = workspace.settingsRepository?.trim() ?? '';
+  return chosen === '' ? null : chosen;
+}
+
+/** The workspace's plan repository as owner/name (a bare name is under its GitHub account), or null. */
+function planRepositoryOf(workspace: SettingsWorkspace): string | null {
   const plan = workspace.planRepo?.trim() ?? '';
   if (plan === '') return null;
   if (plan.includes('/')) return plan;
@@ -46,7 +59,7 @@ export function settingsRepositoryOf(workspace: SettingsWorkspace): string | nul
 /** What a workspace's settings repository holds of the tech playbook, read as the Omni app. */
 export async function readWorkspacePlaybook(workspace: SettingsWorkspace, github: SettingsGithub): Promise<SettingsPlaybook> {
   const repository = settingsRepositoryOf(workspace);
-  if (repository === null) return empty('This workspace has no settings repository: no plan repository is named.');
+  if (repository === null) return empty('This workspace has no settings repository: none is chosen and no plan repository is named.');
   const installation = await github.installationFor({ github_org: workspace.githubOrg, github_installation_id: workspace.installation });
   if (installation === null) return empty(`The Omni app is not installed where ${repository} lives.`);
   const commit = await github.head(installation, repository);
@@ -93,7 +106,7 @@ export function playbookPages(playbook: SettingsPlaybook, curated: readonly Sett
 }
 
 export function omniSettingsPagesService(
-  store: Pick<OmniSettingsRepository, 'workspaceById' | 'isOwner'>, github: SettingsGithub, curated: () => readonly SettingsFile[],
+  store: Pick<OmniSettingsRepository, 'workspaceById' | 'isOwner' | 'listedRepositories'>, github: SettingsGithub, curated: () => readonly SettingsFile[],
 ) {
   return {
     /** Whether the caller owns the workspace, so the page shows them each page's edit (s7). */
@@ -106,7 +119,12 @@ export function omniSettingsPagesService(
       const playbook = await readWorkspacePlaybook(workspace, github);
       // The repository the workspace names, even when the Omni app could not read it (issue 2538), so
       // the page says it cannot read that one rather than that the workspace names none.
-      return { repository: settingsRepositoryOf(workspace), commit: playbook.commit, reason: playbook.reason, pages: playbookPages(playbook, curated()) };
+      const choice: RepositoryChoice = {
+        chosen: chosenRepositoryOf(workspace),
+        plan: planRepositoryOf(workspace),
+        listed: await store.listedRepositories(workspace.id),
+      };
+      return { repository: settingsRepositoryOf(workspace), commit: playbook.commit, reason: playbook.reason, pages: playbookPages(playbook, curated()), choice };
     },
   };
 }
@@ -197,3 +215,15 @@ export function omniSettingsEditService(
   };
 }
 export type OmniSettingsEditService = ReturnType<typeof omniSettingsEditService>;
+
+// An owner's choice of the settings repository (PRD 2543, s3). The service holds no rule of its own: the
+// database's owner-only function decides who may choose and which repository (it must be one the
+// workspace lists), on the signed-in person's client, and the service passes its answer through.
+
+export function omniSettingsChoiceService(store: Pick<OmniSettingsRepository, 'chooseSettingsRepository'>) {
+  return {
+    /** Stores `repository` (owner/name) as `workspace`'s settings repository; null clears the choice. */
+    choose: (workspace: string, repository: string | null): Promise<SettingsChoice> => store.chooseSettingsRepository(workspace, repository),
+  };
+}
+export type OmniSettingsChoiceService = ReturnType<typeof omniSettingsChoiceService>;
