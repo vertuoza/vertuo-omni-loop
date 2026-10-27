@@ -1,7 +1,7 @@
 import { MASCOTS as LIBRARY } from '@omni/design';
 import { lookOf } from '@omni/galaxy';
 import { z } from 'zod';
-import type { FleetRow } from '../arcade/types';
+import { projectOf, type Board, type Fleet } from './model';
 import { settled } from '../stages/settled';
 import { refusalOf, type Refusal } from './refusal';
 
@@ -18,12 +18,14 @@ export interface FleetLookInput {
   mascot: string | null;
 }
 
-export type Saved = { ok: true; fleet: FleetRow } | { ok: false; refusal: Refusal };
+export type Saved = { ok: true; fleet: Fleet } | { ok: false; refusal: Refusal };
 
 export interface FleetsPort {
   create(look: FleetLookInput): Promise<Saved>;
   /** A fleet's new look. Its name is only how it is found: it never changes. */
   update(name: string, look: FleetLookInput): Promise<Saved>;
+  /** A fleet's GitHub project board (PRD 2530): the link, or an empty one to clear it. */
+  setProject(name: string, url: string): Promise<Saved>;
   retire(name: string): Promise<Saved>;
   restore(name: string): Promise<Saved>;
 }
@@ -42,17 +44,24 @@ const TeamRowSchema = z.object({
   mascot: z.string().nullable().optional(),
   sort: z.number().optional(),
   retired_at: z.string().nullable().optional(),
+  project_url: z.string().nullable().optional(),
+  project_note: z.string().nullable().optional(),
+  project_noted_at: z.string().nullable().optional(),
 });
 type TeamRow = z.infer<typeof TeamRowSchema>;
 
 /** A public.teams row as the page draws it. A field the row leaves out is left out of the look's
  * input too, so @omni/galaxy's lookOf gives it its default. */
-export const fleetOfRow = ({ name, home, label, color, motto, mascot, sort, retired_at }: TeamRow): FleetRow =>
+export const fleetOfRow = ({ name, home, label, color, motto, mascot, sort, retired_at, ...project }: TeamRow): Fleet =>
   ({ name, ...lookOf(name, {
     home: home ?? null, motto: motto ?? '', retired: Boolean(retired_at),
     ...(label === undefined ? {} : { label }), ...(color === undefined ? {} : { color }),
     ...(mascot === undefined ? {} : { mascot }), ...(sort === undefined ? {} : { sort }),
-  }) });
+  }), ...boardOfRow(project) });
+
+/** The board a row names, as `{ board }`, or nothing when it names none. */
+const boardOfRow = ({ project_url, project_note, project_noted_at }: Pick<TeamRow, 'project_url' | 'project_note' | 'project_noted_at'>): { board?: Board } =>
+  project_url ? { board: { url: project_url, note: project_note ?? null, notedAt: project_noted_at ?? null } } : {};
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
 
@@ -71,6 +80,7 @@ export function databaseFleets(db: Rpc, workspace: string): FleetsPort {
   return {
     create: (look) => call('create_fleet', lookArgs(look)),
     update: (name, look) => call('update_fleet', { p_name: name, ...lookArgs(look) }),
+    setProject: (name, url) => call('set_fleet_project', { p_name: name, p_url: url }),
     retire: (name) => call('retire_fleet', { p_name: name }),
     restore: (name) => call('restore_fleet', { p_name: name }),
   };
@@ -94,13 +104,25 @@ function checked(look: FleetLookInput): FleetLookInput | Saved {
   return { label, color, motto, mascot };
 }
 
+const refuseProject = (message: string): Saved => refuse('project', `GitHub project: ${message}`);
+
+/** A fleet's board once its link is `link` (set_fleet_project()'s rules, but for the organization: the
+ * demo has none to compare the link with, so any organization project will do). The note stays with the
+ * same link; an empty link clears the board. */
+function projectBoard(f: Fleet, link: string): { board: Board | undefined } | Saved {
+  if (link === '') return { board: undefined };
+  if (!projectOf(link)) return refuseProject('a link like https://github.com/orgs/<organization>/projects/<number>.');
+  const kept = f.board?.url === link ? f.board : null;
+  return { board: { url: link.replace(/\/$/, ''), note: kept?.note ?? null, notedAt: kept?.notedAt ?? null } };
+}
+
 const FULL = () => refuse('fleets', 'Fleets: at most 12 active. Retire one first.');
 
 /** The fleet functions' rules on fleets kept in memory. */
-export function demoFleetsPort(initial: FleetRow[]): FleetsPort {
+export function demoFleetsPort(initial: Fleet[]): FleetsPort {
   let fleets = [...initial];
   const room = () => fleets.filter((f) => !f.retired).length < 12;
-  const put = (fleet: FleetRow): Saved => {
+  const put = (fleet: Fleet): Saved => {
     fleets = fleets.some((f) => f.name === fleet.name) ? fleets.map((f) => (f.name === fleet.name ? fleet : f)) : [...fleets, fleet];
     return { ok: true, fleet };
   };
@@ -124,6 +146,14 @@ export function demoFleetsPort(initial: FleetRow[]): FleetsPort {
         if ('ok' in look) return look;
         const f = find(name);
         return f ? put({ ...f, ...look }) : GONE;
+      });
+    },
+    setProject(name, url) {
+      return settled(() => {
+        const f = find(name);
+        if (!f || f.retired) return GONE;
+        const board = projectBoard(f, url.trim());
+        return 'ok' in board ? board : put({ ...f, board: board.board });
       });
     },
     retire(name) {
