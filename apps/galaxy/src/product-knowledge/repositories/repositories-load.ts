@@ -36,7 +36,7 @@ async function settingsOf(db: SupabaseClient, anchor: string | null) {
     const github = settingsGithub(appCredentials(), fetch, Date.now, githubStore());
     return await readSettingsLevel(anchor, omniSettingsRepository(db), github);
   } catch (error) {
-    log.error({ event: 'product-knowledge-repositories', outcome: 'settings-unread', message: error instanceof Error ? error.message : String(error) });
+    log.error({ event: 'product-knowledge-repositories', outcome: 'failed', message: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
