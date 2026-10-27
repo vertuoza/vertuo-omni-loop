@@ -17,10 +17,14 @@ import {
   toCheckRequests,
   toEvents,
   toFixStampRequests,
+  toFleetBoardRequests,
   toHarvestRequests,
   toMainWatchRequests,
   toRetroRequests,
 } from './webhook.ts';
+import { FLEET_BOARD_EVENT, type FleetBoardRequest } from '../fleet-board/events.ts';
+import { OMNI_LOGIN } from '../pr-stats/signed.ts';
+import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, type MainWatchRequest } from '../main-watch/events.ts';
 import { APPROVED_LABEL_EVENT } from '../inngest-client.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
@@ -769,5 +773,116 @@ describe('webhook — the main watch (PRD 2410)', () => {
     const bad = vi.fn(() => Promise.resolve());
     expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send, sendWatch: bad, forward: forwarding() })).status).toBe(401);
     expect(bad).not.toHaveBeenCalled();
+  });
+});
+
+describe('webhook — the fleet board (PRD 2530)', () => {
+  const SIGNED_BODY = `Closes #2530\n\n🦸 Omni-man by [Omni Loop](https://www.omni-loop.xyz) © ${SIGNED_MARKER}`;
+  const UPDATED_AT = '2026-10-27T10:00:00Z';
+  const loopPull = (action: string, pull: Record<string, unknown> = {}, over: Record<string, unknown> = {}) =>
+    pullRequestPayload(action, {
+      pull_request: {
+        number: 28,
+        node_id: 'PR_kwDOabc',
+        html_url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/28',
+        state: 'open',
+        body: SIGNED_BODY,
+        user: { login: 'Ada-L' },
+        updated_at: UPDATED_AT,
+        head: { sha: 'abc123', ref: 'feat/fleet-project-board' },
+        base: { ref: 'main' },
+        ...pull,
+      },
+      ...over,
+    });
+  const boardEvent = (action: string, author = 'Ada-L') => ({
+    name: FLEET_BOARD_EVENT,
+    id: `fleet-board:vertuoza/vertuo-omni-loop#28:${action}:${UPDATED_AT}`,
+    data: {
+      installationId: 4242,
+      owner: 'vertuoza',
+      repo: 'vertuo-omni-loop',
+      repository: 'vertuoza/vertuo-omni-loop',
+      prNumber: 28,
+      nodeId: 'PR_kwDOabc',
+      url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/28',
+      author,
+    },
+  });
+
+  it.each(['opened', 'reopened', 'ready_for_review', 'edited'])('turns pull_request.%s of a signed, open pull request into the default branch into one fleet board event', (action) => {
+    expect(toFleetBoardRequests('pull_request', loopPull(action))).toEqual([boardEvent(action)]);
+  });
+
+  it('counts a pull request the loop’s bot opened as signed, whatever its body', () => {
+    assertDefined(OMNI_LOGIN, 'the loop’s bot login');
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', { body: 'no footer', user: { login: OMNI_LOGIN } }))).toEqual([boardEvent('opened', OMNI_LOGIN)]);
+  });
+
+  it('turns a pull request typed by hand into none', () => {
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', { body: 'Fixes the login page.' }))).toEqual([]);
+    expect(toFleetBoardRequests('pull_request', loopPull('edited', { body: null }))).toEqual([]);
+  });
+
+  it('turns a sub-PR into its feature branch into none, and a delivery naming no default branch too', () => {
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', { base: { ref: 'feat/fleet-project-board' } }))).toEqual([]);
+    const noDefault = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } };
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', {}, { repository: noDefault }))).toEqual([]);
+  });
+
+  it('turns a closed pull request into none, whatever its action says', () => {
+    expect(toFleetBoardRequests('pull_request', loopPull('edited', { state: 'closed' }))).toEqual([]);
+    expect(toFleetBoardRequests('pull_request', loopPull('closed', { state: 'closed', merged: true, merge_commit_sha: MERGE_SHA, merged_at: MERGED_AT }))).toEqual([]);
+  });
+
+  it.each(['synchronize', 'labeled', 'unlabeled', 'converted_to_draft', 'assigned'])('turns pull_request.%s into none', (action) => {
+    expect(toFleetBoardRequests('pull_request', loopPull(action))).toEqual([]);
+  });
+
+  it('turns a delivery missing its installation, author, node id, link or update time into none, and any other event too', () => {
+    expect(toFleetBoardRequests('pull_request', { ...loopPull('opened'), installation: null })).toEqual([]);
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', { user: null }))).toEqual([]);
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', { node_id: null }))).toEqual([]);
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', { html_url: null }))).toEqual([]);
+    expect(toFleetBoardRequests('pull_request', loopPull('opened', { updated_at: null }))).toEqual([]);
+    expect(toFleetBoardRequests('pull_request_review', loopPull('submitted'))).toEqual([]);
+    expect(toFleetBoardRequests('issues', loopPull('opened'))).toEqual([]);
+  });
+
+  it('leaves every event the pull request became before unchanged: signed, it becomes what it would by hand, and the board’s event beside', () => {
+    for (const action of ['opened', 'reopened', 'ready_for_review', 'edited']) {
+      const signed = loopPull(action);
+      const byHand = loopPull(action, { body: 'by hand' });
+      expect(toEvents('pull_request', signed)).toEqual(toEvents('pull_request', byHand));
+      expect(toEvents('pull_request', signed).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+      expect(toFixStampRequests('pull_request', signed)).toEqual(toFixStampRequests('pull_request', byHand));
+      expect(toMainWatchRequests('pull_request', signed)).toEqual([]);
+      expect(toApprovedLabelRequests('pull_request', signed)).toEqual([]);
+    }
+    expect(toFixStampRequests('pull_request', loopPull('reopened')).map((event) => event.name)).toEqual([FIX_STAMP_EVENT]);
+  });
+
+  it('a signed delivery hands the fleet board its event beside the outbox check’s, and answers 502 when it cannot be sent', async () => {
+    const body = JSON.stringify(loopPull('opened'));
+    const headers = { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) };
+    const send = sending();
+    const sendBoard = vi.fn((events: FleetBoardRequest[]) => Promise.resolve(events.length));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendBoard, forward: forwarding() })).toEqual({ status: 200, body: 'sent 2' });
+    expect(sendBoard).toHaveBeenCalledWith([boardEvent('opened')]);
+    expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+
+    const failing = vi.fn(() => Promise.reject(new Error('inngest is down')));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendBoard: failing, forward: forwarding() })).toEqual({ status: 502, body: 'could not send the event: inngest is down' });
+    const bad = vi.fn(() => Promise.resolve());
+    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send, sendBoard: bad, forward: forwarding() })).status).toBe(401);
+    expect(bad).not.toHaveBeenCalled();
+  });
+
+  it('a pull request typed by hand hands the fleet board nothing', async () => {
+    const body = JSON.stringify(loopPull('opened', { body: 'by hand' }));
+    const sendBoard = vi.fn(() => Promise.resolve());
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), sendBoard, forward: forwarding() });
+    expect(response).toEqual({ status: 200, body: 'sent 1' });
+    expect(sendBoard).not.toHaveBeenCalled();
   });
 });

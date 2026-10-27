@@ -16,6 +16,12 @@
 # forwarded to galaxy (`src/stage-forward/touch.ts`). A manifest is read only when an App is registered:
 # on the App already registered, an org admin ticks the five events in its settings.
 #
+# PRD 2530 adds `organization_projects: write`, the one permission a fleet's GitHub project board needs:
+# the `fleet-board` function adds a pull request the loop signed, into the default branch, to its
+# author's fleet's organization project (`src/fleet-board/`). It only adds cards, and sets no field. On the
+# App already registered, it is ticked by hand in its settings, and each organization's admin accepts it
+# once; until then GitHub refuses the add, and the fleet's note says to ask an org admin.
+#
 # `url` and the webhook point at the app's Vercel project, `setup_url` at galaxy's; replace a host with
 # its project's production domain before registering if it differs.
 name: omni-loop
@@ -33,6 +39,7 @@ default_permissions:
   metadata: read
   issues: write
   actions: read
+  organization_projects: write
 default_events:
   - pull_request
   - check_run

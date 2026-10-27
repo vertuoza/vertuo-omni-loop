@@ -1649,7 +1649,18 @@ function forwardTouch(touch, post) {
 
 // apps/omni-app/src/webhook/webhook.ts
 import { Webhooks } from "@octokit/webhooks";
-import { z as z15 } from "zod";
+import { z as z16 } from "zod";
+
+// kit/lib/signature.ts
+var SIGNED_MARKER = "<!-- omni-loop:signed -->";
+var NOREPLY = /^(?:\d+\+)?([^\s@+]+)@users\.noreply\.github\.com$/i;
+function isSignedBody(body) {
+  return typeof body === "string" && body.includes(SIGNED_MARKER);
+}
+function botLogin(email) {
+  const match2 = typeof email === "string" ? NOREPLY.exec(email.trim()) : null;
+  return match2?.[1] ?? null;
+}
 
 // apps/omni-app/src/fix-rows/fix-stamp.ts
 import { z as z12 } from "zod";
@@ -1697,19 +1708,45 @@ function fixStampId({ repository, prNumber, kind, at: when }) {
   return `fix-stamp:${repository.toLowerCase()}#${String(prNumber)}:${kind}:${when}`;
 }
 
-// apps/omni-app/src/main-watch/events.ts
+// apps/omni-app/src/fleet-board/events.ts
 import { z as z13 } from "zod";
-var MAIN_WATCH_EVENT = "omni-loop/main-watch.requested";
-var MAIN_WATCH_CI_EVENT = "omni-loop/main-watch.ci-red";
-var slug = z13.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
-var MainWatchDataSchema = z13.looseObject({
+var FLEET_BOARD_EVENT = "omni-loop/fleet-board.requested";
+var FleetBoardDataSchema = z13.looseObject({
   installationId: z13.number(),
   owner: z13.string().min(1),
   repo: z13.string().min(1),
+  repository: z13.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  /** The pull request's GraphQL node id, the card's content. */
+  nodeId: z13.string().min(1),
+  /** The pull request's link, as a runner's job lists it. */
+  url: z13.string().min(1),
+  /** The GitHub login of its author. */
+  author: z13.string().min(1)
+});
+function fleetBoardId({ repository, prNumber, action, at: at2 }) {
+  return `fleet-board:${repository.toLowerCase()}#${String(prNumber)}:${action}:${at2}`;
+}
+
+// apps/omni-app/src/pr-stats/signed.ts
+var DEFAULT_SIGNATURE = parseConfig("kit: 1\n").signature;
+if (!DEFAULT_SIGNATURE) throw new Error("the kit's default config signs as Omni-man");
+var SIGNATURE = DEFAULT_SIGNATURE;
+var OMNI_LOGIN = botLogin(SIGNATURE.email);
+
+// apps/omni-app/src/main-watch/events.ts
+import { z as z14 } from "zod";
+var MAIN_WATCH_EVENT = "omni-loop/main-watch.requested";
+var MAIN_WATCH_CI_EVENT = "omni-loop/main-watch.ci-red";
+var slug = z14.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
+var MainWatchDataSchema = z14.looseObject({
+  installationId: z14.number(),
+  owner: z14.string().min(1),
+  repo: z14.string().min(1),
   repository: slug,
   prNumber: PrNumberSchema,
-  mergeSha: z13.string().min(1),
-  mergedAt: z13.string().nullish()
+  mergeSha: z14.string().min(1),
+  mergedAt: z14.string().nullish()
 });
 function mainWatchId({ repository, prNumber, mergeSha }) {
   return `main-watch:${repository.toLowerCase()}#${String(prNumber)}:${mergeSha}`;
@@ -1719,11 +1756,11 @@ function mainWatchCiId({ repository, suite }) {
 }
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z14 } from "zod";
+import { z as z15 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
-var MarkerSchema = z14.looseObject({ prd: z14.unknown(), persona: z14.unknown(), claims: z14.unknown() });
+var MarkerSchema = z15.looseObject({ prd: z15.unknown(), persona: z15.unknown(), claims: z15.unknown() });
 function readCanonMarker(summary) {
   const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed(summary));
   if (!match2) return null;
@@ -1765,6 +1802,9 @@ var APPROVED_LABEL_ACTIONS = Object.freeze({
 var FIX_STAMP_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["closed", "reopened"])
 });
+var FLEET_BOARD_ACTIONS = Object.freeze({
+  pull_request: Object.freeze(["opened", "reopened", "ready_for_review", "edited"])
+});
 var MAIN_WATCH_CI_ACTIONS = Object.freeze({
   check_suite: Object.freeze(["completed"])
 });
@@ -1776,42 +1816,46 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z15.looseObject({
+var PullRefSchema = z16.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z15.looseObject({ sha: z15.string().nullish() }).nullish(),
-  base: z15.looseObject({ ref: z15.string().nullish() }).nullish()
+  head: z16.looseObject({ sha: z16.string().nullish() }).nullish(),
+  base: z16.looseObject({ ref: z16.string().nullish() }).nullish()
 });
-var PayloadSchema = z15.looseObject({
-  action: z15.unknown(),
+var PayloadSchema = z16.looseObject({
+  action: z16.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z15.looseObject({ id: z15.number().nullish() }).nullish(),
-  repository: z15.looseObject({
-    name: z15.string(),
-    full_name: z15.string().nullish(),
-    owner: z15.looseObject({ login: z15.string().nullish() }).nullish(),
-    default_branch: z15.string().nullish()
+  installation: z16.looseObject({ id: z16.number().nullish() }).nullish(),
+  repository: z16.looseObject({
+    name: z16.string(),
+    full_name: z16.string().nullish(),
+    owner: z16.looseObject({ login: z16.string().nullish() }).nullish(),
+    default_branch: z16.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    body: z15.string().nullish(),
-    merged: z15.boolean().nullish(),
-    merge_commit_sha: z15.string().nullish(),
-    merged_at: z15.string().nullish(),
-    closed_at: z15.string().nullish(),
-    updated_at: z15.string().nullish()
+    node_id: z16.string().nullish(),
+    html_url: z16.string().nullish(),
+    state: z16.string().nullish(),
+    user: z16.looseObject({ login: z16.string().nullish() }).nullish(),
+    body: z16.string().nullish(),
+    merged: z16.boolean().nullish(),
+    merge_commit_sha: z16.string().nullish(),
+    merged_at: z16.string().nullish(),
+    closed_at: z16.string().nullish(),
+    updated_at: z16.string().nullish()
   }).nullish(),
-  check_run: z15.looseObject({
-    id: z15.number().nullish(),
-    external_id: z15.string().nullish(),
-    head_sha: z15.string().nullish(),
-    pull_requests: z15.array(PullRefSchema).nullish(),
-    output: z15.looseObject({ summary: z15.unknown() }).nullish()
+  check_run: z16.looseObject({
+    id: z16.number().nullish(),
+    external_id: z16.string().nullish(),
+    head_sha: z16.string().nullish(),
+    pull_requests: z16.array(PullRefSchema).nullish(),
+    output: z16.looseObject({ summary: z16.unknown() }).nullish()
   }).nullish(),
-  requested_action: z15.looseObject({ identifier: z15.unknown() }).nullish(),
-  check_suite: z15.looseObject({
-    id: z15.number().nullish(),
-    head_branch: z15.string().nullish(),
-    head_sha: z15.string().nullish(),
-    conclusion: z15.string().nullish()
+  requested_action: z16.looseObject({ identifier: z16.unknown() }).nullish(),
+  check_suite: z16.looseObject({
+    id: z16.number().nullish(),
+    head_branch: z16.string().nullish(),
+    head_sha: z16.string().nullish(),
+    conclusion: z16.string().nullish()
   }).nullish()
 });
 async function receiveWebhook({
@@ -1822,6 +1866,7 @@ async function receiveWebhook({
   sendApproved = () => Promise.resolve(),
   sendStamps = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
+  sendBoard = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log: log2 = noteTo("webhook")
@@ -1855,13 +1900,15 @@ async function receiveWebhook({
   const approved = toApprovedLabelRequests(event, payload);
   const stamps = toFixStampRequests(event, payload);
   const watch = toMainWatchRequests(event, payload);
-  const total = events.length + approved.length + stamps.length + watch.length;
+  const board = toFleetBoardRequests(event, payload);
+  const total = events.length + approved.length + stamps.length + watch.length + board.length;
   if (total === 0) return reply(200, "ignored");
   try {
     if (events.length > 0) await send(events);
     if (approved.length > 0) await sendApproved(approved);
     if (stamps.length > 0) await sendStamps(stamps);
     if (watch.length > 0) await sendWatch(watch);
+    if (board.length > 0) await sendBoard(board);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
@@ -1956,9 +2003,29 @@ function toMainWatchRequests(event, delivery) {
     }
   ];
 }
-var LabelEventSchema = z15.looseObject({
-  label: z15.looseObject({ name: z15.string() }),
-  issue: z15.looseObject({ number: PrdNumberSchema, pull_request: z15.unknown().optional() })
+function toFleetBoardRequests(event, delivery) {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(FLEET_BOARD_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const pull = payload.pull_request;
+  const defaultBranch = payload.repository?.default_branch;
+  if (!source || !pull || !defaultBranch || pull.base?.ref !== defaultBranch || pull.state !== "open") return [];
+  const author = pull.user?.login;
+  if (!author || !(isSignedBody(pull.body) || author === OMNI_LOGIN)) return [];
+  const prNumber = pull.number ?? payload.number;
+  if (prNumber === null || prNumber === void 0 || !pull.node_id || !pull.html_url || !pull.updated_at) return [];
+  const action = String(payload.action);
+  return [
+    {
+      name: FLEET_BOARD_EVENT,
+      id: fleetBoardId({ repository: source.repository, prNumber, action, at: pull.updated_at }),
+      data: { ...source, prNumber, nodeId: pull.node_id, url: pull.html_url, author }
+    }
+  ];
+}
+var LabelEventSchema = z16.looseObject({
+  label: z16.looseObject({ name: z16.string() }),
+  issue: z16.looseObject({ number: PrdNumberSchema, pull_request: z16.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery) {
   const payload = readPayload(delivery);
@@ -2054,6 +2121,7 @@ function githubRoute(env, {
         sendApproved: send,
         sendStamps: send,
         sendWatch: send,
+        sendBoard: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });

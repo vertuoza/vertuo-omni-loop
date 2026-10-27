@@ -1,11 +1,10 @@
 import type { SubmitEvent } from 'react';
-import type { FleetRow } from '../arcade/types';
 import { FleetCard, mascotSvg } from './FleetCard';
-import { activeFleets, previewOf, retiredFleets, SWATCHES, type Draft, type DraftField, type FleetsState } from './model';
+import { activeFleets, previewOf, retiredFleets, SWATCHES, type Draft, type DraftField, type Fleet, type FleetsState } from './model';
 import type { Refusal } from './refusal';
 
 // /app/settings/fleets drawn from its state (PRD 400 s3). The owner reads New fleet, the form (label, colour
-// swatches or a hex, motto, a mascot or none) with a live card preview, Edit and Retire on each active
+// swatches or a hex, motto, a mascot or none, and the GitHub project board, PRD 2530) with a live card preview, Edit and Retire on each active
 // fleet (Retire confirmed on the page), and the retired fleets under a fold with Restore. A member
 // reads the same cards, read-only, and who may change them. A refusal from the fleet functions is
 // shown next to its field; the fleet cap by the list; anything else on the form, or above the list
@@ -110,6 +109,14 @@ function FleetForm({ draft, refusal, busy, mascots, on }: { draft: Draft; refusa
         <Refused refusal={refusal} at="mascot" />
       </div>
 
+      <div className="fleets-field" data-field="project">
+        <label htmlFor="fleets-project">GitHub project</label>
+        <input id="fleets-project" name="project" type="text" autoComplete="off" spellCheck={false} placeholder="https://github.com/orgs/…/projects/…"
+          value={draft.project} onChange={(e) => { on.change('project', e.target.value); }} {...invalid(refusal, 'project')} />
+        <span className="ask-muted">The loop’s PRs land here.</span>
+        <Refused refusal={refusal} at="project" />
+      </div>
+
       <div className="fleets-preview" aria-label="Preview">
         <p className="ask-muted">Preview</p>
         <FleetCard fleet={preview} />
@@ -123,7 +130,7 @@ function FleetForm({ draft, refusal, busy, mascots, on }: { draft: Draft; refusa
   );
 }
 
-function ActiveFleet({ fleet, state, owner, on }: { fleet: FleetRow; state: FleetsState; owner: boolean; on: FleetsHandlers }) {
+function ActiveFleet({ fleet, state, owner, on }: { fleet: Fleet; state: FleetsState; owner: boolean; on: FleetsHandlers }) {
   const asking = owner && state.confirming === fleet.name;
   return (
     <li>

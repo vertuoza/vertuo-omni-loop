@@ -5,15 +5,15 @@ import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 // and its message starts with the field ("Label: 1 to 12 characters."): the page shows that message
 // next to the field. `fleets` is the cap of 12 active fleets. Anything else belongs to the form.
 
-/** A place on the page a refusal is shown: one of the form's fields, the fleet count, or the form. */
-export type RefusalField = 'label' | 'color' | 'motto' | 'mascot' | 'fleets' | 'form';
+/** A place on the page a refusal is shown: one of the form's fields (the GitHub project one included, PRD 2530), the fleet count, or the form. */
+export type RefusalField = 'label' | 'color' | 'motto' | 'mascot' | 'project' | 'fleets' | 'form';
 
 export interface Refusal {
   field: RefusalField;
   message: string;
 }
 
-const FIELDS: readonly RefusalField[] = ['label', 'color', 'motto', 'mascot', 'fleets'];
+const FIELDS: readonly RefusalField[] = ['label', 'color', 'motto', 'mascot', 'project', 'fleets'];
 
 export const NOT_OWNER = 'Only the workspace’s owner can change its fleets.';
 export const GONE = 'That fleet is no longer in this workspace. Reload the page.';

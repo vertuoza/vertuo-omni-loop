@@ -6,7 +6,7 @@ import { refusalOf } from './refusal';
 // else is the form's.
 
 describe('a refusal from the fleet functions', () => {
-  it.each(['label', 'color', 'motto', 'mascot', 'fleets'] as const)('names the %s field when its hint does', (field) => {
+  it.each(['label', 'color', 'motto', 'mascot', 'project', 'fleets'] as const)('names the %s field when its hint does', (field) => {
     const message = `${field}: refused.`;
     expect(refusalOf({ code: '22023', hint: field, message })).toEqual({ field, message });
   });

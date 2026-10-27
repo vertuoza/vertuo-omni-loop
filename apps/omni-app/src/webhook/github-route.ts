@@ -1,7 +1,7 @@
 // `/api/github`'s handlers (PRD 1059): a Vercel function in the web-standard shape (a `Request` in, a
 // `Response` out), bound to the groups of the app's environment it needs (../env.ts). It reads the raw
 // body — the signature is over the exact bytes — lets `receiveWebhook` verify and filter it, sends the
-// resulting events, the fix stamps (PRD 2011 s7) and the main watch's (PRD 2410) among them, on the app's Inngest client, and forwards
+// resulting events, the fix stamps (PRD 2011 s7), the main watch's (PRD 2410) and the fleet board's (PRD 2530) among them, on the app's Inngest client, and forwards
 // a stage event to galaxy, signed with `STAGE_EVENT_SECRET`, and each touch to galaxy's
 // `/api/github/touched`, signed the same way (PRD 902, s3). The webhook secret is `GITHUB_WEBHOOK_SECRET`, required in production; unset
 // elsewhere, every delivery is refused (fail closed).
@@ -12,12 +12,16 @@
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
 import type { FixStampRequest } from '../fix-rows/fix-stamp.ts';
+import type { FleetBoardRequest } from '../fleet-board/events.ts';
 import type { MainWatchRequest } from '../main-watch/events.ts';
 import { type AppEvent, type ApprovedLabelRequest, inngest } from '../inngest-client.ts';
 import { forwardStageEvent, stageEventUrl } from '../stage-forward/stage-forward.ts';
 import { forwardTouch, touchedUrl } from '../stage-forward/touch.ts';
 import { loggedHandler } from '../run-log/run-log.ts';
 import { receiveWebhook } from './webhook.ts';
+
+/** Every event the route sends on the app's Inngest client. */
+type RouteEvent = AppEvent | ApprovedLabelRequest | FixStampRequest | MainWatchRequest | FleetBoardRequest;
 
 /** The groups the route reads. */
 export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl'>;
@@ -42,9 +46,9 @@ function repositoryOf(body: string): string | undefined {
 export function githubRoute(
   env: GithubRouteEnv,
   {
-    send = (events: (AppEvent | ApprovedLabelRequest | FixStampRequest | MainWatchRequest)[]) => inngest.send(events),
+    send = (events: RouteEvent[]) => inngest.send(events),
     logger = log,
-  }: { send?: (events: (AppEvent | ApprovedLabelRequest | FixStampRequest | MainWatchRequest)[]) => Promise<unknown>; logger?: Logger } = {},
+  }: { send?: (events: RouteEvent[]) => Promise<unknown>; logger?: Logger } = {},
 ) {
   const stage = { url: stageEventUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   const touched = { url: touchedUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
@@ -60,6 +64,7 @@ export function githubRoute(
         sendApproved: send,
         sendStamps: send,
         sendWatch: send,
+        sendBoard: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched),
       });

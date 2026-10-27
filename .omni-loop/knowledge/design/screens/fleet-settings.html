@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fleet-settings: mockup</title>
+<style>
+body { margin: 0; padding: 16px; background: #07061c; }
+.wrap { max-width: 900px; margin: 0 auto; display: grid; gap: 16px; }
+.mock { --g:#07061c; --s:#120f3a; --k:#0e0d33; --l:#1a2170; --ls:#5a60c4; --i:#f2f4ff; --m:#8a90d6; --pl:#ffd84a; --op:#07061c; --cy:#6ff0ff; --r:#ff6b86;
+  background: var(--g); color: var(--i); border-radius: 10px; padding: 14px; font: 15px/1.5 system-ui, sans-serif; display: grid; gap: 10px; }
+.mock h5 { margin: 0; font-size: 17px; }
+.mock .muted { color: var(--m); margin: 0; font-size: 14px; }
+.mock .card { background: var(--s); border: 1px solid var(--ls); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; }
+.mock .fleet { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--s); border: 1px solid var(--ls); border-left: 6px solid var(--fc); border-radius: 10px; padding: 12px 14px; }
+.mock .dot { width: 32px; height: 32px; background: var(--fc); border-radius: 4px; flex: none; }
+.mock .fb { flex: 1 1 140px; min-width: 0; display: grid; gap: 2px; }
+.mock .fb b { font-size: 16px; }
+.mock .fb a { color: var(--cy); }
+.mock .note { color: var(--m); font-size: 13px; }
+.mock .note.bad { color: var(--r); }
+.mock .btn { font: inherit; font-weight: 700; border-radius: 8px; padding: 7px 12px; border: 1.5px solid var(--ls); background: transparent; color: var(--i); }
+.mock .btn.primary { background: var(--pl); color: var(--op); border-color: var(--pl); }
+.mock .field { display: grid; gap: 4px; }
+.mock .field label { font-weight: 700; }
+.mock .field .in { border: 1.5px solid var(--ls); background: var(--g); border-radius: 8px; padding: 8px 10px; color: var(--i); overflow-wrap: anywhere; font-size: 14px; }
+.mock .field .in.empty { color: var(--m); }
+.mock .new { outline: 2px dashed var(--pl); outline-offset: 3px; border-radius: 8px; }
+.mock .new { outline: none; }
+</style></head><body><div class="wrap">
+<div class="mock" data-screen="fleet-settings">
+<div class="card"><h5>Fleets</h5><p class="muted">Your workspace’s fleets. Players pick one on the arcade’s fleet step, or play solo.</p><div><button class="btn primary" data-primary>New fleet</button></div></div>
+<p class="muted">2 of 12 active</p>
+<div class="fleet" style="--fc:#d08a4a"><span class="dot"></span><div class="fb"><b>CASTORS</b><span class="muted">Builds the dam.</span><span class="new">Board: <a href="#">demo-org project 1</a></span><span class="note new">Added #2531 · demo-org/demo-app · 2 h ago</span></div><button class="btn">Edit</button><button class="btn">Retire</button></div>
+<div class="fleet" style="--fc:#b07cff"><span class="dot"></span><div class="fb"><b>OCTOPOD</b><span class="muted">Eight arms, eight sub-PRs.</span><span class="new">Board: <a href="#">demo-org project 4</a></span><span class="note bad new">Not added: ask an org admin</span></div><button class="btn">Edit</button><button class="btn">Retire</button></div>
+</div>
+<div class="mock" data-screen="fleet-settings">
+<div class="card"><h5>Edit CASTORS</h5>
+<div class="field"><label>Label</label><div class="in">CASTORS</div></div>
+<div class="field"><label>Motto</label><div class="in">Builds the dam.</div></div>
+<p class="muted">Colour and Mascot, as today.</p>
+<div class="field new"><label>GitHub project</label><div class="in">https://github.com/orgs/demo-org/projects/1</div><span class="note">The loop’s PRs land here.</span></div>
+<div><button class="btn primary" data-primary>Save changes</button> <button class="btn">Cancel</button></div></div>
+</div>
+</div></body></html>
