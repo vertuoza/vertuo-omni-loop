@@ -160,11 +160,14 @@ describe('the stages sync route', () => {
     const base = { ...d };
     d.snapshot = (w, repo, since) => { seen.push([repo, since]); return base.snapshot(w, repo, since); };
     await syncStages(post(`Bearer ${SECRET}`), d);
+    const first = seen.splice(0);
     await syncStages(post(`Bearer ${SECRET}`), { ...d, now: () => '2026-09-29T12:15:00.000Z' });
-    expect(seen).toEqual([
-      ['acme/widgets', null], ['acme/gears', null], ['globex/core', null],
+    // A workspace's repositories are read at once (#2529): each run's reads, whatever order they started in.
+    const byRepo = (reads: typeof seen) => reads.toSorted(([a], [b]) => a.localeCompare(b));
+    expect(byRepo(first)).toEqual([['acme/gears', null], ['acme/widgets', null], ['globex/core', null]]);
+    expect(byRepo(seen)).toEqual([
       // acme/gears holds no PRD issue: nothing tells when it was last synced, so it is read in full again.
-      ['acme/widgets', '2026-09-29T11:55:00.000Z'], ['acme/gears', null], ['globex/core', '2026-09-29T11:55:00.000Z'],
+      ['acme/gears', null], ['acme/widgets', '2026-09-29T11:55:00.000Z'], ['globex/core', '2026-09-29T11:55:00.000Z'],
     ]);
   });
 

@@ -5,7 +5,9 @@
 // is read (./github.ts), turned into stages and topics (./core.ts), and recorded through the stage store
 // (../store.ts), which keeps each stage's first date: a rerun writes nothing new. After a repository's
 // first sync, only its issues and pull requests updated since the last one (less OVERLAP) are read
-// (issue 642), so the 15-minute run does not spend the App's hourly GitHub budget. A repository that
+// (issue 642), so the 15-minute run does not spend the App's hourly GitHub budget. A workspace's
+// repositories are read four at a time and answered in their order, so the run fits the route's 300 s
+// (#2529). A repository that
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
@@ -156,6 +158,21 @@ const SNAPSHOT_MAX_AGE_MS = 6 * 3_600_000;
 const ETAG_MAX_IDLE_MS = 7 * 24 * 3_600_000;
 
 const before = (at: string, ms: number) => new Date(Date.parse(at) - ms).toISOString();
+
+/** How many of a workspace's repositories are read at once: one after another, 22 of them overran the
+ * route's 300 s (#2529). */
+const REPO_READS = 4;
+
+/** `each` of the items, at most `limit` at a time; what each gave, in the items' order. */
+async function inTurns<T, R>(items: readonly T[], limit: number, each: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  const queue = items.entries();
+  const lane = async () => {
+    for (const [index, item] of queue) results[index] = await each(item);
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  return results;
+}
 
 /** Marks stale the repository's PRDs that changed, then refreshes each of its stale snapshots, one at a
  * time; logs, never throws. */
@@ -425,13 +442,17 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
       reply.skipped.push({ workspace: workspace.slug, repository: null, reason: why(error) });
     }
     const lanes: TargetLanes = { held: new Set(), claimed: [] };
-    for (const repository of repositories) {
+    const read = await inTurns(repositories, REPO_READS, async (repository): Promise<SyncedRepo | SkippedRepo> => {
       try {
-        reply.repositories.push(await syncRepo(deps, workspace, repository, syncedAt, lanes));
+        return await syncRepo(deps, workspace, repository, syncedAt, lanes);
       } catch (error) {
         deps.log(`stages sync: ${repository} of ${workspace.slug} is skipped — ${why(error)}`);
-        reply.skipped.push({ workspace: workspace.slug, repository: repository.toLowerCase(), reason: why(error) });
+        return { workspace: workspace.slug, repository: repository.toLowerCase(), reason: why(error) };
       }
+    });
+    for (const repo of read) {
+      if ('reason' in repo) reply.skipped.push(repo);
+      else reply.repositories.push(repo);
     }
     await recordTargetLanes(deps, workspace, lanes, syncedAt);
     await refreshFixes(deps, workspace, syncedAt);
