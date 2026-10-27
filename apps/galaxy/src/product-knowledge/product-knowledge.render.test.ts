@@ -62,8 +62,9 @@ describe('the frame', () => {
   it('draws the sub-menu in order, the counts on Legal and Glossary, the section showing marked', () => {
     const nav = html.slice(html.indexOf('aria-label="Widgets knowledge"'));
     const labels = [...nav.matchAll(/class="section-tab"[^>]*>([A-Za-z]+)/g)].map((m) => m[1]);
-    expect(labels.slice(0, 6)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Pitch', 'Settings']);
+    expect(labels.slice(0, 7)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Pitch', 'Repositories', 'Settings']);
     expect(nav).toContain(`href="/app/products/${PRODUCT}/knowledge/legal"`);
+    expect(nav).toContain(`href="/app/products/${PRODUCT}/knowledge/repositories"`);
     expect(/<a [^>]*aria-current="page"[^>]*>([^<]*)</.exec(nav)?.[1]).toBe('Legal');
     expect(nav).toContain('Legal: 1 waiting');
     expect(nav).toContain('Glossary: 1 waiting');

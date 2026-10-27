@@ -44,7 +44,7 @@ export function settingsRepositoryOf(workspace: SettingsWorkspace): string | nul
 }
 
 /** What a workspace's settings repository holds of the tech playbook, read as the Omni app. */
-async function readWorkspacePlaybook(workspace: SettingsWorkspace, github: SettingsGithub): Promise<SettingsPlaybook> {
+export async function readWorkspacePlaybook(workspace: SettingsWorkspace, github: SettingsGithub): Promise<SettingsPlaybook> {
   const repository = settingsRepositoryOf(workspace);
   if (repository === null) return empty('This workspace has no settings repository: no plan repository is named.');
   const installation = await github.installationFor({ github_org: workspace.githubOrg, github_installation_id: workspace.installation });
