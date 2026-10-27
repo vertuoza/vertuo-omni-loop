@@ -16,7 +16,7 @@ tab (PRD 2240): adding a product, the questions agents asked, and connecting an 
 
 ## Regions
 
-- **The Settings tabs:** Fleets · Repositories · Business · API keys · Jev; no Products tab.
+- **The Settings tabs:** Fleets · Repositories · Business · API keys · Jev · Playbook; no Products tab.
 - **Products:** `+ Add a product`.
 - **Agent questions.**
 - **Connect an agent.**

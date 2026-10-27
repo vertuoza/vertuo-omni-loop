@@ -113,7 +113,7 @@ export const ANTI_SIDEBAR: readonly SidebarGroup[] = [
 /** Where /app/settings lands (PRD 733): its Fleets page. */
 export const SETTINGS_LANDING = '/app/settings/fleets';
 
-/** The foot's Settings entry (PRD 733), above Docs and Release notes. */
+/** The foot's Settings entry (PRD 733), above Docs and Release notes; Playbook last (PRD 2417, issue 2538). */
 export const SETTINGS: SidebarItem = {
   id: 'settings',
   label: 'Settings',
@@ -124,6 +124,7 @@ export const SETTINGS: SidebarItem = {
     { label: 'Repositories', path: REPOSITORIES_PATH },
     { label: 'Business', path: '/app/settings/business' },
     { label: 'Jev', path: '/app/settings/jev' },
+    { label: 'Playbook', path: '/app/settings/playbook' },
   ],
 };
 
