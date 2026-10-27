@@ -68,4 +68,4 @@ both.
 
 ## Source
 
-/omni:brainstorm, PRD 2543: .omni-loop/delivery/inbox/2543-settings-repository/before-after.html
+/omni:brainstorm, PRD 2543: .omni-loop/delivery/shipped/2543-settings-repository/before-after.html
