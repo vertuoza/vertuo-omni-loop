@@ -10232,16 +10232,23 @@ function refusalOf2(error) {
 // apps/omni-app/src/fleet-board/store.ts
 import { z as z40 } from "zod";
 var FleetSchema = z40.object({ name: z40.string().min(1), projectUrl: z40.string().nullable() });
+var JobFleetSchema = z40.object({ found: z40.boolean(), fleet: FleetSchema.nullable() });
 var NOTE_MAX = 200;
 var LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 var TRACKED = "workspace_id, workspaces!inner(github_installation_id)";
 var PLAYER = "team";
+var JOB = "sent_by, sent_by_key";
 var TEAM = "name, project_url";
 var TrackedRowSchema = z40.object({ workspace_id: z40.string().min(1), workspaces: z40.object({ github_installation_id: z40.union([z40.number(), z40.string()]).nullable() }) });
 var PlayerRowSchema = z40.object({ team: z40.string().nullable() });
+var JobRowSchema = z40.object({ sent_by: z40.string().nullable(), sent_by_key: z40.string().nullable() });
 var TeamRowSchema = z40.object({ name: z40.string().min(1), project_url: z40.string().nullable() });
 function fleetBoardStore(connection) {
   const db = serviceDb(connection);
+  async function activeFleet(workspace, name) {
+    const [team] = rowsOf(TeamRowSchema, await db.from("teams").select(TEAM).eq("workspace_id", workspace).eq("name", name).is("retired_at", null).limit(1));
+    return team ? { name: team.name, projectUrl: team.project_url } : null;
+  }
   return {
     async workspaces({ installationId, repository }) {
       const rows = rowsOf(
@@ -10254,8 +10261,17 @@ function fleetBoardStore(connection) {
       if (!LOGIN.test(login)) return null;
       const [player] = rowsOf(PlayerRowSchema, await db.from("players").select(PLAYER).eq("workspace_id", workspace).ilike("github_login", login).not("team", "is", null).limit(1));
       if (!player?.team) return null;
-      const [team] = rowsOf(TeamRowSchema, await db.from("teams").select(TEAM).eq("workspace_id", workspace).eq("name", player.team).is("retired_at", null).limit(1));
-      return team ? { name: team.name, projectUrl: team.project_url } : null;
+      return activeFleet(workspace, player.team);
+    },
+    async jobFleet({ workspace, url }) {
+      const [job] = rowsOf(
+        JobRowSchema,
+        await db.from("runner_jobs").select(JOB).eq("workspace_id", workspace).contains("prs", JSON.stringify([url])).order("queued_at", { ascending: false }).limit(1)
+      );
+      if (!job) return { found: false, fleet: null };
+      if (!job.sent_by || job.sent_by_key) return { found: true, fleet: null };
+      const [player] = rowsOf(PlayerRowSchema, await db.from("players").select(PLAYER).eq("workspace_id", workspace).eq("user_id", job.sent_by).not("team", "is", null).limit(1));
+      return { found: true, fleet: player?.team ? await activeFleet(workspace, player.team) : null };
     },
     async note({ workspace, fleet, projectUrl, note, at: at4 }) {
       const written = rowsOf(
@@ -10270,6 +10286,8 @@ function fleetBoardStore(connection) {
 // apps/omni-app/src/fleet-board/fleet-board.ts
 var FLEET_BOARD_FUNCTION_ID = "fleet-board";
 var RETRIES = 2;
+var LOOKS = 10;
+var WAIT = "1m";
 var WorkspacesSchema = z41.array(z41.string().min(1));
 var NotedSchema = z41.object({ noted: z41.boolean() });
 function createFleetBoard({ client, octokitFor, store, now = () => /* @__PURE__ */ new Date() }) {
@@ -10280,11 +10298,12 @@ function createFleetBoard({ client, octokitFor, store, now = () => /* @__PURE__ 
       const pull = `${data.repository}#${String(data.prNumber)}`;
       if (!store) return { pull, skipped: "no database to read the fleets from" };
       const workspaces = await savedStep(step, "workspaces", WorkspacesSchema, () => store.workspaces({ installationId: data.installationId, repository: data.repository }));
+      const fleets = await fleetsOf({ step, store, workspaces, data });
       const outcomes = [];
       for (const workspace of workspaces) {
-        const fleet = await savedStep(step, `fleet-${workspace}`, FleetSchema.nullable(), () => store.fleetOf({ workspace, login: data.author }));
+        const fleet = fleets.get(workspace) ?? null;
         if (!fleet) {
-          outcomes.push({ workspace, skipped: "the author is in no active fleet" });
+          outcomes.push({ workspace, skipped: "the author, and the sender of a runner job holding the pull request, are in no active fleet" });
           continue;
         }
         const board = fleet.projectUrl;
@@ -10300,6 +10319,24 @@ function createFleetBoard({ client, octokitFor, store, now = () => /* @__PURE__ 
       return { pull, workspaces: outcomes };
     }
   );
+}
+async function fleetsOf({ step, store, workspaces, data }) {
+  const fleets = /* @__PURE__ */ new Map();
+  let pending = [];
+  for (const workspace of workspaces) {
+    const fleet = await savedStep(step, `fleet-${workspace}`, FleetSchema.nullable(), () => store.fleetOf({ workspace, login: data.author }));
+    fleets.set(workspace, fleet);
+    if (!fleet) pending.push(workspace);
+  }
+  for (let look2 = 1; pending.length > 0 && look2 <= LOOKS; look2 += 1) {
+    const answers = /* @__PURE__ */ new Map();
+    for (const workspace of pending) answers.set(workspace, await savedStep(step, `job-${workspace}-${String(look2)}`, JobFleetSchema, () => store.jobFleet({ workspace, url: data.url })));
+    if ([...answers.values()].some((answer) => answer.found)) {
+      for (const [workspace, answer] of answers) fleets.set(workspace, answer.fleet);
+      pending = [];
+    } else if (look2 < LOOKS) await step.sleep(`wait-${String(look2)}`, WAIT);
+  }
+  return fleets;
 }
 function noteOf(added, { owner, repo, prNumber }) {
   if (added.outcome === "added") return `Added #${String(prNumber)} \xB7 ${owner}/${repo}`.slice(0, NOTE_MAX);
