@@ -54,4 +54,4 @@ same cards, read-only. It sits inside the app shell, under the Settings tabs.
 
 ## Source
 
-/omni:brainstorm, PRD 2530: .omni-loop/delivery/inbox/2530-fleet-project-board/before-after.html
+/omni:brainstorm, PRD 2530: .omni-loop/delivery/shipped/2530-fleet-project-board/before-after.html
