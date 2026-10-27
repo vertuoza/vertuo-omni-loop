@@ -14,6 +14,7 @@ import { ESCALATION_FUNCTION_ID } from '../escalation/sweep.ts';
 import { FIX_ROW_STAMP_FUNCTION_ID } from '../fix-rows/fix-row-stamp.ts';
 import { KNOWLEDGE_PACK_FUNCTION_ID } from '../knowledge-pack/knowledge-pack.ts';
 import { MAIN_WATCH_FUNCTION_ID } from '../main-watch/main-watch.ts';
+import { FLEET_BOARD_FUNCTION_ID } from '../fleet-board/fleet-board.ts';
 
 describe('/api/inngest', () => {
   beforeEach(() => {
@@ -23,7 +24,7 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the outbox-check function, the inbox-check function (PRD 675), the approved-check function (PRD 1548) and its rerun on the approved label (PRD 1612), the budgets check (PRD 1679), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), the escalation sweep (PRD 1794), the fix row stamp and the knowledge pack (PRD 2011), the main watch (PRD 2410), and nothing else', () => {
+  it('serves the outbox-check function, the inbox-check function (PRD 675), the approved-check function (PRD 1548) and its rerun on the approved label (PRD 1612), the budgets check (PRD 1679), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), the escalation sweep (PRD 1794), the fix row stamp and the knowledge pack (PRD 2011), the main watch (PRD 2410), the fleet board (PRD 2530), and nothing else', () => {
     expect(functions.map((fn) => fn.id())).toEqual([
       FUNCTION_ID,
       INBOX_FUNCTION_ID,
@@ -39,6 +40,7 @@ describe('/api/inngest', () => {
       FIX_ROW_STAMP_FUNCTION_ID,
       KNOWLEDGE_PACK_FUNCTION_ID,
       MAIN_WATCH_FUNCTION_ID,
+      FLEET_BOARD_FUNCTION_ID,
     ]);
   });
 
@@ -51,8 +53,8 @@ describe('/api/inngest', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { function_count: number };
     // Inngest registers each failure handler as a function of its own, beside its function; prStats,
-    // canonAction, approvedCheck, approvedRerun, serverEvent, escalation, fixRowStamp, knowledgePack and mainWatch have none.
-    expect(body.function_count).toBe(19);
+    // canonAction, approvedCheck, approvedRerun, serverEvent, escalation, fixRowStamp, knowledgePack, mainWatch and fleetBoard have none.
+    expect(body.function_count).toBe(20);
   });
 });
 
@@ -82,6 +84,6 @@ describe('/api/inngest — the environment, read when the route loads (PRD 1059)
   });
 
   it('loads on a preview with nothing set', async () => {
-    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(14);
+    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(15);
   });
 });
