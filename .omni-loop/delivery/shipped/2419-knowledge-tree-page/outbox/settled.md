@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-23
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCTKNOWLEDGE-1, P-PRODUCTKNOWLEDGE-1
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A few lines in the page reader and its tests.
 - Raised: 2026-10-23
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCTKNOWLEDGE-2, P-PRODUCTKNOWLEDGE-2
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ One list and one position in the section model and the sub-menu's keys.
 - Raised: 2026-10-27
 - Slice: s3
 - Wave: 2
+- Stays here: A local, interim implementation choice for one link with a cheap follow-up; it sets no lasting guarantee or architectural decision worth keeping in the knowledge base.
 
 ### The answer, as it was given
 
