@@ -1,0 +1,363 @@
+---
+prd: 2537
+title: A runner turns over to another account or agent when one runs out
+blocked-by: none
+spec: file
+phase0: server
+---
+
+# A runner turns over to another account or agent when one runs out
+
+**Date:** 2026-10-27 · **PRD:** #2537 · **After:** PRD 1830 (runners), PRD 1894 (the Claude token
+for jobs), PRD 2102 (runner health and tokens), PRD 1890 (the kit's skills for other agents)
+· **Touches:** `kit/lib/runner/` (`job.ts`, `runner.ts`, `api.ts`, `terminal.ts`, `plugin.ts`,
+`tokens.ts`, `steps.ts`, new `agents/` and `accounts.ts`), `kit/bin/commands/runner.ts`,
+`kit/lib/env/read.ts`, `apps/galaxy/src/runners/` (contract, service, repository, page),
+`supabase/migrations/` (one migration), `docs/guide/runners.md`, the `runners` draft screen.
+**Out of scope:** a cost in dollars from a price list, a journal that resumes a job after the
+runner restarts, a machine image and placement labels, a pool of accounts kept on the server, the
+scripts that set up a particular machine, and any agent beyond Claude Code, Codex CLI and OpenCode.
+
+## Problem
+
+A runner (PRD 1830) runs every job with one agent and one account: `omni runner job` starts
+`claude -p` (`kit/lib/runner/job.ts`), and the job gets the runner's one token as
+`CLAUDE_CODE_OAUTH_TOKEN` (PRD 1894). When that account reaches its plan's 5-hour or weekly limit,
+Claude prints its limit message and exits non-zero, the job reads `failed · exit code 1`, and every
+job the runner takes after it fails the same way until the limit resets. Nothing on the Runners page
+says why, and nothing tries another account. A fleet that drives a roadmap loses hours to one
+account running out.
+
+The kit already speaks to other agents: it writes its skills for Codex and other CLIs (PRD 1890).
+But a runner can only start Claude, so a workspace that pays for Codex, or that can call an
+open-weight model through OpenCode, cannot use them for its runner's jobs.
+
+## Solution
+
+### 1. Agents behind one adapter (`kit/lib/runner/agents/`)
+
+An **agent** is a coding CLI the runner can start: `claude`, `codex` or `opencode`. Each has an
+adapter, a module with one shape:
+
+| part | what it does |
+|---|---|
+| `check(account)` | the CLI is installed and signed in for that account, or one line saying why not |
+| `command(job, account, handoff?)` | the program, arguments, environment and stdin for one run in the job's worktree |
+| `step(line)` | one line of the CLI's output turned into the step line the log and the Terminal show, or nothing |
+| `usage(run)` | the run's tokens (`{input, output, cacheRead, cacheWrite}`) and the model's name, or `null` |
+| `limit(run)` | whether the run ended on the account's usage limit, and the reset time when the CLI says one |
+
+- **claude** is today's code moved behind the shape: `claude --dangerously-skip-permissions -p
+  --output-format stream-json --verbose`, the job line on stdin, the token as
+  `CLAUDE_CODE_OAUTH_TOKEN`, tokens from the transcripts (PRD 2102), the step lines of
+  `steps.ts`. Its limit is the usage-limit result in its stream.
+- **codex** runs `codex exec --json --dangerously-bypass-approvals-and-sandbox` in the worktree, with
+  `CODEX_HOME` set to the account's folder (each account signed in there with `codex login`). Tokens
+  come from each `turn.completed` event's `usage`. Its limit is the "You've hit your usage limit"
+  message; the reset time is read from its "Try again in …".
+- **opencode** runs `opencode run --format json --model <account's model>`, the account's key in
+  the environment variable the account names. Tokens come from each `step_finish` event. Its limit
+  is an `error` event the provider raised with a 429; the reset time is its `retry-after` when it
+  gives one.
+- **The job line.** Claude gets the line as it is (`/omni:yolo 7`). Codex and OpenCode get it as
+  words: `Use the omni-yolo skill with these arguments: 7`. A repository's own skill (PRD 2313) runs
+  on Claude only.
+- **The skills.** Before a job on Codex or OpenCode, the runner writes the kit's skills, of the
+  version the job's repository pins, in that account's own skills folder on the machine
+  (`$CODEX_HOME/skills/omni-*` for Codex, OpenCode's global skills folder for OpenCode), the way it
+  keeps the Claude plugin current today (`plugin.ts`). It never writes them in the worktree. An
+  agent that cannot read a skills folder outside the repository takes no job, and its accounts read
+  `no skills` in the report.
+- **Recordings.** Each adapter is tested against recorded output in `kit/lib/runner/fixtures/`. A
+  CLI's output that does not parse is a step line printed as it is, never a crash.
+
+### 2. Accounts (`kit/lib/runner/accounts.ts`)
+
+A runner reads its accounts from `~/.config/omni/accounts.yml`, a file on the machine, never in a
+repository:
+
+```yaml
+accounts:
+  - id: claude-1
+    agent: claude
+    secret: ~/.config/omni/secrets/claude-1     # its CLAUDE_CODE_OAUTH_TOKEN
+  - id: claude-2
+    agent: claude
+    secret: ~/.config/omni/secrets/claude-2
+  - id: codex-1
+    agent: codex
+    home: ~/.codex-1                            # its CODEX_HOME, signed in with codex login
+  - id: open-1
+    agent: opencode
+    model: mistral/devstral-medium-latest
+    secret: ~/.config/omni/secrets/open-1
+    secretEnv: MISTRAL_API_KEY
+    takes: [pr-care, plan, bug-fix]
+```
+
+- **The order is the order of the file.** A job starts on the first account that is ready, whose
+  `takes` allows the job's skill (no `takes`: any skill), and whose agent passed its check.
+- **`takes`** names the skills of `RUNNABLE_SKILLS` (`kit/lib/runner/line.ts`) an account may run or
+  take over. A name outside that list is refused when the runner starts.
+- **No file:** the runner has one account, `claude`, from the token it reads today
+  (`CLAUDE_CODE_OAUTH_TOKEN`, `kit/lib/env/read.ts`). A runner set up before this PRD runs exactly
+  as it did.
+- **A malformed file** stops `omni runner` before it registers, naming the account and the field.
+- **States.** Each account is `ready`, `active` (a job runs on it), `out` until a reset time, or
+  `unusable` with a reason (`not signed in`, `no skills`, `not installed`). The runner keeps the
+  states in `~/.config/omni/accounts-state.json`, so a restart remembers an account that is out. At
+  its reset time an `out` account is `ready` again.
+- **Secrets stay on the machine.** A secret is read from its file when a run starts and passed to
+  that run's process only. It never enters the report, the log or the handoff note; the runner masks
+  it in every line it streams, as it does a GitHub App token.
+
+### 3. Turnover, in the middle of a job
+
+When a run ends and its adapter's `limit(run)` says the account hit its limit:
+
+1. The account is `out` until the reset time the CLI gave, or for one hour when it gave none (the
+   report says the time was guessed).
+2. The runner writes a **handoff note** beside the job's log, `job-<id>.handoff.md`, never in the
+   worktree: the job line, the last 40 step lines, `git status --short`, `git log --oneline` since the
+   job's start, `git worktree list`, and the pull requests the log named.
+3. It takes the next account, in the file's order, that is ready, whose `takes` allows the job's
+   skill, and whose agent passed its check, and starts it **in the same worktree**. Its first message
+   is the job line, then `You are taking over this job from <agent> (<model>), which reached its
+   usage limit. Here is where it stopped:`, then the note.
+4. A job turns over at most **three** times. A fourth limit, or no account left to take it, ends the
+   job `failed` with the reason `no tokens left: every account is out until <earliest reset>`.
+
+A run that ends non-zero without a recognised limit fails the job as today: a crash never turns
+over.
+
+### 4. Paused: no tokens left
+
+When no account is ready for any skill, the runner pauses as it does under machine pressure
+(PRD 2102): it opens no new `next`, and its health report's `paused` reads
+`no tokens left until 18:00`. It takes jobs again once one account is ready.
+
+### 5. The reports (runner to server)
+
+- **A job's parts.** Each job report (`POST /api/runners/jobs/<id>`) carries an optional `parts`
+  list, one entry per run:
+
+  ```json
+  "parts": [
+    { "agent": "claude", "model": "claude-opus-5-5", "account": "claude-1",
+      "from": "2026-10-27T13:41:02Z", "to": "2026-10-27T14:02:11Z",
+      "tokens": { "input": 912000, "output": 61000, "cacheRead": 3100000, "cacheWrite": 240000 },
+      "ended": "limit", "resetsAt": "2026-10-27T18:00:00Z", "guessed": false },
+    { "agent": "codex", "model": "gpt-5-codex", "account": "codex-1",
+      "from": "2026-10-27T14:02:15Z", "to": null,
+      "tokens": { "input": 380000, "output": 23000, "cacheRead": 110000, "cacheWrite": 0 },
+      "ended": null }
+  ]
+  ```
+
+  `ended` is `limit`, `done`, `failed` or `null` while it runs. The job's `tokens` stays the sum of
+  its parts, so a page that reads only `tokens` keeps working.
+- **The accounts.** The health report (`POST /api/runners/<id>/health`) carries an optional
+  `accounts` list: `{ id, agent, state, resetsAt?, reason? }`. An account's id is the name its owner
+  wrote; nothing else about it leaves the machine.
+- **An old server.** Both fields are optional. As with `tokens` in PRD 2102, the runner sends them
+  only once the server accepted one report carrying them, and a report refused once is sent again
+  without them.
+
+### 6. Storage (one migration)
+
+- `runner_jobs.parts jsonb null`.
+- The accounts ride in `runners.health`, which is already `jsonb`: no column.
+
+### 7. The Runners page
+
+- **A runner's row** gains its account chips under the health line, in the file's order: the id, in
+  the ink colour when ready, in the signal colour when active, in `--ask-red` when out or unusable,
+  each titled with its agent and its state (`out until 18:00`, `not signed in`).
+- **Paused: no tokens left until 18:00** reads in place of Online or Busy, as a pause for memory
+  does.
+- **A job's row** names its agent and model beside its status (`codex · gpt-5-codex`), and, when it
+  turned over, a line per part: `claude-1 · Opus 5.5 · 13:41–14:02 · usage limit` then
+  `codex-1 · gpt-5-codex · since 14:02`.
+- **A queued job** that every possible runner holds back for tokens reads `Waiting: every runner out
+  of tokens until 18:00`, beside PRD 2102's reasons.
+
+### 8. The pull request names its parts
+
+A job that turned over has `/omni:pr` add one line to its pull request's status comment, written by
+the runner through the job's environment (`OMNI_RUNNER_PARTS`, the parts in one line): `Parts:
+claude (Opus 5.5) until 14:02 · codex (gpt-5-codex), usage limit`. A job that never turned over adds
+nothing.
+
+### 9. The guide
+
+`docs/guide/runners.md` gains **Accounts and turnover** under **Set up a new runner**: the file,
+the order, `takes`, signing in Codex (`CODEX_HOME=… codex login`) and OpenCode (a provider key), what
+the chips and `Paused: no tokens left` mean, and two rows in **When something goes wrong** (`no
+skills`, `not signed in`).
+
+## Conventions
+
+| repo | layer | name | source |
+|---|---|---|---|
+| this | cli | `kit/lib/runner/agents/<agent>.ts`, one module per agent | no written convention: follows `kit/lib/runner/` (one module per concern) |
+| this | cli | `accounts.yml`, `accounts-state.json` under `~/.config/omni/` | no written convention: follows `~/.config/omni/runner-token` (the runner guide, "Make a token") |
+| this | db | `runner_jobs.parts` | no written convention: follows `runner_jobs.tokens` ← `supabase/migrations/20261212090000_runner_tokens.sql:17` |
+| this | ui | `parts`, `accounts` in the contracts | follows `tokens` in `JobUpdateSchema` ← `apps/galaxy/src/runners/runners.contract.ts` |
+
+## Decisions
+
+- **One adapter per CLI inside `omni runner`.** The person chose this over a client of the Agent
+  Client Protocol (newer, and Claude's bridge may not load the kit's plugin as `claude -p` does) and
+  over handing jobs to a T3 Code server (no public API, no turnover between agents).
+- **Turnover in the middle of a job.** The person chose this over failing and requeuing, and over
+  turning over only between accounts of one agent. One pull request may hold two agents' work; the
+  page and the pull request name each part.
+- **Accounts kept on each runner.** The person chose this over a pool on the server: secrets never
+  leave the machine.
+- **The voice's objection, accepted.** The F-E Developer (persona:F-E Developer) objected that a
+  weaker open model finishing what Claude started puts slop in a pull request nobody can attribute.
+  The design now names every part on the pull request and the page, and an account's `takes` limits
+  which skills it may run or take over (an open model on `pr-care`, `plan` and `bug-fix` only).
+- **The third agent is OpenCode with a hosted open-weight model in the EU.** The person chose a
+  hosted model over a GPU machine of the workspace's own. The model is the account's setting, so a
+  machine of its own can replace it later with no change to the kit.
+- **The skills in the agent's own folder, never in the worktree.** This repository's agents are
+  `claude` only, so no `.agents/skills` exists in it: the approved rule ("a repository without them
+  skips that agent") would never use Codex here. Writing them in the account's own folder, at the
+  repository's pinned version, mirrors how the Claude plugin is kept, and no skill file can enter a
+  pull request. Changed after the design was approved; the person reviews it with the spec.
+- **One hour when no reset time is given; three turnovers at most.** The most reversible choices,
+  taken without asking: each is one constant.
+- **The handoff note is built by the runner, not written by the agent that ran out.** An agent at its
+  limit cannot be asked for one more turn.
+- **The same worktree, nothing pushed at turnover.** A push needs the repository's hooks to pass on
+  half-done work, and the next agent is on the same machine. Pushing and resuming after a restart
+  belong to the restart journal, a later PRD.
+- **A repository's own skill runs on Claude only.** It may rely on Claude's tools; it is the most
+  reversible choice.
+
+## User stories
+
+- As the person who runs the fleet, I list two Claude accounts, one Codex and one open model on a
+  runner, and a roadmap I drive overnight keeps moving when the first Claude account hits its weekly
+  limit.
+- As a PM, I see on the Runners page that `/omni:yolo 2513` ran on Claude until 14:02 and then on
+  Codex, and why.
+- As a front-end developer reviewing the pull request, I read which agent did which part, and I know
+  the open model never touched a `yolo`.
+- As a lead engineer, I see `Paused: no tokens left until 18:00` on a runner, and I know the loop
+  waits on a limit, not on a bug.
+
+## Scope
+
+**In:** the three adapters, the accounts file and its states, turnover with the handoff note, the
+pause, the `parts` and `accounts` reports, the migration, the Runners page's chips and parts, the
+pull request's parts line, the guide's section, the `runners` draft screen.
+
+**Out:** what the header lists.
+
+## Test seams
+
+Tests live beside the code (`omni kb show testing`). None calls a real agent CLI, GitHub or
+Supabase: each CLI is a fake program on the `PATH` that replays a recording from
+`kit/lib/runner/fixtures/`.
+
+- **Each adapter** (`kit/lib/runner/agents/*.test.ts`): `command` for a job and for a takeover,
+  `step` on each recorded event, `usage` summed from a recording, `limit` on a recorded limit (with
+  and without a reset time), a crash that is not a limit, and output that does not parse.
+- **`accounts.test.ts`:** the file read, each malformed field refused with its account and field,
+  `takes` outside `RUNNABLE_SKILLS` refused, no file giving today's one Claude account, states kept
+  across a restart, an `out` account ready again at its reset time.
+- **Turnover** (`job.test.ts`): a recorded Claude limit, then a fake Codex that finishes: two parts,
+  the note beside the log and not in the worktree, the takeover message, the job `done`. Also: a
+  crash does not turn over; `takes` skips an account; the fourth limit fails the job with the
+  earliest reset; a secret never appears in the log, the note or a report.
+- **The skills** (`plugin.test.ts`): written in the account's folder at the pinned version, never in
+  the worktree; `no skills` when the agent reads none.
+- **The pause** (`runner.test.ts`): every account out opens no `next`, and the runner resumes at the
+  earliest reset.
+- **`runners.contract.test.ts`:** `parts` and `accounts` valid and invalid, and an old runner's
+  reports still valid.
+- **Controller, service and migration tests:** `parts` stored, accounts kept in `health`, the column
+  and its row-level security unchanged.
+- **Page model and render tests:** each chip state, `Paused: no tokens left`, a job's agent and
+  parts, and the queued reason.
+- **Mutation:** `kit/lib/env/read.ts` is in the delivery core: `pnpm mutation:changed` runs on it.
+
+## Risks
+
+**What a merge publishes:**
+- **The kit.** Every runner that runs `omni update` gets the adapters. A runner without an accounts
+  file runs as before.
+- **The migration.** One nullable column, applied by the `supabase` workflow.
+- **The arcade.** The Runners page and the contracts deploy with the release commit.
+
+**Order:** an old runner sends no `parts` and no `accounts`, and its row shows nothing new. A new
+runner against an old server sends neither until the server accepts them (Solution, 5).
+
+**Agents:**
+- **Mixed work in one pull request.** Named on the pull request and the page; limited by `takes`;
+  every gate still runs, and only a person merges.
+- **A CLI changes its output or its limit message.** The adapter then misses the limit and the job
+  fails as today; the recordings make the change a red test once a recording is refreshed.
+- **Codex and OpenCode have no sub-agents like Claude's.** A wave on them builds its slices one
+  after another, as the briefing's **Parallel agents** says: slower, not wrong.
+- **Codex runs without its sandbox** on the runner. A runner is a machine dedicated to agents, with
+  no production credentials (the runner guide); this is the same trust Claude gets today.
+- **Accounts and plans.** Turning over between several subscription accounts of one provider may
+  break that provider's terms. The guide says to use a seat or a key per account; the kit does not
+  check it.
+
+**Rollback:** revert the merge commit. The column stays, unused. A runner with an accounts file
+then runs on Claude only, from `CLAUDE_CODE_OAUTH_TOKEN` when it is set.
+
+**The Legal entries it touches:**
+- **L-GDPR-2** (credentials never stored or logged in clear): account secrets stay in files on the
+  machine, are passed to the run's process only, and are masked in every streamed line; the report
+  names an account by its id only.
+- **L-GDPR-5** (every service handling personal data on the product's behalf is named): the
+  accounts are the workspace's own, chosen and paid by it on its own machine, as Claude is on a
+  runner today; no data goes to OpenAI or Mistral on the product's behalf. Whether the guide must
+  still name them is a question for its owner, @pierrederval.
+- **L-GDPR-7** (a basis for transfers outside the EU): the guide's example open model is hosted in
+  the EU; what a workspace's accounts send is the workspace's choice.
+- **L-GDPR-4** (logs have a cap or a retention): a handoff note lives beside its job's log and goes
+  with it.
+- **L-AIACT-1** (agents' work says so): the parts line names the agents; every commit and pull
+  request stays signed as today.
+
+**The locked laws.** `omni kb laws` printed these for the files this design changes; the design
+keeps each one as it stands (accounts and parts are read only by the runner's workspace members,
+under row-level security, and no secret reaches the browser):
+
+- BR-PRODUCT-12: the terminal acts on words the person no longer stands behind, and nobody can tell what was decided. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+- BR-PRODUCT-28: a stranger could tie themselves to a team and see what that team sees. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+- BR-PRODUCT-29: a stranger could read a team's questions and answers. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+- BR-PRODUCT-39: a question could leak to the wrong people, or its owner could lose it. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+- BR-PRODUCT-59: a member could copy the paid key and run up the workspace's bill. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+- BR-PRODUCT-63: an agent could read another team's private work. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+- BR-PRODUCT-64: a person who left the team could still read its work through an agent. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+- N-PRODUCT-16: scores and history could change after the fact, and players could no longer trust what they earned. Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+
+## Acceptance criteria
+
+Acceptance scenarios are off in this repository, so each criterion becomes ordinary tests.
+
+1. **No accounts file, no change.** A runner with no `accounts.yml` runs a job on Claude with its one
+   token, exactly as before, and its report carries one part.
+2. **Turnover.** On a runner whose first account hits its usage limit mid-job, the job carries on in
+   the same worktree on the next ready account. It ends `done` with two parts, and the first
+   account reads `out until <reset>` on the Runners page.
+3. **`takes` is kept.** An account whose `takes` leaves out the job's skill neither starts nor takes
+   over that job.
+4. **A crash is not a limit.** A run that fails without a recognised limit fails the job, and no
+   other account starts.
+5. **Out of tokens.** When every account is out, the job fails with `no tokens left: every account
+   is out until <earliest reset>`, the runner reads `Paused: no tokens left until <time>` and takes
+   no job, then takes jobs again after the earliest reset.
+6. **Secrets stay.** No account secret appears in a report, a log line, the handoff note or the
+   page.
+7. **Parts on the pull request.** A job that turned over has its pull request's status comment name
+   each agent, model and why it turned over.
+8. **Codex and OpenCode run the kit's skills** from their own folders, at the repository's pinned
+   version, and no skill file appears in the job's pull request.

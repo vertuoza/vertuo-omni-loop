@@ -30,6 +30,10 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     Memory (`<used> of <total> GB`), Disk (`<free> GB free of <total>`) and Tokens
     (`<n> in 5 h · <n> today`, the four-count split in its title), each with the last hour's
     sparkline; a gauge past the runner's own limit reads in `--ask-red`.
+  - under the health line, its account chips (PRD 2537), in the order its accounts file lists them:
+    the account's id, in the ink colour when ready, in `--ask-plasma` when active, in `--ask-red`
+    when out or unusable, each titled with its agent and its state (`out until 18:00`, `not signed
+    in`). A runner with no accounts file shows none.
 - **Jobs:** queued and running first, then the jobs waiting for an answer whatever their age
   (PRD 2255), then the last 50 that ended. Each row shows the line, the
   repository, who sent it, where it went, its status and its action.
@@ -48,11 +52,15 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     `runner-need-human` drawer and sets `?answer=<job id>` on the URL; once answered or dismissed,
     the job reads Done.
   - A job shows its tokens beside its status (`1.4M tokens`) once its runner reported them (PRD 2102).
+  - A job names its agent and model beside its status (`codex · gpt-5-codex`), and, when it turned
+    over to another account, one line per part under it: `claude-1 · Opus 5.5 · 13:41–14:02 · usage
+    limit`, then `codex-1 · gpt-5-codex · since 14:02` (PRD 2537).
   - A job that held claims when it ended lists, under its status in `--ask-red`, the sub-PRs its
     runner released: `Released #<n>, #<n>`, each linked; a release that failed reads `Could not
     release this job's claims: <why>` (PRD 2175).
   - A queued job whose every possible runner is paused says why under its status: `Waiting:
-    <runner> paused (<reason>)`, or `Waiting: every runner paused (<reason>)` (PRD 2102).
+    <runner> paused (<reason>)`, or `Waiting: every runner paused (<reason>)` (PRD 2102), or `Waiting:
+    every runner out of tokens until <time>` (PRD 2537).
   - A queued job that no runner of the workspace can take reads **Cannot run** in `--ask-red`, in
     place of Queued, with why under it (PRD 2482): `No runner holds <owner/name>`, `<runner> does not
     hold <owner/name>`, `No runner of <fleet> holds <owner/name>`, `The runner it was sent to is gone`,
@@ -74,7 +82,8 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   `timeout`, the exit code), Cancelled, with `by API key <name>` under it when a key cancelled it
   (PRD 2425). A bug fix's outcome a key reads (already fixed, not a bug…) still reads Done here.
 - **Paused** (PRD 2102): the runner's state reads `Paused: <reason>` in `--ask-red`, in place of
-  Online or Busy, while its last report names a pressure.
+  Online or Busy, while its last report names a pressure. A runner whose every account is out reads
+  `Paused: no tokens left until <time>` the same way (PRD 2537).
 - **A health line:** a figure it could not read is `—` with no bar; an offline runner's last
   figures are greyed under `as of <age>`; a runner that never reported shows `Update this runner
   to see its health.` with `omni update` to copy; no sample in the hour, no sparkline.
@@ -89,7 +98,7 @@ Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Re
 Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · GitHub App · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
-health · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
+health · no tokens left · until · out of tokens · usage limit · since · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
 
 ## Refusals
 
@@ -118,4 +127,5 @@ health · Released · Could not release this job's claims · Need human · Stopp
 /omni:brainstorm, PRD 2338: .omni-loop/delivery/shipped/2338-retro-apply/before-after.html
 /omni:brainstorm, PRD 2375: .omni-loop/delivery/shipped/2375-job-stopped-mid-way/before-after.html
 /omni:brainstorm, PRD 2425: .omni-loop/delivery/shipped/2425-api-key-job-control/before-after.html
+/omni:brainstorm, PRD 2537: .omni-loop/delivery/inbox/2537-runner-turnover/before-after.html
 /omni:brainstorm, PRD 2482: .omni-loop/delivery/shipped/2482-runner-cannot-run/before-after.html
