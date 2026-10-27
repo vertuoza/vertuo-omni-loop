@@ -144,25 +144,6 @@ describe('the stages sync route', () => {
     expect(store.stages.map((s) => s.repository)).toEqual(['globex/core']);
   });
 
-  it('reads a workspace\'s repositories four at a time, so a run of many fits its time, and answers them in order (#2529)', async () => {
-    const names = ['acme/a1', 'acme/a2', 'acme/a3', 'acme/a4', 'acme/a5', 'acme/a6'];
-    let reading = 0;
-    let most = 0;
-    const { d } = deps({
-      snapshot: async (_w, repo) => {
-        reading += 1;
-        most = Math.max(most, reading);
-        // The first repository is the slowest, so it finishes last.
-        await new Promise((resolve) => setTimeout(resolve, repo === 'acme/a1' ? 20 : 5));
-        reading -= 1;
-        return snap(repo);
-      },
-    }, { acme: names });
-    const body = await answerOf(await syncStages(post(`Bearer ${SECRET}`), d));
-    expect(most).toBe(4);
-    expect(body.repositories.map((r) => r.repository)).toEqual(names);
-  });
-
   it('writes nothing new on a rerun', async () => {
     const { d, store } = deps();
     await syncStages(post(`Bearer ${SECRET}`), d);

@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `apps/galaxy/src/stages/sync/sync.test.ts`
+- **File:** `apps/galaxy/src/stages/sync/sync.turns.test.ts`
 - **Level:** unit
 - **Red:** `AssertionError: expected 1 to be 4 // Object.is equality`
 
