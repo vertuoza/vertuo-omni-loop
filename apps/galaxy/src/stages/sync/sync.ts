@@ -7,7 +7,8 @@
 // first sync, only its issues and pull requests updated since the last one (less OVERLAP) are read
 // (issue 642), so the 15-minute run does not spend the App's hourly GitHub budget. A workspace's
 // repositories are read four at a time and answered in their order, so the run fits the route's 300 s
-// (#2529). A repository that
+// (#2529); each step that takes 30 s or more is logged with how long it took, so a run cut off at 300 s
+// still says what was slow. A repository that
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
@@ -106,6 +107,9 @@ export type SyncDeps = {
   waits?: WaitStore;
   now(): string;
   log(line: string): void;
+  /** A stopwatch started for each step; a step that takes SLOW_STEP_MS or more is logged with how long it took
+   * (#2529). None, no step is timed. */
+  timer?(): () => number;
   /** Where the run's one `stages-sync` line goes (PRD 1723): kit/lib/log's stdout logger, live. */
   runLog: Logger;
 };
@@ -162,6 +166,21 @@ const before = (at: string, ms: number) => new Date(Date.parse(at) - ms).toISOSt
 /** How many of a workspace's repositories are read at once: one after another, 22 of them overran the
  * route's 300 s (#2529). */
 const REPO_READS = 4;
+
+/** A step that takes this long or more is logged, so a run cut off at 300 s still says what was slow (#2529). */
+const SLOW_STEP_MS = 30_000;
+
+/** Runs `step`, then logs `<what> took <s> s` when it took SLOW_STEP_MS or more, whether it gave or threw. */
+async function timed<T>(deps: SyncDeps, what: string, step: () => Promise<T>): Promise<T> {
+  if (!deps.timer) return step();
+  const stop = deps.timer();
+  try {
+    return await step();
+  } finally {
+    const ms = stop();
+    if (ms >= SLOW_STEP_MS) deps.log(`stages sync: ${what} took ${String(Math.round(ms / 1000))} s`);
+  }
+}
 
 /** `each` of the items, at most `limit` at a time; what each gave, in the items' order. */
 async function inTurns<T, R>(items: readonly T[], limit: number, each: (item: T) => Promise<R>): Promise<R[]> {
@@ -310,12 +329,12 @@ async function recordRepoWaits(
 /** Reads and records one repository; its counts, or throws with why it was skipped. */
 async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string, lanes: TargetLanes): Promise<SyncedRepo> {
   const since = await sinceOf(deps, workspace, repository);
-  const snapshot = await deps.snapshot(workspace, repository, since);
+  const snapshot = await timed(deps, `the snapshot of ${repository}`, () => deps.snapshot(workspace, repository, since));
   const serverBorn = await serverBornOf(deps, workspace, repository);
   const born = serverBorn ?? [];
   const { stages, topics } = stagesOfRepo(snapshot, syncedAt, born);
   await deps.store.recordStages(stages.map((s) => ({ ...s, workspace_id: workspace.id })), syncedAt);
-  await recordMilestones(deps, workspace, snapshot, born, syncedAt);
+  await timed(deps, `the milestones of ${repository}`, () => recordMilestones(deps, workspace, snapshot, born, syncedAt));
   noteTargets(lanes, snapshot, born);
   let learnt = 0;
   for (const topic of topics) {
@@ -326,16 +345,17 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
       deps.log(`stages sync: the topic ${topic.topic} of ${repository}#${topic.prd} was not recorded — ${why(error)}`);
     }
   }
-  await refreshSnapshots(deps, workspace, repository, changedPrds(snapshot), syncedAt);
+  await timed(deps, `the stale snapshots of ${repository}`, () => refreshSnapshots(deps, workspace, repository, changedPrds(snapshot), syncedAt));
   if (deps.outbox) {
     const prds = [...new Set([...stages, ...topics].map((s) => s.prd))].sort((a, b) => a - b).map((prd) => ({ repository, prd }));
     try {
-      await recountOutboxes(workspace.id, prds, { ...deps.outbox, stages: deps.store, log: (line) => { deps.log(line); } }, syncedAt);
+      const recount = { ...deps.outbox, stages: deps.store, log: (line: string) => { deps.log(line); } };
+      await timed(deps, `the outbox recount of ${repository}`, () => recountOutboxes(workspace.id, prds, recount, syncedAt));
     } catch (error) {
       deps.log(`stages sync: the outboxes of ${repository} were not recounted — ${why(error)}`);
     }
   }
-  await recordRepoWaits(deps, workspace, snapshot, serverBorn, syncedAt);
+  await timed(deps, `the waits of ${repository}`, () => recordRepoWaits(deps, workspace, snapshot, serverBorn, syncedAt));
   return { workspace: workspace.slug, repository: repository.toLowerCase(), stages: stages.length, topics: learnt };
 }
 
@@ -444,7 +464,7 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
     const lanes: TargetLanes = { held: new Set(), claimed: [] };
     const read = await inTurns(repositories, REPO_READS, async (repository): Promise<SyncedRepo | SkippedRepo> => {
       try {
-        return await syncRepo(deps, workspace, repository, syncedAt, lanes);
+        return await timed(deps, repository, () => syncRepo(deps, workspace, repository, syncedAt, lanes));
       } catch (error) {
         deps.log(`stages sync: ${repository} of ${workspace.slug} is skipped — ${why(error)}`);
         return { workspace: workspace.slug, repository: repository.toLowerCase(), reason: why(error) };
@@ -455,8 +475,8 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
       else reply.repositories.push(repo);
     }
     await recordTargetLanes(deps, workspace, lanes, syncedAt);
-    await refreshFixes(deps, workspace, syncedAt);
-    await refreshConcepts(deps, workspace, syncedAt);
+    await timed(deps, `the fix facts of ${workspace.slug}`, () => refreshFixes(deps, workspace, syncedAt));
+    await timed(deps, `the concept facts of ${workspace.slug}`, () => refreshConcepts(deps, workspace, syncedAt));
   }
   return { answer: json(200, reply), repos: reply.repositories.length };
 }

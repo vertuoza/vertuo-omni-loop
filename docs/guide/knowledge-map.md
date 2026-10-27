@@ -80,6 +80,8 @@ and it wins. The text of a level is never filled from the config. The Omni setti
 by `omni sync`; until a sync has copied it, or with no settings repository, level 3 is skipped and
 the kit's default answers.
 
+[Playbook](/docs/playbook) explains these levels in full, and the two screens that show them.
+
 ## Old words
 
 Two small tables read the words in use before the lists, once:
