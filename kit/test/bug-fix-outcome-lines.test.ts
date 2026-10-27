@@ -43,6 +43,9 @@ const FIXED_BY: Readonly<Record<string, readonly string[]>> = {
   'mega-bug-fix': ['7. Each target'],
 };
 
+/** The rules of the `Follow-up:` line (PRD 2508) each skill must state, as the plain phrases it says them in. */
+const FOLLOW_UP_RULES = ['`Follow-up:`', 'one line per problem', 'no bullet, no quote, no bold, no code span', '`owner/name`', 'comma-separated with no space', ' · ', 'what the run saw', 'never a guess', '`Maybe:`', 'the bug this job fixed', 'name', 'never a secret', 'at most five'];
+
 const read = (name: string) => readFileSync(new URL(`../plugin/skills/${name}/SKILL.md`, import.meta.url), 'utf8');
 
 /** A text with each run of whitespace made one space: prose wraps its lines anywhere. */
@@ -119,6 +122,22 @@ function placeProblems(name: string, text: string): string[] {
   });
 }
 
+/** The skill's section naming the follow-up line, flattened and lower-cased: the paragraph that starts with `**The follow-up line**` and its list and example. */
+function followUpText(text: string, heading: string): string {
+  const body = part(text, heading);
+  const start = body.indexOf('**The follow-up line**');
+  return start < 0 ? '' : flat(body.slice(start)).toLowerCase();
+}
+
+/** What is wrong with how `text` states the `Follow-up:` line: a rule it drops, or an example that does not read. */
+function followUpProblems(text: string, heading: string): string[] {
+  const said = followUpText(text, heading);
+  const dropped = FOLLOW_UP_RULES.filter((rule) => !said.includes(rule.toLowerCase())).map((rule) => `the follow-up line drops: ${rule}`);
+  const example = /^Follow-up: .*$/m.exec(part(text, heading))?.[0];
+  const reads = example !== undefined && bugFixReading(`${example}\n`).followUps.length === 1;
+  return [...dropped, ...(reads ? [] : ['the follow-up example does not read'])];
+}
+
 describe('the bug fix outcome lines (PRD 2425, s2)', () => {
   const bugFix = read('bug-fix');
   const mega = read('mega-bug-fix');
@@ -166,6 +185,24 @@ describe('the bug fix outcome lines (PRD 2425, s2)', () => {
 
     it('writes Fixed by: only for the pull request it proved', () => {
       expect(fixedByProblems(mega, FIXED_BY['mega-bug-fix'] ?? [])).toEqual([]);
+    });
+  });
+
+  describe('the follow-up line (PRD 2508)', () => {
+    it('is defined, with its rules and an example the runner reads, by /omni:bug-fix', () => {
+      expect(followUpProblems(bugFix, 'The outcome line')).toEqual([]);
+      expect(flat(part(bugFix, '13. Hand off'))).toContain('`Follow-up:` line');
+    });
+
+    it('is defined, with its rules and an example the runner reads, by /omni:mega-bug-fix', () => {
+      expect(followUpProblems(mega, '')).toEqual([]);
+      expect(flat(part(mega, '10. Hand off'))).toContain('`Follow-up:` line');
+    });
+
+    it('fails when a skill drops the line or one of its rules', () => {
+      expect(followUpProblems(bugFix.replace(/never a\s+secret/g, 'nothing'), 'The outcome line')).toEqual(['the follow-up line drops: never a secret']);
+      expect(followUpProblems(bugFix.replace('**The follow-up line** (PRD', '**Another line** (PRD'), 'The outcome line')).toContain('the follow-up line drops: at most five');
+      expect(followUpProblems(bugFix.replace('Follow-up: demo-org/nimbus-backend-php ·', 'Follow-up: demo-org/nimbus-backend-php -'), 'The outcome line')).toEqual(['the follow-up example does not read']);
     });
   });
 
@@ -219,17 +256,17 @@ describe('the bug fix outcome lines (PRD 2425, s2)', () => {
     const link = 'https://github.com/demo-org/example/pull/7';
 
     it.each(BUG_FIX_OUTCOMES)('reads %s from a hand-off, stamped or not', (word) => {
-      expect(bugFixReading(`10:00:00 Done: ok · 4 turns\n10:00:01 Outcome: ${word}\n10:00:01 Review the PR and merge it if it is right.\n`)).toEqual({ outcome: word, fixedBy: null, prs: [] });
+      expect(bugFixReading(`10:00:00 Done: ok · 4 turns\n10:00:01 Outcome: ${word}\n10:00:01 Review the PR and merge it if it is right.\n`)).toEqual({ outcome: word, fixedBy: null, prs: [], followUps: [] });
       expect(bugFixReading(`Outcome: ${word}\n`).outcome).toBe(word);
     });
 
     it('reads the proven pull request of stop rule 3 as the one that fixed the bug, and none of its Maybe: lines', () => {
       const log = `10:00:00 Done: ok · 4 turns\n10:00:01 Outcome: already-fixed\n10:00:01 Fixed by: ${link}\n10:00:01 Maybe: #9\n`;
-      expect(bugFixReading(log)).toEqual({ outcome: 'already-fixed', fixedBy: link, prs: [] });
+      expect(bugFixReading(log)).toEqual({ outcome: 'already-fixed', fixedBy: link, prs: [], followUps: [] });
     });
 
     it('reads the comment\'s Fixed by #<n> and a Maybe: line as no pull request that fixed the bug', () => {
-      expect(bugFixReading('Outcome: already-fixed\nFixed by #7\nMaybe: https://github.com/demo-org/example/pull/9\n')).toEqual({ outcome: 'already-fixed', fixedBy: null, prs: [] });
+      expect(bugFixReading('Outcome: already-fixed\nFixed by #7\nMaybe: https://github.com/demo-org/example/pull/9\n')).toEqual({ outcome: 'already-fixed', fixedBy: null, prs: [], followUps: [] });
     });
 
     it('reads a formatted line as none, which is why the skill writes it plain', () => {

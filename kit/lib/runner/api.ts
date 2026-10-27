@@ -118,6 +118,8 @@ export type JobUpdate = {
   fixedBy?: string;
   /** The pull requests a bug fix's log names with a `PR:` line, of any repository, in order, at most 50 (PRD 2425): sent done or failed, left out when it names none. */
   prs?: string[];
+  /** The problems a done bug fix saw and did not fix, from its `Follow-up:` lines, at most 5 (PRD 2508); left out when it names none. */
+  followUps?: { repos: string[]; summary: string }[];
   /** The PRD's slices merged and its slices in all, read from its board when a job ended `stopped` (PRD 2375); left out when the board cannot be read. */
   slicesMerged?: number;
   slicesTotal?: number;

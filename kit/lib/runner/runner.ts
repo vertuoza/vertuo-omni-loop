@@ -318,20 +318,29 @@ function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
 }
 
 /**
- * Sends a job's report. One that carries what was released, an outcome, or a bug fix's pull requests, and
- * is refused is sent again without them: an app older than PRD 2175, 2223, 2375 or 2425 refuses a field it
+ * Sends a job's report. One that carries what was released, an outcome, or a bug fix's pull requests or follow-ups, and
+ * is refused is sent again without them: an app older than PRD 2175, 2223, 2375, 2425 or 2508 refuses a field it
  * does not know, or an outcome word it has no value for, and the job's status must still reach it.
  */
 async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
   const update = hideTokens(loop, job, raw);
-  const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, ...rest } = update;
-  const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs];
+  const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps, ...rest } = update;
+  const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps];
   if (newer.every((field) => field === undefined)) return sendCounted(loop, job, update);
   try {
     return await sendCounted(loop, job, update);
   } catch (error) {
     if (!(error instanceof RunnerRefused)) throw error;
-    return sendCounted(loop, job, rest);
+    // An app from before PRD 2508 refuses `followUps` alone: the fields of PRD 2425 and the others are tried again first.
+    if (followUps === undefined) return sendCounted(loop, job, rest);
+    const withoutFollowUps: JobUpdate = { ...update };
+    delete withoutFollowUps.followUps;
+    try {
+      return await sendCounted(loop, job, withoutFollowUps);
+    } catch (again) {
+      if (!(again instanceof RunnerRefused)) throw again;
+      return sendCounted(loop, job, rest);
+    }
   }
 }
 
@@ -548,8 +557,8 @@ function bugFixOf(log: string, line: string): BugFixReading | null {
 }
 
 /** The fields a done bug fix's log adds to its report (PRD 2425): what the log does not say is left out. */
-function bugFixFields({ outcome, fixedBy, prs }: BugFixReading): Pick<JobUpdate, 'outcome' | 'fixedBy' | 'prs'> {
-  return { ...(outcome === null ? {} : { outcome }), ...(fixedBy === null ? {} : { fixedBy }), ...(prs.length === 0 ? {} : { prs }) };
+function bugFixFields({ outcome, fixedBy, prs, followUps }: BugFixReading): Pick<JobUpdate, 'outcome' | 'fixedBy' | 'prs' | 'followUps'> {
+  return { ...(outcome === null ? {} : { outcome }), ...(fixedBy === null ? {} : { fixedBy }), ...(prs.length === 0 ? {} : { prs }), ...(followUps.length === 0 ? {} : { followUps }) };
 }
 
 /**

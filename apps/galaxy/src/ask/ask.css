@@ -114,11 +114,12 @@ html:has(.ask[data-ask-theme]) body {
   flex: 1;
   display: grid;
   align-content: start;
-  justify-items: center;
+  justify-items: stretch;
   gap: 28px;
   padding: 28px var(--ask-gutter) 72px;
 }
-/* Every page uses the full width (PRD 498); a single form field still stops at 900 px. */
+/* Every page uses the full width (PRD 498), even one that sets no width of its own, and so does its
+   skeleton (issue 2511); a single form field still stops at 900 px. */
 .ask-main :is(input, select, textarea) { max-width: 900px; }
 .ask-col { width: 100%; justify-self: start; display: grid; gap: 28px; }
 .ask-title { margin: 0; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }

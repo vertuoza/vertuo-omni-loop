@@ -75,10 +75,10 @@ describe('the OpenAPI reference', () => {
   it('describes reading a job, and refusing one off the key’s list with 403 (PRD 2425 s3)', () => {
     const job = document.paths?.['/api/v1/jobs/{id}']?.get;
     expect(Object.keys(job?.responses ?? {}).sort()).toEqual(['200', '401', '403', '404', '500']);
-    expect(job?.description).toMatch(/outcome.*fixed_by.*prs.*questions.*continues.*continued_by.*acting_for.*cancelled_by.*log_tail/s);
+    expect(job?.description).toMatch(/outcome.*fixed_by.*prs.*follow_ups.*questions.*continues.*continued_by.*acting_for.*cancelled_by.*log_tail/s);
   });
 
-  it.each(['outcome', 'fixed_by', 'prs', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail'])(
+  it.each(['outcome', 'fixed_by', 'prs', 'follow_ups', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail'])(
     'documents the job’s field %s (PRD 2425 s3)', (field) => { expect(schemasText()).toContain(`"${field}"`); },
   );
 

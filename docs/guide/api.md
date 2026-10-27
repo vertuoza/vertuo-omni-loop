@@ -219,6 +219,25 @@ never as an error.
   `{url, repo, number}`: a mega bug fix's target pull requests first, its record last. A failed or
   stuck job lists the draft it left, and a job that opened none lists none. `pr_url` keeps its
   meaning: one pull request, the record for a mega bug fix.
+- `follow_ups` lists the problems the run saw and did not fix, in order, as
+  `{repos, summary}`: `repos` is one to ten repositories as `owner/name`, `summary` is one sentence
+  of what the run saw, at most 300 characters. There are at most five. It is always an array: `[]`
+  when the run saw none, for a job of another skill, and for a runner on a kit from before
+  follow-ups. Any outcome can carry them, `stuck` and `need_human` included. They are an agent's
+  words, not a verdict: say so wherever you show one.
+
+  For example, `{"repos": ["demo-org/nimbus-backend-php"], "summary": "The Peppol check sends company data the service rejects."}`.
+
+### Fix a follow-up
+
+A follow-up is never a rerun of the job that found it: a rerun resumes the first fix. Each one is its
+own issue, its own bug folder and its own record, and one issue never carries two fixes. To fix one:
+
+1. File a new issue in the follow-up's repository that says `Follow-up of <the first issue>` (for
+   example `Follow-up of #386`), with the same ticket key in its title as the first, so the ticket
+   gathers every pull request. Omni files no issue for you.
+2. Start a [bug fix](#start-a-bug-fix) on that issue when `repos` holds one repository. When it
+   names several, start a [mega bug fix](#start-a-bug-fix-across-repositories) on the plan repository.
 
 ## Read a job's lines
 
