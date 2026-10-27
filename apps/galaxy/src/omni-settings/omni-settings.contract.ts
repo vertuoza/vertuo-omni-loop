@@ -10,8 +10,9 @@ export { SettingsPlaybookSchema, type SettingsPlaybook, type SettingsFile } from
  * whose it is: the settings repository's own file, or the kit's first default. */
 export type PlaybookPage = { form: string; text: string; source: 'settings' | 'kit' };
 
-/** The tech playbook of a workspace's settings repository, page by page: the repository and commit
- * read (null with none), and why no page is listed when the reason is not null. */
+/** The tech playbook of a workspace's settings repository, page by page: the repository the workspace
+ * names (null with none, set even when the Omni app could not read it: issue 2538), the commit read
+ * (null when none was), and why no page is listed when the reason is not null. */
 export type PlaybookPagesView = { repository: string | null; commit: string | null; reason: string | null; pages: PlaybookPage[] };
 
 // A workspace owner's change to a page (PRD 2417, s7): what the page sends, and what the route answers.

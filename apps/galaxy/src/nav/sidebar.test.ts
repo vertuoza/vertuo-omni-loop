@@ -69,9 +69,9 @@ describe('SIDEBAR', () => {
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business, Products and Jev (PRD 733, PRD 748, PRD 859, PRD 812)', () => {
+  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business, Jev and Playbook (PRD 733, PRD 748, PRD 859, PRD 812, PRD 2417)', () => {
     expect(rows([SETTINGS])).toEqual([
-      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev']]],
+      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev'], ['Playbook', '/app/settings/playbook']]],
     ]);
     expect(SETTINGS.leavesApp).toBeFalsy();
   });
@@ -117,6 +117,7 @@ describe('currentItem and pageTrail', () => {
     ['/app/settings/repositories', 'settings', 'Settings › Repositories'],
     ['/app/settings/business', 'settings', 'Settings › Business'],
     ['/app/settings/jev', 'settings', 'Settings › Jev'],
+    ['/app/settings/playbook', 'settings', 'Settings › Playbook'],
     ['/app/settingsx', 'home', 'Dashboard › Home'],
     ['/app/products', 'products', 'Work › Products'],
     ['/app/products/p-1', 'products', 'Work › Products'],
