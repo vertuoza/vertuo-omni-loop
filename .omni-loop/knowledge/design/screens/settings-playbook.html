@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings › Playbook</title>
+<style>
+  /* Ask's reading tokens, Omni theme (packages/design/src/tokens.ts › ASK.omni), light under prefers-color-scheme. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170;
+    --ask-line-strong: #5a60c4; --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a;
+    --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c; --ask-cyan: #6ff0ff; --ask-red: #ff6b86;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ask-ground: #f7f6fd; --ask-surface: #ffffff; --ask-sunk: #eceaf8; --ask-line: #d9d6ee;
+      --ask-line-strong: #85819f; --ask-ink: #17153d; --ask-muted: #4f5486; --ask-plasma: #6b2fd6;
+      --ask-plasma-soft: #efe7ff; --ask-on-plasma: #ffffff; --ask-cyan: #0b6f86; --ask-red: #b3122f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 16px/1.6 "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 32px; }
+  h2.state { font-size: 14px; margin: 0 0 8px; color: var(--ask-muted); text-transform: uppercase; letter-spacing: .06em; }
+  .screen { border: 1px solid var(--ask-line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+  .tabsbar { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ask-muted); border-bottom: 1px solid var(--ask-line); padding-bottom: 6px; }
+  .tabsbar .on { color: var(--ask-ink); font-weight: 700; border-bottom: 2px solid var(--ask-plasma); }
+  .ask-card { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 16px; display: grid; gap: 8px; justify-items: start; }
+  .ask-card h1 { font-size: 24px; margin: 0; }
+  .ask-card h3 { font-size: 18px; margin: 0; }
+  .muted { color: var(--ask-muted); margin: 0; font-size: 15px; }
+  a { color: var(--ask-cyan); }
+  code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; }
+  .ask-button { font: inherit; font-weight: 700; padding: 9px 16px; border-radius: 10px; border: 0; background: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .ask-button.quiet { background: transparent; color: var(--ask-ink); border: 1.5px solid var(--ask-line-strong); font-weight: 600; padding: 5px 12px; font-size: 14px; }
+  .link { background: none; border: 0; padding: 0; font: inherit; font-size: 15px; color: var(--ask-cyan); text-decoration: underline; }
+  .repo-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 15px; }
+  .repo-line strong { overflow-wrap: anywhere; }
+  .tag { padding: 2px 10px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-size: 14px; color: var(--ask-muted); }
+  .tag.default { color: var(--ask-ink); border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .picker { display: grid; gap: 8px; justify-items: start; width: 100%; }
+  .picker label { font-weight: 700; font-size: 15px; }
+  .select { width: 100%; max-width: 420px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font-size: 15px; }
+  .refusal { color: var(--ask-red); font-size: 15px; font-weight: 700; margin: 0; }
+  .page { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  .page strong { flex: 1 1 200px; }
+</style>
+</head>
+<body>
+<main>
+<section>
+<h2 class="state">Chosen · the owner</h2>
+<div class="screen" data-screen="settings-playbook">
+  <div class="tabsbar"><span>Fleets</span><span>Repositories</span><span>Business</span><span>API keys</span><span>Jev</span><span class="on">Playbook</span></div>
+  <section class="ask-card">
+    <h1>Playbook</h1>
+    <p class="muted">The pages every repository’s agents read.</p>
+    <div class="repo-line"><span>Settings repository: <strong>acme/playbook</strong></span><button class="link" type="button" data-primary>Change</button></div>
+    <p class="muted">Read from <a href="#">acme/playbook</a> at <code>9b81c0d</code></p>
+  </section>
+  <div class="page"><strong>Review</strong><span class="tag">In your settings repository</span><button class="ask-button quiet" type="button">Edit</button></div>
+  <div class="page"><strong>Definition of done</strong><span class="tag">The kit’s first default</span><button class="ask-button quiet" type="button">Edit</button></div>
+</div>
+</section>
+<section>
+<h2 class="state">Plan repository by default · the owner</h2>
+<div class="screen" data-screen="settings-playbook-default">
+  <section class="ask-card">
+    <h1>Playbook</h1>
+    <p class="muted">The pages every repository’s agents read.</p>
+    <div class="repo-line"><span class="tag default">Using the plan repository acme/plans by default</span></div>
+    <div class="row"><button class="ask-button" type="button" data-primary>Keep it as the settings repository</button><button class="link" type="button">Choose another</button></div>
+    <p class="muted">Read from <a href="#">acme/plans</a> at <code>3f2a9c1</code></p>
+  </section>
+</div>
+</section>
+<section>
+<h2 class="state">The picker · the owner, after a refusal</h2>
+<div class="screen" data-screen="settings-playbook-picker">
+  <section class="ask-card">
+    <h1>Playbook</h1>
+    <div class="picker">
+      <label for="pick">Settings repository</label>
+      <div class="select" id="pick">acme/playbook ▾</div>
+      <div class="row"><button class="ask-button" type="button" data-primary>Save</button><button class="ask-button quiet" type="button">Cancel</button><button class="link" type="button">Clear the choice</button></div>
+      <p class="refusal">Only the workspace’s owner can change it.</p>
+    </div>
+  </section>
+</div>
+</section>
+<section>
+<h2 class="state">None · the owner</h2>
+<div class="screen" data-screen="settings-playbook-none">
+  <section class="ask-card">
+    <h1>Playbook</h1>
+    <p class="muted">The pages every repository’s agents read.</p>
+  </section>
+  <section class="ask-card">
+    <h3>No settings repository yet</h3>
+    <p class="muted">Choose the repository that holds the playbook.</p>
+    <div class="picker">
+      <label for="pick-none">Settings repository</label>
+      <div class="select" id="pick-none">Choose a repository ▾</div>
+      <div class="row"><button class="ask-button" type="button" data-primary>Save</button></div>
+    </div>
+  </section>
+</div>
+</section>
+</main>
+</body>
+</html>

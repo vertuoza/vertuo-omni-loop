@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-27",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The playbook gets its own home, chosen on a page, and I never have to ask someone for SQL again.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Moving the playbook no longer moves our planets, points or game history: one setting, one meaning.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Three clear states on one line, and a member sees which repository is read without a control to break.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "An owner-only function that refuses an unlisted repository, built like the phase-0 switch, is a shape I trust.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "I don't master the technical harness; one more setting I have to pick before the defaults work slows me down.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "I don't master the technical harness; one more setting I have to pick before the defaults work slows me down.",
+        "citations": [
+          "persona:Irisa"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-27",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Keep it as the settings repository is one click, and the guide stops telling me to write SQL.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The game, the dossiers and the points keep reading the plan repository, and the spec says no other reader changes.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each state has a render test for an owner and a member, and a refusal is said in the line, not lost.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A database check proves the member refusal and the unlisted refusal in CI, and the rollback is one migration.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "If nobody picks, everything reads what it reads today, so I can leave it alone until I need it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
+    }
+  ]
+}
