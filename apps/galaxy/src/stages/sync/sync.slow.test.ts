@@ -93,10 +93,11 @@ describe('the stages sync names its slow steps (#2529)', () => {
 });
 
 describe('the stages sync refreshes stale snapshots in turns, within its time (#2529)', () => {
-  /** `count` stale snapshots of acme/widgets, each refresh moving the stopwatch `refreshMs`; the run starts at `startMs`. */
+  /** `count` stale snapshots of acme/widgets, each refresh moving the stopwatch `refreshMs`; the repository's
+   * snapshot read takes `startMs`, so its refreshes start that far into the run. */
   function withStale(count: number, { refreshMs = 0, startMs = 0 }: { refreshMs?: number; startMs?: number } = {}) {
     const setup = run({ 'acme/widgets': 0 });
-    let clock = startMs;
+    let clock = 0;
     const refreshed: string[] = [];
     let refreshing = 0;
     let most = 0;
@@ -116,10 +117,12 @@ describe('the stages sync refreshes stale snapshots in turns, within its time (#
       dropEtags: () => Promise.resolve(),
     };
     setup.deps.snapshots = net;
-    // The run's own stopwatch, the first started, reads `startMs` at once; every later one starts at zero.
+    setup.deps.snapshot = (_w, repo) => {
+      clock += startMs;
+      return Promise.resolve(snap(repo));
+    };
     setup.deps.timer = () => {
-      const start = clock - startMs;
-      startMs = 0;
+      const start = clock;
       return () => clock - start;
     };
     return { ...setup, refreshed, most: () => most };
@@ -152,5 +155,37 @@ describe('the stages sync refreshes stale snapshots in turns, within its time (#
     delete deps.timer;
     await syncStages(post(), deps);
     expect(refreshed).toHaveLength(5);
+  });
+});
+
+describe('the stages sync starts no repository once it has taken 120 s (#2529)', () => {
+  const names = (count: number) => Array.from({ length: count }, (_, i) => `acme/r${String(i + 1)}`);
+  const reads = (count: number, ms: number) => Object.fromEntries(names(count).map((name) => [name, ms]));
+
+  it('starts no repository from 120 s, and names those that wait for the next run', async () => {
+    // The first four start at 0 s; the first one's read takes 130 s, so none starts after them.
+    const { deps, lines } = run({ ...reads(9, 0), 'acme/r1': 130_000 });
+    const answer = (await (await syncStages(post(), deps)).json()) as { repositories: { repository: string }[]; skipped: unknown[] };
+    expect(answer.repositories.map((r) => r.repository)).toEqual(names(4));
+    expect(answer.skipped).toEqual([]);
+    expect(lines).toContain('stages sync: 5 repositories of acme wait for the next run — acme/r5, acme/r6, acme/r7, acme/r8, acme/r9');
+  });
+
+  it('reads the repositories synced longest ago first, the never-synced ones before all', async () => {
+    // r1 and r2 were synced, r1 last; the four never synced start first, and r3's read takes 130 s.
+    const { deps, lines } = run({ ...reads(6, 0), 'acme/r3': 130_000 });
+    const synced = (repository: string, at: string) =>
+      deps.store.recordStages([{ workspace_id: ACME.id, repository, prd: parsePrd(1), stage: 'prd', reached_at: NOW }], at);
+    await synced('acme/r1', '2026-10-27T11:00:00.000Z');
+    await synced('acme/r2', '2026-10-27T10:00:00.000Z');
+    await syncStages(post(), deps);
+    expect(lines).toContain('stages sync: 2 repositories of acme wait for the next run — acme/r2, acme/r1');
+  });
+
+  it('reads every repository without a stopwatch', async () => {
+    const { deps } = run(reads(9, 50_000));
+    delete deps.timer;
+    const answer = (await (await syncStages(post(), deps)).json()) as { repositories: unknown[] };
+    expect(answer.repositories).toHaveLength(9);
   });
 });
