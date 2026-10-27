@@ -31,8 +31,7 @@ Nobody minds who held the door, as long as everyone gets in before the five minu
 ## The options, in plain words
 
 A. Let the test check what each run read, in any order (built).
-B. Keep the test as it was, and read the repositories one after another again, which keeps the sync
-   timing out.
+B. Keep the test as it was, and read the repositories one after another again, which keeps the sync timing out.
 
 ## What I had to decide
 
