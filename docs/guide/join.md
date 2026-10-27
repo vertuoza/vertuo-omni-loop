@@ -76,6 +76,34 @@ app with **Open the app →** at the top of this page and sign in with your GitH
 on your workspace's dashboard. To play, press **Game mode** at the top right, sign in, choose your
 fleet, enter a name and build your hero. From then on, your pull requests score for that fleet.
 
+### Put your fleet's pull requests on a GitHub project board
+
+A fleet can name a GitHub project board, and the loop then adds each pull request it opens to it.
+The owner of the workspace does this once, on **Settings › Fleets**: in the fleet's form, under
+**Mascot**, the **GitHub project** field takes the link of an organization project of your
+workspace's organization, `https://github.com/orgs/<org>/projects/<number>`. Another organization's
+project, or a user's, is refused next to the field and nothing is saved. The fleet's card then shows
+`Board: <org> project <number>`.
+
+Three things to know before you set it:
+
+- **An org admin accepts the App's permission once.** The Omni Loop App asks for `Organization
+  projects` (write). Until an organization admin accepts it on GitHub, the App cannot add cards: the
+  fleet's note on its card reads `Not added: ask an org admin`, and the admin accepts it from the
+  organization's **Settings**, then **GitHub Apps**. A project that does not exist reads
+  `Not added: no such project`; neither is retried, and nothing is posted on the pull request.
+- **Only the loop's pull requests go on the board.** A pull request the loop signs, into the default
+  branch (a feature PR, a bug fix or a visual fix), is added within a minute. A sub-PR is not, so the
+  board does not fill with one card per slice; nor is a pull request you open by hand. A runner's
+  pull request counts for the person who sent the job. The card is only added: the board's own
+  workflows move it from there.
+- **Who can see it.** A public board shows its cards to anyone, as GitHub does for any public
+  project. A repository with signing off adds no card, since its pull requests are not signed.
+
+The fleet's last note, `Added #<n> · <owner>/<repo>` on success, is written on its card in muted text
+with its full reason as the title. Clearing the link on the form stops any new card and clears the
+note.
+
 ## Find your way around
 
 Where your team's work lives, once you are set up:
