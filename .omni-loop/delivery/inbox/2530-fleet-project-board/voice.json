@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-27",
+      "personas": [
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The owner pastes our org project link once on Settings › Fleets, and the fleet card says Added, or Not added and whom to ask.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A runner job I sent lands on my fleet's board too, so queued PRDs show where my team looks.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Only signed pull requests into main get a card, never a slice, and each workspace only touches its own fleets.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "One optional field and one line on the card; nothing in my review or my code path changes.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A pull request I open by hand gets no card, and nothing is posted on my pull request: fine, it stays out of my way.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
     }
   ]
 }
