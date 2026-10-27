@@ -53,26 +53,33 @@ An **agent** is how the runner runs one account's work. There are two adapters, 
   server on the runner's machine that drives Claude Code (through the Claude Agent SDK), Codex
   (through its app-server), OpenCode and others, each **provider instance** signed in to one
   account (its own Claude config folder, `CODEX_HOME` or provider key, kept by T3 in files only its
-  user reads). The runner talks to it only through its command line, on the same machine:
-  - **A run** is `t3 thread start <worktree> - --provider <instance> --model <model> --wait --json`,
-    the message on stdin. It prints `{threadId, runId, status, reply, error}`; exit 1 is a run that
-    failed or stopped, exit 2 a run that waits for an answer, which the job treats as failed with
-    that reason. A thread runs in T3's **Full access** mode, as a job runs Claude today.
-  - **Step lines** come from `t3 thread show <thread> --json`, read every 5 seconds while the run
-    goes: each new message becomes a step line. They are coarser than today's: a message, not every
-    tool call.
-  - **The limit** is the thread's run ending with T3's usage-limit class and its reset time
-    (T3 reads Claude's `rate_limit_event` and Codex's `usageLimitExceeded` and rate limits itself).
-  - **Pressure** is the instance's usage percent per window and the thread's context use, as T3
-    exposes them to its own machine. A reading T3 does not expose to the command line or its MCP
-    endpoint on the host is `null`, and that trigger does not fire for this agent (section 3).
-  - **Resume** is `t3 thread send <thread> -`; **interrupt** is T3's own stop of the active run when
-    the host can call it, else `null`.
-  - **Tokens** are counted from each instance's transcripts, as PRD 2102 counts Claude's (the
-    instance's Claude config folder, its `CODEX_HOME` sessions), for the job's worktree: the command
-    line's output carries none.
-  - T3 keeps its own retry after a reset **off** (its `autoResumeLimitedThreads` setting): the runner
-    decides what happens after a limit.
+  user reads). The runner tells T3 what to do; **T3 never decides a handoff
+  itself** (it can only wait for the same account's reset, a setting the runner leaves off). The
+  runner talks to it on the same machine in two ways:
+  - **Its command line, to run.** The runner registers the job's own worktree as a T3 project
+    (`t3 project add <worktree>`, removed when the job ends), so T3 makes no worktree of its own.
+    A run is `t3 thread start <worktree> - --provider <instance> --model <model> --json`, the
+    message on stdin; the runner follows it with `t3 thread show <thread> --json` every 5 seconds
+    (its `status` and `activeRunId`) until it ends, then reads `{status, reply, error}`. A run that
+    ends waiting for an answer fails the job with that reason. A thread runs in T3's **Full
+    access** mode, as a job runs Claude today. **Resume** is `t3 thread send <thread> -`.
+  - **Its MCP endpoint, to stop.** Stopping a running thread (`t3_thread_interrupt`) is open only to
+    an MCP client signed in to T3, as T3's own "outside agents" are. `omni runner t3-signin` does it
+    once per machine: it registers the runner as an OAuth client of `http://localhost:<port>/mcp`,
+    creates the pairing code itself with `t3 auth pairing create` on the same machine, approves
+    **Full access**, and keeps the credential in `~/.config/omni/t3-mcp.json`, readable by its user
+    only. Without that sign-in, a T3 account hands off at the wall only, and its state says why
+    (`T3 sign-in missing: planned handoffs off`).
+  - **Steps, tokens and context come from the agents' own files, never from T3** (the trial showed
+    `thread show` gives only a status and an item count while a run goes, and no tokens). For a
+    Claude instance: its transcripts under its Claude config folder, for the job's worktree, read as
+    PRD 2102 reads them, which give the step lines of `steps.ts`, the tokens and the context (the
+    last assistant message's tokens against the model's window). For an OpenCode instance: its
+    session store, the same three readings where it holds them.
+  - **The limit** is the thread's run ending on T3's usage-limit class with its reset time (T3 reads
+    Claude's `rate_limit_event` and Codex's limits itself).
+  - **Pressure.** Context, from the agents' files as above. A usage percent is not exposed by T3
+    outside its own app: through T3, usage hands off at the wall, with the runner's note.
 - **`claude`, the fallback: Claude Code run directly**, today's code moved behind the shape:
   `claude --dangerously-skip-permissions -p --output-format stream-json --verbose`, the job line on
   stdin, the token as `CLAUDE_CODE_OAUTH_TOKEN`, tokens from the transcripts (PRD 2102), the step
@@ -252,7 +259,7 @@ nothing.
 
 `docs/guide/runners.md` gains **Accounts and handoffs** under **Set up a new runner**: installing
 T3 Code as a service on the machine (`t3 service install`, bound to loopback or the tailnet), adding
-one provider instance per account and signing each in, T3's retry after a reset left off, the
+one provider instance per account and signing each in, `omni runner t3-signin` once, T3's retry after a reset left off, the
 accounts file, the order, `takes`, the handoff thresholds, what the chips and `Paused: no tokens
 left` mean, and rows in **When something goes wrong** (`no skills`, `not signed in`, `T3 not
 running`).
@@ -276,7 +283,12 @@ running`).
   as three adapters. It does **not** move a thread to another instance when one runs out (its resume
   refuses another instance), and its command line returns no tokens and no live steps: those stay
   the runner's. The direct Claude adapter stays, so a runner works without T3, and a T3 that breaks
-  never stops it. Over the first plan's three direct adapters (Claude, `codex exec`, `opencode run`)
+  never stops it. A second trial the same day ran a second Claude instance and an OpenCode instance
+  (an open-weight GLM model on OpenCode's free tier), and a 12-edit task in a worktree, through T3:
+  it showed that T3's command line can start and follow a run but not stop one (that is its MCP
+  endpoint, for signed-in clients), and gives no steps, tokens or usage percent while a run goes.
+  So the runner signs in to T3's MCP once to stop runs, and reads the agents' own files for the
+  rest. Over the first plan's three direct adapters (Claude, `codex exec`, `opencode run`)
   and over a client of the Agent Client Protocol.
 - **Turnover in the middle of a job.** The person chose this over failing and requeuing, and over
   turning over only between accounts of one agent. One pull request may hold two agents' work; the
@@ -410,7 +422,8 @@ then runs on Claude only, from `CLAUDE_CODE_OAUTH_TOKEN` when it is set.
 **The Legal entries it touches:**
 - **L-GDPR-2** (credentials never stored or logged in clear): a direct account's secret stays in a
   file on the machine and is passed to the run's process only; a T3 account's sign-in stays in T3's
-  files, readable by its user only. Every streamed line is masked; the report names an account by
+  files, and the runner's T3 MCP credential in `~/.config/omni/t3-mcp.json`, each readable by its
+  user only. Every streamed line is masked; the report names an account by
   its id only.
 - **L-GDPR-5** (every service handling personal data on the product's behalf is named): the
   accounts are the workspace's own, chosen and paid by it on its own machine, as Claude is on a
@@ -463,6 +476,9 @@ Acceptance scenarios are off in this repository, so each criterion becomes ordin
    each agent, model and why it turned over.
 10. **Codex and OpenCode run the kit's skills** from their own folders, at the repository's pinned
    version, and no skill file appears in the job's pull request.
-11. **Through T3.** An account with `instance` runs its job as a T3 thread in the job's worktree; a
-   runner whose T3 is not running reads its T3 accounts `unusable · T3 not running` and runs the job
-   on its next account, a direct Claude one included.
+11. **Through T3.** An account with `instance` runs its job as a T3 thread in the job's own worktree;
+   a runner whose T3 is not running reads its T3 accounts `unusable · T3 not running` and runs the
+   job on its next account, a direct Claude one included.
+12. **Stopping a T3 run.** After `omni runner t3-signin`, a T3 run whose context reaches
+   `handoff.context` is stopped through T3's MCP endpoint and handed off with the agent's note;
+   without the sign-in, it hands off at the wall only and its account says so.

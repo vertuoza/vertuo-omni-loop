@@ -11,7 +11,7 @@ PRD #2537, spec in `spec.md` beside this plan. The feature branch `feat/runner-t
 | s1 | A job runs Claude through the agent adapter, exactly as today: command, step lines, tokens, limit, usage and context pressure, and session resume behind one shape | `kit/lib/runner/agents/` `kit/lib/runner/job.` `kit/lib/runner/steps.` `kit/lib/runner/tokens.` `kit/lib/runner/fixtures/claude/` | — | 1 | deep |
 | s2 | A runner reads its accounts file, keeps each account's state across restarts, and starts a job on the first ready account `takes` allows; no file means today's one Claude account | `kit/lib/runner/accounts.` `kit/lib/runner/runner.` `kit/lib/runner/terminal.` `kit/bin/commands/runner.` `kit/lib/env/read.` `kit/lib/runner/job.` | s1 | 2 | build |
 | s3 | A job that hits a usage limit turns over to the next ready account in the same worktree with a handoff note, at most three times, and its parts reach the server and the Runners page | `kit/lib/runner/job.` `kit/lib/runner/api.` `kit/lib/runner/turnover.` `apps/galaxy/src/runners/` `apps/galaxy/app/api/runners/` `supabase/migrations/` | s1, s2 | 3 | deep |
-| s4 | A job runs as a T3 Code thread on the account's instance: the `t3` adapter (thread start, steps from `thread show`, the limit and its reset, pressure where T3 shows it, resume, interrupt), its recordings, tokens from the instance's transcripts, and `T3 not running` falling through to the next account | `kit/lib/runner/agents/t3` `kit/lib/runner/agents/index.` `kit/lib/runner/fixtures/t3/` `kit/lib/runner/tokens.` | s1, s2 | 3 | deep |
+| s4 | A job runs as a T3 Code thread on the account's instance, in the job's own worktree: the `t3` adapter (thread start and follow, the limit and its reset, resume), steps, tokens and context from the agents' own files, the one-time `omni runner t3-signin` and the stop through T3's MCP, its recordings, tokens from the instance's transcripts, and `T3 not running` falling through to the next account | `kit/lib/runner/agents/t3` `kit/lib/runner/agents/index.` `kit/lib/runner/fixtures/t3/` `kit/lib/runner/tokens.` `kit/lib/runner/t3-mcp.` `kit/bin/commands/runner.` | s1, s2 | 3 | deep |
 | s5 | Codex and OpenCode instances read the kit's skills, at the repository's pinned version, from their own folders and never from the worktree | `kit/lib/runner/plugin.` `kit/lib/runner/fixtures/skills/` | s2 | 3 | build |
 | s6 | A runner whose every account is out reads Paused: no tokens left, its accounts reach the health report, and the Runners page shows the account chips and the queued reason | `kit/lib/runner/runner.` `kit/lib/runner/health.` `kit/lib/runner/api.` `apps/galaxy/src/runners/` `apps/galaxy/app/api/runners/` | s2, s3 | 4 | build |
 | s7 | The pull request's status comment names the parts of a job that turned over, and the runner guide explains accounts and handoffs | `kit/plugin/skills/pr/` `docs/guide/runners.md` | s3 | 4 | light |
@@ -28,6 +28,7 @@ PRD #2537, spec in `spec.md` beside this plan. The feature branch `feat/runner-t
 - `kit/lib/runner/agents/` and its registry `kit/lib/runner/agents/index.`: s1 (wave 1) creates them
   with the direct Claude adapter; s4 (wave 3) adds the `t3` adapter and its line.
 - `kit/lib/runner/tokens.`: s1 (wave 1) and s4 (wave 3), which counts the T3 instances' transcripts.
+- `kit/bin/commands/runner.`: s2 (wave 2) and s4 (wave 3), which adds `omni runner t3-signin`.
 - `kit/dist/` is built from `kit/lib/`: no slice commits it; the wave rebuilds it after merging.
 
 ## Per slice: done when
@@ -68,22 +69,26 @@ PRD #2537, spec in `spec.md` beside this plan. The feature branch `feat/runner-t
 - The Runners page names a job's agent and model, and one line per part.
 - No secret appears in a report, a log line or the handoff note (acceptance 6).
 
-### s4 (deep: a new dependency's output, read from recordings)
-- Recordings of `t3` 0.1.x in `kit/lib/runner/fixtures/t3/`: `thread start --wait --json` done,
-  failed, at its usage limit and waiting for an answer (exit 2), and `thread show --json` pages. A
-  fake `t3` on the `PATH` replays them.
-- An account with `instance` runs `t3 thread start <worktree> - --provider <instance> --model
-  <model> --wait --json`, the job line on stdin (as words for a Codex or OpenCode instance); new
-  messages of `thread show` become step lines every 5 seconds.
-- `limit()` reads T3's usage-limit end with its reset time; exit 2 fails the job naming it; a crash
-  is not a limit.
-- `pressure()` returns the instance's usage percent and the thread's context where the recordings
-  show T3 exposing them to the host, else `null`; `interrupt()` stops the active run where T3 lets
-  the host, else `null`; `resume()` is `t3 thread send <thread> -`. The slice's PR says which
-  readings T3 gave.
-- Tokens come from the instance's transcripts for the job's worktree.
-- `T3 not running` or an unknown instance makes the account `unusable` with that reason, and the job
-  starts on the next account (acceptance 11).
+### s4 (deep: a new dependency, read from recordings, and an OAuth sign-in)
+- Recordings of `t3` 0.1.x in `kit/lib/runner/fixtures/t3/` (the laptop trial's outputs are the
+  first): `thread start --json`, `thread show --json` running and ended (done, failed, at its usage
+  limit, waiting for an answer), and the MCP `t3_thread_interrupt` exchange. A fake `t3` on the
+  `PATH` and a fake MCP endpoint replay them.
+- An account with `instance` registers the job's worktree as a T3 project, runs `t3 thread start
+  <worktree> - --provider <instance> --model <model> --json` (the job line as words for an OpenCode
+  or Codex instance), follows it with `thread show` every 5 seconds, and removes the project at the
+  end.
+- Step lines, tokens and context come from the Claude instance's transcripts for the worktree (and
+  from OpenCode's session store for an OpenCode instance), not from T3.
+- `limit()` reads T3's usage-limit end with its reset time; a run waiting for an answer fails the
+  job naming it; a crash is not a limit.
+- `omni runner t3-signin` registers the runner as an OAuth client of T3's local MCP endpoint,
+  approves Full access with a pairing code it creates on the same machine, and keeps the credential
+  readable by its user only; `interrupt()` calls `t3_thread_interrupt` with it. Without it,
+  `interrupt()` is `null` and the account reads `T3 sign-in missing: planned handoffs off`
+  (acceptance 12).
+- `T3 not running` or an unknown instance makes the account `unusable`, and the job starts on the
+  next account (acceptance 11).
 
 ### s5
 - Before a job on a Codex instance, the kit's skills of the repository's pinned version are in
