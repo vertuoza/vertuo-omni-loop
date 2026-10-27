@@ -21,8 +21,8 @@ describe('a save', () => {
 });
 
 describe('the sections', () => {
-  it('are six, in the sub-menu\'s order, Knowledge opening on the first', () => {
-    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'pitch', 'settings']);
+  it('are seven, in the sub-menu\'s order, Knowledge opening on the first', () => {
+    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'pitch', 'repositories', 'settings']);
     expect(FIRST_SECTION).toBe('constituents');
   });
 
@@ -35,8 +35,9 @@ describe('the sections', () => {
 
   it('give a count only to the sections whose items are read, and none at 0 once drawn', () => {
     const tabs = knowledgeSectionTabs('p', { legal: 3, glossary: 0 });
-    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Pitch', 'Settings']);
-    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, undefined, undefined]);
+    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Pitch', 'Repositories', 'Settings']);
+    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, undefined, undefined, undefined]);
+    expect(tabs[5]?.href).toBe('/app/products/p/knowledge/repositories');
     expect(tabs[0]?.href).toBe('/app/products/p/knowledge/constituents');
   });
 
