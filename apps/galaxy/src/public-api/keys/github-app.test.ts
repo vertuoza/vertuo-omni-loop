@@ -19,13 +19,23 @@ const TOKEN = 'gh' + 's_' + 'installation_token_for_the_tests';
 
 type Call = { url: string; method: string; headers: Record<string, string>; body: unknown };
 
-/** A stubbed GitHub: `METHOD /path` to the answer it gives, fresh for each call. */
+/** The routes GitHub takes an App's JWT on: the App's own (`/app…`) and its installation on a repository. */
+const APPS_OWN = /^\/(app(\/|$)|repos\/[^/]+\/[^/]+\/installation$)/;
+const JWT = /^Bearer [\w-]+\.[\w-]+\.[\w-]+$/;
+
+/**
+ * A stubbed GitHub: `METHOD /path` to the answer it gives, fresh for each call. Like GitHub, it refuses the
+ * App's JWT on any route that is not the App's own (#2528), whatever answer the test set there.
+ */
 function github(answers: Record<string, () => Response | Promise<Response>>) {
   const calls: Call[] = [];
   const fetchImpl = (url: string, init: RequestInit): Promise<Response> => {
     const method = init.method ?? 'GET';
-    calls.push({ url, method, headers: init.headers as Record<string, string>, body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body });
-    const answer = answers[`${method} ${url.replace('https://api.github.com', '')}`];
+    const headers = init.headers as Record<string, string>;
+    calls.push({ url, method, headers, body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body });
+    const path = url.replace('https://api.github.com', '');
+    if (JWT.test(headers.authorization ?? '') && !APPS_OWN.test(path)) return Promise.resolve(new Response('{}', { status: 401 }));
+    const answer = answers[`${method} ${path}`];
     return Promise.resolve(answer ? answer() : new Response('{}', { status: 404 }));
   };
   return { fetchImpl, calls };
@@ -47,15 +57,21 @@ const signedByThePair = (jwt: string): boolean => {
 describe('checking an App ID and private key', () => {
   const happy = { 'GET /app': json(200, { id: 123456, slug: 'acme-bugs' }), 'GET /users/acme-bugs[bot]': json(200, { id: 777, login: 'acme-bugs[bot]' }) };
 
-  it('reads the slug from GET /app, then the bot\'s id from GET /users/<slug>[bot], both with the pair\'s JWT', async () => {
+  it('reads the slug from GET /app with the pair\'s JWT, then the bot\'s id from GET /users/<slug>[bot]', async () => {
     const { fetchImpl, calls } = github(happy);
     expect(await checkApp(CREDS, fetchImpl, clock)).toEqual({ ok: true, slug: 'acme-bugs', botId: 777 });
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['GET https://api.github.com/app', 'GET https://api.github.com/users/acme-bugs[bot]']);
-    for (const call of calls) {
-      expect(jwtOf(call)).toBe(appJwt(CREDS, NOW));
-      expect(signedByThePair(jwtOf(call))).toBe(true);
-      expect(call.headers.accept).toBe('application/vnd.github+json');
-    }
+    expect(jwtOf(calls[0])).toBe(appJwt(CREDS, NOW));
+    expect(signedByThePair(jwtOf(calls[0]))).toBe(true);
+    for (const call of calls) expect(call.headers.accept).toBe('application/vnd.github+json');
+  });
+
+  it('reads the bot\'s id from GET /users/<slug>[bot] with no token, since GitHub refuses the App\'s JWT there (#2528)', async () => {
+    const { fetchImpl, calls } = github(happy);
+    expect(await checkApp(CREDS, fetchImpl, clock)).toEqual({ ok: true, slug: 'acme-bugs', botId: 777 });
+    const bot = present(calls[1], 'the bot lookup');
+    expect(bot.headers).not.toHaveProperty('authorization');
+    expect(JSON.stringify(bot)).not.toContain(appJwt(CREDS, NOW));
   });
 
   it('refuses a pair GitHub answers 401 or 404 to, and never asks for the bot', async () => {
@@ -204,5 +220,17 @@ describe('minting an installation token', () => {
       .catch((error: unknown) => (error instanceof Error ? error.message : ''));
     expect(failure).not.toBe('');
     expect(failure).not.toContain('not a key');
+  });
+});
+
+describe('the stubbed GitHub', () => {
+  it('refuses the App\'s JWT off the App\'s own routes, as GitHub does, and answers them with no token (#2528)', async () => {
+    const { fetchImpl } = github({ 'GET /app': json(200, {}), 'GET /repos/Acme/web/installation': json(200, {}), 'GET /users/acme-bugs[bot]': json(200, {}) });
+    const asked = async (path: string, headers: Record<string, string>) => (await fetchImpl(`https://api.github.com${path}`, { method: 'GET', headers })).status;
+    const asTheApp = { authorization: `Bearer ${appJwt(CREDS, NOW)}` };
+    expect(await asked('/app', asTheApp)).toBe(200);
+    expect(await asked('/repos/Acme/web/installation', asTheApp)).toBe(200);
+    expect(await asked('/users/acme-bugs[bot]', asTheApp)).toBe(401);
+    expect(await asked('/users/acme-bugs[bot]', {})).toBe(200);
   });
 });
