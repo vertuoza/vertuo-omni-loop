@@ -1,6 +1,6 @@
 import { Notice } from '../ask/page/Notice';
 import { SectionTabs } from '../nav/SectionTabs';
-import { SETTINGS_TABS, type SectionTab } from '../nav/section-tabs';
+import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import type { PlaybookEditing } from './omni-settings.client';
 import type { SettingsPageLoad } from './load';
@@ -12,9 +12,6 @@ import { PlaybookView } from './PlaybookView';
 // not be read; or the playbook itself. Every situation starts with the Settings tabs.
 
 export const PLAYBOOK_PATH = '/app/settings/playbook';
-
-/** The Settings tabs with Playbook after them. */
-const PLAYBOOK_TABS: readonly SectionTab[] = [...SETTINGS_TABS, { href: PLAYBOOK_PATH, label: 'Playbook' }];
 
 export type PlaybookScreenView =
   | { kind: 'closed' }
@@ -33,7 +30,7 @@ export function playbookScreenOf(load: SettingsPageLoad): PlaybookScreenView {
 export function PlaybookScreen({ view }: { view: PlaybookScreenView }) {
   return (
     <>
-      <SectionTabs label="Settings" tabs={PLAYBOOK_TABS} current={PLAYBOOK_PATH} />
+      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current={PLAYBOOK_PATH} />
       <PlaybookBody view={view} />
     </>
   );
