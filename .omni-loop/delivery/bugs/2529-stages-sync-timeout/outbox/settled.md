@@ -87,3 +87,5 @@ Reverting the one test's comparison and the fix together; nothing stored changes
 
 Whether the order reads start in was ever meant to be part of the rule (author).
 ```
+
+<!-- /omni-outbox-settled: s1-01-sync-reads-in-turns -->
