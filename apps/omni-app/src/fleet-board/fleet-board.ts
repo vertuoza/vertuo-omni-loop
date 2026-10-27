@@ -6,6 +6,12 @@
 //                              installation (./store.ts): each is handled on its own, with its own fleets
 //   step "fleet-<workspace>"   the author's active fleet there, its login matched case-insensitively; none,
 //                              or a fleet with no board: nothing is called and nothing is written
+//                              when the author has none: the fleet of the person who sent the runner job whose
+//                              `prs` holds the pull request's link (step "job-<workspace>-<look>"); a runner
+//                              reports its pull requests a little after opening them, so with no job holding
+//                              the link yet the run sleeps a minute (step "wait-<look>") and looks again, ten
+//                              looks at most, then stops with no call and no note; a job sent by an API key
+//                              gives no fleet
 //   step "add-<workspace>"     the card, through GitHub's GraphQL (./github.ts): the project's node id, then
 //                              `addProjectV2ItemById`; a refusal is an answer, never retried
 //   step "note-<workspace>"    the outcome on the fleet: `Added #<n> · <owner>/<repo>`, or
@@ -26,7 +32,7 @@ import type { OctokitFor } from '../octokit-for.ts';
 import { savedStep } from '../saved-step.ts';
 import { FLEET_BOARD_EVENT, FleetBoardDataSchema, type FleetBoardData } from './events.ts';
 import { addToBoard, AddedSchema, type Added, type GraphqlOctokit } from './github.ts';
-import { FleetSchema, NOTE_MAX, type FleetBoardStore } from './store.ts';
+import { FleetSchema, JobFleetSchema, NOTE_MAX, type Fleet, type FleetBoardStore, type JobFleet } from './store.ts';
 
 export const FLEET_BOARD_FUNCTION_ID = 'fleet-board';
 
@@ -41,6 +47,10 @@ export type FleetBoardDeps = {
   /** The clock the note is dated with. */
   now?: () => Date;
 };
+
+/** A runner reports the pull requests of a job a little after opening them: look ten times, a minute apart. */
+const LOOKS = 10;
+const WAIT = '1m';
 
 /** What the run did in one workspace. */
 type WorkspaceOutcome = { workspace: string; skipped: string } | { workspace: string; fleet: string; skipped: string } | { workspace: string; fleet: string; note: string };
@@ -57,11 +67,12 @@ export function createFleetBoard({ client, octokitFor, store, now = () => new Da
       if (!store) return { pull, skipped: 'no database to read the fleets from' };
 
       const workspaces = await savedStep(step, 'workspaces', WorkspacesSchema, () => store.workspaces({ installationId: data.installationId, repository: data.repository }));
+      const fleets = await fleetsOf({ step, store, workspaces, data });
       const outcomes: WorkspaceOutcome[] = [];
       for (const workspace of workspaces) {
-        const fleet = await savedStep(step, `fleet-${workspace}`, FleetSchema.nullable(), () => store.fleetOf({ workspace, login: data.author }));
+        const fleet = fleets.get(workspace) ?? null;
         if (!fleet) {
-          outcomes.push({ workspace, skipped: 'the author is in no active fleet' });
+          outcomes.push({ workspace, skipped: 'the author, and the sender of a runner job holding the pull request, are in no active fleet' });
           continue;
         }
         const board = fleet.projectUrl;
@@ -77,6 +88,32 @@ export function createFleetBoard({ client, octokitFor, store, now = () => new Da
       return { pull, workspaces: outcomes };
     },
   );
+}
+
+type Step = { run(id: string, fn: () => unknown): Promise<unknown>; sleep(id: string, time: string): Promise<unknown> };
+
+/**
+ * The fleet each workspace adds the card for: the author's, else the one of the person who sent the runner
+ * job holding the pull request's link, looked for up to `LOOKS` times a minute apart while no job holds it.
+ */
+async function fleetsOf({ step, store, workspaces, data }: { step: Step; store: FleetBoardStore; workspaces: string[]; data: FleetBoardData }): Promise<Map<string, Fleet | null>> {
+  const fleets = new Map<string, Fleet | null>();
+  let pending: string[] = [];
+  for (const workspace of workspaces) {
+    const fleet = await savedStep(step, `fleet-${workspace}`, FleetSchema.nullable(), () => store.fleetOf({ workspace, login: data.author }));
+    fleets.set(workspace, fleet);
+    if (!fleet) pending.push(workspace);
+  }
+  for (let look = 1; pending.length > 0 && look <= LOOKS; look += 1) {
+    const answers = new Map<string, JobFleet>();
+    for (const workspace of pending) answers.set(workspace, await savedStep(step, `job-${workspace}-${String(look)}`, JobFleetSchema, () => store.jobFleet({ workspace, url: data.url })));
+    // The link is one job's: once a workspace holds it, the others have none to wait for.
+    if ([...answers.values()].some((answer) => answer.found)) {
+      for (const [workspace, answer] of answers) fleets.set(workspace, answer.fleet);
+      pending = [];
+    } else if (look < LOOKS) await step.sleep(`wait-${String(look)}`, WAIT);
+  }
+  return fleets;
 }
 
 /** The fleet's note for what adding the card came to, at most `NOTE_MAX` characters. */
