@@ -54,7 +54,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   - A job shows its tokens beside its status (`1.4M tokens`) once its runner reported them (PRD 2102).
   - A job names its agent and model beside its status (`codex · gpt-5-codex`), and, when it turned
     over to another account, one line per part under it: `claude-1 · Opus 5.5 · 13:41–14:02 · usage
-    limit`, then `codex-1 · gpt-5-codex · since 14:02` (PRD 2537).
+    91 %`, then `codex-1 · gpt-5-codex · since 14:02` (PRD 2537).
   - A job that held claims when it ended lists, under its status in `--ask-red`, the sub-PRs its
     runner released: `Released #<n>, #<n>`, each linked; a release that failed reads `Could not
     release this job's claims: <why>` (PRD 2175).
@@ -98,7 +98,7 @@ Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Re
 Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · GitHub App · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
-health · no tokens left · until · out of tokens · usage limit · since · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
+health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
 
 ## Refusals
 

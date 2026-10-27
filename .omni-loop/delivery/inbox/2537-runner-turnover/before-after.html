@@ -107,7 +107,8 @@ details > summary { cursor: pointer; color: var(--muted); }
 <p>Codex and an open model cannot run a job, even when the workspace pays for them.</p></div>
 <div><div class="label">AFTER</div>
 <p>The runner's owner lists its accounts, in order, in one file on the machine: two Claude accounts, one Codex, one OpenCode account with an open model hosted in the EU. Each account may be limited to some skills: the open model only takes <code>pr-care</code>, <code>plan</code> and <code>bug-fix</code>.</p>
-<p>When an account runs out mid-job, the runner marks it out until its reset time, writes a handoff note, and the next ready account carries on in the same worktree. At most three switches; a crash never switches.</p>
+<p>Before an account runs out (90&nbsp;% of its window, or Claude's own warning), the runner stops the run and the same session writes a handoff note: what is done, what is next, the open pull requests, its decisions. The next ready account carries on from it in the same worktree. When a run's context is 75&nbsp;% full, a fresh session of the same account carries on the same way.</p>
+<p>If an account still hits the wall, the runner writes the note itself and the next account carries on. At most three account changes; a crash never hands off.</p>
 <p>When every account is out, the runner pauses: <b>Paused: no tokens left until 18:00</b>, and takes no job until one is ready. Without the file, a runner works exactly as today.</p></div>
 </div>
 </div>
@@ -156,7 +157,7 @@ details > summary { cursor: pointer; color: var(--muted); }
 </div>
 <div class="t">
 <div class="r"><div class="top"><code>/omni:bug-fix #418</code><span class="status s-run">Running</span><span class="m">codex · gpt-5-codex</span><button type="button" data-primary>Terminal</button></div>
-<ul class="parts"><li><b>claude-1</b> · Opus 5.5 · 13:41–14:02 · usage limit</li><li><b>codex-1</b> · gpt-5-codex · since 14:02</li></ul></div>
+<ul class="parts"><li><b>claude-1</b> · Opus 5.5 · 13:41–14:02 · usage 91&nbsp;%</li><li><b>codex-1</b> · gpt-5-codex · since 14:02</li></ul></div>
 </div>
 </div>
 <p class="cap">After: the account chips sit under the health line (not drawn here); Paused uses the colour a pause for memory uses.</p>

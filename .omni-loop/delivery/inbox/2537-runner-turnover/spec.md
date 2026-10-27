@@ -46,19 +46,30 @@ adapter, a module with one shape:
 | `step(line)` | one line of the CLI's output turned into the step line the log and the Terminal show, or nothing |
 | `usage(run)` | the run's tokens (`{input, output, cacheRead, cacheWrite}`) and the model's name, or `null` |
 | `limit(run)` | whether the run ended on the account's usage limit, and the reset time when the CLI says one |
+| `pressure(line)` | read while the run streams: the account's usage (a percent, or a warning status) with its reset time, and the run's context (`{used, window}` tokens), each `null` when the CLI does not say |
+| `session(run)` and `resume(job, account, session, prompt)` | the run's session id, and the command that continues that session with one more message |
 
 - **claude** is today's code moved behind the shape: `claude --dangerously-skip-permissions -p
   --output-format stream-json --verbose`, the job line on stdin, the token as
   `CLAUDE_CODE_OAUTH_TOKEN`, tokens from the transcripts (PRD 2102), the step lines of
-  `steps.ts`. Its limit is the usage-limit result in its stream.
+  `steps.ts`. Its limit is the usage-limit result in its stream. Its usage pressure is the stream's
+  `rate_limit_event`: `allowed_warning` is the warning, with its `resetsAt` and window (`five_hour`,
+  `seven_day`); it gives no percent. Its context is the last assistant message's input and cache
+  tokens against the model's window. It resumes with `claude -p --resume <session>`.
 - **codex** runs `codex exec --json --dangerously-bypass-approvals-and-sandbox` in the worktree, with
   `CODEX_HOME` set to the account's folder (each account signed in there with `codex login`). Tokens
   come from each `turn.completed` event's `usage`. Its limit is the "You've hit your usage limit"
-  message; the reset time is read from its "Try again in …".
+  message; the reset time is read from its "Try again in …". Its usage pressure is the
+  `rate_limits` of the latest `token_count` event in the session's file under `$CODEX_HOME/sessions/`
+  (`used_percent` of the 5-hour and weekly windows, with `resets_at`); its context is that event's
+  last input tokens against `model_context_window`. It resumes with `codex exec resume <session>`.
 - **opencode** runs `opencode run --format json --model <account's model>`, the account's key in
   the environment variable the account names. Tokens come from each `step_finish` event. Its limit
   is an `error` event the provider raised with a 429; the reset time is its `retry-after` when it
-  gives one.
+  gives one. A provider key has no usage window: its pressure is the account's own daily `budget`
+  (tokens) against what the runner counted today. Its context is the last `step_finish` input tokens
+  against the model's window when the account names it (`contextWindow`), else `null`. It resumes
+  with `opencode run --session <session>`.
 - **The job line.** Claude gets the line as it is (`/omni:yolo 7`). Codex and OpenCode get it as
   words: `Use the omni-yolo skill with these arguments: 7`. A repository's own skill (PRD 2313) runs
   on Claude only.
@@ -92,7 +103,12 @@ accounts:
     model: mistral/devstral-medium-latest
     secret: ~/.config/omni/secrets/open-1
     secretEnv: MISTRAL_API_KEY
+    contextWindow: 128000
+    budget: 20000000                            # tokens a day
     takes: [pr-care, plan, bug-fix]
+handoff:
+  usage: 90                                     # percent of a usage window (default 90)
+  context: 75                                   # percent of the model's context window (default 75)
 ```
 
 - **The order is the order of the file.** A job starts on the first account that is ready, whose
@@ -102,6 +118,8 @@ accounts:
 - **No file:** the runner has one account, `claude`, from the token it reads today
   (`CLAUDE_CODE_OAUTH_TOKEN`, `kit/lib/env/read.ts`). A runner set up before this PRD runs exactly
   as it did.
+- **`handoff`** sets the two planned thresholds, in whole percents from 50 to 99; `budget` (tokens a
+  day) and `contextWindow` (tokens) are whole positive numbers. Each is optional.
 - **A malformed file** stops `omni runner` before it registers, naming the account and the field.
 - **States.** Each account is `ready`, `active` (a job runs on it), `out` until a reset time, or
   `unusable` with a reason (`not signed in`, `no skills`, `not installed`). The runner keeps the
@@ -111,24 +129,44 @@ accounts:
   that run's process only. It never enters the report, the log or the handoff note; the runner masks
   it in every line it streams, as it does a GitHub App token.
 
-### 3. Turnover, in the middle of a job
+### 3. Handoffs, in the middle of a job
 
-When a run ends and its adapter's `limit(run)` says the account hit its limit:
+A **handoff** ends one run of a job and starts the next one in the **same worktree**, with a note
+that says where the job stands. Three things start one:
 
-1. The account is `out` until the reset time the CLI gave, or for one hour when it gave none (the
-   report says the time was guessed).
-2. The runner writes a **handoff note** beside the job's log, `job-<id>.handoff.md`, never in the
-   worktree: the job line, the last 40 step lines, `git status --short`, `git log --oneline` since the
-   job's start, `git worktree list`, and the pull requests the log named.
-3. It takes the next account, in the file's order, that is ready, whose `takes` allows the job's
-   skill, and whose agent passed its check, and starts it **in the same worktree**. Its first message
-   is the job line, then `You are taking over this job from <agent> (<model>), which reached its
-   usage limit. Here is where it stopped:`, then the note.
-4. A job turns over at most **three** times. A fourth limit, or no account left to take it, ends the
-   job `failed` with the reason `no tokens left: every account is out until <earliest reset>`.
+| trigger | when | the next run |
+|---|---|---|
+| **usage** (planned) | `pressure` reads the account's usage at or above `handoff.usage` (90 % by default), or Claude's `allowed_warning`, or an OpenCode account's day past its `budget` | the next account (below); this one is `out` until the reset time the pressure named |
+| **context** (planned) | `pressure` reads the run's context at or above `handoff.context` (75 % of the model's window by default) | a fresh session on the **same** account |
+| **limit** (the wall) | the run ends and `limit(run)` says the account hit its limit | the next account; this one is `out` until the reset time the CLI gave, or for one hour when it gave none (the report says the time was guessed) |
 
-A run that ends non-zero without a recognised limit fails the job as today: a crash never turns
-over.
+**A planned handoff, step by step:**
+
+1. The runner interrupts the run (`SIGINT`, then `SIGTERM` after 30 s). The CLI keeps its session.
+2. **The agent writes its own note.** The runner resumes that session on the same account for one
+   turn, with the message `Write the handoff note for whoever continues this job to <path>: what is
+   done, what is next, the pull requests and branches open, and every decision you took. Change no
+   other file.` The turn has 5 minutes. `<path>` is `job-<id>.handoff.md` beside the job's log,
+   never in the worktree.
+3. **The runner's note is the fallback.** When that turn fails, times out or writes nothing (an
+   account already at its wall, a session the CLI lost), the runner writes the note itself: the job
+   line, the last 40 step lines, `git status --short`, `git log --oneline` since the job's start,
+   `git worktree list`, and the pull requests the log named. After a **limit**, the runner always
+   writes the note itself: the account has no turn left.
+4. **The next run starts** with the job line, then `You are taking over this job from <agent>
+   (<model>) because <why>. Here is where it stopped:`, then the note. `<why>` is `its account
+   reached 91 % of its 5-hour window`, `its context was 78 % full` or `it reached its usage limit`.
+
+**The next account** is the next one, in the file's order, that is ready, whose `takes` allows the
+job's skill, and whose agent passed its check. None left ends the job `failed` with the reason `no
+tokens left: every account is out until <earliest reset>`.
+
+**Caps.** A job changes account at most **three** times and opens at most **five** fresh sessions
+for context; past either, the next trigger ends the job `failed`, naming it. A pressure read once
+starts one handoff: the runner reads none while a handoff runs.
+
+A run that ends non-zero without a recognised limit fails the job as today: a crash never hands
+off.
 
 ### 4. Paused: no tokens left
 
@@ -146,7 +184,7 @@ When no account is ready for any skill, the runner pauses as it does under machi
     { "agent": "claude", "model": "claude-opus-5-5", "account": "claude-1",
       "from": "2026-10-27T13:41:02Z", "to": "2026-10-27T14:02:11Z",
       "tokens": { "input": 912000, "output": 61000, "cacheRead": 3100000, "cacheWrite": 240000 },
-      "ended": "limit", "resetsAt": "2026-10-27T18:00:00Z", "guessed": false },
+      "ended": "usage", "resetsAt": "2026-10-27T18:00:00Z", "guessed": false, "note": "agent" },
     { "agent": "codex", "model": "gpt-5-codex", "account": "codex-1",
       "from": "2026-10-27T14:02:15Z", "to": null,
       "tokens": { "input": 380000, "output": 23000, "cacheRead": 110000, "cacheWrite": 0 },
@@ -154,7 +192,8 @@ When no account is ready for any skill, the runner pauses as it does under machi
   ]
   ```
 
-  `ended` is `limit`, `done`, `failed` or `null` while it runs. The job's `tokens` stays the sum of
+  `ended` is `usage`, `context`, `limit`, `done`, `failed` or `null` while it runs, and `note` is
+  `agent` or `runner` for a part that handed off: who wrote its note. The job's `tokens` stays the sum of
   its parts, so a page that reads only `tokens` keeps working.
 - **The accounts.** The health report (`POST /api/runners/<id>/health`) carries an optional
   `accounts` list: `{ id, agent, state, resetsAt?, reason? }`. An account's id is the name its owner
@@ -176,8 +215,9 @@ When no account is ready for any skill, the runner pauses as it does under machi
 - **Paused: no tokens left until 18:00** reads in place of Online or Busy, as a pause for memory
   does.
 - **A job's row** names its agent and model beside its status (`codex · gpt-5-codex`), and, when it
-  turned over, a line per part: `claude-1 · Opus 5.5 · 13:41–14:02 · usage limit` then
-  `codex-1 · gpt-5-codex · since 14:02`.
+  handed off, a line per part: `claude-1 · Opus 5.5 · 13:41–14:02 · usage 91 %` then
+  `codex-1 · gpt-5-codex · since 14:02`. The reason reads `usage <n> %`, `usage warning`,
+  `context <n> %` or `usage limit`.
 - **A queued job** that every possible runner holds back for tokens reads `Waiting: every runner out
   of tokens until 18:00`, beside PRD 2102's reasons.
 
@@ -228,8 +268,18 @@ skills`, `not signed in`).
   pull request. Changed after the design was approved; the person reviews it with the spec.
 - **One hour when no reset time is given; three turnovers at most.** The most reversible choices,
   taken without asking: each is one constant.
-- **The handoff note is built by the runner, not written by the agent that ran out.** An agent at its
-  limit cannot be asked for one more turn.
+- **Planned handoffs on usage and context, before the wall.** The person chose this after reading
+  the first plan, which only turned over once a run had hit its limit. Usage hands off to another
+  account; context hands off to a fresh session of the same account, on top of the CLIs' own
+  compaction.
+- **The outgoing agent writes its note; the runner's note is the fallback.** The person chose this.
+  The agent knows what it decided and what is next; the runner can only read the log and git. After
+  the wall the agent has no turn left, so the runner writes it.
+- **Claude's trigger is `allowed_warning`, not a percent.** Headless Claude Code reports a status and
+  a reset time, not a percent; its percent is only given to the status line. Codex's session files
+  give the percent.
+- **90 % usage, 75 % context, three account changes and five fresh sessions.** The most reversible
+  choices, taken without asking: each is a default or one constant.
 - **The same worktree, nothing pushed at turnover.** A push needs the repository's hooks to pass on
   half-done work, and the next agent is on the same machine. Pushing and resuming after a restart
   belong to the restart journal, a later PRD.
@@ -268,10 +318,13 @@ Supabase: each CLI is a fake program on the `PATH` that replays a recording from
 - **`accounts.test.ts`:** the file read, each malformed field refused with its account and field,
   `takes` outside `RUNNABLE_SKILLS` refused, no file giving today's one Claude account, states kept
   across a restart, an `out` account ready again at its reset time.
-- **Turnover** (`job.test.ts`): a recorded Claude limit, then a fake Codex that finishes: two parts,
-  the note beside the log and not in the worktree, the takeover message, the job `done`. Also: a
-  crash does not turn over; `takes` skips an account; the fourth limit fails the job with the
-  earliest reset; a secret never appears in the log, the note or a report.
+- **Handoffs** (`job.test.ts`, `turnover.test.ts`): a recorded Claude limit, then a fake Codex that
+  finishes: two parts, the note beside the log and not in the worktree, the takeover message, the job
+  `done`. A recorded `allowed_warning` and a Codex `used_percent` of 91: the run interrupted, the
+  session resumed for the note, the next account started with it. A context at 76 %: a fresh session
+  on the same account. A note turn that fails or times out: the runner's note, `note: runner`. Also:
+  a crash does not hand off; `takes` skips an account; the caps end the job naming them; a secret
+  never appears in the log, the note or a report.
 - **The skills** (`plugin.test.ts`): written in the account's folder at the pinned version, never in
   the worktree; `no skills` when the agent reads none.
 - **The pause** (`runner.test.ts`): every account out opens no `next`, and the runner resumes at the
@@ -300,6 +353,10 @@ runner against an old server sends neither until the server accepts them (Soluti
   every gate still runs, and only a person merges.
 - **A CLI changes its output or its limit message.** The adapter then misses the limit and the job
   fails as today; the recordings make the change a red test once a recording is refreshed.
+- **A planned handoff interrupts a run mid-step.** A file may be half edited; the worktree is kept as
+  it is, and the note says what was under way. The pressure signals are the CLIs' own and may change
+  without notice: a signal the adapter no longer reads only means no planned handoff, and the wall
+  still turns over.
 - **Codex and OpenCode have no sub-agents like Claude's.** A wave on them builds its slices one
   after another, as the briefing's **Parallel agents** says: slower, not wrong.
 - **Codex runs without its sandbox** on the runner. A runner is a machine dedicated to agents, with
@@ -345,19 +402,24 @@ Acceptance scenarios are off in this repository, so each criterion becomes ordin
 
 1. **No accounts file, no change.** A runner with no `accounts.yml` runs a job on Claude with its one
    token, exactly as before, and its report carries one part.
-2. **Turnover.** On a runner whose first account hits its usage limit mid-job, the job carries on in
-   the same worktree on the next ready account. It ends `done` with two parts, and the first
-   account reads `out until <reset>` on the Runners page.
-3. **`takes` is kept.** An account whose `takes` leaves out the job's skill neither starts nor takes
+2. **Turnover at the wall.** On a runner whose first account hits its usage limit mid-job, the job
+   carries on in the same worktree on the next ready account. It ends `done` with two parts, and the
+   first account reads `out until <reset>` on the Runners page.
+3. **A planned handoff.** On an account whose usage reaches `handoff.usage` (or Claude's warning),
+   the run stops, the same session writes the handoff note, and the next account carries on from it;
+   the part reads `note: agent`. When the note's turn fails, the runner's note is used.
+4. **A fresh session for context.** A run whose context reaches `handoff.context` hands off to a new
+   session of the same account, with the agent's note.
+5. **`takes` is kept.** An account whose `takes` leaves out the job's skill neither starts nor takes
    over that job.
-4. **A crash is not a limit.** A run that fails without a recognised limit fails the job, and no
+6. **A crash is not a limit.** A run that fails without a recognised limit fails the job, and no
    other account starts.
-5. **Out of tokens.** When every account is out, the job fails with `no tokens left: every account
+7. **Out of tokens.** When every account is out, the job fails with `no tokens left: every account
    is out until <earliest reset>`, the runner reads `Paused: no tokens left until <time>` and takes
    no job, then takes jobs again after the earliest reset.
-6. **Secrets stay.** No account secret appears in a report, a log line, the handoff note or the
+8. **Secrets stay.** No account secret appears in a report, a log line, the handoff note or the
    page.
-7. **Parts on the pull request.** A job that turned over has its pull request's status comment name
+9. **Parts on the pull request.** A job that turned over has its pull request's status comment name
    each agent, model and why it turned over.
-8. **Codex and OpenCode run the kit's skills** from their own folders, at the repository's pinned
+10. **Codex and OpenCode run the kit's skills** from their own folders, at the repository's pinned
    version, and no skill file appears in the job's pull request.
