@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 2530
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s2-01-app-route-test-counts-the-new-function -->
+
+## s2-01-app-route-test-counts-the-new-function — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-27
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s2-01-app-route-test-counts-the-new-function
 prd: 2530
@@ -46,3 +76,7 @@ B costs one small follow-up pull request; until it lands the App's tests are red
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) The plan registers the function in functions.ts but does not list apps/omni-app/src/outbox-check/inngest-route.test.ts, which counts the served functions; the change there is three lines and adds no behaviour.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-app-route-test-counts-the-new-function -->
