@@ -177,6 +177,10 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     waits: waitDeps(),
     now: () => new Date().toISOString(),
     log: (line) => { console.error(line); },
+    timer: () => {
+      const start = performance.now();
+      return () => performance.now() - start;
+    },
     runLog,
   };
 }
