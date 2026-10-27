@@ -4213,6 +4213,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -4224,6 +4227,9 @@ export type Database = {
           mascot?: string | null
           motto?: string
           name: string
+          project_note?: string | null
+          project_noted_at?: string | null
+          project_url?: string | null
           retired_at?: string | null
           sort?: number
           workspace_id: string
@@ -4235,6 +4241,9 @@ export type Database = {
           mascot?: string | null
           motto?: string
           name?: string
+          project_note?: string | null
+          project_noted_at?: string | null
+          project_url?: string | null
           retired_at?: string | null
           sort?: number
           workspace_id?: string
@@ -5262,6 +5271,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -6673,6 +6685,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -6693,6 +6708,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -6943,6 +6961,33 @@ export type Database = {
         Returns: number
       }
       runners_mark_lost: { Args: { p_cutoff: string }; Returns: number }
+      set_fleet_project: {
+        Args: {
+          p_name: string
+          p_url: string
+          p_workspace: string
+        }
+        Returns: {
+          color: string
+          home: string | null
+          label: string
+          mascot: string | null
+          motto: string
+          name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
+          retired_at: string | null
+          sort: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "teams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_jev_decision: {
         Args: {
           p_decision: string
@@ -7155,6 +7200,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
