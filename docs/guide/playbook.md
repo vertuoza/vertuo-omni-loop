@@ -121,9 +121,8 @@ named has no settings repository, and level 3 is empty for every repository.
 
 ## Settings › Playbook
 
-Open the Omni page and go to `/app/settings/playbook`. The page is not in the side menu, and the
-other Settings pages do not list it in their tabs yet: type the address, then the **Playbook** tab
-shows beside the other Settings tabs.
+Open the Omni page, then **Settings › Playbook** in the side menu, or the **Playbook** tab, the last
+of the Settings tabs on every Settings page. Its address is `/app/settings/playbook`.
 
 **What you see.** A head card, **Playbook**, says that the pages a repository does not write itself
 read the ones below, and names the settings repository and the commit it was read at
@@ -157,8 +156,9 @@ A change is refused, with the reason in one line under the field, when:
 
 **With no settings repository.** The page shows a card, **No settings repository yet**:
 *Name a plan repository for this workspace: its plain files hold the playbook every repository
-reads.* No page is listed. The same card shows when the Omni app is not installed where the named
-repository lives, or cannot read it. A settings repository that holds no page yet shows a line
+reads.* No page is listed. When the workspace names a settings repository the Omni app cannot reach,
+the page names it and says why instead: *The Omni app is not installed where `<owner>/<name>`
+lives.*, or *The Omni app cannot read `<owner>/<name>`.* A settings repository that holds no page yet shows a line
 saying so, and lists every page as the kit's first default.
 
 **How to set the settings repository.** It is the workspace's plan repository, the `plan_repo`
