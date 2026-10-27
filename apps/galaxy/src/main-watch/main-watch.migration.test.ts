@@ -226,7 +226,7 @@ describe('the database\'s types', () => {
   it('name the four tables', () => {
     expect(rowType('prd_main_watch')).toBe(' lane: string merge_sha: string merged_at: string prd: number repository: string status: string unread: string[] watch_until: string workspace_id: string ');
     expect(rowType('prd_main_breaks')).toBe(' at: string kind: string lane: string parent: string | null prd: number repository: string source: string title: string url: string workspace_id: string ');
-    // The three outcome columns are PRD 2498's (20270101090000_rewind_outcome.sql, rewind.outcome.migration.test.ts).
+    // The three outcome columns are PRD 2498's (20270103090000_rewind_outcome.sql, rewind.outcome.migration.test.ts).
     expect(rowType('rewind_findings')).toBe(' check_name: string decided_at: string | null decided_by: string | null evidence: Json fix: string happened: string id: string origin: string outcome: string | null outcome_note: string | null outcome_pr: number | null prd: number proposed_at: string reason: string | null repository: string state: string workspace_id: string ');
     expect(rowType('rewind_finding_events')).toContain('action: string changed_at: string changed_by: string | null finding_id: string id: number reason: string | null workspace_id: string');
   });
