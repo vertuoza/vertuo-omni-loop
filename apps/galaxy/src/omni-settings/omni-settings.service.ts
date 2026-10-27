@@ -44,7 +44,7 @@ export function settingsRepositoryOf(workspace: SettingsWorkspace): string | nul
 }
 
 /** What a workspace's settings repository holds of the tech playbook, read as the Omni app. */
-async function readWorkspacePlaybook(workspace: SettingsWorkspace, github: SettingsGithub): Promise<SettingsPlaybook> {
+export async function readWorkspacePlaybook(workspace: SettingsWorkspace, github: SettingsGithub): Promise<SettingsPlaybook> {
   const repository = settingsRepositoryOf(workspace);
   if (repository === null) return empty('This workspace has no settings repository: no plan repository is named.');
   const installation = await github.installationFor({ github_org: workspace.githubOrg, github_installation_id: workspace.installation });
@@ -79,7 +79,8 @@ export type OmniSettingsService = ReturnType<typeof omniSettingsService>;
 // repository's own file when it holds one, else the kit's first default (the curated pages), and says
 // which. The pages come in the curated order, then the settings repository's other pages. A workspace
 // with no settings repository, or one the Omni app cannot read, lists no page: the reason says what to
-// do. A settings repository holding no page lists the kit's first default, every page marked so.
+// do, and the view names the repository the workspace names, read or not (issue 2538). A settings
+// repository holding no page lists the kit's first default, every page marked so.
 
 /** The pages of `playbook`, merged with the kit's first default `curated`. */
 export function playbookPages(playbook: SettingsPlaybook, curated: readonly SettingsFile[]): PlaybookPage[] {
@@ -103,7 +104,9 @@ export function omniSettingsPagesService(
       const workspace = await store.workspaceById(workspaceId);
       if (!workspace) return null;
       const playbook = await readWorkspacePlaybook(workspace, github);
-      return { repository: playbook.repository, commit: playbook.commit, reason: playbook.reason, pages: playbookPages(playbook, curated()) };
+      // The repository the workspace names, even when the Omni app could not read it (issue 2538), so
+      // the page says it cannot read that one rather than that the workspace names none.
+      return { repository: settingsRepositoryOf(workspace), commit: playbook.commit, reason: playbook.reason, pages: playbookPages(playbook, curated()) };
     },
   };
 }

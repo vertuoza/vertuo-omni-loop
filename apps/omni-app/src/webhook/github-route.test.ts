@@ -6,6 +6,8 @@ import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { EnvError, readEnv } from '../env.ts';
 import { capture, throwing } from '../run-log/capture.ts';
 import { githubRoute } from './github-route.ts';
+import { FLEET_BOARD_EVENT } from '../fleet-board/events.ts';
+import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
 
 /** `/api/github`'s handlers over `source`, as the route reads the process's environment. */
 const route = (source: Record<string, string> = { GITHUB_WEBHOOK_SECRET: 'route-secret' }) => githubRoute(readEnv(source));
@@ -48,6 +50,28 @@ describe('/api/github', () => {
     expect(response.status).toBe(200);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]?.[0]).toMatchObject([{ name: OUTBOX_CHECK_EVENT, data: { repository: 'o/r', prNumber: 3 } }]);
+  });
+
+  it('sends a loop pull request’s fleet board event on the app’s Inngest client, beside its check event (PRD 2530)', async () => {
+    const opened = JSON.stringify({
+      action: 'opened',
+      installation: { id: 7 },
+      repository: { name: 'r', full_name: 'o/r', owner: { login: 'o' }, default_branch: 'main' },
+      pull_request: {
+        number: 3,
+        node_id: 'PR_3',
+        html_url: 'https://github.com/o/r/pull/3',
+        state: 'open',
+        user: { login: 'ada' },
+        body: `Closes #9\n\n${SIGNED_MARKER}`,
+        updated_at: '2026-10-27T10:00:00Z',
+        head: { sha: 'def456' },
+        base: { ref: 'main' },
+      },
+    });
+    const response = await POST(new Request('https://omni-loop.example/api/github', { method: 'POST', body: opened, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(opened) } }));
+    expect(response.status).toBe(200);
+    expect(send.mock.calls.map((call) => call[0])).toMatchObject([[{ name: OUTBOX_CHECK_EVENT }], [{ name: FLEET_BOARD_EVENT, data: { repository: 'o/r', prNumber: 3, author: 'ada' } }]]);
   });
 
   it('answers 401 to a bad signature and creates no event', async () => {

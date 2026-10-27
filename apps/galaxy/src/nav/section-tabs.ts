@@ -1,5 +1,6 @@
 // The rows of section tabs (PRD 733): the pages a menu entry opens, one tab each. Settings opens
-// Fleets, Repositories, Business (PRD 748), API keys (PRD 2022) and Jev (PRD 812); Questions opens Open questions, Shared with me and History. The tab rows
+// Fleets, Repositories, Business (PRD 748), API keys (PRD 2022), Jev (PRD 812) and Playbook (PRD 2417,
+// issue 2538); Questions opens Open questions, Shared with me and History. The tab rows
 // are drawn by SectionTabs.tsx; the counts are the ones the menu's badges carried (PRD 499).
 
 /** One tab: a link to its page, and how many things wait there (shown only above 0). */
@@ -11,6 +12,7 @@ export const SETTINGS_TABS: readonly SectionTab[] = [
   { href: '/app/settings/business', label: 'Business' },
   { href: '/app/settings/api-keys', label: 'API keys' },
   { href: '/app/settings/jev', label: 'Jev' },
+  { href: '/app/settings/playbook', label: 'Playbook' },
 ];
 
 export const QUESTIONS_TABS: readonly SectionTab[] = [

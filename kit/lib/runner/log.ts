@@ -101,16 +101,36 @@ export type BugFixOutcome = (typeof BUG_FIX_OUTCOMES)[number];
 /** The most pull requests a report carries (the app's limit, PRD 2425). */
 export const PRS_MAX = 50;
 
-/** What a bug fix's log says of how it ended: its outcome, the pull request it proved had already fixed the bug, and the pull requests it opened. */
-export type BugFixReading = { outcome: BugFixOutcome | null; fixedBy: string | null; prs: string[] };
+/** The most follow-ups a report carries, the characters of one's summary and the repositories of one (PRD 2508). */
+const FOLLOW_UPS_MAX = 5;
+const FOLLOW_UP_SUMMARY_MAX = 300;
+const FOLLOW_UP_REPOS_MAX = 10;
+
+/** A problem a bug fix saw and did not fix (PRD 2508): the repositories it lives in, as `owner/name`, and one sentence of what the run saw. */
+export type FollowUp = { repos: string[]; summary: string };
+
+/** What a bug fix's log says of how it ended: its outcome, the pull request it proved had already fixed the bug, the pull requests it opened, and the follow-ups it wrote. */
+export type BugFixReading = { outcome: BugFixOutcome | null; fixedBy: string | null; prs: string[]; followUps: FollowUp[] };
 
 /** The hand-off's `Outcome: <word>` and `Fixed by: <link>` lines, each a line of its own, as a `PR: <link>` line is. */
 const OUTCOME_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Outcome: (\S+)\s*$/;
 const FIXED_BY_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Fixed by: (\S+)\s*$/;
+const FOLLOW_UP_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Follow-up: (.*)$/;
+const REPOSITORY = /^[\w.-]+\/[\w.-]+$/;
 const PULL_REQUEST_LINK = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/i;
 
 const isOutcome = (word: string | undefined): word is BugFixOutcome => BUG_FIX_OUTCOMES.some((known) => known === word);
 const isPullRequest = (link: string): boolean => PULL_REQUEST_LINK.test(link);
+
+/** The follow-up a `Follow-up: <repos> · <summary>` line's text reads as (PRD 2508), or `null` when it does not read. */
+function followUpOf(text: string): FollowUp | null {
+  const at = text.indexOf(' · ');
+  if (at < 0) return null;
+  const repos = text.slice(0, at).split(',');
+  const summary = text.slice(at + 3).trim();
+  if (summary === '' || repos.length > FOLLOW_UP_REPOS_MAX || !repos.every((repo) => REPOSITORY.test(repo))) return null;
+  return { repos, summary: summary.slice(0, FOLLOW_UP_SUMMARY_MAX) };
+}
 
 /**
  * What a bug fix's or a mega bug fix's readable log says of its end (PRD 2425). The `outcome` is the word
@@ -118,7 +138,8 @@ const isPullRequest = (link: string): boolean => PULL_REQUEST_LINK.test(link);
  * there (a skill from before this PRD). `fixedBy` is the pull request link of the last `Fixed by:` line,
  * the one the skill proved had fixed the bug. `prs` is every `PR:` line's pull request, of any repository,
  * in order and once each, at most {@link PRS_MAX}: a link the job only read is no `PR:` line, and the
- * proved one is left out, since the job opened no pull request for it.
+ * proved one is left out, since the job opened no pull request for it. `followUps` is every `Follow-up:`
+ * line that reads (PRD 2508), in order, a summary seen twice kept once, the first {@link FOLLOW_UPS_MAX} kept.
  */
 export function bugFixReading(log: string): BugFixReading {
   const lines = log.split('\n');
@@ -126,7 +147,14 @@ export function bugFixReading(log: string): BugFixReading {
   const word = valuesOf(OUTCOME_LINE).at(-1);
   const fixedBy = valuesOf(FIXED_BY_LINE).filter(isPullRequest).at(-1) ?? null;
   const opened = valuesOf(PR_LINE).filter((link) => isPullRequest(link) && link !== fixedBy);
-  return { outcome: isOutcome(word) ? word : null, fixedBy, prs: [...new Set(opened)].slice(0, PRS_MAX) };
+  const seen = new Set<string>();
+  const followUps = valuesOf(FOLLOW_UP_LINE).flatMap((text) => {
+    const found = followUpOf(text);
+    if (found === null || seen.has(found.summary)) return [];
+    seen.add(found.summary);
+    return [found];
+  });
+  return { outcome: isOutcome(word) ? word : null, fixedBy, prs: [...new Set(opened)].slice(0, PRS_MAX), followUps: followUps.slice(0, FOLLOW_UPS_MAX) };
 }
 
 /**

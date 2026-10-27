@@ -423,6 +423,37 @@ describe('the outcome, fixedBy and prs a bug fix report carries (PRD 2425)', () 
   });
 });
 
+describe('the followUps a bug fix report carries (PRD 2508)', () => {
+  const one = { repos: ['demo-org/app'], summary: 'The kernel check sends company data the service rejects (4,110 times).' };
+
+  it('takes up to five, each with one to ten owner/name repositories and a summary of one to 300 characters', () => {
+    const report = { status: 'done', exitCode: 0, outcome: 'pr-opened', followUps: [one, { repos: ['demo-org/a', 'demo-org/b'], summary: 'x'.repeat(300) }] };
+    expect(JobUpdateSchema.parse(report)).toEqual(report);
+    const ten = Array.from({ length: 10 }, (_, index) => `demo-org/r${String(index)}`);
+    expect(JobUpdateSchema.safeParse({ status: 'done', followUps: [{ repos: ten, summary: 's' }] }).success).toBe(true);
+    expect(JobUpdateSchema.safeParse({ status: 'done', followUps: Array.from({ length: 5 }, () => one) }).success).toBe(true);
+    expect(JobUpdateSchema.safeParse({ status: 'done', followUps: [] }).success).toBe(true);
+  });
+
+  it('takes a report without them, as a runner from before this PRD sends', () => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0 })).not.toHaveProperty('followUps');
+  });
+
+  it.each([
+    ['a sixth entry', { followUps: Array.from({ length: 6 }, () => one) }],
+    ['no repository', { followUps: [{ repos: [], summary: 's' }] }],
+    ['eleven repositories', { followUps: [{ repos: Array.from({ length: 11 }, (_, index) => `demo-org/r${String(index)}`), summary: 's' }] }],
+    ['a repository that is not owner/name', { followUps: [{ repos: ['demo-org'], summary: 's' }] }],
+    ['an empty summary', { followUps: [{ repos: ['demo-org/app'], summary: '' }] }],
+    ['a summary over 300 characters', { followUps: [{ repos: ['demo-org/app'], summary: 'x'.repeat(301) }] }],
+    ['an unknown key in an entry', { followUps: [{ ...one, extra: 1 }] }],
+    ['null', { followUps: null }],
+    ['a value that is no array', { followUps: 'nope' }],
+  ])('refuses %s', (_name, more) => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', ...more }).success).toBe(false);
+  });
+});
+
 // The kit's reads (PRD 2251 s1): a job names a PRD by its line's first argument; the runners and a
 // PRD's jobs are read by the repository the terminal is in.
 describe('the PRD a line names', () => {

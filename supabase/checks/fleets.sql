@@ -81,7 +81,8 @@ select format(c, pg_temp.ws('initech'))
     'select public.create_fleet(%L, ''RAIDERS'', ''#123456'', ''m'', ''beaver'')',
     'select public.update_fleet(%L, ''beaver'', ''HIJACKED'', ''#123456'', '''', null)',
     'select public.retire_fleet(%L, ''beaver'')',
-    'select public.restore_fleet(%L, ''invincible-team'')'
+    'select public.restore_fleet(%L, ''invincible-team'')',
+    'select public.set_fleet_project(%L, ''beaver'', ''https://github.com/orgs/initech/projects/1'')'
   ]) c;
 grant select on calls to anon, authenticated;
 
@@ -314,6 +315,121 @@ begin
   if (public.restore_fleet(a, 'f1')).retired_at is not null then raise exception 'FAIL: a restore with room was refused'; end if;
   -- An update of an active fleet is not a 13th.
   perform public.update_fleet(a, 'f3', 'F3 AGAIN', '#000000');
+end $$;
+reset role;
+
+-- ── A fleet's GitHub project board (PRD 2530) ──
+-- set_fleet_project() is the owner's alone (the outsiders' calls above include it). It takes an
+-- organization project of the workspace's own GitHub organization, in any case, and nothing else; a
+-- retired fleet is refused; an empty or null link clears the board and its note; a new link drops the
+-- old link's note.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000040a1');
+do $$
+declare
+  v uuid := pg_temp.ws('initech');
+  f public.teams;
+  
+begin
+  if (select project_url from public.teams where workspace_id = v and name = 'beaver') is not null then
+    raise exception 'FAIL: a fleet starts with a board';
+  end if;
+
+  f := public.set_fleet_project(v, 'beaver', '  https://github.com/orgs/Initech/projects/7/ ');
+  if f.project_url is distinct from 'https://github.com/orgs/Initech/projects/7' then
+    raise exception 'FAIL: the owner did not set a board: %', f.project_url;
+  end if;
+  if (select t.project_url from public.teams t where t.workspace_id = v and t.name = 'beaver') is distinct from f.project_url then
+    raise exception 'FAIL: the board was not stored';
+  end if;
+  if (f.label, f.color) is distinct from ('BEAVER'::text, f.color) then raise exception 'FAIL: setting a board changed the look'; end if;
+
+  -- Not a link to an organization project of this workspace's organization.
+  perform pg_temp.refused_for(format('select public.set_fleet_project(%L, ''beaver'', %L)', v, u), 'project', 'GitHub project')
+     from unnest(array[
+       'https://github.com/orgs/other/projects/7',
+       'https://github.com/users/initech/projects/7',
+       'https://github.com/initech/projects/7',
+       'https://github.com/orgs/initech/projects/',
+       'https://github.com/orgs/initech/projects/seven',
+       'https://github.com/orgs/initech/projects/7/views/1',
+       'http://github.com/orgs/initech/projects/7',
+       'https://example.com/orgs/initech/projects/7',
+       'initech'
+     ]) u;
+  if (select t.project_url from public.teams t where t.workspace_id = v and t.name = 'beaver') is distinct from f.project_url then
+    raise exception 'FAIL: a refused link changed the board';
+  end if;
+end $$;
+reset role;
+
+-- The App's note, written with the service role as the function does, is dropped with the old link.
+update public.teams set project_note = 'Added #12 · initech/nimbus-brain', project_noted_at = now()
+ where workspace_id = pg_temp.ws('initech') and name = 'beaver';
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000040a1');
+do $$
+declare
+  v uuid := pg_temp.ws('initech');
+  f public.teams;
+begin
+  -- The same link again keeps the note; the owner cannot write one directly.
+  f := public.set_fleet_project(v, 'beaver', 'https://github.com/orgs/Initech/projects/7');
+  if f.project_note is null or f.project_noted_at is null then raise exception 'FAIL: saving the same board dropped its note'; end if;
+  begin
+    update public.teams set project_note = 'planted' where workspace_id = v;
+    raise exception 'FAIL: the owner wrote a note directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.teams set project_url = 'https://github.com/orgs/initech/projects/9' where workspace_id = v;
+    raise exception 'FAIL: the owner wrote a board directly';
+  exception when insufficient_privilege then null; end;
+
+  f := public.set_fleet_project(v, 'beaver', 'https://github.com/orgs/initech/projects/8');
+  if f.project_url is distinct from 'https://github.com/orgs/initech/projects/8' or f.project_note is not null or f.project_noted_at is not null then
+    raise exception 'FAIL: a new board kept the old board''s note: %', row(f.*);
+  end if;
+end $$;
+reset role;
+update public.teams set project_note = 'Not added: ask an org admin', project_noted_at = now()
+ where workspace_id = pg_temp.ws('initech') and name = 'beaver';
+do $$
+begin
+  update public.teams set project_note = repeat('n', 201) where workspace_id = pg_temp.ws('initech') and name = 'beaver';
+  raise exception 'FAIL: a note of 201 characters was stored';
+exception when check_violation then null;
+end $$;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000040a1');
+do $$
+declare
+  v uuid := pg_temp.ws('initech');
+  f public.teams;
+begin
+  -- Clearing, by an empty link or by null, clears the note too.
+  f := public.set_fleet_project(v, 'beaver', '');
+  if f.project_url is not null or f.project_note is not null or f.project_noted_at is not null then
+    raise exception 'FAIL: clearing the board kept its link or its note: %', row(f.*);
+  end if;
+  perform public.set_fleet_project(v, 'beaver', 'https://github.com/orgs/initech/projects/8');
+  f := public.set_fleet_project(v, 'beaver', null);
+  if f.project_url is not null then raise exception 'FAIL: a null link did not clear the board'; end if;
+
+  -- A retired fleet takes no board; a missing one is not found; another workspace's is not this one's.
+  perform public.retire_fleet(v, 'beaver');
+  begin
+    perform public.set_fleet_project(v, 'beaver', 'https://github.com/orgs/initech/projects/8');
+    raise exception 'FAIL: a retired fleet was given a board';
+  exception when no_data_found then null; end;
+  perform public.restore_fleet(v, 'beaver');
+  begin
+    perform public.set_fleet_project(v, 'nobody', 'https://github.com/orgs/initech/projects/8');
+    raise exception 'FAIL: a missing fleet was given a board';
+  exception when no_data_found then null; end;
+  begin
+    perform public.set_fleet_project(pg_temp.ws('acme-fleets'), 'beaver', 'https://github.com/orgs/acme-fleets/projects/1');
+    raise exception 'FAIL: Initech''s owner gave a board to a fleet of Acme';
+  exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 

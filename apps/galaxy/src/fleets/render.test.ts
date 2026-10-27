@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { FleetRow } from '../arcade/types';
+import type { Fleet } from './model';
 import { SETTINGS } from '../nav/sidebar.ts';
 import { FleetsScreen, type FleetsScreenView } from './FleetsScreen';
 import { FleetsView, ONLY_OWNER } from './FleetsView';
@@ -119,7 +120,7 @@ describe('the owner\'s fleets page', () => {
     expect(buttons(ask)).toEqual(['Retire OCTOPOD', 'Keep it']);
   });
 
-  it.each(['label', 'color', 'motto', 'mascot'] as const)('shows a refusal of the %s next to that field, and nowhere else', (name) => {
+  it.each(['label', 'color', 'motto', 'mascot', 'project'] as const)('shows a refusal of the %s next to that field, and nowhere else', (name) => {
     const message = `${name}: refused here.`;
     const html = render(state({ type: 'new' }, { type: 'refused', refusal: { field: name, message } }));
     const at = field(html, name);
@@ -145,6 +146,81 @@ describe('the owner\'s fleets page', () => {
     expect(text(html)).toContain('No fleets yet');
     expect(buttons(html)).toContain('New fleet');
     expect(html).not.toContain('fleets-retired');
+  });
+});
+
+describe('a fleet\'s GitHub project board (PRD 2530)', () => {
+  const BOARD = 'https://github.com/orgs/acme/projects/7';
+  const boarded = (note: string | null, notedAt: string | null = null): Fleet => ({ ...BEAVER, board: { url: BOARD, note, notedAt } });
+  const withFleets = (...fleets: Fleet[]) => initialState(fleets);
+  const card = (html: string) => section(html, 'fleets-active');
+
+  it('gives the owner\'s form a GitHub project field under Mascot, empty for a new fleet', () => {
+    const html = render(state({ type: 'new' }));
+    expect(html.indexOf('data-field="project"')).toBeGreaterThan(html.indexOf('data-field="mascot"'));
+    const at = field(html, 'project');
+    expect(text(at)).toContain('GitHub project');
+    expect(at).toMatch(/<input[^>]*name="project"[^>]*value=""/);
+  });
+
+  it('opens an edit on the fleet\'s link', () => {
+    const html = render(fleetsReducer(withFleets(boarded(null)), { type: 'edit', name: 'beaver' }));
+    expect(field(html, 'project')).toContain(`value="${BOARD}"`);
+  });
+
+  it('shows no field to a member', () => {
+    const html = render(withFleets(boarded(null)), false);
+    expect(html).not.toContain('data-field="project"');
+    expect(text(card(html))).toContain('Board: acme project 7');
+  });
+
+  it('draws the Board line, linked, and no note before the App has written one', () => {
+    const html = card(render(withFleets(boarded(null))));
+    expect(text(html)).toContain('Board: acme project 7');
+    expect(html).toMatch(/<a href="https:\/\/github\.com\/orgs\/acme\/projects\/7"[^>]*>acme project 7<\/a>/);
+    expect(html).not.toContain('fleet-card-note');
+  });
+
+  it('draws the note in muted text with its day, and its title', () => {
+    const html = card(render(withFleets(boarded('Added #12 · acme/web', '2026-10-27T09:40:07Z'))));
+    const note = /<p class="fleet-card-note"[^>]*>[\s\S]*?<\/p>/.exec(html)?.[0] ?? '';
+    expect(text(note)).toContain('Added #12 · acme/web');
+    expect(text(note)).toContain('2026-10-27');
+    expect(note).toContain('title="Added #12 · acme/web"');
+    expect(note).not.toContain('data-refused');
+  });
+
+  it.each([
+    ['Not added: ask an org admin', 'cannot write organization projects'],
+    ['Not added: no such project', 'found no project'],
+  ])('draws %s in the error colour, with its full reason as its title', (note, reason) => {
+    const html = card(render(withFleets(boarded(note))));
+    const p = /<p class="fleet-card-note"[^>]*>[\s\S]*?<\/p>/.exec(html)?.[0] ?? '';
+    expect(p).toContain('data-refused="true"');
+    expect(p).toContain(note);
+    expect(p).toMatch(new RegExp(`title="[^"]*${reason}`));
+  });
+
+  it('shows neither the line nor the note for a fleet with no board', () => {
+    const html = card(render(state()));
+    expect(html).not.toContain('Board:');
+    expect(html).not.toContain('fleet-card-note');
+  });
+
+  it('keeps the form open on the fleet when its link is refused after the look was saved', () => {
+    const saved = { ...BEAVER, label: 'DAM', motto: 'Builds the dam.' };
+    const s = fleetsReducer(state({ type: 'new' }, { type: 'busy' }),
+      { type: 'saved-look', fleet: saved, refusal: { field: 'project', message: 'GitHub project: a project of this workspace’s own GitHub organization.' } });
+    expect(s.busy).toBe(false);
+    expect(s.draft?.name).toBe('beaver');
+    expect(s.fleets.find((f) => f.name === 'beaver')?.label).toBe('DAM');
+    expect(text(field(render(s), 'project'))).toContain('own GitHub organization');
+  });
+
+  it('empties a refusal of the project when the link is typed again', () => {
+    const s = state({ type: 'new' }, { type: 'refused', refusal: { field: 'project', message: 'GitHub project: no.' } }, { type: 'change', field: 'project', value: BOARD });
+    expect(s.refusal).toBeNull();
+    expect(s.draft?.project).toBe(BOARD);
   });
 });
 
@@ -198,7 +274,7 @@ describe('/app/settings/fleets in each situation', () => {
     expect(buttons(member)).toEqual([]);
   });
 
-  it('starts with the Fleets · Repositories · Business · Products · API keys · Jev tabs in every situation, Fleets marked (PRD 733)', () => {
+  it('starts with the Fleets · Repositories · Business · Products · API keys · Jev · Playbook tabs in every situation, Fleets marked (PRD 733)', () => {
     const views: FleetsScreenView[] = [
       { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' },
       { kind: 'fleets', source: { kind: 'demo' }, owner: true, fleets: [BEAVER], mascots: MASCOTS },
@@ -208,7 +284,7 @@ describe('/app/settings/fleets in each situation', () => {
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, view.kind).toEqual([['Fleets', true], ['Repositories', false], ['Business', false], ['API keys', false], ['Jev', false]]);
+      expect(tabs, view.kind).toEqual([['Fleets', true], ['Repositories', false], ['Business', false], ['API keys', false], ['Jev', false], ['Playbook', false]]);
     }
   });
 });

@@ -28,7 +28,7 @@ describe('the settings tabs', () => {
 
   const render = (current: string) => renderToStaticMarkup(createElement(SectionTabs, { label: 'Settings', tabs: SETTINGS_TABS, current }));
 
-  it('draw Fleets, Repositories, Business, API keys then Jev, links to their pages, in a named row', () => {
+  it('draw Fleets, Repositories, Business, API keys, Jev then Playbook, links to their pages, in a named row', () => {
     const html = render('/app/settings/fleets');
     expect(html).toMatch(/<nav [^>]*class="section-tabs"[^>]*aria-label="Settings"/);
     expect(links(html).map((l) => [l.text, l.href])).toEqual([
@@ -37,15 +37,17 @@ describe('the settings tabs', () => {
       ['Business', '/app/settings/business'],
       ['API keys', '/app/settings/api-keys'],
       ['Jev', '/app/settings/jev'],
+      ['Playbook', '/app/settings/playbook'],
     ]);
   });
 
   it('mark only the page showing', () => {
-    expect(links(render('/app/settings/fleets')).map((l) => l.current)).toEqual([true, false, false, false, false]);
-    expect(links(render('/app/settings/repositories')).map((l) => l.current)).toEqual([false, true, false, false, false]);
-    expect(links(render('/app/settings/business')).map((l) => l.current)).toEqual([false, false, true, false, false]);
-    expect(links(render('/app/settings/api-keys')).map((l) => l.current)).toEqual([false, false, false, true, false]);
-    expect(links(render('/app/settings/jev')).map((l) => l.current)).toEqual([false, false, false, false, true]);
+    expect(links(render('/app/settings/fleets')).map((l) => l.current)).toEqual([true, false, false, false, false, false]);
+    expect(links(render('/app/settings/repositories')).map((l) => l.current)).toEqual([false, true, false, false, false, false]);
+    expect(links(render('/app/settings/business')).map((l) => l.current)).toEqual([false, false, true, false, false, false]);
+    expect(links(render('/app/settings/api-keys')).map((l) => l.current)).toEqual([false, false, false, true, false, false]);
+    expect(links(render('/app/settings/jev')).map((l) => l.current)).toEqual([false, false, false, false, true, false]);
+    expect(links(render('/app/settings/playbook')).map((l) => l.current)).toEqual([false, false, false, false, false, true]);
     expect(links(render('/app')).some((l) => l.current)).toBe(false);
   });
 });
