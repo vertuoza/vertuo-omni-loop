@@ -14,6 +14,7 @@ import type { GraphqlOctokit } from './github.ts';
 import type { Fleet, FleetBoardStore } from './store.ts';
 
 const BOARD = 'https://github.com/orgs/acme/projects/7';
+const NO_FLEET = 'the author, and the sender of a runner job holding the pull request, are in no active fleet';
 const NOW = '2026-10-27T10:30:00.000Z';
 
 const DATA: FleetBoardData = {
@@ -29,7 +30,9 @@ const DATA: FleetBoardData = {
 
 // ---- An in-memory store: workspaces tracking a repository on an installation, their players and fleets ----
 
-type Workspace = { id: string; installationId: number; tracked: string[]; players: Record<string, string | null>; fleets: Record<string, Fleet & { retired?: boolean; note?: string; notedAt?: string }> };
+/** A runner job of the workspace: the pull requests it reported, and who sent it (a player's login, or none for an API key). */
+type Job = { prs: string[]; sentBy: string | null };
+type Workspace = { id: string; installationId: number; tracked: string[]; players: Record<string, string | null>; jobs?: Job[]; fleets: Record<string, Fleet & { retired?: boolean; note?: string; notedAt?: string }> };
 
 function memoryStore(workspaces: Workspace[]) {
   const calls: string[] = [];
@@ -44,6 +47,15 @@ function memoryStore(workspaces: Workspace[]) {
       const team = Object.entries(ws?.players ?? {}).find(([player]) => player.toLowerCase() === login.toLowerCase())?.[1];
       const fleet = team ? ws?.fleets[team] : undefined;
       return Promise.resolve(fleet && !fleet.retired ? { name: fleet.name, projectUrl: fleet.projectUrl } : null);
+    },
+    jobFleet({ workspace, url }) {
+      calls.push(`job ${workspace}`);
+      const ws = workspaces.find((one) => one.id === workspace);
+      const job = ws?.jobs?.find((one) => one.prs.includes(url));
+      if (!job) return Promise.resolve({ found: false, fleet: null });
+      const team = job.sentBy ? ws?.players[job.sentBy] : null;
+      const fleet = team ? ws?.fleets[team] : undefined;
+      return Promise.resolve({ found: true, fleet: fleet && !fleet.retired ? { name: fleet.name, projectUrl: fleet.projectUrl } : null });
     },
     note({ workspace, fleet, projectUrl, note, at }) {
       calls.push(`note ${workspace} ${fleet} ${note}`);
@@ -101,9 +113,11 @@ function fakeGithub({ projects = { 'acme/7': 'PVT_acme7' }, refuse }: { projects
 }
 
 /** The function on `store` and `github`, run once on `data`. */
-async function run({ store, github, data = DATA }: { store: FleetBoardStore; github: Github; data?: FleetBoardData }) {
+async function run({ store, github, data = DATA, onJob }: { store: FleetBoardStore; github: Github; data?: FleetBoardData; onJob?: (look: number) => void }) {
   const fn = createFleetBoard({ client: inngest, octokitFor: () => github.octokit, store, now: () => new Date(NOW) });
-  return new InngestTestEngine({ function: fn, events: [{ name: FLEET_BOARD_EVENT, data } as never] }).execute();
+  // A sleep is answered at once, and says which look it followed.
+  const sleeps = Array.from({ length: 9 }, (_, index) => ({ id: `wait-${String(index + 1)}`, handler: () => { onJob?.(index + 1); return null; } }));
+  return new InngestTestEngine({ function: fn, events: [{ name: FLEET_BOARD_EVENT, data } as never], steps: sleeps }).execute();
 }
 
 describe('fleet-board — a loop pull request lands on its author’s fleet’s board (PRD 2530 s2)', () => {
@@ -134,7 +148,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
     expect(error).toBeUndefined();
     expect(github.queries).toBe(0);
     expect(calls.filter((call) => call.startsWith('note'))).toEqual([]);
-    expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', skipped: 'the author is in no active fleet' }] });
+    expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', skipped: NO_FLEET }] });
   });
 
   it('calls nothing and writes nothing when the author is in no workspace at all, or the fleet is retired', async () => {
@@ -249,8 +263,97 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
       workspaces: [
         { workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' },
         { workspace: 'ws-beta', fleet: 'ops', note: 'Added #28 · acme/widgets' },
-        { workspace: 'ws-gamma', skipped: 'the author is in no active fleet' },
+        { workspace: 'ws-gamma', skipped: NO_FLEET },
       ],
+    });
+  });
+
+  describe('a runner’s pull request (PRD 2530 s3)', () => {
+    const RUNNER = { ...DATA, author: 'omni-runner' };
+
+    it('uses the fleet of the person who sent the job holding the link, found at once, with no sleep', async () => {
+      const ws = acme({ jobs: [{ prs: [DATA.url], sentBy: 'ada-l' }] });
+      const { store, calls } = memoryStore([ws]);
+      const github = fakeGithub();
+      let slept = 0;
+      const { result, error } = await run({ store, github, data: RUNNER, onJob: () => (slept += 1) });
+
+      expect(error).toBeUndefined();
+      expect(slept).toBe(0);
+      expect(github.added).toEqual([{ project: 'PVT_acme7', content: 'PR_kwDO28' }]);
+      expect(ws.fleets.core?.note).toBe('Added #28 · acme/widgets');
+      expect(calls.filter((call) => call.startsWith('job'))).toEqual(['job ws-acme']);
+      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' }] });
+    });
+
+    it('looks again after a minute when no job holds the link yet, and adds the card once one does', async () => {
+      const ws = acme();
+      const { store, calls } = memoryStore([ws]);
+      const github = fakeGithub();
+      const { result, error } = await run({
+        store,
+        github,
+        data: RUNNER,
+        onJob: (look) => {
+          if (look === 3) ws.jobs = [{ prs: [DATA.url], sentBy: 'ada-l' }];
+        },
+      });
+
+      expect(error).toBeUndefined();
+      expect(calls.filter((call) => call.startsWith('job'))).toHaveLength(4);
+      expect(github.added).toEqual([{ project: 'PVT_acme7', content: 'PR_kwDO28' }]);
+      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' }] });
+    });
+
+    it('stops after ten looks, a minute apart, when no job ever holds the link: no call, no note', async () => {
+      const ws = acme({ jobs: [{ prs: ['https://github.com/acme/widgets/pull/99'], sentBy: 'ada-l' }] });
+      const { store, calls } = memoryStore([ws]);
+      const github = fakeGithub();
+      let slept = 0;
+      const { result, error } = await run({ store, github, data: RUNNER, onJob: () => (slept += 1) });
+
+      expect(error).toBeUndefined();
+      expect(calls.filter((call) => call.startsWith('job'))).toHaveLength(10);
+      expect(slept).toBe(9);
+      expect(github.queries).toBe(0);
+      expect(calls.filter((call) => call.startsWith('note'))).toEqual([]);
+      expect(ws.fleets.core?.note).toBeUndefined();
+      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', skipped: NO_FLEET }] });
+    });
+
+    it('gives no fleet to a job sent by an API key, found at once, calling nothing', async () => {
+      const ws = acme({ jobs: [{ prs: [DATA.url], sentBy: null }] });
+      const { store, calls } = memoryStore([ws]);
+      const github = fakeGithub();
+      let slept = 0;
+      const { result } = await run({ store, github, data: RUNNER, onJob: () => (slept += 1) });
+
+      expect(slept).toBe(0);
+      expect(calls.filter((call) => call.startsWith('job'))).toEqual(['job ws-acme']);
+      expect(github.queries).toBe(0);
+      expect(ws.fleets.core?.note).toBeUndefined();
+      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', skipped: NO_FLEET }] });
+    });
+
+    it('does not look for a job when the author is in a fleet', async () => {
+      const { store, calls } = memoryStore([acme({ jobs: [{ prs: [DATA.url], sentBy: 'grace' }] })]);
+      await run({ store, github: fakeGithub() });
+      expect(calls.filter((call) => call.startsWith('job'))).toEqual([]);
+    });
+
+    it('stops waiting in every workspace once one of them holds the job', async () => {
+      const sender = acme({ jobs: [{ prs: [DATA.url], sentBy: 'ada-l' }] });
+      const other = acme({ id: 'ws-beta', players: {}, fleets: {} });
+      const { store, calls } = memoryStore([sender, other]);
+      let slept = 0;
+      const { result } = await run({ store, github: fakeGithub(), data: RUNNER, onJob: () => (slept += 1) });
+
+      expect(slept).toBe(0);
+      expect(calls.filter((call) => call.startsWith('job'))).toEqual(['job ws-acme', 'job ws-beta']);
+      expect(result).toEqual({
+        pull: 'acme/widgets#28',
+        workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' }, { workspace: 'ws-beta', skipped: NO_FLEET }],
+      });
     });
   });
 

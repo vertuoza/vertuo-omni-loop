@@ -82,4 +82,26 @@ describe('fleetBoardStore — the fleets as the service role, never calling Supa
     const refused = new Response(JSON.stringify({ message: 'down', code: '500' }), { status: 500, headers: { 'content-type': 'application/json' } });
     await expect(storeOn(recordingFetch([refused]).fetch).workspaces({ installationId: 1, repository: 'a/b' })).rejects.toThrow('the database refused: down');
   });
+
+  it('finds the runner job holding a pull request’s link and the active fleet of the person who sent it', async () => {
+    const { fetch, requests } = recordingFetch([[{ sent_by: 'user-1', sent_by_key: null }], [{ team: 'core' }], [{ name: 'core', project_url: 'https://github.com/orgs/acme/projects/7' }]]);
+    const found = await storeOn(fetch).jobFleet({ workspace: 'ws-1', url: 'https://github.com/acme/widgets/pull/28' });
+
+    expect(found).toEqual({ found: true, fleet: { name: 'core', projectUrl: 'https://github.com/orgs/acme/projects/7' } });
+    const [jobs, players] = [nth(requests, 0), nth(requests, 1)];
+    expect(jobs.path).toBe('/rest/v1/runner_jobs');
+    expect(jobs.query.get('workspace_id')).toBe('eq.ws-1');
+    expect(jobs.query.get('prs')).toBe('cs.["https://github.com/acme/widgets/pull/28"]');
+    expect(players.query.get('user_id')).toBe('eq.user-1');
+  });
+
+  it('finds no job, or a job with no person (an API key, the App), without reading a fleet', async () => {
+    const none = recordingFetch([[]]);
+    expect(await storeOn(none.fetch).jobFleet({ workspace: 'ws-1', url: 'u' })).toEqual({ found: false, fleet: null });
+    for (const row of [{ sent_by: 'user-1', sent_by_key: 'key-1' }, { sent_by: null, sent_by_key: null }]) {
+      const { fetch, requests } = recordingFetch([[row]]);
+      expect(await storeOn(fetch).jobFleet({ workspace: 'ws-1', url: 'u' })).toEqual({ found: true, fleet: null });
+      expect(requests).toHaveLength(1);
+    }
+  });
 });
