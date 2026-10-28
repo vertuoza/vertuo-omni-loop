@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FleetRow } from '../arcade/types';
-import { activeFleets, BLANK_COLOR, fleetsReducer, initialState, previewOf, retiredFleets, type FleetsState } from './model';
+import { activeFleets, BLANK_COLOR, fleetsReducer, initialState, noteTitle, previewOf, projectOf, retiredFleets, type FleetsState } from './model';
 import { sure } from '../arcade/test/sure';
 
 // /app/settings/fleets's state (PRD 400 s3): the workspace's fleets, the one form being filled (a new fleet or
@@ -29,12 +29,12 @@ describe('the fleets page\'s state', () => {
   });
 
   it('New fleet opens a blank form in the first swatch\'s colour', () => {
-    expect(run(start(), { type: 'new' }).draft).toEqual({ name: null, label: '', color: BLANK_COLOR, motto: '', mascot: null });
+    expect(run(start(), { type: 'new' }).draft).toEqual({ name: null, label: '', color: BLANK_COLOR, motto: '', mascot: null, project: '' });
   });
 
   it('Edit opens the form on the fleet\'s own look, keeping its name', () => {
     expect(run(start(), { type: 'edit', name: 'beaver' }).draft)
-      .toEqual({ name: 'beaver', label: 'BEAVER', color: '#d08a4a', motto: 'Builds the dam.', mascot: 'beaver' });
+      .toEqual({ name: 'beaver', label: 'BEAVER', color: '#d08a4a', motto: 'Builds the dam.', mascot: 'beaver', project: '' });
   });
 
   it('Edit of a fleet that is not there opens nothing', () => {
@@ -97,5 +97,32 @@ describe('the fleets page\'s state', () => {
   it('Cancel closes the form and forgets its refusal', () => {
     const state = run(start(), { type: 'new' }, { type: 'refused', refusal: { field: 'form', message: 'x' } }, { type: 'cancel' });
     expect(state).toMatchObject({ draft: null, refusal: null });
+  });
+});
+
+describe('a fleet\'s GitHub project link (PRD 2530)', () => {
+  it('reads the organization and the number of an organization project, slash and spaces tolerated', () => {
+    expect(projectOf('https://github.com/orgs/acme/projects/7')).toEqual({ org: 'acme', number: 7 });
+    expect(projectOf('  https://github.com/orgs/Acme-Co/projects/12/ ')).toEqual({ org: 'Acme-Co', number: 12 });
+  });
+
+  it.each([
+    '', 'acme', 'https://github.com/users/acme/projects/7', 'https://github.com/orgs/acme/projects/',
+    'https://github.com/orgs/acme/projects/x', 'https://github.com/orgs/acme/projects/7/views/1', 'http://github.com/orgs/acme/projects/7',
+  ])('reads %j as no project', (url) => {
+    expect(projectOf(url)).toBeNull();
+  });
+
+  it('says the whole reason of each refusal the App writes, and a note it does not know as itself', () => {
+    expect(noteTitle('Not added: ask an org admin')).toContain('cannot write organization projects');
+    expect(noteTitle('Not added: no such project')).toContain('found no project');
+    expect(noteTitle('Added #3 · acme/web')).toBe('Added #3 · acme/web');
+  });
+
+  it('starts a new form with no link, and an edit with the fleet\'s own', () => {
+    expect(run(start(), { type: 'new' }).draft?.project).toBe('');
+    const boarded = { ...BEAVER, board: { url: 'https://github.com/orgs/acme/projects/7', note: null, notedAt: null } };
+    expect(run(start([boarded]), { type: 'edit', name: 'beaver' }).draft?.project).toBe('https://github.com/orgs/acme/projects/7');
+    expect(run(start(), { type: 'edit', name: 'beaver' }).draft?.project).toBe('');
   });
 });

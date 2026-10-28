@@ -10,7 +10,7 @@ import { omniSettingsEditService, type PlaybookChange, type ProposeOutcome, type
 // a member who is not an owner, or one with no GitHub login, is 403 and nothing is written; each case
 // where no pull request opens answers its reason in plain words; a GitHub failure is 502.
 
-const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan' };
+const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null };
 const REVIEW = '---\nform: review\nform-version: 1\nstate: filled\npoints-to: null\nevidence: []\ninvaded: null\nowner: null\n---\n\n# Review\n\nNew words.\n';
 const OPENED: ProposeOutcome = { kind: 'opened', pullRequest: { number: parsePr(42), url: 'https://github.com/acme/plan/pull/42' } };
 
@@ -113,7 +113,7 @@ describe('POST /api/omni-settings/proposal', () => {
       return { status: res.status, body: (await res.json()) as unknown };
     };
     expect(await words({ workspace: { ...ACME, planRepo: null } })).toEqual({
-      status: 409, body: { error: 'This workspace has no settings repository: name a plan repository for it first.' },
+      status: 409, body: { error: 'This workspace has no settings repository: choose one on Settings › Playbook first.' },
     });
     expect(await words({ installation: null })).toEqual({
       status: 409, body: { error: 'The Omni app is not installed where acme/plan lives: install the Omni App: https://github.com/apps/omni' },

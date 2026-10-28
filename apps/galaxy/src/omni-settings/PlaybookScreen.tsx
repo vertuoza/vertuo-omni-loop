@@ -1,6 +1,6 @@
 import { Notice } from '../ask/page/Notice';
 import { SectionTabs } from '../nav/SectionTabs';
-import { SETTINGS_TABS, type SectionTab } from '../nav/section-tabs';
+import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import type { PlaybookEditing } from './omni-settings.client';
 import type { SettingsPageLoad } from './load';
@@ -13,9 +13,6 @@ import { PlaybookView } from './PlaybookView';
 
 export const PLAYBOOK_PATH = '/app/settings/playbook';
 
-/** The Settings tabs with Playbook after them. */
-const PLAYBOOK_TABS: readonly SectionTab[] = [...SETTINGS_TABS, { href: PLAYBOOK_PATH, label: 'Playbook' }];
-
 export type PlaybookScreenView =
   | { kind: 'closed' }
   | { kind: 'sign-in' }
@@ -26,14 +23,14 @@ export type PlaybookScreenView =
 /** The screen for what the page loaded: each page's edit for an owner only (s7), none for a member. */
 export function playbookScreenOf(load: SettingsPageLoad): PlaybookScreenView {
   if (load.kind !== 'playbook') return load;
-  const { repository, commit, reason, pages } = load;
-  return { kind: 'playbook', repository, commit, reason, pages, editing: load.owner ? { kind: 'database', workspace: load.workspace.id } : null };
+  const { repository, commit, reason, pages, choice } = load;
+  return { kind: 'playbook', repository, commit, reason, pages, choice, editing: load.owner ? { kind: 'database', workspace: load.workspace.id } : null };
 }
 
 export function PlaybookScreen({ view }: { view: PlaybookScreenView }) {
   return (
     <>
-      <SectionTabs label="Settings" tabs={PLAYBOOK_TABS} current={PLAYBOOK_PATH} />
+      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current={PLAYBOOK_PATH} />
       <PlaybookBody view={view} />
     </>
   );

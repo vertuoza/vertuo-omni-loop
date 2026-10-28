@@ -1,4 +1,4 @@
 {
   "title": "Guide",
-  "pages": ["index", "install", "join", "cloud", "runners", "any-agent", "invade", "loop", "first-prd", "drive", "products", "several-repositories", "roadmaps", "ideas", "landings", "flow", "knowledge-map", "design", "validate-e2e", "use-cases", "troubleshooting", "observability", "api"]
+  "pages": ["index", "install", "join", "cloud", "runners", "any-agent", "invade", "loop", "first-prd", "drive", "products", "several-repositories", "roadmaps", "ideas", "landings", "flow", "playbook", "knowledge-map", "design", "validate-e2e", "use-cases", "troubleshooting", "observability", "api"]
 }

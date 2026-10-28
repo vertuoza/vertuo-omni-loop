@@ -107,11 +107,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 65 commands and the 37 skills', () => {
+  it('holds the 65 commands and the 38 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(65);
-    expect(skillFolders()).toHaveLength(37);
+    expect(skillFolders()).toHaveLength(38);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(65);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(37);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(38);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -403,7 +403,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'status', 'validate-e2e'],
+      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
@@ -416,7 +416,17 @@ describe('the help table in this repository', () => {
     for (const phrase of [/omni rewind facts/, /seven checks/, /omni rewind push/, /writes nothing to the repository/, /never merges/]) expect(words, String(phrase)).toMatch(phrase);
     const runner = ENTRIES.find((e) => e.name === 'runner' && e.kind === 'command');
     assertDefined(runner, 'runner');
-    expect(runner.detail.replace(/\s+/g, ' ')).toMatch(/prove, retro-apply, rewind and knowledge-add run\./);
+    expect(runner.detail.replace(/\s+/g, ' ')).toMatch(/prove, retro-apply, rewind, knowledge-add and rewind-apply run\./);
+  });
+
+  it('explains /omni:rewind-apply, the runner job a knowledge finding\'s Approve queues (PRD 2498)', () => {
+    const apply = ENTRIES.find((e) => e.name === 'rewind-apply' && e.kind === 'skill');
+    assertDefined(apply, 'rewind-apply');
+    expect(apply).toMatchObject({ who: 'you', usage: ['/omni:rewind-apply <prd> <finding>'], group: 'everyday' });
+    const words = apply.detail.replace(/\s+/g, ' ');
+    for (const phrase of [/omni rewind facts/, /\(rewind of PRD <prd>\)/, /Proposed: rewind <date>/, /omni rewind outcome/, /never a locked law/, /never the kit/, /never merges/]) {
+      expect(words, String(phrase)).toMatch(phrase);
+    }
   });
 
   it('names the seven stages of the loop in order, in the kit\'s stage words, each with one line, and three principles', () => {

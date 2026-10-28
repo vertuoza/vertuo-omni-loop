@@ -29,6 +29,8 @@ function asCaller(token: string) {
     mainWatch: (workspace_id, repo, prd) => watches.mainWatchOf({ workspace_id, repository: repo, prd }),
     findings: (workspace, repo, prd) => repository.findings(workspace, repo, prd),
     insert: (workspace, repo, prd, found) => repository.insert(workspace, repo, prd, found),
+    workspaceOfFinding: (id) => repository.workspaceOfFinding(id),
+    recordOutcome: (workspace, id, body) => repository.recordOutcome(workspace, id, body),
   });
   return { auth: client.auth, service };
 }

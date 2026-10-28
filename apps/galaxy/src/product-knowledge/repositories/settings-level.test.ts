@@ -10,7 +10,7 @@ import { readSettingsLevel } from './settings-level';
 // or one the Omni app cannot read, leaves the level empty and never throws.
 
 const COMMIT = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
-const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan' };
+const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null };
 const form = (id: string, extra = '') =>
   `---\nform: ${id}\nform-version: 1\nstate: filled\n${extra}points-to: null\nevidence: null\ninvaded: null\n---\n\n# ${id} for all\n\n## One\n<!-- slot: one · required -->\nText.\n`;
 const FILES: Record<string, string> = {
@@ -54,6 +54,11 @@ describe('the Omni settings level', () => {
     expect(page('ci')).toMatchObject({ level: 'omni settings', from: 'acme/plan', owners: ['maya'] });
     expect(page('testing')).toMatchObject({ level: 'omni settings', from: 'acme/plan', owners: ['sol'] });
     expect(page('setup')).toMatchObject({ level: 'kit default' });
+  });
+
+  it('is the chosen settings repository when the owner chose one, whatever the plan repository is (PRD 2543)', async () => {
+    const { level } = await read({ workspaces: [{ ...ACME, settingsRepository: 'acme/playbook' }] });
+    expect(level?.repository).toBe('acme/playbook');
   });
 
   it('is empty, with no error, for a product with no repository to anchor on', async () => {

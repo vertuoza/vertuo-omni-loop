@@ -5,7 +5,13 @@
 // is read (./github.ts), turned into stages and topics (./core.ts), and recorded through the stage store
 // (../store.ts), which keeps each stage's first date: a rerun writes nothing new. After a repository's
 // first sync, only its issues and pull requests updated since the last one (less OVERLAP) are read
-// (issue 642), so the 15-minute run does not spend the App's hourly GitHub budget. A repository that
+// (issue 642), so the 15-minute run does not spend the App's hourly GitHub budget. A workspace's
+// repositories are read four at a time and answered in their order, so the run fits the route's 300 s
+// (#2529); each step that takes 30 s or more is logged with how long it took, so a run cut off at 300 s
+// still says what was slow. A repository's stale snapshots are refreshed three at a time, and none is started
+// once the run has taken 200 s: those wait for the next run. No repository is started once the run has taken
+// 120 s either: those wait too, and the repositories synced longest ago are read first, so the ones left
+// out go first next time. A repository that
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
@@ -104,6 +110,9 @@ export type SyncDeps = {
   waits?: WaitStore;
   now(): string;
   log(line: string): void;
+  /** A stopwatch started for each step; a step that takes SLOW_STEP_MS or more is logged with how long it took
+   * (#2529). None, no step is timed. */
+  timer?(): () => number;
   /** Where the run's one `stages-sync` line goes (PRD 1723): kit/lib/log's stdout logger, live. */
   runLog: Logger;
 };
@@ -157,9 +166,67 @@ const ETAG_MAX_IDLE_MS = 7 * 24 * 3_600_000;
 
 const before = (at: string, ms: number) => new Date(Date.parse(at) - ms).toISOString();
 
-/** Marks stale the repository's PRDs that changed, then refreshes each of its stale snapshots, one at a
- * time; logs, never throws. */
-async function refreshSnapshots(deps: SyncDeps, workspace: SyncWorkspace, repository: string, changed: readonly PrdNumber[], syncedAt: string): Promise<void> {
+/** How many of a workspace's repositories are read at once: one after another, 22 of them overran the
+ * route's 300 s (#2529). */
+const REPO_READS = 4;
+
+/** A step that takes this long or more is logged, so a run cut off at 300 s still says what was slow (#2529). */
+const SLOW_STEP_MS = 30_000;
+
+/** Runs `step`, then logs `<what> took <s> s` when it took SLOW_STEP_MS or more, whether it gave or threw. */
+async function timed<T>(deps: SyncDeps, what: string, step: () => Promise<T>): Promise<T> {
+  if (!deps.timer) return step();
+  const stop = deps.timer();
+  try {
+    return await step();
+  } finally {
+    const ms = stop();
+    if (ms >= SLOW_STEP_MS) deps.log(`stages sync: ${what} took ${String(Math.round(ms / 1000))} s`);
+  }
+}
+
+/** How many of a repository's stale snapshots are refreshed at once (#2529). */
+const SNAPSHOT_REFRESHES = 3;
+/** Once a run has taken this long, it starts no snapshot refresh: those wait 15 minutes for the next run, and
+ * the run ends well before the route's 300 s (#2529). */
+const SNAPSHOT_BUDGET_MS = 200_000;
+/** Once a run has taken this long, it starts no repository: a repository read takes up to two minutes, so one
+ * started later could run past the route's 300 s (#2529). */
+const REPO_BUDGET_MS = 120_000;
+
+/** The repositories, those synced longest ago first and never synced before all; as given when a last sync
+ * cannot be read (logged). */
+async function oldestFirst(deps: SyncDeps, workspace: SyncWorkspace, repositories: readonly string[]): Promise<string[]> {
+  try {
+    const last = await Promise.all(repositories.map((repository) => deps.store.lastSynced(workspace.id, repository)));
+    const at = (index: number) => {
+      const when = last[index];
+      return when === null || when === undefined ? -Infinity : Date.parse(when);
+    };
+    return repositories.map((repository, index) => ({ repository, index })).sort((a, b) => at(a.index) - at(b.index) || a.index - b.index).map(({ repository }) => repository);
+  } catch (error) {
+    deps.log(`stages sync: when the repositories of ${workspace.slug} were last synced cannot be read — ${why(error)}`);
+    return [...repositories];
+  }
+}
+
+/** `each` of the items, at most `limit` at a time; what each gave, in the items' order. */
+async function inTurns<T, R>(items: readonly T[], limit: number, each: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  const queue = items.entries();
+  const lane = async () => {
+    for (const [index, item] of queue) results[index] = await each(item);
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  return results;
+}
+
+/** Marks stale the repository's PRDs that changed, then refreshes its stale snapshots, SNAPSHOT_REFRESHES at a
+ * time, starting none once the run is `overdue`: those stay stale for the next run, and one line says how many
+ * (#2529). Logs, never throws. */
+async function refreshSnapshots(
+  deps: SyncDeps, workspace: SyncWorkspace, repository: string, changed: readonly PrdNumber[], syncedAt: string, overdue: () => boolean,
+): Promise<void> {
   const snapshots = deps.snapshots;
   if (!snapshots) return;
   if (changed.length > 0) {
@@ -176,13 +243,19 @@ async function refreshSnapshots(deps: SyncDeps, workspace: SyncWorkspace, reposi
     deps.log(`stages sync: the stale snapshots of ${repository} cannot be listed — ${why(error)}`);
     return;
   }
-  for (const dossier of stale) {
+  let left = 0;
+  await inTurns(stale, SNAPSHOT_REFRESHES, async (dossier) => {
+    if (overdue()) {
+      left += 1;
+      return;
+    }
     try {
       await snapshots.refresh(workspace, dossier);
     } catch (error) {
       deps.log(`stages sync: the snapshot of ${repository}#${dossier.prd} was not refreshed — ${why(error)}`);
     }
-  }
+  });
+  if (left > 0) deps.log(`stages sync: ${String(left)} stale snapshots of ${repository} wait for the next run`);
 }
 
 /** When the repository's milestones were last recorded; `stages` (its stages' last sync) without a milestone
@@ -291,14 +364,16 @@ async function recordRepoWaits(
 }
 
 /** Reads and records one repository; its counts, or throws with why it was skipped. */
-async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string, lanes: TargetLanes): Promise<SyncedRepo> {
+async function syncRepo(
+  deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string, lanes: TargetLanes, overdue: () => boolean,
+): Promise<SyncedRepo> {
   const since = await sinceOf(deps, workspace, repository);
-  const snapshot = await deps.snapshot(workspace, repository, since);
+  const snapshot = await timed(deps, `the snapshot of ${repository}`, () => deps.snapshot(workspace, repository, since));
   const serverBorn = await serverBornOf(deps, workspace, repository);
   const born = serverBorn ?? [];
   const { stages, topics } = stagesOfRepo(snapshot, syncedAt, born);
   await deps.store.recordStages(stages.map((s) => ({ ...s, workspace_id: workspace.id })), syncedAt);
-  await recordMilestones(deps, workspace, snapshot, born, syncedAt);
+  await timed(deps, `the milestones of ${repository}`, () => recordMilestones(deps, workspace, snapshot, born, syncedAt));
   noteTargets(lanes, snapshot, born);
   let learnt = 0;
   for (const topic of topics) {
@@ -309,17 +384,43 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
       deps.log(`stages sync: the topic ${topic.topic} of ${repository}#${topic.prd} was not recorded — ${why(error)}`);
     }
   }
-  await refreshSnapshots(deps, workspace, repository, changedPrds(snapshot), syncedAt);
+  await timed(deps, `the stale snapshots of ${repository}`, () => refreshSnapshots(deps, workspace, repository, changedPrds(snapshot), syncedAt, overdue));
   if (deps.outbox) {
     const prds = [...new Set([...stages, ...topics].map((s) => s.prd))].sort((a, b) => a - b).map((prd) => ({ repository, prd }));
     try {
-      await recountOutboxes(workspace.id, prds, { ...deps.outbox, stages: deps.store, log: (line) => { deps.log(line); } }, syncedAt);
+      const recount = { ...deps.outbox, stages: deps.store, log: (line: string) => { deps.log(line); } };
+      await timed(deps, `the outbox recount of ${repository}`, () => recountOutboxes(workspace.id, prds, recount, syncedAt));
     } catch (error) {
       deps.log(`stages sync: the outboxes of ${repository} were not recounted — ${why(error)}`);
     }
   }
-  await recordRepoWaits(deps, workspace, snapshot, serverBorn, syncedAt);
+  await timed(deps, `the waits of ${repository}`, () => recordRepoWaits(deps, workspace, snapshot, serverBorn, syncedAt));
   return { workspace: workspace.slug, repository: repository.toLowerCase(), stages: stages.length, topics: learnt };
+}
+
+/** When a run is past its snapshot budget (`overdue`) and past its repository budget (`late`). */
+type RunBudget = { overdue: () => boolean; late: () => boolean };
+
+/** Reads the workspace's repositories REPO_READS at a time, oldest synced first, starting none once the run is
+ * `late`: those wait for the next run, named in one line (#2529). What each read gave, synced or skipped. */
+async function readRepositories(
+  deps: SyncDeps, workspace: SyncWorkspace, repositories: readonly string[], syncedAt: string, lanes: TargetLanes, budget: RunBudget,
+): Promise<(SyncedRepo | SkippedRepo)[]> {
+  const waiting: string[] = [];
+  const read = await inTurns(await oldestFirst(deps, workspace, repositories), REPO_READS, async (repository): Promise<SyncedRepo | SkippedRepo | null> => {
+    if (budget.late()) {
+      waiting.push(repository);
+      return null;
+    }
+    try {
+      return await timed(deps, repository, () => syncRepo(deps, workspace, repository, syncedAt, lanes, budget.overdue));
+    } catch (error) {
+      deps.log(`stages sync: ${repository} of ${workspace.slug} is skipped — ${why(error)}`);
+      return { workspace: workspace.slug, repository: repository.toLowerCase(), reason: why(error) };
+    }
+  });
+  if (waiting.length > 0) deps.log(`stages sync: ${String(waiting.length)} repositories of ${workspace.slug} wait for the next run — ${waiting.join(', ')}`);
+  return read.filter((repo) => repo !== null);
 }
 
 /** Reads and stores the facts of the workspace's fixes that have no stored release; logs, never throws. */
@@ -402,6 +503,10 @@ type SyncRun = { answer: Response; repos?: number };
 async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
   if (!bearerMatches(request, deps.secret)) return { answer: json(401, { error: 'A valid bearer secret is required.' }) };
   const syncedAt = deps.now();
+  const sinceStart = deps.timer?.();
+  const past = (ms: number) => () => sinceStart !== undefined && sinceStart() >= ms;
+  const overdue = past(SNAPSHOT_BUDGET_MS);
+  const late = past(REPO_BUDGET_MS);
   let workspaces: SyncWorkspace[];
   try {
     workspaces = await deps.workspaces();
@@ -425,17 +530,14 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
       reply.skipped.push({ workspace: workspace.slug, repository: null, reason: why(error) });
     }
     const lanes: TargetLanes = { held: new Set(), claimed: [] };
-    for (const repository of repositories) {
-      try {
-        reply.repositories.push(await syncRepo(deps, workspace, repository, syncedAt, lanes));
-      } catch (error) {
-        deps.log(`stages sync: ${repository} of ${workspace.slug} is skipped — ${why(error)}`);
-        reply.skipped.push({ workspace: workspace.slug, repository: repository.toLowerCase(), reason: why(error) });
-      }
+    const read = await readRepositories(deps, workspace, repositories, syncedAt, lanes, { overdue, late });
+    for (const repo of read) {
+      if ('reason' in repo) reply.skipped.push(repo);
+      else reply.repositories.push(repo);
     }
     await recordTargetLanes(deps, workspace, lanes, syncedAt);
-    await refreshFixes(deps, workspace, syncedAt);
-    await refreshConcepts(deps, workspace, syncedAt);
+    await timed(deps, `the fix facts of ${workspace.slug}`, () => refreshFixes(deps, workspace, syncedAt));
+    await timed(deps, `the concept facts of ${workspace.slug}`, () => refreshConcepts(deps, workspace, syncedAt));
   }
   return { answer: json(200, reply), repos: reply.repositories.length };
 }

@@ -25,6 +25,7 @@ const ids = {
   fixRowStamp: 'fix-row-stamp',
   knowledgePack: 'knowledge-pack',
   mainWatch: 'main-watch',
+  fleetBoard: 'fleet-board',
 };
 
 type Fn = ReturnType<typeof appFunctions>[keyof ReturnType<typeof appFunctions>];
@@ -37,7 +38,7 @@ function startOf(fn: Fn) {
 }
 
 describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
-  it('serves the fourteen functions by these ids', () => {
+  it('serves the fifteen functions by these ids', () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     expect(Object.fromEntries(Object.entries(functions).map(([name, fn]) => [name, fn.opts.id]))).toEqual(ids);
   });

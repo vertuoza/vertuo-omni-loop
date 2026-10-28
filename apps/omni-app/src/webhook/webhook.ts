@@ -40,6 +40,13 @@
 // becomes one main watch CI event, which wakes the watch of the commit it ran on (../main-watch/events.ts).
 // Both are handed to `sendWatch`, each with an id, so a delivery GitHub sends twice is one event.
 //
+// The fleet board (PRD 2530): a pull request opened, reopened, ready for review or edited, open, into the
+// repository's default branch, and signed by the loop, read from the delivery alone (its body carries the
+// signature's marker, or the loop's bot opened it), also becomes one fleet board event, beside whatever else
+// it becomes, handed to `sendBoard`; the `fleet-board` function adds it to its author's fleet's board
+// (../fleet-board/). A sub-PR, a pull request typed by hand, a closed one, or a delivery naming no default
+// branch becomes none: the board takes only the loop's pull requests into main.
+//
 // The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
 // (`labels.approved`'s default, as the stage events read it) becomes one approved label event alone;
 // the `approved-rerun` function runs the `omni/approved` check again on every open pull request of that
@@ -69,7 +76,10 @@ import {
   type HarvestRequest,
   type RetroRequest,
 } from '../inngest-client.ts';
+import { isSignedBody } from 'omni-loop/kit/lib/signature.ts';
 import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
+import { FLEET_BOARD_EVENT, fleetBoardId, type FleetBoardRequest } from '../fleet-board/events.ts';
+import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type MainWatchRequest } from '../main-watch/events.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
@@ -111,6 +121,14 @@ export const APPROVED_LABEL_ACTIONS = Object.freeze({
 /** The actions that may stamp a fix's row (PRD 2011 s7): a pull request closed, merged or not, or reopened. */
 export const FIX_STAMP_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['closed', 'reopened']),
+});
+
+/**
+ * The actions that may put a pull request on its fleet's board (PRD 2530): `edited` too, so a body that
+ * gains its signature after opening still counts. All are check actions already: `HANDLED` is unchanged.
+ */
+const FLEET_BOARD_ACTIONS =Object.freeze({
+  pull_request: Object.freeze(['opened', 'reopened', 'ready_for_review', 'edited']),
 });
 
 /**
@@ -158,6 +176,10 @@ const PayloadSchema = z.looseObject({
     })
     .nullish(),
   pull_request: PullRefSchema.extend({
+    node_id: z.string().nullish(),
+    html_url: z.string().nullish(),
+    state: z.string().nullish(),
+    user: z.looseObject({ login: z.string().nullish() }).nullish(),
     body: z.string().nullish(),
     merged: z.boolean().nullish(),
     merge_commit_sha: z.string().nullish(),
@@ -199,6 +221,7 @@ export async function receiveWebhook({
   sendApproved = () => Promise.resolve(),
   sendStamps = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
+  sendBoard = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log = noteTo('webhook'),
@@ -213,6 +236,8 @@ export async function receiveWebhook({
   sendStamps?: (events: FixStampRequest[]) => Promise<unknown>;
   /** Sends the main watch's events (PRD 2410); none given, they go nowhere. */
   sendWatch?: (events: MainWatchRequest[]) => Promise<unknown>;
+  /** Sends the fleet board's events (PRD 2530); none given, they go nowhere. */
+  sendBoard?: (events: FleetBoardRequest[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -252,7 +277,8 @@ export async function receiveWebhook({
   const approved = toApprovedLabelRequests(event, payload);
   const stamps = toFixStampRequests(event, payload);
   const watch = toMainWatchRequests(event, payload);
-  const total = events.length + approved.length + stamps.length + watch.length;
+  const board = toFleetBoardRequests(event, payload);
+  const total = events.length + approved.length + stamps.length + watch.length + board.length;
   if (total === 0) return reply(200, 'ignored');
 
   try {
@@ -260,6 +286,7 @@ export async function receiveWebhook({
     if (approved.length > 0) await sendApproved(approved);
     if (stamps.length > 0) await sendStamps(stamps);
     if (watch.length > 0) await sendWatch(watch);
+    if (board.length > 0) await sendBoard(board);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
@@ -412,6 +439,38 @@ export function toMainWatchRequests(event: string, delivery: unknown): MainWatch
       name: MAIN_WATCH_CI_EVENT,
       id: mainWatchCiId({ repository: source.repository, suite: suite.id }),
       data: { installationId: source.installationId, repository: source.repository, sha: suite.head_sha },
+    },
+  ];
+}
+
+/**
+ * The fleet board's filter, pure (PRD 2530): a pull request opened, reopened, ready for review or edited
+ * becomes one fleet board event when it is open, its base is the repository's default branch, and the loop
+ * signed it (its body carries the signature's marker, or the loop's bot opened it: the delivery carries no
+ * commit trailer). Unlike the other filters, a delivery naming no default branch becomes none: a sub-PR
+ * could not be told from a feature PR. One missing its author, node id, link or update time becomes none.
+ */
+export function toFleetBoardRequests(event: string, delivery: unknown): FleetBoardRequest[] {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(FLEET_BOARD_ACTIONS, event, payload.action)) return [];
+
+  const source = sourceOf(payload);
+  const pull = payload.pull_request;
+  const defaultBranch = payload.repository?.default_branch;
+  if (!source || !pull || !defaultBranch || pull.base?.ref !== defaultBranch || pull.state !== 'open') return [];
+
+  const author = pull.user?.login;
+  if (!author || !(isSignedBody(pull.body) || author === OMNI_LOGIN)) return [];
+
+  const prNumber = pull.number ?? payload.number;
+  if (prNumber === null || prNumber === undefined || !pull.node_id || !pull.html_url || !pull.updated_at) return [];
+
+  const action = String(payload.action);
+  return [
+    {
+      name: FLEET_BOARD_EVENT,
+      id: fleetBoardId({ repository: source.repository, prNumber, action, at: pull.updated_at }),
+      data: { ...source, prNumber, nodeId: pull.node_id, url: pull.html_url, author },
     },
   ];
 }

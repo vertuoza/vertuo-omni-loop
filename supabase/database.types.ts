@@ -3448,6 +3448,9 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null
@@ -3464,6 +3467,9 @@ export type Database = {
           happened: string
           id?: string
           origin: string
+          outcome?: string | null
+          outcome_note?: string | null
+          outcome_pr?: number | null
           prd: number
           proposed_at?: string
           reason?: string | null
@@ -3480,6 +3486,9 @@ export type Database = {
           happened?: string
           id?: string
           origin?: string
+          outcome?: string | null
+          outcome_note?: string | null
+          outcome_pr?: number | null
           prd?: number
           proposed_at?: string
           reason?: string | null
@@ -4213,6 +4222,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -4224,6 +4236,9 @@ export type Database = {
           mascot?: string | null
           motto?: string
           name: string
+          project_note?: string | null
+          project_noted_at?: string | null
+          project_url?: string | null
           retired_at?: string | null
           sort?: number
           workspace_id: string
@@ -4235,6 +4250,9 @@ export type Database = {
           mascot?: string | null
           motto?: string
           name?: string
+          project_note?: string | null
+          project_noted_at?: string | null
+          project_url?: string | null
           retired_at?: string | null
           sort?: number
           workspace_id?: string
@@ -4431,6 +4449,7 @@ export type Database = {
           id: string
           name: string
           plan_repo: string | null
+          settings_repository: string | null
           slug: string
           theme: Json
         }
@@ -4443,6 +4462,7 @@ export type Database = {
           id?: string
           name: string
           plan_repo?: string | null
+          settings_repository?: string | null
           slug: string
           theme?: Json
         }
@@ -4455,6 +4475,7 @@ export type Database = {
           id?: string
           name?: string
           plan_repo?: string | null
+          settings_repository?: string | null
           slug?: string
           theme?: Json
         }
@@ -5262,6 +5283,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -6673,6 +6697,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -6693,6 +6720,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string
@@ -6716,6 +6746,9 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null
@@ -6741,6 +6774,43 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
+          prd: number
+          proposed_at: string
+          reason: string | null
+          repository: string
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rewind_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rewind_finding_outcome: {
+        Args: {
+          p_finding: string
+          p_note?: string
+          p_outcome: string
+          p_pr?: number
+          p_workspace: string
+        }
+        Returns: {
+          check_name: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json
+          fix: string
+          happened: string
+          id: string
+          origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null
@@ -6766,6 +6836,9 @@ export type Database = {
           happened: string
           id: string
           origin: string
+          outcome: string | null
+          outcome_note: string | null
+          outcome_pr: number | null
           prd: number
           proposed_at: string
           reason: string | null
@@ -6943,6 +7016,29 @@ export type Database = {
         Returns: number
       }
       runners_mark_lost: { Args: { p_cutoff: string }; Returns: number }
+      set_fleet_project: {
+        Args: { p_name: string; p_url: string; p_workspace: string }
+        Returns: {
+          color: string
+          home: string | null
+          label: string
+          mascot: string | null
+          motto: string
+          name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
+          retired_at: string | null
+          sort: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "teams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_jev_decision: {
         Args: {
           p_decision: string
@@ -7134,6 +7230,28 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_workspace_settings_repository: {
+        Args: { p_full_name: string; p_workspace: string }
+        Returns: {
+          created_at: string
+          game_since: string
+          github_account_type: string | null
+          github_installation_id: number | null
+          github_org: string | null
+          id: string
+          name: string
+          plan_repo: string | null
+          settings_repository: string | null
+          slug: string
+          theme: Json
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workspaces"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       spec_says_server: { Args: { p_content: string }; Returns: boolean }
       submit_score: {
         Args: { game: string; score: number; workspace: string }
@@ -7155,6 +7273,9 @@ export type Database = {
           mascot: string | null
           motto: string
           name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
           retired_at: string | null
           sort: number
           workspace_id: string

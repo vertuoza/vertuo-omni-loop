@@ -2,10 +2,9 @@
 import { useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../supabase/database.types.ts';
-import type { FleetRow } from '../arcade/types';
 import { FleetsView, type FleetsHandlers } from './FleetsView';
-import { fleetsReducer, initialState } from './model';
-import { databaseFleets, demoFleetsPort, type FleetsPort, type Saved } from './store';
+import { fleetsReducer, initialState, type Fleet } from './model';
+import { databaseFleets, demoFleetsPort, type FleetLookInput, type FleetsPort, type Saved } from './store';
 
 // /app/settings/fleets in the browser (PRD 400 s3): keeps the page's state (model.ts) and calls the fleet
 // functions as the signed-in person (store.ts), one call at a time; the view draws each step. In the
@@ -18,7 +17,7 @@ export type FleetsSource =
 export interface FleetsPageProps {
   source: FleetsSource;
   owner: boolean;
-  fleets: FleetRow[];
+  fleets: Fleet[];
   mascots: readonly string[];
 }
 
@@ -35,6 +34,19 @@ export function FleetsPage({ source, owner, fleets, mascots }: FleetsPageProps) 
     dispatch(saved.ok ? { type: 'saved', fleet: saved.fleet } : { type: 'refused', refusal: saved.refusal });
   };
 
+  // The look first, as ever, then the board when its link changed (PRD 2530). A refused link leaves the
+  // look saved and the form open on the fleet, the refusal next to the field.
+  const save = async (name: string | null, look: FleetLookInput, link: string, changed: boolean) => {
+    dispatch({ type: 'busy' });
+    const p = getPort();
+    const saved = await (name ? p.update(name, look) : p.create(look));
+    if (!saved.ok) { dispatch({ type: 'refused', refusal: saved.refusal }); return; }
+    if (!changed) { dispatch({ type: 'saved', fleet: saved.fleet }); return; }
+    const boarded = await p.setProject(saved.fleet.name, link);
+    if (boarded.ok) dispatch({ type: 'saved', fleet: boarded.fleet });
+    else dispatch({ type: 'saved-look', fleet: saved.fleet, refusal: boarded.refusal });
+  };
+
   const on: FleetsHandlers = {
     create: () => { dispatch({ type: 'new' }); },
     edit: (name) => { dispatch({ type: 'edit', name }); },
@@ -43,8 +55,10 @@ export function FleetsPage({ source, owner, fleets, mascots }: FleetsPageProps) 
     save: () => {
       const draft = state.draft;
       if (!draft || state.busy) return;
-      const { name, ...look } = draft;
-      void run((p) => (name ? p.update(name, look) : p.create(look)));
+      const { name, project, ...look } = draft;
+      const link = project.trim();
+      const was = (name && state.fleets.find((f) => f.name === name)?.board?.url) || '';
+      void save(name, look, link, link !== was);
     },
     askRetire: (name) => { dispatch({ type: 'ask-retire', name }); },
     keep: () => { dispatch({ type: 'keep' }); },

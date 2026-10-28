@@ -6,8 +6,12 @@
 //   omni rewind push <n> --file <file>        sends the findings; refused, naming the finding, one with no
 //                                             evidence link, an origin other than repository, omni-setup or
 //                                             knowledge, a check other than the eight, or one already proposed
+//   omni rewind outcome <finding> (--pr <n> | --already <rule> | --asks <question>)
+//                                             PRD 2498, s2: records, once, what /omni:rewind-apply did with an
+//                                             approved finding; refused one with no value, with two, or a
+//                                             second outcome of the same finding
 //
-// Both exit 0 when done, 1 when refused or unreachable (one line, nothing sent when the file is refused
+// All exit 0 when done, 1 when refused or unreachable (one line, nothing sent when the file is refused
 // here), 2 on a usage error. `push` reads the file and checks it before any call.
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
@@ -19,12 +23,17 @@ import { loadContext } from '../../lib/context.ts';
 import type { PrdNumber } from '../../lib/ids.ts';
 import { factLines, factsOf } from '../../lib/rewind/facts.ts';
 import { checkFindings } from '../../lib/rewind/findings.ts';
+import { FindingIdSchema, outcomeLine, outcomeOf } from '../../lib/rewind/outcome.ts';
+import type { RewindOutcome } from '../../lib/rewind/outcome.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
 
 type RewindOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch | undefined };
 
-const USAGE = 'usage: omni rewind facts <prd> [--json] | omni rewind push <prd> --file <findings.json>';
+const USAGE = [
+  'usage: omni rewind facts <prd> [--json] | omni rewind push <prd> --file <findings.json>',
+  "       | omni rewind outcome <finding> (--pr <n> | --already <rule> | --asks '<question>')",
+].join('\n');
 
 /** The one line a failed call says, in the server's own words when it gave them. */
 function refusalLine(error: unknown, host: string): string {
@@ -84,43 +93,67 @@ function fileJson(cwd: string, name: string): { value: unknown } | { error: stri
   }
 }
 
-async function facts(prd: PrdNumber, json: boolean, io: FreeIo, options: RewindOptions): Promise<number> {
-  const stop = (line: string): number => {
-    println(io.stderr, `omni rewind facts: ${line}`);
+/** The refusal of `omni rewind <verb>`: one line on stderr, `tail` after it, exit 1. */
+function stopper(io: FreeIo, verb: string, tail = ''): (line: string) => number {
+  return (line) => {
+    println(io.stderr, `omni rewind ${verb}: ${line}${tail}`);
     return 1;
   };
+}
+
+/** Runs `work` against this checkout's Omni page; a failed call, or no page, is `stop`'s one line. */
+async function onPage(io: FreeIo, options: RewindOptions, stop: (line: string) => number, work: (reached: Reached) => Promise<number>): Promise<number> {
   const reached = reach(io, options);
   if (typeof reached === 'string') return stop(reached);
   try {
-    const reply = await reached.client.readRewind({ repo: reached.repo, prd });
-    const read = factsOf(reply);
-    if (!read) return stop('the Omni page answered something this kit does not read');
-    if (json) println(io.stdout, JSON.stringify(read));
-    else for (const line of factLines(prd, read)) println(io.stdout, line);
-    return 0;
+    return await work(reached);
   } catch (error) {
     return stop(refusalLine(error, reached.host));
   }
 }
 
+async function facts(prd: PrdNumber, json: boolean, io: FreeIo, options: RewindOptions): Promise<number> {
+  const stop = stopper(io, 'facts');
+  return onPage(io, options, stop, async ({ client, repo }) => {
+    const read = factsOf(await client.readRewind({ repo, prd }));
+    if (!read) return stop('the Omni page answered something this kit does not read');
+    if (json) println(io.stdout, JSON.stringify(read));
+    else for (const line of factLines(prd, read)) println(io.stdout, line);
+    return 0;
+  });
+}
+
 async function push(prd: PrdNumber, file: string, io: FreeIo, options: RewindOptions): Promise<number> {
-  const stop = (line: string): number => {
-    println(io.stderr, `omni rewind push: ${line} Nothing sent.`);
-    return 1;
-  };
+  const stop = stopper(io, 'push', ' Nothing sent.');
   const sent = fileJson(io.cwd, file);
   if ('error' in sent) return stop(sent.error);
   const checked = checkFindings(sent.value);
   if (!checked.ok) return stop(checked.error);
-  const reached = reach(io, options);
-  if (typeof reached === 'string') return stop(reached);
-  try {
-    await reached.client.pushRewind({ repo: reached.repo, prd, findings: checked.findings });
+  return onPage(io, options, stop, async ({ client, repo }) => {
+    await client.pushRewind({ repo, prd, findings: checked.findings });
     println(io.stdout, `rewind push — PRD ${String(prd)}: ${String(checked.findings.length)} finding(s) sent to its page, proposed for a member to approve or reject.`);
     return 0;
-  } catch (error) {
-    return stop(refusalLine(error, reached.host));
-  }
+  });
+}
+
+async function outcome(finding: string, sent: RewindOutcome, io: FreeIo, options: RewindOptions): Promise<number> {
+  const body = sent.outcome === 'proposed' ? { outcome: sent.outcome, pr: sent.pr } : { outcome: sent.outcome, note: sent.note };
+  return onPage(io, options, stopper(io, 'outcome', ' Nothing recorded.'), async ({ client }) => {
+    await client.outcomeRewind({ finding, body });
+    println(io.stdout, outcomeLine(finding, sent));
+    return 0;
+  });
+}
+
+/** The finding and outcome `omni rewind outcome` was given, or a usage error. */
+function outcomeArgs(rest: string[]): { finding: string; sent: RewindOutcome } {
+  const { positional, flags } = parseArgs('rewind', rest, { values: ['pr', 'already', 'asks'] });
+  const [finding] = positional;
+  if (positional.length !== 1 || finding === undefined) throw usageError(USAGE);
+  if (!FindingIdSchema.safeParse(finding).success) throw usageError('omni rewind outcome: the finding is the id on its card (a UUID).');
+  const named = outcomeOf({ pull: flags.pr, already: flags.already, asks: flags.asks });
+  if (!named.ok) throw usageError(`omni rewind outcome: ${named.error}`);
+  return { finding, sent: named.value };
 }
 
 export const rewind = {
@@ -140,6 +173,10 @@ export const rewind = {
       const [prdText] = positional;
       if (positional.length !== 1 || flags.file === undefined) throw usageError(USAGE);
       return push(prdArg('rewind', 'the PRD', prdText), flags.file, io, options);
+    }
+    if (verb === 'outcome') {
+      const { finding, sent } = outcomeArgs(rest);
+      return outcome(finding, sent, io, options);
     }
     throw usageError(USAGE);
   },

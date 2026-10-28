@@ -4,9 +4,9 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import { orThrow, parseRows } from '../data/parse-rows';
 import { settle } from '../stages/store';
 import type { RewindFinding } from 'omni-loop/kit/lib/rewind/findings.ts';
-import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, PrNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { KnowledgeProposal } from './rewind.approval';
-import { FindingStateSchema, type DecidableFinding, type DecisionRefusal, type FindingView } from './rewind.contract';
+import { FindingStateSchema, type DecidableFinding, type DecisionRefusal, type FindingOutcome, type FindingView, type OutcomeBody, type RewindRefusal } from './rewind.contract';
 
 // The rewind's storage (PRD 2410, s5; ADR-0095): public.rewind_findings and the watch that says whose a
 // PRD is (supabase/migrations/20261230090000_main_watch.sql). Reads run on the caller's client, as the
@@ -17,12 +17,13 @@ import { FindingStateSchema, type DecidableFinding, type DecisionRefusal, type F
 
 type Db = Pick<SupabaseClient<Database>, 'from'>;
 
-const FINDING_COLUMNS = 'id, check_name, origin, happened, evidence, fix, state, reason, decided_by, decided_at';
+const FINDING_COLUMNS = 'id, check_name, origin, happened, evidence, fix, state, reason, decided_by, decided_at, outcome, outcome_pr, outcome_note';
 
 /** A finding as FINDING_COLUMNS reads it. */
 export const StoredFinding = z.strictObject({
   id: z.string(), check_name: z.string(), origin: z.string(), happened: z.string(), evidence: z.array(z.string()), fix: z.string(), state: z.string(), reason: z.string().nullable(),
   decided_by: z.string().nullable(), decided_at: z.string().nullable(),
+  outcome: z.string().nullable(), outcome_pr: z.number().nullable(), outcome_note: z.string().nullable(),
 });
 
 /** Who decided a finding, as the workspace's players name them (PRD 2410, s7). */
@@ -45,12 +46,22 @@ export const watchWorkspaceRows = (db: Db) => db.from('prd_main_watch').select('
 
 const lower = (repository: string) => repository.toLowerCase();
 
-function viewOf(row: z.infer<typeof StoredFinding>, logins: ReadonlyMap<string, string>): FindingView[] {
+/** The outcome a row holds (PRD 2498): none, or one this build does not know, is none. */
+function outcomeOf(row: z.infer<typeof StoredFinding>, repository: string): FindingOutcome | null {
+  const pr = PrNumberSchema.safeParse(row.outcome_pr);
+  if (row.outcome === 'proposed' && pr.success) return { kind: 'proposed', pr: pr.data, url: `https://github.com/${repository}/pull/${String(pr.data)}` };
+  if (row.outcome === 'already' && row.outcome_note !== null) return { kind: 'already', rule: row.outcome_note };
+  if (row.outcome === 'asks' && row.outcome_note !== null) return { kind: 'asks', question: row.outcome_note };
+  return null;
+}
+
+function viewOf(row: z.infer<typeof StoredFinding>, logins: ReadonlyMap<string, string>, repository: string): FindingView[] {
   const state = FindingStateSchema.safeParse(row.state);
   return state.success
     ? [{
       id: row.id, check: row.check_name, origin: row.origin, happened: row.happened, evidence: row.evidence, fix: row.fix, state: state.data, reason: row.reason,
       decidedBy: row.decided_by === null ? null : logins.get(row.decided_by) ?? null, decidedAt: row.decided_at,
+      outcome: outcomeOf(row, repository),
     }]
     : [];
 }
@@ -70,7 +81,7 @@ export async function findingsOf(db: Db, { workspace_id, repository, prd }: { wo
   settle(`read the rewind findings of PRD ${prd}`, error);
   const rows = orThrow(parseRows(StoredFinding, data, 'rewind/repository: rewind_findings'));
   const logins = await decidersOf(db, workspace_id, rows);
-  return rows.flatMap((row) => viewOf(row, logins));
+  return rows.flatMap((row) => viewOf(row, logins, lower(repository)));
 }
 
 /** What the decision reads and writes on: the tables and the database's functions. */
@@ -97,7 +108,7 @@ export function decisionRepository(db: DecisionDb) {
       settle('read the rewind finding', error);
       const row = orThrow(parseRows(StoredDecidable, data, 'rewind/repository: rewind_findings to decide'))[0];
       if (!row) return null;
-      const [view] = viewOf(row, await decidersOf(db, row.workspace_id, [row]));
+      const [view] = viewOf(row, await decidersOf(db, row.workspace_id, [row]), lower(row.repository));
       return view ? { ...view, workspace: row.workspace_id, repository: row.repository, prd: row.prd } : null;
     },
 
@@ -135,8 +146,36 @@ export function decisionRepository(db: DecisionDb) {
 
 export type InsertService = () => Db;
 
-export function rewindRepository(caller: Db, service: InsertService) {
+/** A refusal of rewind_finding_outcome(), by the code and hint the database raised, in its own words; null when it is another failure. */
+function outcomeRefusalOf(error: { code?: string; hint?: string; message: string }): { kind: RewindRefusal; error: string } | null {
+  if (error.code === 'P0002') return { kind: 'missing', error: 'No such finding on a PRD of your workspace.' };
+  if (error.code === '22023') return { kind: 'malformed', error: error.message };
+  if (error.code !== '42501') return null;
+  if (error.hint === 'finding') return { kind: 'unapproved', error: error.message };
+  if (error.hint === 'outcome') return { kind: 'recorded', error: error.message };
+  return { kind: 'not-allowed', error: 'Only an agent link or a member of the workspace records a finding\'s outcome.' };
+}
+
+export function rewindRepository(caller: Db & Pick<SupabaseClient<Database>, 'rpc'>, service: InsertService) {
   return {
+    /** The workspace of the finding `id`, as the caller reads it; null when they read none. */
+    async workspaceOfFinding(id: string): Promise<string | null> {
+      const { data, error } = await decidableRows(caller).eq('id', id);
+      settle('read the rewind finding', error);
+      return orThrow(parseRows(StoredDecidable, data, 'rewind/repository: rewind_findings to decide'))[0]?.workspace_id ?? null;
+    },
+
+    /** Records the finding's outcome through rewind_finding_outcome(), as the caller; why the database refused, or null. */
+    async recordOutcome(workspace: string, id: string, body: OutcomeBody): Promise<{ kind: RewindRefusal; error: string } | null> {
+      const { error } = await caller.rpc('rewind_finding_outcome', {
+        p_workspace: workspace, p_finding: id, p_outcome: body.outcome, ...(body.pr === undefined ? {} : { p_pr: body.pr }), ...(body.note === undefined ? {} : { p_note: body.note }),
+      });
+      if (!error) return null;
+      const refusal = outcomeRefusalOf(error);
+      if (refusal) return refusal;
+      throw new Error(`Supabase refused to record the rewind finding's outcome: ${error.message}`);
+    },
+
     /** The workspace that holds the PRD's watch in `repository`, as the caller reads it; null when they see none. */
     async workspaceOf(repository: string, prd: PrdNumber): Promise<string | null> {
       const { data, error } = await watchWorkspaceRows(caller).eq('repository', lower(repository)).eq('prd', prd);

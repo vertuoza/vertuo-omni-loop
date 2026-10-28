@@ -66,7 +66,7 @@ Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbo
 Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval, Main,
 Repo, Repos, On GitHub, Opened. Main's words (PRD 2410): Watching · n days left, Clean, Broke main,
-Could not check; on a finding: Approve, Reject.
+Could not check; on a finding: Approve, Reject. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
 
 ## Refusals
 
@@ -107,3 +107,4 @@ Could not check; on a finding: Approve, Reject.
 - /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
 - /omni:brainstorm, PRD 2370: .omni-loop/delivery/shipped/2370-prd-timeline/before-after.html (the time line and the Timeline tab)
 - /omni:brainstorm, PRD 2410: .omni-loop/delivery/shipped/2410-broke-main/before-after.html
+- /omni:brainstorm, PRD 2498: .omni-loop/delivery/shipped/2498-rewind-apply/before-after.html

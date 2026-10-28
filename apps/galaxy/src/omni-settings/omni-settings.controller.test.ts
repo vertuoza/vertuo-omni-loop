@@ -11,8 +11,9 @@ import { omniSettingsService, settingsRepositoryOf, type SettingsGithub } from '
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@acme.test' };
 const COMMIT = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
-const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan' };
+const ACME: SettingsWorkspace = { id: 'w-acme', githubOrg: 'acme', installation: 77, planRepo: 'plan', settingsRepository: null };
 const SETTINGS = '.omni-loop/settings';
+const NO_SETTINGS = 'This workspace has no settings repository: none is chosen and no plan repository is named.';
 
 type World = {
   listings?: Record<string, SettingsWorkspace[]>;
@@ -80,7 +81,7 @@ describe('GET /api/omni-settings/playbook', () => {
     const res = await get(deps);
     expect(res.status).toBe(200);
     expect(SettingsPlaybookSchema.parse(await res.json())).toEqual({
-      repository: null, commit: null, files: [], reason: 'This workspace has no settings repository: no plan repository is named.',
+      repository: null, commit: null, files: [], reason: NO_SETTINGS,
     });
     expect(reads).toEqual(['listing acme/app']);
   });
@@ -131,5 +132,34 @@ describe('settingsRepositoryOf', () => {
     expect(settingsRepositoryOf({ ...ACME, planRepo: 'other/settings' })).toBe('other/settings');
     expect(settingsRepositoryOf({ ...ACME, githubOrg: null })).toBeNull();
     expect(settingsRepositoryOf({ ...ACME, planRepo: '  ' })).toBeNull();
+  });
+
+  // PRD 2543: the settings repository the owner chose comes first, then the plan repository, then none.
+  it('reads the chosen settings repository before the plan repository', () => {
+    expect(settingsRepositoryOf({ ...ACME, settingsRepository: 'acme/playbook' })).toBe('acme/playbook');
+    expect(settingsRepositoryOf({ ...ACME, planRepo: 'other/settings', settingsRepository: 'acme/playbook' })).toBe('acme/playbook');
+    expect(settingsRepositoryOf({ ...ACME, planRepo: null, githubOrg: null, settingsRepository: 'acme/playbook' })).toBe('acme/playbook');
+  });
+
+  it('falls back to the plan repository while none is chosen, then to none', () => {
+    expect(settingsRepositoryOf({ ...ACME, settingsRepository: null })).toBe('acme/plan');
+    expect(settingsRepositoryOf({ ...ACME, settingsRepository: '  ' })).toBe('acme/plan');
+    expect(settingsRepositoryOf({ ...ACME, planRepo: null, settingsRepository: null })).toBeNull();
+  });
+});
+
+describe('GET /api/omni-settings/playbook, with a chosen settings repository (PRD 2543)', () => {
+  it('reads the pages of the chosen repository, whatever the plan repository is', async () => {
+    const chosen = { ...ACME, planRepo: 'plan', settingsRepository: 'acme/playbook' };
+    const { deps, reads } = world({ listings: { 'acme/app': [chosen] }, files: { [`${SETTINGS}/playbook/review.md`]: '# Review\n' } });
+    const body = SettingsPlaybookSchema.parse(await (await get(deps)).json());
+    expect(body).toMatchObject({ repository: 'acme/playbook', commit: COMMIT, reason: null, files: [{ form: 'review', text: '# Review\n' }] });
+    expect(reads).toContain('head acme/playbook');
+    expect(reads.some((read) => read.includes('acme/plan'))).toBe(false);
+  });
+
+  it('says the workspace has no settings repository when none is chosen and no plan repository is named', async () => {
+    const { deps } = world({ listings: { 'acme/app': [{ ...ACME, planRepo: null, settingsRepository: null }] } });
+    expect(SettingsPlaybookSchema.parse(await (await get(deps)).json())).toMatchObject({ repository: null, files: [], reason: NO_SETTINGS });
   });
 });

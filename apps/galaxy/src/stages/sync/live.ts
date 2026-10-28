@@ -164,7 +164,11 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
         github_installation_id: row.github_installation_id === null || row.github_installation_id === undefined ? null : Number(row.github_installation_id),
       }));
     },
-    repositories: async (workspace) => github().repos(await installationOf(workspace)),
+    // A workspace the App is no longer installed for has no repository to read: skipped without a line (#2529).
+    repositories: async (workspace) => {
+      const id = await github().installationFor(workspace);
+      return id === null ? [] : github().repos(id);
+    },
     snapshot: async (workspace, repository, since) => stages().snapshot(await installationOf(workspace), repository, since),
     approvals: (workspace, repository) => serverBornStore(serviceDb()).serverBorn(workspace.id, repository),
     store: lazyStore(),
@@ -177,6 +181,10 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     waits: waitDeps(),
     now: () => new Date().toISOString(),
     log: (line) => { console.error(line); },
+    timer: () => {
+      const start = performance.now();
+      return () => performance.now() - start;
+    },
     runLog,
   };
 }

@@ -12,7 +12,9 @@ import { HANDLED, SUBSCRIBED } from '../src/webhook/webhook.ts';
 // and a workspace is born from the installation (its decision 4): `public: true` and a `setup_url`
 // at galaxy's `/signup/installed`, permissions and events unchanged. PRD 902 (s3) adds five events, all
 // within those permissions, so a webhook says what changed: `issues`, `issue_comment`, `push`,
-// `check_suite` and `pull_request_review`; the permissions stay the same.
+// `check_suite` and `pull_request_review`; the permissions stay the same. PRD 2530 adds one permission,
+// `organization_projects: write`, so the App adds a loop pull request to its fleet's GitHub project board;
+// the events stay the same.
 // Read as far as these tests need it: every other key kept, for the last test to see.
 const Manifest = z.looseObject({
   name: z.unknown(),
@@ -38,7 +40,7 @@ describe('app.yml — the GitHub App manifest', () => {
     expect(setup.search).toBe('');
   });
 
-  it('asks for exactly the spec’s permissions: the outbox check’s, widened once for the retro', () => {
+  it('asks for exactly the spec’s permissions: the outbox check’s, widened once for the retro, and the fleet board’s organization projects (PRD 2530)', () => {
     expect(manifest.default_permissions).toEqual({
       checks: 'write',
       contents: 'write',
@@ -46,6 +48,7 @@ describe('app.yml — the GitHub App manifest', () => {
       metadata: 'read',
       issues: 'write',
       actions: 'read',
+      organization_projects: 'write',
     });
   });
 

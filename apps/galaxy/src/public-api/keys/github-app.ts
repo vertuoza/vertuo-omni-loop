@@ -2,14 +2,17 @@ import 'server-only';
 import { z } from 'zod';
 import { appJwt, REPO, type AppCredentials } from '../../signup/github-app';
 
-// An API key's GitHub App, as GitHub sees it (PRD 2433 s4): the three calls the server makes with the
-// App's own JWT, each behind an injected fetch so no test reaches GitHub (architecture › Boundaries,
-// ADR-0095).
+// An API key's GitHub App, as GitHub sees it (PRD 2433 s4): the three calls the server makes for the
+// App, each behind an injected fetch so no test reaches GitHub (architecture › Boundaries, ADR-0095).
 //
-//   checkApp(pair)                         GET /app for the slug, then GET /users/<slug>[bot] for the bot's id
+//   checkApp(pair)                         GET /app for the slug, then GET /users/<slug>[bot], with no token,
+//                                          for the bot's id
 //   appInstallation(pair, repo)            GET /repos/{owner}/{repo}/installation: its id, owner, permissions
 //   mintToken(pair, installation, repos)   POST /app/installations/{id}/access_tokens: a token for those
 //                                          repositories and APP_PERMISSIONS, nothing more
+//
+// GitHub takes the App's JWT on the App's own routes only (`/app…`, its installation on a repository): any
+// other route, the bot's among them, is asked with no token (#2528).
 //
 // The pair is the App ID and its private key, which only the signing here ever reads. Nothing this module
 // says (a result's detail, an error's message) carries the private key or a token: a failure names the
@@ -72,23 +75,30 @@ function signed(creds: AppCredentials, now: number): string | null {
   }
 }
 
-const headers = (jwt: string) => ({ authorization: `Bearer ${jwt}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' });
+const ACCEPT = { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' };
+const headers = (jwt: string) => ({ authorization: `Bearer ${jwt}`, ...ACCEPT });
 
-/** A call to GitHub as the App: a GET, or a POST with a JSON body. */
+/** A call to GitHub as the App: a GET, or a POST with a JSON body. Only the App's own routes take it. */
 function asApp(fetchImpl: Fetch, jwt: string, path: string, body?: unknown): Promise<Response> {
   const url = `${GITHUB}${path}`;
   if (body === undefined) return fetchImpl(url, { method: 'GET', headers: headers(jwt), cache: 'no-store' });
   return fetchImpl(url, { method: 'POST', headers: { ...headers(jwt), 'content-type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' });
 }
 
+/** A GET of a public route, with no token: GitHub answers it to anyone, within its per-address rate limit. */
+const publicly = (fetchImpl: Fetch, path: string): Promise<Response> =>
+  fetchImpl(`${GITHUB}${path}`, { method: 'GET', headers: { ...ACCEPT }, cache: 'no-store' });
+
 /** The body of a GitHub answer, or undefined when it is no JSON. */
 const bodyOf = (res: Response): Promise<unknown> => res.json().then((json: unknown) => json, () => undefined);
 
 /**
  * Checks an App ID and private key against GitHub before anything is stored (spec §2): the App's JWT
- * reads `GET /app` for the slug, then `GET /users/<slug>[bot]` names the bot's id, which the commits'
- * email needs. A pair GitHub refuses (401 or 404 on `/app`), or a key that signs nothing, is `refused`;
- * anything else GitHub fails at is `unavailable`, so the owner is told to try again, not that the pair is wrong.
+ * reads `GET /app` for the slug, then `GET /users/<slug>[bot]`, asked with no token since GitHub refuses
+ * the App's JWT there (#2528), names the bot's id, which the commits' email needs. A pair GitHub refuses
+ * (401 or 404 on `/app`), or a key that signs nothing, is `refused`; anything else GitHub fails at, a rate
+ * limit on the bot's route among them, is `unavailable`, so the owner is told to try again, not that the
+ * pair is wrong.
  */
 export async function checkApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): Promise<AppChecked> {
   const jwt = signed(creds, clock());
@@ -100,7 +110,7 @@ export async function checkApp(creds: AppCredentials, fetchImpl: Fetch = fetch, 
     const named = AppAnswer.safeParse(await bodyOf(app));
     if (!named.success) return failure('unavailable', odd('GET /app'));
     const bot = `/users/${named.data.slug}[bot]`;
-    const botRes = await asApp(fetchImpl, jwt, bot);
+    const botRes = await publicly(fetchImpl, bot);
     if (!botRes.ok) return failure('unavailable', status(botRes, `GET ${bot}`));
     const botId = BotAnswer.safeParse(await bodyOf(botRes));
     if (!botId.success) return failure('unavailable', odd(`GET ${bot}`));

@@ -63,6 +63,42 @@ describe('the database fleets', () => {
   });
 });
 
+describe('a fleet\'s GitHub project board (PRD 2530)', () => {
+  const URL = 'https://github.com/orgs/acme/projects/7';
+
+  it('sets it through set_fleet_project(), by the fleet\'s name, and answers the fleet with its board', async () => {
+    const { db, calls } = fakeRpc({ data: { ...ROW, project_url: URL, project_note: 'Added #3 · acme/web', project_noted_at: '2026-10-27T09:00:00Z' } });
+    const saved = await databaseFleets(db, WS).setProject('sharks', URL);
+    expect(calls).toEqual([['set_fleet_project', { p_workspace: WS, p_name: 'sharks', p_url: URL }]]);
+    expect(saved).toMatchObject({ ok: true, fleet: { name: 'sharks', board: { url: URL, note: 'Added #3 · acme/web', notedAt: '2026-10-27T09:00:00Z' } } });
+  });
+
+  it('answers a fleet with no board when the link is cleared', async () => {
+    const { db, calls } = fakeRpc({ data: { ...ROW, project_url: null, project_note: null, project_noted_at: null } });
+    const saved = await databaseFleets(db, WS).setProject('sharks', '');
+    expect(calls[0]?.[1]).toMatchObject({ p_url: '' });
+    expect(saved).toMatchObject({ ok: true });
+    expect(saved.ok && saved.fleet.board).toBeUndefined();
+  });
+
+  it('answers a refused link next to its field', async () => {
+    const message = 'GitHub project: a project of this workspace’s own GitHub organization.';
+    const { db } = fakeRpc({ error: { code: '22023', hint: 'project', message } });
+    expect(await databaseFleets(db, WS).setProject('sharks', 'https://github.com/orgs/other/projects/1')).toEqual({ ok: false, refusal: { field: 'project', message } });
+  });
+
+  it('is kept in the demo, with its refusals', async () => {
+    const p = demoFleetsPort([]);
+    await p.create(LOOK);
+    expect(await p.setProject('sharks', ` ${URL}/ `)).toMatchObject({ ok: true, fleet: { board: { url: URL, note: null } } });
+    expect(await p.setProject('sharks', 'https://github.com/users/me/projects/1')).toMatchObject({ ok: false, refusal: { field: 'project' } });
+    expect(await p.setProject('sharks', '')).toMatchObject({ ok: true });
+    expect(await p.setProject('ghost', URL)).toMatchObject({ ok: false, refusal: { field: 'form' } });
+    await p.retire('sharks');
+    expect(await p.setProject('sharks', URL)).toMatchObject({ ok: false, refusal: { field: 'form' } });
+  });
+});
+
 describe('the demo fleets', () => {
   const port = (): FleetsPort => demoFleetsPort([]);
 

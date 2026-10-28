@@ -35,7 +35,7 @@
 // itself (the renewed tokens, the `{error}` text), each through a schema; whoever called reads the rest.
 import { jsonObject, TokenReplySchema } from './schema.ts';
 import type { JsonObject, Tokens } from './schema.ts';
-import type { IssueNumber, PrdNumber, ProductPrdId } from '../ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber, ProductPrdId } from '../ids.ts';
 
 export type { Tokens } from './schema.ts';
 
@@ -570,6 +570,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ added: number }>} */
     pushRewind: ({ repo, prd, findings }: { repo: string; prd: PrdNumber; findings: unknown }) =>
       call('POST', '/api/rewind/findings', { body: { repo, prd, findings } }),
+    /** PRD 2498: records, once, what `/omni:rewind-apply` did with the approved finding `finding` (`omni rewind outcome`).
+     * @returns {Promise<{ outcome: string }>} */
+    outcomeRewind: ({ finding, body }: { finding: string; body: { outcome: string; pr?: PrNumber; note?: string } }) =>
+      call('POST', `/api/rewind/findings/${segment(finding)}/outcome`, { body }),
     /** PRD 1246: adds an idea to `repo`'s board (owner/name), for a member of the workspace that lists
      * it. @returns {Promise<{ id: string, url: string }>} */
     addIdea: ({ repo, title, pitch, lane }: { repo: string; title: string; pitch: string; lane: string }) =>

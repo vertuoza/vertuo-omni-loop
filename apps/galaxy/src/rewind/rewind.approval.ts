@@ -11,7 +11,11 @@ import { CHECK_LABELS, ORIGIN_LABELS } from './rewind.contract';
 //   as `L-<CODE>`; the fix's own words are the meaning or the statement, and the owner reads them before
 //   anything is written.
 // - `knowledge`, anything else (a playbook form, a register, or a glossary or Legal finding naming no term
-//   or code): queues `/omni:knowledge-add <the finding>`, sent by the member.
+//   or code): queues `/omni:rewind-apply <prd> <finding id>`, sent by the member (PRD 2498, s3). The line
+//   carries no text of the finding: the skill reads it with `omni rewind facts`, settles it in the
+//   repository's own knowledge and records its outcome on the card. The PRD comes first, as every runner
+//   line that names one (`linePrd`), since `omni rewind facts` reads a finding by its PRD. Nothing queues
+//   `/omni:knowledge-add` any more.
 // - `omni-setup`: opens one issue on the kit's repository holding the card's words (its check, where it
 //   started, what happened and its fix); its evidence links stay in the workspace (constituent never#5).
 //
@@ -28,6 +32,8 @@ export const KIT_REPOSITORY = 'vertuoza/vertuo-omni-loop';
 
 /** A finding as Approve reads it: what the card shows, and the PRD it belongs to. */
 export type ApprovedFinding = {
+  /** The finding's id, as its card and `omni rewind outcome` name it. */
+  id: string;
   check: string;
   origin: string;
   happened: string;
@@ -42,7 +48,7 @@ export type LegalFields = { code: string; statement: string; source: string };
 
 /** What Approve sends for one finding. */
 export type ApprovalPlan =
-  | { kind: 'job'; skill: 'bug-fix' | 'knowledge-add'; line: string }
+  | { kind: 'job'; skill: 'bug-fix' | 'rewind-apply'; line: string }
   | { kind: 'proposal'; knowledge: 'glossary'; fields: GlossaryFields }
   | { kind: 'proposal'; knowledge: 'legal'; fields: LegalFields }
   | { kind: 'issue'; title: string; body: string };
@@ -73,7 +79,7 @@ function cut(text: string, max: number): string {
 const fixOf = (fix: string): string => oneLine(fix.replace(AGENT_LINE, ''));
 
 /** The line a runner runs for `skill`, carrying `text` as a description it takes. */
-export function runnerLine(skill: 'bug-fix' | 'knowledge-add', prd: PrdNumber, text: string): string {
+export function runnerLine(skill: 'bug-fix', prd: PrdNumber, text: string): string {
   const head = `/omni:${skill} rewind of PRD ${String(prd)}: `;
   const words = oneLine(text.replace(RUNNER_REFUSED, ' ').replace(/-{2,}/g, '-'));
   return `${head}${cut(words, LINE_MAX - head.length)}`;
@@ -89,16 +95,31 @@ function termOf(fix: string): string | null {
 /** The Legal code a finding names as `L-<CODE>`; null when it names none. */
 const codeOf = (fix: string): string | null => /\bL-([A-Z][A-Z0-9]{0,39})\b/.exec(fix)?.[1] ?? null;
 
+/** What a knowledge finding's fix is about: a Legal entry or a glossary term it names, or a rule. */
+type KnowledgeAbout = { kind: 'legal'; code: string } | { kind: 'glossary'; term: string } | { kind: 'rule' };
+
+function aboutOf(fix: string): KnowledgeAbout {
+  const code = codeOf(fix);
+  if (code !== null && /\bLegal\b|\bL-[A-Z]/.test(fix)) return { kind: 'legal', code };
+  const term = /\bglossary\b/i.test(fix) ? termOf(fix) : null;
+  return term === null ? { kind: 'rule' } : { kind: 'glossary', term };
+}
+
 function knowledgePlan(finding: ApprovedFinding): ApprovalPlan {
   const fix = fixOf(finding.fix);
-  const code = codeOf(fix);
-  if (code !== null && /\bLegal\b|\bL-[A-Z]/.test(fix)) {
+  const about = aboutOf(fix);
+  if (about.kind === 'legal') {
     const source = cut(`The rewind of PRD ${String(finding.prd)}: ${finding.evidence.join(' ')}`, SOURCE_MAX);
-    return { kind: 'proposal', knowledge: 'legal', fields: { code, statement: cut(fix, MEANING_MAX), source } };
+    return { kind: 'proposal', knowledge: 'legal', fields: { code: about.code, statement: cut(fix, MEANING_MAX), source } };
   }
-  const term = /\bglossary\b/i.test(fix) ? termOf(fix) : null;
-  if (term !== null) return { kind: 'proposal', knowledge: 'glossary', fields: { term, meaning: cut(fix, MEANING_MAX) } };
-  return { kind: 'job', skill: 'knowledge-add', line: runnerLine('knowledge-add', finding.prd, fix) };
+  if (about.kind === 'glossary') return { kind: 'proposal', knowledge: 'glossary', fields: { term: about.term, meaning: cut(fix, MEANING_MAX) } };
+  return { kind: 'job', skill: 'rewind-apply', line: `/omni:rewind-apply ${String(finding.prd)} ${finding.id}` };
+}
+
+/** Whether Approve sends `finding` to `/omni:rewind-apply`, so its card waits for the rule's outcome: a
+ * knowledge finding that files no glossary or Legal proposal (PRD 2498, s3). */
+export function proposesRule(finding: { origin: string; fix: string }): boolean {
+  return finding.origin === 'knowledge' && aboutOf(fixOf(finding.fix)).kind === 'rule';
 }
 
 const labelOf = (labels: Readonly<Record<string, string>>, key: string): string => labels[key] ?? key;

@@ -20,10 +20,18 @@ import { MASCOTS } from './store';
 const USER = { id: 'u-1' } as User;
 const BEAVER = { name: 'beaver', home: null, label: 'BEAVER', color: '#d08a4a', motto: '', mascot: 'beaver', sort: 10, retired: false };
 
-function db(answers: Record<string, { data?: unknown; error?: unknown } | Error>) {
+function db(answers: Record<string, { data?: unknown; error?: unknown } | Error>, boards: { data?: unknown; error?: unknown } | Error = { data: [] }) {
   const calls: [string, unknown][] = [];
   return {
     calls,
+    from: (table: string) => ({
+      select: (columns: string) => ({
+        eq: (column: string, value: string) => {
+          calls.push([`from ${table} ${columns}`, { [column]: value }]);
+          return boards instanceof Error ? Promise.reject(boards) : Promise.resolve({ data: boards.data ?? null, error: boards.error ?? null });
+        },
+      }),
+    }),
     rpc: (fn: string, args: unknown) => {
       calls.push([fn, args]);
       const a = answers[fn];
@@ -46,6 +54,26 @@ describe('the fleets page\'s read', () => {
       kind: 'fleets', workspace: { id: 'ws-1', name: 'Acme' }, owner: true, fleets: [BEAVER], mascots: ['beaver', 'cia'],
     });
     expect(d.calls).toContainEqual(['is_owner', { workspace: 'ws-1' }]);
+  });
+
+  it('puts each fleet\'s GitHub project board and the App\'s note on it (PRD 2530)', async () => {
+    read.fleets = () => Promise.resolve([BEAVER, { ...BEAVER, name: 'octopod' }]);
+    const d = db({ is_owner: { data: true } }, { data: [
+      { name: 'beaver', project_url: 'https://github.com/orgs/acme/projects/7', project_note: 'Added #3 · acme/web', project_noted_at: '2026-10-27T09:00:00Z' },
+      { name: 'octopod', project_url: null, project_note: null, project_noted_at: null },
+    ] });
+    const page = await loadFleetsPage(d as never, USER);
+    expect(page).toMatchObject({ kind: 'fleets' });
+    const fleets = page.kind === 'fleets' ? page.fleets : [];
+    expect(fleets[0]).toEqual({ ...BEAVER, board: { url: 'https://github.com/orgs/acme/projects/7', note: 'Added #3 · acme/web', notedAt: '2026-10-27T09:00:00Z' } });
+    expect(fleets[1]).toEqual({ ...BEAVER, name: 'octopod' });
+    expect(d.calls).toContainEqual(['from teams name, project_url, project_note, project_noted_at', { workspace_id: 'ws-1' }]);
+  });
+
+  it('shows the fleets without boards when the boards cannot be read', async () => {
+    for (const boards of [{ error: { message: 'down' } }, new Error('fetch failed'), { data: [{ name: 'beaver', project_url: 7 }] }]) {
+      expect(await loadFleetsPage(db({ is_owner: { data: true } }, boards) as never, USER)).toMatchObject({ kind: 'fleets', fleets: [BEAVER] });
+    }
   });
 
   it('reads a member as no owner', async () => {
