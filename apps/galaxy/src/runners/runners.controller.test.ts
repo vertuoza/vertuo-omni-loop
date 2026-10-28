@@ -249,6 +249,16 @@ describe('POST /api/runners/jobs/<id>, a runner\'s report', () => {
     expect(w.state.jobs[0]?.tokens).toEqual(tokens);
   });
 
+  it('stores the parts a report carries, and refuses parts out of shape (PRD 2537)', async () => {
+    const job = claimed();
+    const w = world({ jobs: [job] });
+    const parts = [{ agent: 'claude', model: null, account: 'claude-1', from: '2026-10-27T13:41:02.000Z', to: null, ended: null }];
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', parts }), job.id, w.deps)).status).toBe(200);
+    expect(w.state.jobs[0]?.parts).toEqual(parts);
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', parts: [{ ...parts[0], secret: 'x' }] }), job.id, w.deps)).status).toBe(400);
+    expect(w.state.jobs[0]?.parts).toEqual(parts);
+  });
+
   it('stores the claims a last report says were released, and why a release failed (PRD 2175)', async () => {
     const job = claimed();
     const w = world({ jobs: [job] });

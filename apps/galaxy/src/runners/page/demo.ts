@@ -76,6 +76,11 @@ export function demoRunnersPage(now: Date): RunnersPageView {
         line: '/omni:yolo 1717', status: 'running', toRunner: DEMO_RUNNERS.agents, runner: DEMO_RUNNERS.agents, claimedAt: at(-12), runningAt: at(-12),
         logTail: 'wave 1 · slice s1 · tests green\nopened https://github.com/acme/widgets/pull/1841',
         tokens: { input: 31_002, output: 190_455, cacheRead: 1_150_330, cacheWrite: 84_012 },
+        // It turned over (PRD 2537): its first account hit its usage limit, and the second carries it on.
+        parts: [
+          { agent: 'claude', model: 'claude-opus-5-5', account: 'claude-1', from: at(-12), to: at(-5), ended: 'limit', resetsAt: at(180), guessed: false, note: 'runner' },
+          { agent: 'claude', model: 'claude-sonnet-4-5', account: 'claude-2', from: at(-5), to: null, ended: null },
+        ],
       }),
       job({ line: '/omni:pr-care 1801', status: 'queued', toFleet: 'comets', sentBy: ADA, sentByLogin: 'ada', queuedAt: at(-2) }),
       job({

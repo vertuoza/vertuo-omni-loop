@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PRS_MAX } from 'omni-loop/kit/lib/runner/log.ts';
-import { JobUpdateSchema, STORED_OUTCOMES } from './runners.contract';
+import { JobUpdateSchema, PARTS_MAX, STORED_OUTCOMES } from './runners.contract';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
 const MIGRATION = read('supabase/migrations/20261208090000_runner_job_lines.sql');
@@ -162,7 +162,7 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 
   it('is named in the database\'s types', () => {
-    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+notify_url: string \| null\n\s+outcome: string \| null\n\s+pr_url: string \| null\n/);
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+notify_url: string \| null\n\s+outcome: string \| null\n(\s+parts: Json \| null\n)?\s+pr_url: string \| null\n/);
   });
 });
 
@@ -230,5 +230,24 @@ describe('the follow-ups migration (PRD 2508)', () => {
 
   it('is named in the database\'s types, so the repository reads the column it selects', () => {
     expect(TYPES).toContain('follow_ups: Json');
+  });
+});
+
+describe("the job parts migration (PRD 2537)", () => {
+  const PARTS = read('supabase/migrations/20270105090000_runner_job_parts.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+
+  it('adds runner_jobs.parts, empty for a job whose runner never reported any, a list of at most the 20 parts the contract lets a report carry', () => {
+    expect(PARTS).toContain('alter table public.runner_jobs add column parts jsonb check (');
+    expect(PARTS).toContain("jsonb_typeof(parts) = 'array'");
+    expect(PARTS).toContain(`jsonb_array_length(parts) <= ${String(PARTS_MAX)}`);
+    expect(PARTS).not.toMatch(/not null|default /);
+  });
+
+  it('changes no grant and no row-level security: a member reads the column with the row, only the service role writes it', () => {
+    expect(PARTS).not.toMatch(/grant |revoke |policy |security /);
+  });
+
+  it("is named in the database's types, so the repository reads the column it selects", () => {
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*outcome: string \| null\n\s+parts: Json \| null\n/);
   });
 });

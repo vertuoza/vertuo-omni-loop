@@ -10,6 +10,7 @@ import {
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { listedAnswer } from './need-human';
 import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
+import { jobAgentWords, partLines } from './parts';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
 import '../../dashboard/board/board.css';
@@ -156,6 +157,26 @@ function CannotRunWhy({ reason }: { reason: string | null }) {
   return reason === null ? null : <span className="runners-why" data-content>{reason}</span>;
 }
 
+/** Under a job that turned over to another account, one line per part (PRD 2537); nothing for a job that ran on one. */
+function Parts({ job }: { job: Job }) {
+  const lines = partLines(job);
+  if (lines.length === 0) return null;
+  return <span className="runners-parts">{lines.map((line, at) => <span key={at} className="runners-part" title={line.title ?? undefined} data-content>{line.text}</span>)}</span>;
+}
+
+/** Beside a job's status, its tokens (PRD 2102) and the agent and model it runs on, then its parts (PRD 2537); each once its runner reported it. */
+function RunWords({ job }: { job: Job }) {
+  const tokens = jobTokensWords(job);
+  const agent = jobAgentWords(job);
+  return (
+    <>
+      {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
+      {agent !== null && <span className="runners-agent" data-content>{agent}</span>}
+      <Parts job={job} />
+    </>
+  );
+}
+
 /** Under Queued, why the runners that could take the job are paused (PRD 2102); nothing for any other job. */
 function WaitingWhy({ words }: { words: string | null }) {
   return words === null ? null : <span className="runners-why">{words}</span>;
@@ -164,7 +185,6 @@ function WaitingWhy({ words }: { words: string | null }) {
 function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[] }) {
   const cannotRun = cannotRunReason(job, board.runners, fleets);
   const waiting = cannotRun === null ? waitingWords(job, board.runners) : null;
-  const tokens = jobTokensWords(job);
   const prd = prdLineOf(job, prds);
   const retro = retroLineOf(job, retros);
   const answered = answeredOf(job, board.jobs, answeredIds);
@@ -184,7 +204,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
         <CancelledBy job={job} />
         {after !== null && job.continues && <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span>}
         {slicesWords(job) !== null && <span className="runners-why" data-content>{slicesWords(job)}</span>}
-        {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
+        <RunWords job={job} />
         <WaitingWhy words={waiting} />
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
       </span>

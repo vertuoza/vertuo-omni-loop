@@ -29,6 +29,8 @@
 //   stored in the sample as the sum of their four counts (`tokens_5h`).
 // - A job's tokens (PRD 2102): a job report may carry the tokens of its worktree; they are stored in
 //   `runner_jobs.tokens` and the page reads them with the job.
+// - A job's parts (PRD 2537): a job report may carry one part per account the job ran on; they are
+//   stored in `runner_jobs.parts`, a report without them keeps them, and the page reads them with the job.
 // - A job's released claims (PRD 2175): its last report may carry the sub-PRs its runner released and
 //   why a release failed, stored in `runner_jobs.released` and `runner_jobs.release_error`. A job
 //   already ended takes one more report carrying only those two, with the status it ended on: its
@@ -254,7 +256,7 @@ function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, strin
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys), ...keyActionFields(row, keys),
     status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
-    logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
+    logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null, parts: row.parts ?? null,
     released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
@@ -329,7 +331,7 @@ function doneColumns(report: JobUpdate): JobPatch {
 function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
   const carried = {
     log_tail: report.logTail === undefined ? undefined : cutLogTail(report.logTail),
-    pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason, tokens: report.tokens,
+    pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason, tokens: report.tokens, parts: report.parts,
     released: report.released, release_error: report.releaseError,
     // The pull requests it opened are stored whatever its end, a failed run's draft first (PRD 2425).
     prs: report.prs,
