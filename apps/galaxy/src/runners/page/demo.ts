@@ -63,7 +63,7 @@ export function demoRunnersPage(now: Date): RunnersPageView {
         health: {
           ...report(63, 14.6, 41, 'memory 91%'), tokens: TOKENS,
           // Its accounts (PRD 2537): the first is out until its limit resets, the second carries the job on.
-          accounts: [{ id: 'claude-1', agent: 'claude', state: 'out', resetsAt: at(240) }, { id: 'codex-1', agent: 't3', state: 'active' }, { id: 'claude-2', agent: 'claude', state: 'ready' }],
+          accounts: [{ id: 'seat-1', agent: 'opencode', state: 'out', resetsAt: at(240) }, { id: 'codex-1', agent: 't3', state: 'active' }, { id: 'seat-2', agent: 'opencode', state: 'ready' }],
         }, samples: samples(63, 14.6, 41, 10_214_797),
       }),
       runner({

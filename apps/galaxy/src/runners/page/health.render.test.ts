@@ -131,13 +131,13 @@ describe('the tokens', () => {
 describe('the account chips and the tokens pause (PRD 2537 s6)', () => {
   it('shows a runner\'s accounts as chips in order, each titled with its agent and state', () => {
     const row = runnerRow(render(demo()), 'acme-agents');
-    expect(row.indexOf('>claude-1<')).toBeGreaterThan(-1);
-    expect(row.indexOf('>claude-1<')).toBeLessThan(row.indexOf('>codex-1<'));
-    expect(row.indexOf('>codex-1<')).toBeLessThan(row.indexOf('>claude-2<'));
+    expect(row.indexOf('>seat-1<')).toBeGreaterThan(-1);
+    expect(row.indexOf('>seat-1<')).toBeLessThan(row.indexOf('>codex-1<'));
+    expect(row.indexOf('>codex-1<')).toBeLessThan(row.indexOf('>seat-2<'));
     expect(row).toContain('runners-chip is-out');
     expect(row).toContain('runners-chip is-active');
     expect(row).toContain('runners-chip is-ready');
-    expect(row).toContain('title="claude · out until 18:00 UTC"');
+    expect(row).toContain('title="opencode · out until 18:00 UTC"');
   });
 
   it('shows no chips for a runner that reported no accounts', () => {
