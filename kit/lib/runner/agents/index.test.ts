@@ -4,8 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { agentNamed, fallbackAccount, fallbackAgent } from './index.ts';
 
 describe('the agents', () => {
-  it('finds claude by its name, and no agent by a name nobody gave', () => {
+  it('finds claude and t3 by their names, and no agent by a name nobody gave', () => {
     expect(agentNamed('claude')?.name).toBe('claude');
+    expect(agentNamed('t3')?.name).toBe('t3');
     expect(agentNamed('codex')).toBeNull();
     expect(agentNamed('toString')).toBeNull();
   });

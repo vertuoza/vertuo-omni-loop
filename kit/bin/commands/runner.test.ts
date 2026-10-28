@@ -4,7 +4,7 @@
 // health: each runner samples a fixed machine, quiet unless a test says otherwise (PRD 2102).
 import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess, ExecFileSyncOptions } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -1932,5 +1932,145 @@ describe('omni runner follow', () => {
   it('refuses a missing or bad PRD number', async () => {
     expect(await terminal(fixture(), fakePage(), ['follow'])).toMatchObject({ code: 2, stderr: 'usage: omni runner follow <n>\n' });
     expect((await terminal(fixture(), fakePage(), ['follow', 'abc'])).code).toBe(2);
+  });
+});
+
+describe('omni runner: T3 accounts (PRD 2537, s4)', () => {
+  const T3_FIXTURES = join(import.meta.dirname, '..', '..', 'lib', 'runner', 'fixtures', 't3');
+  const THREAD = 'mcp:fabd03d6-4537-4cfb-9d39-cc065784f406';
+  const accountsAt = (home: string, text: string): void => {
+    mkdirSync(join(home, '.config', 'omni'), { recursive: true });
+    writeFileSync(join(home, '.config', 'omni', 'accounts.yml'), text);
+  };
+  /** A T3 home under `home`, the fixture's, its server running as this very process. */
+  const t3At = (home: string): void => {
+    cpSync(join(T3_FIXTURES, 'home'), join(home, '.t3'), { recursive: true });
+    writeFileSync(join(home, '.t3', 'userdata', 'server-runtime.json'), JSON.stringify({ version: 1, pid: process.pid, port: 3799, origin: 'http://127.0.0.1:3799', startedAt: '2026-10-27T12:40:27.456Z' }));
+  };
+  const signedIn = (home: string): void => {
+    writeFileSync(join(home, '.config', 'omni', 't3-mcp.json'), JSON.stringify({ origin: 'http://127.0.0.1:3799', token: 'tok', expiresAt: '2999-01-01T00:00:00.000Z' }));
+  };
+
+  it('says, for each T3 account, that its planned handoffs are off while the runner holds no T3 sign-in', async () => {
+    const f = fixture();
+    accountsAt(f.home, 'accounts:\n  - id: claude-1\n    instance: claude-b\n    model: claude-opus-5-5\n  - id: direct\n    agent: claude\n');
+    const app = fakeApp();
+    const run = startRunner(f, app);
+    await until(() => app.calls.some((call) => call.path === '/api/runners/register'), 'the runner to register');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(run.stdout.text()).toContain('account claude-1: T3 sign-in missing: planned handoffs off\n');
+    expect(run.stdout.text()).not.toContain('account direct:');
+  });
+
+  it('says nothing of it once the runner is signed in to T3', async () => {
+    const f = fixture();
+    accountsAt(f.home, 'accounts:\n  - id: claude-1\n    instance: claude-b\n    model: claude-opus-5-5\n');
+    signedIn(f.home);
+    const app = fakeApp();
+    const run = startRunner(f, app);
+    await until(() => app.calls.some((call) => call.path === '/api/runners/register'), 'the runner to register');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(run.stdout.text()).not.toContain('T3 sign-in missing');
+  });
+
+  it("runs a T3 account's job as omni's t3-run on its instance and model, the job's line on its standard input", async () => {
+    const f = fixture();
+    accountsAt(f.home, 'accounts:\n  - id: claude-1\n    instance: claude-b\n    model: claude-opus-5-5\n');
+    const files = { line: join(f.root, 'job.line'), log: join(f.root, 'job.log'), exit: join(f.root, 'job.exit') };
+    writeFileSync(files.line, '/omni:yolo 7\n');
+    const script = join(f.root, 'fake-omni.mjs');
+    const end = JSON.stringify({ type: 't3.end', threadId: THREAD, runId: 'r', status: 'completed', reply: 'All done.', error: null, at: '2026-10-27T13:30:00.000Z', ms: 61_000 });
+    writeFileSync(script, [
+      "import { readFileSync, writeFileSync } from 'node:fs';",
+      `writeFileSync(${JSON.stringify(join(f.root, 'args'))}, JSON.stringify(process.argv.slice(2)));`,
+      `writeFileSync(${JSON.stringify(join(f.root, 'stdin'))}, readFileSync(0, 'utf8'));`,
+      `console.log(${JSON.stringify(end)});`,
+      '',
+    ].join('\n'));
+    const code = await main(['runner', 'job', '--line', files.line, '--log', files.log, '--exit', files.exit, '--account', 'claude-1'], {
+      cwd: f.root, stdout: out().stream, stderr: out().stream, exec: fakeExec(), env: {}, home: f.home, script,
+    });
+    expect(code).toBe(0);
+    expect(JSON.parse(readFileSync(join(f.root, 'args'), 'utf8'))).toEqual(['runner', 't3-run', '--instance', 'claude-b', '--model', 'claude-opus-5-5']);
+    expect(readFileSync(join(f.root, 'stdin'), 'utf8')).toBe('/omni:yolo 7\n');
+    expect(readFileSync(files.log, 'utf8')).toMatch(/^\d\d:\d\d:\d\d Done: ok · T3 completed · 1 min\n\d\d:\d\d:\d\d All done\.\n$/);
+  });
+
+  /** A fake `t3` in memory: each call kept, `thread start` ending with `end`. */
+  function memoryT3(end: object) {
+    const calls: string[][] = [];
+    const stdins: string[] = [];
+    const t3 = (args: readonly string[], { stdin }: { cwd: string; stdin?: string | undefined }) => {
+      calls.push([...args]);
+      if (args[0] === 'thread' && (args[1] === 'start' || args[1] === 'send')) {
+        stdins.push(stdin ?? '');
+        return Promise.resolve({ code: 0, stdout: `${JSON.stringify(end)}\n`, stderr: '' });
+      }
+      return Promise.resolve({ code: 0, stdout: '', stderr: '' });
+    };
+    return { t3, calls, stdins };
+  }
+
+  it("t3-run starts the thread in its worktree with the message it reads, and prints the run's end", async () => {
+    const f = fixture();
+    t3At(f.home);
+    const fake = memoryT3({ threadId: THREAD, runId: 'r', status: 'completed', reply: 'pong', error: null });
+    const stdout = out();
+    const code = await main(['runner', 't3-run', '--instance', 'claude-b', '--model', 'claude-opus-5-5'], {
+      cwd: f.checkout, stdout: stdout.stream, stderr: out().stream, exec: fakeExec(), env: {}, home: f.home, stdin: '/omni:yolo 7\n', t3: fake.t3, stop: new AbortController().signal,
+    });
+    expect(code).toBe(0);
+    expect(fake.calls[0]).toEqual(['project', 'add', f.checkout]);
+    expect(fake.calls[1]).toEqual(['thread', 'start', f.checkout, '-', '--provider', 'claude-b', '--model', 'claude-opus-5-5', '--wait', '--json']);
+    expect(fake.calls.at(-1)).toEqual(['project', 'remove', f.checkout, '--force']);
+    expect(fake.stdins).toEqual(['/omni:yolo 7\n']);
+    expect(stdout.text()).toContain('"type":"t3.end"');
+    expect(stdout.text()).toContain('"reply":"pong"');
+  });
+
+  it('t3-run resumes a thread, and wants an instance and a model', async () => {
+    const f = fixture();
+    const fake = memoryT3({ threadId: THREAD, runId: 'r2', status: 'completed', reply: 'noted', error: null });
+    const io = { cwd: f.checkout, stdout: out().stream, stderr: out().stream, exec: fakeExec(), env: {}, home: f.home, stdin: 'Write the handoff note.\n', t3: fake.t3, stop: new AbortController().signal };
+    expect(await main(['runner', 't3-run', '--instance', 'claude-b', '--model', 'm', '--thread', THREAD], io)).toBe(0);
+    expect(fake.calls[0]).toEqual(['thread', 'send', THREAD, '-', '--wait', '--json']);
+    const stderr = out();
+    expect(await main(['runner', 't3-run', '--instance', 'claude-b'], { ...io, stderr: stderr.stream })).toBe(2);
+    expect(stderr.text()).toContain('usage: omni runner t3-run --instance <id> --model <model> [--thread <id>]');
+  });
+
+  it('t3-signin refuses while T3 is not running', async () => {
+    const f = fixture();
+    const stderr = out();
+    expect(await main(['runner', 't3-signin'], { cwd: f.root, stdout: out().stream, stderr: stderr.stream, exec: fakeExec(), env: {}, home: f.home })).toBe(1);
+    expect(stderr.text()).toBe('omni runner: T3 not running: start T3 Code on this machine, then run omni runner t3-signin again.\n');
+  });
+
+  it('t3-signin signs the runner in to the running T3 and keeps the credential for its user only', async () => {
+    const f = fixture();
+    t3At(f.home);
+    let challenge = '';
+    const fetch = (url: string, init: RequestInit): Promise<Response> => {
+      const path = new URL(url).pathname;
+      const body = typeof init.body === 'string' ? init.body : '';
+      if (path === '/oauth/mcp/register') return Promise.resolve(new Response(readFileSync(join(T3_FIXTURES, 'oauth-register.json'), 'utf8'), { status: 201 }));
+      if (path === '/oauth/mcp/decision') {
+        const { authorization } = JSON.parse(body) as { authorization: { state: string; code_challenge: string } };
+        challenge = authorization.code_challenge;
+        return Promise.resolve(new Response(JSON.stringify({ redirectTo: `http://127.0.0.1/omni-runner/t3-callback?code=c1&state=${authorization.state}` })));
+      }
+      if (path === '/oauth/mcp/token' && challenge !== '') return Promise.resolve(new Response(readFileSync(join(T3_FIXTURES, 'oauth-token.json'), 'utf8')));
+      return Promise.resolve(new Response('no', { status: 404 }));
+    };
+    const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions): string => (file === 't3' && args[0] === 'auth' ? readFileSync(join(T3_FIXTURES, 'pairing-create.json'), 'utf8') : fakeExec()(file, args, options));
+    const stdout = out();
+    const now = () => Date.parse('2026-10-27T14:00:00.000Z');
+    expect(await main(['runner', 't3-signin'], { cwd: f.root, stdout: stdout.stream, stderr: out().stream, exec, env: {}, home: f.home, fetch, now })).toBe(0);
+    expect(stdout.text()).toBe('signed in to T3 at http://127.0.0.1:3799 until 2026-11-26T14:00:00.000Z: planned handoffs on. The credential is in ~/.config/omni/t3-mcp.json, for this user only.\n');
+    const file = join(f.home, '.config', 'omni', 't3-mcp.json');
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expect(stdout.text()).not.toContain('t3-fixture-access-token');
   });
 });

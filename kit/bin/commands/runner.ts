@@ -10,6 +10,8 @@
 //   omni runner job --line <file> --log <file> --exit <file> [--account <id>]
 //   omni runner ask --file <file> --issue <n> --lead <file>
 //   omni runner answers <job>
+//   omni runner t3-signin
+//   omni runner t3-run --instance <id> --model <model> [--thread <id>]
 //
 // The first starts the runner (`../../lib/runner/runner.ts`): it reads the sign-in every kit command
 // reads (`OMNI_TOKEN`, else `omni signin`'s), lists the git checkouts under `--repos` by their
@@ -28,6 +30,15 @@
 // in one line naming the account and the field, before the runner registers. Each job starts on the first account that
 // is ready, whose `takes` allows its skill and whose agent passed its check, and its session runs `job --account <id>`;
 // no file is one Claude account run directly, as ever, and `claude` signed in is asked of the machine only then.
+// With T3 accounts (s4) it counts the tokens of each Claude instance's own folder too, and prints `account <id>: T3
+// sign-in missing: planned handoffs off` for each while the runner holds no sign-in to T3.
+//
+// `t3-signin` signs this machine's runner in to T3's MCP endpoint once (`../../lib/runner/t3-mcp.ts`): it registers
+// the runner as an OAuth client of the running T3 server, makes a pairing code with `t3 auth pairing create` on the
+// same machine, approves Full access with it, and keeps the credential in `~/.config/omni/t3-mcp.json`, readable by
+// its user only; it refuses in one line when T3 is not running or refuses. `t3-run` is what a T3 account's run is
+// (`../../lib/runner/agents/t3-run.ts`): no person runs it. It reads its message on stdin, runs and follows the
+// thread on the instance in its worktree, prints what it reads, and on SIGINT stops the thread through T3.
 // The Omni page is the `ask.url` of the config where it runs, else of the first checkout held that
 // sets one.
 //
@@ -65,7 +76,7 @@
 // `machine`, the reads its health samples are taken from.
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
@@ -79,6 +90,9 @@ import { AccountsError, agentAccountOf, readAccounts } from '../../lib/runner/ac
 import type { Accounts } from '../../lib/runner/accounts.ts';
 import type { Agent, AgentAccount } from '../../lib/runner/agents/agent.ts';
 import { agentNamed } from '../../lib/runner/agents/index.ts';
+import { t3ClaudeProjects, t3HomeOf, t3Instance, t3Origin } from '../../lib/runner/agents/t3-home.ts';
+import { followT3, t3Cli } from '../../lib/runner/agents/t3-run.ts';
+import type { T3Cli } from '../../lib/runner/agents/t3-run.ts';
 import { listCheckouts } from '../../lib/runner/checkouts.ts';
 import { keepGithubToken } from '../../lib/runner/github-refresh.ts';
 import type { RefreshOptions } from '../../lib/runner/github-refresh.ts';
@@ -92,7 +106,10 @@ import type { JobQuestionList } from '../../lib/runner/questions.ts';
 import { releaser } from '../../lib/runner/release.ts';
 import { KEEP_LOGS_DAYS, runRunner } from '../../lib/runner/runner.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
+import { readT3Credential, T3_SIGN_IN_MISSING, t3Interrupt, t3SignIn, t3SignInNote } from '../../lib/runner/t3-mcp.ts';
 import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
+import { tokenSource } from '../../lib/runner/tokens.ts';
+import type { TokenSource } from '../../lib/runner/tokens.ts';
 import type { ClaudeNeed } from '../../lib/runner/terminal.ts';
 import type { Terminal } from '../../lib/runner/terminal.ts';
 import { issueArg, parseArgs, positiveInt, println, usageError } from '../args.ts';
@@ -100,7 +117,8 @@ import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { boardCount, followCommand, interrupts, send } from './runner-follow.ts';
 import type { FollowOptions } from './runner-follow.ts';
 
-const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job>";
+const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
+const T3_RUN_USAGE = 'usage: omni runner t3-run --instance <id> --model <model> [--thread <id>]';
 const ASK_USAGE = 'usage: omni runner ask --file <file> --issue <n> --lead <file>';
 const ANSWERS_USAGE = 'usage: omni runner answers <job>';
 const GITHUB_TOKEN_USAGE = 'usage: omni runner github-token [--git get]';
@@ -121,6 +139,10 @@ type RunnerCommandOptions = {
   tickMs?: number;
   backoff?: { firstMs: number; maxMs: number };
   machine?: MachineReads;
+  /** A T3 run's message: the process's stdin unless given (PRD 2537, s4). */
+  stdin?: string | AsyncIterable<string | Buffer>;
+  /** The `t3` a T3 run calls: the one on the PATH unless given. */
+  t3?: T3Cli;
 } & FollowOptions;
 
 /** The `ask.url` of `dir`'s config, or `null` when it has none or no config. */
@@ -235,6 +257,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
   }
   if (!script) throw new Error('omni runner: the omni script that runs a job is unknown');
   const { tokens, stop, terminal, home, fetch } = wiring(io);
+  for (const line of t3Notes(home, accounts)) println(stdout, line);
   try {
     return await runRunner({
       name,
@@ -259,11 +282,30 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
       stop: stop.signal,
       keepLogsDays,
       limits,
+      tokens: tokenCounts(home, accounts, io.now),
       ...timing(io),
     });
   } finally {
     stop.release();
   }
+}
+
+/** The instances the runner's T3 accounts run on, in the file's order. */
+const t3InstancesOf = ({ accounts }: Accounts): string[] => accounts.flatMap((account) => (account.instance === null ? [] : [account.instance]));
+
+/**
+ * Where the runner counts its tokens (PRD 2102): Claude's folder under the home, and the folder of each T3
+ * Claude instance its accounts run on (PRD 2537, s4); `undefined`, the runner's own default, with none.
+ */
+function tokenCounts(home: string, accounts: Accounts, now: (() => number) | undefined): TokenSource | undefined {
+  const folders = t3ClaudeProjects(t3HomeOf(home), home, t3InstancesOf(accounts));
+  return folders.length === 0 ? undefined : tokenSource({ projects: [join(home, '.claude', 'projects'), ...folders], now });
+}
+
+/** One line per T3 account while the runner holds no sign-in to T3: its planned handoffs are off. */
+function t3Notes(home: string, accounts: Accounts): string[] {
+  const note = t3InstancesOf(accounts).length === 0 ? null : t3SignInNote(home);
+  return note === null ? [] : accounts.accounts.filter((account) => account.instance !== null).map((account) => `account ${account.id}: ${note}`);
 }
 
 /** The accounts of the file under `home` (the one fallback account with no file), or the one line refusing a malformed one. */
@@ -276,23 +318,104 @@ function readAccountsOf(home: string): Accounts | { refusal: string } {
   }
 }
 
-/** The run of a job on the account `id` of the file under `where`: its agent, and the account as that agent sees it, or the refusal. */
-function accountRunOf(id: string, where: string): { agent: Agent; account: AgentAccount } | { refusal: string } {
+/**
+ * The run of a job on the account `id` of the file under `where`: its agent, and the account as that agent sees it, or the refusal.
+ * A T3 account's run is this omni's `t3-run` (`omni` the node and script running now, when known).
+ */
+function accountRunOf(id: string, where: string, omni: readonly string[] | undefined): { agent: Agent; account: AgentAccount } | { refusal: string } {
   const accounts = readAccountsOf(where);
   if ('refusal' in accounts) return accounts;
   const account = accounts.accounts.find((candidate) => candidate.id === id);
-  const agent = account === undefined ? null : agentNamed(account.agent);
+  const agent = account === undefined ? null : agentNamed(account.agent, { home: where, omni });
   if (account === undefined || agent === null) return { refusal: `account ${id} cannot run a job here` };
   return { agent, account: agentAccountOf(account, where) };
 }
 
-async function job(args: string[], { cwd, stdout, stderr, home }: FreeIo & RunnerCommandOptions): Promise<number> {
+async function job(args: string[], { cwd, stdout, stderr, home, script }: FreeIo & RunnerCommandOptions): Promise<number> {
   const { positional, flags } = parseArgs('runner', args, { values: ['line', 'log', 'exit', 'account'] });
   if (positional.length || !flags.line || !flags.log || !flags.exit) throw usageError('usage: omni runner job --line <file> --log <file> --exit <file> [--account <id>]');
   const files = { line: flags.line, log: flags.log, exit: flags.exit };
   if (flags.account === undefined) return runJobProcess({ cwd, files, out: stdout });
-  const run = accountRunOf(flags.account, home ?? homedir());
+  const run = accountRunOf(flags.account, home ?? homedir(), script === undefined ? undefined : [process.execPath, script]);
   return 'refusal' in run ? refused(stderr, run.refusal) : runJobProcess({ cwd, files, out: stdout, ...run });
+}
+
+/** All of `stdin`'s text. */
+async function readAll(stdin: string | AsyncIterable<string | Buffer>): Promise<string> {
+  if (typeof stdin === 'string') return stdin;
+  let text = '';
+  for await (const chunk of stdin) text += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+  return text;
+}
+
+/** Aborted on SIGINT, the clean stop the `t3` agent asks for; SIGTERM, which follows it, still ends the process. */
+function stopOnSigint(): { signal: AbortSignal; release(): void } {
+  const controller = new AbortController();
+  const stop = (): void => {
+    controller.abort();
+  };
+  process.on('SIGINT', stop);
+  return {
+    signal: controller.signal,
+    release() {
+      process.off('SIGINT', stop);
+    },
+  };
+}
+
+/** Stops `thread` through T3's MCP endpoint with the runner's sign-in, or says why it cannot. */
+function stopThroughT3(home: string, fetch: Fetch): (thread: string) => Promise<{ status: string } | { refused: string }> {
+  return (thread) => {
+    const credential = readT3Credential(home);
+    if (credential === null) return Promise.resolve({ refused: T3_SIGN_IN_MISSING });
+    const origin = t3Origin(t3HomeOf(home)) ?? credential.origin;
+    return t3Interrupt({ origin, token: credential.token, threadId: thread, fetch });
+  };
+}
+
+/** `t3-run`'s flags, checked: the instance and model it runs on, and the thread it resumes. */
+function t3RunFlags(args: string[]): { instance: string; model: string; thread: string | null } {
+  const { positional, flags } = parseArgs('runner', args, { values: ['instance', 'model', 'thread'] });
+  if (positional.length || !flags.instance || !flags.model) throw usageError(T3_RUN_USAGE);
+  return { instance: flags.instance, model: flags.model, thread: flags.thread ?? null };
+}
+
+/** `t3-run --instance <id> --model <model> [--thread <id>]`: one T3 run in this worktree, its message on stdin (PRD 2537, s4). */
+async function t3Run(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
+  const flags = t3RunFlags(args);
+  const home = io.home ?? homedir();
+  const instance = t3Instance(t3HomeOf(home), home, flags.instance);
+  const message = await readAll(io.stdin ?? process.stdin);
+  const stop = io.stop === undefined ? stopOnSigint() : { signal: io.stop, release: () => undefined };
+  const print = (line: string): void => {
+    println(io.stdout, line);
+  };
+  try {
+    return await followT3({
+      ...flags,
+      cwd: io.cwd,
+      message,
+      transcripts: instance?.projects ?? null,
+      messages: instance?.claude !== true,
+      cli: io.t3 ?? t3Cli(),
+      print,
+      stop: { signal: stop.signal, interrupt: stopThroughT3(home, io.fetch ?? globalThis.fetch) },
+    });
+  } finally {
+    stop.release();
+  }
+}
+
+/** `t3-signin`: signs this machine's runner in to T3's MCP endpoint, so it can stop T3 runs for planned handoffs (PRD 2537, s4). */
+async function t3SignInOfRunner(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
+  if (args.length) throw usageError('usage: omni runner t3-signin');
+  const home = io.home ?? homedir();
+  const origin = t3Origin(t3HomeOf(home));
+  if (origin === null) return refused(io.stderr, 'T3 not running: start T3 Code on this machine, then run omni runner t3-signin again.');
+  const signedIn = await t3SignIn({ home, origin, exec: io.exec, fetch: io.fetch ?? globalThis.fetch, now: io.now ?? Date.now });
+  if ('refused' in signedIn) return refused(io.stderr, signedIn.refused);
+  println(io.stdout, `signed in to T3 at ${origin} until ${signedIn.expiresAt}: planned handoffs on. The credential is in ~/.config/omni/t3-mcp.json, for this user only.`);
+  return 0;
 }
 
 /** One line on stderr, the app's words or ours, and the exit code of an `ask` or `answers` that did not go through. */
@@ -445,6 +568,8 @@ const SUBCOMMANDS = new Map<string, (args: string[], io: FreeIo & RunnerCommandO
   ['follow', followCommand],
   ['ask', askOnJob],
   ['answers', answersOfJob],
+  ['t3-signin', t3SignInOfRunner],
+  ['t3-run', t3Run],
 ]);
 
 export const runner = {
