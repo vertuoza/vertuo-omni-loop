@@ -9,6 +9,8 @@
 //   `next`, each job update and each read of the Runners page marks them first, before it counts the
 //   caller's own check-in, so a runner back from silence finds its jobs lost. A runner that registers
 //   again, restarted, finds its claimed and running jobs lost too, however short its silence (#2170).
+//   A job still claimed 10 minutes after its claim, never reported running, ends `runner lost` too, at
+//   the same marks, though its runner checks in: the answer to its `next` never reached it (#2550).
 //   Nothing is retried.
 // - A job's status only goes forward: claimed, running, then done, failed or cancelled. A report on a
 //   job that has ended is refused, and the runner stops it.
@@ -76,7 +78,7 @@
 //   claimed or running and for 10 minutes after it ends.
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  checkLine, checkLineShape, ENDED_JOBS_SHOWN, GITHUB_TOKEN_AFTER_END_MS, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  checkLine, checkLineShape, ENDED_JOBS_SHOWN, GITHUB_TOKEN_AFTER_END_MS, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
@@ -485,7 +487,7 @@ const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<strin
  * `notifier` pings the link of a job a key sent when its status, outcome or questions change (PRD 2425 s8); with none, no link is taken. */
 export function runnersService(store: RunnersRepository, clock: Clock, github: GithubDeps | null = null, notifier: Notifier = NO_NOTIFIER) {
   const iso = () => clock.now().toISOString();
-  const markLost = () => store.markLost(new Date(clock.now().getTime() - LOST_AFTER_MS).toISOString());
+  const ago = (ms: number) => new Date(clock.now().getTime() - ms).toISOString();
 
   /** Tells the job's link that its status, outcome or questions changed (PRD 2425 s8), once the change is stored; a job with no link tells
    * none. The notifier answers after the response and never throws, so a ping never changes what a request answers. */
@@ -496,6 +498,12 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
   const tellChange = (before: JobRow, after: JobRow): void => {
     const event = eventOf(before, after);
     if (event !== null) tell(after, event);
+  };
+  /** Ends `runner lost` a silent runner's jobs (the database, telling none) and every job still Starting past its deadline, whose
+   * runner never received it (#2550): each of those tells its link, as this process ends it. */
+  const markLost = async (): Promise<void> => {
+    const [, unstarted] = await Promise.all([store.markLost(ago(LOST_AFTER_MS)), store.loseUnstarted(ago(STARTING_LOST_AFTER_MS), iso())]);
+    for (const job of unstarted) tell(job, 'status');
   };
 
   /** The runner the caller owns, or why not. */

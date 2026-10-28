@@ -1936,6 +1936,29 @@ describe('omni runner follow', () => {
     expect(brief.code).toBe(0);
   });
 
+  it('keeps following through a slow patch of the app, every read timing out for a minute, then reads the ending (#2552)', async () => {
+    const page = fakePage({ jobs: [[running({ status: 'done', outcome: 'ready' })]] });
+    let slow = 6;
+    const slowPage = {
+      fetch: (url: string, init: RequestInit): Promise<Response> => {
+        if (slow === 0) return page.fetch(url, init);
+        slow -= 1;
+        return Promise.reject(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+      },
+    };
+    const run = await terminal(fixture(), slowPage, ['follow', '2251']);
+    expect(run.stdout).not.toContain('server unreachable');
+    expect(run).toMatchObject({ code: 0, stdout: `queued\nclaimed by box-1\nReady · ${ASK}/prd/2251\n` });
+  });
+
+  it('ends held on the twelfth failed read in a row, and follows on after eleven (#2552)', async () => {
+    const done = [[running({ status: 'done' })]];
+    const eleven = await terminal(fixture(), fakePage({ down: 11, jobs: done }), ['follow', '2251']);
+    expect(eleven.code).toBe(0);
+    const twelve = await terminal(fixture(), fakePage({ down: 12, jobs: done }), ['follow', '2251']);
+    expect(twelve).toMatchObject({ code: 1, stdout: 'server unreachable · held, not failed\n' });
+  });
+
   it('refuses a page that has no routes, and holds when signed out', async () => {
     const page = { fetch: () => Promise.resolve(new Response('{}', { status: 404 })) };
     expect((await terminal(fixture(), page, ['follow', '2251'])).stdout).toBe('refused (404)\n');

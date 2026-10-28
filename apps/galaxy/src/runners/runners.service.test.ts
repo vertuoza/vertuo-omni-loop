@@ -228,6 +228,28 @@ describe('a lost runner', () => {
     expect(w.state.jobs.map((j) => j.status)).toEqual(['failed', 'running']);
   });
 
+  // #2550: the app stored the claim, its answer to `next` was lost (a 504), and the runner, polling on,
+  // never names the job: Starting forever, the runner's one slot held.
+  describe('whose hand-over never reached it, though it keeps checking in (#2550)', () => {
+    const starting = () => jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const checkedIn = (seconds: number) => [runnerRow({ id: SHARED, name: 'shared', slots: 1, last_seen_at: at(seconds).toISOString() }), ...RUNNERS.slice(1)];
+
+    it('ends a job still Starting after 10 minutes as runner lost, and the runner takes the next one', async () => {
+      const job = starting();
+      const queued = jobRow({ queued_at: at(1).toISOString() });
+      const w = world({ jobs: [job, queued], runners: checkedIn(600), start: at(601) });
+      expect(value(await w.service.next(OLGA, SHARED))?.id).toBe(queued.id);
+      expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'runner lost', ended_at: at(601).toISOString() });
+    });
+
+    it('keeps a job Starting for under 10 minutes: its runner may still be making its worktree', async () => {
+      const job = starting();
+      const w = world({ jobs: [job], runners: checkedIn(599), start: at(599) });
+      value(await w.service.board(MO, WORKSPACE));
+      expect(w.state.jobs[0]).toMatchObject({ status: 'claimed', reason: null });
+    });
+  });
+
   it('never runs a lost job again', async () => {
     const job = running();
     const w = world({ jobs: [job], start: at(91) });
@@ -2439,6 +2461,14 @@ describe('a job that pings its link (PRD 2425 s8)', () => {
       expect(w.state.jobs.map((job) => [job.status, job.reason])).toEqual([['failed', 'runner lost'], ['failed', 'runner lost']]);
       expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
       expect(w.pings).toEqual([]);
+    });
+
+    it('pings status for a job still Starting after 10 minutes, its runner checking in all along (#2550)', async () => {
+      const starting = claimed();
+      const w = pinging({ jobs: [starting], runners: [runnerRow({ id: SHARED, name: 'shared', slots: 1, last_seen_at: at(600).toISOString() }), ...RUNNERS.slice(1)], start: at(601) });
+      value(await w.service.board(MO, WORKSPACE));
+      expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'runner lost' });
+      expect(w.pings).toEqual([ping(starting, 'status', 'failed', at(601))]);
     });
   });
 

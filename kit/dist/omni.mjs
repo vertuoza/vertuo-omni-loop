@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.559" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.561" };
   }
 });
 
@@ -65083,7 +65083,7 @@ function exitCodeOf(job2) {
 var SEND_USAGE = "usage: omni runner send '<line>' [--to <runner|fleet>]";
 var FOLLOW_USAGE = "usage: omni runner follow <n>";
 var FOLLOW_MS = 5e3;
-var HELD_AFTER2 = 3;
+var HELD_AFTER2 = 12;
 var BOARD_EVERY = 6;
 var SIGNED_OUT = "no sign-in (omni signin) \xB7 held";
 var UNREACHABLE2 = "server unreachable \xB7 held, not failed";

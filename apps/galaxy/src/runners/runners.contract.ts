@@ -41,6 +41,10 @@ const MAX_LINE = 200;
 /** How long a runner stays online after its last check-in. */
 export const LOST_AFTER_MS = 90_000;
 
+/** How long a claimed job waits for its runner to report it running (#2550): past it, the answer to the runner's `next` never
+ * reached the runner, and the job ends `runner lost`. Well past the worktree and the plugin a runner makes before it reports. */
+export const STARTING_LOST_AFTER_MS = 10 * 60_000;
+
 /** How long `next` holds before it answers 204: well under the route's 60 s limit, with the database calls
  * around each look, so the platform never cuts it off with a 504. */
 export const NEXT_HOLD_MS = 40_000;

@@ -11,7 +11,8 @@
 // still says what was slow. A repository's stale snapshots are refreshed three at a time, and none is started
 // once the run has taken 200 s: those wait for the next run. No repository is started once the run has taken
 // 120 s either: those wait too, and the repositories synced longest ago are read first, so the ones left
-// out go first next time. A repository that
+// out go first next time; the workspace whose oldest repository waited longest goes first, so a slow workspace
+// never keeps another's out run after run. A repository that
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
@@ -194,21 +195,27 @@ const SNAPSHOT_BUDGET_MS = 200_000;
  * started later could run past the route's 300 s (#2529). */
 const REPO_BUDGET_MS = 120_000;
 
-/** The repositories, those synced longest ago first and never synced before all; as given when a last sync
- * cannot be read (logged). */
-async function oldestFirst(deps: SyncDeps, workspace: SyncWorkspace, repositories: readonly string[]): Promise<string[]> {
+/** When a repository was last synced, in ms; -Infinity when never. */
+type LastSync = (workspace: SyncWorkspace, repository: string) => number;
+
+/** Reads when each repository was last synced, once per run; null, logged, when it cannot be read. */
+async function lastSyncs(deps: SyncDeps, listed: readonly { workspace: SyncWorkspace; repositories: readonly string[] }[]): Promise<LastSync | null> {
   try {
-    const last = await Promise.all(repositories.map((repository) => deps.store.lastSynced(workspace.id, repository)));
-    const at = (index: number) => {
-      const when = last[index];
-      return when === null || when === undefined ? -Infinity : Date.parse(when);
-    };
-    return repositories.map((repository, index) => ({ repository, index })).sort((a, b) => at(a.index) - at(b.index) || a.index - b.index).map(({ repository }) => repository);
+    const known = new Map<string, number>();
+    await Promise.all(listed.flatMap(({ workspace, repositories }) => repositories.map(async (repository) => {
+      const when = await deps.store.lastSynced(workspace.id, repository);
+      if (when !== null) known.set(`${workspace.id} ${repository}`, Date.parse(when));
+    })));
+    return (workspace, repository) => known.get(`${workspace.id} ${repository}`) ?? -Infinity;
   } catch (error) {
-    deps.log(`stages sync: when the repositories of ${workspace.slug} were last synced cannot be read — ${why(error)}`);
-    return [...repositories];
+    deps.log(`stages sync: when the repositories were last synced cannot be read — ${why(error)}`);
+    return null;
   }
 }
+
+/** `items` by `key`, smallest first, ties in the order given. */
+const byKey = <T>(items: readonly T[], key: (item: T) => number): T[] =>
+  items.map((item, index) => ({ item, index, at: key(item) })).sort((a, b) => a.at - b.at || a.index - b.index).map(({ item }) => item);
 
 /** `each` of the items, at most `limit` at a time; what each gave, in the items' order. */
 async function inTurns<T, R>(items: readonly T[], limit: number, each: (item: T) => Promise<R>): Promise<R[]> {
@@ -405,9 +412,11 @@ type RunBudget = { overdue: () => boolean; late: () => boolean };
  * `late`: those wait for the next run, named in one line (#2529). What each read gave, synced or skipped. */
 async function readRepositories(
   deps: SyncDeps, workspace: SyncWorkspace, repositories: readonly string[], syncedAt: string, lanes: TargetLanes, budget: RunBudget,
+  last: LastSync | null,
 ): Promise<(SyncedRepo | SkippedRepo)[]> {
   const waiting: string[] = [];
-  const read = await inTurns(await oldestFirst(deps, workspace, repositories), REPO_READS, async (repository): Promise<SyncedRepo | SkippedRepo | null> => {
+  const ordered = last ? byKey(repositories, (repository) => last(workspace, repository)) : repositories;
+  const read = await inTurns(ordered, REPO_READS, async (repository): Promise<SyncedRepo | SkippedRepo | null> => {
     if (budget.late()) {
       waiting.push(repository);
       return null;
@@ -518,19 +527,27 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
   await deps.snapshots?.dropEtags(before(syncedAt, ETAG_MAX_IDLE_MS)).catch((error: unknown) => {
     deps.log(`stages sync: the idle ETags were not dropped — ${why(error)}`);
   });
+  const listed: { workspace: SyncWorkspace; repositories: string[] }[] = [];
   for (const workspace of workspaces) {
     await deps.snapshots?.markOld(workspace, before(syncedAt, SNAPSHOT_MAX_AGE_MS), syncedAt).catch((error: unknown) => {
       deps.log(`stages sync: the old snapshots of ${workspace.slug} were not marked stale — ${why(error)}`);
     });
-    let repositories: string[] = [];
     try {
-      repositories = await deps.repositories(workspace);
+      listed.push({ workspace, repositories: await deps.repositories(workspace) });
     } catch (error) {
       deps.log(`stages sync: the repositories of ${workspace.slug} cannot be listed — ${why(error)}`);
       reply.skipped.push({ workspace: workspace.slug, repository: null, reason: why(error) });
+      listed.push({ workspace, repositories: [] });
     }
+  }
+  // The workspace whose oldest repository waited longest goes first, so a slow one never keeps another's from
+  // being read run after run (#2529).
+  const last = await lastSyncs(deps, listed);
+  const oldest = ({ workspace, repositories }: { workspace: SyncWorkspace; repositories: string[] }) =>
+    last ? Math.min(Infinity, ...repositories.map((repository) => last(workspace, repository))) : 0;
+  for (const { workspace, repositories } of byKey(listed, oldest)) {
     const lanes: TargetLanes = { held: new Set(), claimed: [] };
-    const read = await readRepositories(deps, workspace, repositories, syncedAt, lanes, { overdue, late });
+    const read = await readRepositories(deps, workspace, repositories, syncedAt, lanes, { overdue, late }, last);
     for (const repo of read) {
       if ('reason' in repo) reply.skipped.push(repo);
       else reply.repositories.push(repo);

@@ -317,6 +317,11 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       }
       return Promise.resolve(lost);
     },
+    loseUnstarted: (cutoff, at) => {
+      const lost = state.jobs.filter((job) => job.status === 'claimed' && job.claimed_at !== null && Date.parse(job.claimed_at) < Date.parse(cutoff));
+      for (const job of lost) Object.assign(job, { status: 'failed', reason: 'runner lost', ended_at: at });
+      return Promise.resolve(lost.map((job) => ({ ...job })));
+    },
     claim: (runnerId) => {
       state.calls.push(`claim ${runnerId}`);
       const runner = state.runners.find((r) => r.id === runnerId);
