@@ -30,6 +30,19 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-28",
+      "personas": [
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "A job carries on on the next account, and the Runners page says which part ran where.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "With no accounts file my runner works as before, and with one my jobs stop failing on a token limit.", "citations": ["persona:Irisa"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Paused: no tokens left until a time tells me the loop is waiting; I still want to see the T3 sign-in tried live.", "citations": ["persona:Lead Engineer"] },
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "Each part names its agent and model on the pull request, but a runner with one account now fails at Claude's first usage warning.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Recorded outputs and fake binaries for Claude and T3, and a crash never turns over: solid, though T3's limit is read from its words.", "citations": ["persona:B-E DEv"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
     }
   ]
 }
