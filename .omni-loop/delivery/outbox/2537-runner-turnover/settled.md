@@ -786,3 +786,239 @@ Option B is a different source of the skills text; the folder rules are one func
 ```
 
 <!-- /omni-outbox-settled: s5-01-skills-folder-and-version -->
+
+<!-- omni-outbox-settled: s8-01-budget-counts-this-job -->
+
+## s8-01-budget-counts-this-job — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-28
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-budget-counts-this-job
+prd: 2537
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-28
+wave: 4
+---
+
+## The question, in plain words
+
+An account can be given a daily budget of tokens. Which tokens count against it, and when does a new day start?
+
+## The decision, in plain words
+
+Only the tokens the account spent on the current job count, the fresh ones read and written, not the ones reread from its cache. Once they reach the budget the job moves to the next account, and this one rests until midnight, world time.
+
+## The intro, for fun
+
+A budget is a promise you make to your wallet before breakfast.
+
+## The punchline, for fun
+
+For now the wallet only checks the job in front of it.
+
+## The options, in plain words
+
+A. Count this job's input and output tokens on the account, out until midnight UTC, the option built.
+B. Keep a count per account per day across every job, beside the account states, so two jobs in a day share one budget.
+C. Count every token, cache reads included.
+
+## What I had to decide
+
+What the daily budget of an account in accounts.yml counts: this job's input and output tokens on that account (cache reads aside), against the budget, the account then out until the next midnight UTC; or a count kept across every job of the day.
+
+## What I did meanwhile
+
+kit/lib/runner/job.ts sums the input and output tokens of the job's parts on that account plus the running part, read through the agent's usage; plannedHandoff in kit/lib/runner/turnover.ts hands off on usage once the sum reaches the budget, out until the next 00:00 UTC. Nothing is kept across jobs.
+
+## What it costs to change later
+
+A count across jobs is a small file beside accounts-state.json and one more read before each check; the rule of which tokens count is one function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the spec says tokens a day but not which of the four counts, nor whose day: no register, glossary or playbook entry settles it
+- through T3 an OpenCode instance gives no tokens yet (s4 reads only Claude transcripts), so its budget cannot trip until its session store is read
+
+```
+
+<!-- /omni-outbox-settled: s8-01-budget-counts-this-job -->
+
+<!-- omni-outbox-settled: s8-02-planned-handoff-nobody-left -->
+
+## s8-02-planned-handoff-nobody-left — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-28
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-planned-handoff-nobody-left
+prd: 2537
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-28
+wave: 4
+---
+
+## The question, in plain words
+
+When an account nears its usage limit but no other account can take the job over, should the runner still stop the job, or let it run until the account really runs out?
+
+## The decision, in plain words
+
+As the spec says, the runner stops the job and marks it failed with no tokens left, even though the account still had some work in it.
+
+## The intro, for fun
+
+Leaving the party early only helps if someone is there to drive you home.
+
+## The punchline, for fun
+
+Right now we leave anyway and wait on the curb.
+
+## The options, in plain words
+
+A. Stop the run and fail the job naming no tokens left, the option built, as the spec reads.
+B. Leave the run going when no account can take it over or the cap is reached, so it works until its wall and only fails there.
+
+## What I had to decide
+
+Whether a planned usage handoff with no account to take over (or past the three account changes) stops the run and fails the job, or lets the run go on until its wall.
+
+## What I did meanwhile
+
+usageHandoff in kit/lib/runner/job.ts marks the account out until the reset the pressure named, finds no next account, and fails the job with no tokens left: every account is out until <reset>, the run already stopped and no note written. A runner with a single account in its file is hit by this on Claude's first allowed_warning.
+
+## What it costs to change later
+
+Letting the run go on is a check before the stop: the next account looked up first, the run left alone when there is none. One function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the spec's handoff section says none left ends the job failed, but does not say whether that holds for a planned handoff, which could still have worked until the wall
+
+```
+
+<!-- /omni-outbox-settled: s8-02-planned-handoff-nobody-left -->
+
+<!-- omni-outbox-settled: s8-03-instance-skills-folder -->
+
+## s8-03-instance-skills-folder — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-28
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-instance-skills-folder
+prd: 2537
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-28
+wave: 4
+---
+
+## The question, in plain words
+
+Before a Codex or OpenCode account works on a job, the runner puts the kit's skills in that account's own folder. Which folder is it, and what happens when the skills cannot be put there?
+
+## The decision, in plain words
+
+The runner uses the folder the account's settings in T3 name, else the agent's usual folder in the home. When the skills cannot be written, that account is passed over and the next one takes the job, as if it were busy.
+
+## The intro, for fun
+
+Every new player needs the rulebook before joining the game.
+
+## The punchline, for fun
+
+No rulebook, no seat: the next player sits down instead.
+
+## The options, in plain words
+
+A. Use the home folder T3's settings name for the instance, else the agent's default folder, and pass an account without skills over, the option built.
+B. Fail the job at once when its first account cannot have the skills, naming why.
+C. Read the folder from the accounts file instead, a field of the account, and refuse a Codex or OpenCode account without it.
+
+## What I had to decide
+
+Where a T3 Codex or OpenCode instance's skills go (its config.homePath in T3's settings.json, else ~/.codex or ~/.config/opencode), and whether an instance that cannot have them hands the job to the next account or fails it.
+Decided by: Jev (hardToRevert 0.50) · agent said false
+
+## What I did meanwhile
+
+turnoverOf in kit/lib/runner/turnover.ts reads providerInstances.<id>.config.homePath from ~/.t3/userdata/settings.json and calls prepareInstanceSkills (plugin.ts, s5) before every part on a non-Claude instance; job.ts passes over an account it answers unusable for, at the start (no part, no account change counted) and at a turnover, and fails the job only when no account is left.
+
+## What it costs to change later
+
+The folder rule is one function; failing instead of passing over is one branch.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the T3 0.1.3 recordings show config.homePath only on a Claude instance: whether T3 names a Codex instance's CODEX_HOME the same way is not recorded
+- an account found without skills is not marked unusable in the runner's account states, so the health report does not read no skills for it yet (s6's ground)
+
+```
+
+<!-- /omni-outbox-settled: s8-03-instance-skills-folder -->
