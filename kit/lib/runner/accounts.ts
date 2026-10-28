@@ -14,7 +14,11 @@ import { parse } from 'yaml';
 import type { AgentAccount } from './agents/agent.ts';
 import { RUNNABLE_SKILLS } from './line.ts';
 
-/** One account of the file. `secret` is the path of the file holding its token, `null` for none of its own. */
+/**
+ * One account of the file. `secret` is the path of the file holding its token, `null` for none of its own.
+ * `contextWindow`, when the account names one, is its model's context window in tokens, which the context
+ * handoff reads in place of the one its agent knows (PRD 2537, s8).
+ */
 export type Account = {
   id: string;
   agent: 'claude' | 't3';
@@ -23,6 +27,7 @@ export type Account = {
   secret: string | null;
   budget: number | null;
   takes: readonly string[] | null;
+  contextWindow?: number;
 };
 
 /** The two planned handoff thresholds, in whole percents. */
@@ -40,7 +45,7 @@ export const DEFAULT_HANDOFF: HandoffThresholds = { usage: 90, context: 75 };
 export const FALLBACK_ACCOUNT: Account = { id: 'claude', agent: 'claude', instance: null, model: null, secret: null, budget: null, takes: null };
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/;
-const ACCOUNT_KEYS = new Set(['id', 'instance', 'agent', 'model', 'secret', 'budget', 'takes']);
+const ACCOUNT_KEYS = new Set(['id', 'instance', 'agent', 'model', 'secret', 'budget', 'takes', 'contextWindow']);
 
 /** Where the accounts file is: `~/.config/omni/accounts.yml`. */
 const accountsFile = (home: string): string => join(home, '.config', 'omni', 'accounts.yml');
@@ -76,6 +81,13 @@ function budgetOf(name: string, value: unknown): number | null {
   return value;
 }
 
+/** `contextWindow`: the model's context window, a whole positive number of tokens; nothing when absent. */
+function windowOf(name: string, value: unknown): Pick<Account, 'contextWindow'> {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) throw new AccountsError(`account ${name}: contextWindow must be a whole positive number of tokens`);
+  return { contextWindow: value };
+}
+
 /** The agent and instance an account names: `instance` runs through T3, `agent: claude` runs Claude directly. */
 function agentOf(name: string, instance: string | null, agent: string | null): Pick<Account, 'agent' | 'instance'> {
   if (agent !== null && agent !== 'claude' && agent !== 't3') throw new AccountsError(`account ${name}: agent must be claude or t3, got "${agent}"`);
@@ -98,7 +110,7 @@ function accountOf(entry: unknown, index: number, seen: Set<string>): Account {
   const where = agentOf(id, text(id, 'instance', entry.instance), text(id, 'agent', entry.agent));
   const secret = text(id, 'secret', entry.secret);
   if (secret !== null && where.agent !== 'claude') throw new AccountsError(`account ${id}: secret is for a direct claude account; a T3 account's sign-in lives in T3`);
-  return { id, ...where, model: text(id, 'model', entry.model), secret, budget: budgetOf(id, entry.budget), takes: takesOf(id, entry.takes) };
+  return { id, ...where, model: text(id, 'model', entry.model), secret, budget: budgetOf(id, entry.budget), takes: takesOf(id, entry.takes), ...windowOf(id, entry.contextWindow) };
 }
 
 /** One threshold: a whole percent from 50 to 99, `fallback` when absent. */

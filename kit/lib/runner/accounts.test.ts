@@ -53,6 +53,13 @@ describe('the accounts file', () => {
     expect(read.accounts[2]).toMatchObject({ secret: '~/.config/omni/secrets/claude-direct', model: null, takes: null });
   });
 
+  it("reads an account's context window, in tokens, and leaves it out when the account names none (PRD 2537, s8)", () => {
+    const read = parseAccounts(`accounts:\n  - id: a\n    instance: x\n    contextWindow: 1000000\n  - id: b\n    instance: y\nhandoff:\n  usage: 50\n  context: 99\n`);
+    expect(read.accounts[0]?.contextWindow).toBe(1_000_000);
+    expect(read.accounts[1]).not.toHaveProperty('contextWindow');
+    expect(read.handoff).toEqual({ usage: 50, context: 99 });
+  });
+
   it('gives the default thresholds when the file sets none', () => {
     expect(parseAccounts(one('    instance: x\n')).handoff).toEqual(DEFAULT_HANDOFF);
   });
@@ -76,6 +83,11 @@ describe('the accounts file', () => {
     ['a threshold it does not know', `${one('    instance: x\n')}handoff:\n  speed: 90\n`, 'handoff: speed is not a threshold (usage, context)'],
     ['a section it does not know', `${one('    instance: x\n')}pool: 3\n`, 'pool is not a section of the file (accounts, handoff)'],
     ['text that is not YAML', 'accounts: [', 'the file is not valid YAML'],
+    ['a context window that is not a whole positive number', one('    instance: x\n    contextWindow: 2.5\n'), 'account a: contextWindow must be a whole positive number of tokens'],
+    ['a context window of text', one('    instance: x\n    contextWindow: big\n'), 'account a: contextWindow must be a whole positive number of tokens'],
+    ['a negative context window', one('    instance: x\n    contextWindow: -1\n'), 'account a: contextWindow must be a whole positive number of tokens'],
+    ['a usage threshold that is not whole', `${one('    instance: x\n')}handoff:\n  usage: 90.5\n`, 'handoff: usage must be a whole percent from 50 to 99'],
+    ['a handoff that is not a mapping', `${one('    instance: x\n')}handoff: 90\n`, 'handoff: must be a mapping with usage and context'],
   ])('refuses %s, naming the account and the field', (_name, source, words) => {
     expect(refusal(source)).toBe(words);
   });
