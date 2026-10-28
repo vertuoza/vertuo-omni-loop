@@ -537,6 +537,14 @@ describe('POST /api/runners/<id>/health', () => {
     expect(w.state.samples).toHaveLength(1);
   });
 
+  it('keeps the accounts of a report in the runner\'s health, and refuses one that names more than ids and states (PRD 2537)', async () => {
+    const w = world();
+    const accounts = [{ id: 'claude-1', agent: 'claude', state: 'out', resetsAt: '2026-10-27T18:00:00Z' }];
+    expect((await reportHealth(post(`/${SHARED}/health`, 'olga-token', { ...REPORT, paused: 'no tokens left until 18:00', accounts }), SHARED, w.deps)).status).toBe(200);
+    expect(w.state.runners.find((r) => r.id === SHARED)?.health).toMatchObject({ paused: 'no tokens left until 18:00', accounts });
+    expect((await reportHealth(post(`/${SHARED}/health`, 'olga-token', { ...REPORT, accounts: [{ ...accounts[0], secret: '/x' }] }), SHARED, w.deps)).status).toBe(400);
+  });
+
   it('refuses a malformed report: a negative figure, an unknown field, or no JSON', async () => {
     expect(await read(await health(SHARED, 'olga-token', { ...REPORT, memUsed: -1 }))).toMatchObject({ status: 400, body: { error: expect.stringContaining('"cpu"') as unknown } });
     expect((await health(SHARED, 'olga-token', { ...REPORT, hostname: 'box-1' })).status).toBe(400);

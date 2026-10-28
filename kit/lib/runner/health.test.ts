@@ -2,7 +2,13 @@
 // the pause (s2): `pressure()` on a sample and the runner's limits, and `nextPause()`, which pauses on one
 // sample under pressure and resumes on two quiet ones in a row.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LIMITS, nextPause, pressure, sample } from './health.ts';
+import { accountsReport, DEFAULT_LIMITS, nextPause, noTokensReason, pressure, sample } from './health.ts';
+import { accountBook } from './accounts.ts';
+import type { Account } from './accounts.ts';
+import type { AccountReport } from './api.ts';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { CoreTimes, MachineReads, PauseState, Sample } from './health.ts';
 
 const GB = 1024 ** 3;
@@ -154,5 +160,30 @@ describe('nextPause()', () => {
     const again = nextPause(once, 'load 14.2 on 8 cores');
     expect(again).toEqual({ state: { reason: 'load 14.2 on 8 cores', quiet: 0 }, change: null });
     expect(nextPause(again.state, null).change).toBeNull();
+  });
+});
+
+describe('the accounts in a report (PRD 2537, s6)', () => {
+  const account = (id: string): Account => ({ id, agent: 'claude', instance: null, model: 'secret-model', secret: '/secret/path', budget: null, takes: null });
+  const at = '2026-10-16T18:00:00.000Z';
+  const hhmm = `${String(new Date(at).getUTCHours()).padStart(2, '0')}:${String(new Date(at).getUTCMinutes()).padStart(2, '0')}`;
+
+  it('names each account\'s id, agent and state in the file\'s order, and nothing else of it', () => {
+    const book = accountBook({ file: join(mkdtempSync(join(tmpdir(), 'omni-health-')), 'state.json'), now: () => Date.parse('2026-10-16T12:00:00.000Z') });
+    book.markOut('b', at);
+    book.activate('c');
+    expect(accountsReport([account('a'), account('b'), account('c')], book)).toEqual([
+      { id: 'a', agent: 'claude', state: 'ready' },
+      { id: 'b', agent: 'claude', state: 'out', resetsAt: at },
+      { id: 'c', agent: 'claude', state: 'active' },
+    ]);
+  });
+
+  it('reads no tokens left, until the earliest reset, only when every account is out', () => {
+    const out = (id: string, resetsAt: string): AccountReport => ({ id, agent: 'claude', state: 'out', resetsAt });
+    expect(noTokensReason([out('a', '2026-10-16T20:00:00.000Z'), out('b', at)])).toBe(`no tokens left until ${hhmm}`);
+    expect(noTokensReason([out('a', at), { id: 'b', agent: 'claude', state: 'ready' }])).toBeNull();
+    expect(noTokensReason([out('a', at), { id: 'b', agent: 'claude', state: 'active' }])).toBeNull();
+    expect(noTokensReason([])).toBeNull();
   });
 });

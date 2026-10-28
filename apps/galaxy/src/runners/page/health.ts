@@ -127,17 +127,47 @@ export function asOfWords(runner: Pick<Runner, 'state' | 'health'>, now: Date): 
 export const OLD_RUNNER_WORDS = 'Update this runner to see its health.';
 export const UPDATE_COMMAND = 'omni update';
 
+/** A time as `HH:MM`, UTC, as the rest of the page gives times. */
+const clockOf = (iso: string): string => {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? iso : `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`;
+};
+
+/** One account chip of a runner's row (PRD 2537): its id, its tone (the state: `ready` in the ink colour, `active` in the signal
+ * colour, `out` in red) and its title, the agent and the state in words: `claude · out until 18:00 UTC`. */
+export type AccountChip = { id: string; tone: 'ready' | 'active' | 'out'; title: string };
+
+/** A runner's account chips in the file's order; none for a runner that reported no accounts. */
+export function accountChips(runner: Pick<Runner, 'health'>): AccountChip[] {
+  return (runner.health?.accounts ?? []).map((account) => ({
+    id: account.id,
+    tone: account.state,
+    title: `${account.agent} · ${account.state === 'out' ? (account.resetsAt === undefined ? 'out' : `out until ${clockOf(account.resetsAt)} UTC`) : account.state}`,
+  }));
+}
+
+const TOKENS_PREFIX = 'no tokens left';
+
+/** The reset the runner waits for: the earliest `resetsAt` of its accounts, `Infinity` when it reported none. */
+const resetOf = (runner: { health?: { accounts?: readonly { resetsAt?: string | undefined }[] | undefined } | null | undefined }): number =>
+  Math.min(...(runner.health?.accounts ?? []).flatMap((account) => (account.resetsAt === undefined ? [] : [Date.parse(account.resetsAt)])).filter((at) => !Number.isNaN(at)), Infinity);
+
 /** Why a queued job waits: every runner it could go to (any, its fleet's, or its one runner) is online and paused. Null when
- * some other runner could take it, or when none could. */
+ * some other runner could take it, or when none could. When all of them are out of tokens (PRD 2537), the earliest reset. */
 export function waitingWords(
   job: Pick<Job, 'status' | 'toRunner' | 'toFleet' | 'repo'>,
-  runners: readonly (Pick<Runner, 'id' | 'name' | 'fleet' | 'state' | 'repos'> & Paused)[],
+  runners: readonly (Pick<Runner, 'id' | 'name' | 'fleet' | 'state' | 'repos'> & { health?: Pick<RunnerHealth, 'paused' | 'accounts'> | null | undefined })[],
 ): string | null {
   if (job.status !== 'queued') return null;
   const possible = runners.filter((r) => couldTake(job, r));
   const reasons = possible.map((r) => (r.state === 'offline' ? null : r.health?.paused ?? null));
   const first = reasons[0];
   if (!first || reasons.some((reason) => !reason)) return null;
+  if (reasons.every((reason) => reason?.startsWith(TOKENS_PREFIX) === true)) {
+    const soonest = possible.reduce((best, r) => (resetOf(r) < resetOf(best) ? r : best));
+    const reset = resetOf(soonest);
+    return `Waiting: every runner out of tokens${Number.isFinite(reset) ? ` until ${clockOf(new Date(reset).toISOString())}` : ''}`;
+  }
   const only = possible.length === 1 ? possible[0] : undefined;
   return only ? `Waiting: ${only.name} paused (${first})` : `Waiting: every runner paused (${first})`;
 }
