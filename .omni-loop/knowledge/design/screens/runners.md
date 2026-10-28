@@ -56,7 +56,8 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   - A queued job that no runner of the workspace can take reads **Cannot run** in `--ask-red`, in
     place of Queued, with why under it (PRD 2482): `No runner holds <owner/name>`, `<runner> does not
     hold <owner/name>`, `No runner of <fleet> holds <owner/name>`, `The runner it was sent to is gone`,
-    `Fleet <fleet> is gone`, or `No runner can run it as <key>'s GitHub App`. An offline, busy or
+    `Fleet <fleet> is gone`, or `Update the runner's kit` (PRD 2573, which
+    replaced `No runner can run it as <key>'s GitHub App`). An offline, busy or
     paused runner still counts. It keeps its Cancel, and reads Queued again once a runner can take it.
   - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
     (PRD 2022), followed by ` · for <acting_for>` when the app said whom it acted for, as given and
@@ -86,7 +87,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 
 Runners · Runner · State · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
-Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · GitHub App · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
+Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · Omni App · Update the runner's kit · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
 health · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
@@ -119,3 +120,4 @@ health · Released · Could not release this job's claims · Need human · Stopp
 /omni:brainstorm, PRD 2375: .omni-loop/delivery/shipped/2375-job-stopped-mid-way/before-after.html
 /omni:brainstorm, PRD 2425: .omni-loop/delivery/shipped/2425-api-key-job-control/before-after.html
 /omni:brainstorm, PRD 2482: .omni-loop/delivery/shipped/2482-runner-cannot-run/before-after.html
+/omni:brainstorm, PRD 2573: .omni-loop/delivery/inbox/2573-runner-jobs-as-omni-app/before-after.html

@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-28",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Every agent PR reads as the bot, so the team can tell agent work from a colleague's at a glance.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Reusing the PRD 2433 token path instead of a new mechanism is a shape I trust.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A job that cannot get the App fails before it starts, rather than pushing under someone's name.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Nothing new for me to set up: I send the job and it signs as Omni.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 2,
+          "reaction": "I send work to runners all day to ship fast. If an old-kit runner takes nothing, or a repository lacks the App, my jobs sit or fail and I lose a day.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Paul - Product Manager",
+        "text": "I send work to runners all day to ship fast. If an old-kit runner takes nothing, or a repository lacks the App, my jobs sit or fail and I lose a day.",
+        "citations": [
+          "persona:Paul - Product Manager"
+        ],
+        "settled": "just-this-run"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-28",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The spec names each failure and its reason, and keeps who sent the job in the body.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A database guard and a runner guard behind the server: three places a person's login can no longer leak through.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The workflows-permission risk is named up front instead of surfacing as a red job.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Reviewers can approve the bot's PRs, so my quick wins stop waiting on whoever owns the box.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "The page says to update the runner's kit, so at least I know why a job waits.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✗"
+    }
+  ]
+}
