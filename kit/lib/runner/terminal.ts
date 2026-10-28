@@ -53,14 +53,20 @@ function runs(exec: ExecText, file: string, args: string[]): { ok: boolean; out:
   }
 }
 
+/** What a runner needs of `claude` on its own machine: `login` is a signed-in install (no accounts file, as ever), `installed` an install (direct accounts hold their own sign-in), `none` nothing (PRD 2537). */
+export type ClaudeNeed = 'login' | 'installed' | 'none';
+
 /**
- * The one line saying which tool a job needs is missing, or `null` when all are here: `claude`
- * installed, `claude` signed in (`claude auth status`), and tmux.
+ * The one line saying which tool a job needs is missing, or `null` when all are here: `claude` installed
+ * and, unless the accounts file gives every direct account its own secret, signed in (`claude auth
+ * status`), and tmux.
  */
-export function missingTool(exec: ExecText): string | null {
-  if (!runs(exec, 'claude', ['--version']).ok) return 'claude is not installed: install Claude Code, then start the runner again';
-  const status = runs(exec, 'claude', ['auth', 'status']);
-  if (!status.ok || /"loggedIn"\s*:\s*false/.test(status.out)) return 'claude is not signed in: run claude auth login, then start the runner again';
+export function missingTool(exec: ExecText, claude: ClaudeNeed = 'login'): string | null {
+  if (claude !== 'none' && !runs(exec, 'claude', ['--version']).ok) return 'claude is not installed: install Claude Code, then start the runner again';
+  if (claude === 'login') {
+    const status = runs(exec, 'claude', ['auth', 'status']);
+    if (!status.ok || /"loggedIn"\s*:\s*false/.test(status.out)) return 'claude is not signed in: run claude auth login, then start the runner again';
+  }
   if (!runs(exec, 'tmux', ['-V']).ok) return 'tmux is not installed: install it, then start the runner again';
   return null;
 }

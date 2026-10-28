@@ -1,0 +1,14 @@
+{
+  "client_id": "eyJ2IjoxLCJuIjoiT21uaSBydW5uZXIifQ.fixture-signature",
+  "client_name": "Omni runner",
+  "redirect_uris": [
+    "http://127.0.0.1/omni-runner/t3-callback"
+  ],
+  "grant_types": [
+    "authorization_code"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "token_endpoint_auth_method": "none"
+}

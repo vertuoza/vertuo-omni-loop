@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   AnswerRequestSchema, AskRequestSchema, checkLine, checkLineShape, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
-  GithubTokenReplySchema, KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RunnerReplySchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
+  GithubTokenReplySchema, KitRunnersSchema, linePrd, PARTS_MAX, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RunnerReplySchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -291,6 +291,16 @@ describe('the health report', () => {
 
   it('refuses a number JSON cannot carry', () => {
     for (const odd of [Number.POSITIVE_INFINITY, Number.NaN]) expect(HealthReportSchema.safeParse({ ...report, load1: odd }).success).toBe(false);
+  });
+
+  // The accounts (PRD 2537 s6): ids, agents and states only, optional for an older runner.
+  it('takes the accounts of a runner, an id and a state each, and refuses anything else about one', () => {
+    const accounts = [{ id: 'claude-1', agent: 'claude', state: 'out', resetsAt: '2026-10-27T18:00:00Z' }, { id: 'codex-1', agent: 't3', state: 'ready' }];
+    expect(HealthReportSchema.parse({ ...report, accounts })).toEqual({ ...report, accounts });
+    expect(HealthReportSchema.safeParse({ ...report, accounts: [] }).success).toBe(true);
+    for (const bad of [{ id: 'a', agent: 'claude', state: 'asleep' }, { id: 'a', agent: 'claude', state: 'ready', secret: '/x' }, { agent: 'claude', state: 'ready' }, { id: '', agent: 'claude', state: 'ready' }]) {
+      expect(HealthReportSchema.safeParse({ ...report, accounts: [bad] }).success).toBe(false);
+    }
   });
 });
 
@@ -655,5 +665,40 @@ describe('the board\'s GitHub App facts (PRD 2482)', () => {
     expect(RunnerReplySchema.parse({ runner: { ...runner, githubApp: false } }).runner.githubApp).toBe(false);
     expect(JobReplySchema.safeParse({ job: { ...job, needsApp: 'yes' } }).success).toBe(false);
     expect(RunnerReplySchema.safeParse({ runner: { ...runner, githubApp: 1 } }).success).toBe(false);
+  });
+});
+
+// A job's parts (PRD 2537, s3): a job report may carry one part per account the job ran on, in order; a
+// report from a runner older than this PRD carries none and stays valid. A part names an account by its id
+// only: no field of it can hold a secret's file or value.
+describe('the parts a report carries', () => {
+  const limit = {
+    agent: 'claude', model: 'claude-opus-5-5', account: 'claude-1', from: '2026-10-27T13:41:02.000Z', to: '2026-10-27T14:02:11.000Z',
+    tokens: { input: 912_000, output: 61_000, cacheRead: 3_100_000, cacheWrite: 240_000 }, ended: 'limit', resetsAt: '2026-10-27T18:00:00.000Z', guessed: false, note: 'runner',
+  };
+  const running = { agent: 'codex', model: 'gpt-5-codex', account: 'codex-1', from: '2026-10-27T14:02:15.000Z', to: null, ended: null };
+
+  it('takes a job report with its parts, a running part last, and an old runner\'s report without them', () => {
+    expect(JobUpdateSchema.parse({ status: 'running', parts: [limit, running] })).toEqual({ status: 'running', parts: [limit, running] });
+    expect(JobUpdateSchema.parse({ status: 'done', parts: [{ ...running, model: null, to: '2026-10-27T14:30:00.000Z', ended: 'done' }] }).parts).toHaveLength(1);
+    expect(JobUpdateSchema.parse({ status: 'running' })).toEqual({ status: 'running' });
+  });
+
+  it.each([
+    ['an empty list', []],
+    ['more than 20 parts', Array.from({ length: PARTS_MAX + 1 }, () => running)],
+    ['an end it does not know', [{ ...running, ended: 'tired' }]],
+    ['a field it does not know, a secret included', [{ ...running, secret: '/home/box/.config/omni/secrets/claude-1' }]],
+    ['an account that is not an id', [{ ...running, account: 'claude 1' }]],
+    ['a time that is not a time', [{ ...running, from: 'yesterday' }]],
+    ['a note it does not know', [{ ...limit, note: 'person' }]],
+    ['tokens out of shape', [{ ...limit, tokens: { ...limit.tokens, input: -1 } }]],
+    ['no agent', [{ ...running, agent: '' }]],
+  ])('refuses a job report with %s', (_, parts) => {
+    expect(JobUpdateSchema.safeParse({ status: 'running', parts }).success).toBe(false);
+  });
+
+  it('refuses a job report whose parts are null', () => {
+    expect(JobUpdateSchema.safeParse({ status: 'running', parts: null }).success).toBe(false);
   });
 });

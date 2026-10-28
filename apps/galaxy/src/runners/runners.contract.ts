@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?, parts?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running and for 10 minutes after it ends (PRD 2433) → {token, expiresAt}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
@@ -222,6 +222,29 @@ const TokenCountsSchema = z.object({
 }).strict();
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
+/** The most parts a job's report carries (PRD 2537): three account changes and five fresh sessions make nine at most. */
+export const PARTS_MAX = 20;
+
+/** How a part of a job ended (PRD 2537): a planned handoff on usage or context, the account's limit, or the job's own end. */
+const PART_ENDS = ['usage', 'context', 'limit', 'done', 'failed'] as const;
+
+/** One run of a job, on one account (PRD 2537): the agent and model it ran, the account by the id its owner wrote, when it
+ * ran (`to` null while it runs), its tokens, how it ended (null while it runs), the reset of an account it left out of
+ * tokens (`guessed` when the agent named none), and who wrote the note it handed off with. No secret is ever in it. */
+export const JobPartSchema = z.object({
+  agent: z.string().min(1).max(40),
+  model: z.string().min(1).max(120).nullable(),
+  account: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/),
+  from: z.iso.datetime(),
+  to: z.iso.datetime().nullable(),
+  tokens: TokenCountsSchema.optional(),
+  ended: z.enum(PART_ENDS).nullable(),
+  resetsAt: z.iso.datetime().nullable().optional(),
+  guessed: z.boolean().optional(),
+  note: z.enum(['agent', 'runner']).optional(),
+}).strict();
+export type JobPart = z.infer<typeof JobPartSchema>;
+
 /** What a done job ended on: a yolo hand-off (PRD 2223), the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held)
  * or `/omni:pr-care` (ready); `human` (PRD 2255), the run ended with the questions it asked a person still open; or `stopped` (PRD 2375), a
  * `/omni:yolo` or `/omni:yolo-fix` run that exited with no hand-off line, so it is not done. */
@@ -269,6 +292,8 @@ export const JobUpdateSchema = z.object({
   /** The PRD's slices merged and its slices in all, read when a job ended `stopped` (PRD 2375), stored in `runner_jobs.slices_merged` and `slices_total`. */
   slicesMerged: z.number().int().nonnegative().optional(),
   slicesTotal: z.number().int().nonnegative().optional(),
+  /** The job's runs, one per account it ran on, in order, at most 20 (PRD 2537), stored in `runner_jobs.parts`. */
+  parts: z.array(JobPartSchema).min(1).max(PARTS_MAX).optional(),
 }).strict()
   .refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' })
   .refine((report) => (report.slicesMerged === undefined) === (report.slicesTotal === undefined), { message: 'slicesMerged and slicesTotal come together' })
@@ -293,6 +318,14 @@ const HealthLimitsSchema = z.object({
   maxLoad: z.number().positive(),
 }).strict();
 
+/** One account of a runner in its health report (PRD 2537): the id its owner wrote, its agent and its state, and when it is out until; nothing else about it. */
+const AccountReportSchema = z.object({
+  id: z.string().min(1).max(40),
+  agent: z.string().min(1).max(20),
+  state: z.enum(['ready', 'active', 'out']),
+  resetsAt: z.string().max(40).optional(),
+}).strict();
+
 /** A runner's health report (PRD 2102): its machine's sample, numbers only, and, from a runner that pauses,
  * why it is paused (80 characters at most, or null) and the limits it pauses at. */
 export const HealthReportSchema = z.object({
@@ -307,6 +340,8 @@ export const HealthReportSchema = z.object({
   limits: HealthLimitsSchema.optional(),
   /** The machine's tokens of the last 5 hours and since midnight UTC; a count the runner could not read is null. */
   tokens: z.object({ last5h: TokenCountsSchema.nullable(), today: TokenCountsSchema.nullable() }).strict().optional(),
+  /** The runner's accounts in the file's order, ids and states only (PRD 2537); left out by a runner without an accounts file. */
+  accounts: z.array(AccountReportSchema).max(20).optional(),
 }).strict();
 export type HealthReport = z.infer<typeof HealthReportSchema>;
 
@@ -366,6 +401,8 @@ const JobSchema = z.object({
   reason: z.string().nullable(),
   /** The tokens its runner reported (PRD 2102); null until one did. */
   tokens: TokenCountsSchema.nullable().optional(),
+  /** Its runs, one per account it ran on, in order (PRD 2537); null until its runner reported them. */
+  parts: z.array(JobPartSchema).nullable().optional(),
   /** The claims its runner released once it ended (PRD 2175); null when its report said none. */
   released: z.array(z.number().int()).nullable().optional(),
   /** Why its runner could not release its claims (PRD 2175); null when nothing failed. */

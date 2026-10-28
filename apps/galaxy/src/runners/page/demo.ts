@@ -60,7 +60,11 @@ export function demoRunnersPage(now: Date): RunnersPageView {
     runners: [
       runner({
         id: DEMO_RUNNERS.agents, name: 'acme-agents', state: 'busy', fleet: 'comets', slots: 1, used: 1,
-        health: { ...report(63, 14.6, 41, 'memory 91%'), tokens: TOKENS }, samples: samples(63, 14.6, 41, 10_214_797),
+        health: {
+          ...report(63, 14.6, 41, 'memory 91%'), tokens: TOKENS,
+          // Its accounts (PRD 2537): the first is out until its limit resets, the second carries the job on.
+          accounts: [{ id: 'seat-1', agent: 'opencode', state: 'out', resetsAt: at(240) }, { id: 'codex-1', agent: 't3', state: 'active' }, { id: 'seat-2', agent: 'opencode', state: 'ready' }],
+        }, samples: samples(63, 14.6, 41, 10_214_797),
       }),
       runner({
         id: DEMO_RUNNERS.office, name: 'mac-mini-office', state: 'online', repos: ['acme/widgets', 'acme/mobile'],
@@ -76,6 +80,11 @@ export function demoRunnersPage(now: Date): RunnersPageView {
         line: '/omni:yolo 1717', status: 'running', toRunner: DEMO_RUNNERS.agents, runner: DEMO_RUNNERS.agents, claimedAt: at(-12), runningAt: at(-12),
         logTail: 'wave 1 · slice s1 · tests green\nopened https://github.com/acme/widgets/pull/1841',
         tokens: { input: 31_002, output: 190_455, cacheRead: 1_150_330, cacheWrite: 84_012 },
+        // It turned over (PRD 2537): its first account hit its usage limit, and the second carries it on.
+        parts: [
+          { agent: 'codex', model: 'gpt-5-codex', account: 'codex-1', from: at(-12), to: at(-5), ended: 'limit', resetsAt: at(180), guessed: false, note: 'runner' },
+          { agent: 'opencode', model: 'mistral/devstral-medium-latest', account: 'open-1', from: at(-5), to: null, ended: null },
+        ],
       }),
       job({ line: '/omni:pr-care 1801', status: 'queued', toFleet: 'comets', sentBy: ADA, sentByLogin: 'ada', queuedAt: at(-2) }),
       job({

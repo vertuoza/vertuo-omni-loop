@@ -15,7 +15,8 @@
 import { availableParallelism, cpus, freemem, loadavg, platform, totalmem } from 'node:os';
 import { existsSync, readFileSync, statfsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { HealthLimits } from './api.ts';
+import type { AccountReport, HealthLimits } from './api.ts';
+import type { Account, AccountBook } from './accounts.ts';
 
 /** One core's times, as `os.cpus()` gives them, in milliseconds. */
 export type CoreTimes = { user: number; nice: number; sys: number; idle: number; irq: number };
@@ -198,4 +199,26 @@ export function nextPause(state: PauseState, reason: string | null): { state: Pa
   if (state.reason === null) return { state, change: null };
   const quiet = state.quiet + 1;
   return quiet < QUIET_TO_RESUME ? { state: { reason: state.reason, quiet }, change: null } : { state: { reason: null, quiet: 0 }, change: 'resumed' };
+}
+
+/** The states of a runner's accounts, in the file's order, for its health report (PRD 2537): ids, agents and states only. */
+export function accountsReport(accounts: readonly Account[], book: AccountBook): AccountReport[] {
+  return accounts.map((account) => {
+    const { state, resetsAt } = book.stateOf(account.id);
+    return resetsAt === null ? { id: account.id, agent: account.agent, state } : { id: account.id, agent: account.agent, state, resetsAt };
+  });
+}
+
+/** A time as the page reads it, `HH:MM` in UTC, as the rest of the app gives times: `18:00`. */
+const clock = (at: Date): string => `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`;
+
+/**
+ * Why no job can start on any account (PRD 2537, "Paused: no tokens left"): `no tokens left until 18:00`, the earliest
+ * reset of the accounts, when every account is out; `null` when one is not, or there are no accounts to speak of.
+ */
+export function noTokensPause(reports: readonly AccountReport[]): string | null {
+  if (reports.length === 0 || reports.some((report) => report.state !== 'out')) return null;
+  const resets = reports.flatMap((report) => (report.resetsAt === undefined ? [] : [Date.parse(report.resetsAt)])).filter((at) => !Number.isNaN(at));
+  const first = Math.min(...resets);
+  return Number.isFinite(first) ? `no tokens left until ${clock(new Date(first))}` : 'no tokens left';
 }

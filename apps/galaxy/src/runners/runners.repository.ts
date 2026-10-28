@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type Question } from './runners.contract';
+import { JobPartSchema, QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -54,6 +54,8 @@ const JobRow = z.object({
   reason: z.string().nullable(),
   /** The tokens its runner reported (PRD 2102); one out of shape, or a database without the column, reads as none. */
   tokens: TokensColumn,
+  /** Its runs, one per account it ran on (PRD 2537); a list out of shape, or a database without the column, reads as none. */
+  parts: z.array(JobPartSchema).nullable().catch(null).optional(),
   /** The claims its runner released once it ended (PRD 2175); one out of shape reads as none. */
   released: z.array(z.number()).nullable().catch(null).optional(),
   /** Why its runner could not release them (PRD 2175). */
@@ -87,7 +89,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -170,7 +172,7 @@ export type KeyStart = { actingFor?: string | undefined; notifyUrl?: string | un
 export type NewRelaunch = NewJob & { continues: string; actingFor: string | null; notifyUrl: string | null };
 
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'follow_ups' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'parts' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'follow_ups' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 

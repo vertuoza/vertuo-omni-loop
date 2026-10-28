@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","cwd":"/home/runner/wt/widgets-job-11","session_id":"1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e","tools":["Bash"],"model":"claude-opus-5-5"}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1793206800,"rateLimitType":"five_hour","isUsingOverage":false},"uuid":"e1","session_id":"1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e"}
+{"type":"assistant","message":{"id":"msg_41","model":"claude-opus-5-5","role":"assistant","content":[{"type":"text","text":"Server is temporarily limiting requests (not your usage limit)"}],"usage":{"input_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":30000,"output_tokens":10}},"session_id":"1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e"}
+{"type":"result","subtype":"error_during_execution","is_error":true,"duration_ms":9000,"num_turns":1,"result":"API Error: 529 Overloaded","session_id":"1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e","total_cost_usd":0.02}
