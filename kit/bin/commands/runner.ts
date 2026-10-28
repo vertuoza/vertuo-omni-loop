@@ -7,7 +7,7 @@
 //   omni runner github-token [--git get]
 //   omni runner send '<line>' [--to <runner|fleet>]
 //   omni runner follow <n>
-//   omni runner job --line <file> --log <file> --exit <file>
+//   omni runner job --line <file> --log <file> --exit <file> [--account <id>]
 //   omni runner ask --file <file> --issue <n> --lead <file>
 //   omni runner answers <job>
 //
@@ -24,6 +24,10 @@
 // percent (1 to 100, 85 unless given), disk free below `--min-disk` GB (0 or more, 10 unless given), or
 // a 1-minute load above `--max-load` times its cores (above 0, 1.5 unless given). A limit out of range
 // is refused in plain words before the runner registers.
+// It reads `~/.config/omni/accounts.yml` first (PRD 2537, `../../lib/runner/accounts.ts`): a malformed file is refused
+// in one line naming the account and the field, before the runner registers. Each job starts on the first account that
+// is ready, whose `takes` allows its skill and whose agent passed its check, and its session runs `job --account <id>`;
+// no file is one Claude account run directly, as ever, and `claude` signed in is asked of the machine only then.
 // The Omni page is the `ask.url` of the config where it runs, else of the first checkout held that
 // sets one.
 //
@@ -71,6 +75,10 @@ import type { IssueNumber } from '../../lib/ids.ts';
 import { runningKit } from '../../lib/init/bundle.ts';
 import { jobQuestionsApi, RunnerRefused, RunnerUnreachable, runnerApi } from '../../lib/runner/api.ts';
 import type { HealthLimits, JobQuestionsApi } from '../../lib/runner/api.ts';
+import { AccountsError, agentAccountOf, readAccounts } from '../../lib/runner/accounts.ts';
+import type { Accounts } from '../../lib/runner/accounts.ts';
+import type { Agent, AgentAccount } from '../../lib/runner/agents/agent.ts';
+import { agentNamed } from '../../lib/runner/agents/index.ts';
 import { listCheckouts } from '../../lib/runner/checkouts.ts';
 import { keepGithubToken } from '../../lib/runner/github-refresh.ts';
 import type { RefreshOptions } from '../../lib/runner/github-refresh.ts';
@@ -85,6 +93,7 @@ import { releaser } from '../../lib/runner/release.ts';
 import { KEEP_LOGS_DAYS, runRunner } from '../../lib/runner/runner.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
+import type { ClaudeNeed } from '../../lib/runner/terminal.ts';
 import type { Terminal } from '../../lib/runner/terminal.ts';
 import { issueArg, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
@@ -187,10 +196,10 @@ function jobEnv({ env, vars }: FreeIo): Record<string, string> {
 const timing = ({ sleep, now, tickMs, backoff, machine }: RunnerCommandOptions) => ({ sleep, now, tickMs, backoff, machine });
 
 /** The Omni page, or the one line saying why the runner cannot start. */
-function pageOrRefusal(cwd: string, repos: string, checkouts: ReadonlyMap<string, string>, exec: Exec): { askUrl: string } | { refusal: string } {
+function pageOrRefusal(cwd: string, repos: string, checkouts: ReadonlyMap<string, string>, exec: Exec, claude: ClaudeNeed): { askUrl: string } | { refusal: string } {
   const askUrl = findAskUrl(cwd, checkouts, exec);
   if (askUrl === null) return { refusal: `no Omni page is set (ask.url) here or in any checkout under ${repos}` };
-  const missing = missingTool(exec);
+  const missing = missingTool(exec, claude);
   return missing === null ? { askUrl } : { refusal: missing };
 }
 
@@ -204,11 +213,22 @@ function wiring(io: FreeIo & RunnerCommandOptions) {
   return { tokens, stop, terminal: io.terminal ?? tmuxTerminal(io.exec), home: io.home ?? homedir(), fetch: io.fetch ?? globalThis.fetch };
 }
 
+/** What the accounts file asks of `claude` on this machine: nothing it leaves unused, a sign-in only when there is no file. */
+function claudeNeed({ file, accounts }: Accounts): ClaudeNeed {
+  if (!file) return 'login';
+  return accounts.some((account) => account.agent === 'claude') ? 'installed' : 'none';
+}
+
 async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
   const { cwd, stdout, stderr, exec, script } = io;
   const { name, slots, timeoutMs, repos, keepLogsDays, limits } = readFlags(args, cwd);
+  const accounts = readAccountsOf(io.home ?? homedir());
+  if ('refusal' in accounts) {
+    println(stderr, `omni runner: ${accounts.refusal}`);
+    return 1;
+  }
   const checkouts = listCheckouts(repos, exec);
-  const page = pageOrRefusal(cwd, repos, checkouts, exec);
+  const page = pageOrRefusal(cwd, repos, checkouts, exec, claudeNeed(accounts));
   if ('refusal' in page) {
     println(stderr, `omni runner: ${page.refusal}`);
     return 1;
@@ -230,6 +250,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
       githubToken: [process.execPath, script, 'runner', 'github-token'],
       askUrl: page.askUrl,
       env: jobEnv(io),
+      accounts,
       release: releaser({ exec, checkouts, env: io.env }),
       slices: (prd, dir) => (io.mergedOf ?? ((n) => boardCount(n, { ...io, cwd: dir })))(prd),
       print: (line) => {
@@ -245,10 +266,33 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
   }
 }
 
-async function job(args: string[], { cwd, stdout }: FreeIo): Promise<number> {
-  const { positional, flags } = parseArgs('runner', args, { values: ['line', 'log', 'exit'] });
-  if (positional.length || !flags.line || !flags.log || !flags.exit) throw usageError('usage: omni runner job --line <file> --log <file> --exit <file>');
-  return runJobProcess({ cwd, files: { line: flags.line, log: flags.log, exit: flags.exit }, out: stdout });
+/** The accounts of the file under `home` (the one fallback account with no file), or the one line refusing a malformed one. */
+function readAccountsOf(home: string): Accounts | { refusal: string } {
+  try {
+    return readAccounts({ home });
+  } catch (error) {
+    if (error instanceof AccountsError) return { refusal: `accounts.yml: ${error.message}` };
+    throw error;
+  }
+}
+
+/** The run of a job on the account `id` of the file under `where`: its agent, and the account as that agent sees it, or the refusal. */
+function accountRunOf(id: string, where: string): { agent: Agent; account: AgentAccount } | { refusal: string } {
+  const accounts = readAccountsOf(where);
+  if ('refusal' in accounts) return accounts;
+  const account = accounts.accounts.find((candidate) => candidate.id === id);
+  const agent = account === undefined ? null : agentNamed(account.agent);
+  if (account === undefined || agent === null) return { refusal: `account ${id} cannot run a job here` };
+  return { agent, account: agentAccountOf(account, where) };
+}
+
+async function job(args: string[], { cwd, stdout, stderr, home }: FreeIo & RunnerCommandOptions): Promise<number> {
+  const { positional, flags } = parseArgs('runner', args, { values: ['line', 'log', 'exit', 'account'] });
+  if (positional.length || !flags.line || !flags.log || !flags.exit) throw usageError('usage: omni runner job --line <file> --log <file> --exit <file> [--account <id>]');
+  const files = { line: flags.line, log: flags.log, exit: flags.exit };
+  if (flags.account === undefined) return runJobProcess({ cwd, files, out: stdout });
+  const run = accountRunOf(flags.account, home ?? homedir());
+  return 'refusal' in run ? refused(stderr, run.refusal) : runJobProcess({ cwd, files, out: stdout, ...run });
 }
 
 /** One line on stderr, the app's words or ours, and the exit code of an `ask` or `answers` that did not go through. */

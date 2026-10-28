@@ -719,6 +719,85 @@ describe('omni runner', () => {
     }
   });
 
+  describe('the accounts file (PRD 2537, s2)', () => {
+    const accountsAt = (home: string, text: string): void => {
+      mkdirSync(join(home, '.config', 'omni'), { recursive: true });
+      writeFileSync(join(home, '.config', 'omni', 'accounts.yml'), text);
+    };
+
+    it('refuses to register on a malformed file, naming the account and the field', async () => {
+      const f = fixture();
+      accountsAt(f.home, 'accounts:\n  - id: one\n    instance: i\n    takes: [deploy]\n');
+      const app = fakeApp();
+      const run = startRunner(f, app);
+      expect(await run.done).toBe(1);
+      expect(run.stderr.text()).toBe('omni runner: accounts.yml: account one: takes holds "deploy", which is not a skill a runner runs\n');
+      expect(app.calls).toEqual([]);
+    });
+
+    it('asks nothing of claude when every account runs through T3, and registers', async () => {
+      const f = fixture();
+      accountsAt(f.home, 'accounts:\n  - id: one\n    instance: i\n');
+      const app = fakeApp();
+      const run = startRunner(f, app, { exec: fakeExec({ claude: false }) });
+      await until(() => app.calls.some((call) => call.path === '/api/runners/register'), 'the runner to register');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+    });
+
+    it('still wants claude installed when an account runs it directly, but not signed in', async () => {
+      const f = fixture();
+      accountsAt(f.home, 'accounts:\n  - id: one\n    agent: claude\n');
+      const missing = startRunner(f, fakeApp(), { exec: fakeExec({ claude: false }) });
+      expect(await missing.done).toBe(1);
+      expect(missing.stderr.text()).toContain('claude is not installed');
+      const app = fakeApp();
+      const signedOut = startRunner(f, app, { exec: fakeExec({ signedIn: false }) });
+      await until(() => app.calls.some((call) => call.path === '/api/runners/register'), 'the runner to register');
+      signedOut.stop.abort();
+      expect(await signedOut.done).toBe(0);
+    });
+
+    it('runs a job on the account the session names, with its secret as the token for that run only', async () => {
+      const f = fixture();
+      const secret = join(f.root, 'secret');
+      writeFileSync(secret, 'sk-direct-secret\n');
+      accountsAt(f.home, `accounts:\n  - id: keyed\n    agent: claude\n    model: m-1\n    secret: ${secret}\n`);
+      const files = { line: join(f.root, 'job.line'), log: join(f.root, 'job.log'), exit: join(f.root, 'job.exit') };
+      writeFileSync(files.line, '/omni:yolo 7\n');
+      const bin = join(f.root, 'bin-keyed');
+      mkdirSync(bin);
+      writeFileSync(join(bin, 'claude'), '#!/bin/sh\ncat >/dev/null\necho "token=$CLAUDE_CODE_OAUTH_TOKEN args=$*"\n');
+      chmodSync(join(bin, 'claude'), 0o755);
+      const path = process.env.PATH;
+      process.env.PATH = `${bin}:${String(path)}`;
+      try {
+        const code = await main(['runner', 'job', '--line', files.line, '--log', files.log, '--exit', files.exit, '--account', 'keyed'], {
+          cwd: f.root, stdout: out().stream, stderr: out().stream, exec: fakeExec(), env: {}, home: f.home,
+        });
+        expect(code).toBe(0);
+      } finally {
+        process.env.PATH = path;
+      }
+      expect(readFileSync(files.exit, 'utf8')).toBe('0\n');
+      const log = readFileSync(files.log, 'utf8');
+      expect(log).toContain('token=sk-direct-secret');
+      expect(log).toContain('--model m-1');
+      expect(process.env.CLAUDE_CODE_OAUTH_TOKEN).not.toBe('sk-direct-secret');
+    });
+
+    it('refuses a job on an account the file does not hold', async () => {
+      const f = fixture();
+      const files = { line: join(f.root, 'job.line'), log: join(f.root, 'job.log'), exit: join(f.root, 'job.exit') };
+      const stderr = out();
+      const code = await main(['runner', 'job', '--line', files.line, '--log', files.log, '--exit', files.exit, '--account', 'ghost'], {
+        cwd: f.root, stdout: out().stream, stderr: stderr.stream, exec: fakeExec(), env: {}, home: f.home,
+      });
+      expect(code).toBe(1);
+      expect(stderr.text()).toBe('omni runner: account ghost cannot run a job here\n');
+    });
+  });
+
   it('on Ctrl-C stops taking jobs and waits for the running ones', async () => {
     const f = fixture();
     const app = fakeApp({ jobs: [{ id: 16, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });

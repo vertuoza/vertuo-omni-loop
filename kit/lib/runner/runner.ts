@@ -77,6 +77,9 @@ import type { MergedCount } from './follow.ts';
 import { githubJobEnv, installGhShim } from './github-app.ts';
 import { keepGithubToken } from './github-refresh.ts';
 import type { RefreshOptions } from './github-refresh.ts';
+import { accountBook, accountsStateFile, agentAccountOf, chooseAccount, FALLBACK_ACCOUNT, DEFAULT_HANDOFF, readSecret } from './accounts.ts';
+import type { AccountBook, Accounts } from './accounts.ts';
+import { agentNamed } from './agents/index.ts';
 import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
@@ -161,6 +164,10 @@ export type RunnerOptions = {
   askUrl?: string | undefined;
   /** The PRD's slices merged of all, read in the job's worktree when a job ended `stopped` (PRD 2375): never read unless given. */
   slices?: ((prd: PrdNumber, cwd: string) => Promise<MergedCount>) | undefined;
+  /** The accounts file's accounts (PRD 2537): the one fallback account (no file) unless given. */
+  accounts?: Accounts | undefined;
+  /** The states of the accounts, kept across restarts: `accounts-state.json` under the home unless given. */
+  accountBook?: AccountBook | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -190,6 +197,12 @@ type Loop = RunnerOptions & {
   tokensOk: boolean;
   /** Whether an app refused a report for its tokens: none is sent after. */
   tokensOff: boolean;
+  /** The runner's accounts and their states. */
+  accounts: Accounts;
+  book: AccountBook;
+  /** The account each running job started on, and the secret values its run holds, masked in everything sent. */
+  chosen: Map<string, string>;
+  secrets: Map<string, string[]>;
 };
 
 /** A job's live lines: its log, and how many of its lines the app has accepted. */
@@ -214,7 +227,18 @@ const readText = (path: string): string => {
 };
 
 /** A job's log as the runner sends it (PRD 2433): every GitHub token the job had, past ones too, reads `***`, before any line is cut or counted. */
-const readLog = (loop: Loop, job: string, path: string): string => maskTokens(readText(path), jobTokens(loop.home, job));
+const readLog = (loop: Loop, job: string, path: string): string => maskTokens(readText(path), maskedOf(loop, job));
+
+/** Everything that must never leave this machine in what a job sends: its GitHub tokens and its account's secret. */
+const maskedOf = (loop: Loop, job: string): string[] => [...jobTokens(loop.home, job), ...(loop.secrets.get(job) ?? [])];
+
+/** The accounts and their book: the options', else the one fallback account and the book kept under the home. */
+function accountsOf({ accounts, accountBook: book, home, now }: RunnerOptions): { accounts: Accounts; book: AccountBook } {
+  return {
+    accounts: accounts ?? { file: false, accounts: [FALLBACK_ACCOUNT], handoff: DEFAULT_HANDOFF },
+    book: book ?? accountBook({ file: accountsStateFile(home), now }),
+  };
+}
 
 function loopOf(options: RunnerOptions): Loop {
   const refusal = new AbortController();
@@ -242,6 +266,9 @@ function loopOf(options: RunnerOptions): Loop {
     counts: options.tokens ?? tokenSource({ projects: join(options.home, '.claude', 'projects'), now: options.now ?? Date.now }),
     tokensOk: false,
     tokensOff: false,
+    ...accountsOf(options),
+    chosen: new Map(),
+    secrets: new Map(),
   };
 }
 
@@ -305,7 +332,7 @@ async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<
 
 /** `update` with every GitHub token the job had, past ones too, replaced by `***` in each text it carries (PRD 2433, L-GDPR-2). */
 function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
-  const tokens = jobTokens(loop.home, job);
+  const tokens = maskedOf(loop, job);
   if (tokens.length === 0) return update;
   const hide = (text: string): string => maskTokens(text, tokens);
   const hidden: JobUpdate = { ...update };
@@ -504,6 +531,7 @@ function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { 
 
 /** Writes the job's line and its log, empty or starting on `note`, then starts its session as `app`: whether it started. */
 function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null, app: Record<string, string>): boolean {
+  const account = loop.chosen.get(job.id);
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
   writeFileSync(place.line, `${job.line}\n`);
   writeFileSync(place.log, note === null ? '' : `${note}\n`);
@@ -513,7 +541,7 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
       name: place.session,
       cwd: place.worktree,
       env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...runnerSenderVariables(job, loop.name), ...WAIT_FOR_AGENTS, ...app },
-      argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
+      argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit, ...(account === undefined ? [] : ['--account', account])],
     });
     return true;
   } catch {
@@ -637,6 +665,43 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
   }
 }
 
+/**
+ * Picks the account `job` starts on (PRD 2537): the first, in the file's order, that is not out, whose `takes`
+ * allows the job's skill and whose agent passed its check. `null` once it holds one, else the reason the job
+ * ends on. A runner with no accounts file has its one Claude account and checks nothing here, as before.
+ */
+function takeAccount(loop: Loop, job: RunnerJob): string | null {
+  if (!loop.accounts.file) return null;
+  const line = checkRunnerLine(job.line, job.allowedSkills);
+  const skill = line.ok && line.kind === 'omni' ? line.skill : null;
+  const projects = join(loop.home, '.claude', 'projects');
+  const chosen = chooseAccount({
+    accounts: loop.accounts.accounts,
+    book: loop.book,
+    skill,
+    unusable: (account) => {
+      const agent = agentNamed(account.agent, { projects, exec: loop.exec });
+      return agent === null ? `the ${account.agent} agent is not available in this kit` : agent.check(agentAccountOf(account, loop.home));
+    },
+  });
+  if ('none' in chosen) return chosen.none;
+  const { account } = chosen;
+  loop.book.activate(account.id);
+  loop.chosen.set(job.id, account.id);
+  const secret = account.secret === null ? '' : readSecret(account.secret, loop.home);
+  if (secret !== '') loop.secrets.set(job.id, [secret]);
+  loop.print(`job ${job.id} runs on account ${account.id}`);
+  return null;
+}
+
+/** The account a job ran on is free again, and its secret forgotten. */
+function freeAccount(loop: Loop, job: string): void {
+  const id = loop.chosen.get(job);
+  if (id !== undefined) loop.book.release(id);
+  loop.chosen.delete(job);
+  loop.secrets.delete(job);
+}
+
 /** Runs `job` to its end, and answers its last status and its live lines, once it has a log. */
 async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; live: Live | null }> {
   const place = placeOf(loop, job);
@@ -650,6 +715,8 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
     if ('failed' in plugin) return { last: { status: 'failed', reason: plugin.failed }, live: null };
     const app = asApp(loop, job);
     if ('failed' in app) return { last: { status: 'failed', reason: app.failed }, live: null };
+    const taken = takeAccount(loop, job);
+    if (taken !== null) return { last: { status: 'failed', reason: taken }, live: null };
     if (!startSession(loop, job, place, plugin.note, app.env)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
@@ -778,6 +845,7 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     } finally {
       // Once its last report is sent: the log is masked with the file until then.
       forgetJobToken(loop, job.id);
+      freeAccount(loop, job.id);
       loop.jobs.delete(job.id);
       loop.running -= 1;
     }
