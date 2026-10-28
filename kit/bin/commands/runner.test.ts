@@ -72,6 +72,9 @@ function fixture({ pin }: { pin?: string } = {}) {
   return { root, repos, home, bin, checkout: join(repos, 'widgets') };
 }
 
+/** The Omni App's grant a fake job carries unless it names its own `github`. */
+const DEFAULT_GRANT = { token: ['ghs', 'fakeDefaultTokenOfTheJob0123456789'].join('_'), expiresAt: '2099-01-01T00:00:00Z', login: 'omni-acme[bot]', email: '42+omni-acme[bot]@users.noreply.github.com' };
+
 type Call = { method: string; path: string; body: unknown };
 
 /** The fake Omni app: register answers `r1`, `next` hands each queued job once, then holds briefly. */
@@ -105,7 +108,8 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = f
   const reply = (code: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status: code });
   const next = async (): Promise<Response> => {
     const job = queue.shift();
-    if (job) return reply(200, job);
+    // Every job comes with the Omni App's grant (PRD 2573); a job names `github: null` to come without.
+    if (job) return reply(200, typeof job === 'object' &&!('github' in job) ? { ...job, github: DEFAULT_GRANT } : job);
     await new Promise((resolve) => setTimeout(resolve, 20));
     return reply(204);
   };
@@ -556,8 +560,10 @@ describe('omni runner', () => {
         await until(ended(app), 'the job to end');
         run.stop.abort();
         expect(await run.done).toBe(0);
-        // PRD 2175: the job's own three variables, beside the PATH and bug 1912's.
-        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH', 'OMNI_JOB', 'OMNI_RUNNER', 'OMNI_UNATTENDED', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']);
+        // PRD 2175: the job's own three variables, beside the PATH and bug 1912's (and the App's, PRD 2573).
+        const keys = Object.keys(run.terminal.sessions[0]?.env ?? {});
+        expect(keys).toEqual(expect.arrayContaining(['PATH', 'OMNI_JOB', 'OMNI_RUNNER', 'OMNI_UNATTENDED', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']));
+        expect(keys).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
       });
     }
   });
@@ -947,19 +953,6 @@ describe('omni runner: a dead job\'s claims (PRD 2175, s2)', () => {
       expect(new Set(gh.tokens)).toEqual(new Set([TOKEN]));
       expect(JSON.stringify(app.calls)).not.toContain(TOKEN);
       expect(run.stdout.text() + run.stderr.text()).not.toContain(TOKEN);
-    });
-
-    it('releases the claims of a job with no app as the machine does: no token of its own on any call', async () => {
-      const f = fixture();
-      const gh = fakeGh([{ number: 1908, comments: [claimedBy('42')] }]);
-      const app = fakeApp({ jobs: [{ id: 42, line: '/omni:yolo fail', repo: 'acme/widgets', sentBy: 'ada' }] });
-      const run = startRunner(f, app, { exec: fakeExec({ gh }) });
-      await until(ended(app), 'the job to end');
-      run.stop.abort();
-      await run.done;
-      expect(app.updates().at(-1)).toMatchObject({ released: [1908] });
-      expect(gh.tokens.length).toBeGreaterThan(0);
-      expect(new Set(gh.tokens)).toEqual(new Set([undefined]));
     });
 
     it('releases the claims of a job a runner that died left with the token it kept, then forgets the token', async () => {
@@ -1383,16 +1376,15 @@ describe('omni runner: a job that runs as a GitHub App (PRD 2433, s2)', () => {
     expect(run.stdout.text() + run.stderr.text()).not.toContain(TOKEN);
   });
 
-  it('hands a job that carries no app today’s environment: no identity, no helper, no gh of its own', async () => {
+  it('ends a job that carries no app failed before its session starts (PRD 2573)', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 32, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const app = fakeApp({ jobs: [{ id: 32, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada', github: null }] });
     const run = startRunner(f, app);
     await until(ended(app), 'the job to end');
     run.stop.abort();
     expect(await run.done).toBe(0);
-    const keys = Object.keys(run.terminal.sessions[0]?.env ?? {});
-    expect([...keys].sort()).toEqual(['CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS', 'OMNI_JOB', 'OMNI_RUNNER', 'OMNI_SENT_BY', 'OMNI_UNATTENDED', 'PATH']);
-    expect(run.terminal.sessions[0]?.env.PATH).toBe(`${f.bin}:${String(process.env.PATH)}`);
+    expect(run.terminal.sessions).toEqual([]);
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', reason: 'github app: the job came without its App' });
   });
 });
 

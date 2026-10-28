@@ -1,5 +1,6 @@
 import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import type { Question } from '../runners.contract';
+import type { ProductRepos } from '../runners.service';
 import type { Acted, AppOfJob, JobLineRow, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, NewRunner, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
@@ -427,5 +428,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     answerByKey: (jobId, answers, key, actingFor) => answerAs(jobId, answers, { key }, actingFor),
     dismissByKey: (jobId, key, actingFor) => dismissAs(jobId, { key }, actingFor),
   };
-  return { store, state };
+  // What the service reads of a job no key sent (PRD 2573): the same repositories, the products being WORKSPACE's.
+  const productsOf: ProductRepos = (workspaceId, repo) => Promise.resolve(workspaceId === WORKSPACE ? productRepos(repo) : []);
+  return { store, state, products: productsOf };
 }
