@@ -12,20 +12,35 @@
 // A job changes account at most three times; past that, or with no account left, it fails `no tokens
 // left: …`. A run that ends without a recognised limit (a crash, a failure) never turns over.
 //
+// A job also hands off before the wall (s8): while a run goes, its pressure (`plannedHandoff`) calls for
+// a handoff on usage (at `handoff.usage` percent of a window, Claude's `allowed_warning`, or the account's
+// `budget` spent) to the next account, or on context (at `handoff.context` percent of the model's window)
+// to a fresh session of the same account. The run is stopped, the same session is resumed for one turn
+// to write its own note (`notePrompt`, five minutes at most), and the runner's note is the fallback when
+// that turn fails, times out or writes nothing. At most five fresh sessions a job.
+//
+// Before a run on a T3 Codex or OpenCode instance, the kit's skills are written in that instance's own
+// skills folder (`plugin.ts`, `prepareInstanceSkills`); an instance that cannot have them is unusable.
+//
 // Each run is a part of the job: its agent, model, account, start and end, tokens, and how it ended.
 // The parts are kept in `job-<id>.parts.json` beside the log, written as each part starts and ends, with
 // the reason the job failed on when turnover ended it; the runner reads the file and sends the parts
 // with the job's reports.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
+import { kitSkills } from '../agents/skills.ts';
+import { field } from '../ask/schema.ts';
 import type { ExecText } from '../context.ts';
-import { agentAccountOf } from './accounts.ts';
-import type { Account, AccountBook } from './accounts.ts';
-import type { Agent, AgentAccount } from './agents/agent.ts';
+import { runningBundle, runningKit } from '../init/bundle.ts';
+import { agentAccountOf, DEFAULT_HANDOFF, readAccounts } from './accounts.ts';
+import type { Account, AccountBook, HandoffThresholds } from './accounts.ts';
+import type { Agent, AgentAccount, Pressure } from './agents/agent.ts';
 import { agentNamed } from './agents/index.ts';
+import { t3HomeOf, t3Instance } from './agents/t3-home.ts';
 import { maskTokens } from './github-token.ts';
+import { prepareInstanceSkills } from './plugin.ts';
 import type { TokenCounts } from './tokens.ts';
 
 /** How many times a job may change account. */
@@ -107,6 +122,69 @@ export function noTokensReason(resets: readonly string[]): string {
 /** The reason a job fails on when it changed account as many times as it may. */
 export const CAP_REASON = `no tokens left: the job changed account ${String(MAX_ACCOUNT_CHANGES)} times, the most a job may`;
 
+/** How many fresh sessions a job may open for its context. */
+export const MAX_FRESH_SESSIONS = 5;
+
+/** The reason a job fails on when it opened as many fresh sessions for its context as it may. */
+export const FRESH_CAP_REASON = `context full: the job opened ${String(MAX_FRESH_SESSIONS)} fresh sessions, the most a job may`;
+
+/** How long the outgoing agent has to write its handoff note. */
+export const NOTE_TURN_MS = 5 * 60 * 1000;
+
+/** The one message that resumes the outgoing session to write its handoff note at `path`. */
+export const notePrompt = (path: string): string =>
+  `Write the handoff note for whoever continues this job to ${path}: what is done, what is next, the pull requests and branches open, and every decision you took. Change no other file.`;
+
+/** A planned handoff: on usage, to the next account (this one out until `resetsAt`, `null` when the agent gave none); on context, to a fresh session of the same account. `why` is the takeover line's. */
+export type PlannedHandoff = { ended: 'usage'; why: string; resetsAt: string | null } | { ended: 'context'; why: string };
+
+/** The usage windows' names, as the agents give them, in the takeover line's words. */
+const WINDOW_WORDS: Readonly<Record<string, string>> = {
+  five_hour: '5-hour',
+  seven_day: 'weekly',
+  seven_day_opus: 'weekly Opus',
+  seven_day_sonnet: 'weekly Sonnet',
+};
+
+/** `its <window> window`, in plain words. */
+const windowWords = (window: string | null): string => `its ${window === null ? 'usage' : (Object.hasOwn(WINDOW_WORDS, window) ? WINDOW_WORDS[window] : undefined) ?? window.replaceAll('_', ' ')} window`;
+
+/** The start of the next UTC day after `now`, when a day's budget is spent again. */
+const nextDay = (now: number): string => {
+  const day = new Date(now);
+  return new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1)).toISOString();
+};
+
+/** The usage handoff the pressure (or a spent budget) calls for, or `null`. */
+function usageHandoff({ usage, threshold, budget, now }: { usage: Pressure['usage']; threshold: number; budget: { limit: number; spent: number } | null; now: number }): PlannedHandoff | null {
+  if (usage !== null && usage.percent !== null && usage.percent >= threshold) return { ended: 'usage', why: `its account reached ${String(usage.percent)} % of ${windowWords(usage.window)}`, resetsAt: usage.resetsAt };
+  if (usage?.status === 'allowed_warning') return { ended: 'usage', why: `its account warned that ${windowWords(usage.window)} is nearly used up`, resetsAt: usage.resetsAt };
+  if (budget !== null && budget.spent >= budget.limit) return { ended: 'usage', why: `its account spent its budget of ${String(budget.limit)} tokens for the day`, resetsAt: nextDay(now) };
+  return null;
+}
+
+/**
+ * The planned handoff a run's pressure calls for, before the wall (PRD 2537, "Handoffs"): usage at or above
+ * `thresholds.usage` percent of a window, Claude's `allowed_warning`, or the account's day past its `budget`
+ * hands off to the next account; the run's context at or above `thresholds.context` percent of the model's
+ * window (the account's `contextWindow` when it names one) to a fresh session of the same account. Usage
+ * comes first: the next account starts a fresh session anyway. `null`: carry on.
+ */
+export function plannedHandoff({ pressure, thresholds, contextWindow, budget, now }: {
+  pressure: Pressure;
+  thresholds: HandoffThresholds;
+  contextWindow: number | null;
+  budget: { limit: number; spent: number } | null;
+  now: number;
+}): PlannedHandoff | null {
+  const usage = usageHandoff({ usage: pressure.usage, threshold: thresholds.usage, budget, now });
+  if (usage !== null) return usage;
+  const window = contextWindow ?? pressure.context?.window ?? 0;
+  if (pressure.context === null || window <= 0) return null;
+  const percent = Math.floor((pressure.context.used * 100) / window);
+  return percent >= thresholds.context ? { ended: 'context', why: `its context was ${String(percent)} % full` } : null;
+}
+
 /** The pull requests a log names, in order, each once. */
 function pullRequestsOf(log: string): string[] {
   return [...new Set(log.match(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/g) ?? [])];
@@ -147,10 +225,67 @@ export type Turnover = {
   /** Runs git in `cwd`: its output, `null` when it failed. */
   git(cwd: string, args: readonly string[]): string | null;
   now: () => number;
+  /** The planned handoffs' thresholds; none given, the defaults. */
+  handoff?: HandoffThresholds | undefined;
+  /** Readies `account` to run in the worktree `cwd` (a Codex or OpenCode instance's skills): `null` when it can run, else why not. */
+  prepare?: ((account: Account, cwd: string) => string | null) | undefined;
+  /** How long the outgoing agent has to write its note (`NOTE_TURN_MS` unless given). */
+  noteTurnMs?: number | undefined;
+  /** How often, at most, a running part's pressure is read (a second unless given). */
+  pressureEveryMs?: number | undefined;
 };
 
-/** The turnover of a runner's accounts under `home`: their book kept in `accounts-state.json`, each agent's checks run with `exec`. */
-export function turnoverOf({ accounts, book, exec, home = homedir(), omni, now = Date.now }: {
+/** The thresholds of the accounts file under `home`: the defaults when it has none or cannot be read. */
+function thresholdsIn(home: string): HandoffThresholds {
+  try {
+    return readAccounts({ home }).handoff;
+  } catch {
+    return DEFAULT_HANDOFF;
+  }
+}
+
+/** The folder a T3 instance runs its agent from (`config.homePath` in T3's settings), `null` when it names none. */
+function instanceHome(t3Home: string, home: string, id: string): string | null {
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(join(t3Home, 'userdata', 'settings.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+  const path = field(field(field(field(settings, 'providerInstances'), id), 'config'), 'homePath');
+  if (typeof path !== 'string' || path.trim() === '') return null;
+  const named = path.trim();
+  if (named === '~') return home;
+  return named.startsWith('~/') ? join(home, named.slice(2)) : resolve(home, named);
+}
+
+/**
+ * Readies a T3 account whose instance runs Codex, OpenCode or any agent but Claude: the kit's skills, at the
+ * omni the worktree `cwd` pins, written in the instance's own folder (`prepareInstanceSkills`, s5), never in
+ * the worktree. `null` when it can run (a direct account, a Claude instance, an instance T3 does not know,
+ * which its agent's check refuses), else why not (`no skills`).
+ */
+function instanceSkills({ account, cwd, home, exec, skills }: { account: Account; cwd: string; home: string; exec: ExecText; skills: () => Record<string, string> }): string | null {
+  if (account.instance === null) return null;
+  const t3Home = t3HomeOf(home);
+  const instance = t3Instance(t3Home, home, account.instance);
+  if (instance === null || instance.claude) return null;
+  const ready = prepareInstanceSkills({
+    instance: { agent: instance.driver, dir: instanceHome(t3Home, home, account.instance), home },
+    worktree: cwd,
+    running: { version: runningKit({ exec }).version },
+    bundle: runningBundle(),
+    skills: skills(),
+  });
+  return 'unusable' in ready ? ready.unusable : null;
+}
+
+/**
+ * The turnover of a runner's accounts under `home`: their book kept in `accounts-state.json`, each agent's
+ * checks run with `exec`, the planned handoffs' thresholds read from the accounts file unless given, and
+ * the kit's skills (read once) written for a Codex or OpenCode instance before it runs.
+ */
+export function turnoverOf({ accounts, book, exec, home = homedir(), omni, now = Date.now, handoff }: {
   accounts: readonly Account[];
   book: AccountBook;
   exec: ExecText;
@@ -158,9 +293,14 @@ export function turnoverOf({ accounts, book, exec, home = homedir(), omni, now =
   /** The command that runs omni, for a T3 account's `t3-run`. */
   omni?: readonly string[] | undefined;
   now?: () => number;
+  handoff?: HandoffThresholds | undefined;
 }): Turnover {
   const projects = join(home, '.claude', 'projects');
+  let skills: Record<string, string> | undefined;
+  const kit = (): Record<string, string> => (skills ??= kitSkills());
   return {
+    handoff: handoff ?? thresholdsIn(home),
+    prepare: (account, cwd) => instanceSkills({ account, cwd, home, exec, skills: kit }),
     accounts,
     book,
     agentOf: (account) => agentNamed(account.agent, { projects, exec, home, omni }),

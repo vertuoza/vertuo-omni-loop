@@ -14,25 +14,44 @@
 // account that can take it, with the runner's handoff note; at most three times. Every run is a part of
 // the job, kept in `job-<id>.parts.json` beside the log for the runner to report; a job with no accounts
 // has its one part too.
+//
+// It also hands off before the wall (s8): while a run goes, its pressure is read at most once a second
+// after it prints, and once it calls for a handoff (usage or context, `plannedHandoff`) the run is stopped
+// through its agent's `interrupt` (an agent with none hands off at the wall only). The same session is
+// resumed for one turn to write its note beside the log, five minutes at most; when that turn fails, times
+// out or writes nothing, the runner writes the note. Usage then moves the job to the next account (this one
+// out until the reset the pressure named), context to a fresh session of the same account; past three
+// account changes or five fresh sessions the job fails naming the cap. Before every run on a T3 Codex or
+// OpenCode instance, the kit's skills are written in that instance's own folder (`Turnover.prepare`).
 import { spawn } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import type { ChildProcess } from 'node:child_process';
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { processEnv } from '../env/read.ts';
-import { chooseAccount } from './accounts.ts';
+import { chooseAccount, DEFAULT_HANDOFF } from './accounts.ts';
 import type { Account } from './accounts.ts';
-import type { Agent, AgentAccount, Limit, RunCommand, Usage } from './agents/agent.ts';
+import type { Agent, AgentAccount, Interrupt, Limit, RunCommand, Usage } from './agents/agent.ts';
 import { fallbackAccount, fallbackAgent } from './agents/index.ts';
 import { checkRunnerLine } from './line.ts';
 import type { Out } from './runner.ts';
-import { CAP_REASON, GUESSED_RESET_MS, handoffPath, LIMIT_WHY, masked, MAX_ACCOUNT_CHANGES, noTokensReason, partsPath, runnerNote, takeoverLine, tokensSince, writeParts } from './turnover.ts';
-import type { JobPart, PartsRecord, Turnover } from './turnover.ts';
+import {
+  CAP_REASON, FRESH_CAP_REASON, GUESSED_RESET_MS, handoffPath, LIMIT_WHY, masked, MAX_ACCOUNT_CHANGES, MAX_FRESH_SESSIONS, NOTE_TURN_MS, notePrompt, noTokensReason,
+  partsPath, plannedHandoff, runnerNote, takeoverLine, tokensSince, writeParts,
+} from './turnover.ts';
+import type { JobPart, PartsRecord, PlannedHandoff, Turnover } from './turnover.ts';
 
 /** The files a job's run reads and writes. */
 export type JobFiles = { line: string; log: string; exit: string };
 
 /** The lockfile whose presence makes the run install first. */
 const LOCKFILE = 'pnpm-lock.yaml';
+
+/** How often, at most, a running part's pressure is read. */
+const PRESSURE_EVERY_MS = 1000;
+
+/** How long a note turn past its time has after SIGTERM before SIGKILL. */
+const KILL_GRACE_MS = 5000;
 
 /** Where a job's raw stream goes: its log's path with `.jsonl` for `.log`. */
 export function rawLogPath(log: string): string {
@@ -42,19 +61,45 @@ export function rawLogPath(log: string): string {
 /** The variables a process starts with. */
 type Variables = Readonly<Record<string, string | undefined>>;
 
-/** What one run writes: the log and the pane, each chunk of its standard output, and its variables. */
-type RunTo = { cwd: string; stdin: string | null; log: string; out: Out; env?: Variables | undefined; stdout?: (chunk: Buffer) => void };
+/** What one run writes: the log and the pane, each chunk of its standard output, and its variables; who learns of its process, and how long it may take. */
+type RunTo = {
+  cwd: string;
+  stdin: string | null;
+  log: string;
+  out: Out;
+  env?: Variables | undefined;
+  stdout?: (chunk: Buffer) => void;
+  started?: ((child: ChildProcess) => void) | undefined;
+  timeoutMs?: number | undefined;
+};
+
+/** Ends `child` when it outlives `timeoutMs`: SIGTERM, then SIGKILL. Answers the timers to clear once it closed. */
+function deadline(child: ChildProcess, timeoutMs: number | undefined): NodeJS.Timeout[] {
+  const timers: NodeJS.Timeout[] = [];
+  if (timeoutMs === undefined) return timers;
+  timers.push(setTimeout(() => {
+    child.kill('SIGTERM');
+    timers.push(setTimeout(() => child.kill('SIGKILL'), KILL_GRACE_MS));
+  }, timeoutMs));
+  return timers;
+}
 
 /** Runs `file args` in `cwd`, `stdin` written to its standard input; its standard output goes to `stdout` when given, else as it is, its standard error as it is. Answers its exit code. */
-function run(file: string, args: readonly string[], { cwd, stdin, log, out, env, stdout }: RunTo): Promise<number> {
+function run(file: string, args: readonly string[], { cwd, stdin, log, out, env, stdout, started, timeoutMs }: RunTo): Promise<number> {
   return new Promise((resolve) => {
-    let child;
+    let child: ChildProcess;
     try {
       child = spawn(file, args, { cwd, stdio: [stdin === null ? 'ignore' : 'pipe', 'pipe', 'pipe'], ...(env ? { env } : {}) });
     } catch {
       resolve(127);
       return;
     }
+    started?.(child);
+    const timers = deadline(child, timeoutMs);
+    const settle = (code: number): void => {
+      for (const timer of timers) clearTimeout(timer);
+      resolve(code);
+    };
     const write = (chunk: Buffer): void => {
       appendFileSync(log, chunk);
       out.write(chunk.toString('utf8'));
@@ -67,26 +112,28 @@ function run(file: string, args: readonly string[], { cwd, stdin, log, out, env,
     if (stdin !== null) child.stdin?.end(stdin);
     child.on('error', () => {
       appendFileSync(log, `${file}: could not be started\n`);
-      resolve(127);
+      settle(127);
     });
     child.on('close', (code) => {
-      resolve(code ?? 1);
+      settle(code ?? 1);
     });
   });
 }
 
-/** Reads a run's standard output whole lines at a time: each raw to `raw` and to `printed`, its readable lines, as `agent` reads them, to the log and the pane. */
-function streamReader({ agent, log, raw, out, printed }: { agent: Agent; log: string; raw: string; out: Out; printed: string[] }): { chunk(data: Buffer): void; end(): void } {
+/** Reads a run's standard output whole lines at a time: each raw to `raw` and to `printed`, its readable lines, as `agent` reads them, to the log and the pane; `onLine` after each. */
+function streamReader({ agent, log, raw, out, printed, onLine }: { agent: Agent; log: string; raw: string; out: Out; printed: string[]; onLine: () => void }): { chunk(data: Buffer): void; end(): void } {
   const context = { seen: new Set<string>() };
   const decoder = new StringDecoder('utf8');
   let pending = '';
   const emit = (line: string): void => {
     printed.push(line);
     const lines = agent.step(line, context);
-    if (lines.length === 0) return;
-    const text = `${lines.join('\n')}\n`;
-    appendFileSync(log, text);
-    out.write(text);
+    if (lines.length > 0) {
+      const text = `${lines.join('\n')}\n`;
+      appendFileSync(log, text);
+      out.write(text);
+    }
+    onLine();
   };
   return {
     chunk(data) {
@@ -109,14 +156,52 @@ function runEnv(env: Readonly<Record<string, string>> | undefined, command: RunC
   return { ...(env ?? processEnv()), ...command.env };
 }
 
-/** One run of the job on one account: what it printed, line by line, and its exit code. */
-async function runOnce({ cwd, files, out, env, agent, command }: { cwd: string; files: JobFiles; out: Out; env: Variables | undefined; agent: Agent; command: RunCommand }): Promise<{ code: number; printed: string[] }> {
+/** What reads a running part's pressure: how often at most, the handoff it calls for (`null`: none), and how the run stops. */
+type Watch = { everyMs: number; read(lines: readonly string[]): PlannedHandoff | null; stop: Interrupt };
+
+/** The watch of one run: told of its process and of each line, it reads the pressure at most every `everyMs`, once, and stops the run when a handoff is called for. */
+function watching(watch: Watch | undefined, printed: readonly string[]): { started(child: ChildProcess): void; line(): void; called(): PlannedHandoff | null; end(): void } {
+  const timers: NodeJS.Timeout[] = [];
+  const state: { child: ChildProcess | null; called: PlannedHandoff | null; looking: boolean } = { child: null, called: null, looking: false };
+  const look = (): void => {
+    state.looking = false;
+    if (watch === undefined || state.called !== null) return;
+    state.called = watch.read(printed);
+    const child = state.child;
+    if (state.called === null || child === null) return;
+    child.kill(watch.stop.first);
+    timers.push(setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) child.kill(watch.stop.then);
+    }, watch.stop.afterMs));
+  };
+  return {
+    started(child) {
+      state.child = child;
+    },
+    line() {
+      if (watch === undefined || state.called !== null || state.looking) return;
+      state.looking = true;
+      timers.push(setTimeout(look, watch.everyMs));
+    },
+    called: () => state.called,
+    end() {
+      for (const timer of timers) clearTimeout(timer);
+    },
+  };
+}
+
+/** One run on one account: what it printed, line by line, its exit code, and the handoff its watch called for. */
+async function runOnce({ cwd, files, out, env, agent, command, watch, timeoutMs }: {
+  cwd: string; files: JobFiles; out: Out; env: Variables | undefined; agent: Agent; command: RunCommand; watch?: Watch | undefined; timeoutMs?: number | undefined;
+}): Promise<{ code: number; printed: string[]; called: PlannedHandoff | null }> {
   const printed: string[] = [];
-  const reader = streamReader({ agent, log: files.log, raw: rawLogPath(files.log), out, printed });
+  const watched = watching(watch, printed);
+  const reader = streamReader({ agent, log: files.log, raw: rawLogPath(files.log), out, printed, onLine: () => { watched.line(); } });
   try {
-    const code = await run(command.file, command.args, { cwd, stdin: command.stdin, log: files.log, out, env, stdout: (chunk) => { reader.chunk(chunk); } });
-    return { code, printed };
+    const code = await run(command.file, command.args, { cwd, stdin: command.stdin, log: files.log, out, env, stdout: (chunk) => { reader.chunk(chunk); }, started: (child) => { watched.started(child); }, timeoutMs });
+    return { code, printed, called: watched.called() };
   } finally {
+    watched.end();
     reader.end();
   }
 }
@@ -133,8 +218,8 @@ function say(files: JobFiles, out: Out, text: string): void {
   out.write(`${text}\n`);
 }
 
-/** The account the job takes over on, with its agent, or the reason it fails on: every account out until the earliest reset. */
-function nextAccount(turnover: Turnover, skill: string | null): { account: Account; agent: Agent } | { none: string } {
+/** The account the job goes on on, with its agent, or the reason it fails on: every account out until the earliest reset. An account whose agent fails its check, or that cannot be readied in `cwd`, is passed over. */
+function nextAccount(turnover: Turnover, skill: string | null, cwd: string): { account: Account; agent: Agent } | { none: string } {
   const agents = new Map<string, Agent>();
   const chosen = chooseAccount({
     accounts: turnover.accounts,
@@ -144,7 +229,7 @@ function nextAccount(turnover: Turnover, skill: string | null): { account: Accou
       const agent = turnover.agentOf(account);
       if (agent === null) return `the ${account.agent} agent is not available in this kit`;
       agents.set(account.id, agent);
-      return agent.check(turnover.seenAs(account));
+      return agent.check(turnover.seenAs(account)) ?? turnover.prepare?.(account, cwd) ?? null;
     },
   });
   const agent = 'account' in chosen ? agents.get(chosen.account.id) : undefined;
@@ -174,8 +259,11 @@ type Runs = { agent: Agent; account: AgentAccount };
 /** A job's parts as they go: the record, written to the parts file at every change, and the clock. */
 type Parts = { record: PartsRecord; keep(part: JobPart, at: number): void; fail(reason: string): void; iso(): string };
 
-/** A run that ended: its exit code, the limit its agent read (`null`: none), its part and where it sits in the record. */
-type Ran = { code: number; limit: Limit | null; part: JobPart; at: number };
+/** A run that ended: its exit code, the limit its agent read (`null`: none), the handoff its pressure called for (`null`: none), its part, where it sits in the record, what it printed, and the tokens read before it. */
+type Ran = { code: number; limit: Limit | null; called: PlannedHandoff | null; part: JobPart; at: number; lines: readonly string[]; before: Usage | null };
+
+/** What comes after a run: the next one, `runs` with `handoff` after the job's line, or the reason the job fails on. */
+type Next = { runs: Runs; handoff: string } | { failed: string };
 
 const isoOf = (ms: number): string => new Date(ms).toISOString();
 
@@ -196,46 +284,188 @@ function partsOf(log: string, now: () => number): Parts {
   };
 }
 
-/** Runs one part of the job: `line` on `runs`, `handoff` after it when it takes over. */
-async function runPart({ cwd, files, out, env }: JobPlace, { line, runs, handoff, parts }: { line: string; runs: Runs; handoff: string | undefined; parts: Parts }): Promise<Ran> {
+/** The tokens that count against a budget: what was read and written fresh, cache reads aside. */
+const budgeted = (tokens: JobPart['tokens'] | null | undefined): number => (tokens === null || tokens === undefined ? 0 : tokens.input + tokens.output);
+
+/**
+ * The watch of a part on `runs` in `cwd`: the planned handoff its pressure calls for, against the
+ * turnover's thresholds, the account's own context window, and its budget (the tokens its parts of this
+ * job spent); none when there is no turnover or the agent offers no clean stop.
+ */
+function watchOf(turnover: Turnover | undefined, { cwd, runs, before, parts }: { cwd: string; runs: Runs; before: Usage | null; parts: Parts }): Watch | undefined {
+  const stop = turnover === undefined ? null : runs.agent.interrupt({ cwd, lines: [], exit: null });
+  if (turnover === undefined || stop === null) return undefined;
+  const account = turnover.accounts.find((each) => each.id === runs.account.id);
+  const limit = account?.budget ?? null;
+  const earlier = parts.record.parts.filter((part) => part.account === runs.account.id).reduce((sum, part) => sum + budgeted(part.tokens), 0);
+  const spent = (lines: readonly string[]): number => earlier + budgeted(tokensSince(runs.agent.usage({ cwd, lines, exit: null })?.tokens ?? null, before?.tokens ?? null));
+  return {
+    everyMs: turnover.pressureEveryMs ?? PRESSURE_EVERY_MS,
+    stop,
+    read: (lines) => plannedHandoff({
+      pressure: runs.agent.pressure({ cwd, lines, exit: null }),
+      thresholds: turnover.handoff ?? DEFAULT_HANDOFF,
+      contextWindow: account?.contextWindow ?? null,
+      budget: limit === null ? null : { limit, spent: spent(lines) },
+      now: turnover.now(),
+    }),
+  };
+}
+
+/** Runs one part of the job: `line` on `runs`, `handoff` after it when it takes over, its pressure watched when there is a turnover. */
+async function runPart(place: JobPlace, { line, runs, handoff, parts, turnover }: { line: string; runs: Runs; handoff: string | undefined; parts: Parts; turnover: Turnover | undefined }): Promise<Ran> {
+  const { cwd, files, out, env } = place;
   const at = parts.record.parts.length;
   const before = runs.agent.usage({ cwd, lines: [], exit: null });
   const started: JobPart = { agent: runs.agent.name, model: runs.account.model, account: runs.account.id, from: parts.iso(), to: null, ended: null };
   parts.keep(started, at);
+  const watch = watchOf(turnover, { cwd, runs, before, parts });
   const command = runs.agent.command({ line, cwd }, runs.account, handoff);
-  const { code, printed } = await runOnce({ cwd, files, out, env: runEnv(env, command), agent: runs.agent, command });
+  const { code, printed, called } = await runOnce({ cwd, files, out, env: runEnv(env, command), agent: runs.agent, command, watch });
   const ran = { cwd, lines: printed, exit: code };
   const limit = code === 0 ? null : runs.agent.limit(ran);
   const part = endedPart(started, { code, limit, usage: runs.agent.usage(ran), before, to: parts.iso() });
   parts.keep(part, at);
-  return { code, limit, part, at };
+  return { code, limit, called, part, at, lines: printed, before };
 }
+
+/** What a turnover needs besides the place: the job's line, the commit it started on, who ran, how that run ended, the parts and the turnover. */
+type TurnArgs = { line: string; start: string | null; runs: Runs; ran: Ran; parts: Parts; turnover: Turnover };
+
+/** The runner's handoff note, every secret masked. */
+const runnersNote = ({ files, cwd }: JobPlace, { line, start, turnover }: TurnArgs): string =>
+  masked(turnover, runnerNote({ line, log: readFileSync(files.log, 'utf8'), start, git: (args) => turnover.git(cwd, args) }));
 
 /**
  * After a run that hit its account's limit (`ran.limit`): the account is out until the reset the agent
  * gave (an hour, guessed, when it gave none), and the job goes on on the next account with the runner's
  * note, or fails naming why when it changed account `MAX_ACCOUNT_CHANGES` times or no account is left.
  */
-function turnOver(place: JobPlace, { line, start, runs, ran, changes, parts, turnover }: {
-  line: string; start: string | null; runs: Runs; ran: Ran & { limit: Limit }; changes: number; parts: Parts; turnover: Turnover;
-}): { runs: Runs; handoff: string } | { failed: string } {
-  const { files, out, cwd } = place;
-  const guessed = ran.limit.resetsAt === null;
-  const resetsAt = ran.limit.resetsAt ?? isoOf(Date.parse(parts.iso()) + GUESSED_RESET_MS);
+function turnOver(place: JobPlace, args: TurnArgs & { limit: Limit; changes: number }): Next {
+  const { files, out } = place;
+  const { runs, ran, parts, limit, changes } = args;
+  const { resetsAt, guessed, next } = outAndNext(place, args, limit.resetsAt, changes);
   parts.keep({ ...ran.part, resetsAt, guessed, note: 'runner' }, ran.at);
-  turnover.book.markOut(runs.account.id, resetsAt);
-  const next = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line));
   if ('none' in next) {
     say(files, out, `↻ account ${runs.account.id} reached its usage limit: ${next.none}`);
     return { failed: next.none };
   }
-  const note = masked(turnover, runnerNote({ line, log: readFileSync(files.log, 'utf8'), start, git: (args) => turnover.git(cwd, args) }));
+  const note = runnersNote(place, args);
   writeFileSync(handoffPath(files.log), note);
   say(files, out, `↻ account ${runs.account.id} reached its usage limit, out until ${resetsAt}${guessed ? ' (guessed)' : ''}: account ${next.account.id} takes over`);
-  return {
-    runs: { agent: next.agent, account: turnover.seenAs(next.account) },
-    handoff: `${takeoverLine({ agent: ran.part.agent, model: ran.part.model, why: LIMIT_WHY })}\n\n${note}`,
-  };
+  return takenOver(args, next, LIMIT_WHY, note);
+}
+
+/**
+ * The account that ran is out until `given` (an hour from now, guessed, when it is `null`); the account the
+ * job goes on on, or why none can: the cap once it changed account `MAX_ACCOUNT_CHANGES` times, else every
+ * account out.
+ */
+function outAndNext({ cwd }: JobPlace, { line, runs, parts, turnover }: TurnArgs, given: string | null, changes: number): { resetsAt: string; guessed: boolean; next: { account: Account; agent: Agent } | { none: string } } {
+  const guessed = given === null;
+  const resetsAt = given ?? isoOf(Date.parse(parts.iso()) + GUESSED_RESET_MS);
+  turnover.book.markOut(runs.account.id, resetsAt);
+  const next = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line), cwd);
+  return { resetsAt, guessed, next };
+}
+
+/** The next run: on `next`, its message the takeover line (from the part that ran, because `why`), then the note. */
+const takenOver = ({ ran, turnover }: TurnArgs, next: { account: Account; agent: Agent }, why: string, note: string): Next => ({
+  runs: { agent: next.agent, account: turnover.seenAs(next.account) },
+  handoff: `${takeoverLine({ agent: ran.part.agent, model: ran.part.model, why })}\n\n${note}`,
+});
+
+/** The text of `path`, `''` when there is none. */
+function textAt(path: string): string {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The handoff note of a run stopped for a planned handoff, beside the job's log: the outgoing agent's own,
+ * written by resuming its session for one turn of `turnover.noteTurnMs`; the runner's when the run named no
+ * session, or the turn failed, ran out of time or wrote nothing. Every secret masked.
+ */
+async function handoffNote(place: JobPlace, args: TurnArgs): Promise<{ note: string; by: 'agent' | 'runner' }> {
+  const { cwd, files, out, env } = place;
+  const { line, runs, ran, turnover } = args;
+  const path = handoffPath(files.log);
+  rmSync(path, { force: true });
+  const session = runs.agent.session({ cwd, lines: ran.lines, exit: ran.code });
+  let by: 'agent' | 'runner' = 'runner';
+  if (session !== null) {
+    say(files, out, `↻ account ${runs.account.id} writes its handoff note`);
+    const command = runs.agent.resume({ line, cwd }, runs.account, session, notePrompt(path));
+    const turn = await runOnce({ cwd, files, out, env: runEnv(env, command), agent: runs.agent, command, timeoutMs: turnover.noteTurnMs ?? NOTE_TURN_MS });
+    if (turn.code === 0 && textAt(path).trim() !== '') by = 'agent';
+  }
+  const note = by === 'agent' ? masked(turnover, textAt(path)) : runnersNote(place, args);
+  writeFileSync(path, note);
+  if (by === 'runner') say(files, out, `↻ the agent wrote no handoff note: the runner wrote it`);
+  return { note, by };
+}
+
+/** The part of a run stopped for a planned handoff, once its note was written: its end, its note's writer, and the tokens it spent with the note's turn. */
+function handedOffPart({ ran, runs, parts }: TurnArgs, cwd: string, ended: 'usage' | 'context', note: 'agent' | 'runner'): JobPart {
+  const tokens = tokensSince(runs.agent.usage({ cwd, lines: ran.lines, exit: ran.code })?.tokens ?? null, ran.before?.tokens ?? null);
+  return { ...ran.part, to: parts.iso(), ended, note, ...(tokens === null ? {} : { tokens }) };
+}
+
+/**
+ * A planned handoff on usage: the account is out until the reset its pressure named (an hour, guessed, when
+ * it named none), its agent writes the note, and the job goes on on the next account; or it fails naming
+ * why when it changed account `MAX_ACCOUNT_CHANGES` times or no account is left.
+ */
+async function usageHandoff(place: JobPlace, args: TurnArgs & { why: string; resetsAt: string | null; changes: number }): Promise<Next> {
+  const { files, out, cwd } = place;
+  const { runs, ran, parts, why } = args;
+  const { resetsAt, guessed, next } = outAndNext(place, args, args.resetsAt, args.changes);
+  if ('none' in next) {
+    parts.keep({ ...ran.part, ended: 'usage', resetsAt, guessed }, ran.at);
+    say(files, out, `↻ account ${runs.account.id} hands off, ${why}: ${next.none}`);
+    return { failed: next.none };
+  }
+  const { note, by } = await handoffNote(place, args);
+  parts.keep({ ...handedOffPart(args, cwd, 'usage', by), resetsAt, guessed }, ran.at);
+  say(files, out, `↻ account ${runs.account.id} hands off, ${why}, out until ${resetsAt}${guessed ? ' (guessed)' : ''}: account ${next.account.id} takes over`);
+  return takenOver(args, next, why, note);
+}
+
+/** A planned handoff on context: the agent writes the note, and a fresh session of the same account goes on; or the job fails once it opened `MAX_FRESH_SESSIONS`. */
+async function freshSession(place: JobPlace, args: TurnArgs & { why: string; fresh: number }): Promise<Next> {
+  const { files, out, cwd } = place;
+  const { runs, ran, parts, why, fresh } = args;
+  if (fresh >= MAX_FRESH_SESSIONS) {
+    parts.keep({ ...ran.part, ended: 'context' }, ran.at);
+    say(files, out, `↻ account ${runs.account.id} hands off, ${why}: ${FRESH_CAP_REASON}`);
+    return { failed: FRESH_CAP_REASON };
+  }
+  const { note, by } = await handoffNote(place, args);
+  parts.keep(handedOffPart(args, cwd, 'context', by), ran.at);
+  say(files, out, `↻ account ${runs.account.id} hands off, ${why}: a fresh session on the same account takes over`);
+  return { runs, handoff: `${takeoverLine({ agent: ran.part.agent, model: ran.part.model, why })}\n\n${note}` };
+}
+
+/** What follows a run: the wall's turnover, a planned handoff, or nothing (`null`: the job ends on the run's code). Counts the account changes and fresh sessions it makes. */
+async function afterRun(place: JobPlace, args: TurnArgs, counts: { changes: number; fresh: number }): Promise<Next | null> {
+  const { limit, called } = args.ran;
+  if (limit !== null) {
+    const next = turnOver(place, { ...args, limit, changes: counts.changes });
+    if ('runs' in next) counts.changes += 1;
+    return next;
+  }
+  if (called === null) return null;
+  if (called.ended === 'context') {
+    const next = await freshSession(place, { ...args, why: called.why, fresh: counts.fresh });
+    if ('runs' in next) counts.fresh += 1;
+    return next;
+  }
+  const next = await usageHandoff(place, { ...args, why: called.why, resetsAt: called.resetsAt, changes: counts.changes });
+  if ('runs' in next) counts.changes += 1;
+  return next;
 }
 
 /** The commit the job's worktree starts on, which the runner's note counts commits from; `null` when git cannot say. */
@@ -244,38 +474,60 @@ function startOf(turnover: Turnover, cwd: string): string | null {
   return head === '' ? null : head;
 }
 
+/** Who runs the job's first part: `first`, unless it cannot be readied in the worktree (a Codex or OpenCode instance without the kit's skills); then the next account, or the reason none can. */
+function opening({ cwd, files, out }: JobPlace, first: Runs, turnover: Turnover, skill: string | null): { runs: Runs } | { failed: string } {
+  const account = turnover.accounts.find((each) => each.id === first.account.id);
+  const why = account === undefined ? null : turnover.prepare?.(account, cwd) ?? null;
+  if (why === null) return { runs: first };
+  say(files, out, `↻ account ${first.account.id} is unusable: ${why}`);
+  const next = nextAccount(turnover, skill, cwd);
+  if ('none' in next) return { failed: next.none };
+  say(files, out, `↻ account ${next.account.id} takes the job`);
+  return { runs: { agent: next.agent, account: turnover.seenAs(next.account) } };
+}
+
 /**
  * The job's runs, from `first`: one, unless `turnover` is given and a run ends on its account's usage
- * limit; the job then carries on on the next account with the runner's handoff note, at most
- * `MAX_ACCOUNT_CHANGES` times. Every run is a part, written to the parts file as it starts and as it
- * ends. Answers the last run's exit code.
+ * limit or its pressure calls for a planned handoff; the job then carries on on the next account, or on a
+ * fresh session of the same one, with the handoff note, within the caps. Every run is a part, written to
+ * the parts file as it starts and as it ends. Answers the last run's exit code, never 0 for a job its
+ * turnover failed.
  */
 async function runParts(place: JobPlace, first: Runs, turnover: Turnover | undefined): Promise<number> {
   writeFileSync(rawLogPath(place.files.log), '');
   const line = readFileSync(place.files.line, 'utf8').replace(/\n$/, '');
   const parts = partsOf(place.files.log, turnover === undefined ? Date.now : turnover.now);
-  const start = turnover === undefined ? null : startOf(turnover, place.cwd);
+  if (turnover === undefined) return (await runPart(place, { line, runs: first, handoff: undefined, parts, turnover })).code;
+  const opened = opening(place, first, turnover, skillOf(line));
+  if ('failed' in opened) {
+    parts.fail(opened.failed);
+    return 1;
+  }
+  return carryOn(place, { line, start: startOf(turnover, place.cwd), parts, turnover }, opened.runs);
+}
+
+/** The runs of a job with a turnover, from `first`, each followed by what `afterRun` calls for, until one ends the job. */
+async function carryOn(place: JobPlace, job: Omit<TurnArgs, 'runs' | 'ran'>, first: Runs): Promise<number> {
   let runs = first;
   let handoff: string | undefined;
-  for (let changes = 0; ; changes += 1) {
-    const ran = await runPart(place, { line, runs, handoff, parts });
-    const { limit } = ran;
-    if (limit === null || turnover === undefined) return ran.code;
-    const next = turnOver(place, { line, start, runs, ran: { ...ran, limit }, changes, parts, turnover });
+  const counts = { changes: 0, fresh: 0 };
+  for (;;) {
+    const ran = await runPart(place, { line: job.line, runs, handoff, parts: job.parts, turnover: job.turnover });
+    const next = await afterRun(place, { ...job, runs, ran }, counts);
+    if (next === null) return ran.code;
     if ('failed' in next) {
-      parts.fail(next.failed);
-      return ran.code;
+      job.parts.fail(next.failed);
+      return ran.code === 0 ? 1 : ran.code;
     }
     ({ runs, handoff } = next);
   }
 }
 
-
 /**
  * The job's run in `cwd`: the install when there is a lockfile, then the run of `account` through
  * `agent` (the fallback agent's one account, unless given), turning over to the next of `turnover`'s
- * accounts at the wall when given. Writes the exit code last. `env`, when given, is the variables every
- * run starts with in place of the runner's own.
+ * accounts at the wall, or before it, when given. Writes the exit code last. `env`, when given, is the
+ * variables every run starts with in place of the runner's own.
  */
 export async function runJobProcess({ cwd, files, out, env, agent = fallbackAgent(), account = fallbackAccount(), turnover }: {
   cwd: string;
