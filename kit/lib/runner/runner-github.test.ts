@@ -29,7 +29,7 @@ const TOKEN_COMMAND = ['/usr/bin/node', '/opt/omni.mjs', 'runner', 'github-token
 /** How often the runner looks at a running job. */
 const TICK_MS = 5000;
 
-const job = (over: Partial<RunnerJob> = {}): RunnerJob => ({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [], ...over });
+const job = (over: Partial<RunnerJob> = {}): RunnerJob => ({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: [], ...over });
 
 /** A machine that is never under pressure. */
 const machine = () => {
@@ -274,30 +274,25 @@ describe('a job with an app (the claim’s github)', () => {
   });
 });
 
-describe('a job with no app', () => {
-  it('starts with the environment it always had, byte for byte, and makes no shim', async () => {
-    const { seen, home } = await runOne(job(), { githubToken: TOKEN_COMMAND });
-    expect(seen[0]?.session.env).toEqual({
-      PATH: '/usr/bin',
-      OMNI_JOB: '7',
-      OMNI_RUNNER: 'box-1',
-      OMNI_UNATTENDED: '1',
-      CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0',
-    });
+describe('a job with no app (PRD 2573)', () => {
+  const bare = job({ sentBy: 'ada', github: null });
+
+  it('ends failed before its session starts: it never runs as the machine’s login', async () => {
+    const { seen, updates, home } = await runOne(bare, { githubToken: TOKEN_COMMAND });
+    expect(seen).toEqual([]);
+    expect(last(updates)).toMatchObject({ status: 'failed', reason: 'github app: the job came without its App' });
     expect(existsSync(ghShimDir(home))).toBe(false);
   });
 
-  it('names its sender as it always did', async () => {
-    const { seen } = await runOne(job({ sentBy: 'ada' }), { githubToken: TOKEN_COMMAND });
-    expect(seen[0]?.session.env).toMatchObject({ OMNI_SENT_BY: 'ada', OMNI_RUNNER: 'box-1' });
-    expect(seen[0]?.session.env).not.toHaveProperty('OMNI_SENT_BY_KEY');
-    expect(seen[0]?.session.env).not.toHaveProperty('OMNI_GITHUB_APP');
+  it('holds no token in any line it sends or prints', async () => {
+    const { updates, printed } = await runOne(bare, { githubToken: TOKEN_COMMAND });
+    expect(JSON.stringify([updates, printed])).not.toContain(TOKEN);
   });
 
-  it('sends its log as it is: it holds no token to hide', async () => {
-    const stranger = ['ghs', 'notATokenOfAnyJob0123456789'].join('_');
-    const { updates } = await runOne(job(), { githubToken: TOKEN_COMMAND, log: `${stranger}\nok` });
-    expect(updates.flatMap((update) => update.lines ?? [])).toEqual([stranger, 'ok']);
+  it('ends the same way on a runner that was not given the token command', async () => {
+    const { seen, updates } = await runOne(bare);
+    expect(seen).toEqual([]);
+    expect(last(updates)).toMatchObject({ status: 'failed', reason: 'github app: the job came without its App' });
   });
 });
 
@@ -395,13 +390,6 @@ describe('keeping the token current (PRD 2433, s3)', () => {
     expect(JSON.stringify([updates, printed])).not.toContain(TOKEN);
   });
 
-  it('keeps nothing and asks nothing for a job with no app', async () => {
-    const { asked, updates, home } = await runOne(job(), { githubToken: TOKEN_COMMAND, exitAfter: 30 * MIN, fresh: refused(30) });
-    expect(asked).toEqual([]);
-    expect(last(updates)).toMatchObject({ status: 'done' });
-    expect(existsSync(ghShimDir(home))).toBe(false);
-  });
-
   it('keeps the Omni page to ask in the job’s file when the runner knows it, for the session’s own refresh', async () => {
     const { seen } = await runOne(asApp(60 * MIN), { githubToken: TOKEN_COMMAND, askUrl: 'https://omni.example/app' });
     expect(JSON.parse(seen[0]?.tokenFile ?? 'null')).toEqual({
@@ -431,12 +419,6 @@ describe('releasing the claims of a job as the app (PRD 2433, s3)', () => {
     expect(ended).toEqual([{ id: '7', runner: 'box-1', repo: 'acme/widgets', reason: 'done', ghToken: TOKEN }]);
     expect(last(updates)).toMatchObject({ status: 'done', released: [3], releaseError: null });
     expect(printed).toContain('job 7 released #3');
-  });
-
-  it('runs it as the machine does when the job had none: no token, as always', async () => {
-    const { ended, release } = releaser();
-    await runOne(job(), { githubToken: TOKEN_COMMAND, release });
-    expect(ended).toEqual([{ id: '7', runner: 'box-1', repo: 'acme/widgets', reason: 'done', ghToken: null }]);
   });
 
   it('runs it with a fresh token when the job ended with less than 5 minutes left', async () => {

@@ -22,6 +22,10 @@ import type { TokenSource } from './tokens.ts';
 
 const GB = 1024 ** 3;
 const T0 = Date.parse('2026-10-16T12:00:00.000Z');
+// Every job comes with the Omni App's grant (PRD 2573): a runner takes none without it.
+const TOKEN = ['ghs', 'fakeRunnerTokenForTheHealthTests0123'].join('_');
+const GRANT = { token: TOKEN, expiresAt: '2026-10-16T13:00:00Z', login: 'omni-acme[bot]', email: '42+omni-acme[bot]@users.noreply.github.com' };
+const TOKEN_COMMAND = ['/usr/bin/node', '/opt/omni.mjs', 'runner', 'github-token'];
 
 /** A machine whose cores each spend 300 ms busy and 700 ms idle between two samples. */
 function machine(): MachineReads {
@@ -103,7 +107,7 @@ async function run(app: App, over: Partial<RunnerOptions> = {}) {
       app.clock.now += ms;
       setImmediate(resolve);
     }),
-    machine: machine(),
+    machine: machine(), githubToken: TOKEN_COMMAND,
     ...over,
   });
   return { code, printed, waits };
@@ -232,7 +236,7 @@ describe('the pause', () => {
     const terminal: Terminal = { start: () => undefined, stop: (name) => stopped.push(name), alive: () => true };
     const app = holdingApp(8, (n) => {
       // The second sample is under pressure: the slot's next, held since the first, hands it a job.
-      if (n === 2) app.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [] });
+      if (n === 2) app.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: [] });
       // The job runs through two more samples under pressure, then ends by itself.
       if (n === 5) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
     });
@@ -269,7 +273,7 @@ describe('the tokens (PRD 2102, s4)', () => {
   async function withJob({ health, refuseTokens = false, tokens }: { health: 'ok' | 'fails'; refuseTokens?: boolean; tokens: TokenSource }) {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-tokens-'));
     const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [] });
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: [] });
       if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
     });
     const sent: JobUpdate[] = [];
@@ -337,7 +341,7 @@ type Ending = { over?: Partial<RunnerOptions>; refusing?: (update: JobUpdate) =>
 async function jobEnding(line: string, log: string, exit: string, { over = {}, refusing = () => false, alive = true }: Ending = {}): Promise<JobUpdate[]> {
   const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
   const base = holdingApp(7, (n) => {
-    if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [] });
+    if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: [] });
     if (n === 6 && exit !== '') writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
   });
   const sent: JobUpdate[] = [];
@@ -435,7 +439,7 @@ describe('the outcome (PRD 2223)', () => {
   it('sends a final report the app refused for its outcome again without it', async () => {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
     const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [] });
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: [] });
       if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
     });
     const sent: JobUpdate[] = [];
@@ -584,7 +588,7 @@ describe("a repository's own skill (PRD 2313, s2)", () => {
     };
     const started: string[] = [];
     const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: allowed });
+      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: allowed });
       if (n === 6) {
         mkdirSync(join(home, 'logs'), { recursive: true });
         writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
@@ -643,5 +647,24 @@ describe("a repository's own skill (PRD 2313, s2)", () => {
     const { sent, started } = await claimed({ line: '/omni:pr-care 7', allowed: [] });
     expect(started).toEqual(['job-7']);
     expect(sent.at(-1)).toMatchObject({ status: 'done', exitCode: 0 });
+  });
+});
+
+describe('a job that came without its App (PRD 2573)', () => {
+  it('ends failed before its session starts, and no line or log holds a token', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-noapp-'));
+    const started: string[] = [];
+    const base = holdingApp(7, (n) => {
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [] });
+    });
+    const sent: JobUpdate[] = [];
+    const api: RunnerApi = { ...base.api, update: (job, update) => { sent.push(update); return base.api.update(job, update); } };
+    const { printed } = await run({ ...base, api }, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
+      terminal: { start: (session) => { started.push(session.name); }, stop: () => undefined, alive: () => true },
+    });
+    expect(started).toEqual([]);
+    expect(sent.at(-1)).toMatchObject({ status: 'failed', reason: 'github app: the job came without its App' });
+    expect(JSON.stringify([sent, printed])).not.toContain(TOKEN);
   });
 });
