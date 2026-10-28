@@ -6897,6 +6897,7 @@ export type Database = {
           log_tail: string
           notify_url: string | null
           outcome: string | null
+          parts: Json | null
           pr_url: string | null
           prs: Json
           queued_at: string
@@ -6948,6 +6949,7 @@ export type Database = {
           log_tail: string
           notify_url: string | null
           outcome: string | null
+          parts: Json | null
           pr_url: string | null
           prs: Json
           queued_at: string
