@@ -2528,3 +2528,32 @@ describe('a job that pings its link (PRD 2425 s8)', () => {
     });
   });
 });
+
+// A job's parts (PRD 2537, s3): a job's report stores the parts its runner sent in `runner_jobs.parts`, a
+// later report without them keeps them, and the page reads them with the job; a job whose runner never
+// sent any reads none.
+describe("a job's parts (PRD 2537, s3)", () => {
+  const LIMIT = { agent: 'claude', model: 'claude-opus-5-5', account: 'claude-1', from: '2026-10-27T13:41:02.000Z', to: '2026-10-27T14:02:11.000Z', ended: 'limit' as const, resetsAt: '2026-10-27T18:00:00.000Z', guessed: false, note: 'runner' as const };
+  const RUNNING = { agent: 'codex', model: 'gpt-5-codex', account: 'codex-1', from: '2026-10-27T14:02:15.000Z', to: null, ended: null };
+
+  it('stores the parts a job report carries, keeps them when a later one carries none, and shows them with the job', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', parts: [LIMIT, RUNNING] }));
+    expect(w.state.jobs[0]?.parts).toEqual([LIMIT, RUNNING]);
+    value(await w.service.update(OLGA, job.id, { status: 'running', logTail: 'working' }));
+    expect(w.state.jobs[0]?.parts).toEqual([LIMIT, RUNNING]);
+    const done = { ...RUNNING, to: '2026-10-27T14:30:00.000Z', ended: 'done' as const };
+    value(await w.service.update(OLGA, job.id, { status: 'done', parts: [LIMIT, done] }));
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)?.parts).toEqual([LIMIT, done]);
+  });
+
+  it('shows a job whose runner never reported parts with none', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running' }));
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)?.parts).toBeNull();
+  });
+});

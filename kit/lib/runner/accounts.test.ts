@@ -134,6 +134,19 @@ describe('the states', () => {
     expect(book.stateOf('a').state).toBe('ready');
   });
 
+  it("sees an account another process marked out (a job's turnover), and keeps both marks (PRD 2537, s3)", () => {
+    const file = accountsStateFile(home());
+    const now = Date.parse('2026-10-28T10:00:00.000Z');
+    const runner = accountBook({ file, now: () => now });
+    const job = accountBook({ file, now: () => now });
+    expect(runner.stateOf('a').state).toBe('ready');
+    job.markOut('a', '2026-10-28T12:00:00.000Z');
+    expect(runner.stateOf('a')).toEqual({ state: 'out', resetsAt: '2026-10-28T12:00:00.000Z' });
+    runner.markOut('b', '2026-10-28T13:00:00.000Z');
+    const kept: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    expect(kept).toEqual({ a: { state: 'out', resetsAt: '2026-10-28T12:00:00.000Z' }, b: { state: 'out', resetsAt: '2026-10-28T13:00:00.000Z' } });
+  });
+
   it('starts every account ready when the state file does not parse', () => {
     const file = accountsStateFile(home());
     mkdirSync(dirname(file), { recursive: true });

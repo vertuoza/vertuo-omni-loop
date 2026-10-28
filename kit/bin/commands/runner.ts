@@ -86,7 +86,7 @@ import type { IssueNumber } from '../../lib/ids.ts';
 import { runningKit } from '../../lib/init/bundle.ts';
 import { jobQuestionsApi, RunnerRefused, RunnerUnreachable, runnerApi } from '../../lib/runner/api.ts';
 import type { HealthLimits, JobQuestionsApi } from '../../lib/runner/api.ts';
-import { AccountsError, agentAccountOf, readAccounts } from '../../lib/runner/accounts.ts';
+import { accountBook, AccountsError, accountsStateFile, agentAccountOf, readAccounts } from '../../lib/runner/accounts.ts';
 import type { Accounts } from '../../lib/runner/accounts.ts';
 import type { Agent, AgentAccount } from '../../lib/runner/agents/agent.ts';
 import { agentNamed } from '../../lib/runner/agents/index.ts';
@@ -106,6 +106,8 @@ import type { JobQuestionList } from '../../lib/runner/questions.ts';
 import { releaser } from '../../lib/runner/release.ts';
 import { KEEP_LOGS_DAYS, runRunner } from '../../lib/runner/runner.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
+import { turnoverOf } from '../../lib/runner/turnover.ts';
+import type { Turnover } from '../../lib/runner/turnover.ts';
 import { readT3Credential, T3_SIGN_IN_MISSING, t3Interrupt, t3SignIn, t3SignInNote } from '../../lib/runner/t3-mcp.ts';
 import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import { tokenSource } from '../../lib/runner/tokens.ts';
@@ -319,24 +321,26 @@ function readAccountsOf(home: string): Accounts | { refusal: string } {
 }
 
 /**
- * The run of a job on the account `id` of the file under `where`: its agent, and the account as that agent sees it, or the refusal.
+ * The run of a job on the account `id` of the file under `where`: its agent, the account as that agent sees it,
+ * and the file's accounts it turns over to at the wall (PRD 2537, s3), or the refusal.
  * A T3 account's run is this omni's `t3-run` (`omni` the node and script running now, when known).
  */
-function accountRunOf(id: string, where: string, omni: readonly string[] | undefined): { agent: Agent; account: AgentAccount } | { refusal: string } {
+function accountRunOf(id: string, where: string, exec: Exec, omni: readonly string[] | undefined): { agent: Agent; account: AgentAccount; turnover: Turnover } | { refusal: string } {
   const accounts = readAccountsOf(where);
   if ('refusal' in accounts) return accounts;
   const account = accounts.accounts.find((candidate) => candidate.id === id);
   const agent = account === undefined ? null : agentNamed(account.agent, { home: where, omni });
   if (account === undefined || agent === null) return { refusal: `account ${id} cannot run a job here` };
-  return { agent, account: agentAccountOf(account, where) };
+  const turnover = turnoverOf({ accounts: accounts.accounts, book: accountBook({ file: accountsStateFile(where) }), exec, home: where, omni });
+  return { agent, account: agentAccountOf(account, where), turnover };
 }
 
-async function job(args: string[], { cwd, stdout, stderr, home, script }: FreeIo & RunnerCommandOptions): Promise<number> {
+async function job(args: string[], { cwd, stdout, stderr, home, exec, script }: FreeIo & RunnerCommandOptions): Promise<number> {
   const { positional, flags } = parseArgs('runner', args, { values: ['line', 'log', 'exit', 'account'] });
   if (positional.length || !flags.line || !flags.log || !flags.exit) throw usageError('usage: omni runner job --line <file> --log <file> --exit <file> [--account <id>]');
   const files = { line: flags.line, log: flags.log, exit: flags.exit };
   if (flags.account === undefined) return runJobProcess({ cwd, files, out: stdout });
-  const run = accountRunOf(flags.account, home ?? homedir(), script === undefined ? undefined : [process.execPath, script]);
+  const run = accountRunOf(flags.account, home ?? homedir(), exec, script === undefined ? undefined : [process.execPath, script]);
   return 'refusal' in run ? refused(stderr, run.refusal) : runJobProcess({ cwd, files, out: stdout, ...run });
 }
 

@@ -177,8 +177,8 @@ export type AccountBook = {
   release(id: string): void;
 };
 
-/** The book kept in `file`: only the accounts that are out are written, an active one is ready again after a restart. */
-export function accountBook({ file, now = Date.now }: { file: string; now?: (() => number) | undefined }): AccountBook {
+/** The accounts `file` keeps out, by id, with their reset times: none when there is no file or it does not parse. */
+function keptOut(file: string): Map<string, string> {
   const out = new Map<string, string>();
   try {
     const kept: unknown = JSON.parse(readFileSync(file, 'utf8'));
@@ -191,6 +191,16 @@ export function accountBook({ file, now = Date.now }: { file: string; now?: (() 
   } catch {
     // No file yet, or one that does not parse: every account is ready.
   }
+  return out;
+}
+
+/**
+ * The book kept in `file`: only the accounts that are out are written, an active one is ready again after a restart.
+ * The file is read again at every look and before every mark, so an account a job's process marked out (its turnover,
+ * PRD 2537 s3) reads out to the runner too, and neither process drops the other's mark.
+ */
+export function accountBook({ file, now = Date.now }: { file: string; now?: (() => number) | undefined }): AccountBook {
+  let out = keptOut(file);
   const active = new Map<string, number>();
   const save = (): void => {
     mkdirSync(dirname(file), { recursive: true });
@@ -199,6 +209,7 @@ export function accountBook({ file, now = Date.now }: { file: string; now?: (() 
   };
   return {
     stateOf(id) {
+      out = keptOut(file);
       const resetsAt = out.get(id);
       if (resetsAt !== undefined) {
         if (Date.parse(resetsAt) > now()) return { state: 'out', resetsAt };
@@ -208,6 +219,7 @@ export function accountBook({ file, now = Date.now }: { file: string; now?: (() 
       return { state: (active.get(id) ?? 0) > 0 ? 'active' : 'ready', resetsAt: null };
     },
     markOut(id, resetsAt) {
+      out = keptOut(file);
       out.set(id, resetsAt);
       save();
     },
