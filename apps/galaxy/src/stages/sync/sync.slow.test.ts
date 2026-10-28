@@ -182,6 +182,23 @@ describe('the stages sync starts no repository once it has taken 120 s (#2529)',
     expect(lines).toContain('stages sync: 2 repositories of acme wait for the next run — acme/r2, acme/r1');
   });
 
+  it('reads first the workspace whose oldest repository waited longest, so a slow one never keeps it out', async () => {
+    // Clement's one repository was synced last and its read takes 130 s; read first, it would leave none of
+    // acme's for this run, as on 2026-10-28 08:15 UTC.
+    const CLEMENT: SyncWorkspace = { id: 'w-clement', slug: 'clement', github_org: 'clement', github_installation_id: 12 };
+    const { deps, lines } = run({ 'clement/slow': 130_000, ...reads(2, 0) });
+    deps.workspaces = () => Promise.resolve([CLEMENT, ACME]);
+    deps.repositories = (workspace) => Promise.resolve(workspace.id === CLEMENT.id ? ['clement/slow'] : names(2));
+    const synced = (workspace: string, repository: string, at: string) =>
+      deps.store.recordStages([{ workspace_id: workspace, repository, prd: parsePrd(1), stage: 'prd', reached_at: NOW }], at);
+    await synced(CLEMENT.id, 'clement/slow', '2026-10-27T11:00:00.000Z');
+    await synced(ACME.id, 'acme/r1', '2026-10-27T10:00:00.000Z');
+    await synced(ACME.id, 'acme/r2', '2026-10-27T10:00:00.000Z');
+    const answer = (await (await syncStages(post(), deps)).json()) as { repositories: { repository: string }[] };
+    expect(answer.repositories.map((r) => r.repository)).toEqual(['acme/r1', 'acme/r2', 'clement/slow']);
+    expect(lines).not.toContainEqual(expect.stringContaining('wait for the next run'));
+  });
+
   it('reads every repository without a stopwatch', async () => {
     const { deps } = run(reads(9, 50_000));
     delete deps.timer;
