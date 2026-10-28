@@ -61,6 +61,12 @@
 // while that fails. A job whose token expires with no fresh one is stopped and ends `failed`,
 // `github app: <why>`. Its claims are released with the job's token too, and with no token a job that ran as an
 // app is released by no one: never as the machine's account.
+//
+// A job's parts (PRD 2537, s3): its process keeps one part per account it ran on in `~/logs/job-<id>.parts.json`
+// (`turnover.ts`), and every report carries them. An app that refuses a report for them gets it again without,
+// and no later report carries any. A job its turnover gave up on (no account left) fails with turnover's reason
+// in place of its exit code. A job may turn over to any account of the file, so every account's secret is
+// masked in what it sends.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -87,6 +93,7 @@ import type { TokenSource } from './tokens.ts';
 import { bugFixReading, fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
 import type { BugFixReading, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
+import { partsPath, readParts } from './turnover.ts';
 import type { PluginKeeper } from './plugin.ts';
 import { notReleased } from './release.ts';
 import type { Released, Releaser } from './release.ts';
@@ -197,6 +204,8 @@ type Loop = RunnerOptions & {
   tokensOk: boolean;
   /** Whether an app refused a report for its tokens: none is sent after. */
   tokensOff: boolean;
+  /** Whether an app refused a report for a job's parts (PRD 2537): none is sent after. */
+  partsOff: boolean;
   /** The runner's accounts and their states. */
   accounts: Accounts;
   book: AccountBook;
@@ -266,6 +275,7 @@ function loopOf(options: RunnerOptions): Loop {
     counts: options.tokens ?? tokenSource({ projects: join(options.home, '.claude', 'projects'), now: options.now ?? Date.now }),
     tokensOk: false,
     tokensOff: false,
+    partsOff: false,
     ...accountsOf(options),
     chosen: new Map(),
     secrets: new Map(),
@@ -349,8 +359,7 @@ function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
  * is refused is sent again without them: an app older than PRD 2175, 2223, 2375, 2425 or 2508 refuses a field it
  * does not know, or an outcome word it has no value for, and the job's status must still reach it.
  */
-async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
-  const update = hideTokens(loop, job, raw);
+async function sendNewer(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
   const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps, ...rest } = update;
   const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps];
   if (newer.every((field) => field === undefined)) return sendCounted(loop, job, update);
@@ -369,6 +378,35 @@ async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ ca
       return sendCounted(loop, job, rest);
     }
   }
+}
+
+/**
+ * Sends a job's report, every token and secret it had masked. One that carries the job's parts (PRD 2537) and is
+ * refused is sent again without them, and no later report carries any: an app older than PRD 2537 refuses a field
+ * it does not know, and the job's status must still reach it.
+ */
+async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
+  const update = hideTokens(loop, job, raw);
+  const { parts, ...unparted } = update;
+  if (parts === undefined) return sendNewer(loop, job, update);
+  if (loop.partsOff) return sendNewer(loop, job, unparted);
+  try {
+    return await sendNewer(loop, job, update);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    loop.partsOff = true;
+    return sendNewer(loop, job, unparted);
+  }
+}
+
+/** The log of the job `job` on this machine. */
+const logOf = (loop: Loop, job: string): string => join(loop.home, 'logs', `job-${job}.log`);
+
+/** `update` with the job's parts as its process last wrote them (PRD 2537), unless an app refused them once. */
+function withParts(loop: Loop, update: JobUpdate, job: string): JobUpdate {
+  if (loop.partsOff) return update;
+  const parts = readParts(partsPath(logOf(loop, job)))?.parts ?? [];
+  return parts.length === 0 ? update : { ...update, parts };
 }
 
 /** `update` with the tokens of the worktree and every folder below it, when reports may carry them and they can be read. */
@@ -598,8 +636,11 @@ function failedWithPrs(failed: JobUpdate, log: string, line: string): JobUpdate 
   return reading === null || reading.prs.length === 0 ? failed : { ...failed, prs: reading.prs };
 }
 
-/** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
-function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
+/**
+ * The status a run that ended with `exitText` reports: done with its pull request, or failed with its code, or with
+ * the reason its turnover ended it on (`turnedOver`, PRD 2537: no account left to take it over).
+ */
+function ended(log: string, exitText: string, job: RunnerJob, turnedOver: string | null): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
   if (exitCode === 0) {
@@ -609,7 +650,7 @@ function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
     // A mega bug fix whose hand-off ends on the line that resumes it reads `stopped` (#2449), whatever its Outcome word.
     return { ...done, ...(bugFix === null ? {} : bugFixFields(bugFix)), ...(outcome === null ? {} : { outcome }) };
   }
-  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` }, log, job.line);
+  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: turnedOver ?? `exit code ${String(exitCode)}` }, log, job.line);
 }
 
 /** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
@@ -621,6 +662,9 @@ function vanished(log: string, job: RunnerJob): JobUpdate {
   if (outcome === null || outcome === 'stopped') return failedWithPrs({ status: 'failed', logTail: logTail(log), reason }, log, job.line);
   return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
 }
+
+/** The reason the job's turnover ended it on (PRD 2537): no account left to take it over; `null` when it did not. */
+const turnedOver = (place: Place): string | null => readParts(partsPath(place.log))?.reason ?? null;
 
 /** Stops the job's session and answers `update`. */
 function killed(loop: Loop, job: string, place: Place, update: JobUpdate): JobUpdate {
@@ -656,12 +700,12 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
   for (;;) {
     await loop.sleep(loop.tickMs);
     const log = readLog(loop, job.id, place.log);
-    if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
+    if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job, turnedOver(place)));
     if (!loop.terminal.alive(place.session)) return vanished(readLog(loop, job.id, place.log), job);
     if (loop.now() - started > loop.timeoutMs) return killed(loop, job.id, place, failedWithPrs({ status: 'failed', reason: 'timeout' }, log, job.line));
     const noApp = await appLacking(loop, job);
     if (noApp !== null) return killed(loop, job.id, place, { status: 'failed', reason: noApp });
-    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });
+    if (await tick(loop, job.id, withParts(loop, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), job.id), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });
   }
 }
 
@@ -688,8 +732,9 @@ function takeAccount(loop: Loop, job: RunnerJob): string | null {
   const { account } = chosen;
   loop.book.activate(account.id);
   loop.chosen.set(job.id, account.id);
-  const secret = account.secret === null ? '' : readSecret(account.secret, loop.home);
-  if (secret !== '') loop.secrets.set(job.id, [secret]);
+  // The job may turn over to any account of the file (PRD 2537, s3): every one's secret is masked in what it sends.
+  const secrets = loop.accounts.accounts.flatMap((each) => (each.secret === null ? [] : [readSecret(each.secret, loop.home)])).filter((secret) => secret !== '');
+  if (secrets.length > 0) loop.secrets.set(job.id, secrets);
   loop.print(`job ${job.id} runs on account ${account.id}`);
   return null;
 }
@@ -840,7 +885,7 @@ async function slot(loop: Loop, runner: string): Promise<void> {
       const { last, live } = await runJob(loop, job);
       // A job whose session never started made no claim: it has nothing to release.
       const report = live === null ? last : await releasing(loop, job, last);
-      await finish(loop, job.id, withTokens(loop, report, worktreeOf(loop, job)), live);
+      await finish(loop, job.id, withParts(loop, withTokens(loop, report, worktreeOf(loop, job)), job.id), live);
       loop.print(endLine(job, last));
     } finally {
       // Once its last report is sent: the log is masked with the file until then.

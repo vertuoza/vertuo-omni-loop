@@ -786,6 +786,36 @@ describe('omni runner', () => {
       expect(process.env.CLAUDE_CODE_OAUTH_TOKEN).not.toBe('sk-direct-secret');
     });
 
+    it('turns the job over to the next account of the file at the usage limit (PRD 2537, s3)', async () => {
+      const f = fixture();
+      writeFileSync(join(f.root, 'one'), 'token-one\n');
+      writeFileSync(join(f.root, 'two'), 'token-two\n');
+      accountsAt(f.home, `accounts:\n  - id: one\n    agent: claude\n    secret: ${join(f.root, 'one')}\n  - id: two\n    agent: claude\n    secret: ${join(f.root, 'two')}\n`);
+      const files = { line: join(f.root, 'job.line'), log: join(f.root, 'job.log'), exit: join(f.root, 'job.exit') };
+      writeFileSync(files.line, '/omni:yolo 7\n');
+      const bin = join(f.root, 'bin-turnover');
+      mkdirSync(bin);
+      const limit = join(import.meta.dirname, '..', '..', 'lib', 'runner', 'fixtures', 'claude', 'limit.jsonl');
+      writeFileSync(join(bin, 'claude'), `#!/bin/sh\ncat >/dev/null\nif [ "$CLAUDE_CODE_OAUTH_TOKEN" = token-one ]; then cat "${limit}"; exit 1; fi\necho "finished on $CLAUDE_CODE_OAUTH_TOKEN"\n`);
+      chmodSync(join(bin, 'claude'), 0o755);
+      const path = process.env.PATH;
+      process.env.PATH = `${bin}:${String(path)}`;
+      try {
+        const code = await main(['runner', 'job', '--line', files.line, '--log', files.log, '--exit', files.exit, '--account', 'one'], {
+          cwd: f.root, stdout: out().stream, stderr: out().stream, exec: fakeExec(), env: {}, home: f.home,
+        });
+        expect(code).toBe(0);
+      } finally {
+        process.env.PATH = path;
+      }
+      const log = readFileSync(files.log, 'utf8');
+      expect(log).toContain('account one reached its usage limit');
+      expect(log).toContain('finished on token-two');
+      const parts: unknown = JSON.parse(readFileSync(join(f.root, 'job.parts.json'), 'utf8'));
+      expect(parts).toMatchObject({ parts: [{ account: 'one', ended: 'limit' }, { account: 'two', ended: 'done' }], reason: null });
+      expect(readFileSync(join(f.home, '.config', 'omni', 'accounts-state.json'), 'utf8')).toContain('"one"');
+    });
+
     it('refuses a job on an account the file does not hold', async () => {
       const f = fixture();
       const files = { line: join(f.root, 'job.line'), log: join(f.root, 'job.log'), exit: join(f.root, 'job.exit') };

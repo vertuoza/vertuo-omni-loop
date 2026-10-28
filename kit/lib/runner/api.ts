@@ -28,6 +28,7 @@ import type { Sample } from './health.ts';
 import type { BugFixOutcome, RunOutcome } from './log.ts';
 import type { JobQuestionList } from './questions.ts';
 import type { MachineTokens, TokenCounts } from './tokens.ts';
+import type { JobPart } from './turnover.ts';
 
 /** The line a refused sign-in stops the runner on. */
 const NO_SIGN_IN = 'no sign-in (omni setup-token)';
@@ -123,6 +124,8 @@ export type JobUpdate = {
   /** The PRD's slices merged and its slices in all, read from its board when a job ended `stopped` (PRD 2375); left out when the board cannot be read. */
   slicesMerged?: number;
   slicesTotal?: number;
+  /** The job's runs, one per account it ran on, in order (PRD 2537): its agent, model, account, times, tokens and how each ended. */
+  parts?: JobPart[];
 };
 
 /** The limits a runner pauses at (PRD 2102): memory used above, in percent; disk free below, in GB; load above, times its cores. */

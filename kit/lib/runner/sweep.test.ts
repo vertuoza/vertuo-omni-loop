@@ -77,6 +77,13 @@ describe('sweep', () => {
     expect(sweptLine(swept)).toMatch(/^swept: 1 worktree, 2 branches, 3 log files · 3 MB freed$/);
   });
 
+  it("removes an old job's parts and handoff note with its log (PRD 2537, s3)", () => {
+    const f = fixture();
+    const logs = [f.log('job-7.parts.json', 20), f.log('job-7.handoff.md', 20)];
+    expect(run(f)).toMatchObject({ logs: 2 });
+    for (const path of logs) expect(existsSync(path)).toBe(false);
+  });
+
   it('keeps a branch with an upstream, and one present on origin', () => {
     const f = fixture();
     git(f.checkout, 'branch', 'agent/job-1');

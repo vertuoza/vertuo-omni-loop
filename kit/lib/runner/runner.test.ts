@@ -719,3 +719,69 @@ describe('the accounts (PRD 2537, s2)', () => {
     expect(book.stateOf('one').state).toBe('ready');
   });
 });
+
+// A job's parts (PRD 2537, s3): the runner sends the parts its job's process kept beside the log with each
+// report, ends a job turnover gave up on with turnover's reason, sends a report an app refuses for its parts
+// again without them and none after, and masks the secret of every account the job may have turned over to.
+describe("a job's parts (PRD 2537, s3)", () => {
+  const PARTS = {
+    parts: [
+      { agent: 'claude', model: 'claude-opus-5-5', account: 'one', from: '2026-10-16T12:00:00.000Z', to: '2026-10-16T12:01:00.000Z', ended: 'limit', resetsAt: '2026-10-16T17:00:00.000Z', guessed: false, note: 'runner' },
+      { agent: 'claude', model: null, account: 'two', from: '2026-10-16T12:01:00.000Z', to: null, ended: null },
+    ],
+    reason: null,
+  };
+
+  /** A terminal whose job writes `log` and, beside it, the parts `parts`. */
+  const writing = (log: string, parts: unknown): Terminal => ({
+    start: (session) => {
+      const path = session.argv[session.argv.indexOf('--log') + 1] ?? '';
+      writeFileSync(path, log);
+      writeFileSync(path.replace(/\.log$/, '.parts.json'), JSON.stringify(parts));
+    },
+    stop: () => undefined,
+    alive: () => true,
+  });
+
+  it('sends the parts with the running reports and the last one', async () => {
+    const sent = await jobEnding('/omni:yolo 7', 'working\n', '0\n', { over: { terminal: writing('working\n', PARTS) } });
+    expect(sent.filter((update) => update.status === 'running' && update.parts !== undefined).length).toBeGreaterThan(0);
+    expect(sent.at(-1)).toMatchObject({ status: 'done', parts: PARTS.parts });
+  });
+
+  it('sends no parts when the job kept none, or kept a file out of shape', async () => {
+    const none = await jobEnding('/omni:yolo 7', 'working\n', '0\n');
+    expect(none.some((update) => update.parts !== undefined)).toBe(false);
+    const bad = await jobEnding('/omni:yolo 7', 'working\n', '0\n', { over: { terminal: writing('working\n', { parts: 'no' }) } });
+    expect(bad.some((update) => update.parts !== undefined)).toBe(false);
+  });
+
+  it("ends a job turnover gave up on with turnover's reason", async () => {
+    const reason = 'no tokens left: every account is out until 2026-10-16T17:00:00.000Z';
+    const sent = await jobEnding('/omni:yolo 7', 'working\n', '1\n', { over: { terminal: writing('working\n', { ...PARTS, reason }) } });
+    expect(sent.at(-1)).toMatchObject({ status: 'failed', exitCode: 1, reason });
+  });
+
+  it('sends a report an app refuses for its parts again without them, and none after', async () => {
+    const sent = await jobEnding('/omni:yolo 7', 'working\n', '0\n', { over: { terminal: writing('working\n', PARTS) }, refusing: (update) => update.parts !== undefined });
+    const refused = sent.findIndex((update) => update.parts !== undefined);
+    expect(refused).toBeGreaterThan(-1);
+    expect(sent.slice(refused + 1).some((update) => update.parts !== undefined)).toBe(false);
+    expect(sent.at(-1)).toMatchObject({ status: 'done' });
+  });
+
+  it('masks the secret of every account of the file, not only the one the job started on', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'omni-runner-secrets-'));
+    writeFileSync(join(dir, 'one'), 'first-account-secret-value\n');
+    writeFileSync(join(dir, 'two'), 'second-account-secret-value\n');
+    const accounts: Accounts = {
+      file: true,
+      handoff: DEFAULT_HANDOFF,
+      accounts: ['one', 'two'].map((id) => ({ id, agent: 'claude', instance: null, model: null, secret: join(dir, id), budget: null, takes: null })),
+    };
+    const log = 'printed second-account-secret-value\n';
+    const sent = await jobEnding('/omni:yolo 7', log, '0\n', { over: { terminal: writing(log, PARTS), accounts, accountBook: accountBook({ file: accountsStateFile(dir), now: () => T0 }) } });
+    expect(JSON.stringify(sent)).not.toContain('second-account-secret-value');
+    expect(JSON.stringify(sent)).toContain('printed ***');
+  });
+});

@@ -5,7 +5,7 @@
 //   `git worktree prune` in every checkout;
 // - each local `agent/job-<id>` branch of those checkouts, unless it was pushed: it has an upstream,
 //   or `origin` has a branch of that name. Origin unreadable, every branch of that checkout stays;
-// - each `~/logs/job-<id>.<ext>` file older than `--keep-logs` days.
+// - each `~/logs/job-<id>.<ext>` file older than `--keep-logs` days, `<ext>` one or more parts (`.parts.json`, PRD 2537).
 //
 // `~/logs/runner.log`, any other folder, file or branch is never touched. The line it prints counts
 // what went and the space freed; a sweep that removed nothing prints nothing.
@@ -35,7 +35,7 @@ const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: 
 const ID = '[A-Za-z0-9_-]+';
 const JOB_ID = new RegExp(`^${ID}$`);
 const JOB_BRANCH =new RegExp(`^agent/job-(${ID})$`);
-const JOB_LOG = new RegExp(`^job-(${ID})\\.[A-Za-z0-9]+$`);
+const JOB_LOG = new RegExp(`^job-(${ID})(?:\\.[A-Za-z0-9]+)+$`);
 
 /** The names in `dir`, or none when it cannot be read. */
 function namesIn(dir: string): string[] {
