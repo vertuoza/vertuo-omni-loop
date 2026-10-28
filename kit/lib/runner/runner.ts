@@ -53,8 +53,8 @@
 // its identity, git over HTTPS and a `gh` first on its `PATH`, with the token in `~/logs/job-<id>.github`
 // (`github-token.ts`) and in no variable. Every line, log tail and report the runner sends reads `***` for
 // every token the job had, and the file goes once the job is reported. A job whose app cannot be set up ends
-// `failed`, `github app: <why>`, before its session starts: it never runs as a person. A job with no `github`
-// starts exactly as it always did.
+// `failed`, `github app: <why>`, before its session starts: it never runs as a person. A job with no `github` (PRD 2573)
+// ends `failed`, `github app: the job came without its App`, before its session starts, whatever the server sent.
 //
 // Its token lasts an hour (PRD 2433, s3): at every look at the running job the runner keeps it current
 // (`github-refresh.ts`), asking the app for a fresh one with less than 5 minutes left and again every minute
@@ -484,11 +484,11 @@ const WAIT_FOR_AGENTS: Readonly<Record<string, string>> = { CLAUDE_CODE_PRINT_BG
 
 /**
  * What a job runs as (PRD 2433): the variables of its app, its token kept for the session to read, or why it
- * cannot run as the app, in the words its report carries. A job with no app runs as the runner always ran it:
- * no variable more, and no token kept. The token goes in a file and nowhere else.
+ * cannot run as the app, in the words its report carries. A job with no app never runs (PRD 2573): it ends
+ * `failed` before its session, so it never runs as the machine's login. The token goes in a file and nowhere else.
  */
 function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { failed: string } {
-  if (job.github === null) return { env: {} };
+  if (job.github === null) return { failed: 'github app: the job came without its App' };
   const file = githubTokenFile(loop.home, job.id);
   if (loop.githubToken === undefined || file === null) return { failed: 'github app: this runner cannot give the job its token' };
   try {
