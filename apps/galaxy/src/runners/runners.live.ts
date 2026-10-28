@@ -43,5 +43,9 @@ export function runnersDeps(): RunnersDeps {
     session: hasDb ? sessionUser : null,
     service: liveRunnersService(),
     log: (message) => { log.error({ event: 'runners', outcome: 'failed', message }); },
+    timer: () => {
+      const start = performance.now();
+      return () => performance.now() - start;
+    },
   };
 }

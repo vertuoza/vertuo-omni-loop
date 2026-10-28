@@ -543,6 +543,33 @@ describe('POST /api/runners/<id>/health', () => {
     expect(w.state.samples).toEqual([]);
     expect(w.state.runners.every((r) => r.health === null)).toBe(true);
   });
+
+  // The runner gives up on a report after 5 s: one that takes 1 s or more says which of its steps took the time.
+  it('logs a report whose steps take 1 s or more, with each step\'s time', async () => {
+    const w = world();
+    w.deps.timer = () => () => 250;
+    expect((await reportHealth(post(`/${SHARED}/health`, 'olga-token', REPORT), SHARED, w.deps)).status).toBe(200);
+    expect(w.logged).toEqual([
+      `runners: the health report of ${SHARED} took 1.5 s — sign-in 0.3 s, runner 0.3 s, lost jobs 0.3 s, runner update 0.3 s, sample 0.3 s, trim 0.3 s`,
+    ]);
+  });
+
+  it('logs a refused report that was slow too, with the steps it took', async () => {
+    const w = world();
+    w.deps.timer = () => () => 600;
+    expect((await reportHealth(post(`/${SHARED}/health`, 'mo-token', REPORT), SHARED, w.deps)).status).toBe(403);
+    expect(w.logged).toEqual([`runners: the health report of ${SHARED} took 1.2 s — sign-in 0.6 s, runner 0.6 s`]);
+  });
+
+  it('logs nothing for a report under 1 s, or without a stopwatch', async () => {
+    const fast = world();
+    fast.deps.timer = () => () => 166;
+    await reportHealth(post(`/${SHARED}/health`, 'olga-token', REPORT), SHARED, fast.deps);
+    expect(fast.logged).toEqual([]);
+    const plain = world();
+    await reportHealth(post(`/${SHARED}/health`, 'olga-token', REPORT), SHARED, plain.deps);
+    expect(plain.logged).toEqual([]);
+  });
 });
 
 // A job's questions and their answers (PRD 2255 s1): a runner's token posts the questions and may read them
