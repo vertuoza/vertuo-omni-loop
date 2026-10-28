@@ -31,6 +31,10 @@
 
 /* The health line (PRD 2102): four gauges under a runner's row, each with its bar and the hour's sparkline. */
 .runners-health { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.runners-accounts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.runners-chip { font: 600 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--ask-line); color: var(--ask-ink); }
+.runners-chip.is-active { color: var(--ask-cyan); border-color: currentColor; }
+.runners-chip.is-out { color: var(--ask-red); border-color: currentColor; }
 .runners-gauge { background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 8px; padding: 6px 10px; min-width: 0; }
 .runners-gauge-k { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); }
 .runners-gauge-v { font: 600 14px/1.4 var(--ask-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

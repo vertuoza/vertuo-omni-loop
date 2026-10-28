@@ -785,3 +785,61 @@ describe("a job's parts (PRD 2537, s3)", () => {
     expect(JSON.stringify(sent)).toContain('printed ***');
   });
 });
+
+describe('no tokens left (PRD 2537, s6)', () => {
+  const direct = (id: string): Account => ({ id, agent: 'claude', instance: null, model: null, secret: null, budget: null, takes: null });
+  const file = (accounts: Account[]): Accounts => ({ file: true, accounts, handoff: DEFAULT_HANDOFF });
+  const bookOf = (app: { clock: { now: number } }, out: Record<string, number>) => {
+    const book = accountBook({ file: accountsStateFile(mkdtempSync(join(tmpdir(), 'omni-runner-book-'))), now: () => app.clock.now });
+    for (const [id, until] of Object.entries(out)) book.markOut(id, new Date(until).toISOString());
+    return book;
+  };
+
+  it('opens no next while every account is out, reports Paused with the earliest reset and every account\'s state', async () => {
+    const app = holdingApp(2);
+    const reset = T0 + 3_600_000;
+    const { printed } = await run(app, { accounts: file([direct('one'), direct('two')]), accountBook: bookOf(app, { one: reset + 60_000, two: reset }) });
+    const at = new Date(reset);
+    const until = `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`;
+    expect(app.nexts()).toBe(0);
+    expect(app.reports.map((report) => report.paused)).toEqual([`no tokens left until ${until}`, `no tokens left until ${until}`]);
+    expect(app.reports[0]?.accounts).toEqual([
+      { id: 'one', agent: 'claude', state: 'out', resetsAt: new Date(reset + 60_000).toISOString() },
+      { id: 'two', agent: 'claude', state: 'out', resetsAt: new Date(reset).toISOString() },
+    ]);
+    expect(printed).toContain(`paused: no tokens left until ${until}`);
+  });
+
+  it('takes jobs again once the earliest reset has passed', async () => {
+    const nextsAt: number[] = [];
+    const app = holdingApp(4, () => nextsAt.push(app.nexts()));
+    const { printed } = await run(app, { accounts: file([direct('one')]), accountBook: bookOf(app, { one: T0 + 20_000 }) });
+    expect(app.reports.map((report) => report.paused === null)).toEqual([false, false, true, true]);
+    expect(app.reports.at(-1)?.accounts).toEqual([{ id: 'one', agent: 'claude', state: 'ready' }]);
+    expect(printed.filter((line) => /^(paused|resumed)/.test(line))).toEqual([expect.stringMatching(/^paused: no tokens left until /), 'resumed']);
+    expect(app.nexts()).toBe(2);
+  });
+
+  it('stays unpaused with one account ready, and sends no accounts without a file', async () => {
+    const ready = holdingApp(1);
+    await run(ready, { accounts: file([direct('one'), direct('two')]), accountBook: bookOf(ready, { one: T0 + 3_600_000 }) });
+    expect(ready.reports[0]?.paused).toBeNull();
+    expect(ready.reports[0]?.accounts?.map((account) => account.state)).toEqual(['out', 'ready']);
+    const none = holdingApp(1);
+    await run(none);
+    expect(none.reports[0]).not.toHaveProperty('accounts');
+  });
+
+  it('sends a report again without the accounts an app refuses, and none after', async () => {
+    const app = holdingApp(3);
+    const seen: boolean[] = [];
+    const health = app.api.health;
+    app.api.health = (runner, report) => {
+      seen.push('accounts' in report);
+      return 'accounts' in report ? Promise.reject(new RunnerRefused('refused (400)')) : health(runner, report);
+    };
+    await run(app, { accounts: file([direct('one')]), accountBook: bookOf(app, {}) });
+    expect(seen).toEqual([true, false, false, false]);
+    expect(app.reports.every((report) => !('accounts' in report))).toBe(true);
+  });
+});

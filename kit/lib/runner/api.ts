@@ -131,8 +131,11 @@ export type JobUpdate = {
 /** The limits a runner pauses at (PRD 2102): memory used above, in percent; disk free below, in GB; load above, times its cores. */
 export type HealthLimits = { maxMemory: number; minDiskGb: number; maxLoad: number };
 
-/** A health report: the machine's sample, why it is paused and at which limits, and its tokens of the last 5 h and today. Numbers only. */
-export type HealthReport = Sample & { paused?: string | null; limits?: HealthLimits; tokens?: MachineTokens };
+/** One account of the runner as the health report names it (PRD 2537): its id, its agent, its state and, when out, until when. Nothing else of it leaves the machine. */
+export type AccountReport = { id: string; agent: string; state: 'ready' | 'active' | 'out'; resetsAt?: string };
+
+/** A health report: the machine's sample, why it is paused and at which limits, its tokens of the last 5 h and today, and its accounts' states. Numbers and states only. */
+export type HealthReport = Sample & { paused?: string | null; limits?: HealthLimits; tokens?: MachineTokens; accounts?: AccountReport[] };
 
 /**
  * What the runner says about itself when it registers. `githubApp` says it can run a job as an API key's

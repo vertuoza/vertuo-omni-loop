@@ -76,8 +76,8 @@ import type { PrdNumber } from '../ids.ts';
 import { runnerJobVariables, runnerSenderVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
-import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
-import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
+import type { AccountReport, HealthLimits, HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import { accountsReport, DEFAULT_LIMITS, machineReads, nextPause, noTokensReason, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
 import { githubJobEnv, installGhShim } from './github-app.ts';
@@ -204,6 +204,10 @@ type Loop = RunnerOptions & {
   tokensOk: boolean;
   /** Whether an app refused a report for its tokens: none is sent after. */
   tokensOff: boolean;
+  /** Why every account is out (PRD 2537): `no tokens left until 18:00`, `null` while one is not. Free slots open no `next` while it holds. */
+  noTokens: string | null;
+  /** Whether an app refused a health report for its accounts: none is sent after. */
+  accountsOff: boolean;
   /** Whether an app refused a report for a job's parts (PRD 2537): none is sent after. */
   partsOff: boolean;
   /** The runner's accounts and their states. */
@@ -272,6 +276,8 @@ function loopOf(options: RunnerOptions): Loop {
     limits: options.limits ?? DEFAULT_LIMITS,
     pause: { reason: null, quiet: 0 },
     waiting: new Set(),
+    noTokens: null,
+    accountsOff: false,
     counts: options.tokens ?? tokenSource({ projects: join(options.home, '.claude', 'projects'), now: options.now ?? Date.now }),
     tokensOk: false,
     tokensOff: false,
@@ -290,7 +296,7 @@ function wake(loop: Loop): void {
 
 /** Waits while the runner is paused: whether a free slot may open its `next`, `false` once the runner halts. */
 async function unpaused(loop: Loop): Promise<boolean> {
-  if (loop.pause.reason !== null && !loop.halt.aborted) {
+  if ((loop.pause.reason !== null || loop.noTokens !== null) && !loop.halt.aborted) {
     await new Promise<void>((resolve) => {
       loop.waiting.add(resolve);
     });
@@ -908,6 +914,34 @@ function decide(loop: Loop, reason: string | null): void {
   }
 }
 
+/** Pauses the runner while every account is out and takes jobs again once one is ready (PRD 2537), printing the change once. A runner with no accounts file never pauses so. */
+function decideTokens(loop: Loop): AccountReport[] | null {
+  if (!loop.accounts.file) return null;
+  const accounts = accountsReport(loop.accounts.accounts, loop.book);
+  const reason = noTokensReason(accounts);
+  if (reason !== null && loop.noTokens === null) loop.print(`paused: ${reason}`);
+  const resumed = reason === null && loop.noTokens !== null;
+  loop.noTokens = reason;
+  if (resumed) {
+    loop.print('resumed');
+    wake(loop);
+  }
+  return accounts;
+}
+
+/** Sends one health report; one an app refuses for its accounts is sent again without them, and none carries them after. */
+async function sendHealth(loop: Loop, runner: string, report: HealthReport): Promise<void> {
+  const { accounts, ...plain } = report;
+  if (accounts === undefined || loop.accountsOff) return loop.api.health(runner, plain);
+  try {
+    await loop.api.health(runner, report);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    loop.accountsOff = true;
+    await loop.api.health(runner, plain);
+  }
+}
+
 /**
  * Samples the machine, pauses or resumes on it, and sends its health, now and then every 15 s, until
  * the runner stops or is refused. A report the app refuses or does not answer prints one line; the
@@ -926,9 +960,10 @@ async function reporter(loop: Loop, runner: string): Promise<void> {
     const taken = sample(reads, times);
     times = taken.times;
     decide(loop, pressure(taken.sample, loop.limits));
+    const accounts = decideTokens(loop);
     try {
       const tokens = loop.counts.machine();
-      await loop.api.health(runner, { ...taken.sample, paused: loop.pause.reason, limits: loop.limits, ...(tokens === null ? {} : { tokens }) });
+      await sendHealth(loop, runner, { ...taken.sample, paused: loop.pause.reason ?? loop.noTokens, limits: loop.limits, ...(tokens === null ? {} : { tokens }), ...(accounts === null ? {} : { accounts }) });
       loop.tokensOk = !loop.tokensOff;
     } catch (error) {
       loop.print(`health not sent: ${error instanceof Error ? error.message : String(error)}`);
