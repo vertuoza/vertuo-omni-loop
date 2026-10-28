@@ -340,6 +340,14 @@ export function runnersRepository(db: RunnersDb) {
     markLost: async (cutoff: string): Promise<number> =>
       parsed(db.rpc('runners_mark_lost', { p_cutoff: cutoff }), z.number(), 'runners_mark_lost()'),
 
+    /** Ends `runner lost` every job claimed before `cutoff` that its runner never reported running, at `at` (#2550): the answer
+     * to its `next` never reached the runner, which polls on without it. Answers the jobs it ended. */
+    loseUnstarted: async (cutoff: string, at: string): Promise<JobRow[]> =>
+      parsed(
+        db.from('runner_jobs').update({ status: 'failed', reason: 'runner lost', ended_at: at }).eq('status', 'claimed').lt('claimed_at', cutoff).select(JOB_COLUMNS),
+        z.array(JobRow), 'runner_jobs',
+      ),
+
     /** The repository's own skills its workspace's owner allowed on the runners, in order (PRD 2313;
      * repository_runner_skills_of(), supabase/migrations/20261222090000_repository_runner_skills.sql). */
     allowedSkills: async (workspaceId: string, repo: string): Promise<string[]> =>
