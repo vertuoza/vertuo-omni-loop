@@ -88,6 +88,10 @@ import type { AppOfJob, ContinuationsRepository, JobPatch, JobRow, JobRowStatus,
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
 
+/** Runs one named step of a request, timing it when the caller keeps the times. */
+export type StepTimer = <T>(name: string, run: () => Promise<T>) => Promise<T>;
+const untimed: StepTimer = (_name, run) => run();
+
 /** A rule's answer: its value, or why not, in plain words. */
 export type Served<T> = { ok: true; value: T } | { ok: false; kind: RunnerRefusal; error: string };
 
@@ -891,18 +895,18 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
 
     /** A runner's health report (PRD 2102), from its owner: its last health and a check-in, one sample
      * more, and its samples older than an hour gone. Answers when the server took it. */
-    async health(caller: string, runnerId: string, report: HealthReport): Promise<Served<{ at: string }>> {
-      const owned = await ownRunner(caller, runnerId);
+    async health(caller: string, runnerId: string, report: HealthReport, step: StepTimer = untimed): Promise<Served<{ at: string }>> {
+      const owned = await step('runner', () => ownRunner(caller, runnerId));
       if (!owned.ok) return owned;
-      await markLost();
+      await step('lost jobs', markLost);
       const now = clock.now();
       const at = now.toISOString();
-      await store.updateRunner(runnerId, { health: { ...report, at }, last_seen_at: at });
-      await store.insertSample({
+      await step('runner update', () => store.updateRunner(runnerId, { health: { ...report, at }, last_seen_at: at }));
+      await step('sample', () => store.insertSample({
         runner_id: runnerId, workspace_id: owned.value.workspace_id, at,
         cpu: report.cpu, mem_used: report.memUsed, mem_total: report.memTotal, disk_free: report.diskFree, tokens_5h: tokenSum(report.tokens?.last5h),
-      });
-      await store.trimSamples(runnerId, new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString());
+      }));
+      await step('trim', () => store.trimSamples(runnerId, new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString()));
       return ok({ at });
     },
 
