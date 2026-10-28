@@ -631,8 +631,8 @@ var require_Node = __commonJS({
         };
         const res = toJS.toJS(this, "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count5, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count5);
+          for (const { count: count6, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count6);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
     };
@@ -741,13 +741,13 @@ var require_Alias = __commonJS({
         const anchor2 = anchors2 && source2 && anchors2.get(source2);
         return anchor2 ? anchor2.count * anchor2.aliasCount : 0;
       } else if (identity.isCollection(node3)) {
-        let count5 = 0;
+        let count6 = 0;
         for (const item2 of node3.items) {
           const c = getAliasCount(doc, item2, anchors2);
-          if (c > count5)
-            count5 = c;
+          if (c > count6)
+            count6 = c;
         }
-        return count5;
+        return count6;
       } else if (identity.isPair(node3)) {
         const kc = getAliasCount(doc, node3.key, anchors2);
         const vc = getAliasCount(doc, node3.value, anchors2);
@@ -3738,8 +3738,8 @@ var require_Document = __commonJS({
         };
         const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count5, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count5);
+          for (const { count: count6, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count6);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
       /**
@@ -3817,12 +3817,12 @@ var require_errors = __commonJS({
         lineStr = prev + lineStr;
       }
       if (/[^ ]/.test(lineStr)) {
-        let count5 = 1;
+        let count6 = 1;
         const end3 = error62.linePos[1];
         if (end3?.line === line2 && end3.col > col) {
-          count5 = Math.max(1, Math.min(end3.col - col, 80 - ci));
+          count6 = Math.max(1, Math.min(end3.col - col, 80 - ci));
         }
-        const pointer = " ".repeat(ci) + "^".repeat(count5);
+        const pointer = " ".repeat(ci) + "^".repeat(count6);
         error62.message += `:
 
 ${lineStr}
@@ -8696,14 +8696,14 @@ function codePointLength(str) {
   const units = str.length;
   if (!highSurrogate.test(str))
     return units;
-  let count5 = units;
+  let count6 = units;
   for (let i = 0; i < units - 1; i++) {
     if ((str.charCodeAt(i) & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
-      count5--;
+      count6--;
       i++;
     }
   }
-  return count5;
+  return count6;
 }
 function getLengthableOrigin(input2) {
   if (Array.isArray(input2))
@@ -12554,8 +12554,8 @@ function isRecursive(inst, stack, resolve19) {
       result2 = answer;
   };
   const def = inst._zod.def;
-  const kind = def.type;
-  switch (kind) {
+  const kind2 = def.type;
+  switch (kind2) {
     case "object": {
       const raw = rawShape(def);
       merge2(raw ? shape(raw, true) : ASSUMED);
@@ -12635,7 +12635,7 @@ function isRecursive(inst, stack, resolve19) {
     case "custom":
       break;
     default: {
-      kind;
+      kind2;
       for (const key2 in def) {
         const desc = Object.getOwnPropertyDescriptor(def, key2);
         if (!desc || desc.get)
@@ -13076,8 +13076,8 @@ function az_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/be.js
 init_define_OMNI_BUNDLE();
-function getBelarusianPlural(count5, one, few, many) {
-  const absCount = Math.abs(count5);
+function getBelarusianPlural(count6, one, few, many) {
+  const absCount = Math.abs(count6);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -15745,8 +15745,8 @@ function hu_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hy.js
 init_define_OMNI_BUNDLE();
-function getArmenianPlural(count5, one, many) {
-  return Math.abs(count5) === 1 ? one : many;
+function getArmenianPlural(count6, one, many) {
+  return Math.abs(count6) === 1 ? one : many;
 }
 function withDefiniteArticle(word2) {
   if (!word2)
@@ -18509,8 +18509,8 @@ function ro_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ru.js
 init_define_OMNI_BUNDLE();
-function getRussianPlural(count5, one, few, many) {
-  const absCount = Math.abs(count5);
+function getRussianPlural(count6, one, few, many) {
+  const absCount = Math.abs(count6);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -27058,8 +27058,8 @@ function visit(schema, fnOrHandlers) {
   }
   function mapInner(s) {
     const def = s._zod.def;
-    const kind = def.type;
-    switch (kind) {
+    const kind2 = def.type;
+    switch (kind2) {
       case "object": {
         const oldShape = def.shape;
         const keys = Object.keys(oldShape);
@@ -27179,7 +27179,7 @@ function visit(schema, fnOrHandlers) {
       case "custom":
         return s;
       default: {
-        kind;
+        kind2;
         return s;
       }
     }
@@ -27697,9 +27697,9 @@ var DEFAULT_RELEASED_LABEL = "omni:released";
 function releasedLabel(labels2) {
   return labels2.released ?? DEFAULT_RELEASED_LABEL;
 }
-var contractKind = external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
+var contractKind = external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind2) => kind2 !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
 var contractKinds = external_exports.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
-  const twice = kinds.find((kind, index2) => kinds.indexOf(kind) !== index2);
+  const twice = kinds.find((kind2, index2) => kinds.indexOf(kind2) !== index2);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
 });
 var layersSection = external_exports.record(external_exports.string(), external_exports.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
@@ -28291,7 +28291,7 @@ import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:f
 import { join as join3 } from "node:path";
 var req = (id) => Object.freeze({ id, required: true });
 var opt = (id) => Object.freeze({ id, required: false });
-var form = (id, kind, slots, { pointerOnly = false } = {}) => Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
+var form = (id, kind2, slots, { pointerOnly = false } = {}) => Object.freeze({ id, kind: kind2, pointerOnly, slots: Object.freeze(slots) });
 var FORMS = Object.freeze([
   form("briefing", "core", [req("never"), opt("hooks"), opt("links"), opt("agents"), opt("next")]),
   form("setup", "core", [req("prerequisites"), req("install"), opt("run"), opt("env")]),
@@ -29527,8 +29527,8 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * PRD 627 a fix's push names its kind (visual or bug), and since PRD 1272 a concept's (concept); a
      * PRD's names none, as before. Since PRD 1364 a PRD's push names its product when one was chosen.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[], product?: string | null }>} */
-    pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, product: product2 = null, artifacts }) => call("POST", "/api/dossiers/push", {
-      body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, ...product2 ? { product: product2 } : {}, artifacts }
+    pushDossier: ({ repo, prd: prd2, kind: kind2 = "prd", title, draftId = null, product: product2 = null, artifacts }) => call("POST", "/api/dossiers/push", {
+      body: { repo, prd: prd2, ...kind2 && kind2 !== "prd" ? { kind: kind2 } : {}, title, ...draftId ? { draftId } : {}, ...product2 ? { product: product2 } : {}, artifacts }
     }),
     /** PRD 1548: sends a product PRD's files — to the product keyed `key`'s next PRD, created, when `seq`
      * is null, else to PRD `<key>-<seq>`. `repo`, the repository the kit runs from, only chooses between
@@ -29546,7 +29546,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     /** PRD 1548: product PRD `<key>-<seq>`'s latest version of `kind`, whole; a 404 when it has none.
      * @returns {Promise<{ id: string, prdId: string, url: string, kind: string, version: number, sha256: string,
      *   content: string, createdAt: string }>} */
-    getDossier: ({ key: key2, seq, kind, repo }) => call("GET", `/api/dossiers/get?${new URLSearchParams({ product: key2, prd: String(seq), kind, ...repo ? { repo } : {} })}`),
+    getDossier: ({ key: key2, seq, kind: kind2, repo }) => call("GET", `/api/dossiers/get?${new URLSearchParams({ product: key2, prd: String(seq), kind: kind2, ...repo ? { repo } : {} })}`),
     /** PRD 1548 s7: product PRD `<key>-<seq>`'s outbox items, each with its settlement or none; a 404 when
      * there is no such PRD. `../outbox/server-store.ts` reads the reply. */
     readOutboxItems: ({ key: key2, seq, repo }) => call("GET", `/api/outbox/items?${new URLSearchParams({ product: key2, prd: String(seq), ...repo ? { repo } : {} })}`),
@@ -29562,7 +29562,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * from the session's end. Answered 204. */
     heartbeat: ({ claudeSessionId, repo, work, ended: ended2 = false }) => call("POST", "/api/ask/heartbeat", { body: { claudeSessionId, repo, work, ...ended2 ? { ended: true } : {} } }),
     // A fix's or a concept's dossier (`kind` visual, bug or concept) is keyed by its issue, so `prd` is a PRD's number or an issue's.
-    findDossier: ({ repo, prd: prd2, kind = "prd" }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2), ...kind && kind !== "prd" ? { kind } : {} })}`),
+    findDossier: ({ repo, prd: prd2, kind: kind2 = "prd" }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2), ...kind2 && kind2 !== "prd" ? { kind: kind2 } : {} })}`),
     /** PRD 1299: PRD `prd`'s approval in force for `repo` (owner/name), with its dossier's link; a 404
      * when it has no dossier. `../approval/approval.ts` reads the reply.
      * @returns {Promise<{ url: string, approval: { approver: { login: string, member: boolean }, approvedAt: string,
@@ -29596,10 +29596,10 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     readProductsOf: (repo) => call("GET", `/api/products/which?${new URLSearchParams({ repo })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
-    requestProofUploads: ({ repo, prd: prd2, kind, files }) => call("POST", "/api/proofs/uploads", { body: { repo, prd: prd2, ...kind === void 0 ? {} : { kind }, files } }),
+    requestProofUploads: ({ repo, prd: prd2, kind: kind2, files }) => call("POST", "/api/proofs/uploads", { body: { repo, prd: prd2, ...kind2 === void 0 ? {} : { kind: kind2 }, files } }),
     /** PRD 798: stores a proof run once its files are up, and answers the Proof tab's link.
      * @returns {Promise<{ url: string }>} */
-    registerProof: ({ repo, prd: prd2, kind, run: run2, commit, url: url2, criteria }) => call("POST", "/api/proofs", { body: { repo, prd: prd2, ...kind === void 0 ? {} : { kind }, run: run2, commit, url: url2, criteria } }),
+    registerProof: ({ repo, prd: prd2, kind: kind2, run: run2, commit, url: url2, criteria }) => call("POST", "/api/proofs", { body: { repo, prd: prd2, ...kind2 === void 0 ? {} : { kind: kind2 }, run: run2, commit, url: url2, criteria } }),
     /** PRD 859: a new pitch run's id and one signed upload link per file of the five; a 404 when PRD `prd`
      * has no dossier, a 422 when it is not shipped. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestPitchUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/pitches/uploads", { body: { repo, prd: prd2, files } }),
@@ -29624,8 +29624,8 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
      * `entry` names the item an edit changes, by the id or term the reads print.
      * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
-    changeKnowledge: ({ repo, product: product2, kind, action, entry: entry3, fields }) => call("POST", "/api/knowledge/changes", {
-      body: { repo, ...product2 === void 0 ? {} : { product: product2 }, kind, action, ...entry3 === void 0 ? {} : { entry: entry3 }, fields }
+    changeKnowledge: ({ repo, product: product2, kind: kind2, action, entry: entry3, fields }) => call("POST", "/api/knowledge/changes", {
+      body: { repo, ...product2 === void 0 ? {} : { product: product2 }, kind: kind2, action, ...entry3 === void 0 ? {} : { entry: entry3 }, fields }
     }),
     /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
      * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
@@ -29636,7 +29636,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     /** PRD 822: stores a claim a person gave as an answer (source `answer`), `proposed` or `confirmed`,
      * for the business agents in `repo` read, its receipt `ref` (the skill and the run).
      * @returns {Promise<{ id: string, state: string, added: boolean }>} */
-    addClaim: ({ repo, kind, value, state, ref }) => call("POST", "/api/business/claims", { body: { repo, kind, value, state, ref } }),
+    addClaim: ({ repo, kind: kind2, value, state, ref }) => call("POST", "/api/business/claims", { body: { repo, kind: kind2, value, state, ref } }),
     /** PRD 812: asks the workspace's Jev decision `decision` for `repo`, given the state and the agent's
      * own answer (`old`); the ref is sent only when there is one.
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
@@ -30347,7 +30347,7 @@ function parseEntryFile(file2, text15, place) {
   return splitEntries(text15).map(({ id, lines: lines3 }) => {
     const { fields, counts: counts2, fieldAt } = readFields(lines3);
     const statement2 = (fieldAt === -1 ? lines3 : lines3.slice(0, fieldAt)).filter((line2) => line2.trim().length > 0).join(" ").trim();
-    const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
+    const kind2 = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
     const { proposed, problems: proposedProblems } = readProposed(file2, id, fields.proposedLine);
     const { pending, problems: pendingProblems } = readPending(file2, id, enforcedBy2);
@@ -30357,7 +30357,7 @@ function parseEntryFile(file2, text15, place) {
     const { proposedLaw, problems: proposedLawProblems } = readProposedLaw(file2, id, fields.proposedLaw);
     return {
       id,
-      kind,
+      kind: kind2,
       scope: place.scope,
       domain: place.domain,
       codes: place.codes,
@@ -30415,7 +30415,7 @@ function readKnowledge({ ctx, source: source2 = diskSource(ctx.root) }) {
   const DOMAINS_DIR = domainsDir(ctx);
   const CROSS_DOMAIN_DIR = crossDomainDir(ctx);
   const productFiles = source2.files(PRODUCT_DIR);
-  for (const [name3, kind] of Object.entries(LAYER_FILES)) {
+  for (const [name3, kind2] of Object.entries(LAYER_FILES)) {
     if (!productFiles.includes(name3)) continue;
     const file2 = `${PRODUCT_DIR}/${name3}`;
     entries4.push(
@@ -30423,7 +30423,7 @@ function readKnowledge({ ctx, source: source2 = diskSource(ctx.root) }) {
         scope: "product",
         domain: "product",
         codes: [PRODUCT_CODE],
-        kind
+        kind: kind2
       })
     );
   }
@@ -30431,7 +30431,7 @@ function readKnowledge({ ctx, source: source2 = diskSource(ctx.root) }) {
     const dir = `${DOMAINS_DIR}/${name3}`;
     const files = source2.files(dir);
     const code = codeOf(name3);
-    for (const [layer, kind] of Object.entries(LAYER_FILES)) {
+    for (const [layer, kind2] of Object.entries(LAYER_FILES)) {
       if (!files.includes(layer)) continue;
       const file2 = `${dir}/${layer}`;
       entries4.push(
@@ -30439,7 +30439,7 @@ function readKnowledge({ ctx, source: source2 = diskSource(ctx.root) }) {
           scope: "domain",
           domain: name3,
           codes: [code],
-          kind
+          kind: kind2
         })
       );
     }
@@ -31335,7 +31335,7 @@ var SESSIONS_DIR = join20(LOCAL_DIR, "sessions");
 var RECORD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 var RECORD_EXT = ".json";
 var isNumber = (value) => typeof value === "number" && Number.isInteger(value) && value > 0;
-var isKind = (value) => RECORD_KINDS.some((kind) => kind === value);
+var isKind = (value) => RECORD_KINDS.some((kind2) => kind2 === value);
 var recordPath = (root, sessionId) => join20(root, SESSIONS_DIR, `${sessionId}${RECORD_EXT}`);
 function recordAt(path) {
   try {
@@ -31359,14 +31359,14 @@ function prune(dir, now2) {
     }
   }
 }
-function writeRecord(root, sessionId, number5, now2, kind = "prd") {
-  if (!isSafeId(sessionId) || !isNumber(number5) || !isKind(kind)) return false;
+function writeRecord(root, sessionId, number5, now2, kind2 = "prd") {
+  if (!isSafeId(sessionId) || !isNumber(number5) || !isKind(kind2)) return false;
   const local = join20(root, LOCAL_DIR);
   const dir = join20(root, SESSIONS_DIR);
   mkdirSync7(dir, { recursive: true });
   const ignore = join20(local, ".gitignore");
   if (!existsSync14(ignore)) writeFileSync9(ignore, "*\n");
-  writeFileSync9(recordPath(root, sessionId), `${JSON.stringify({ kind, number: number5, at: new Date(now2).toISOString() })}
+  writeFileSync9(recordPath(root, sessionId), `${JSON.stringify({ kind: kind2, number: number5, at: new Date(now2).toISOString() })}
 `);
   prune(dir, now2);
   return true;
@@ -31374,10 +31374,10 @@ function writeRecord(root, sessionId, number5, now2, kind = "prd") {
 function readRecord(root, sessionId) {
   return isSafeId(sessionId) ? recordAt(recordPath(root, sessionId)) : null;
 }
-function recordSession({ cwd, exec, sessionId, kind = "prd", number: number5, now: now2 }) {
+function recordSession({ cwd, exec, sessionId, kind: kind2 = "prd", number: number5, now: now2 }) {
   if (!isSafeId(sessionId)) return false;
   const root = mainCheckout(cwd, exec);
-  return root ? writeRecord(root, sessionId, number5, now2, kind) : false;
+  return root ? writeRecord(root, sessionId, number5, now2, kind2) : false;
 }
 function recordedWork({ cwd, exec, sessionId }) {
   if (!isSafeId(sessionId)) return null;
@@ -32633,12 +32633,12 @@ function parseEntries(content) {
       );
       continue;
     }
-    const kind = captured(accountMatch, 1);
+    const kind2 = captured(accountMatch, 1);
     const value = captured(accountMatch, 2).trim();
     entries4.push({
       path: captured(pathMatch, 1),
       rule: captured(ruleMatch, 1),
-      account: kind === "item" ? { kind: "item", id: value } : { kind: "spec", where: value }
+      account: kind2 === "item" ? { kind: "item", id: value } : { kind: "spec", where: value }
     });
   }
   return { errors, entries: entries4 };
@@ -33727,11 +33727,11 @@ function questionBanter({
   adopted,
   numberById
 }) {
-  const numberOf2 = (question) => numberById.get(question.id) ?? Infinity;
+  const numberOf3 = (question) => numberById.get(question.id) ?? Infinity;
   const questions2 = [
     ...items.map((item2) => ({ id: item2.id, sections: item2.sections })),
     ...adopted.map((entry3) => ({ id: entry3.id, sections: adoptedItem(entry3)?.sections }))
-  ].sort((a, b) => numberOf2(a) - numberOf2(b) || a.id.localeCompare(b.id));
+  ].sort((a, b) => numberOf3(a) - numberOf3(b) || a.id.localeCompare(b.id));
   const banter = /* @__PURE__ */ new Map();
   const fromPool = [];
   for (const { id, sections } of questions2) {
@@ -33834,10 +33834,10 @@ function formatOutboxPrComment({
   const facts2 = { numberById, roundMarkers, banter };
   const lines3 = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
-    const count5 = sorted.length;
+    const count6 = sorted.length;
     const example = exampleNumber(sorted, numberById);
     lines3.push(
-      `**${count5} question${count5 === 1 ? "" : "s"} need${count5 === 1 ? "s" : ""} your decision**`,
+      `**${count6} question${count6 === 1 ? "" : "s"} need${count6 === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
       "",
@@ -33965,8 +33965,8 @@ function countsByRank(items) {
 function slackEscape(text15) {
   return text15.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
-function plural2(count5, singular, pluralForm = `${singular}s`) {
-  return `${count5} ${count5 === 1 ? singular : pluralForm}`;
+function plural2(count6, singular, pluralForm = `${singular}s`) {
+  return `${count6} ${count6 === 1 ? singular : pluralForm}`;
 }
 var SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
 function slackOwner({
@@ -33999,7 +33999,7 @@ function slackLine({
   const name3 = cleanTitle ? `PRD #${prd2} \xB7 ${slackEscape(cleanTitle)}` : `PRD #${prd2}`;
   const who2 = ownerText(owner);
   const head = who2 ? `*${name3}* \u2014 owner ${who2}` : `*${name3}*`;
-  const waiting = Object.values(counts2).reduce((sum, count5) => sum + count5, 0);
+  const waiting = Object.values(counts2).reduce((sum, count6) => sum + count6, 0);
   const parts = [];
   if (waiting > 0) {
     parts.push(`${waiting} question${waiting === 1 ? " needs" : "s need"} a decision`);
@@ -34617,8 +34617,8 @@ function describeIssue2(issue2) {
 }
 function lineFor(question, pick2) {
   const { number: number5 } = question;
-  const kind = pick2.pick.trim();
-  const lower = kind.toLowerCase();
+  const kind2 = pick2.pick.trim();
+  const lower = kind2.toLowerCase();
   const isAction = question.rank === HUMAN_ACTION;
   if (lower === "prose") {
     const text15 = cleanLine(pick2.text);
@@ -34632,15 +34632,15 @@ function lineFor(question, pick2) {
     if (!reason2) return { reason: `question ${number5}: not-done needs a reason` };
     return { line: `${number5}: no, because ${reason2}` };
   }
-  if (/^[A-Za-z]$/.test(kind)) {
+  if (/^[A-Za-z]$/.test(kind2)) {
     if (isAction) return { reason: `question ${number5} needs a person: answer done or not-done` };
-    const letter = kind.toUpperCase();
+    const letter = kind2.toUpperCase();
     const offered = (question.options ?? []).some((option) => option.letter === letter);
     if (!offered) return { reason: `question ${number5} offers no option ${letter}` };
     const reason2 = cleanLine(pick2.reason);
     return { line: reason2 ? `${number5}: ${letter} because ${reason2}` : `${number5}: ${letter}` };
   }
-  return { reason: `question ${number5}: "${kind}" is not a pick \u2014 a letter, done, not-done or prose` };
+  return { reason: `question ${number5}: "${kind2}" is not a pick \u2014 a letter, done, not-done or prose` };
 }
 function writeReply({
   prd: prd2,
@@ -35252,8 +35252,8 @@ function areasOf(lines3, scale) {
   faults.push(...idFaults(areas.map((area2) => area2.id)));
   const allowed = scale ? AREA_ROWS[scale] : void 0;
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {
-    const count5 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
-    faults.push(`Areas: ${count5}; a ${scale} concept has ${allowed.words}.`);
+    const count6 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
+    faults.push(`Areas: ${count6}; a ${scale} concept has ${allowed.words}.`);
   }
   return { areas, faults };
 }
@@ -35325,8 +35325,8 @@ function citationProblems(citations, field3) {
 }
 function lineProblems(text15, field3) {
   if (!isText2(text15)) return [`${field3} must be a sentence.`];
-  const count5 = countSentences2(text15);
-  return count5 > MAX_SENTENCES ? [`${field3} holds ${count5} sentences; two at most.`] : [];
+  const count6 = countSentences2(text15);
+  return count6 > MAX_SENTENCES ? [`${field3} holds ${count6} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
   const at2 = `personas[${i}]`;
@@ -35421,18 +35421,18 @@ function readDossierFolder(ctx, prd2) {
   const artifacts = [];
   const tooLarge = [];
   let title = null;
-  for (const { kind, pathOf } of ARTIFACT_KINDS) {
-    const path = defined(pathOf(ctx.layout, prd2), `the ${kind} of PRD ${Number(prd2)}`);
+  for (const { kind: kind2, pathOf } of ARTIFACT_KINDS) {
+    const path = defined(pathOf(ctx.layout, prd2), `the ${kind2} of PRD ${Number(prd2)}`);
     const file2 = join34(ctx.root, path);
     if (!existsSync27(file2)) continue;
     const raw = readFileSync26(file2);
     const content = raw.toString("utf8");
-    if (kind === "spec") title = frontMatterTitle(content);
+    if (kind2 === "spec") title = frontMatterTitle(content);
     if (raw.length > ARTIFACT_MAX_BYTES) {
-      tooLarge.push({ kind, path, bytes: raw.length });
+      tooLarge.push({ kind: kind2, path, bytes: raw.length });
       continue;
     }
-    artifacts.push({ kind, path, content, sha256: sha2562(content), bytes: Buffer.byteLength(content, "utf8") });
+    artifacts.push({ kind: kind2, path, content, sha256: sha2562(content), bytes: Buffer.byteLength(content, "utf8") });
   }
   const topic = parseFolderName(where.name)?.topic ?? where.name;
   return { prd: prd2, dir: where.dir, title: (title ?? topic).slice(0, TITLE_MAX), artifacts, tooLarge };
@@ -35444,8 +35444,8 @@ function fixTitle(issueTitle2, topic) {
   const title = typeof issueTitle2 === "string" ? issueTitle2.trim().replace(FIX_PREFIX, "").trim() : "";
   return (title || topic).slice(0, TITLE_MAX);
 }
-function fixFiles(kind, names) {
-  if (kind === "bug") return names.includes("bug.md") ? [{ kind: "bug-record", name: "bug.md" }] : [];
+function fixFiles(kind2, names) {
+  if (kind2 === "bug") return names.includes("bug.md") ? [{ kind: "bug-record", name: "bug.md" }] : [];
   const page2 = names.includes("before-after.html") ? [{ kind: "before-after", name: "before-after.html" }] : [];
   const rounds = names.flatMap((name3) => {
     const match = ROUND.exec(name3);
@@ -35453,11 +35453,11 @@ function fixFiles(kind, names) {
   }).sort((a, b) => a.round - b.round);
   return [...page2, ...rounds];
 }
-function readFixFolder(ctx, kind, issue2, { issueTitle: issueTitle2 = null } = {}) {
-  const found2 = issueFolder(ctx.root, `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`, issue2);
+function readFixFolder(ctx, kind2, issue2, { issueTitle: issueTitle2 = null } = {}) {
+  const found2 = issueFolder(ctx.root, `${ctx.config.paths.delivery}/${FIX_ROOTS[kind2]}`, issue2);
   if (!found2) return null;
-  const { artifacts, tooLarge } = readFiles(ctx.root, found2.dir, fixFiles(kind, readdirSync13(join34(ctx.root, found2.dir))));
-  return { issue: issue2, kind, dir: found2.dir, title: fixTitle(issueTitle2, found2.topic), artifacts, tooLarge };
+  const { artifacts, tooLarge } = readFiles(ctx.root, found2.dir, fixFiles(kind2, readdirSync13(join34(ctx.root, found2.dir))));
+  return { issue: issue2, kind: kind2, dir: found2.dir, title: fixTitle(issueTitle2, found2.topic), artifacts, tooLarge };
 }
 function issueFolder(checkout, root, issue2) {
   const absolute = join34(checkout, root);
@@ -35554,9 +35554,9 @@ function judged(reply, { named: named5, fileOf: fileOf3, drift: driftIn }) {
   if (!approval3) return reading("pending", [`${named5} waits for approval: ${url2}`]);
   const voids = approval3.voids ?? [];
   if (voids.length > 0) {
-    const fileOfKind = (kind) => {
-      const file2 = approval3.files.find((f) => f.kind === kind);
-      return file2 ? fileOf3(file2) : kind;
+    const fileOfKind = (kind2) => {
+      const file2 = approval3.files.find((f) => f.kind === kind2);
+      return file2 ? fileOf3(file2) : kind2;
     };
     const lines3 = voids.map((v) => `\u2260 ${basename7(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url2}`);
     return reading("drifted", lines3, voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
@@ -37335,21 +37335,21 @@ var PACE = Object.freeze({ secondMs: 1e3, callMs: CALL_MS });
 var USAGE4 = "usage: omni ask hook <pre|post|prompt|end> | omni ask <on|off|status> | omni ask question --file <q.json> [--wait <seconds>] | omni ask wait <round> [--wait <seconds>] | omni ask answer <round> --file <a.json>";
 var ASK_ELSEWHERE = 3;
 var STILL_WAITING = 4;
-async function runHook(kind, { cwd, exec, askSwitch, stdin, tokens: tokens2, fetch, limits }) {
+async function runHook(kind2, { cwd, exec, askSwitch, stdin, tokens: tokens2, fetch, limits }) {
   try {
     const root = findRoot(cwd, exec);
     const mode = askMode(root, askSwitch);
     if (!mode) return null;
-    if (kind === "prompt") return promptOutput();
+    if (kind2 === "prompt") return promptOutput();
     const input2 = await readInput(stdin);
     if (!input2) return null;
     const { host, baseUrl } = mode;
     const client = askClient({ baseUrl, host, tokens: tokens2 ?? homeTokens(), fetch });
-    if (kind === "pre") {
+    if (kind2 === "pre") {
       const title = () => sessionTitle({ slug: loadConfig(root).repo.slug, branch: currentBranch(root, exec), root });
       return await preHook({ root, host, client, input: input2, title, limits });
     }
-    if (kind === "end") await endHook({ root, host, client, input: input2 });
+    if (kind2 === "end") await endHook({ root, host, client, input: input2 });
     else await postHook({ root, client, input: input2, host });
     return null;
   } catch {
@@ -37504,13 +37504,13 @@ var ask3 = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env, vars, stdin = process.stdin, tokens: tokens2, fetch = globalThis.fetch, limits = WAIT_LIMITS, pace = PACE }) {
     const { positional, flags } = parseArgs("ask", args, { values: ["file", "wait"] });
-    const [sub = "", kind = "", ...rest] = positional;
+    const [sub = "", kind2 = "", ...rest] = positional;
     if (VERBS.includes(sub)) return runVerb(sub, positional.slice(1), flags, { env, cwd, stdout, stderr, exec, vars, tokens: tokens2, fetch, pace });
     if (Object.keys(flags).length > 0) throw usageError(USAGE4);
     const askSwitch = vars.ask;
     if (MODES.includes(sub) && positional.length === 1) return runMode(sub, { cwd, stdout, stderr, exec, askSwitch, tokens: tokens2, fetch });
-    if (sub !== "hook" || !KINDS.includes(kind) || rest.length > 0) throw usageError(USAGE4);
-    const output2 = await runHook(kind, { cwd, exec, askSwitch, stdin, tokens: tokens2, fetch, limits });
+    if (sub !== "hook" || !KINDS.includes(kind2) || rest.length > 0) throw usageError(USAGE4);
+    const output2 = await runHook(kind2, { cwd, exec, askSwitch, stdin, tokens: tokens2, fetch, limits });
     if (output2) println(stdout, JSON.stringify(output2));
     return 0;
   }
@@ -38447,7 +38447,7 @@ var NO_COMMIT = /^[—–-]$/;
 function duplicateIds(slices) {
   const counts2 = /* @__PURE__ */ new Map();
   for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
-  return [...counts2.entries()].filter(([, count5]) => count5 > 1).map(([id]) => id);
+  return [...counts2.entries()].filter(([, count6]) => count6 > 1).map(([id]) => id);
 }
 function blockedByViolations(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
@@ -38625,12 +38625,12 @@ function contractViolations(slice, asks) {
 function contractPageViolations(slice, asks, page2) {
   const { contract } = slice;
   if (asks === null || contract === null || contract === "none") return [];
-  return contract.kinds.filter((kind) => kind !== "none" && (page2 === null || !carriesContractBlock(page2, kind))).map(
-    (kind) => page2 === null ? `${slice.id}: contract: ${kind} \u2014 the folder has no before-after.html to carry its data-contract="${kind}" block` : `${slice.id}: contract: ${kind} \u2014 before-after.html has no data-contract="${kind}" block`
+  return contract.kinds.filter((kind2) => kind2 !== "none" && (page2 === null || !carriesContractBlock(page2, kind2))).map(
+    (kind2) => page2 === null ? `${slice.id}: contract: ${kind2} \u2014 the folder has no before-after.html to carry its data-contract="${kind2}" block` : `${slice.id}: contract: ${kind2} \u2014 before-after.html has no data-contract="${kind2}" block`
   );
 }
-function carriesContractBlock(page2, kind) {
-  return page2.includes(`data-contract="${kind}"`) || page2.includes(`data-contract='${kind}'`);
+function carriesContractBlock(page2, kind2) {
+  return page2.includes(`data-contract="${kind2}"`) || page2.includes(`data-contract='${kind2}'`);
 }
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
@@ -39625,8 +39625,8 @@ function lawLine({ id, sentence: sentence3 }, owners2) {
   const who2 = owners2.length === 0 ? "its owner" : owners2.map(ownerWords).join(" or ");
   return `law ${id} \u2014 ${sentence3} Changing it needs ${who2} to approve the pull request.`;
 }
-function ruleLine({ id, kind, headline: text15, proposed }) {
-  return `${kind} ${id} \u2014 ${text15}${proposed ? " (proposed, not yet confirmed by a person)" : ""}`;
+function ruleLine({ id, kind: kind2, headline: text15, proposed }) {
+  return `${kind2} ${id} \u2014 ${text15}${proposed ? " (proposed, not yet confirmed by a person)" : ""}`;
 }
 
 // kit/lib/knowledge/thesis.ts
@@ -40352,7 +40352,7 @@ async function bugEntries(issue2, reader) {
     if (stopsEverything(error62)) throw error62;
     return [unreadableBug(reader, issue2)];
   }
-  const entryOf3 = async (kind, slug, pr) => foundEntry({ repo: slug, kind, target: targetName(slug), bug: issue2 }, await readFound(() => viewPr(slug, pr, reads)), pr);
+  const entryOf3 = async (kind2, slug, pr) => foundEntry({ repo: slug, kind: kind2, target: targetName(slug), bug: issue2 }, await readFound(() => viewPr(slug, pr, reads)), pr);
   const fixPlan = view.comments.find((comment2) => comment2.body.includes(FIX_PLAN_MARKER));
   const entries4 = [];
   for (const { slug, pr } of fixPlanRows(fixPlan?.body)) entries4.push(await entryOf3("bug-fix", slug, pr));
@@ -40590,14 +40590,14 @@ var named = (value) => {
 function claimOf(raw) {
   const value = jsonObject(raw);
   if (!value || !isText3(value.id) || !READ_KINDS.includes(value.kind) || !isText3(value.value) || !SOURCES.includes(value.source)) return null;
-  const kind = String(value.kind);
-  if (!value.id.startsWith(`${kind}#`)) return null;
+  const kind2 = String(value.kind);
+  if (!value.id.startsWith(`${kind2}#`)) return null;
   const state = value.state ?? "confirmed";
   if (!STATES.includes(state)) return null;
   const orNull = (field3) => isText3(field3) ? field3 : null;
   return {
     id: value.id,
-    kind,
+    kind: kind2,
     value: value.value,
     source: String(value.source),
     state: String(state),
@@ -40660,7 +40660,7 @@ var knowledgeLines = (read3, width) => [
 ];
 var joined = (values) => values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")} and ${values.at(-1)}`;
 function sentence2(claims) {
-  const of = (kind) => claims.filter((claim4) => claim4.kind === kind && claim4.state === "confirmed").map((claim4) => claim4.value);
+  const of = (kind2) => claims.filter((claim4) => claim4.kind === kind2 && claim4.state === "confirmed").map((claim4) => claim4.value);
   const blankOr = (values) => joined(values) || BLANK;
   const size = of("size")[0];
   const who2 = size ? `${size.replace("-", "\u2013")}-person` : `${BLANK}-person`;
@@ -40714,11 +40714,11 @@ async function cited(ids2, flags, env) {
 }
 function answerOf(positional, flags) {
   const text15 = (value2) => typeof value2 === "string" && value2.trim() ? value2.trim() : null;
-  const [kind, value, state, ref] = [text15(flags.kind), text15(flags.value), text15(flags.state), text15(flags.ref)];
-  if (positional.length !== 1 || positional[0] !== "add" || kind === null || value === null || state === null || ref === null) throw usageError(CLAIM_USAGE);
-  if (!KINDS2.includes(kind)) throw usageError(`omni business claim add: --kind is one of ${KINDS2.join(", ")}.`);
+  const [kind2, value, state, ref] = [text15(flags.kind), text15(flags.value), text15(flags.state), text15(flags.ref)];
+  if (positional.length !== 1 || positional[0] !== "add" || kind2 === null || value === null || state === null || ref === null) throw usageError(CLAIM_USAGE);
+  if (!KINDS2.includes(kind2)) throw usageError(`omni business claim add: --kind is one of ${KINDS2.join(", ")}.`);
   if (!ANSWER_STATES.includes(state)) throw usageError(`omni business claim add: --state is ${ANSWER_STATES.join(" or ")}.`);
-  return { kind, value, state, ref };
+  return { kind: kind2, value, state, ref };
 }
 var storedOf = (raw) => {
   const reply = jsonObject(raw);
@@ -40934,14 +40934,14 @@ function questionsOf(section6) {
     const { label: label2, rowFaults } = rowOpening(id, index2, "Open questions");
     const question = cell2(row, "question");
     if (question === "") rowFaults.push(`Open questions: ${label2} asks nothing: its question is empty.`);
-    const kind = cell2(row, "kind");
+    const kind2 = cell2(row, "kind");
     const known2 = QUESTION_KINDS;
-    if (!known2.includes(kind)) rowFaults.push(`Open questions: ${label2} has the kind "${kind}", not one of ${QUESTION_KINDS.join(", ")}.`);
+    if (!known2.includes(kind2)) rowFaults.push(`Open questions: ${label2} has the kind "${kind2}", not one of ${QUESTION_KINDS.join(", ")}.`);
     const blocks2 = listCell(cell2(row, "blocks"));
     rowFaults.push(...idListFaults(blocks2, `Open questions: ${label2} blocks`));
     faults.push(...rowFaults);
     if (rowFaults.length > 0) return;
-    const typed = QUESTION_KINDS.find((name3) => name3 === kind) ?? "default";
+    const typed = QUESTION_KINDS.find((name3) => name3 === kind2) ?? "default";
     questions2.push({ id, question, recommendation: cell2(row, "recommendation"), blocks: blocks2, kind: typed });
   });
   return { questions: questions2, faults };
@@ -42504,10 +42504,10 @@ function firstMatch(lines3, pattern) {
   return found2 === -1 ? lines3.findIndex((line2) => line2.trim() !== "") : found2;
 }
 var MARKER2 = { red: RED_LINE, green: GREEN_LINE };
-function cardLines(output2, kind) {
+function cardLines(output2, kind2) {
   const text15 = plain(output2).replace(/\s+$/, "");
   const all = text15 === "" ? [] : text15.split("\n").map((line2) => line2.replace(/\t/g, "  "));
-  const target3 = firstMatch(all, MARKER2[kind]);
+  const target3 = firstMatch(all, MARKER2[kind2]);
   const last = Math.max(0, all.length - CARD.lines);
   const start4 = target3 !== -1 && target3 < last ? Math.max(0, target3 - 2) : last;
   const lines3 = all.slice(start4, start4 + CARD.lines).map((line2) => Array.from(line2).slice(0, CARD.columns).join(""));
@@ -42535,12 +42535,12 @@ function drawText(pixels, text15, x, y, colour2, scale) {
     left += CELL_WIDTH * scale;
   }
 }
-function renderCard(kind, output2) {
-  const { title, band, accent } = CARDS[kind];
+function renderCard(kind2, output2) {
+  const { title, band, accent } = CARDS[kind2];
   const pixels = new Uint32Array(CARD.width * CARD.height).fill(BACKGROUND);
   pixels.fill(band, 0, CARD.band * CARD.width);
   drawText(pixels, title, CARD.margin, (CARD.band - CELL_HEIGHT * TITLE_SCALE) / 2, WHITE, TITLE_SCALE);
-  const { lines: lines3, highlight } = cardLines(output2, kind);
+  const { lines: lines3, highlight } = cardLines(output2, kind2);
   lines3.forEach((line2, index2) => {
     drawText(pixels, line2, CARD.margin, CARD.textTop + index2 * CARD.pitch, index2 === highlight ? accent : TEXT, 1);
   });
@@ -42565,11 +42565,11 @@ var passingLine = (output2) => noteOf(output2, GREEN_LINE);
 function runJson({
   commit,
   url: url2,
-  kind,
+  kind: kind2,
   red: red2,
   green: green2
 }) {
-  if (kind === "clips") {
+  if (kind2 === "clips") {
     return {
       commit,
       url: url2,
@@ -42589,8 +42589,8 @@ function runJson({
     ]
   };
 }
-function copiedNames(kind) {
-  return kind === "text" ? ["red.txt", "green.txt"] : ["before.webm", "after.webm"];
+function copiedNames(kind2) {
+  return kind2 === "text" ? ["red.txt", "green.txt"] : ["before.webm", "after.webm"];
 }
 
 // kit/bin/commands/bug-film.ts
@@ -42632,21 +42632,21 @@ function askOf(args, { ctx }) {
   const issue2 = issueArg("bug film", "<n>", positional[0]);
   const before2 = inputFile(ctx, "--before", flags.before);
   const after = inputFile(ctx, "--after", flags.after);
-  const kind = filmKind(before2, after);
-  if (!kind) throw usageError("omni bug film: --before and --after are two .txt files or two .webm files.");
-  const red2 = kind === "text" ? readFileSync46(before2, "utf8") : "";
-  const green2 = kind === "text" ? readFileSync46(after, "utf8") : "";
-  return { issue: issue2, slug: repoSlug("bug film", ctx, void 0), before: before2, after, kind, red: red2, green: green2, out: flags.out };
+  const kind2 = filmKind(before2, after);
+  if (!kind2) throw usageError("omni bug film: --before and --after are two .txt files or two .webm files.");
+  const red2 = kind2 === "text" ? readFileSync46(before2, "utf8") : "";
+  const green2 = kind2 === "text" ? readFileSync46(after, "utf8") : "";
+  return { issue: issue2, slug: repoSlug("bug film", ctx, void 0), before: before2, after, kind: kind2, red: red2, green: green2, out: flags.out };
 }
 function copying(from, to) {
   writing(to, () => {
     copyFileSync2(from, to);
   });
 }
-function makeGif({ kind, red: red2, green: green2 }, out, exec) {
+function makeGif({ kind: kind2, red: red2, green: green2 }, out, exec) {
   const gif = join56(out, "preview.gif");
-  const [redName, greenName] = copiedNames(kind);
-  if (kind === "text") {
+  const [redName, greenName] = copiedNames(kind2);
+  if (kind2 === "text") {
     writing(gif, () => {
       writeFileSync25(gif, filmGif(red2, green2));
     });
@@ -42662,13 +42662,13 @@ function makeGif({ kind, red: red2, green: green2 }, out, exec) {
 function makeFolder(args, io, now2) {
   const { ctx, stdout, stderr, exec } = io;
   const ask6 = askOf(args, io);
-  const { issue: issue2, before: before2, after, kind, red: red2, green: green2 } = ask6;
-  if (kind === "clips" && !hasFfmpeg(exec)) {
+  const { issue: issue2, before: before2, after, kind: kind2, red: red2, green: green2 } = ask6;
+  if (kind2 === "clips" && !hasFfmpeg(exec)) {
     println(stderr, "ffmpeg not found");
     return 1;
   }
   const out = ask6.out === void 0 ? join56(ctx.root, ctx.config.worktrees, `proof-bug-${issue2}`, stamp(now2)) : inRoot(ctx, ask6.out);
-  const [redName, greenName] = copiedNames(kind);
+  const [redName, greenName] = copiedNames(kind2);
   writing(out, () => {
     mkdirSync17(out, { recursive: true });
   });
@@ -42683,7 +42683,7 @@ function makeFolder(args, io, now2) {
   const url2 = `https://github.com/${ask6.slug}/issues/${issue2}`;
   const runFile2 = join56(out, "run.json");
   writing(runFile2, () => {
-    writeFileSync25(runFile2, `${JSON.stringify(runJson({ commit, url: url2, kind, red: red2, green: green2 }), null, 2)}
+    writeFileSync25(runFile2, `${JSON.stringify(runJson({ commit, url: url2, kind: kind2, red: red2, green: green2 }), null, 2)}
 `);
   });
   println(stdout, out);
@@ -42896,7 +42896,7 @@ function stateViolation(section6) {
   if (STATES2.has(section6.state)) return null;
   return `${placeOf2(section6)} has data-state "${section6.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
 }
-var plural3 = (count5, one, many) => `${count5} ${count5 === 1 ? one : many}`;
+var plural3 = (count6, one, many) => `${count6} ${count6 === 1 ? one : many}`;
 function gradeBeforeAfter({ file: file2, html, prd: prd2 }) {
   const read3 = { marked: false, tabs: /* @__PURE__ */ new Set(), sections: [], diagrams: 0, loads: [] };
   walk(parseHtml(html), { service: null, tab: null }, read3);
@@ -43118,8 +43118,8 @@ function inboxAvoidWarnings({ ctx }) {
     if (!existsSync41(join59(ctx.root, file2))) continue;
     const text15 = readRepoFile(ctx, file2);
     for (const { word: word2, pattern } of patterns) {
-      const count5 = text15.match(pattern)?.length ?? 0;
-      if (count5 > 0) lines3.push(`${file2}: "${word2}" \xD7${count5} \u2192 say ${says.get(word2) ?? word2}`);
+      const count6 = text15.match(pattern)?.length ?? 0;
+      if (count6 > 0) lines3.push(`${file2}: "${word2}" \xD7${count6} \u2192 say ${says.get(word2) ?? word2}`);
     }
   }
   return lines3;
@@ -43391,9 +43391,9 @@ function headingAnchors(text15) {
     const match = !fenced && line2.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
     const base = (match[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
-    const count5 = seen.get(base) ?? 0;
-    seen.set(base, count5 + 1);
-    anchors.add(count5 === 0 ? base : `${base}-${count5}`);
+    const count6 = seen.get(base) ?? 0;
+    seen.set(base, count6 + 1);
+    anchors.add(count6 === 0 ? base : `${base}-${count6}`);
   }
   return anchors;
 }
@@ -43661,9 +43661,9 @@ function findOwnersBlockViolations(ctx, knowledge2) {
   if (ctx.copyOf) return [];
   return ownersBlockProblems(ctx, knowledge2).map((text15) => ({ text: text15 }));
 }
-function aKind(kind) {
-  if (kind === null) return "an entry of no kind";
-  return `${/^[aeiou]/.test(kind) ? "an" : "a"} ${kind}`;
+function aKind(kind2) {
+  if (kind2 === null) return "an entry of no kind";
+  return `${/^[aeiou]/.test(kind2) ? "an" : "a"} ${kind2}`;
 }
 function findLevelContradictions(ctx) {
   if (ctx.copyOf) return [];
@@ -43830,13 +43830,13 @@ function formSource(resolved) {
   return "kit";
 }
 function playbookStatus({ ctx, exec }) {
-  const forms = FORMS.map(({ id, kind }) => {
+  const forms = FORMS.map(({ id, kind: kind2 }) => {
     const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
     const read3 = readForm(id, { ctx });
     const form2 = read3.exists && read3.ok ? read3.form : null;
     return {
       form: id,
-      kind,
+      kind: kind2,
       file: resolved.file,
       state: resolved.state,
       source: formSource(resolved),
@@ -43850,7 +43850,7 @@ function playbookStatus({ ctx, exec }) {
 }
 
 // kit/lib/playbook/check-playbook.ts
-function gradeForm({ id, kind }, { ctx, exec }) {
+function gradeForm({ id, kind: kind2 }, { ctx, exec }) {
   const read3 = readForm(id, { ctx });
   const { file: file2 } = read3;
   if (!read3.exists) return { state: "missing", violations: [], warnings: [`${file2}: missing \u2014 the kit defaults apply; \`omni kb init\` writes it`] };
@@ -43879,7 +43879,7 @@ function gradeForm({ id, kind }, { ctx, exec }) {
       violations.push(`${file2}: slot "${slot2.id}" is not a slot of the ${id} form \u2014 its slots are ${kit.slots.map((entry3) => entry3.id).join(", ")}`);
     }
     if (slot2.body.kind === "pointer" && gone(slot2.body.see.path)) violations.push(`${file2}: "## ${slot2.heading}" See: ${slot2.body.see.path} does not exist`);
-    if (kitSlot?.required && kind === "core" && !pointer && slot2.body.kind === "empty") {
+    if (kitSlot?.required && kind2 === "core" && !pointer && slot2.body.kind === "empty") {
       warnings.push(`${file2}: required slot "${slot2.id}" is blank \u2014 the kit default applies`);
     }
     for (const question of slot2.body.questions) warnings.push(`${file2}: "## ${slot2.heading}" TODO(human): ${question}`);
@@ -44506,7 +44506,7 @@ function parseScreen(text15, file2) {
     const keys = issue2?.code === "unrecognized_keys" ? `: ${issue2.keys.join(", ")}` : "";
     return fail2(`${issue2?.message ?? "front matter does not read"}${keys}`);
   }
-  const { screen, status: status5, kind, quote, mock, implements: paths, reads, routes, supersedes } = read3.data;
+  const { screen, status: status5, kind: kind2, quote, mock, implements: paths, reads, routes, supersedes } = read3.data;
   const lockedBy = read3.data["locked-by"];
   const lockedOn = read3.data["locked-on"];
   if (status5 === "locked") {
@@ -44514,7 +44514,7 @@ function parseScreen(text15, file2) {
     if (missing2.length) return fail2(`a locked screen needs locked-by, locked-on and quote \u2014 missing ${missing2.join(", ")}`);
   }
   const body = readBody2(text15.slice(fence[0].length));
-  return { ok: true, screen: { file: file2, screen, status: status5, kind, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
+  return { ok: true, screen: { file: file2, screen, status: status5, kind: kind2, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
 }
 function readScreens(dir) {
   let files;
@@ -44755,8 +44755,8 @@ function generatedViolations(entries4, ground) {
 init_define_OMNI_BUNDLE();
 function mapViolations(config3, files, targets2 = []) {
   const out = [];
-  for (const kind of config3.contracts.kinds) {
-    if (!isLayer(kind)) out.push(`contracts.kinds: ${kind} is not a layer (${layerList()}) \u2014 replace it`);
+  for (const kind2 of config3.contracts.kinds) {
+    if (!isLayer(kind2)) out.push(`contracts.kinds: ${kind2} is not a layer (${layerList()}) \u2014 replace it`);
   }
   for (const { repo, role } of targets2) {
     if (!isRole(roleOf(role))) out.push(`plan.targets: ${repo} has the role ${role}, which is not a role (${roleList()}) \u2014 pick one`);
@@ -44784,24 +44784,24 @@ function report3(stdout, title, violations, passLine) {
 }
 function checkInbox({ ctx, stdout }) {
   const violations = findInboxViolations({ ctx });
-  const count5 = ctx.layout.specFiles().length;
+  const count6 = ctx.layout.specFiles().length;
   const green2 = report3(
     stdout,
     "check inbox \u2014 an inbox file does not hold what it claims:",
     violations,
-    `check inbox \u2014 ${count5} inbox file(s), all well-formed.`
+    `check inbox \u2014 ${count6} inbox file(s), all well-formed.`
   );
   for (const warning of inboxAvoidWarnings({ ctx })) println(stdout, warning);
   return green2;
 }
 function checkOutbox({ ctx, stdout }) {
   const violations = findOutboxViolations({ ctx });
-  const count5 = outboxItemFiles({ ctx }).length;
+  const count6 = outboxItemFiles({ ctx }).length;
   return report3(
     stdout,
     "check outbox \u2014 an outbox item does not hold what it claims:",
     violations,
-    `check outbox \u2014 ${count5} open item(s), all well-formed.`
+    `check outbox \u2014 ${count6} open item(s), all well-formed.`
   );
 }
 async function checkKnowledge({ ctx, stdout, stderr, exec }, { cwd, reach: reach6 }) {
@@ -44821,12 +44821,12 @@ async function checkKnowledge({ ctx, stdout, stderr, exec }, { cwd, reach: reach
   const knowledge2 = readKnowledge({ ctx });
   const legal = await verifyServedLegal({ ctx, entries: knowledge2.entries, cwd, exec, reach: reach6 });
   for (const note of legal.notes) println(stdout, note);
-  const count5 = (kind) => knowledge2.entries.filter((entry3) => entry3.kind === kind).length;
+  const count6 = (kind2) => knowledge2.entries.filter((entry3) => entry3.kind === kind2).length;
   return report3(
     stdout,
     title,
     [...violations, ...legal.violations],
-    `check knowledge \u2014 ${count5("principle")} principle(s), ${count5("rule")} rule(s), ${count5("invariant")} invariant(s), ${count5("contract")} contract(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
+    `check knowledge \u2014 ${count6("principle")} principle(s), ${count6("rule")} rule(s), ${count6("invariant")} invariant(s), ${count6("contract")} contract(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
@@ -44837,7 +44837,7 @@ function checkKb({ ctx, stdout, stderr, exec }) {
   const warnings = [...own2.warnings, ...copies.warnings];
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
   const { forms } = own2;
-  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count5]) => count5 > 0).map(([state, count5]) => `${count5} ${state}`);
+  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count6]) => count6 > 0).map(([state, count6]) => `${count6} ${state}`);
   const copied = copies.copies === 0 ? "" : `; ${copies.copies} imported ${copies.copies === 1 ? "copy" : "copies"} checked`;
   return report3(
     stdout,
@@ -45633,10 +45633,10 @@ function folderEntries(ctx, folder) {
   const sorted = { present: /* @__PURE__ */ new Set(), rounds: [], misnamed: [], others: [] };
   for (const entry3 of readdirSync22(join75(ctx.root, folder), { withFileTypes: true })) {
     const found2 = entryKind(entry3);
-    const { kind } = found2;
+    const { kind: kind2 } = found2;
     if (found2.kind === "round") sorted.rounds.push({ name: entry3.name, k: found2.k });
-    else if (kind === "present") sorted.present.add(entry3.name);
-    else if (kind === "misnamed") sorted.misnamed.push(entry3.name);
+    else if (kind2 === "present") sorted.present.add(entry3.name);
+    else if (kind2 === "misnamed") sorted.misnamed.push(entry3.name);
     else sorted.others.push(entry3.name);
   }
   sorted.rounds.sort((a, b) => a.k - b.k);
@@ -45955,7 +45955,7 @@ function creditItems({ prs, issues = [], commits, labels: labels2, signature, si
   const from = since ? time4(`${since}-01T00:00:00Z`) : null;
   const seen = /* @__PURE__ */ new Set();
   const items = [];
-  const add3 = (type, raw, { labelled: labelled3, merged, counted: counted5, kind }) => {
+  const add3 = (type, raw, { labelled: labelled3, merged, counted: counted5, kind: kind2 }) => {
     const key2 = `${type}:${keyOf(raw.repo, raw.number)}`;
     if (seen.has(key2)) return;
     seen.add(key2);
@@ -45971,7 +45971,7 @@ function creditItems({ prs, issues = [], commits, labels: labels2, signature, si
       repo: raw.repo,
       number: raw.number,
       title: raw.title,
-      kind: kind(reasons2),
+      kind: kind2(reasons2),
       state: raw.state,
       createdAt: raw.createdAt,
       reasons: reasons2,
@@ -46042,8 +46042,8 @@ function summarize2(items, { commits = null, app = false } = {}) {
     prdIssues,
     byTheApp: app ? byTheApp : null,
     commits: commits === null ? null : commits.length,
-    byRepo: tally(counted5, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count5]) => ({ repo, count: count5 })),
-    byMonth: tally(counted5, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count5]) => ({ month, count: count5 }))
+    byRepo: tally(counted5, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count6]) => ({ repo, count: count6 })),
+    byMonth: tally(counted5, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count6]) => ({ month, count: count6 }))
   };
 }
 
@@ -46216,7 +46216,7 @@ function cell(text15, width, gap = 1) {
 }
 var joined2 = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
 var shortName8 = (repo) => repo.slice(repo.indexOf("/") + 1);
-var counted = (count5, one, many) => `${count5} ${count5 === 1 ? one : many}`;
+var counted = (count6, one, many) => `${count6} ${count6 === 1 ? one : many}`;
 var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name: name3, scope, since, summary: summary2 }) {
   const { prs, prdIssues, byTheApp, commits, byRepo, byMonth } = summary2;
@@ -46234,8 +46234,8 @@ function creditsReport({ name: name3, scope, since, summary: summary2 }) {
   }
   if (commits !== null) lines3.push(`Co-authored commits on default branches: ${commits}`);
   lines3.push(
-    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count5 }) => `${shortName8(repo)} ${count5}`)),
-    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count5 }) => `${month} ${count5}`))
+    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count6 }) => `${shortName8(repo)} ${count6}`)),
+    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count6 }) => `${month} ${count6}`))
   );
   return lines3;
 }
@@ -46435,8 +46435,8 @@ function section2(screen, readMock) {
     const html = readMock(screen.mock);
     body = html === null ? `<p class="none">mockup cannot be read: ${escape3(screen.mock)}</p>` : `<iframe sandbox="" title="${escape3(screen.screen)}" srcdoc="${escape3(html)}"></iframe>`;
   }
-  const kind = screen.kind === "shared" ? " shared" : "";
-  return `<section class="${screen.status}${kind}">
+  const kind2 = screen.kind === "shared" ? " shared" : "";
+  return `<section class="${screen.status}${kind2}">
 <h2>${escape3(screen.screen)}</h2>
 <p class="meta"><span class="status">${screen.status}</span>${lock2}${routes}</p>
 ${body}
@@ -46610,7 +46610,7 @@ function countWords(text15) {
 }
 var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
 var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
-var wordsOf = (count5) => `${count5} ${count5 === 1 ? "word" : "words"}`;
+var wordsOf = (count6) => `${count6} ${count6 === 1 ? "word" : "words"}`;
 var squash = (text15) => text15.replace(/\s+/g, " ").trim();
 function textOf4(node3, spaced) {
   if (node3.kind === "text") return node3.text;
@@ -46924,14 +46924,14 @@ function readFilesFolder(dir) {
   const artifacts = [];
   const tooLarge = [];
   let title = null;
-  for (const kind of PRD_KINDS) {
-    const path = join78(dir, PRD_FILES[kind]);
+  for (const kind2 of PRD_KINDS) {
+    const path = join78(dir, PRD_FILES[kind2]);
     if (!existsSync54(path)) continue;
     const raw = readFileSync63(path);
     const content = raw.toString("utf8");
-    if (kind === "spec") title = frontMatterTitle(content)?.slice(0, TITLE_MAX) ?? null;
-    if (raw.length > ARTIFACT_MAX_BYTES) tooLarge.push({ kind, path, bytes: raw.length });
-    else artifacts.push({ kind, path, content, sha256: sha2562(content), bytes: raw.length });
+    if (kind2 === "spec") title = frontMatterTitle(content)?.slice(0, TITLE_MAX) ?? null;
+    if (raw.length > ARTIFACT_MAX_BYTES) tooLarge.push({ kind: kind2, path, bytes: raw.length });
+    else artifacts.push({ kind: kind2, path, content, sha256: sha2562(content), bytes: raw.length });
   }
   return { title, artifacts, tooLarge };
 }
@@ -46957,7 +46957,7 @@ function writeScratch(prdId, latest, base = tmpdir2()) {
 }
 var LAST_READ_DIR = join78(LOCAL_DIR, "prd-cache");
 var LastReadSchema = LatestSchema.extend({ readAt: text9 });
-var lastReadPath = (root, prdId, kind) => join78(root, LAST_READ_DIR, prdId, `${kind}.json`);
+var lastReadPath = (root, prdId, kind2) => join78(root, LAST_READ_DIR, prdId, `${kind2}.json`);
 function rememberLatest(root, prdId, latest, readAt) {
   ensureLocalDir(root);
   const path = lastReadPath(root, prdId, latest.kind);
@@ -46965,10 +46965,10 @@ function rememberLatest(root, prdId, latest, readAt) {
   writeFileSync30(path, `${JSON.stringify({ ...latest, readAt }, null, 2)}
 `);
 }
-function lastRead(root, prdId, kind) {
+function lastRead(root, prdId, kind2) {
   let value;
   try {
-    value = JSON.parse(readFileSync63(lastReadPath(root, prdId, kind), "utf8"));
+    value = JSON.parse(readFileSync63(lastReadPath(root, prdId, kind2), "utf8"));
   } catch {
     return null;
   }
@@ -46998,10 +46998,10 @@ function keyArg(value) {
 }
 var productUsage = () => usageError(`usage: ${PRODUCT_USAGE}`);
 function getCallOf(rest) {
-  const [first, kind, ...more] = rest;
+  const [first, kind2, ...more] = rest;
   const id = productIdArg(first);
-  if (!id || !isPrdKind(kind) || more.length > 0) throw usageError(`usage: omni dossier get <key>-<n> <${PRD_KINDS.join("|")}>`);
-  return { verb: "get", id, kind };
+  if (!id || !isPrdKind(kind2) || more.length > 0) throw usageError(`usage: omni dossier get <key>-<n> <${PRD_KINDS.join("|")}>`);
+  return { verb: "get", id, kind: kind2 };
 }
 function pushCallOf(rest, flags) {
   const files = { from: flags.from?.trim() || null, title: flags.title?.trim() || null };
@@ -47051,7 +47051,7 @@ async function push(call, io, addedLine2) {
   let result2;
   try {
     const title = await titleOf3(call, folder, io);
-    result2 = await io.client.pushProductDossier({ key: key2, seq, repo: io.repo, title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) });
+    result2 = await io.client.pushProductDossier({ key: key2, seq, repo: io.repo, title, artifacts: folder.artifacts.map(({ kind: kind2, content }) => ({ kind: kind2, content })) });
   } catch (error62) {
     println(io.stderr, failure2(error62));
     return 1;
@@ -47099,14 +47099,14 @@ function skipLine(error62) {
 }
 var isText5 = (value) => typeof value === "string" && value.length > 0;
 function versionOf(entry3) {
-  const kind = field(entry3, "kind");
+  const kind2 = field(entry3, "kind");
   const version3 = field(entry3, "version");
-  return isText5(kind) && typeof version3 === "number" && Number.isInteger(version3) ? { kind, version: version3 } : null;
+  return isText5(kind2) && typeof version3 === "number" && Number.isInteger(version3) ? { kind: kind2, version: version3 } : null;
 }
 function addedLine({ added, unchanged }) {
   const got = Array.isArray(added) ? added.flatMap((a) => versionOf(a) ?? []) : [];
   const kept2 = Array.isArray(unchanged) ? unchanged.filter(isText5) : [];
-  const parts = [`added: ${got.length ? got.map(({ kind, version: version3 }) => `${kind} v${version3}`).join(", ") : "none"}`];
+  const parts = [`added: ${got.length ? got.map(({ kind: kind2, version: version3 }) => `${kind2} v${version3}`).join(", ") : "none"}`];
   if (kept2.length) parts.push(`unchanged: ${kept2.join(", ")}`);
   return parts.join(" \xB7 ");
 }
@@ -47149,13 +47149,13 @@ function reportPush2(result2, tooLarge, { stdout, stderr }) {
   for (const { path } of tooLarge) println(stderr, `too large: ${path}`);
   return tooLarge.length ? 1 : 0;
 }
-async function pushFix(issue2, kind, { ctx, repo, client, reads, stdout, stderr }) {
-  const folder = readFixFolder(ctx, kind, issue2);
-  if (!folder) throw usageError(`omni dossier push: issue ${issue2} has no ${kind} fix folder.`);
+async function pushFix(issue2, kind2, { ctx, repo, client, reads, stdout, stderr }) {
+  const folder = readFixFolder(ctx, kind2, issue2);
+  if (!folder) throw usageError(`omni dossier push: issue ${issue2} has no ${kind2} fix folder.`);
   const title = fixTitle(await issueTitle(issue2, { repo, reads }), folder.title);
   let result2;
   try {
-    result2 = await client.pushDossier({ repo, prd: issue2, kind, title, artifacts: folder.artifacts.map(({ kind: k, content }) => ({ kind: k, content })) });
+    result2 = await client.pushDossier({ repo, prd: issue2, kind: kind2, title, artifacts: folder.artifacts.map(({ kind: k, content }) => ({ kind: k, content })) });
   } catch (error62) {
     println(stderr, skipLine(error62));
     return 1;
@@ -47167,7 +47167,7 @@ async function push2(prd2, product2, { ctx, repo, client, home, session: session
   if (!folder) throw usageError(`omni dossier push: PRD ${prd2} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
   const draft = chooseDraft(readDossiers(where), { prd: prd2, claudeSessionId: sessionIdOf(session2, where) });
-  const body = { repo, prd: prd2, title: folder.title, product: product2, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) };
+  const body = { repo, prd: prd2, title: folder.title, product: product2, artifacts: folder.artifacts.map(({ kind: kind2, content }) => ({ kind: kind2, content })) };
   let result2;
   try {
     result2 = await client.pushDossier({ ...body, draftId: draft?.id ?? null });
@@ -47192,8 +47192,8 @@ async function push2(prd2, product2, { ctx, repo, client, home, session: session
   }
   return reportPush2(result2, folder.tooLarge, { stdout, stderr });
 }
-function recordedLink(home, prd2, kind) {
-  if (!home || kind !== "prd") return null;
+function recordedLink(home, prd2, kind2) {
+  if (!home || kind2 !== "prd") return null;
   return readDossiers(home).filter((entry3) => entry3.prd === prd2).at(-1) ?? null;
 }
 async function pushConcept(issue2, { ctx, repo, client, stdout, stderr }) {
@@ -47206,24 +47206,24 @@ async function pushConcept(issue2, { ctx, repo, client, stdout, stderr }) {
   const { folder } = read3;
   let result2;
   try {
-    result2 = await client.pushDossier({ repo, prd: issue2, kind: "concept", title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) });
+    result2 = await client.pushDossier({ repo, prd: issue2, kind: "concept", title: folder.title, artifacts: folder.artifacts.map(({ kind: kind2, content }) => ({ kind: kind2, content })) });
   } catch (error62) {
     println(stderr, skipLine(error62));
     return 1;
   }
   return reportPush2(result2, folder.tooLarge, { stdout, stderr });
 }
-async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
+async function link(prd2, kind2, { repo, client, home, stdout, stderr }) {
   let found2;
   try {
-    found2 = await client.findDossier({ repo, prd: prd2, kind });
+    found2 = await client.findDossier({ repo, prd: prd2, kind: kind2 });
   } catch (error62) {
     if (!(error62 instanceof AskCallError)) throw error62;
     if (error62.status === 404) {
       println(stderr, "none");
       return 1;
     }
-    const recorded = error62.status === null ? recordedLink(home, prd2, kind) : null;
+    const recorded = error62.status === null ? recordedLink(home, prd2, kind2) : null;
     if (!recorded) {
       println(stderr, skipLine(error62));
       return 1;
@@ -47238,14 +47238,14 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   println(stdout, url2);
   return 0;
 }
-function namedBy(verb2, kind, value) {
+function namedBy(verb2, kind2, value) {
   const command2 = `dossier ${verb2}`;
-  return kind === "prd" ? { kind, prd: prdArg(command2, "<n>", value) } : { kind, issue: issueArg(command2, "<n>", value) };
+  return kind2 === "prd" ? { kind: kind2, prd: prdArg(command2, "<n>", value) } : { kind: kind2, issue: issueArg(command2, "<n>", value) };
 }
-function productOf(flag, verb2, kind) {
+function productOf(flag, verb2, kind2) {
   if (flag === void 0) return null;
   const product2 = flag.trim();
-  if (verb2 !== "push" || kind !== "prd" || product2 === "") throw usageError(USAGE20);
+  if (verb2 !== "push" || kind2 !== "prd" || product2 === "") throw usageError(USAGE20);
   return product2;
 }
 function kindOf2(flag, numbered) {
@@ -47281,10 +47281,10 @@ var dossier = {
     const numbered = ["push", "link"].includes(verb2);
     const runnable = verb2 === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
     if (!runnable) throw usageError(USAGE20);
-    const kind = kindOf2(flags.kind, numbered);
-    const product2 = productOf(flags.product, verb2, kind);
+    const kind2 = kindOf2(flags.kind, numbered);
+    const product2 = productOf(flags.product, verb2, kind2);
     if (verb2 === "link" && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE20);
-    const named5 = numbered ? namedBy(verb2, kind, rest[0]) : null;
+    const named5 = numbered ? namedBy(verb2, kind2, rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
     if (verb2 === "status") {
@@ -48899,9 +48899,9 @@ function knowledgeSummary({ ctx }) {
   return { places, domains, principles, decisions, laws: laws2 };
 }
 function allowedKinds(places) {
-  return CLASSIFICATION_KINDS.filter((kind) => {
-    if (kind === "adr") return places.adr;
-    if (kind === "rule" || kind === "invariant") return places.knowledge;
+  return CLASSIFICATION_KINDS.filter((kind2) => {
+    if (kind2 === "adr") return places.adr;
+    if (kind2 === "rule" || kind2 === "invariant") return places.knowledge;
     return true;
   });
 }
@@ -49001,7 +49001,7 @@ function kindLines(kinds) {
     covered: "- `covered`: an existing entry or decision record already says this. Fields: `covers` (its id, or `ADR-NNNN`), `reason`.",
     "stays-here": "- `stays-here`: a local choice with nothing lasting to keep; it stays in the ledger. Fields: `statement`, `reason`."
   };
-  return kinds.map((kind) => meaning[kind]);
+  return kinds.map((kind2) => meaning[kind2]);
 }
 function classificationPrompt({
   candidate,
@@ -49173,8 +49173,8 @@ function makeNumbering({ ctx, taken }) {
   let record2 = Number(readDecisions({ ctx }).next) - 1;
   for (const number5 of taken.records ?? []) record2 = Math.max(record2, Number(String(number5).replace(/^ADR-/, "")));
   return {
-    entry(kind, code) {
-      const key2 = `${PREFIX2[kind]}-${code}`;
+    entry(kind2, code) {
+      const key2 = `${PREFIX2[kind2]}-${code}`;
       const n = (highest.get(key2) ?? 0) + 1;
       highest.set(key2, n);
       return `${key2}-${n}`;
@@ -49597,7 +49597,7 @@ async function classifyCandidate({
   fetch,
   changed = []
 }) {
-  if (allowedKinds(summary2.places).every((kind) => kind === "covered" || kind === "stays-here")) {
+  if (allowedKinds(summary2.places).every((kind2) => kind2 === "covered" || kind2 === "stays-here")) {
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
   const check5 = classificationSchema(summary2);
@@ -51254,7 +51254,7 @@ function entryLines(entry3, agents, fill3) {
 }
 function renderEntry(name3, config3, { entries: entries4 = ENTRIES } = {}) {
   const slash = /^(?:\/omni:|\/omni-|\$omni-)(.+)$/.exec(name3);
-  const found2 = slash ? entries4.filter((e) => e.kind === "skill" && e.name === slash[1]) : ["command", "skill"].flatMap((kind) => entries4.filter((e) => e.kind === kind && e.name === name3));
+  const found2 = slash ? entries4.filter((e) => e.kind === "skill" && e.name === slash[1]) : ["command", "skill"].flatMap((kind2) => entries4.filter((e) => e.kind === kind2 && e.name === name3));
   if (found2.length === 0) return null;
   const fill3 = fillerFor(repositoryWords(config3));
   const agents = agentsOf(config3);
@@ -52977,9 +52977,9 @@ function lookup(sources2, map2, files) {
     applies: linesOf3("applies"),
     global: linesOf3("global"),
     hidden: {
-      laws: hidden.filter(({ kind }) => kind === "law").length,
-      rules: hidden.filter(({ kind }) => kind === "rule" || kind === "invariant").length,
-      adrs: hidden.filter(({ kind }) => kind === "adr").length
+      laws: hidden.filter(({ kind: kind2 }) => kind2 === "law").length,
+      rules: hidden.filter(({ kind: kind2 }) => kind2 === "rule" || kind2 === "invariant").length,
+      adrs: hidden.filter(({ kind: kind2 }) => kind2 === "adr").length
     }
   };
 }
@@ -53085,15 +53085,15 @@ var entryNode = (entry3) => ({
   file: entry3.file,
   origin: "repository"
 });
-var leaf = (id, kind, file2, label2 = null) => ({
+var leaf = (id, kind2, file2, label2 = null) => ({
   id,
-  kind,
+  kind: kind2,
   label: label2,
   status: null,
   file: file2,
   origin: "repository"
 });
-var link2 = (from, to, kind, node3) => ({ edge: { from, to, kind }, node: node3 });
+var link2 = (from, to, kind2, node3) => ({ edge: { from, to, kind: kind2 }, node: node3 });
 var pathsOf = (value) => value.split(",").map((path) => path.replace(/`/g, "").trim()).filter(Boolean);
 var recordLabel = (title) => title?.replace(/^ADR-\d{4}\s*[—–-]\s*/, "") ?? null;
 var citedBy = (entry3) => idsCitedIn([entry3.statement, entry3.why ?? ""].join("\n"));
@@ -53181,9 +53181,9 @@ function linksOf2(entry3, index2) {
     ...termLinks(entry3, index2)
   ];
 }
-function edgeKey({ from, to, kind }) {
-  const ends2 = kind === "sibling" ? [from, to].sort() : [from, to];
-  return `${kind} ${ends2.join(" ")}`;
+function edgeKey({ from, to, kind: kind2 }) {
+  const ends2 = kind2 === "sibling" ? [from, to].sort() : [from, to];
+  return `${kind2} ${ends2.join(" ")}`;
 }
 function subjectOf({ byId, legal }, id) {
   const entry3 = byId.get(id);
@@ -53283,12 +53283,12 @@ function rowsUnder(parent, built, printed4) {
   const rows2 = [];
   const shown6 = /* @__PURE__ */ new Map();
   for (const [at2, { edge, node: node3 }] of children.entries()) {
-    const count5 = shown6.get(edge.kind) ?? 0;
-    shown6.set(edge.kind, count5 + 1);
+    const count6 = shown6.get(edge.kind) ?? 0;
+    shown6.set(edge.kind, count6 + 1);
     const direction = directionOf(edge, parent.id);
-    if (count5 < LINES_PER_EDGE) {
+    if (count6 < LINES_PER_EDGE) {
       rows2.push({ indent: indent2, direction, edge: edge.kind, node: node3 }, ...rowsUnder(node3, built, printed4));
-    } else if (count5 === LINES_PER_EDGE) {
+    } else if (count6 === LINES_PER_EDGE) {
       const more = children.slice(at2).filter((child) => child.edge.kind === edge.kind).length;
       rows2.push({ indent: indent2, direction, edge: edge.kind, more });
     }
@@ -53309,11 +53309,11 @@ function rowLines(rows2) {
   const edge = width(rows2.map((row) => row.edge));
   const nodes = rows2.flatMap((row) => "node" in row ? [row.node] : []);
   const id = width(nodes.map(idCell));
-  const kind = width(nodes.map((node3) => node3.kind));
+  const kind2 = width(nodes.map((node3) => node3.kind));
   return rows2.map((row) => {
     const head = `${(row.indent + row.direction).padEnd(lead)}  ${row.edge.padEnd(edge)}  `;
     if (!("node" in row)) return `${head}\u2026 and ${row.more} more (--json lists them all)`;
-    return `${head}${idCell(row.node).padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ""}`.trimEnd();
+    return `${head}${idCell(row.node).padEnd(id)}  ${row.node.kind.padEnd(kind2)}  ${row.node.label ?? ""}`.trimEnd();
   });
 }
 function neighbourhoodBody(built, entries4) {
@@ -53354,8 +53354,8 @@ function buildRepositoryGraph(sources2) {
 }
 function startFromFiles(sources2, map2, files) {
   const { applies } = lookup({ ...sources2, legal: [], thesis: null }, map2, files);
-  const ids2 = applies.filter(({ kind }) => kind !== "adr" && kind !== "legal").map(({ id }) => id);
-  const records = applies.filter(({ kind }) => kind === "adr").map(({ id }) => id);
+  const ids2 = applies.filter(({ kind: kind2 }) => kind2 !== "adr" && kind2 !== "legal").map(({ id }) => id);
+  const records = applies.filter(({ kind: kind2 }) => kind2 === "adr").map(({ id }) => id);
   return { ids: ids2, records, start: ids2.length > 0 ? ids2 : records, places: files.map((file2) => placeOf4(map2, file2)) };
 }
 
@@ -53898,30 +53898,30 @@ function fieldsOf2(names, flags) {
   });
   return Object.fromEntries(given.filter(([, value]) => value !== null));
 }
-function parsedOf2(kind, args) {
-  const names = [.../* @__PURE__ */ new Set([...ADDABLE[kind], ...EDITABLE[kind], "product"])];
+function parsedOf2(kind2, args) {
+  const names = [.../* @__PURE__ */ new Set([...ADDABLE[kind2], ...EDITABLE[kind2], "product"])];
   try {
-    return parseArgs(`kb ${kind}`, args, { values: names, booleans: ["json"] });
+    return parseArgs(`kb ${kind2}`, args, { values: names, booleans: ["json"] });
   } catch (error62) {
-    throw usageError(`${error62 instanceof Error ? error62.message : String(error62)} ${USAGE27[kind]}`);
+    throw usageError(`${error62 instanceof Error ? error62.message : String(error62)} ${USAGE27[kind2]}`);
   }
 }
-function changeOf2(kind, args) {
-  const usage2 = USAGE27[kind];
-  const { positional, flags } = parsedOf2(kind, args);
+function changeOf2(kind2, args) {
+  const usage2 = USAGE27[kind2];
+  const { positional, flags } = parsedOf2(kind2, args);
   const [action, ...rest] = positional;
   if (action !== "add" && action !== "edit") throw usageError(usage2);
   const entry3 = action === "edit" ? textOf6(rest[0]) : null;
-  const fields = fieldsOf2(action === "add" ? ADDABLE[kind] : EDITABLE[kind], flags);
-  checkChange(kind, action, rest.length, entry3, fields);
+  const fields = fieldsOf2(action === "add" ? ADDABLE[kind2] : EDITABLE[kind2], flags);
+  checkChange(kind2, action, rest.length, entry3, fields);
   const product2 = textOf6(flags.product);
-  const change2 = { kind, action, ...product2 === null ? {} : { product: product2 }, ...entry3 === null ? {} : { entry: entry3 }, fields };
+  const change2 = { kind: kind2, action, ...product2 === null ? {} : { product: product2 }, ...entry3 === null ? {} : { entry: entry3 }, fields };
   return { change: change2, json: flags.json === true };
 }
-function checkChange(kind, action, positionals, entry3, fields) {
-  if (action === "add" && (positionals > 0 || REQUIRED3[kind].some((name3) => !(name3 in fields)))) throw usageError(USAGE27[kind]);
-  if (action === "edit" && (positionals !== 1 || entry3 === null)) throw usageError(USAGE27[kind]);
-  if (action === "edit" && Object.keys(fields).length === 0) throw usageError(`omni kb ${kind} edit: give at least one field to change. ${USAGE27[kind]}`);
+function checkChange(kind2, action, positionals, entry3, fields) {
+  if (action === "add" && (positionals > 0 || REQUIRED3[kind2].some((name3) => !(name3 in fields)))) throw usageError(USAGE27[kind2]);
+  if (action === "edit" && (positionals !== 1 || entry3 === null)) throw usageError(USAGE27[kind2]);
+  if (action === "edit" && Object.keys(fields).length === 0) throw usageError(`omni kb ${kind2} edit: give at least one field to change. ${USAGE27[kind2]}`);
 }
 function successLine2(action, reply) {
   const answer = jsonObject(reply);
@@ -53939,11 +53939,11 @@ function refusalLine3(error62, host) {
   if (error62.status === 401) return "the sign-in was refused (omni signin)";
   return error62.reason ?? `refused (${error62.status})`;
 }
-async function knowledgeWrite(kind, args, { ctx, stdout, stderr, vars }, options) {
-  const { change: change2, json: json3 } = changeOf2(kind, args);
+async function knowledgeWrite(kind2, args, { ctx, stdout, stderr, vars }, options) {
+  const { change: change2, json: json3 } = changeOf2(kind2, args);
   const stop = (line2) => {
     if (json3) println(stdout, JSON.stringify({ error: line2 }));
-    else println(stderr, `omni kb ${kind} ${change2.action}: ${line2}`);
+    else println(stderr, `omni kb ${kind2} ${change2.action}: ${line2}`);
     return 1;
   };
   const askUrl2 = ctx.config.ask.url;
@@ -54022,7 +54022,7 @@ function copyLines(targets2) {
   return [
     `Imported copies: ${targets2.length}`,
     ...targets2.map(({ repo, folder, forms, registers }) => {
-      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count5]) => count5 > 0).map(([state, count5]) => `${count5} ${state}`);
+      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count6]) => count6 > 0).map(([state, count6]) => `${count6} ${state}`);
       return `  ${repo.padEnd(width)}  ${[folder, ...states, `${registers.length} register folder(s)`].join(" \xB7 ")}`;
     })
   ];
@@ -54031,12 +54031,12 @@ function statusText({ frontDoor, forms, registers, targets: targets2, ungoverned
   const width = Math.max(...forms.map(({ form: form2 }) => form2.length));
   const lines3 = [`kb status \u2014 ${forms.length} form(s) in ${frontDoor}`];
   const tree = forms.some(({ levels }) => levels["plan repo"] !== void 0 || levels["omni settings"] !== void 0);
-  for (const { form: form2, kind, state, source: source2, levels, questions: questions3, stale: stale3 } of forms) {
+  for (const { form: form2, kind: kind2, state, source: source2, levels, questions: questions3, stale: stale3 } of forms) {
     const counts2 = [];
     if (tree) counts2.push(LEVELS.flatMap((level) => levels[level] === void 0 ? [] : [`${levels[level]} ${level}`]).join(", "));
     if (questions3.length > 0) counts2.push(`${questions3.length} open question(s)`);
     if (stale3.length > 0) counts2.push(`${stale3.length} stale evidence`);
-    const columns3 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source2]).padEnd(11), counts2.join(" \xB7 ")];
+    const columns3 = [form2.padEnd(width), kind2.padEnd(8), state.padEnd(7), String(SOURCE_LABEL[source2]).padEnd(11), counts2.join(" \xB7 ")];
     lines3.push(`  ${columns3.join("  ").trimEnd()}`);
   }
   const questions2 = forms.flatMap(({ form: form2, file: file2, questions: open3 }) => open3.map(({ slot: slot2, question }) => `  ${form2}#${slot2} (${file2}): ${question}`));
@@ -54608,7 +54608,7 @@ function requireProofText(text15) {
 function editableFiles(read3) {
   const original = /* @__PURE__ */ new Map();
   const texts = /* @__PURE__ */ new Map();
-  const textOf9 = (path) => {
+  const textOf10 = (path) => {
     if (!texts.has(path)) {
       const text15 = read3(path);
       original.set(path, text15);
@@ -54617,13 +54617,13 @@ function editableFiles(read3) {
     return texts.get(path) ?? null;
   };
   const edit = (path, change2) => {
-    const text15 = textOf9(path);
+    const text15 = textOf10(path);
     const changed = text15 === null ? null : change2(text15);
     if (changed !== null) texts.set(path, changed);
     return changed !== null;
   };
   const writes = () => [...texts].filter((pair) => pair[1] !== null && pair[1] !== original.get(pair[0])).map(([path, text15]) => ({ path, text: text15 }));
-  return { textOf: textOf9, edit, writes };
+  return { textOf: textOf10, edit, writes };
 }
 function applyVerdict(entry3, verdict2, { edit, markers }) {
   const issue2 = verdict2.issue;
@@ -55875,14 +55875,14 @@ function wavesOf2(slices) {
 }
 function unitsOf(input2, order2) {
   const ended2 = input2.ended !== null;
-  const unit3 = (index2, kind, wave, slices, done) => ({
+  const unit3 = (index2, kind2, wave, slices, done) => ({
     prd: input2.prd,
     order: order2,
     index: index2,
-    kind,
+    kind: kind2,
     wave,
     slices,
-    repos: reposOf(kind === "finish" ? input2.slices ?? [] : slices),
+    repos: reposOf(kind2 === "finish" ? input2.slices ?? [] : slices),
     done,
     deps: /* @__PURE__ */ new Set(),
     waitsFor: [],
@@ -55975,8 +55975,8 @@ function planLoop(inputs, { version: version3 = 1, reason: reason2 = null } = {}
   const depth = new Map(units.map((unit3) => [unit3, depthOf(unit3, memo3)]));
   const level = (unit3) => depth.get(unit3) ?? 0;
   const sorted = [...units].sort((a, b) => level(a) - level(b) || a.order - b.order || a.index - b.index);
-  const numberOf2 = new Map(sorted.map((unit3, index2) => [unit3, index2 + 1]));
-  const num = (unit3) => numberOf2.get(unit3) ?? 0;
+  const numberOf3 = new Map(sorted.map((unit3, index2) => [unit3, index2 + 1]));
+  const num = (unit3) => numberOf3.get(unit3) ?? 0;
   const steps = sorted.map(
     (unit3) => ({
       step: num(unit3),
@@ -56400,15 +56400,15 @@ function buildingAndOutboxOf(inbox, features) {
 function landingsOf(features) {
   const landed = features.filter((feature) => feature.landing !== void 0);
   if (landed.length === 0) return void 0;
-  const count5 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
+  const count6 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
   const statuses = [];
-  for (let landing = 1; landing <= count5; landing += 1) {
+  for (let landing = 1; landing <= count6; landing += 1) {
     const own2 = landed.find((feature) => feature.landing?.landing === landing);
     const later = landed.some((feature) => (feature.landing?.landing ?? 0) > landing);
     const before2 = statuses.at(-1);
     statuses.push({
       landing,
-      landings: count5,
+      landings: count6,
       name: own2?.landing?.name ?? `landing-${landing}`,
       state: landingState(own2, later),
       waitsFor: before2 !== void 0 && before2.state !== "merged" ? before2.landing : null
@@ -57014,8 +57014,8 @@ function nowOfPrd({ number: number5, topic, stage: stage2, slices }) {
     doing: building2.length > 0 ? `${BUILDING} ${building2.map(label).join(", ")}` : null
   };
 }
-function nowOfFix({ kind, number: number5, topic, merged }) {
-  return { headline: null, work: { kind, number: number5, topic, stage: merged ? "merged" : "in progress", slices: [], links: [] }, doing: null };
+function nowOfFix({ kind: kind2, number: number5, topic, merged }) {
+  return { headline: null, work: { kind: kind2, number: number5, topic, stage: merged ? "merged" : "in progress", slices: [], links: [] }, doing: null };
 }
 function loopHeadline(page2) {
   return { kind: "loop", links: page2 ? [{ label: "loop page", href: page2 }] : [] };
@@ -57039,8 +57039,8 @@ function underHeadline(answer, headline2, last) {
   const doing = last ? `step ${last.step}: ${last.action} PRD ${last.prd}${SEPARATOR2}${last.result}` : answer.doing;
   return { headline: headline2, work: answer.work, doing };
 }
-var workName = ({ kind, number: number5, topic }) => kind === "prd" ? `PRD ${number5} ${topic}` : `${kind} #${number5} ${topic}`;
-var headlineLine = ({ kind, number: number5, progress }) => [number5 === void 0 ? kind : `${kind} ${number5}`, ...progress ? [progress] : []].join(SEPARATOR2);
+var workName = ({ kind: kind2, number: number5, topic }) => kind2 === "prd" ? `PRD ${number5} ${topic}` : `${kind2} #${number5} ${topic}`;
+var headlineLine = ({ kind: kind2, number: number5, progress }) => [number5 === void 0 ? kind2 : `${kind2} ${number5}`, ...progress ? [progress] : []].join(SEPARATOR2);
 function workLines(work, doing) {
   const stuck = work?.slices.filter((slice) => slice.state === STUCK) ?? [];
   const status5 = [...doing ? [doing] : [], ...stuck.length > 0 ? [`stuck ${stuck.map(label).join(", ")}`] : []];
@@ -57358,8 +57358,8 @@ function featureFacts2(ctx, { base, topic, folder }, exec) {
     openItems: openItemCount(treeFiles(ctx, feature, `${ctx.layout.dirs.outbox}/${folder}`, exec))
   };
 }
-function withKind(spawn3, kind) {
-  return spawn3 ? (command2, args, options) => spawn3(command2, [...args, KIND_FLAG, kind], options) : null;
+function withKind(spawn3, kind2) {
+  return spawn3 ? (command2, args, options) => spawn3(command2, [...args, KIND_FLAG, kind2], options) : null;
 }
 function boardSlices({ folder, prd: prd2, now: now2, spawn: spawn3, script: script2, env }, exec) {
   const root = attempt9(() => mainCheckout(folder, exec), null);
@@ -57371,14 +57371,14 @@ function writtenAt2(path) {
   return Number.isNaN(at2) ? attempt9(() => statSync22(path).mtimeMs, null) : at2;
 }
 var within3 = (at2, now2, ms) => at2 !== null && now2 - at2 >= 0 && now2 - at2 < ms;
-function startLinksRefresh({ folder, kind, n, now: now2, spawn: spawn3, script: script2, env }, exec) {
+function startLinksRefresh({ folder, kind: kind2, n, now: now2, spawn: spawn3, script: script2, env }, exec) {
   if (!spawn3 || !script2) return false;
   try {
     const root = mainCheckout(folder, exec);
     if (!root) return false;
-    const base = join113(root, LOCAL_DIR, "now", `links-${kind}-${n}`);
+    const base = join113(root, LOCAL_DIR, "now", `links-${kind2}-${n}`);
     if (within3(writtenAt2(`${base}.json`), now2, REFRESH_AFTER_MS) || within3(writtenAt2(`${base}.lock`), now2, LOCK_ABANDONED_MS)) return false;
-    const child = spawn3(process.execPath, [script2, "statusline", "--refresh", String(n), KIND_FLAG, kind], {
+    const child = spawn3(process.execPath, [script2, "statusline", "--refresh", String(n), KIND_FLAG, kind2], {
       cwd: folder,
       detached: true,
       stdio: "ignore",
@@ -57608,17 +57608,17 @@ init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync29, readFileSync as readFileSync96 } from "node:fs";
 import { join as join117 } from "node:path";
 var LINKS_DIR = join117(LOCAL_DIR, "now");
-var linksFile = (root, kind, n) => join117(root, LINKS_DIR, `links-${kind}-${n}.json`);
-var linksLock = (root, kind, n) => join117(root, LINKS_DIR, `links-${kind}-${n}.lock`);
+var linksFile = (root, kind2, n) => join117(root, LINKS_DIR, `links-${kind2}-${n}.json`);
+var linksLock = (root, kind2, n) => join117(root, LINKS_DIR, `links-${kind2}-${n}.lock`);
 var LinkSchema = external_exports.object({ label: external_exports.string().min(1), href: external_exports.string().min(1) });
 var LinksFileSchema = external_exports.object({
   at: external_exports.string(),
   links: external_exports.array(external_exports.unknown()).optional(),
   error: external_exports.string().optional()
 });
-function readLinks(root, kind, n, now2) {
+function readLinks(root, kind2, n, now2) {
   try {
-    const parsed2 = LinksFileSchema.safeParse(JSON.parse(readFileSync96(linksFile(root, kind, n), "utf8")));
+    const parsed2 = LinksFileSchema.safeParse(JSON.parse(readFileSync96(linksFile(root, kind2, n), "utf8")));
     if (!parsed2.success || parsed2.data.error !== void 0 || !parsed2.data.links) return [];
     const age = now2 - Date.parse(parsed2.data.at);
     if (!(age >= 0 && age < SHOWN_UNDER_MS)) return [];
@@ -57634,17 +57634,17 @@ function ensureLinksDir(root) {
   ensureLocalDir(root);
   mkdirSync29(join117(root, LINKS_DIR), { recursive: true });
 }
-function writeLinks(root, kind, n, links2, now2) {
+function writeLinks(root, kind2, n, links2, now2) {
   ensureLinksDir(root);
-  writeJsonAt(linksFile(root, kind, n), { at: new Date(now2).toISOString(), links: links2 });
+  writeJsonAt(linksFile(root, kind2, n), { at: new Date(now2).toISOString(), links: links2 });
 }
 function oneLine6(error62) {
   const message2 = error62 instanceof Error ? error62.message : String(error62);
   return (message2.split("\n")[0] ?? "").trim() || "the links could not be read";
 }
-async function refreshLinks({ root, kind, n, now: now2, build }) {
+async function refreshLinks({ root, kind: kind2, n, now: now2, build }) {
   ensureLinksDir(root);
-  const lock2 = linksLock(root, kind, n);
+  const lock2 = linksLock(root, kind2, n);
   const owner = takeLockAt(lock2, now2);
   if (owner === null) return "held";
   try {
@@ -57655,7 +57655,7 @@ async function refreshLinks({ root, kind, n, now: now2, build }) {
     } catch (error62) {
       entry3 = { at: at2, error: oneLine6(error62) };
     }
-    writeJsonAt(linksFile(root, kind, n), entry3);
+    writeJsonAt(linksFile(root, kind2, n), entry3);
   } finally {
     releaseLockAt(lock2, owner);
   }
@@ -57709,12 +57709,12 @@ function contextOf2(folder, exec) {
     return createContext(root, loadConfig(root));
   }, null);
 }
-function fixNow(kind, number5, { checkout, base }) {
+function fixNow(kind2, number5, { checkout, base }) {
   const folder = [...checkout, ...base].find((name3) => parseFolderName(name3)?.prd === number5);
   const parsed2 = folder ? parseFolderName(folder) : null;
-  return folder && parsed2 ? nowOfFix({ kind, number: number5, topic: parsed2.topic, merged: base.includes(folder) }) : null;
+  return folder && parsed2 ? nowOfFix({ kind: kind2, number: number5, topic: parsed2.topic, merged: base.includes(folder) }) : null;
 }
-var isFixKind = (kind) => kind === "bug" || kind === "visual";
+var isFixKind = (kind2) => kind2 === "bug" || kind2 === "visual";
 function fixWorkNow(work, fixes) {
   if (!work?.number || !isFixKind(work.kind)) return void 0;
   return fixNow(work.kind, work.number, fixes[work.kind]) ?? NOTHING2;
@@ -57737,7 +57737,7 @@ function prdNumbered(ctx, number5, reading) {
 function readWork2(ctx, reading, recorded) {
   const { folder, exec, base } = reading;
   const fixes = { bug: foldersAt2(ctx, bugRoot(ctx), base, exec), visual: foldersAt2(ctx, visualRoot(ctx), base, exec) };
-  const all = (kind) => [...fixes[kind].checkout, ...fixes[kind].base];
+  const all = (kind2) => [...fixes[kind2].checkout, ...fixes[kind2].base];
   const head = attempt10(() => exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: folder, ...QUIET12 }).trim(), null);
   const onBranch = findWork({ claudeSessionId: null, drafts: null, branch: head, branches: ctx.config.branches, folders: { visual: all("visual"), bugs: all("bug") } });
   return fixWorkNow(onBranch, fixes) ?? prdNow(reading) ?? fixWorkNow(recorded, fixes) ?? NOTHING2;
@@ -57763,7 +57763,7 @@ function readNow({ cwd, folder, sessionId, exec, now: now2 }) {
     if (!ctx) return NOTHING2;
     const answer = readSession(ctx, { folder: where, sessionId, exec, now: now2, base: baseOf2(ctx, exec) });
     const main2 = attempt10(() => mainCheckout(where, exec), null);
-    const withLinks = linked(answer, (kind, n) => main2 ? readLinks(main2, kind, n, now2) : []);
+    const withLinks = linked(answer, (kind2, n) => main2 ? readLinks(main2, kind2, n, now2) : []);
     const waited = withWait(withLinks, readWait(ctx.root, answer.work?.kind === "prd" ? answer.work.number : null, now2));
     return withSync(waited, syncOf(main2));
   } catch {
@@ -58043,8 +58043,8 @@ function parseInput(source2) {
   }
   const parsed2 = StatusInputSchema.safeParse(json3);
   if (!parsed2.success) return null;
-  const { model, context_window: contextWindow, rate_limits: rateLimits, workspace, cwd, session_id: sessionId } = parsed2.data;
-  const window = rateLimits?.five_hour ?? null;
+  const { model, context_window: contextWindow, rate_limits: rateLimits2, workspace, cwd, session_id: sessionId } = parsed2.data;
+  const window = rateLimits2?.five_hour ?? null;
   const percent = window?.used_percentage ?? null;
   const resetsAt = instant(window?.resets_at ?? null);
   return {
@@ -58176,9 +58176,9 @@ function phase0Verdict(paths, {
   };
   const offending = carries.source;
   const required2 = PHASE_0_REQUIRED_KINDS.filter(
-    (kind) => (kind !== "before-after" || needsBeforeAfter) && (kind !== "plan" || needsPlan)
+    (kind2) => (kind2 !== "before-after" || needsBeforeAfter) && (kind2 !== "plan" || needsPlan)
   );
-  const missing2 = required2.filter((kind) => carries[kind].length === 0);
+  const missing2 = required2.filter((kind2) => carries[kind2].length === 0);
   const docsOnly = offending.length === 0;
   const { signed, trailer, unsigned } = gradeSignature(commits, ctx.config.signature);
   const ok = docsOnly && missing2.length === 0 && unsigned.length === 0;
@@ -58325,11 +58325,11 @@ function planMoved({
 var SHOWN = 3;
 function detailOf(row) {
   if (row.state === "moved") {
-    const count5 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
+    const count6 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
     const owners2 = row.slices.map((id) => `${id}'s`).join(", ");
     const where = row.slices.length === 1 ? "territory" : "territories";
     const shown6 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
-    return `${count5} under ${owners2} ${where} (${shown6})`;
+    return `${count6} under ${owners2} ${where} (${shown6})`;
   }
   return row.detail ?? "";
 }
@@ -58344,8 +58344,8 @@ function movedTable(rows2) {
 
 // kit/bin/commands/plan.ts
 var USAGE32 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
-function counted2(count5, singular, pluralForm) {
-  return `${count5} ${count5 === 1 ? singular : pluralForm}`;
+function counted2(count6, singular, pluralForm) {
+  return `${count6} ${count6 === 1 ? singular : pluralForm}`;
 }
 function readPlanText(prd2, { ctx, verb: verb2 }) {
   const planPath = ctx.layout.planPath(prd2);
@@ -58578,33 +58578,33 @@ async function lookup2(id, client, io) {
   return 0;
 }
 var showLine = (id, latest, at2, cached4) => `${latest.kind} of PRD ${id} \xB7 v${latest.version} \xB7 as of ${at2}${cached4 ? " \xB7 last-read copy, server unreachable" : ""}`;
-function failedShow(error62, id, kind, where, io) {
+function failedShow(error62, id, kind2, where, io) {
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === 404) {
-    println(io.stderr, `omni prd: PRD ${id} has no ${kind} on the Omni page.`);
+    println(io.stderr, `omni prd: PRD ${id} has no ${kind2} on the Omni page.`);
     return 1;
   }
-  const copy = error62.status === null ? lastRead(where, id, kind) : null;
+  const copy = error62.status === null ? lastRead(where, id, kind2) : null;
   if (copy) {
     io.stdout.write(`${showLine(id, copy, copy.readAt, true)}
 
 ${copy.content}`);
     return 0;
   }
-  println(io.stderr, error62.status === null ? `omni prd: held \xB7 server unreachable \xB7 no last-read copy of ${kind}` : `omni prd: refused (${error62.status})`);
+  println(io.stderr, error62.status === null ? `omni prd: held \xB7 server unreachable \xB7 no last-read copy of ${kind2}` : `omni prd: refused (${error62.status})`);
   return 1;
 }
-async function show4(id, kind, client, io) {
+async function show4(id, kind2, client, io) {
   const { key: key2, seq } = productPrdParts(id);
   const where = mainCheckout(io.ctx.root, io.exec) ?? io.ctx.root;
   let body;
   try {
-    body = await client.getDossier({ key: key2, seq, kind, repo: io.ctx.config.repo.slug });
+    body = await client.getDossier({ key: key2, seq, kind: kind2, repo: io.ctx.config.repo.slug });
   } catch (error62) {
-    return failedShow(error62, id, kind, where, io);
+    return failedShow(error62, id, kind2, where, io);
   }
   const latest = parseLatest(body);
-  if (!latest || latest.kind !== kind) {
+  if (!latest || latest.kind !== kind2) {
     println(io.stderr, "omni prd: refused (malformed reply)");
     return 1;
   }
@@ -58615,13 +58615,13 @@ async function show4(id, kind, client, io) {
 ${latest.content}`);
   return 0;
 }
-async function productPrd2(id, kind, io) {
+async function productPrd2(id, kind2, io) {
   const signedIn2 = clientOf(io);
   if ("why" in signedIn2) {
     println(io.stderr, `omni prd: ${signedIn2.why}`);
     return 1;
   }
-  return kind === null ? lookup2(id, signedIn2.client, io) : show4(id, kind, signedIn2.client, io);
+  return kind2 === null ? lookup2(id, signedIn2.client, io) : show4(id, kind2, signedIn2.client, io);
 }
 
 // kit/bin/commands/prd.ts
@@ -58639,17 +58639,17 @@ function readArgs3(args) {
   const { positional, flags } = parseArgs("prd", args, { values: ["show"] });
   if (positional.length !== 1) throw usageError(USAGE33);
   const id = idArg(positional[0]);
-  const kind = flags.show ?? null;
-  if (kind === null) return { id, kind };
-  if (!isProductPrdId(id) || !isPrdKind(kind)) throw usageError(USAGE33);
-  return { id, kind };
+  const kind2 = flags.show ?? null;
+  if (kind2 === null) return { id, kind: kind2 };
+  if (!isProductPrdId(id) || !isPrdKind(kind2)) throw usageError(USAGE33);
+  return { id, kind: kind2 };
 }
 var prd = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, tokens: tokens2, home, fetch = globalThis.fetch, callMs, now: now2 = Date.now }) {
-    const { id, kind } = readArgs3(args);
+    const { id, kind: kind2 } = readArgs3(args);
     const ctx = loadContext(cwd, { exec });
-    if (isProductPrdId(id)) return productPrd2(id, kind, { ctx, exec, stdout, stderr, tokens: tokens2, home, fetch, callMs, now: now2 });
+    if (isProductPrdId(id)) return productPrd2(id, kind2, { ctx, exec, stdout, stderr, tokens: tokens2, home, fetch, callMs, now: now2 });
     const where = whereIs(ctx, id);
     if (!where) {
       println(stderr, `omni prd: PRD ${id} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);
@@ -58916,7 +58916,7 @@ var WORD_LIMITS = Object.freeze({
 });
 var ACCENT_MARKER = "**";
 var countWords2 = (text15) => text15.split(ACCENT_MARKER).join("").trim().split(/\s+/).filter(Boolean).length;
-var plural5 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
+var plural5 = (count6, word2) => `${count6} ${word2}${count6 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
@@ -58987,17 +58987,17 @@ function wipeErrors(scene2, index2) {
 function sceneWarnings(scene2, index2) {
   const words4 = wordsOf4(scene2, `scenes.${index2}`);
   const warnings = words4.flatMap(overLimit);
-  const count5 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
-  if (count5 / READ_WORDS_PER_SECOND > scene2.duration) {
-    const needed = Math.ceil(count5 / READ_WORDS_PER_SECOND);
-    warnings.push({ path: `scenes.${index2}`, message: `${plural5(count5, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
+  const count6 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
+  if (count6 / READ_WORDS_PER_SECOND > scene2.duration) {
+    const needed = Math.ceil(count6 / READ_WORDS_PER_SECOND);
+    warnings.push({ path: `scenes.${index2}`, message: `${plural5(count6, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
   }
   return warnings;
 }
 function overLimit({ path, text: text15, limit }) {
-  const count5 = countWords2(text15);
+  const count6 = countWords2(text15);
   const { max, name: name3 } = WORD_LIMITS[limit];
-  return count5 > max ? [{ path, message: `${plural5(count5, "word")}; ${name3} holds at most ${max}` }] : [];
+  return count6 > max ? [{ path, message: `${plural5(count6, "word")}; ${name3} holds at most ${max}` }] : [];
 }
 var WORD_FIELDS = Object.freeze([
   ["eyebrow", "eyebrow"],
@@ -59397,7 +59397,7 @@ function repositoryChromium(cwd) {
     throw new Error("Playwright is needed to capture frames: install playwright in the repository");
   };
 }
-var share = (count5, page2, pages) => Array.from({ length: count5 }, (_, n) => n).filter((n) => n % pages === page2);
+var share = (count6, page2, pages) => Array.from({ length: count6 }, (_, n) => n).filter((n) => n % pages === page2);
 async function capture(page2, url2, frames, dir) {
   await page2.goto(url2);
   for (const n of frames) {
@@ -59408,16 +59408,16 @@ async function capture(page2, url2, frames, dir) {
 var playwrightCapture = Object.freeze({
   kind: "capture",
   id: "playwright",
-  frames: async ({ url: url2, count: count5, width, height, pages = PAGES }, { dir, cwd, launch }) => {
+  frames: async ({ url: url2, count: count6, width, height, pages = PAGES }, { dir, cwd, launch }) => {
     const browser = await (launch ?? repositoryChromium(cwd))();
     try {
-      const lanes = Math.max(1, Math.min(pages, count5));
+      const lanes = Math.max(1, Math.min(pages, count6));
       const opened = await Promise.all(Array.from({ length: lanes }, () => browser.newPage({ viewport: { width, height } })));
-      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count5, lane, lanes), dir)));
+      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count6, lane, lanes), dir)));
     } finally {
       await browser.close();
     }
-    return Array.from({ length: count5 }, (_, n) => join124(dir, frameFile(n)));
+    return Array.from({ length: count6 }, (_, n) => join124(dir, frameFile(n)));
   }
 });
 
@@ -59719,26 +59719,26 @@ var REGISTRY = Object.freeze({
   encode: [ffmpegEncode]
 });
 var DEFAULTS = Object.freeze({ music: "none", fonts: "system", capture: "playwright", encode: "ffmpeg" });
-function defaultOf(kind, registry3) {
-  const fallback5 = registry3[kind].find((provider2) => provider2.id === DEFAULTS[kind]);
-  if (fallback5 === void 0) throw new Error(`no ${kind} provider to fall back to: ${DEFAULTS[kind]} is not registered`);
+function defaultOf(kind2, registry3) {
+  const fallback5 = registry3[kind2].find((provider2) => provider2.id === DEFAULTS[kind2]);
+  if (fallback5 === void 0) throw new Error(`no ${kind2} provider to fall back to: ${DEFAULTS[kind2]} is not registered`);
   return fallback5;
 }
-function providerFor(kind, id, warn, registry3 = REGISTRY) {
-  const found2 = registry3[kind].find((provider2) => provider2.id === id);
+function providerFor(kind2, id, warn, registry3 = REGISTRY) {
+  const found2 = registry3[kind2].find((provider2) => provider2.id === id);
   if (found2 !== void 0) return found2;
-  const fallback5 = defaultOf(kind, registry3);
-  warn(`the ${kind} provider "${id}" is not registered: using ${fallback5.id}`);
+  const fallback5 = defaultOf(kind2, registry3);
+  warn(`the ${kind2} provider "${id}" is not registered: using ${fallback5.id}`);
   return fallback5;
 }
-async function withFallback(kind, id, run2, warn, registry3) {
-  const chosen = providerFor(kind, id, warn, registry3);
+async function withFallback(kind2, id, run2, warn, registry3) {
+  const chosen = providerFor(kind2, id, warn, registry3);
   try {
     return { ...await run2(chosen), provider: chosen.id };
   } catch (error62) {
-    const fallback5 = defaultOf(kind, registry3);
+    const fallback5 = defaultOf(kind2, registry3);
     if (fallback5 === chosen) throw error62;
-    warn(`the ${kind} from ${chosen.id} failed (${messageOf(error62)}): using ${fallback5.id}`);
+    warn(`the ${kind2} from ${chosen.id} failed (${messageOf(error62)}): using ${fallback5.id}`);
     return { ...await run2(fallback5), provider: fallback5.id };
   }
 }
@@ -60075,9 +60075,9 @@ function contactHtml(files) {
   const seek = `window.${PAGE_SEEK}=function(){return Promise.all(Array.from(document.images).map(function(i){return i.decode();}));};`;
   return `<!doctype html><html><head><meta charset="utf-8"><style>${style}</style></head><body>${tiles}${script(seek)}</body></html>`;
 }
-var contactSize = (count5) => ({
+var contactSize = (count6) => ({
   width: CONTACT.columns * CONTACT.width,
-  height: Math.max(1, Math.ceil(count5 / CONTACT.columns)) * CONTACT.height
+  height: Math.max(1, Math.ceil(count6 / CONTACT.columns)) * CONTACT.height
 });
 function runFile(dir, path) {
   const root = resolve9(dir);
@@ -60661,12 +60661,12 @@ async function pushProof({
   client,
   repo,
   prd: prd2,
-  kind,
+  kind: kind2,
   run: run2,
   read: read3 = readFileSync107,
   newRunId = randomUUID3
 }) {
-  const kindOf6 = kind ? { kind } : {};
+  const kindOf6 = kind2 ? { kind: kind2 } : {};
   let runId;
   if (run2.files.length) {
     const reply = await client.requestProofUploads({ repo, prd: prd2, ...kindOf6, files: run2.files.map(({ name: name3, bytes: bytes2, type }) => ({ name: name3, bytes: bytes2, type })) });
@@ -60681,7 +60681,7 @@ async function pushProof({
   if (!isText8(tab)) throw new ProofReplyError("no link in the reply");
   const stable = (name3) => `${new URL(tab).origin}/api/proofs/${runId}/${name3}`;
   const sent = (name3) => run2.files.some((file2) => file2.name === name3);
-  const clips = kind === "bug" ? BUG_CLIPS.filter(sent).map(stable) : [];
+  const clips = kind2 === "bug" ? BUG_CLIPS.filter(sent).map(stable) : [];
   return { tab, ...sent(GIF) ? { gif: stable(GIF) } : {}, ...clips.length ? { clips } : {} };
 }
 
@@ -60858,21 +60858,21 @@ function skipLine5(error62) {
   if (error62.status === 404) return "none";
   return error62.status === 403 && error62.reason ? `refused (403): ${error62.reason}` : `refused (${error62.status})`;
 }
-function kindOf3(kind) {
-  if (kind === void 0 || kind === "prd") return void 0;
-  if (kind === "bug") return "bug";
-  throw usageError(`${USAGE36} (--kind is prd or bug, not ${kind})`);
+function kindOf3(kind2) {
+  if (kind2 === void 0 || kind2 === "prd") return void 0;
+  if (kind2 === "bug") return "bug";
+  throw usageError(`${USAGE36} (--kind is prd or bug, not ${kind2})`);
 }
 function argsOf2(args, proof2) {
   const { positional, flags } = parseArgs("proof", args, { values: ["kind"] });
   const [verb2, first, second, ...rest] = positional;
-  const kind = kindOf3(flags.kind);
-  if (verb2 === "session") return { verb: verb2, file: sessionFile(first ?? proof2?.storageState, second, kind) };
+  const kind2 = kindOf3(flags.kind);
+  if (verb2 === "session") return { verb: verb2, file: sessionFile(first ?? proof2?.storageState, second, kind2) };
   if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE36);
-  return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second, kind };
+  return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second, kind: kind2 };
 }
-function sessionFile(file2, extra, kind) {
-  if (!file2 || extra !== void 0 || kind !== void 0) throw usageError(`${USAGE36} (session needs <file> or PROOF_STORAGE_STATE)`);
+function sessionFile(file2, extra, kind2) {
+  if (!file2 || extra !== void 0 || kind2 !== void 0) throw usageError(`${USAGE36} (session needs <file> or PROOF_STORAGE_STATE)`);
   return file2;
 }
 function localRun2(cwd, dir) {
@@ -60887,7 +60887,7 @@ function localRun2(cwd, dir) {
   if (!run2) throw usageError(`omni proof push: ${dir} holds no ${RUN_FILE}.`);
   return { run: run2 };
 }
-async function send2({ toggle, repo, prd: prd2, kind, run: run2 }, { stdout, stderr, tokens: tokens2, home, fetch, callMs }) {
+async function send2({ toggle, repo, prd: prd2, kind: kind2, run: run2 }, { stdout, stderr, tokens: tokens2, home, fetch, callMs }) {
   const client = signedInClient({ askUrl: toggle.askUrl, tokens: tokens2, home, fetch, callMs });
   if (!client) {
     println(stderr, NO_SIGN_IN6);
@@ -60895,7 +60895,7 @@ async function send2({ toggle, repo, prd: prd2, kind, run: run2 }, { stdout, std
   }
   let pushed;
   try {
-    pushed = await pushProof({ client, repo, prd: prd2, ...kind ? { kind } : {}, run: run2 });
+    pushed = await pushProof({ client, repo, prd: prd2, ...kind2 ? { kind: kind2 } : {}, run: run2 });
   } catch (error62) {
     println(stderr, skipLine5(error62));
     return 1;
@@ -60947,7 +60947,7 @@ var proof = {
       const file2 = isAbsolute10(parsed2.file) ? parsed2.file : resolve12(cwd, parsed2.file);
       return writeSession({ askUrl: askUrl2, file: file2, target: targetHost(vars.proof?.url) }, { stdout, stderr, tokens: tokens2, home, fetch, callMs });
     }
-    const { prd: prd2, dir, kind } = parsed2;
+    const { prd: prd2, dir, kind: kind2 } = parsed2;
     const toggle = dossierSwitch(ctx.config);
     if (!toggle.on) {
       println(stderr, "off");
@@ -60960,7 +60960,7 @@ var proof = {
       println(stderr, local.line);
       return 1;
     }
-    return send2({ toggle, repo, prd: prd2, kind, run: local.run }, { stdout, stderr, tokens: tokens2, home, fetch, callMs });
+    return send2({ toggle, repo, prd: prd2, kind: kind2, run: local.run }, { stdout, stderr, tokens: tokens2, home, fetch, callMs });
   }
 };
 
@@ -61002,14 +61002,14 @@ var Loose = external_exports.record(external_exports.string(), external_exports.
 var RunsSchema = external_exports.array(Loose);
 var KeyedSchema = external_exports.record(external_exports.string(), external_exports.unknown()).optional();
 var refuse5 = (reason2) => ({ ok: false, reason: reason2 });
-function keptBy(runs2, finding) {
-  return runs2.findLastIndex((run2) => {
+function keptBy(runs3, finding) {
+  return runs3.findLastIndex((run2) => {
     const issues = KeyedSchema.safeParse(run2.issues);
     return issues.success && issues.data !== void 0 && finding in issues.data;
   });
 }
-function hasOutcome(runs2, finding) {
-  return runs2.some((run2) => {
+function hasOutcome(runs3, finding) {
+  return runs3.some((run2) => {
     const outcomes = KeyedSchema.safeParse(run2.outcomes);
     return outcomes.success && outcomes.data !== void 0 && finding in outcomes.data;
   });
@@ -61037,13 +61037,13 @@ function recordOutcome({ ctx, prd: prd2, finding, outcome: outcome2 }) {
   }
   const parsedRuns = RunsSchema.safeParse(doc.runs);
   if (!parsedRuns.success) return refuse5(`${json3} is not a retro record \u2014 runs: ${parsedRuns.error.message}`);
-  const runs2 = parsedRuns.data;
-  const run2 = keptBy(runs2, finding);
+  const runs3 = parsedRuns.data;
+  const run2 = keptBy(runs3, finding);
   if (run2 === -1) return refuse5(`PRD ${String(prd2)} kept no lesson for \`${finding}\``);
-  if (hasOutcome(runs2, finding)) return refuse5(`PRD ${String(prd2)}, lesson \`${finding}\` already has an outcome \u2014 an outcome is never rewritten`);
+  if (hasOutcome(runs3, finding)) return refuse5(`PRD ${String(prd2)}, lesson \`${finding}\` already has an outcome \u2014 an outcome is never rewritten`);
   const problem = outcomeProblem(outcome2, { ctx });
   if (problem !== null) return refuse5(problem);
-  const written = runs2.map((each, index2) => {
+  const written = runs3.map((each, index2) => {
     if (index2 !== run2) return each;
     const outcomes = KeyedSchema.parse(each.outcomes) ?? {};
     return { ...each, outcomes: { ...outcomes, [finding]: outcome2 } };
@@ -61782,7 +61782,7 @@ function answerCommand(rest, io) {
 var STATE_WORDS = { ok: "ok", fixed: "fixed", ticked: "ticked", waits: "waits on you" };
 function countLine(results) {
   const counts2 = PREREQUISITE_STATES.map((state) => [state, results.filter((result2) => result2.state === state).length]);
-  return counts2.filter(([, count5]) => count5 > 0).map(([state, count5]) => `${count5} ${state === "waits" ? count5 === 1 ? "waits on you" : "wait on you" : state}`).join(" \xB7 ");
+  return counts2.filter(([, count6]) => count6 > 0).map(([state, count6]) => `${count6} ${state === "waits" ? count6 === 1 ? "waits on you" : "wait on you" : state}`).join(" \xB7 ");
 }
 function byCategory(results) {
   return PREREQUISITE_CATEGORIES.map((category) => ({ category, rows: results.filter((result2) => result2.prerequisite.category === category) })).filter(({ rows: rows2 }) => rows2.length > 0);
@@ -61984,7 +61984,7 @@ var roadmap = {
 // kit/bin/commands/runner.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync116 } from "node:fs";
-import { homedir as homedir4 } from "node:os";
+import { homedir as homedir5 } from "node:os";
 import { resolve as resolve15 } from "node:path";
 import { setTimeout as delay2 } from "node:timers/promises";
 
@@ -62239,9 +62239,18 @@ function nextPause(state, reason2) {
 // kit/lib/runner/job.ts
 init_define_OMNI_BUNDLE();
 import { spawn as spawn2 } from "node:child_process";
-import { appendFileSync, closeSync as closeSync3, existsSync as existsSync89, openSync as openSync3, readFileSync as readFileSync113, writeFileSync as writeFileSync53 } from "node:fs";
-import { join as join140 } from "node:path";
+import { appendFileSync, existsSync as existsSync90, readFileSync as readFileSync114, writeFileSync as writeFileSync53 } from "node:fs";
+import { join as join142 } from "node:path";
 import { StringDecoder } from "node:string_decoder";
+
+// kit/lib/runner/agents/index.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/runner/agents/claude.ts
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync89 } from "node:fs";
+import { homedir as homedir4 } from "node:os";
+import { join as join141 } from "node:path";
 
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
@@ -62387,14 +62396,256 @@ function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__
   return eventLines(event, { seen, opens: opensOf(seen) }).map((each) => cut4(stamp2 + each));
 }
 
-// kit/lib/runner/job.ts
-var LOCKFILE = "pnpm-lock.yaml";
+// kit/lib/runner/tokens.ts
+init_define_OMNI_BUNDLE();
+import { readdirSync as readdirSync39, readFileSync as readFileSync113, statSync as statSync27 } from "node:fs";
+import { join as join140 } from "node:path";
+var HOUR_MS = 60 * 60 * 1e3;
+var DAY_MS2 = 24 * HOUR_MS;
+var projectFolder = (path) => path.replace(/[^A-Za-z0-9]/g, "-");
+function entryOf2(raw) {
+  let entry3;
+  try {
+    entry3 = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (field(entry3, "type") !== "assistant") return null;
+  const message2 = field(entry3, "message");
+  const usage2 = field(message2, "usage");
+  if (!usage2 || typeof usage2 !== "object") return null;
+  const id = field(message2, "id");
+  const stamp2 = field(entry3, "timestamp");
+  const at2 = typeof stamp2 === "string" ? Date.parse(stamp2) : Number.NaN;
+  return { id: typeof id === "string" ? id : null, at: Number.isNaN(at2) ? null : at2, usage: usage2 };
+}
+var entriesOf = (text15) => text15.split("\n").flatMap((raw) => raw.trim() ? [entryOf2(raw)] : []).filter((entry3) => entry3 !== null);
+var missing = (error62) => typeof error62 === "object" && error62 !== null && "code" in error62 && error62.code === "ENOENT";
+function tokenSource({ projects, now: now2 = Date.now, readFile: readFile3 = (path) => readFileSync113(path, "utf8") }) {
+  const cache = /* @__PURE__ */ new Map();
+  function entriesAt(path, since) {
+    try {
+      const stats = statSync27(path);
+      if (!stats.isFile() || stats.mtimeMs < since) return [];
+      let held2 = cache.get(path);
+      if (held2?.size !== stats.size || held2.mtimeMs !== stats.mtimeMs) {
+        held2 = { size: stats.size, mtimeMs: stats.mtimeMs, entries: entriesOf(readFile3(path)) };
+        cache.set(path, held2);
+      }
+      return held2.entries;
+    } catch (error62) {
+      return missing(error62) ? [] : null;
+    }
+  }
+  function transcriptNames(folder) {
+    try {
+      return readdirSync39(join140(projects, folder), { recursive: true, encoding: "utf8" }).filter((name3) => name3.endsWith(".jsonl"));
+    } catch (error62) {
+      return missing(error62) ? [] : null;
+    }
+  }
+  function transcripts(wanted, since) {
+    let folders;
+    try {
+      folders = readdirSync39(projects).filter(wanted);
+    } catch {
+      return null;
+    }
+    const found2 = [];
+    for (const folder of folders) {
+      const names = transcriptNames(folder);
+      if (names === null) return null;
+      for (const name3 of names) {
+        const entries4 = entriesAt(join140(projects, folder, name3), since);
+        if (entries4 === null) return null;
+        found2.push(entries4);
+      }
+    }
+    return found2;
+  }
+  function sum(files, from) {
+    const usages = /* @__PURE__ */ new Map();
+    let anonymous = 0;
+    for (const entries4 of files) {
+      for (const { id, at: at2, usage: usage2 } of entries4) {
+        if (from !== null && (at2 === null || at2 < from)) continue;
+        usages.set(id ?? `#${String(anonymous++)}`, usage2);
+      }
+    }
+    return usageSum(usages.values());
+  }
+  return {
+    job(worktree) {
+      const folder = projectFolder(worktree);
+      const found2 = transcripts((name3) => name3 === folder || name3.startsWith(`${folder}-`), 0);
+      return found2 === null ? null : sum(found2, null);
+    },
+    machine() {
+      const at2 = now2();
+      const midnight = at2 - at2 % DAY_MS2;
+      const last5h = at2 - 5 * HOUR_MS;
+      const found2 = transcripts(() => true, Math.min(midnight, last5h));
+      return found2 === null ? null : { last5h: sum(found2, last5h), today: sum(found2, midnight) };
+    }
+  };
+}
+
+// kit/lib/runner/agents/claude.ts
+var CLAUDE4 = "claude";
 var CLAUDE_ARGS = ["--dangerously-skip-permissions", "-p", "--output-format", "stream-json", "--verbose"];
 var MCP_CONFIG = ".mcp.json";
-function claudeArgs(cwd, line2) {
-  if (checkRunnerLine(line2).ok || !existsSync89(join140(cwd, MCP_CONFIG))) return CLAUDE_ARGS;
-  return [...CLAUDE_ARGS, "--mcp-config", MCP_CONFIG];
+var TOKEN_VARIABLE = "CLAUDE_CODE_OAUTH_TOKEN";
+var CONTEXT_WINDOW = 2e5;
+var MILLION_WINDOW = 1e6;
+var INTERRUPT_GRACE_MS = 3e4;
+var SYNTHETIC = "<synthetic>";
+var LIMIT_WORDS = /usage limit reached|hit your (?:usage )?limit|\b(?:5-hour|five-hour|weekly|session|opus|sonnet) limit reached/i;
+var LIMIT_EPOCH = /\|(\d{10,13})\s*$/;
+var kind = (event) => field(event, "type");
+function eventsOf(run2) {
+  return run2.lines.flatMap((line2) => {
+    try {
+      const event = JSON.parse(line2);
+      return typeof event === "object" && event !== null && !Array.isArray(event) ? [event] : [];
+    } catch {
+      return [];
+    }
+  });
 }
+var textOf8 = (value) => typeof value === "string" ? value : "";
+var numberOf2 = (value) => typeof value === "number" && Number.isFinite(value) ? value : null;
+var count4 = (value) => Math.max(0, Math.trunc(numberOf2(value) ?? 0));
+function isoOf(epoch) {
+  const value = numberOf2(epoch);
+  if (value === null || value <= 0) return null;
+  return new Date(value < 1e12 ? value * 1e3 : value).toISOString();
+}
+function saidBy(event) {
+  const content = field(field(event, "message"), "content");
+  if (!Array.isArray(content)) return "";
+  return content.map((block) => field(block, "type") === "text" ? textOf8(field(block, "text")) : "").join("\n");
+}
+var rateLimits = (events) => events.filter((event) => kind(event) === "rate_limit_event").map((event) => field(event, "rate_limit_info"));
+function modelOf(events) {
+  const init3 = events.find((event) => kind(event) === "system" && field(event, "subtype") === "init");
+  const model = textOf8(field(init3, "model"));
+  return model === "" ? null : model;
+}
+var accountArgs = (account) => account.model === null ? [] : ["--model", account.model];
+var accountEnv = (account) => account.secret === null ? {} : { [TOKEN_VARIABLE]: account.secret };
+function mcpArgs(job2) {
+  if (checkRunnerLine(job2.line).ok || !existsSync89(join141(job2.cwd, MCP_CONFIG))) return [];
+  return ["--mcp-config", MCP_CONFIG];
+}
+function endedOnLimit(events) {
+  if (rateLimits(events).some((info) => field(info, "status") === "rejected")) return true;
+  return events.some((event) => {
+    if (kind(event) === "assistant") return field(event, "error") === "rate_limit" || field(field(event, "message"), "model") === SYNTHETIC && LIMIT_WORDS.test(saidBy(event));
+    return kind(event) === "result" && LIMIT_WORDS.test(textOf8(field(event, "result")));
+  });
+}
+function resetOf(events) {
+  const rejected = rateLimits(events).filter((info) => field(info, "status") === "rejected").at(-1);
+  const fromEvent = isoOf(field(rejected, "resetsAt"));
+  if (fromEvent !== null) return fromEvent;
+  for (const event of [...events].reverse()) {
+    const words4 = kind(event) === "result" ? textOf8(field(event, "result")) : kind(event) === "assistant" ? saidBy(event) : "";
+    const epoch = LIMIT_EPOCH.exec(words4)?.[1];
+    if (epoch !== void 0) return isoOf(Number(epoch));
+  }
+  return null;
+}
+function usagePressure(events) {
+  const info = rateLimits(events).at(-1);
+  if (typeof info !== "object" || info === null) return null;
+  const utilization = numberOf2(field(info, "utilization"));
+  const status5 = textOf8(field(info, "status"));
+  const window = textOf8(field(info, "rateLimitType"));
+  return {
+    percent: utilization === null ? null : Math.round(utilization * 100),
+    status: status5 === "" ? null : status5,
+    window: window === "" ? null : window,
+    resetsAt: isoOf(field(info, "resetsAt"))
+  };
+}
+function contextPressure(events) {
+  const last = events.filter((event) => kind(event) === "assistant" && field(field(event, "message"), "model") !== SYNTHETIC && typeof field(field(event, "message"), "usage") === "object").at(-1);
+  if (last === void 0) return null;
+  const usage2 = field(field(last, "message"), "usage");
+  const used = count4(field(usage2, "input_tokens")) + count4(field(usage2, "cache_read_input_tokens")) + count4(field(usage2, "cache_creation_input_tokens")) + count4(field(usage2, "output_tokens"));
+  const model = modelOf(events) ?? "";
+  return { used, window: model.endsWith("[1m]") ? MILLION_WINDOW : CONTEXT_WINDOW };
+}
+function runs(exec, args) {
+  try {
+    return { ok: true, out: exec(CLAUDE4, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 3e4 }) };
+  } catch {
+    return { ok: false, out: "" };
+  }
+}
+var NO_EXEC = () => {
+  throw new Error("no exec given");
+};
+function claudeAgent({ projects = join141(homedir4(), ".claude", "projects"), exec = NO_EXEC } = {}) {
+  const tokens2 = tokenSource({ projects });
+  return {
+    name: CLAUDE4,
+    check(account) {
+      if (!runs(exec, ["--version"]).ok) return "claude is not installed";
+      if (account.secret !== null) return account.secret.trim() === "" ? "not signed in" : null;
+      const status5 = runs(exec, ["auth", "status"]);
+      return !status5.ok || /"loggedIn"\s*:\s*false/.test(status5.out) ? "not signed in" : null;
+    },
+    command(job2, account, handoff2) {
+      const stdin = handoff2 === void 0 ? `${job2.line}
+` : `${job2.line}
+
+${handoff2}
+`;
+      return { file: CLAUDE4, args: [...CLAUDE_ARGS, ...accountArgs(account), ...mcpArgs(job2)], env: accountEnv(account), stdin };
+    },
+    step(line2, context) {
+      return stepLine(line2, context);
+    },
+    usage(run2) {
+      const counts2 = tokens2.job(run2.cwd);
+      return counts2 === null ? null : { tokens: counts2, model: modelOf(eventsOf(run2)) };
+    },
+    limit(run2) {
+      if (run2.exit === null) return null;
+      const events = eventsOf(run2);
+      const failed4 = run2.exit !== 0 || events.some((event) => kind(event) === "result" && field(event, "is_error") === true);
+      if (!failed4 || !endedOnLimit(events)) return null;
+      return { resetsAt: resetOf(events) };
+    },
+    pressure(run2) {
+      const events = eventsOf(run2);
+      return { usage: usagePressure(events), context: contextPressure(events) };
+    },
+    session(run2) {
+      const named5 = eventsOf(run2).find((event) => textOf8(field(event, "session_id")) !== "");
+      return named5 === void 0 ? null : textOf8(field(named5, "session_id"));
+    },
+    interrupt() {
+      return { kind: "signal", first: "SIGINT", then: "SIGTERM", afterMs: INTERRUPT_GRACE_MS };
+    },
+    resume(_job, account, session2, prompt) {
+      return { file: CLAUDE4, args: [...CLAUDE_ARGS, ...accountArgs(account), "--resume", session2], env: accountEnv(account), stdin: `${prompt}
+` };
+    }
+  };
+}
+
+// kit/lib/runner/agents/index.ts
+function fallbackAgent(deps = {}) {
+  return claudeAgent(deps);
+}
+function fallbackAccount() {
+  return { id: fallbackAgent().name, model: null, secret: null };
+}
+
+// kit/lib/runner/job.ts
+var LOCKFILE = "pnpm-lock.yaml";
 function rawLogPath(log) {
   return `${log.replace(/\.log$/, "")}.jsonl`;
 }
@@ -62402,7 +62653,7 @@ function run(file2, args, { cwd, stdin, log, out, env, stdout }) {
   return new Promise((resolve19) => {
     let child;
     try {
-      child = spawn2(file2, args, { cwd, stdio: [stdin, "pipe", "pipe"], ...env ? { env } : {} });
+      child = spawn2(file2, args, { cwd, stdio: [stdin === null ? "ignore" : "pipe", "pipe", "pipe"], ...env ? { env } : {} });
     } catch {
       resolve19(127);
       return;
@@ -62413,6 +62664,9 @@ function run(file2, args, { cwd, stdin, log, out, env, stdout }) {
     };
     child.stdout?.on("data", stdout ?? write2);
     child.stderr?.on("data", write2);
+    child.stdin?.on("error", () => {
+    });
+    if (stdin !== null) child.stdin?.end(stdin);
     child.on("error", () => {
       appendFileSync(log, `${file2}: could not be started
 `);
@@ -62423,12 +62677,12 @@ function run(file2, args, { cwd, stdin, log, out, env, stdout }) {
     });
   });
 }
-function streamReader({ log, raw, out }) {
-  const seen = /* @__PURE__ */ new Set();
+function streamReader({ agent, log, raw, out }) {
+  const context = { seen: /* @__PURE__ */ new Set() };
   const decoder = new StringDecoder("utf8");
   let pending = "";
   const emit = (line2) => {
-    const lines3 = stepLine(line2, { seen });
+    const lines3 = agent.step(line2, context);
     if (lines3.length === 0) return;
     const text15 = `${lines3.join("\n")}
 `;
@@ -62449,25 +62703,27 @@ function streamReader({ log, raw, out }) {
     }
   };
 }
-async function runJobProcess({ cwd, files, out, env }) {
+function runEnv(env, command2) {
+  if (Object.keys(command2.env).length === 0) return env;
+  return { ...env ?? processEnv(), ...command2.env };
+}
+async function runJobProcess({ cwd, files, out, env, agent = fallbackAgent(), account = fallbackAccount() }) {
   let code = 0;
-  if (existsSync89(join140(cwd, LOCKFILE))) {
+  if (existsSync90(join142(cwd, LOCKFILE))) {
     appendFileSync(files.log, "$ pnpm install --frozen-lockfile\n");
-    code = await run("pnpm", ["install", "--frozen-lockfile"], { cwd, stdin: "ignore", log: files.log, out, env });
+    code = await run("pnpm", ["install", "--frozen-lockfile"], { cwd, stdin: null, log: files.log, out, env });
   }
   if (code === 0) {
     const raw = rawLogPath(files.log);
     writeFileSync53(raw, "");
-    const reader = streamReader({ log: files.log, raw, out });
-    const args = claudeArgs(cwd, readFileSync113(files.line, "utf8").replace(/\n$/, ""));
-    const stdin = openSync3(files.line, "r");
+    const reader = streamReader({ agent, log: files.log, raw, out });
+    const command2 = agent.command({ line: readFileSync114(files.line, "utf8").replace(/\n$/, ""), cwd }, account);
     try {
-      code = await run("claude", args, { cwd, stdin, log: files.log, out, env, stdout: (chunk) => {
+      code = await run(command2.file, command2.args, { cwd, stdin: command2.stdin, log: files.log, out, env: runEnv(env, command2), stdout: (chunk) => {
         reader.chunk(chunk);
       } });
     } finally {
       reader.end();
-      closeSync3(stdin);
     }
   }
   writeFileSync53(files.exit, `${String(code)}
@@ -62507,13 +62763,13 @@ function linesAfter(log, cursor, { ended: ended2 }) {
 }
 function reportBatch(lines3) {
   let bytes2 = 2;
-  let count5 = 0;
+  let count6 = 0;
   for (const line2 of lines3.slice(0, REPORT_LINES)) {
-    bytes2 += Buffer.byteLength(JSON.stringify(line2)) + (count5 > 0 ? 1 : 0);
+    bytes2 += Buffer.byteLength(JSON.stringify(line2)) + (count6 > 0 ? 1 : 0);
     if (bytes2 > REPORT_BYTES) break;
-    count5 += 1;
+    count6 += 1;
   }
-  return lines3.slice(0, count5);
+  return lines3.slice(0, count6);
 }
 var escape4 = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var DONE_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Done: (?:ok|error) · /;
@@ -62625,8 +62881,8 @@ function waitingLine2(askUrl2, job2) {
 
 // kit/lib/runner/release.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync90 } from "node:fs";
-import { join as join141 } from "node:path";
+import { existsSync as existsSync91 } from "node:fs";
+import { join as join143 } from "node:path";
 var MAX_RELEASED = 50;
 var MAX_RELEASE_ERROR = 200;
 var ListedSchema = external_exports.array(external_exports.object({
@@ -62716,7 +62972,7 @@ function releaser({ exec, checkouts, env = {} }) {
     const options = token === null ? QUIET13 : { ...QUIET13, env: { ...env, GH_TOKEN: token } };
     const gh = (args) => exec("gh", args, options);
     const checkout = checkouts.get(ended2.repo);
-    if (checkout === void 0 || !existsSync90(join141(checkout, CONFIG_FILE))) return { ...NOTHING3 };
+    if (checkout === void 0 || !existsSync91(join143(checkout, CONFIG_FILE))) return { ...NOTHING3 };
     let repo;
     try {
       const { labels: labels2, markers } = loadConfig(checkout);
@@ -62730,25 +62986,25 @@ function releaser({ exec, checkouts, env = {} }) {
 
 // kit/lib/runner/runner.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync92, mkdirSync as mkdirSync37, readFileSync as readFileSync115, rmSync as rmSync21, writeFileSync as writeFileSync55 } from "node:fs";
-import { join as join146 } from "node:path";
+import { existsSync as existsSync93, mkdirSync as mkdirSync37, readFileSync as readFileSync115, rmSync as rmSync21, writeFileSync as writeFileSync55 } from "node:fs";
+import { join as join147 } from "node:path";
 
 // kit/lib/runner/github-app.ts
 init_define_OMNI_BUNDLE();
-import { accessSync, chmodSync as chmodSync7, constants as constants2, mkdirSync as mkdirSync36, renameSync as renameSync7, statSync as statSync27, writeFileSync as writeFileSync54 } from "node:fs";
-import { delimiter, join as join142, resolve as resolve14 } from "node:path";
+import { accessSync, chmodSync as chmodSync7, constants as constants2, mkdirSync as mkdirSync36, renameSync as renameSync7, statSync as statSync28, writeFileSync as writeFileSync54 } from "node:fs";
+import { delimiter, join as join144, resolve as resolve14 } from "node:path";
 function shellQuote(text15) {
   return `'${text15.replace(/'/g, `'\\''`)}'`;
 }
 function ghShimDir(home) {
-  return join142(home, ".config", "omni", "runner", "bin");
+  return join144(home, ".config", "omni", "runner", "bin");
 }
 function findGh(path, skip) {
   for (const dir of (path ?? "").split(delimiter)) {
     if (dir === "" || resolve14(dir) === resolve14(skip)) continue;
-    const candidate = join142(dir, "gh");
+    const candidate = join144(dir, "gh");
     try {
-      if (!statSync27(candidate).isFile()) continue;
+      if (!statSync28(candidate).isFile()) continue;
       accessSync(candidate, constants2.X_OK);
       return candidate;
     } catch {
@@ -62772,7 +63028,7 @@ function ghShim(tokenCommand, realGh) {
 }
 function installGhShim({ home, tokenCommand, path }) {
   const dir = ghShimDir(home);
-  const file2 = join142(dir, "gh");
+  const file2 = join144(dir, "gh");
   const next2 = `${file2}.${String(process.pid)}.tmp`;
   mkdirSync36(dir, { recursive: true });
   writeFileSync54(next2, ghShim(tokenCommand, findGh(path, dir)), { mode: 493 });
@@ -62798,104 +63054,10 @@ function githubJobEnv({ bot, tokenCommand, shimDir, path }) {
   };
 }
 
-// kit/lib/runner/tokens.ts
-init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync39, readFileSync as readFileSync114, statSync as statSync28 } from "node:fs";
-import { join as join143 } from "node:path";
-var HOUR_MS = 60 * 60 * 1e3;
-var DAY_MS2 = 24 * HOUR_MS;
-var projectFolder = (path) => path.replace(/[^A-Za-z0-9]/g, "-");
-function entryOf2(raw) {
-  let entry3;
-  try {
-    entry3 = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (field(entry3, "type") !== "assistant") return null;
-  const message2 = field(entry3, "message");
-  const usage2 = field(message2, "usage");
-  if (!usage2 || typeof usage2 !== "object") return null;
-  const id = field(message2, "id");
-  const stamp2 = field(entry3, "timestamp");
-  const at2 = typeof stamp2 === "string" ? Date.parse(stamp2) : Number.NaN;
-  return { id: typeof id === "string" ? id : null, at: Number.isNaN(at2) ? null : at2, usage: usage2 };
-}
-var entriesOf = (text15) => text15.split("\n").flatMap((raw) => raw.trim() ? [entryOf2(raw)] : []).filter((entry3) => entry3 !== null);
-var missing = (error62) => typeof error62 === "object" && error62 !== null && "code" in error62 && error62.code === "ENOENT";
-function tokenSource({ projects, now: now2 = Date.now, readFile: readFile3 = (path) => readFileSync114(path, "utf8") }) {
-  const cache = /* @__PURE__ */ new Map();
-  function entriesAt(path, since) {
-    try {
-      const stats = statSync28(path);
-      if (!stats.isFile() || stats.mtimeMs < since) return [];
-      let held2 = cache.get(path);
-      if (held2?.size !== stats.size || held2.mtimeMs !== stats.mtimeMs) {
-        held2 = { size: stats.size, mtimeMs: stats.mtimeMs, entries: entriesOf(readFile3(path)) };
-        cache.set(path, held2);
-      }
-      return held2.entries;
-    } catch (error62) {
-      return missing(error62) ? [] : null;
-    }
-  }
-  function transcriptNames(folder) {
-    try {
-      return readdirSync39(join143(projects, folder), { recursive: true, encoding: "utf8" }).filter((name3) => name3.endsWith(".jsonl"));
-    } catch (error62) {
-      return missing(error62) ? [] : null;
-    }
-  }
-  function transcripts(wanted, since) {
-    let folders;
-    try {
-      folders = readdirSync39(projects).filter(wanted);
-    } catch {
-      return null;
-    }
-    const found2 = [];
-    for (const folder of folders) {
-      const names = transcriptNames(folder);
-      if (names === null) return null;
-      for (const name3 of names) {
-        const entries4 = entriesAt(join143(projects, folder, name3), since);
-        if (entries4 === null) return null;
-        found2.push(entries4);
-      }
-    }
-    return found2;
-  }
-  function sum(files, from) {
-    const usages = /* @__PURE__ */ new Map();
-    let anonymous = 0;
-    for (const entries4 of files) {
-      for (const { id, at: at2, usage: usage2 } of entries4) {
-        if (from !== null && (at2 === null || at2 < from)) continue;
-        usages.set(id ?? `#${String(anonymous++)}`, usage2);
-      }
-    }
-    return usageSum(usages.values());
-  }
-  return {
-    job(worktree) {
-      const folder = projectFolder(worktree);
-      const found2 = transcripts((name3) => name3 === folder || name3.startsWith(`${folder}-`), 0);
-      return found2 === null ? null : sum(found2, null);
-    },
-    machine() {
-      const at2 = now2();
-      const midnight = at2 - at2 % DAY_MS2;
-      const last5h = at2 - 5 * HOUR_MS;
-      const found2 = transcripts(() => true, Math.min(midnight, last5h));
-      return found2 === null ? null : { last5h: sum(found2, last5h), today: sum(found2, midnight) };
-    }
-  };
-}
-
 // kit/lib/runner/plugin.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync91 } from "node:fs";
-import { join as join144 } from "node:path";
+import { existsSync as existsSync92 } from "node:fs";
+import { join as join145 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
@@ -62935,7 +63097,7 @@ var LIST_BUDGET_MS = 1e4;
 var LIST = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: LIST_BUDGET_MS };
 var ListSchema = external_exports.array(external_exports.looseObject({ id: external_exports.unknown(), version: external_exports.unknown().optional(), scope: external_exports.unknown().optional() }).nullable().catch(null));
 function pinnedOmni({ root, running, bundle }) {
-  if (!existsSync91(join144(root, BIN_FILE))) return null;
+  if (!existsSync92(join145(root, BIN_FILE))) return null;
   return installedVersion({ root, running, bundle }) ?? running.version;
 }
 function whyNotRun(error62) {
@@ -63016,7 +63178,7 @@ function pluginKeeper({ exec, running, bundle, print: print2 }) {
 // kit/lib/runner/sweep.ts
 init_define_OMNI_BUNDLE();
 import { lstatSync, readdirSync as readdirSync40, rmSync as rmSync20 } from "node:fs";
-import { join as join145 } from "node:path";
+import { join as join146 } from "node:path";
 var DAY_MS3 = 24 * 60 * 60 * 1e3;
 var QUIET15 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var ID3 = "[A-Za-z0-9_-]+";
@@ -63038,7 +63200,7 @@ function sizeOf(path) {
     return 0;
   }
   if (!stat.isDirectory()) return stat.size;
-  return namesIn(path).reduce((total, name3) => total + sizeOf(join145(path, name3)), stat.size);
+  return namesIn(path).reduce((total, name3) => total + sizeOf(join146(path, name3)), stat.size);
 }
 function worktreeJob(name3, repoNames) {
   for (const repo of repoNames) {
@@ -63084,31 +63246,31 @@ function dropJobBranch(exec, checkout, branch) {
   return !branchPushed(exec, checkout, branch) && deleteBranch(exec, checkout, branch);
 }
 function strandedJobs({ home, checkouts, running }) {
-  const wt = join145(home, "wt");
+  const wt = join146(home, "wt");
   const stranded = [];
   for (const name3 of namesIn(wt)) {
     const repo = [...checkouts.keys()].find((held2) => worktreeJob(name3, [held2.split("/").at(-1) ?? held2]) !== null);
     const job2 = repo === void 0 ? null : worktreeJob(name3, [repo.split("/").at(-1) ?? repo]);
-    if (repo === void 0 || job2 === null || running.has(job2) || !lstatSync(join145(wt, name3)).isDirectory()) continue;
+    if (repo === void 0 || job2 === null || running.has(job2) || !lstatSync(join146(wt, name3)).isDirectory()) continue;
     stranded.push({ job: job2, repo });
   }
   return stranded;
 }
 function sweepWorktrees({ home, checkouts, running }) {
-  const wt = join145(home, "wt");
+  const wt = join146(home, "wt");
   const repoNames = [...checkouts.keys()].map((repo) => repo.split("/").at(-1) ?? repo);
-  let count5 = 0;
+  let count6 = 0;
   let bytes2 = 0;
   for (const name3 of namesIn(wt)) {
     const job2 = worktreeJob(name3, repoNames);
-    const path = join145(wt, name3);
+    const path = join146(wt, name3);
     if (job2 === null || running.has(job2) || !lstatSync(path).isDirectory()) continue;
     const size = sizeOf(path);
     rmSync20(path, { recursive: true, force: true });
-    count5 += 1;
+    count6 += 1;
     bytes2 += size;
   }
-  return { count: count5, bytes: bytes2 };
+  return { count: count6, bytes: bytes2 };
 }
 function sweepBranches({ exec, running }, checkout) {
   let names;
@@ -63124,20 +63286,20 @@ function sweepBranches({ exec, running }, checkout) {
   return candidates2.filter((name3) => !onOrigin.has(name3) && deleteBranch(exec, checkout, name3)).length;
 }
 function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
-  const logs = join145(home, "logs");
-  let count5 = 0;
+  const logs = join146(home, "logs");
+  let count6 = 0;
   let bytes2 = 0;
   for (const name3 of namesIn(logs)) {
     const job2 = JOB_LOG.exec(name3)?.[1];
     if (job2 === void 0 || running.has(job2)) continue;
-    const path = join145(logs, name3);
+    const path = join146(logs, name3);
     const stat = lstatSync(path);
     if (!stat.isFile() || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS3) continue;
     rmSync20(path, { force: true });
-    count5 += 1;
+    count6 += 1;
     bytes2 += stat.size;
   }
-  return { count: count5, bytes: bytes2 };
+  return { count: count6, bytes: bytes2 };
 }
 function sweep2(options) {
   const worktrees2 = sweepWorktrees(options);
@@ -63149,7 +63311,7 @@ function sweep2(options) {
   const logs = sweepLogs(options);
   return { worktrees: worktrees2.count, branches, logs: logs.count, bytes: worktrees2.bytes + logs.bytes };
 }
-var count4 = (n, one, many) => `${String(n)} ${n === 1 ? one : many}`;
+var count5 = (n, one, many) => `${String(n)} ${n === 1 ? one : many}`;
 function sizeText(bytes2) {
   const kb3 = bytes2 / 1024;
   if (kb3 < 1024) return `${String(Math.round(kb3))} KB`;
@@ -63159,7 +63321,7 @@ function sizeText(bytes2) {
 }
 function sweptLine(swept) {
   if (swept.worktrees + swept.branches + swept.logs === 0) return null;
-  const what = [count4(swept.worktrees, "worktree", "worktrees"), count4(swept.branches, "branch", "branches"), count4(swept.logs, "log file", "log files")];
+  const what = [count5(swept.worktrees, "worktree", "worktrees"), count5(swept.branches, "branch", "branches"), count5(swept.logs, "log file", "log files")];
   return `swept: ${what.join(", ")} \xB7 ${sizeText(swept.bytes)} freed`;
 }
 
@@ -63217,7 +63379,7 @@ function loopOf(options) {
     limits: options.limits ?? DEFAULT_LIMITS,
     pause: { reason: null, quiet: 0 },
     waiting: /* @__PURE__ */ new Set(),
-    counts: options.tokens ?? tokenSource({ projects: join146(options.home, ".claude", "projects"), now: options.now ?? Date.now }),
+    counts: options.tokens ?? tokenSource({ projects: join147(options.home, ".claude", "projects"), now: options.now ?? Date.now }),
     tokensOk: false,
     tokensOff: false
   };
@@ -63361,21 +63523,21 @@ function defaultBranch(exec, checkout) {
   }
 }
 function worktreeOf(loop2, job2) {
-  return join146(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
+  return join147(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
 }
 function placeOf5(loop2, job2) {
   const line2 = checkRunnerLine(job2.line, job2.allowedSkills);
   if (!line2.ok) return { status: "failed", reason: `refused: ${line2.reason}` };
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };
-  const logs = join146(loop2.home, "logs");
+  const logs = join147(loop2.home, "logs");
   return {
     checkout,
     worktree: worktreeOf(loop2, job2),
     session: `job-${job2.id}`,
-    line: join146(logs, `job-${job2.id}.line`),
-    log: join146(logs, `job-${job2.id}.log`),
-    exit: join146(logs, `job-${job2.id}.exit`),
+    line: join147(logs, `job-${job2.id}.line`),
+    log: join147(logs, `job-${job2.id}.log`),
+    exit: join147(logs, `job-${job2.id}.exit`),
     skill: line2.kind === "repository" ? line2.skill : null
   };
 }
@@ -63383,7 +63545,7 @@ function makeWorktree(loop2, job2, place) {
   try {
     loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET16);
     const base = defaultBranch(loop2.exec, place.checkout);
-    mkdirSync37(join146(loop2.home, "wt"), { recursive: true });
+    mkdirSync37(join147(loop2.home, "wt"), { recursive: true });
     loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET16);
     return base;
   } catch {
@@ -63391,7 +63553,7 @@ function makeWorktree(loop2, job2, place) {
   }
 }
 function skillMissing(place, base) {
-  if (place.skill === null || existsSync92(join146(place.worktree, ".claude", "skills", place.skill, "SKILL.md"))) return null;
+  if (place.skill === null || existsSync93(join147(place.worktree, ".claude", "skills", place.skill, "SKILL.md"))) return null;
   return { status: "failed", reason: `refused: /${place.skill} is not on ${base}` };
 }
 function cleanUp(loop2, job2, place) {
@@ -63418,7 +63580,7 @@ function asApp(loop2, job2) {
   }
 }
 function startSession(loop2, job2, place, note, app) {
-  mkdirSync37(join146(loop2.home, "logs"), { recursive: true });
+  mkdirSync37(join147(loop2.home, "logs"), { recursive: true });
   writeFileSync55(place.line, `${job2.line}
 `);
   writeFileSync55(place.log, note === null ? "" : `${note}
@@ -63451,8 +63613,8 @@ async function withSlices(loop2, job2, place, update2) {
   const checked5 = checkRunnerLine(job2.line);
   if (!checked5.ok || checked5.skill !== "yolo" && checked5.skill !== "yolo-fix") return update2;
   try {
-    const count5 = await loop2.slices(parsePrd(checked5.args.trim()), place.worktree);
-    return count5 === null ? update2 : { ...update2, slicesMerged: count5.merged, slicesTotal: count5.total };
+    const count6 = await loop2.slices(parsePrd(checked5.args.trim()), place.worktree);
+    return count6 === null ? update2 : { ...update2, slicesMerged: count6.merged, slicesTotal: count6.total };
   } catch {
     return update2;
   }
@@ -63509,7 +63671,7 @@ async function watch2(loop2, job2, place, live) {
   for (; ; ) {
     await loop2.sleep(loop2.tickMs);
     const log = readLog(loop2, job2.id, place.log);
-    if (existsSync92(place.exit)) return withSlices(loop2, job2, place, ended(log, readText4(place.exit), job2));
+    if (existsSync93(place.exit)) return withSlices(loop2, job2, place, ended(log, readText4(place.exit), job2));
     if (!loop2.terminal.alive(place.session)) return vanished(readLog(loop2, job2.id, place.log), job2);
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, job2.id, place, failedWithPrs({ status: "failed", reason: "timeout" }, log, job2.line));
     const noApp = await appLacking(loop2, job2);
@@ -63735,7 +63897,7 @@ function tmuxTerminal(exec) {
     }
   };
 }
-function runs(exec, file2, args) {
+function runs2(exec, file2, args) {
   try {
     return { ok: true, out: exec(file2, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 3e4 }) };
   } catch {
@@ -63743,17 +63905,17 @@ function runs(exec, file2, args) {
   }
 }
 function missingTool(exec) {
-  if (!runs(exec, "claude", ["--version"]).ok) return "claude is not installed: install Claude Code, then start the runner again";
-  const status5 = runs(exec, "claude", ["auth", "status"]);
+  if (!runs2(exec, "claude", ["--version"]).ok) return "claude is not installed: install Claude Code, then start the runner again";
+  const status5 = runs2(exec, "claude", ["auth", "status"]);
   if (!status5.ok || /"loggedIn"\s*:\s*false/.test(status5.out)) return "claude is not signed in: run claude auth login, then start the runner again";
-  if (!runs(exec, "tmux", ["-V"]).ok) return "tmux is not installed: install it, then start the runner again";
+  if (!runs2(exec, "tmux", ["-V"]).ok) return "tmux is not installed: install it, then start the runner again";
   return null;
 }
 
 // kit/bin/commands/runner-follow.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync38, rmSync as rmSync22, writeFileSync as writeFileSync56 } from "node:fs";
-import { join as join147 } from "node:path";
+import { join as join148 } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 // kit/lib/runner/follow.ts
@@ -63805,9 +63967,9 @@ function milestones(previous, job2, lines3, merged, page2) {
   const read3 = readLines(lines3, seen);
   if (read3.waitingStarted) out.push("waiting for approval");
   for (const pr of read3.prs.slice(seen.prs.length)) out.push(`PR: ${pr}`);
-  let count5 = seen.merged;
-  if (merged !== null && merged.total > 0 && merged.merged > count5) {
-    count5 = merged.merged;
+  let count6 = seen.merged;
+  if (merged !== null && merged.total > 0 && merged.merged > count6) {
+    count6 = merged.merged;
     out.push(`${String(merged.merged)}/${String(merged.total)} slices merged`);
   }
   let ended2 = seen.ended;
@@ -63817,7 +63979,7 @@ function milestones(previous, job2, lines3, merged, page2) {
     out.push(page2 === null ? last : `${last} \xB7 ${page2}`);
     if (job2.outcome === "stopped" && job2.status === "done" && job2.line !== void 0) out.push(`send it again: omni runner send '${job2.line}'`);
   }
-  return { lines: out, seen: { queued: true, claimedBy, waiting: read3.waiting, prs: read3.prs, merged: count5, ended: ended2 } };
+  return { lines: out, seen: { queued: true, claimedBy, waiting: read3.waiting, prs: read3.prs, merged: count6, ended: ended2 } };
 }
 function isEnded(job2) {
   return job2.status === "done" || job2.status === "failed" || job2.status === "cancelled";
@@ -63934,7 +64096,7 @@ async function pageOf4(prd2, at2, fetch) {
     return null;
   }
 }
-var followFile = (root, prd2) => join147(root, LOCAL_DIR, "runner-follow", `${String(prd2)}.json`);
+var followFile = (root, prd2) => join148(root, LOCAL_DIR, "runner-follow", `${String(prd2)}.json`);
 async function newLines2(run2, job2) {
   const lines3 = [];
   for (; ; ) {
@@ -63949,7 +64111,7 @@ async function newLines2(run2, job2) {
 function remember(run2, job2, line2) {
   const { root } = run2.at;
   ensureLocalDir(root);
-  mkdirSync38(join147(root, LOCAL_DIR, "runner-follow"), { recursive: true });
+  mkdirSync38(join148(root, LOCAL_DIR, "runner-follow"), { recursive: true });
   const at2 = new Date((run2.io.now ?? Date.now)()).toISOString();
   writeFileSync56(followFile(root, run2.prd), `${JSON.stringify({ prd: Number(run2.prd), runner: job2.runner, line: line2, at: at2 }, null, 2)}
 `);
@@ -64091,7 +64253,7 @@ var tokensOf2 = (io) => io.tokens ?? homeTokens({ home: io.home, omniToken: io.v
 function wiring(io) {
   const tokens2 = tokensOf2(io);
   const stop = io.stop ? { signal: io.stop, release: () => void 0 } : interrupts();
-  return { tokens: tokens2, stop, terminal: io.terminal ?? tmuxTerminal(io.exec), home: io.home ?? homedir4(), fetch: io.fetch ?? globalThis.fetch };
+  return { tokens: tokens2, stop, terminal: io.terminal ?? tmuxTerminal(io.exec), home: io.home ?? homedir5(), fetch: io.fetch ?? globalThis.fetch };
 }
 async function start2(args, io) {
   const { cwd, stdout, stderr, exec, script: script2 } = io;
@@ -64142,7 +64304,7 @@ function refused2(stderr, words4) {
   println(stderr, `omni runner: ${words4}`);
   return 1;
 }
-function textOf8(cwd, path) {
+function textOf9(cwd, path) {
   try {
     return { text: readFileSync116(resolve15(cwd, path), "utf8") };
   } catch {
@@ -64150,7 +64312,7 @@ function textOf8(cwd, path) {
   }
 }
 function questionsFile(cwd, path) {
-  const file2 = textOf8(cwd, path);
+  const file2 = textOf9(cwd, path);
   if ("refusal" in file2) return file2;
   let json3;
   try {
@@ -64162,7 +64324,7 @@ function questionsFile(cwd, path) {
   return read3.ok ? { questions: read3.value } : { refusal: `${path} does not read: ${read3.field}: ${read3.message}.` };
 }
 function leadFile(cwd, path) {
-  const file2 = textOf8(cwd, path);
+  const file2 = textOf9(cwd, path);
   if ("refusal" in file2) return file2;
   const lead = file2.text.trim();
   return lead === "" ? { refusal: `${path} is empty: the lead says why the fix stopped.` } : { lead };
@@ -64204,7 +64366,7 @@ async function askOnJob(args, io) {
 async function githubTokenOfJob(args, io) {
   const asked = githubTokenAsked(args);
   if (asked === "nothing") return 0;
-  const own2 = ownJobToken(runnerJobOf(io.env), io.home ?? homedir4());
+  const own2 = ownJobToken(runnerJobOf(io.env), io.home ?? homedir5());
   if ("refusal" in own2) return refused2(io.stderr, own2.refusal);
   const kept2 = await keepGithubToken({
     file: own2.file,
@@ -64271,7 +64433,7 @@ var runner = {
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync117, writeFileSync as writeFileSync57 } from "node:fs";
-import { join as join148 } from "node:path";
+import { join as join149 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -64466,7 +64628,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync117(join148(ctx.root, path), "utf8");
+    return readFileSync117(join149(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -64543,7 +64705,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync57(join148(ctx.root, settledFile), closedText);
+  writeFileSync57(join149(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -64634,10 +64796,10 @@ function eachOf(fact, what, findings2) {
   if (isUnchecked(fact)) return [notChecked(fact, what)];
   return (fact ?? []).flatMap(findings2);
 }
-function behindRed({ branch, defaultBranch: defaultBranch2, remote, linked: linked2 }, count5, age) {
+function behindRed({ branch, defaultBranch: defaultBranch2, remote, linked: linked2 }, count6, age) {
   const onDefault = !linked2 && branch === defaultBranch2;
-  const who2 = onDefault ? defaultBranch2 : `${branch ?? "HEAD"} is ${count5} behind ${remote}/${defaultBranch2}`;
-  const text15 = onDefault ? `${who2} is ${count5} behind, the oldest ${age} old` : `${who2}, the oldest ${age} old`;
+  const who2 = onDefault ? defaultBranch2 : `${branch ?? "HEAD"} is ${count6} behind ${remote}/${defaultBranch2}`;
+  const text15 = onDefault ? `${who2} is ${count6} behind, the oldest ${age} old` : `${who2}, the oldest ${age} old`;
   return linked2 ? red(text15, null) : red(text15, SYNC_FIX, "fast-forward");
 }
 function behindFinding(facts2, now2, redAfter) {
@@ -65144,7 +65306,7 @@ var STAGE_WORDS = Object.freeze({
   retro: "retro"
 });
 var IDEA_COUNT = "on the app";
-var plural6 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
+var plural6 = (count6, word2) => `${count6} ${word2}${count6 === 1 ? "" : "s"}`;
 function fetchedAgo(fetchedAt2, now2) {
   if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
   const age = Math.max(0, now2 - fetchedAt2);
@@ -65177,7 +65339,7 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   const top2 = `${LABEL3}${cells4}  ${delivered} of ${total} \xB7 ${percent}%`;
   if (inProgress.total === 0) return [top2, `${UNDER_BAR}nothing in progress`];
   const counted5 = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]];
-  const parts = counted5.filter(([count5]) => count5 > 0).map(([count5, where]) => `${count5} ${where}`);
+  const parts = counted5.filter(([count6]) => count6 > 0).map(([count6, where]) => `${count6} ${where}`);
   const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
   for (const part of parts.slice(1)) {
     const joined3 = `${under.at(-1)}, ${part}`;
@@ -65214,9 +65376,9 @@ function rows(entries4) {
   ]);
 }
 function landingLines(landings) {
-  return landings.map(({ landing, landings: count5, name: name3, state, waitsFor }) => {
+  return landings.map(({ landing, landings: count6, name: name3, state, waitsFor }) => {
     const waits2 = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
-    return cut6(`${UNDER_BAR}landing ${landing}/${count5} ${name3}: ${state}${waits2}`, WIDTH);
+    return cut6(`${UNDER_BAR}landing ${landing}/${count6} ${name3}: ${state}${waits2}`, WIDTH);
   });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
@@ -65589,9 +65751,9 @@ async function prsFrom(ctx, reads, head, state) {
   }
 }
 var prLink = (label2, pr) => pr ? [{ label: `${label2} #${pr.number}`, href: pr.url }] : [];
-async function pageLink(page2, kind, n, label2) {
+async function pageLink(page2, kind2, n, label2) {
   try {
-    const href = await page2(kind, n);
+    const href = await page2(kind2, n);
     return href ? [{ label: label2, href }] : [];
   } catch {
     return [];
@@ -65606,14 +65768,14 @@ async function prdLinks(ctx, n, { reads, page: page2, exec }) {
   const phase02 = (await prsFrom(ctx, reads, fillBranch(ctx.config.branches.phase0, { topic }), "open"))[0];
   return [...links2, ...prLink("feature PR", feature), ...prLink("phase-0 PR", phase02)];
 }
-async function fixLinks(ctx, kind, n, { reads, page: page2, exec }) {
-  const links2 = await pageLink(page2, kind, n, "fix page");
-  const topic = topicOf4(ctx, [kind === "bug" ? bugRoot(ctx) : visualRoot(ctx)], n, exec);
+async function fixLinks(ctx, kind2, n, { reads, page: page2, exec }) {
+  const links2 = await pageLink(page2, kind2, n, "fix page");
+  const topic = topicOf4(ctx, [kind2 === "bug" ? bugRoot(ctx) : visualRoot(ctx)], n, exec);
   if (topic === null) return links2;
   return [...links2, ...prLink(FIX_PR, (await prsFrom(ctx, reads, fillBranch(ctx.config.branches.fix, { topic }), "open"))[0])];
 }
-function buildLinks(ctx, kind, n, io) {
-  return kind === "prd" ? prdLinks(ctx, n, io) : fixLinks(ctx, kind, n, io);
+function buildLinks(ctx, kind2, n, io) {
+  return kind2 === "prd" ? prdLinks(ctx, n, io) : fixLinks(ctx, kind2, n, io);
 }
 
 // kit/lib/statusline/render.ts
@@ -65679,9 +65841,9 @@ function fit3(line2, width) {
   }
   return `${out}${open3 ? RESET : ""}${CUT}`;
 }
-function itemsPart(count5) {
-  if (count5 === null || count5 === void 0 || !(count5 > 0)) return null;
-  return `${count5} open item${count5 === 1 ? "" : "s"}`;
+function itemsPart(count6) {
+  if (count6 === null || count6 === void 0 || !(count6 > 0)) return null;
+  return `${count6} open item${count6 === 1 ? "" : "s"}`;
 }
 function wavePart(slices) {
   if (!isList(slices) || slices.length === 0) return null;
@@ -65892,16 +66054,16 @@ function withTimeout(exec) {
 function kindOf4(args) {
   if (!args.includes(KIND_FLAG2)) return null;
   const value = args[args.indexOf(KIND_FLAG2) + 1];
-  return LINK_KINDS.find((kind) => kind === value);
+  return LINK_KINDS.find((kind2) => kind2 === value);
 }
 function pageOf5(ctx, { tokens: tokens2, home, fetch = globalThis.fetch, callMs }) {
   const toggle = dossierSwitch(ctx.config);
   const repo = ctx.config.repo.slug;
   const client = toggle.on && repo ? signedInClient({ askUrl: toggle.askUrl, tokens: tokens2, home, fetch, callMs }) : null;
-  return async (kind, n) => {
+  return async (kind2, n) => {
     if (!client || !repo) return null;
     try {
-      const url2 = field(await client.findDossier({ repo, prd: n, kind }), "url");
+      const url2 = field(await client.findDossier({ repo, prd: n, kind: kind2 }), "url");
       return typeof url2 === "string" && url2 !== "" ? url2 : null;
     } catch (error62) {
       if (error62 instanceof AskCallError) return null;
@@ -65912,10 +66074,10 @@ function pageOf5(ctx, { tokens: tokens2, home, fetch = globalThis.fetch, callMs 
 function loopReadsOf2(ctx, { reads, tokens: tokens2, home, fetch, callMs }) {
   return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens: tokens2, home, fetch, callMs });
 }
-async function refreshWorkLinks(root, kind, n, io, timed, instant2) {
+async function refreshWorkLinks(root, kind2, n, io, timed, instant2) {
   const ctx = loadContext(io.cwd, { exec: timed });
   const reads = loopReadsOf2(ctx, io);
-  await refreshLinks({ root, kind, n, now: instant2, build: () => buildLinks(ctx, kind, n, { reads, page: pageOf5(ctx, io), exec: timed }) });
+  await refreshLinks({ root, kind: kind2, n, now: instant2, build: () => buildLinks(ctx, kind2, n, { reads, page: pageOf5(ctx, io), exec: timed }) });
 }
 async function refreshPrdBoard(root, prd2, io, timed, instant2) {
   if (lockHeld(root, prd2, instant2)) return;
@@ -65936,22 +66098,22 @@ async function refreshPrdBoard(root, prd2, io, timed, instant2) {
 }
 async function refresh2(args, io) {
   const [, value] = args;
-  const kind = kindOf4(args);
-  if (kind === void 0) return;
+  const kind2 = kindOf4(args);
+  if (kind2 === void 0) return;
   try {
     const root = mainCheckout(io.cwd, io.exec);
     if (!root) return;
     const timed = withTimeout(io.exec);
     const instant2 = io.now();
-    if (kind === null || kind === "prd") {
+    if (kind2 === null || kind2 === "prd") {
       const prd2 = prdNumber(value);
       if (prd2 === null) return;
       await refreshPrdBoard(root, prd2, io, timed, instant2);
-      if (kind === "prd") await refreshWorkLinks(root, kind, prd2, io, timed, instant2);
+      if (kind2 === "prd") await refreshWorkLinks(root, kind2, prd2, io, timed, instant2);
       return;
     }
     const issue2 = issueNumber(value);
-    if (issue2 !== null) await refreshWorkLinks(root, kind, issue2, io, timed, instant2);
+    if (issue2 !== null) await refreshWorkLinks(root, kind2, issue2, io, timed, instant2);
   } catch {
   }
 }
@@ -66034,8 +66196,8 @@ function unpushedOf(io, tracking, hasTracking) {
   const local = `refs/heads/${io.defaultBranch}`;
   if (gitOut(io, ["rev-parse", "--verify", "--quiet", local]) === null) return 0;
   if (!hasTracking) return { notChecked: `no ${io.remote}/${io.defaultBranch}` };
-  const count5 = Number.parseInt(gitOut(io, ["rev-list", "--count", `${tracking}..${local}`]) ?? "", 10);
-  return Number.isNaN(count5) ? { notChecked: "git rev-list failed" } : count5;
+  const count6 = Number.parseInt(gitOut(io, ["rev-list", "--count", `${tracking}..${local}`]) ?? "", 10);
+  return Number.isNaN(count6) ? { notChecked: "git rev-list failed" } : count6;
 }
 function mainFacts(io) {
   const linked2 = isLinked(io);
@@ -66100,8 +66262,8 @@ var counted4 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function unpushedHere(io, branch) {
   const upstream2 = branch === null ? null : gitOut2(io, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", `${branch}@{upstream}`]);
   const range2 = upstream2 ? [`${upstream2}..HEAD`] : ["HEAD", "--not", "--remotes"];
-  const count5 = Number.parseInt(gitOut2(io, ["rev-list", "--count", ...range2]) ?? "", 10);
-  return Number.isNaN(count5) ? null : { count: count5, where: upstream2 ?? "any remote" };
+  const count6 = Number.parseInt(gitOut2(io, ["rev-list", "--count", ...range2]) ?? "", 10);
+  return Number.isNaN(count6) ? null : { count: count6, where: upstream2 ?? "any remote" };
 }
 function changedHold({ changed }) {
   if (isUnchecked(changed)) return `the changed files: not checked (${changed.notChecked})`;
@@ -66150,7 +66312,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/sync/kit.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync118 } from "node:fs";
-import { join as join149 } from "node:path";
+import { join as join150 } from "node:path";
 
 // kit/lib/sync/setup.ts
 init_define_OMNI_BUNDLE();
@@ -66224,7 +66386,7 @@ var setupFacts = (io) => Promise.resolve(processUnderTest() ? ALL_DONE : setupFa
 // kit/lib/sync/kit.ts
 var GH_BUDGET_MS = 5e3;
 var BIN_MAX_BYTES = 64 * 1024 * 1024;
-var TARGET_KITS_FILE = join149(".omni-loop", "local", "sync-targets.json");
+var TARGET_KITS_FILE = join150(".omni-loop", "local", "sync-targets.json");
 var TargetKitsSchema = external_exports.record(external_exports.string(), external_exports.object({ sha: external_exports.string(), version: external_exports.string().nullable() }));
 var ProductTargetsCopySchema = external_exports.looseObject({ targets: external_exports.array(external_exports.looseObject({ repo: external_exports.string() })) });
 function whyFailed(error62, command2) {
@@ -66273,7 +66435,7 @@ function targetRepos({ root, config: config3 }) {
   const planned = config3.plan?.targets ?? [];
   if (planned.length > 0) return planned.map((target3) => target3.repo);
   try {
-    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync118(join149(root, PRODUCT_TARGETS_FILE), "utf8")));
+    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync118(join150(root, PRODUCT_TARGETS_FILE), "utf8")));
     return copy.targets.map((target3) => target3.repo).filter((repo) => repo !== config3.repo.slug);
   } catch {
     return [];
@@ -66281,7 +66443,7 @@ function targetRepos({ root, config: config3 }) {
 }
 function readTargetKits(root) {
   try {
-    return TargetKitsSchema.parse(JSON.parse(readFileSync118(join149(root, TARGET_KITS_FILE), "utf8")));
+    return TargetKitsSchema.parse(JSON.parse(readFileSync118(join150(root, TARGET_KITS_FILE), "utf8")));
   } catch {
     return {};
   }
@@ -66312,7 +66474,7 @@ function targetsOf2(io) {
   const facts2 = repos.map((repo) => targetKit(io, repo, kept2, found2));
   try {
     ensureLocalDir(io.root);
-    writeJsonAt(join149(io.root, TARGET_KITS_FILE), found2);
+    writeJsonAt(join150(io.root, TARGET_KITS_FILE), found2);
   } catch {
   }
   return facts2;
@@ -66382,7 +66544,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/omni-settings/copy.ts
 init_define_OMNI_BUNDLE();
 import { mkdirSync as mkdirSync39, readFileSync as readFileSync119, rmSync as rmSync23, writeFileSync as writeFileSync58 } from "node:fs";
-import { dirname as dirname27, join as join150 } from "node:path";
+import { dirname as dirname27, join as join151 } from "node:path";
 
 // kit/lib/omni-settings/layout.ts
 init_define_OMNI_BUNDLE();
@@ -66469,19 +66631,19 @@ function writeSettingsCopy({ root, files, source: source2 }) {
   const from = SettingsSourceSchema.parse(source2);
   const { pages, skipped: skipped3 } = sortFiles(files);
   const folder = levelFolder("omni settings");
-  const absolute = join150(root, folder);
+  const absolute = join151(root, folder);
   ensureLocalDir(root);
   mkdirSync39(absolute, { recursive: true });
-  rmSync23(join150(absolute, "playbook"), { recursive: true, force: true });
-  rmSync23(join150(absolute, defined(formRelativePath("decisions"), "the decisions form\u2019s path")), { force: true });
+  rmSync23(join151(absolute, "playbook"), { recursive: true, force: true });
+  rmSync23(join151(absolute, defined(formRelativePath("decisions"), "the decisions form\u2019s path")), { force: true });
   for (const page2 of pages) {
-    const path = join150(absolute, defined(formRelativePath(page2.form), `the path of ${page2.form}`));
+    const path = join151(absolute, defined(formRelativePath(page2.form), `the path of ${page2.form}`));
     mkdirSync39(dirname27(path), { recursive: true });
     writeFileSync58(path, page2.text);
   }
   const written = pages.map(({ form: form2 }) => form2);
   const record2 = RecordSchema.parse({ ...from, forms: written, skipped: skipped3 });
-  writeFileSync58(join150(absolute, SETTINGS_COPY_RECORD), `${JSON.stringify(record2, null, 2)}
+  writeFileSync58(join151(absolute, SETTINGS_COPY_RECORD), `${JSON.stringify(record2, null, 2)}
 `);
   return { folder, written, skipped: skipped3 };
 }
@@ -66733,12 +66895,12 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync93, mkdtempSync as mkdtempSync5, readFileSync as readFileSync120, rmSync as rmSync24 } from "node:fs";
+import { existsSync as existsSync94, mkdtempSync as mkdtempSync5, readFileSync as readFileSync120, rmSync as rmSync24 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
-import { join as join151 } from "node:path";
+import { join as join152 } from "node:path";
 var USAGE51 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync5(join151(tmpdir5(), "omni-update-"));
+  const dir = mkdtempSync5(join152(tmpdir5(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -66761,8 +66923,8 @@ function rootOf(cwd, exec) {
   }
 }
 function claudeListed(root) {
-  const file2 = root ? join151(root, CONFIG_FILE) : null;
-  if (!file2 || !existsSync93(file2)) return true;
+  const file2 = root ? join152(root, CONFIG_FILE) : null;
+  if (!file2 || !existsSync94(file2)) return true;
   try {
     return parseConfig(readFileSync120(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
   } catch {
@@ -66851,7 +67013,7 @@ var visual = branchVerdictCommand({
 
 // kit/bin/commands/worktrees.ts
 init_define_OMNI_BUNDLE();
-import { join as join152 } from "node:path";
+import { join as join153 } from "node:path";
 
 // kit/lib/worktrees/engine.ts
 init_define_OMNI_BUNDLE();
@@ -67063,9 +67225,9 @@ async function worktreesHint(seams) {
   const unpushed = heads.length === 0 ? /* @__PURE__ */ new Set() : seams.host.unpushed(heads);
   const pushed = kit.filter(({ head }) => head !== null && !unpushed.has(head));
   const clean = await Promise.all(pushed.map(({ path }) => isClean(seams.host, path)));
-  const count5 = clean.filter(Boolean).length;
-  if (count5 === 0) return null;
-  return `${count5} ${count5 === 1 ? "worktree" : "worktrees"} of the kit can be removed: omni worktrees prune`;
+  const count6 = clean.filter(Boolean).length;
+  if (count6 === 0) return null;
+  return `${count6} ${count6 === 1 ? "worktree" : "worktrees"} of the kit can be removed: omni worktrees prune`;
 }
 
 // kit/lib/worktrees/host.ts
@@ -67188,7 +67350,7 @@ function callOf(args) {
 }
 function prdOfTopic(ctx) {
   const { inbox, shipped } = ctx.layout.dirs;
-  const folders = [...prdFoldersIn(join152(ctx.root, inbox)), ...prdFoldersIn(join152(ctx.root, shipped))];
+  const folders = [...prdFoldersIn(join153(ctx.root, inbox)), ...prdFoldersIn(join153(ctx.root, shipped))];
   return (topic) => folders.find(({ name: name3 }) => parseFolderName(name3)?.topic === topic)?.prd ?? null;
 }
 function omniBoard(ctx, io) {
@@ -67294,20 +67456,20 @@ function issueNumber2(value) {
     return null;
   }
 }
-var isFixKind2 = (value) => FIX_KINDS.some((kind) => kind === value);
+var isFixKind2 = (value) => FIX_KINDS.some((kind2) => kind2 === value);
 function withoutKind(rest) {
   return rest.filter((arg, index2) => arg !== KIND_FLAG3 && rest[index2 - 1] !== KIND_FLAG3);
 }
-function fixOf(kind, value) {
+function fixOf(kind2, value) {
   const number5 = issueNumber2(value);
-  return number5 === null ? null : { kind, number: number5 };
+  return number5 === null ? null : { kind: kind2, number: number5 };
 }
 function pushedFix(rest) {
   const kinds = [...new Set(rest.filter((_arg, index2) => rest[index2 - 1] === KIND_FLAG3))];
-  const [kind] = kinds;
+  const [kind2] = kinds;
   if (kinds.length !== 1) return kinds.length === 0 ? void 0 : null;
-  if (kind === PRD_KIND) return void 0;
-  return isFixKind2(kind) ? fixOf(kind, withoutKind(rest)[1]) : null;
+  if (kind2 === PRD_KIND) return void 0;
+  return isFixKind2(kind2) ? fixOf(kind2, withoutKind(rest)[1]) : null;
 }
 function fixNamedBy([name3 = "", ...rest]) {
   if (name3 === "bug" && rest[0] === "film") return fixOf(name3, rest[1]);
