@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-23
 - Slice: s1
 - Wave: 1
+- Stays here: A field-length limit set by a constant and one column check, cheap to change by migration; a local implementation choice with no lasting product guarantee.
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ A constant in the function and one column check; a follow-up migration changes e
 - Raised: 2026-10-23
 - Slice: s1
 - Wave: 1
+- Stays here: A one-line test update for this feature's new columns; a local choice with no lasting rule, and no entry in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -175,6 +177,7 @@ One line of a test; undoing it means loosening the test to the columns it owns.
 - Raised: 2026-10-23
 - Slice: s2
 - Wave: 2
+- Stays here: A temporary display condition awaiting the next slice's approve route change; it is mostly about copy on a card and holds nothing lasting.
 
 ### The answer, as it was given
 
@@ -336,6 +339,7 @@ Narrowing it later is one follow-up migration replacing the function's first che
 - Raised: 2026-10-23
 - Slice: s3
 - Wave: 3
+- Became: ADR-0131
 
 ### The answer, as it was given
 
@@ -414,6 +418,7 @@ One line in the approve plan, the skill's input section, one help entry and two 
 - Raised: 2026-10-23
 - Slice: s3
 - Wave: 3
+- Stays here: The question is whether one step may reach outside its given ground. That is a one-off delivery choice, and the label wording is copy, not a lasting product guarantee.
 
 ### The answer, as it was given
 
