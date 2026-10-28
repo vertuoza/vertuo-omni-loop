@@ -61,7 +61,8 @@ function takesOf(name: string, value: unknown): readonly string[] | null {
   if (value === undefined || value === null) return null;
   if (!Array.isArray(value) || value.length === 0) throw new AccountsError(`account ${name}: takes must be a list of skills, one at least`);
   const skills: string[] = [];
-  for (const skill of value as unknown[]) {
+  const listed: readonly unknown[] = value;
+  for (const skill of listed) {
     if (typeof skill !== 'string' || !RUNNABLE_SKILLS.includes(skill)) throw new AccountsError(`account ${name}: takes holds "${String(skill)}", which is not a skill a runner runs`);
     skills.push(skill);
   }
@@ -126,7 +127,8 @@ export function parseAccounts(source: string): Accounts {
   for (const key of Object.keys(doc)) if (key !== 'accounts' && key !== 'handoff') throw new AccountsError(`${key} is not a section of the file (accounts, handoff)`);
   if (!Array.isArray(doc.accounts) || doc.accounts.length === 0) throw new AccountsError('accounts must be a list of one account at least');
   const seen = new Set<string>();
-  const accounts = (doc.accounts as unknown[]).map((entry, index) => accountOf(entry, index, seen));
+  const entries: readonly unknown[] = doc.accounts;
+  const accounts = entries.map((entry, index) => accountOf(entry, index, seen));
   return { file: true, accounts, handoff: handoffOf(doc.handoff) };
 }
 
@@ -140,7 +142,7 @@ export function readAccounts({ home, read = (path) => readFileSync(path, 'utf8')
   try {
     source = read(path);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { file: false, accounts: [FALLBACK_ACCOUNT], handoff: DEFAULT_HANDOFF };
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return { file: false, accounts: [FALLBACK_ACCOUNT], handoff: DEFAULT_HANDOFF };
     throw new AccountsError(`${path} cannot be read`);
   }
   return parseAccounts(source);
