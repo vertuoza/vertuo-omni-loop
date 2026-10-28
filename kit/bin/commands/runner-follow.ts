@@ -7,8 +7,8 @@
 //
 // `follow` finds the newest job of PRD n in this repository (waiting for one while there is none), then
 // reads the job and its new lines every 5 seconds and prints its milestones (`../../lib/runner/follow.ts`)
-// until it ends: exit 0 on done, 1 on failed, cancelled or runner lost. The page unreachable three reads
-// in a row ends it held, not failed (exit 1). Ctrl-C stops the following only: the job runs on. While it
+// until it ends: exit 0 on done, 1 on failed, cancelled or runner lost. The page unreachable twelve reads
+// in a row (a minute at least: a slow app is waited out, #2552) ends it held, not failed (exit 1). Ctrl-C stops the following only: the job runs on. While it
 // follows, the last milestone is kept in `.omni-loop/local/runner-follow/<n>.json` (`{ prd, runner, line,
 // at }`) for the HUD to read; the file goes when the follow ends.
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -36,8 +36,11 @@ const FOLLOW_USAGE = 'usage: omni runner follow <n>';
 
 /** How often a follow reads the job and its lines. */
 const FOLLOW_MS = 5000;
-/** How many reads in a row may fail before the follow ends held. */
-const HELD_AFTER = 3;
+/**
+ * How many reads in a row may fail before the follow ends held: a minute of pauses at least, up to three
+ * when each read times out, so a slow app (a read past its 10 s) is waited out, not taken for one gone (#2552).
+ */
+const HELD_AFTER = 12;
 /** The board's count is read every this many reads, and once the job ended. */
 const BOARD_EVERY = 6;
 

@@ -63830,7 +63830,7 @@ function exitCodeOf(job2) {
 var SEND_USAGE = "usage: omni runner send '<line>' [--to <runner|fleet>]";
 var FOLLOW_USAGE = "usage: omni runner follow <n>";
 var FOLLOW_MS = 5e3;
-var HELD_AFTER2 = 3;
+var HELD_AFTER2 = 12;
 var BOARD_EVERY = 6;
 var SIGNED_OUT = "no sign-in (omni signin) \xB7 held";
 var UNREACHABLE2 = "server unreachable \xB7 held, not failed";
