@@ -216,7 +216,7 @@ const clock = (at: Date): string => `${String(at.getUTCHours()).padStart(2, '0')
  * Why no job can start on any account (PRD 2537, "Paused: no tokens left"): `no tokens left until 18:00`, the earliest
  * reset of the accounts, when every account is out; `null` when one is not, or there are no accounts to speak of.
  */
-export function noTokensReason(reports: readonly AccountReport[]): string | null {
+export function noTokensPause(reports: readonly AccountReport[]): string | null {
   if (reports.length === 0 || reports.some((report) => report.state !== 'out')) return null;
   const resets = reports.flatMap((report) => (report.resetsAt === undefined ? [] : [Date.parse(report.resetsAt)])).filter((at) => !Number.isNaN(at));
   const first = Math.min(...resets);

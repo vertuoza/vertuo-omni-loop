@@ -2,7 +2,7 @@
 // the pause (s2): `pressure()` on a sample and the runner's limits, and `nextPause()`, which pauses on one
 // sample under pressure and resumes on two quiet ones in a row.
 import { describe, expect, it } from 'vitest';
-import { accountsReport, DEFAULT_LIMITS, nextPause, noTokensReason, pressure, sample } from './health.ts';
+import { accountsReport, DEFAULT_LIMITS, nextPause, noTokensPause, pressure, sample } from './health.ts';
 import { accountBook } from './accounts.ts';
 import type { Account } from './accounts.ts';
 import type { AccountReport } from './api.ts';
@@ -181,9 +181,9 @@ describe('the accounts in a report (PRD 2537, s6)', () => {
 
   it('reads no tokens left, until the earliest reset, only when every account is out', () => {
     const out = (id: string, resetsAt: string): AccountReport => ({ id, agent: 'claude', state: 'out', resetsAt });
-    expect(noTokensReason([out('a', '2026-10-16T20:00:00.000Z'), out('b', at)])).toBe(`no tokens left until ${hhmm}`);
-    expect(noTokensReason([out('a', at), { id: 'b', agent: 'claude', state: 'ready' }])).toBeNull();
-    expect(noTokensReason([out('a', at), { id: 'b', agent: 'claude', state: 'active' }])).toBeNull();
-    expect(noTokensReason([])).toBeNull();
+    expect(noTokensPause([out('a', '2026-10-16T20:00:00.000Z'), out('b', at)])).toBe(`no tokens left until ${hhmm}`);
+    expect(noTokensPause([out('a', at), { id: 'b', agent: 'claude', state: 'ready' }])).toBeNull();
+    expect(noTokensPause([out('a', at), { id: 'b', agent: 'claude', state: 'active' }])).toBeNull();
+    expect(noTokensPause([])).toBeNull();
   });
 });

@@ -77,7 +77,7 @@ import { runnerJobVariables, runnerSenderVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { AccountReport, HealthLimits, HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
-import { accountsReport, DEFAULT_LIMITS, machineReads, nextPause, noTokensReason, pressure, sample } from './health.ts';
+import { accountsReport, DEFAULT_LIMITS, machineReads, nextPause, noTokensPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
 import { githubJobEnv, installGhShim } from './github-app.ts';
@@ -918,7 +918,7 @@ function decide(loop: Loop, reason: string | null): void {
 function decideTokens(loop: Loop): AccountReport[] | null {
   if (!loop.accounts.file) return null;
   const accounts = accountsReport(loop.accounts.accounts, loop.book);
-  const reason = noTokensReason(accounts);
+  const reason = noTokensPause(accounts);
   if (reason !== null && loop.noTokens === null) loop.print(`paused: ${reason}`);
   const resumed = reason === null && loop.noTokens !== null;
   loop.noTokens = reason;
