@@ -1,0 +1,24 @@
+{
+  "displayName": "Claude",
+  "enabled": true,
+  "installed": true,
+  "version": "2.1.311",
+  "status": "ready",
+  "auth": {
+    "status": "authenticated",
+    "type": "Claude Max",
+    "label": "Claude Max Subscription"
+  },
+  "setup": {
+    "canAuthenticate": false,
+    "canInstall": false
+  },
+  "checkedAt": "2026-10-27T13:00:53.890Z",
+  "models": [
+    {
+      "slug": "claude-opus-5-5",
+      "name": "Claude Opus 5.5",
+      "isCustom": false
+    }
+  ]
+}

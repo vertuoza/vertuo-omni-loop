@@ -138,3 +138,30 @@ describe('an unreadable tree', () => {
     expect(source.machine()).toBeNull();
   });
 });
+
+describe('several Claude folders (PRD 2537, s4)', () => {
+  it("adds a job's transcripts kept in each folder: the machine's own Claude and a T3 instance's", () => {
+    const own = projects();
+    const instance = projects();
+    own.transcript(JOB, 'a.jsonl', [assistant({ id: 'm1', at: '2026-10-16T13:00:00Z', input: 3, output: 1 })]);
+    instance.transcript(JOB, 'b.jsonl', [assistant({ id: 'm2', at: '2026-10-16T13:30:00Z', input: 4, cacheRead: 50 })]);
+    const source = tokenSource({ projects: [own.root, instance.root], now: () => NOW });
+    expect(source.job(JOB)).toEqual(counts(7, 1, 50));
+    expect(source.machine()?.last5h).toEqual(counts(7, 1, 50));
+  });
+
+  it('skips a folder that does not exist yet, and is null only when none exists', () => {
+    const own = projects();
+    own.transcript(JOB, 'a.jsonl', [assistant({ id: 'm1', at: '2026-10-16T13:00:00Z', input: 3 })]);
+    const missing = join(tmpdir(), 'omni-tokens-none', 'instance', 'projects');
+    expect(tokenSource({ projects: [own.root, missing], now: () => NOW }).job(JOB)).toEqual(counts(3));
+    expect(tokenSource({ projects: [missing, `${missing}-2`], now: () => NOW }).job(JOB)).toBeNull();
+    expect(tokenSource({ projects: [], now: () => NOW }).machine()).toBeNull();
+  });
+
+  it('reads a folder named twice once', () => {
+    const own = projects();
+    own.transcript(JOB, 'a.jsonl', [assistant({ at: '2026-10-16T13:00:00Z', input: 3 })]);
+    expect(tokenSource({ projects: [own.root, own.root], now: () => NOW }).job(JOB)).toEqual(counts(3));
+  });
+});
