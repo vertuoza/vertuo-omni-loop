@@ -70,6 +70,9 @@ still ends in a pull request a person merges: a key never merges anything. Unles
 [run as your own GitHub App](#run-as-your-own-github-app), the job writes on GitHub as the account
 of the person who set the runner up.
 
+That is no longer true: every job writes on GitHub as the Omni App's bot, `<slug>[bot]`, never as a
+person's account, whether or not the key has a GitHub App of its own.
+
 ## Start a bug fix across repositories
 
 ```bash terminal
@@ -101,13 +104,12 @@ here yet".
 
 ## Run as your own GitHub App
 
-A job a key starts writes on GitHub as the account of the person who set the runner up
-([Runners](/docs/runners)), so a person appears on the issue, the branch, the commits and the pull
-request. Attach a **GitHub App** of your own to the key and every job it sends is visibly your app's
-instead: the bug's issue, its comments and labels, the branch, the commits (author and committer),
-the pull request and its status comment, and the release of the job's claims are all written by the
-app's bot, `<slug>[bot]`. The job names no person, adds no assignee, requests no reviewer and
-mentions no `@login`. A key with no app works as above.
+A job a key starts writes on GitHub as the Omni App's bot, `<slug>[bot]`: the bug's issue, its comments
+and labels, the branch, the commits (author and committer), the pull request and its status comment,
+and the release of the job's claims. The job names no person, adds no assignee, requests no reviewer
+and mentions no `@login`. A key's own GitHub App no longer decides a job's identity: an App attached
+to a key stays as it is and is not used. The steps below describe attaching that App, kept for the
+keys that still hold one.
 
 1. **Create the app.** On GitHub, create a GitHub App (in your account's or your organization's
    Settings › Developer settings › GitHub Apps › New GitHub App) with these repository permissions,
@@ -147,7 +149,7 @@ push, and the whole fix stops, as it does whenever a target cannot be pushed to.
 
 ### What the job gets
 
-When a runner takes the job, Omni makes a token for it from the app, and the job writes with that
+When a runner takes the job, Omni makes a token for it from the Omni App, and the job writes with that
 token and nothing else:
 
 - it lasts an hour, and the runner refreshes it before it ends, so a job that runs longer keeps
@@ -167,7 +169,7 @@ send it as a person. A refresh that keeps failing until the token ends fails the
 Two things stay with the repository, outside the job. A `CODEOWNERS` file still makes GitHub request
 its owners' review on the pull request. The job asks for no reviewer itself, not even one the
 repository's playbook names. And only a runner on a recent enough kit takes such a job: see
-[Runners](/docs/runners#a-job-of-a-key-with-a-github-app).
+[Runners](/docs/runners#what-a-job-writes-as).
 
 ## Follow a job
 
