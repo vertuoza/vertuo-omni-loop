@@ -65,6 +65,13 @@ describe('a lost runner\'s jobs', () => {
     expect(await runnersRepository(db).markLost('2026-10-13T11:58:30.000Z')).toBe(2);
     expect(lines).toEqual(['rpc("runners_mark_lost",{"p_cutoff":"2026-10-13T11:58:30.000Z"})']);
   });
+
+  it('end a job claimed before the cutoff and still not running, and answer the jobs ended (#2550)', async () => {
+    const job = jobRow({ status: 'failed', reason: 'runner lost', runner_id: SHARED, claimed_at: '2026-10-13T11:48:00.000Z', ended_at: '2026-10-13T12:00:00.000Z' });
+    const { db, lines } = fakeDb([{ data: [job], error: null }]);
+    expect(await runnersRepository(db).loseUnstarted('2026-10-13T11:50:00.000Z', '2026-10-13T12:00:00.000Z')).toEqual([job]);
+    expect(lines[0]).toMatch(/^from\("runner_jobs"\)\.update\(\{"status":"failed","reason":"runner lost","ended_at":"2026-10-13T12:00:00.000Z"\}\)\.eq\("status","claimed"\)\.lt\("claimed_at","2026-10-13T11:50:00.000Z"\)\.select\(.*\)$/);
+  });
 });
 
 describe('the rows', () => {
