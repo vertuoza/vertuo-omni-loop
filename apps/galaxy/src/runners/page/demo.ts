@@ -60,7 +60,11 @@ export function demoRunnersPage(now: Date): RunnersPageView {
     runners: [
       runner({
         id: DEMO_RUNNERS.agents, name: 'acme-agents', state: 'busy', fleet: 'comets', slots: 1, used: 1,
-        health: { ...report(63, 14.6, 41, 'memory 91%'), tokens: TOKENS }, samples: samples(63, 14.6, 41, 10_214_797),
+        health: {
+          ...report(63, 14.6, 41, 'memory 91%'), tokens: TOKENS,
+          // Its accounts (PRD 2537): the first is out until its limit resets, the second carries the job on.
+          accounts: [{ id: 'seat-1', agent: 'opencode', state: 'out', resetsAt: at(240) }, { id: 'codex-1', agent: 't3', state: 'active' }, { id: 'seat-2', agent: 'opencode', state: 'ready' }],
+        }, samples: samples(63, 14.6, 41, 10_214_797),
       }),
       runner({
         id: DEMO_RUNNERS.office, name: 'mac-mini-office', state: 'online', repos: ['acme/widgets', 'acme/mobile'],

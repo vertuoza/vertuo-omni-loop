@@ -58,7 +58,7 @@ const FAILED = 'The runners could not answer. Try again.';
 const BAD_REGISTER = 'The body must be {"name": "<name>", "slots": <1 to 8>, "repos": ["owner/name", …], "version": "<kit version>", "githubApp"?: true | false}.';
 const BAD_NEXT = 'Name the runner as `runner=<id>`.';
 const BAD_REPORT = 'The body must be {"status": "running" | "done" | "failed" | "cancelled", "logTail"?, "from"? with "lines"? (at most 2,000 of 600 characters), "prUrl"?, "exitCode"?, "reason"?}.';
-const BAD_HEALTH = 'The body must be {"cpu", "load1", "cores", "memUsed", "memTotal", "diskFree", "diskTotal"}, each a number of 0 or more or null, with "paused"? (80 characters or null) and "limits"? ({"maxMemory", "minDiskGb", "maxLoad"}), and nothing else.';
+const BAD_HEALTH = 'The body must be {"cpu", "load1", "cores", "memUsed", "memTotal", "diskFree", "diskTotal"}, each a number of 0 or more or null, with "paused"? (80 characters or null), "limits"? ({"maxMemory", "minDiskGb", "maxLoad"}) and "accounts"? (a list of {"id", "agent", "state", "resetsAt"?}), and nothing else.';
 const BAD_LINES = 'Ask for the lines as `after=<sequence number>`, or with no query.';
 const BAD_SEND = 'The body must be {"line": "/omni:<skill> <arguments>", "repo": "owner/name", "target": {"kind": "any"} | {"kind": "fleet", "fleet": "<fleet>"} | {"kind": "runner", "runner": "<id>"}}.';
 const BAD_RUNNERS = 'Name the repository as `repo=owner/name`.';

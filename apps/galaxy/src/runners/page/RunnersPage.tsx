@@ -7,7 +7,7 @@ import {
   afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
-import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
+import { accountChips, asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { listedAnswer } from './need-human';
 import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
 import { jobAgentWords, partLines } from './parts';
@@ -70,6 +70,17 @@ function GaugeView({ gauge }: { gauge: Gauge }) {
   );
 }
 
+/** A runner's accounts under its gauges (PRD 2537): one chip each in the file's order, its state in its colour. */
+function AccountChips({ runner }: { runner: Runner }) {
+  const chips = accountChips(runner);
+  if (chips.length === 0) return null;
+  return (
+    <div className="runners-accounts">
+      {chips.map((chip) => <span key={chip.id} className={`runners-chip is-${chip.tone}`} title={chip.title} data-content>{chip.id}</span>)}
+    </div>
+  );
+}
+
 function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
   const gauges = gaugesOf(runner);
   if (gauges === null) {
@@ -85,6 +96,7 @@ function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
     <div className={`runners-health${asOf === null ? '' : ' is-grey'}`}>
       {gauges.map((gauge) => <GaugeView key={gauge.key} gauge={gauge} />)}
       {asOf !== null && <span className="runners-asof">{asOf}</span>}
+      <AccountChips runner={runner} />
     </div>
   );
 }

@@ -318,6 +318,14 @@ const HealthLimitsSchema = z.object({
   maxLoad: z.number().positive(),
 }).strict();
 
+/** One account of a runner in its health report (PRD 2537): the id its owner wrote, its agent and its state, and when it is out until; nothing else about it. */
+const AccountReportSchema = z.object({
+  id: z.string().min(1).max(40),
+  agent: z.string().min(1).max(20),
+  state: z.enum(['ready', 'active', 'out']),
+  resetsAt: z.string().max(40).optional(),
+}).strict();
+
 /** A runner's health report (PRD 2102): its machine's sample, numbers only, and, from a runner that pauses,
  * why it is paused (80 characters at most, or null) and the limits it pauses at. */
 export const HealthReportSchema = z.object({
@@ -332,6 +340,8 @@ export const HealthReportSchema = z.object({
   limits: HealthLimitsSchema.optional(),
   /** The machine's tokens of the last 5 hours and since midnight UTC; a count the runner could not read is null. */
   tokens: z.object({ last5h: TokenCountsSchema.nullable(), today: TokenCountsSchema.nullable() }).strict().optional(),
+  /** The runner's accounts in the file's order, ids and states only (PRD 2537); left out by a runner without an accounts file. */
+  accounts: z.array(AccountReportSchema).max(20).optional(),
 }).strict();
 export type HealthReport = z.infer<typeof HealthReportSchema>;
 

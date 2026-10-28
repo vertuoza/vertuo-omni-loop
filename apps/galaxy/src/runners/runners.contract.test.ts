@@ -292,6 +292,16 @@ describe('the health report', () => {
   it('refuses a number JSON cannot carry', () => {
     for (const odd of [Number.POSITIVE_INFINITY, Number.NaN]) expect(HealthReportSchema.safeParse({ ...report, load1: odd }).success).toBe(false);
   });
+
+  // The accounts (PRD 2537 s6): ids, agents and states only, optional for an older runner.
+  it('takes the accounts of a runner, an id and a state each, and refuses anything else about one', () => {
+    const accounts = [{ id: 'claude-1', agent: 'claude', state: 'out', resetsAt: '2026-10-27T18:00:00Z' }, { id: 'codex-1', agent: 't3', state: 'ready' }];
+    expect(HealthReportSchema.parse({ ...report, accounts })).toEqual({ ...report, accounts });
+    expect(HealthReportSchema.safeParse({ ...report, accounts: [] }).success).toBe(true);
+    for (const bad of [{ id: 'a', agent: 'claude', state: 'asleep' }, { id: 'a', agent: 'claude', state: 'ready', secret: '/x' }, { agent: 'claude', state: 'ready' }, { id: '', agent: 'claude', state: 'ready' }]) {
+      expect(HealthReportSchema.safeParse({ ...report, accounts: [bad] }).success).toBe(false);
+    }
+  });
 });
 
 // The tokens (PRD 2102 s4): a job's report may carry the four counts of its worktree, and a health report
