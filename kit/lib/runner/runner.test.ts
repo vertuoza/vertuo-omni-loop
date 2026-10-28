@@ -833,7 +833,7 @@ describe('no tokens left (PRD 2537, s6)', () => {
   it('sends a report again without the accounts an app refuses, and none after', async () => {
     const app = holdingApp(3);
     const seen: boolean[] = [];
-    const health = app.api.health;
+    const health = app.api.health.bind(app.api);
     app.api.health = (runner, report) => {
       seen.push('accounts' in report);
       return 'accounts' in report ? Promise.reject(new RunnerRefused('refused (400)')) : health(runner, report);
