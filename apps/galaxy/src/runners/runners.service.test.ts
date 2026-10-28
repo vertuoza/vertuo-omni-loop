@@ -9,6 +9,10 @@ import {
   API_KEY, CIA_BOX, ELSEWHERE, EVE, fakeStore, jobRow, KEY_APP, lineRows, MO, OLGA, OTHER, OTHER_KEY, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
   type AllowedSkillRow,
 } from './fixtures/store.fake';
+import { BOT, EXPIRES, stubGithub, TOKEN } from './fixtures/github.fake';
+
+/** The Omni App's grant every claimed job is answered with (PRD 2573). */
+const GRANT = { token: TOKEN, expiresAt: EXPIRES, ...BOT };
 
 // The runners' rules (PRD 1830 s1), on realistic rows in memory and a fixed clock: which jobs a runner
 // takes, when a silent runner's jobs end as `runner lost`, which reports a job accepts, and who may
@@ -24,6 +28,7 @@ function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questio
   let now = start;
   const slept: number[] = [];
   const { store, state } = fakeStore({ jobs, runners, lines, samples, questions, skills, now: () => now });
+  // Every claimed job runs as the Omni App (PRD 2573): ./runners.github-app.test.ts proves how.
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -32,7 +37,7 @@ function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questio
       onSleep?.(state.jobs);
       return Promise.resolve();
     },
-  }, null, notifier);
+  }, stubGithub().deps, notifier);
   return { service, state, slept, setNow: (next: Date) => { now = next; } };
 }
 
@@ -80,7 +85,7 @@ describe('which job a runner claims', () => {
   it('hands the runner the line, the repository and the sender\'s login', async () => {
     const job = jobRow({ line: '/omni:pr-care 1801', sent_by: MO });
     const { service } = world({ jobs: [job] });
-    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [], sentByKey: null, github: null });
+    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [], sentByKey: null, github: GRANT });
   });
 });
 
@@ -138,7 +143,7 @@ describe('a repository\'s own skill (PRD 2313)', () => {
   it('hands the runner the allowed skills as they stand when it claims the job', async () => {
     const w = world({ skills: [allowed('validate-prd'), allowed('audit'), allowed('lint', 'demo-org/other')] });
     const queued = value(await w.service.send(MO, send('/validate-prd 347')));
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: '/validate-prd 347', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: ['audit', 'validate-prd'], sentByKey: null, github: null });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: '/validate-prd 347', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: ['audit', 'validate-prd'], sentByKey: null, github: GRANT });
   });
 
   it('hands none back for a skill turned off while its job waited, so the runner refuses it', async () => {
@@ -443,7 +448,7 @@ describe('a job the Omni app sends (PRD 2338 s2)', () => {
   it('reads as sent by the Omni app to the runner that claims it', async () => {
     const queued = appJob();
     const w = world({ jobs: [queued] });
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: queued.line, repo: 'demo-org/app', sentBy: 'Omni app', allowedSkills: [], sentByKey: null, github: null });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: queued.line, repo: 'demo-org/app', sentBy: 'Omni app', allowedSkills: [], sentByKey: null, github: GRANT });
   });
 
   it('lets a workspace owner cancel it, and no other member', async () => {
@@ -494,7 +499,7 @@ describe('a job an API key sends (PRD 2022 s4)', () => {
   it('reads as sent by the key, with its maker, to the runner and on the Runners page', async () => {
     const w = world();
     const queued = value(await w.service.sendByKey(key, fix));
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [], sentByKey: 'QA dashboard', github: null });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [], sentByKey: 'QA dashboard', github: GRANT });
     const board = value(await w.service.board(OLGA, key.workspace));
     expect(board.jobs).toMatchObject([{ id: queued.id, sentByKey: 'QA dashboard', sentByLogin: 'olga' }]);
     const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'demo-org/app', target: { kind: 'any' } }));
@@ -665,7 +670,7 @@ describe('a job\'s released claims (PRD 2175)', () => {
   it('answers a conflict when the job changed meanwhile', async () => {
     const job = lost();
     const { store } = fakeStore({ jobs: [job] });
-    const service = runnersService({ ...store, updateJob: () => Promise.resolve(null) }, { now: () => T0, sleep: () => Promise.resolve() });
+    const service = runnersService({ ...store, updateJob: () => Promise.resolve(null) }, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps);
     expect(await service.update(OLGA, job.id, { status: 'failed', released: [1] })).toMatchObject({ ok: false, kind: 'conflict', error: 'This job changed meanwhile. Report again.' });
   });
 
@@ -1478,7 +1483,7 @@ describe('a job\'s questions (PRD 2255)', () => {
       const job = waiting();
       const { store } = fakeStore({ jobs: [job], questions: [questionsRow({ job_id: job.id })], now: () => T0 });
       const refusing = { ...store, answer: () => Promise.resolve({ ok: false as const, refusal }), dismiss: () => Promise.resolve({ ok: false as const, refusal }) };
-      return { job, service: runnersService(refusing, { now: () => T0, sleep: () => Promise.resolve() }) };
+      return { job, service: runnersService(refusing, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps) };
     };
 
     it.each([
@@ -1506,7 +1511,7 @@ describe('a job\'s questions (PRD 2255)', () => {
         },
         answer: () => Promise.resolve({ ok: false as const, refusal: 'closed' as const }),
       };
-      const service = runnersService(closing, { now: () => T0, sleep: () => Promise.resolve() });
+      const service = runnersService(closing, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps);
       expect(await service.answer(MO, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'conflict', error: 'Already answered by @pia' });
     });
   });
@@ -1988,7 +1993,7 @@ describe('a key answering and dismissing its job\'s questions (PRD 2425 s6)', ()
         },
         answerByKey: () => Promise.resolve({ ok: false as const, refusal: 'closed' as const }),
       };
-      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() });
+      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps);
       expect(await service.answerByKey(KEY, job.id, ANSWERS)).toEqual({ ok: false, kind: 'conflict', error: 'Already answered by API key QA dashboard' });
     });
   });
@@ -2137,7 +2142,7 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
       const job = sent();
       const { store } = fakeStore({ jobs: [job], now: () => T0 });
       const racing = { ...store, updateJob: () => Promise.resolve(null) };
-      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() });
+      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps);
       expect(await service.cancelByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job changed meanwhile. Try again.' });
     });
 
@@ -2209,7 +2214,7 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
       const job = ended({ to_fleet: null });
       const w = world({ jobs: [job] });
       const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
-      expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: relaunched.id, line: job.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [], sentByKey: 'QA dashboard', github: null });
+      expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: relaunched.id, line: job.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [], sentByKey: 'QA dashboard', github: GRANT });
     });
 
     it('offers it for exactly the jobs the Runners page offers Send again or Resume for', async () => {
@@ -2245,7 +2250,7 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
       const job = ended();
       const { store, state } = fakeStore({ jobs: [job], now: () => T0 });
       const racing = { ...store, insertRelaunch: () => Promise.resolve(null) };
-      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() });
+      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps);
       expect(await service.relaunchByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job was carried on already.' });
       expect(state.jobs).toHaveLength(1);
     });
@@ -2357,7 +2362,7 @@ describe('a job that pings its link (PRD 2425 s8)', () => {
 
     it('has a notifier that refuses every link and pings nothing when none is given, so a link is never taken that no ping could reach', async () => {
       const { store } = fakeStore({ jobs: [sent()] });
-      const service = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() });
+      const service = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps);
       expect(await service.notifyCheck(NOTIFY)).toEqual(expect.stringContaining('ping'));
       expect(value(await service.next(OLGA, CIA_BOX))?.id).toBeTruthy();
     });
