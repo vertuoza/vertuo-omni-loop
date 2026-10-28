@@ -17,7 +17,9 @@ import { DEFAULT_LIMITS } from './health.ts';
 import type { MachineReads } from './health.ts';
 import { runRunner } from './runner.ts';
 import type { RunnerOptions } from './runner.ts';
-import type { Terminal } from './terminal.ts';
+import type { JobSession, Terminal } from './terminal.ts';
+import { accountBook, accountsStateFile, DEFAULT_HANDOFF } from './accounts.ts';
+import type { Account, Accounts } from './accounts.ts';
 import type { TokenSource } from './tokens.ts';
 
 const GB = 1024 ** 3;
@@ -643,5 +645,77 @@ describe("a repository's own skill (PRD 2313, s2)", () => {
     const { sent, started } = await claimed({ line: '/omni:pr-care 7', allowed: [] });
     expect(started).toEqual(['job-7']);
     expect(sent.at(-1)).toMatchObject({ status: 'done', exitCode: 0 });
+  });
+});
+
+describe('the accounts (PRD 2537, s2)', () => {
+  const direct = (id: string, extra: Partial<Account> = {}): Account => ({ id, agent: 'claude', instance: null, model: null, secret: null, budget: null, takes: null, ...extra });
+  const file = (accounts: Account[]): Accounts => ({ file: true, accounts, handoff: DEFAULT_HANDOFF });
+
+  /** Runs one job of `line` with `over`: the reports the app got, what the runner printed, and the sessions it started. */
+  async function onAccounts(line: string, over: Partial<RunnerOptions>, log = '') {
+    const sessions: JobSession[] = [];
+    const printed: string[] = [];
+    const terminal: Terminal = {
+      start: (session) => {
+        sessions.push(session);
+        writeFileSync(session.argv[session.argv.indexOf('--log') + 1] ?? '', log);
+      },
+      stop: () => undefined,
+      alive: () => true,
+    };
+    const sent = await jobEnding(line, log, '0\n', { over: { terminal, print: (text) => printed.push(text), ...over } });
+    return { sent, sessions, printed };
+  }
+
+  const freshBook = (out: string[] = []) => {
+    const book = accountBook({ file: accountsStateFile(mkdtempSync(join(tmpdir(), 'omni-runner-book-'))), now: () => T0 });
+    for (const id of out) book.markOut(id, new Date(T0 + 3_600_000).toISOString());
+    return book;
+  };
+
+  it('starts a job on the one Claude account, adding nothing to its session, when there is no accounts file', async () => {
+    const { sessions } = await onAccounts('/omni:yolo 7', {});
+    expect(sessions[0]?.argv).not.toContain('--account');
+  });
+
+  it('starts a job on the first account that is not out, and names it to the session', async () => {
+    const { sessions, printed } = await onAccounts('/omni:yolo 7', { accounts: file([direct('one'), direct('two')]), accountBook: freshBook(['one']) });
+    expect(sessions[0]?.argv.slice(-2)).toEqual(['--account', 'two']);
+    expect(printed).toContain('job 7 runs on account two');
+  });
+
+  it('skips an account whose takes leaves out the job\'s skill', async () => {
+    const { sessions } = await onAccounts('/omni:yolo 7', { accounts: file([direct('narrow', { takes: ['plan'] }), direct('wide')]), accountBook: freshBook() });
+    expect(sessions[0]?.argv.slice(-2)).toEqual(['--account', 'wide']);
+  });
+
+  it('skips an account whose agent this kit lacks, and fails a job whose only agent fails its check', async () => {
+    const { sessions } = await onAccounts('/omni:yolo 7', { accounts: file([direct('t3', { agent: 't3', instance: 'i' }), direct('plain')]), accountBook: freshBook() });
+    expect(sessions[0]?.argv.slice(-2)).toEqual(['--account', 'plain']);
+    const broken = await onAccounts('/omni:yolo 7', { accounts: file([direct('only')]), accountBook: freshBook(), exec: (command) => { if (command === 'claude') throw new Error('no claude'); return ''; } });
+    expect(broken.sessions).toEqual([]);
+    expect(broken.sent.at(-1)).toMatchObject({ status: 'failed', reason: 'no account can take this job: only is unusable: claude is not installed' });
+  });
+
+  it('fails a job no account can take, naming each, and starts no session', async () => {
+    const { sent, sessions } = await onAccounts('/omni:yolo 7', { accounts: file([direct('one'), direct('narrow', { takes: ['plan'] })]), accountBook: freshBook(['one']) });
+    expect(sessions).toEqual([]);
+    expect(sent.at(-1)).toMatchObject({ status: 'failed', reason: `no account can take this job: one is out until ${new Date(T0 + 3_600_000).toISOString()}; narrow does not take this skill` });
+  });
+
+  it('never lets a secret reach a report: it reads *** wherever the job printed it', async () => {
+    const secretFile = join(mkdtempSync(join(tmpdir(), 'omni-runner-secret-')), 'token');
+    writeFileSync(secretFile, 'sk-ant-oat-very-secret\n');
+    const { sent, printed } = await onAccounts('/omni:yolo 7', { accounts: file([direct('keyed', { secret: secretFile })]), accountBook: freshBook() }, 'token is sk-ant-oat-very-secret\n');
+    expect(JSON.stringify(sent)).not.toContain('very-secret');
+    expect(JSON.stringify(sent)).toContain('token is ***');
+    expect(printed.join('\n')).not.toContain('very-secret');
+  });
+
+  it('frees the account when the job ends', async () => {
+    const book = freshBook();
+    await onAccounts('/omni:yolo 7', { accounts: file([direct('one')]), accountBook: book });
+    expect(book.stateOf('one').state).toBe('ready');
   });
 });
