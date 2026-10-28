@@ -155,6 +155,19 @@ const SampleRow = z.object({
 });
 export type SampleRow = z.infer<typeof SampleRow>;
 
+/** What one health report writes (bug #2557): the runner's last health with its `at`, and its sample's figures. */
+interface HealthWrite {
+  runner: string;
+  owner: string;
+  at: string;
+  health: z.infer<typeof RunnerHealthSchema>;
+  sample: Pick<SampleRow, 'cpu' | 'mem_used' | 'mem_total' | 'disk_free' | 'tokens_5h'>;
+  lostCutoff: string;
+  keptSince: string;
+}
+const HealthWritten = z.enum(['ok', 'missing', 'forbidden']);
+type HealthWritten = z.infer<typeof HealthWritten>;
+
 const SAMPLE_COLUMNS = 'runner_id, workspace_id, at, cpu, mem_used, mem_total, disk_free, tokens_5h';
 
 /** A new runner's columns. */
@@ -320,15 +333,14 @@ export function runnersRepository(db: RunnersDb) {
     updateRunner: async (id: string, patch: Partial<Pick<RunnerRow, 'fleet' | 'slots' | 'repos' | 'version' | 'last_seen_at' | 'health' | 'github_app'>>): Promise<RunnerRow> =>
       parsed(db.from('runners').update(patch).eq('id', id).select(RUNNER_COLUMNS).single(), RunnerRow, 'runners'),
 
-    /** Adds one of a runner's samples; one it already holds at that instant stays as it is. */
-    insertSample: async (row: SampleRow): Promise<void> => {
-      await parsed(db.from('runner_samples').upsert(row, { onConflict: 'runner_id,at', ignoreDuplicates: true }), z.unknown(), 'runner_samples');
-    },
-
-    /** Deletes the runner's samples taken before `before`. */
-    trimSamples: async (runnerId: string, before: string): Promise<void> => {
-      await parsed(db.from('runner_samples').delete().eq('runner_id', runnerId).lt('at', before), z.unknown(), 'runner_samples');
-    },
+    /** A runner's health report in one call (bug #2557, runner_report_health()): 'missing' or 'forbidden' for a runner that is not
+     * there or someone else's, writing nothing; else the silent runners' jobs ended, the last health and check-in stored, one sample
+     * added (one already held at that instant stays as it is) and the runner's samples before `keptSince` deleted. */
+    reportHealth: async (report: HealthWrite): Promise<HealthWritten> =>
+      parsed(db.rpc('runner_report_health', {
+        p_runner: report.runner, p_owner: report.owner, p_at: report.at, p_health: report.health, p_sample: report.sample,
+        p_lost_cutoff: report.lostCutoff, p_kept_since: report.keptSince,
+      }), HealthWritten, 'runner_report_health()'),
 
     /** These runners' samples taken at `since` or after, oldest first. */
     samples: async (runnerIds: string[], since: string): Promise<SampleRow[]> => {

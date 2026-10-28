@@ -7015,6 +7015,18 @@ export type Database = {
         Args: { p_keep: number; p_workspace: string }
         Returns: number
       }
+      runner_report_health: {
+        Args: {
+          p_at: string
+          p_health: Json
+          p_kept_since: string
+          p_lost_cutoff: string
+          p_owner: string
+          p_runner: string
+          p_sample: Json
+        }
+        Returns: string
+      }
       runners_mark_lost: { Args: { p_cutoff: string }; Returns: number }
       set_fleet_project: {
         Args: { p_name: string; p_url: string; p_workspace: string }
