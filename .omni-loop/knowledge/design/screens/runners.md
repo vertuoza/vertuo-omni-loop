@@ -127,5 +127,5 @@ health · no tokens left · until · out of tokens · usage limit · since · us
 /omni:brainstorm, PRD 2338: .omni-loop/delivery/shipped/2338-retro-apply/before-after.html
 /omni:brainstorm, PRD 2375: .omni-loop/delivery/shipped/2375-job-stopped-mid-way/before-after.html
 /omni:brainstorm, PRD 2425: .omni-loop/delivery/shipped/2425-api-key-job-control/before-after.html
-/omni:brainstorm, PRD 2537: .omni-loop/delivery/inbox/2537-runner-turnover/before-after.html
+/omni:brainstorm, PRD 2537: .omni-loop/delivery/shipped/2537-runner-turnover/before-after.html
 /omni:brainstorm, PRD 2482: .omni-loop/delivery/shipped/2482-runner-cannot-run/before-after.html
