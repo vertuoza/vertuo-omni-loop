@@ -24,6 +24,12 @@ describe('the line check', () => {
     expect(linePrd('/omni:rewind 2410')).toBe(2410);
   });
 
+  it('lets /omni:rewind-apply <prd> <finding> through, which a knowledge finding\'s Approve queues, and reads its PRD (PRD 2498)', () => {
+    const line = '/omni:rewind-apply 2498 3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718';
+    expect(checkLine(line)).toEqual({ ok: true, kind: 'omni', skill: 'rewind-apply', args: '2498 3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718' });
+    expect(linePrd(line)).toBe(2498);
+  });
+
   it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
     expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
   });

@@ -1,7 +1,7 @@
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { reply } from '../business-api/reply';
 import { bodyOf, receivePush, refuse } from '../data/kit-push';
-import { DecideBodySchema, FactsQuerySchema, FindingIdSchema, MAX_DECIDE_BYTES, MAX_PUSH_BYTES, PushBodySchema, REWIND_REFUSALS, type RewindRefusal, type Verdict } from './rewind.contract';
+import { DecideBodySchema, FactsQuerySchema, FindingIdSchema, MAX_DECIDE_BYTES, MAX_OUTCOME_BYTES, MAX_PUSH_BYTES, OutcomeBodySchema, PushBodySchema, REWIND_REFUSALS, type RewindRefusal, type Verdict } from './rewind.contract';
 import type { DecisionService, RewindService } from './rewind.service';
 
 // The rewind's two calls, at their HTTP edge (PRD 2410, s5; ADR-0095), as plain functions of a Request, so
@@ -10,6 +10,7 @@ import type { DecisionService, RewindService } from './rewind.service';
 //   GET  /api/rewind/facts?repo&prd   → 200 {watches, breaks, findings}
 //   POST /api/rewind/findings         → 200 {added}
 //   POST /api/rewind/findings/<id>/approve, …/reject → 200 {state, followUp}   (s7: the page's session only)
+//   POST /api/rewind/findings/<id>/outcome → 200 {outcome}   (PRD 2498, s2: `omni rewind outcome`'s sign-in)
 //
 // The kit's `omni rewind facts` and `omni rewind push` send them with the terminal's sign-in (a bearer
 // token, `omni signin`). The sign-in is checked first: signed out, 401, and nothing is read. Then the
@@ -113,4 +114,15 @@ export async function postRewindFindings(request: Request, deps: RewindDeps): Pr
   const push = bodyOf(PushBodySchema, received.sent, 'A rewind push');
   if ('problem' in push) return refuse(REWIND_REFUSALS.malformed, push.problem);
   return answered(deps.log, 'rewind push', COULD_NOT, () => received.client().service.propose(push.repo, push.prd, push.findings));
+}
+
+/** POST /api/rewind/findings/<id>/outcome {outcome, pr?, note?}: records, once, what was done with an approved
+ * finding, as the caller: an agent link or a member (the database's function checks which) (PRD 2498, s2). */
+export async function postFindingOutcome(request: Request, id: string, deps: RewindDeps): Promise<Response> {
+  const received = await receivePush(request, deps.connect, { unavailable: NO_DATABASE, maxBytes: MAX_OUTCOME_BYTES });
+  if (received instanceof Response) return received;
+  if (!FindingIdSchema.safeParse(id).success) return refuse(REWIND_REFUSALS.missing, 'No such finding on a PRD of your workspace.');
+  const body = bodyOf(OutcomeBodySchema, received.sent, 'An outcome');
+  if ('problem' in body) return refuse(REWIND_REFUSALS.malformed, body.problem);
+  return answered(deps.log, 'rewind outcome', 'The outcome could not be saved. Try again.', () => received.client().service.outcome(id, body));
 }

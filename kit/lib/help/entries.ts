@@ -362,7 +362,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
-      'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind and knowledge-add run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
+      'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind, knowledge-add and rewind-apply run. A job past --timeout (3h by default) ' +
+      'is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
       'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
       'pins is updated (once, however many slots start together), and one still older fails the job ' +
@@ -871,8 +872,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'rewind',
     kind: 'command',
     who: 'skills',
-    usage: ['omni rewind facts <prd> [--json]', 'omni rewind push <prd> --file <findings.json>'],
-    summary: 'read a PRD\'s watch on main, and send the rewind\'s findings to its page',
+    usage: [
+      'omni rewind facts <prd> [--json]',
+      'omni rewind push <prd> --file <findings.json>',
+      'omni rewind outcome <finding>',
+      "  (--pr <n> | --already <rule> | --asks '<question>')",
+    ],
+    summary: 'read a PRD\'s watch on main, send the rewind\'s findings to its page, and record what became of an approved one',
     detail:
       "facts prints the PRD's status on main per repository (watching, clean or broke), each break with its " +
       'link, and the findings already on its page; it says so when the PRD has no watch. push sends a file of ' +
@@ -880,7 +886,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'member to approve or reject. It refuses, naming the finding and sending nothing, one with no evidence ' +
       'link, an origin other than repository, omni-setup or knowledge, a check other than main, reviews, ci, ' +
       'bodies, waves, plan, spec or knowledge, and one already proposed (the same check, origin and evidence). ' +
-      'Both need the terminal sign-in of a member of the PRD\'s workspace.',
+      'outcome records, once, what was done with a finding a member approved, on the id its card carries: ' +
+      '--pr <n> names the pull request that proposes the rule, --already <rule> the rule that already says it ' +
+      '(one line), --asks <question> the one question asked. The PRD\'s Main tab then shows it on the card. It ' +
+      'refuses, recording nothing and exiting 1, a finding not approved and a second outcome of the same ' +
+      'finding (an outcome is never rewritten), and, exiting 2, none or more than one of the three. ' +
+      'All three need the terminal sign-in of a member of the PRD\'s workspace.',
   },
   {
     name: 'item',
@@ -1972,6 +1983,30 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:rewind 2410',
       result: "the PRD's Main tab listing each finding with its check, where it started, its evidence and its fix",
+    },
+  },
+  {
+    name: 'rewind-apply',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:rewind-apply <prd> <finding>'],
+    label: '/omni:rewind-apply',
+    summary: 'turn an approved finding into a proposed rule',
+    detail:
+      "Settles one approved finding of PRD prd's rewind, one that started in knowledge nobody wrote down, in this " +
+      "repository's own knowledge. It reads the finding with omni rewind facts, then the playbook forms and the " +
+      'product registers, and decides one of three. Proposes: no rule states it, so it appends one playbook bullet ' +
+      'ending (rewind of PRD <prd>), or one register entry marked Proposed: rewind <date>, never a law, on the ' +
+      'knowledge branch rewind-<prd>-<finding>, as one docs-only pull request a person merges. Already said: it ' +
+      'names the rule. Asks: no slot fits, the lesson contradicts a rule, or it would change a locked law, so it ' +
+      'asks one question. It records the outcome once with omni rewind outcome, and the card shows it. It writes ' +
+      'only under the knowledge folder: never the kit, never another repository, never a locked law, and it never ' +
+      "merges. A finding's Approve queues it for a runner, sent by the member who approved.",
+    group: 'everyday',
+    when: 'Use it when an approved knowledge finding reads Proposing the rule… and no runner took the job.',
+    example: {
+      type: '/omni:rewind-apply 2498 3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718',
+      result: 'the finding\'s card reading Rule proposed in PR #<n>, Already said by <rule> or the question',
     },
   },
   {

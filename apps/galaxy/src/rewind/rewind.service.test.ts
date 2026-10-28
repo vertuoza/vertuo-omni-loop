@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { RewindFinding } from 'omni-loop/kit/lib/rewind/findings.ts';
 import { AGENT_LINE } from './rewind.approval';
 import type { DecidableFinding, FindingView } from './rewind.contract';
@@ -13,7 +13,7 @@ const finding = (more: Partial<RewindFinding> = {}): RewindFinding => ({
   check: 'ci', origin: 'repository', happened: 'The lint was red and merged.', evidence: ['https://a.test/1'], fix: 'Require the lint.', ...more,
 });
 const view = (more: Partial<FindingView> = {}): FindingView => ({
-  id: 'f1', check: 'ci', origin: 'repository', happened: 'x', evidence: ['https://a.test/1'], fix: 'y', state: 'proposed', reason: null, decidedBy: null, decidedAt: null, ...more,
+  id: 'f1', check: 'ci', origin: 'repository', happened: 'x', evidence: ['https://a.test/1'], fix: 'y', state: 'proposed', reason: null, decidedBy: null, decidedAt: null, outcome: null, ...more,
 });
 
 function ports(more: Partial<RewindPorts> & { stored?: FindingView[] } = {}) {
@@ -23,6 +23,8 @@ function ports(more: Partial<RewindPorts> & { stored?: FindingView[] } = {}) {
     mainWatch: () => Promise.resolve({ watches: [], breaks: [] }),
     findings: () => Promise.resolve(more.stored ?? []),
     insert: (_w, _r, _p, found) => { inserted.push([...found]); return Promise.resolve('ok'); },
+    workspaceOfFinding: () => Promise.resolve('w1'),
+    recordOutcome: () => Promise.resolve(null),
     ...more,
   };
   return { service: rewindService(fake), inserted };
@@ -38,6 +40,31 @@ describe('facts', () => {
     const stored = [view()];
     const { service } = ports({ stored, mainWatch: () => Promise.resolve({ watches: [], breaks: [] }) });
     expect(await service.facts('acme/widgets', PRD)).toEqual({ ok: true, value: { watches: [], breaks: [], findings: stored } });
+  });
+});
+
+describe('outcome (PRD 2498, s2)', () => {
+  const ID = '6f1c1b1e-8a0e-4c1f-9d55-2c1f7b0e9a11';
+
+  it('records the outcome in the workspace of the finding the caller reads', async () => {
+    const calls: unknown[] = [];
+    const { service } = ports({ recordOutcome: (workspace, id, body) => { calls.push([workspace, id, body]); return Promise.resolve(null); } });
+    expect(await service.outcome(ID, { outcome: 'proposed', pr: parsePr(42) })).toEqual({ ok: true, value: { outcome: 'proposed' } });
+    expect(calls).toEqual([['w1', ID, { outcome: 'proposed', pr: parsePr(42) }]]);
+  });
+
+  it('answers missing for a finding the caller reads none of, and records nothing', async () => {
+    const calls: unknown[] = [];
+    const { service } = ports({ workspaceOfFinding: () => Promise.resolve(null), recordOutcome: () => { calls.push(1); return Promise.resolve(null); } });
+    expect(await service.outcome(ID, { outcome: 'asks', note: 'Which form?' })).toMatchObject({ ok: false, kind: 'missing' });
+    expect(calls).toEqual([]);
+  });
+
+  it('keeps the database\'s refusal: a second outcome, a finding not approved, a caller not allowed', async () => {
+    for (const kind of ['recorded', 'unapproved', 'not-allowed'] as const) {
+      const { service } = ports({ recordOutcome: () => Promise.resolve({ kind, error: `no: ${kind}` }) });
+      expect(await service.outcome(ID, { outcome: 'already', note: 'playbook/testing#x' })).toEqual({ ok: false, kind, error: `no: ${kind}` });
+    }
   });
 });
 
@@ -116,11 +143,27 @@ describe('approve', () => {
     expect(sent.queued).toEqual([]);
   });
 
-  it('queues /omni:knowledge-add for another knowledge finding, and says it writes nothing on a runner yet', async () => {
+  it('queues /omni:rewind-apply <prd> <finding> for another knowledge finding, sent by the member (PRD 2498, s3)', async () => {
     const { service, sent } = decision({ stored: decidable({ origin: 'knowledge', fix: 'Write it in the conventions form.' }) });
     const done = await service.decide(ID, 'approve', null);
-    expect(done).toMatchObject({ ok: true, value: { followUp: { done: true, words: 'Queued /omni:knowledge-add on a runner of the workspace, sent by you. On a runner it writes nothing yet: the rule still waits for a person to write it.' } } });
-    expect(sent.queued).toEqual([['acme/widgets', '/omni:knowledge-add rewind of PRD 7: Write it in the conventions form.']]);
+    expect(done).toMatchObject({ ok: true, value: { followUp: { done: true, words: 'Queued /omni:rewind-apply on a runner of the workspace, sent by you.', link: '/app/runners' } } });
+    expect(sent.queued).toEqual([['acme/widgets', `/omni:rewind-apply 7 ${ID}`]]);
+    expect(sent.proposed).toEqual([]);
+  });
+
+  it('files a Legal finding as a product knowledge proposal, and queues nothing', async () => {
+    const { service, sent } = decision({ stored: decidable({ origin: 'knowledge', fix: 'Add a Legal entry L-GDPR: logs keep no e-mail address.' }) });
+    const done = await service.decide(ID, 'approve', null);
+    expect(done).toMatchObject({ ok: true, value: { followUp: { done: true, words: 'Filed as a Legal proposal, for its owner to decide.' } } });
+    expect(sent.proposed).toHaveLength(1);
+    expect(sent.queued).toEqual([]);
+  });
+
+  it('says what to run when /omni:rewind-apply could not be queued', async () => {
+    const { service, sent } = decision({ stored: decidable({ origin: 'knowledge', fix: 'Write it in the conventions form.' }), queue: () => Promise.resolve({ ok: false, error: 'No runner of the workspace takes acme/widgets.' }) });
+    const done = await service.decide(ID, 'approve', null);
+    expect(done).toMatchObject({ ok: true, value: { state: 'approved', followUp: { done: false, words: `Approved, but /omni:rewind-apply was not queued: No runner of the workspace takes acme/widgets. Run it from a terminal: /omni:rewind-apply 7 ${ID}`, link: null } } });
+    expect(sent.logged).toEqual(['rewind decide: /omni:rewind-apply was not queued: No runner of the workspace takes acme/widgets.']);
   });
 
   it('opens one issue on the kit\'s repository for an Omni-setup finding', async () => {
