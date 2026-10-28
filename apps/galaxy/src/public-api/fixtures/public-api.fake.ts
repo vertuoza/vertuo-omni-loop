@@ -1,6 +1,7 @@
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { runnersService } from '../../runners/runners.service';
 import { API_KEY, fakeStore, OLGA, OTHER_KEY, T0, WORKSPACE } from '../../runners/fixtures/store.fake';
+import { stubGithub } from '../../runners/fixtures/github.fake';
 import { hashApiKey } from '../keys/secret';
 import { notifier } from '../notify';
 import type { PRD_STAGES } from '../public-api.contract';
@@ -136,7 +137,8 @@ export function fakePublicApi() {
   const flushPings = async (): Promise<void> => {
     for (let task = pending.shift(); task !== undefined; task = pending.shift()) await task();
   };
-  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() }, null, pinger);
+  // A job a runner claims runs as the Omni App (PRD 2573): with none, it would end failed at its claim.
+  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() }, stubGithub().deps, pinger);
 
   const repository: PublicApiRepository = {
     async keyOf(hash) {
