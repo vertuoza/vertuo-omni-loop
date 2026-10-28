@@ -78,8 +78,8 @@ export function demoRunnersPage(now: Date): RunnersPageView {
         tokens: { input: 31_002, output: 190_455, cacheRead: 1_150_330, cacheWrite: 84_012 },
         // It turned over (PRD 2537): its first account hit its usage limit, and the second carries it on.
         parts: [
-          { agent: 'claude', model: 'claude-opus-5-5', account: 'claude-1', from: at(-12), to: at(-5), ended: 'limit', resetsAt: at(180), guessed: false, note: 'runner' },
-          { agent: 'claude', model: 'claude-sonnet-4-5', account: 'claude-2', from: at(-5), to: null, ended: null },
+          { agent: 'codex', model: 'gpt-5-codex', account: 'codex-1', from: at(-12), to: at(-5), ended: 'limit', resetsAt: at(180), guessed: false, note: 'runner' },
+          { agent: 'opencode', model: 'mistral/devstral-medium-latest', account: 'open-1', from: at(-5), to: null, ended: null },
         ],
       }),
       job({ line: '/omni:pr-care 1801', status: 'queued', toFleet: 'comets', sentBy: ADA, sentByLogin: 'ada', queuedAt: at(-2) }),

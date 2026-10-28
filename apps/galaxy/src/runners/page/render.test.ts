@@ -523,18 +523,18 @@ describe('a job stopped mid-way (PRD 2375 s3)', () => {
   });
 });
 
-// A job's agent and parts (PRD 2537 s3): the demo's running yolo turned over from claude-1, at its usage limit, to
-// claude-2. Its row names the agent and model it runs on now, and one line per part; a job that reported none names
+// A job's agent and parts (PRD 2537 s3): the demo's running yolo turned over from codex-1, at its usage limit, to
+// open-1. Its row names the agent and model it runs on now, and one line per part; a job that reported none names
 // neither.
 describe("a job's agent and parts", () => {
   const html = render(demo());
 
   it('names the agent and model beside the status, and one line per part under it', () => {
     const row = jobRow(html, '/omni:yolo 1717');
-    expect(row).toContain('<span class="runners-agent" data-content="true">claude · Sonnet 4.5</span>');
-    expect(text(row)).toContain('claude-1 · Opus 5.5 · 13:48–13:55 · usage limit');
-    expect(text(row)).toContain('claude-2 · Sonnet 4.5 · since 13:55');
-    expect(row).toContain('title="claude, claude-1 out until 17:00 UTC"');
+    expect(row).toContain('<span class="runners-agent" data-content="true">opencode · mistral/devstral-medium-latest</span>');
+    expect(text(row)).toContain('codex-1 · gpt-5-codex · 13:48–13:55 · usage limit');
+    expect(text(row)).toContain('open-1 · mistral/devstral-medium-latest · since 13:55');
+    expect(row).toContain('title="codex, codex-1 out until 17:00 UTC"');
   });
 
   it('names no agent and no part for a job whose runner reported none', () => {
