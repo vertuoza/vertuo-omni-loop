@@ -153,6 +153,18 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     keys: keys.map((row) => ({ ...row })), needsApp: new Set(needsApp), minted,
   };
   const stamp = () => now().toISOString();
+  /** As runners_mark_lost(): ends `runner lost` the claimed and running jobs of every runner silent since before `cutoff`. */
+  const markLost = (cutoff: string): number => {
+    let lost = 0;
+    for (const job of state.jobs) {
+      const runner = state.runners.find((r) => r.id === job.runner_id);
+      if (runner && (job.status === 'claimed' || job.status === 'running') && Date.parse(runner.last_seen_at) < Date.parse(cutoff)) {
+        Object.assign(job, { status: 'failed', reason: 'runner lost', ended_at: stamp() });
+        lost += 1;
+      }
+    }
+    return lost;
+  };
   const keyOf = (id: string | null): KeyState | undefined => state.keys.find((k) => k.id === id);
   // As api_key_github_app_of_job() reads them: every repository of the live products that name the job's repository.
   const productRepos = (repo: string): string[] => [...new Set(products
@@ -293,30 +305,24 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       Object.assign(row, patch);
       return Promise.resolve({ ...row });
     },
-    insertSample: (row) => {
-      // As `insert … on conflict (runner_id, at) do nothing`.
-      if (!state.samples.some((held) => held.runner_id === row.runner_id && held.at === row.at)) state.samples.push({ ...row });
-      return Promise.resolve();
-    },
-    trimSamples: (runnerId, before) => {
-      state.samples = state.samples.filter((row) => row.runner_id !== runnerId || Date.parse(row.at) >= Date.parse(before));
-      return Promise.resolve();
+    // As runner_report_health() does it: the runner's owner only, then the lost jobs, the last health, one sample and the trim.
+    reportHealth: (report) => {
+      const runner = state.runners.find((r) => r.id === report.runner);
+      if (!runner) return Promise.resolve('missing');
+      if (runner.owner !== report.owner) return Promise.resolve('forbidden');
+      markLost(report.lostCutoff);
+      Object.assign(runner, { health: report.health, last_seen_at: report.at });
+      if (!state.samples.some((held) => held.runner_id === runner.id && held.at === report.at)) {
+        state.samples.push({ runner_id: runner.id, workspace_id: runner.workspace_id, at: report.at, ...report.sample });
+      }
+      state.samples = state.samples.filter((row) => row.runner_id !== runner.id || Date.parse(row.at) >= Date.parse(report.keptSince));
+      return Promise.resolve('ok');
     },
     samples: (runnerIds, since) => Promise.resolve(state.samples
       .filter((row) => runnerIds.includes(row.runner_id) && Date.parse(row.at) >= Date.parse(since))
       .sort((a, b) => a.at.localeCompare(b.at))
       .map((row) => ({ ...row }))),
-    markLost: (cutoff) => {
-      let lost = 0;
-      for (const job of state.jobs) {
-        const runner = state.runners.find((r) => r.id === job.runner_id);
-        if (runner && (job.status === 'claimed' || job.status === 'running') && Date.parse(runner.last_seen_at) < Date.parse(cutoff)) {
-          Object.assign(job, { status: 'failed', reason: 'runner lost', ended_at: stamp() });
-          lost += 1;
-        }
-      }
-      return Promise.resolve(lost);
-    },
+    markLost: (cutoff) => Promise.resolve(markLost(cutoff)),
     loseUnstarted: (cutoff, at) => {
       const lost = state.jobs.filter((job) => job.status === 'claimed' && job.claimed_at !== null && Date.parse(job.claimed_at) < Date.parse(cutoff));
       for (const job of lost) Object.assign(job, { status: 'failed', reason: 'runner lost', ended_at: at });

@@ -443,7 +443,7 @@ describe('a continuation (PRD 2270)', () => {
 });
 
 // A runner's health and samples (PRD 2102 s1): the snapshot read with the runner, out of shape as none;
-// a sample added once per runner and instant, trimmed by runner and time, read oldest first.
+// a report written in one call, the samples read oldest first.
 describe('a runner\'s health and samples', () => {
   const sample = { runner_id: SHARED, workspace_id: 'w1', at: '2026-10-16T12:00:00.000Z', cpu: 63.5, mem_used: 1, mem_total: 2, disk_free: 3, tokens_5h: null };
 
@@ -456,16 +456,22 @@ describe('a runner\'s health and samples', () => {
     expect(lines[0]).toContain('last_seen_at, health');
   });
 
-  it('adds a sample once per runner and instant', async () => {
-    const { db, lines } = fakeDb([{ data: null, error: null }]);
-    await runnersRepository(db).insertSample(sample);
-    expect(lines).toEqual([`from("runner_samples").upsert(${JSON.stringify(sample)},{"onConflict":"runner_id,at","ignoreDuplicates":true})`]);
-  });
-
-  it('deletes the runner\'s samples taken before a time', async () => {
-    const { db, lines } = fakeDb([{ data: null, error: null }]);
-    await runnersRepository(db).trimSamples(SHARED, '2026-10-16T11:00:00.000Z');
-    expect(lines).toEqual([`from("runner_samples").delete().eq("runner_id","${SHARED}").lt("at","2026-10-16T11:00:00.000Z")`]);
+  // Bug #2557: the report's writes are one call, which answers whether the runner was there and the caller's.
+  it('writes a health report in one call, with every argument, and reads what it answered', async () => {
+    const report = {
+      runner: SHARED, owner: 'u1', at: '2026-10-16T12:00:00.000Z',
+      health: { cpu: 63.5, load1: 7.9, cores: 8, memUsed: 1, memTotal: 2, diskFree: 3, diskTotal: 4, at: '2026-10-16T12:00:00.000Z' },
+      sample: { cpu: 63.5, mem_used: 1, mem_total: 2, disk_free: 3, tokens_5h: null },
+      lostCutoff: '2026-10-16T11:58:30.000Z', keptSince: '2026-10-16T11:00:00.000Z',
+    };
+    const { db, lines } = fakeDb([{ data: 'ok', error: null }, { data: 'forbidden', error: null }, { data: 'gone', error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.reportHealth(report)).toBe('ok');
+    expect(lines).toEqual([`rpc("runner_report_health",${JSON.stringify({
+      p_runner: SHARED, p_owner: 'u1', p_at: report.at, p_health: report.health, p_sample: report.sample, p_lost_cutoff: report.lostCutoff, p_kept_since: report.keptSince,
+    })})`]);
+    expect(await repository.reportHealth(report)).toBe('forbidden');
+    await expect(repository.reportHealth(report)).rejects.toThrow('runner_report_health()');
   });
 
   it('reads the runners\' samples since a time, oldest first, and asks nothing for no runner', async () => {
@@ -479,7 +485,7 @@ describe('a runner\'s health and samples', () => {
 
   it('throws on the database\'s refusal, naming the table', async () => {
     const { db } = fakeDb([{ data: null, error: { message: 'permission denied for table runner_samples' } }]);
-    await expect(runnersRepository(db).insertSample(sample)).rejects.toThrow('runner_samples: permission denied for table runner_samples');
+    await expect(runnersRepository(db).samples([SHARED], '2026-10-16T11:00:00.000Z')).rejects.toThrow('runner_samples: permission denied for table runner_samples');
   });
 });
 
