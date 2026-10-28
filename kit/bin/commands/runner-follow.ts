@@ -238,7 +238,7 @@ async function read(run: Follow): Promise<number | null> {
   const ended = isEnded(job);
   run.merged = await countOf(run, ended);
   const page = ended ? await pageOf(run.prd, run.at, run.io.fetch ?? globalThis.fetch) : null;
-  const next = milestones(run.seen, job, lines, run.merged, page);
+  const next = milestones(run.seen, { ...job, repo: run.at.repo }, lines, run.merged, page);
   run.seen = next.seen;
   for (const line of next.lines) println(run.io.stdout, line);
   const last = next.lines.at(-1);

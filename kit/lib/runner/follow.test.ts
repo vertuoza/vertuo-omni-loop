@@ -5,7 +5,7 @@ import { exitCodeOf, isEnded, milestones } from './follow.ts';
 import type { FollowJob, MergedCount, Seen } from './follow.ts';
 
 const PAGE = 'https://omni.test/prd/2251';
-const job = (over: Partial<FollowJob> = {}): FollowJob => ({ status: 'queued', runner: null, outcome: null, reason: null, exitCode: null, ...over });
+const job = (over: Partial<FollowJob> = {}): FollowJob => ({ status: 'queued', repo: 'a/b', runner: null, outcome: null, reason: null, exitCode: null, ...over });
 
 /** One step: the new lines, and what to hand the next. */
 function step(previous: Seen | null, over: Partial<FollowJob>, lines: string[] = [], merged: MergedCount = null) {
@@ -45,6 +45,18 @@ describe('milestones', () => {
     expect(first.lines).toEqual(['PR: https://github.com/a/b/pull/1', 'PR: https://github.com/a/b/pull/2']);
     const second = step(first.seen, { status: 'running', runner: 'r' }, ['PR: https://github.com/a/b/pull/2', 'Bash: git push']);
     expect(second.lines).toEqual([]);
+  });
+
+  it('prints only the PR lines the job wrote of its own repository, never a step output or another repository (bug 2567)', () => {
+    const base = step(null, { status: 'running', runner: 'r' }).seen;
+    const read = step(base, { status: 'running', runner: 'r' }, [
+      '10:00:00 ✗ FAIL kit/bin/runner.test.ts',
+      '  PR: https://github.com/a/b/pull/42',
+      '10:00:01 PR: https://github.com/acme/widgets/pull/42',
+      'PR: https://github.com/a/bb/pull/3',
+      '10:00:02 PR: https://github.com/a/b/pull/7',
+    ]);
+    expect(read.lines).toEqual(['PR: https://github.com/a/b/pull/7']);
   });
 
   it('prints the board count only when it goes up, never down, and not without a total', () => {
