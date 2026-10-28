@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "pid": 4242,
+  "port": 3799,
+  "origin": "http://127.0.0.1:3799",
+  "startedAt": "2026-10-27T12:40:27.456Z",
+  "serverVersion": "0.1.3"
+}

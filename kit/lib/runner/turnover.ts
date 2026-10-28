@@ -150,18 +150,20 @@ export type Turnover = {
 };
 
 /** The turnover of a runner's accounts under `home`: their book kept in `accounts-state.json`, each agent's checks run with `exec`. */
-export function turnoverOf({ accounts, book, exec, home = homedir(), now = Date.now }: {
+export function turnoverOf({ accounts, book, exec, home = homedir(), omni, now = Date.now }: {
   accounts: readonly Account[];
   book: AccountBook;
   exec: ExecText;
   home?: string;
+  /** The command that runs omni, for a T3 account's `t3-run`. */
+  omni?: readonly string[] | undefined;
   now?: () => number;
 }): Turnover {
   const projects = join(home, '.claude', 'projects');
   return {
     accounts,
     book,
-    agentOf: (account) => agentNamed(account.agent, { projects, exec }),
+    agentOf: (account) => agentNamed(account.agent, { projects, exec, home, omni }),
     seenAs: (account) => agentAccountOf(account, home),
     git(cwd, args) {
       try {

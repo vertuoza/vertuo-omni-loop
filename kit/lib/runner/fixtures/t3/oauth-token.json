@@ -1,0 +1,6 @@
+{
+  "access_token": "t3-fixture-access-token",
+  "token_type": "Bearer",
+  "expires_in": 2592000,
+  "scope": "orchestration:read orchestration:operate settings:write source-control:write"
+}
