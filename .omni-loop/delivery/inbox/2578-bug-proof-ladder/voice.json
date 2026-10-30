@@ -1,0 +1,95 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-30",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A bug fix comes back with the screen before and after, so I can ship it without chasing someone to check it by hand.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I see the customer's bug gone on the product itself, which is what I need to tell them it is fixed.",
+          "citations": ["persona:Irisa"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each repository keeps its own way of reproducing and filming, so the teams stay consistent without the kit deciding for them.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A CI red then green proves the test the agent wrote, not the bug the customer saw. If level B reads as strong as a filmed screen, I'll merge slop thinking I saw it fixed.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Hooks I write myself, with my own tools, beat a kit that guesses how my API is tested.",
+          "citations": ["persona:B-E DEv"]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A CI red then green proves the test the agent wrote, not the bug the customer saw. If level B reads as strong as a filmed screen, I'll merge slop thinking I saw it fixed.",
+        "citations": ["persona:F-E Developer"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-30",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Every bug fix ends with a proof or with one line saying what to unblock, so none waits silently.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The preview link stays on the pull request until it closes, so I can open the fix myself before telling the customer.",
+          "citations": ["persona:Irisa"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The Proved on line tells me at a glance how far a fix was proven, across every repository.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A CI proof now says it did not film the screen, so I know when I still have to look myself.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "My review and reproduction habits finally run on a bug fix too, through hooks I own.",
+          "citations": ["persona:B-E DEv"]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    }
+  ]
+}
