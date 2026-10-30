@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2578: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>PRD 2578: before and after</h1>
+<p>A bug fix proves its change before and after.</p>
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">TODAY</div><p>A runner fixes a bug in nimbus-web, whose component stories run in CI only. It cannot see the red on its own machine, so it writes that CI is the proof, opens the pull request as a draft, and nimbus-web's CI skips its story job on a draft. The reviewer gets no before and no after, and has to prove the fix by hand.</p>
+<pre><span class="line ctx">## Proof</span><span class="line ctx"></span><span class="line del">GIF not produced - Red not proven here: stories run in CI only; CI is the proof</span></pre>
+<p>The repository's own reproduction and review hooks run on every slice of a PRD, never on a bug fix.</p></div>
+<div><div class="label">AFTER</div><p>The fix looks for its proof on a ladder and says which level it reached. nimbus-web's <code>bug-fix.proof</code> hook builds a preview environment, films the screen on the default branch and on the fix, and the reviewer opens that environment until the pull request closes.</p>
+<pre><span class="line ctx">## Proof</span><span class="line ctx"></span><span class="line add">![before and after](https://…/proof.gif)</span><span class="line add">- **Before the fix**: the total stays at 0 after saving</span><span class="line add">- **After the fix**: the total shows 1 240,00</span><span class="line add">- **Proved on:** a preview environment</span><span class="line add">- **Preview:** https://web-pr-88.preview.nimbus.test · until the pull request closes</span></pre>
+<p>Without a hook, CI is the proof when it runs the reproduction on a draft, and it says so:</p>
+<pre><span class="line add">- **Proved on:** CI · reproduction test only, the screen was not filmed</span></pre>
+<p>When nothing works, the draft names what each level answered, so a person knows what to unblock:</p>
+<pre><span class="line add">GIF not produced - A: no bug-fix.proof hook; B: job stories skipped on a draft (its if: excludes drafts); C: stories run in CI only</span></pre>
+<p>The repository's reproduction and review hooks now run on a bug fix too, at <code>bug-fix.reproduce</code> and <code>bug-fix.review</code>.</p></div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="filled"><h4>Pixel perfect</h4><p>Pixel perfect: no screen changes</p></div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="gap">
+<h4>Flow</h4>
+<p>To settle — diagram not rendered: the Playwright Chromium the kit pins (headless shell 1194) is not installed here; <code>pnpm exec playwright install chromium</code>, then <code>omni before-after render 2578</code>.</p>
+<details><summary>The diagram's source</summary>
+<pre>
+flowchart TD
+  R["bug-fix.reproduce hook (optional)"] --> T["reproduction committed and pushed alone"]
+  T --> D["draft pull request opens"]
+  D --> F["fix pushed, bug-fix.review hook (optional), preflight again"]
+  F --> A{"A: bug-fix.proof hook passes?"}
+  A -- yes --> G["omni bug film, omni proof push"]
+  A -- "no: its reason" --> B{"B: omni bug ci proves red and green?"}
+  B -- yes --> G
+  B -- "no: its reason" --> C{"C: red and green on this machine?"}
+  C -- yes --> G
+  C -- "no: its reason" --> N["GIF not produced - A, B, C reasons; stays a draft"]
+  G --> K["omni bug checks Proved on, then ready"]
+</pre>
+</details>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<p>One kit release. A repository plugs its <code>bug-fix.*</code> hooks after it, in its own pull request, and adds the CI job that removes a preview environment when the pull request closes. Until then it gets levels B, C and D.</p>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — no table changes.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>bug-fix.reproduce</code> flow point</td><td><span class="badge added">added</span></td><td>—</td><td>before, after; handed issue, branch, suspect, boundary</td><td>kit</td></tr>
+<tr><td><code>bug-fix.review</code> flow point</td><td><span class="badge added">added</span></td><td>—</td><td>before, after; handed issue, branch, base</td><td>kit</td></tr>
+<tr><td><code>bug-fix.proof</code> flow point</td><td><span class="badge added">added</span></td><td>—</td><td>before, after, replace; handed issue, base, head, pr, targets, reproduction, out</td><td>kit</td></tr>
+<tr><td><code>omni bug ci &lt;n&gt;</code></td><td><span class="badge added">added</span></td><td>—</td><td>writes red.txt and green.txt, or one line and exit 1</td><td>kit</td></tr>
+<tr><td><code>omni bug &lt;n&gt;</code> proof check</td><td>changed</td><td>an image, Before and After lines</td><td>the same, plus <code>Proved on</code>, its mention at B and C, a reason per level at D</td><td>kit</td></tr>
+</table>
+<p>No breaking change: the points and the verb are added; the stricter check applies when a pull request is next marked ready, and no config key changes.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">TODAY</div><pre><span class="line ctx">7  prove red on this machine, or defer it to CI</span><span class="line ctx">8  fix   9 guard   10 mutation   11 record</span><span class="line del">12 omni bug --body-file, then open the PR</span><span class="line ctx">   flow points fired: pr.open</span></pre></div>
+<div><div class="label">AFTER</div><pre><span class="line add">7  bug-fix.reproduce, then the reproduction pushed alone</span><span class="line add">   and the draft PR opened (pr.open fires here)</span><span class="line ctx">8  fix   9 guard</span><span class="line add">   bug-fix.review, preflight again</span><span class="line ctx">10 mutation   11 record</span><span class="line add">12 ladder A (bug-fix.proof), B (omni bug ci), C, D</span><span class="line add">   omni bug on the open PR, then ready</span></pre></div>
+</div>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>
