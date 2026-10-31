@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { RULES } from './rules';
-import { BANNER_SECONDS, CHAPTER_TITLES, CRASH_SECONDS, ENDLESS_POINTS, newRun, pause, press, step, WAVE_POINTS, waveOf, wavesIn, type Run, type RunEvent } from './run';
-import { blocksAt, ring, route, struck } from './waves';
+import { BANNER_SECONDS, CHAPTER_TITLES, CRASH_SECONDS, ENDLESS_POINTS, newRun, OBSTACLE_POINTS, pause, press, step, waveOf, wavesIn, type Run, type RunEvent } from './run';
+import { blocksAt, CHAPTERS, clearedAt, endlessWaves, ring, route, struck, type Wave } from './waves';
 
 // OMNI DUET's run (PRD 1633): the ready screen, START into play, B back to the room, and the orbs turned
 // in fixed steps whatever the frame rate (slice 2); the waves, the hits, the chapters and the score
@@ -100,8 +100,20 @@ describe('the turn in play', () => {
 
 const turnHeld = (dir: -1 | 0 | 1): ReadonlySet<Action> => (dir === 1 ? held('left') : dir === -1 ? held('right') : held());
 
-/** Plays the run's wave one sub-step a frame along a way through it, from where the orbs stand. */
-function pilot(run: Run, dt = RULES.subStep): { run: Run; events: RunEvent[] } {
+/** How many obstacles the waves hold: what a clean run of them scores in a chapter. */
+const obstacles = (waves: readonly Wave[]): number => waves.reduce((n, w) => n + w.pieces.length, 0);
+
+/** Chapter I's obstacles: the score a clean run carries into chapter II. */
+const CHAPTER_ONE = obstacles(CHAPTERS[0]?.waves ?? []);
+
+/** The four chapters' obstacles: the score a clean run carries into endless mode. */
+const CHAPTERS_ALL = obstacles(CHAPTERS.flatMap((c) => c.waves));
+
+/**
+ * Plays the run's wave one sub-step a frame along a way through it, from where the orbs stand; with
+ * `until`, stops after the first sub-step whose run it holds for.
+ */
+function pilot(run: Run, dt = RULES.subStep, until?: (r: Run) => boolean): { run: Run; events: RunEvent[] } {
   const wave = waveOf(run);
   if (!wave) throw new Error('no wave falls');
   const turns = route(wave, run.angle);
@@ -109,7 +121,10 @@ function pilot(run: Run, dt = RULES.subStep): { run: Run; events: RunEvent[] } {
   const frames = Math.round(RULES.subStep / dt);
   let r = run;
   const events: RunEvent[] = [];
-  for (const dir of turns) for (let f = 0; f < frames; f++) { const s = step(r, turnHeld(dir), dt); r = s.run; events.push(...s.events); }
+  for (const dir of turns) {
+    for (let f = 0; f < frames; f++) { const s = step(r, turnHeld(dir), dt); r = s.run; events.push(...s.events); }
+    if (until?.(r)) break;
+  }
   return { run: r, events };
 }
 
@@ -141,17 +156,33 @@ function clearChapter(run: Run): Run {
 }
 
 describe('the waves in play', () => {
-  it('lets chapter I\'s first wave pass orbs turned through it, and adds 10 once it is below the circle', () => {
+  it('lets chapter I\'s first wave pass orbs turned through it, its obstacles scored 1 each', () => {
     const { run, events } = pilot(playing());
     expect(events).toEqual(['pass']);
-    expect(run).toMatchObject({ phase: 'play', chapter: 0, wave: 1, tick: 0, score: 10, passed: 1, lives: 3 });
+    expect(run).toMatchObject({ phase: 'play', chapter: 0, wave: 1, tick: 0, score: CHAPTERS[0]?.waves[0]?.pieces.length, passed: 1, lives: 3 });
     expect(wavesIn(run)).toBe(10);
   });
 
-  it('counts each wave once: the next steps of the next wave add nothing', () => {
+  it('adds 1 on the sub-step each obstacle is below the circle, and nothing more when the wave is passed', () => {
+    expect(OBSTACLE_POINTS).toBe(1);
+    const start = playing();
+    const wave = waveOf(start);
+    if (!wave) throw new Error('no wave falls');
+    let before = start;
+    pilot(start, RULES.subStep, (r) => {
+      const scored = r.tick === 0 ? wave.pieces.length : clearedAt(wave, r.tick);
+      expect(r.score - start.score, `sub-step ${r.tick}`).toBe(scored * OBSTACLE_POINTS);
+      expect(r.score - before.score).toBeLessThanOrEqual(OBSTACLE_POINTS);
+      before = r;
+      return false;
+    });
+    expect(before.score).toBe(wave.pieces.length);
+  });
+
+  it('counts each obstacle once: the next steps of the next wave add nothing until one of its obstacles passes', () => {
     const once = pilot(playing()).run;
     const after = step(step(once, held(), RULES.subStep).run, held(), RULES.subStep);
-    expect(after.run.score).toBe(10);
+    expect(after.run.score).toBe(once.score);
     expect(after.events).toEqual([]);
   });
 
@@ -191,13 +222,13 @@ describe('a hit', () => {
 
   it('sets the score back to what it was when the chapter began, never to zero', () => {
     let run = clearChapter(playing());
-    expect(run).toMatchObject({ phase: 'play', chapter: 1, wave: 0, score: 100, chapterScore: 100 });
+    expect(run).toMatchObject({ phase: 'play', chapter: 1, wave: 0, score: CHAPTER_ONE, chapterScore: CHAPTER_ONE });
     run = pilot(run).run;
     run = pilot(run).run;
-    expect(run.score).toBe(120);
+    expect(run.score).toBe(CHAPTER_ONE + obstacles(CHAPTERS[1]?.waves.slice(0, 2) ?? []));
     let hit: { run: Run; events: RunEvent[] } = { run, events: [] };
     while (!hit.events.includes('hit')) hit = holdStill(hit.run.phase === 'ready' ? press(hit.run, 'start').run : hit.run);
-    expect(hit.run).toMatchObject({ phase: 'ready', chapter: 1, wave: 0, score: 100, lives: 2 });
+    expect(hit.run).toMatchObject({ phase: 'ready', chapter: 1, wave: 0, score: CHAPTER_ONE, lives: 2 });
   });
 
   it('ends the run once the last life is lost: nothing moves, A plays again from chapter I, B leaves', () => {
@@ -228,7 +259,7 @@ describe('the chapters, one after another', () => {
     while (run.chapter === 0) { const s = pilot(run); run = s.run; events.push(...s.events); }
     expect(events.filter((e) => e === 'pass')).toHaveLength(10);
     expect(events.at(-1)).toBe('chapter');
-    expect(run).toMatchObject({ phase: 'chapter', chapter: 1, wave: 0, tick: 0, score: 100 });
+    expect(run).toMatchObject({ phase: 'chapter', chapter: 1, wave: 0, tick: 0, score: CHAPTER_ONE });
     const banner = Math.round(BANNER_SECONDS / RULES.subStep);
     const before = stepped(run, held('left'), RULES.subStep, banner - 1);
     expect(before).toMatchObject({ phase: 'chapter', tick: 0, wave: 0 });
@@ -238,14 +269,15 @@ describe('the chapters, one after another', () => {
     expect(step(after, held(), RULES.subStep).run.tick).toBe(1);
   });
 
-  it('plays chapters I to IV in turn, scoring 10 a wave', () => {
+  it('plays chapters I to IV in turn, scoring each of their obstacles once', () => {
     let run = playing();
     for (const [i, c] of CHAPTER_TITLES.entries()) {
       expect(run.chapter, c.name).toBe(i);
       run = i < CHAPTER_TITLES.length - 1 ? clearChapter(run) : run;
     }
     while (!run.endless) run = pilot(run).run;
-    expect(run.score).toBe(10 * run.passed);
+    expect(run.score).toBe(CHAPTERS_ALL);
+    expect(CHAPTERS_ALL).toBe(171);
     expect(run.passed).toBe(CHAPTER_TITLES.length * 10);
     expect(run.lives).toBe(3);
   });
@@ -260,7 +292,7 @@ describe('the same run at any frame rate', () => {
     };
     const at60 = play(1 / 60), at120 = play(1 / 120);
     expect(at120).toEqual(at60);
-    expect(at60.score).toBeGreaterThan(100);
+    expect(at60.score).toBeGreaterThan(CHAPTER_ONE);
   });
 });
 
@@ -304,7 +336,7 @@ function crash(run: Run): { run: Run; events: RunEvent[] } {
   if (!wave) throw new Error('no wave falls');
   const { bins, move } = ring();
   const start = ((Math.round((run.angle / (Math.PI * 2)) * bins) % bins) + bins) % bins;
-  const covered = (b: number, tick: number) => struck((((b % bins) + bins) % bins / bins) * Math.PI * 2, blocksAt(wave, tick));
+  const covered = (b: number, tick: number) => struck((((b % bins) + bins) % bins / bins) * Math.PI * 2, blocksAt(wave, run.tick + tick));
   const hidden = (b: number, tick: number) => covered(b, tick) && covered(b - 1, tick) && covered(b + 1, tick);
   for (let tick = 1; tick < 3600; tick++) {
     for (let k = -tick; k <= tick; k++) {
@@ -333,21 +365,23 @@ describe('endless mode', () => {
     if (!before) throw new Error('no last wave');
     const { run, events } = pilot(before);
     expect(events.slice(-2)).toEqual(['pass', 'endless']);
-    expect(run).toMatchObject({ phase: 'chapter', endless: true, wave: 0, tick: 0, score: 400, passed: 40 });
+    expect(run).toMatchObject({ phase: 'chapter', endless: true, wave: 0, tick: 0, score: CHAPTERS_ALL, passed: 40 });
     const after = pastBanner(run);
     expect(after).toMatchObject({ phase: 'play', endless: true, wave: 0 });
     expect(waveOf(after)).toBeDefined();
   });
 
-  it('adds 20 for each endless wave passed, once', () => {
-    expect(ENDLESS_POINTS).toBe(20);
-    expect(WAVE_POINTS).toBe(10);
+  it('adds 2 for each endless obstacle passed, once, and nothing more for the wave', () => {
+    expect(ENDLESS_POINTS).toBe(2);
+    expect(ENDLESS_POINTS).toBe(2 * OBSTACLE_POINTS);
     const start = atEndless();
+    const wave = waveOf(start);
+    if (!wave) throw new Error('no endless wave');
     const { run, events } = pilot(start);
     expect(events).toEqual(['pass']);
-    expect(run).toMatchObject({ endless: true, wave: 1, score: start.score + 20, passed: start.passed + 1 });
+    expect(run).toMatchObject({ endless: true, wave: 1, score: start.score + 2 * wave.pieces.length, passed: start.passed + 1 });
     const ten = cleanRun()[CHAPTER_TITLES.length * 10 + 10];
-    expect(ten?.score).toBe(400 + 10 * 20);
+    expect(ten?.score).toBe(CHAPTERS_ALL + 2 * obstacles(endlessWaves(10)));
   });
 
   it('never runs out of waves', () => {
@@ -424,7 +458,7 @@ describe('every way a run ends', () => {
     const paused = press(run, 'start').run;
     const { run: over, events } = press(paused, 'select');
     expect(events).toEqual(['over']);
-    expect(over).toMatchObject({ phase: 'over', score: 20, passed: 2, lives: 3 });
+    expect(over).toMatchObject({ phase: 'over', score: obstacles(CHAPTERS[0]?.waves.slice(0, 2) ?? []), passed: 2, lives: 3 });
   });
 
   it('does nothing on SELECT in play: only the pause screen quits', () => {
@@ -439,7 +473,7 @@ describe('every way a run ends', () => {
     expect(hit.phase).toBe('ready');
     const { run: over, events } = press(hit, 'b');
     expect(events).toEqual(['over']);
-    expect(over).toMatchObject({ phase: 'over', score: 100, lives: 2 });
+    expect(over).toMatchObject({ phase: 'over', score: CHAPTER_ONE, lives: 2 });
   });
 
   it('leaves with no score on B on the first ready screen', () => {
@@ -482,15 +516,22 @@ describe('no death earns a point', () => {
   // For every wave of the four chapters and the first 50 endless waves: a run hit at that wave, then
   // flown on with the same inputs, never holds a higher score than the clean run at the same point.
   const POINTS = CHAPTER_TITLES.length * 10 + ENDLESS_FLOWN;
-  it.each(Array.from({ length: POINTS }, (_, i) => i))('at wave %i of the run', (i) => {
+  const waves = Array.from({ length: POINTS }, (_, i) => i);
+
+  /** The clean run as wave `i` begins, and as the next one does. */
+  function around(i: number): { start: Run; next: Run } {
     const clean = cleanRun();
     const start = clean[i], next = clean[i + 1];
     if (!start || !next) throw new Error(`no wave ${i}`);
-    const { run: hit } = crash(start);
-    expect(hit.score).toBeLessThanOrEqual(start.score);
-    // Fly on from the ready screen until the run stands where the clean one did after that wave. A
-    // way through found on the check's ring may graze a block at the run's own angle: one more hit,
-    // which only ever takes points away too, so the run starts again and flies on.
+    return { start, next };
+  }
+
+  /**
+   * Flies on from the ready screen until the run stands where the clean one did after that wave. A
+   * way through found on the check's ring may graze a block at the run's own angle: one more hit,
+   * which only ever takes points away too, so the run starts again and flies on.
+   */
+  function flyOn(hit: Run, next: Run): void {
     const there = (r: Run) => r.endless === next.endless && r.chapter === next.chapter && r.wave === next.wave && r.phase === 'play';
     let run = hit;
     for (let guard = 0; guard < 40 && run.phase !== 'over' && !there(run); guard++) {
@@ -499,5 +540,30 @@ describe('no death earns a point', () => {
     }
     expect(run.phase === 'over' || there(run)).toBe(true);
     expect(run.score).toBeLessThanOrEqual(next.score);
+  }
+
+  it.each(waves)('at wave %i of the run', (i) => {
+    const { start, next } = around(i);
+    const { run: hit } = crash(start);
+    expect(hit.score).toBeLessThanOrEqual(start.score);
+    flyOn(hit, next);
+  });
+
+  // A wave of one obstacle is passed on the sub-step it scores: there is no moment after it within the wave.
+  const flownWaves = [...CHAPTERS.flatMap((c) => c.waves), ...endlessWaves(ENDLESS_FLOWN)];
+  const several = waves.filter((i) => (flownWaves[i]?.pieces.length ?? 0) > 1);
+
+  it('has a later hit for nearly every wave: a wave of one obstacle is rare', () => {
+    expect(several.length).toBeGreaterThan(POINTS - 5);
+  });
+
+  it.each(several)('after an obstacle of wave %i has scored, which gives its points back', (i) => {
+    const { start, next } = around(i);
+    const scored = pilot(start, RULES.subStep, (r) => r.score > start.score).run;
+    expect(scored).toMatchObject({ phase: 'play', endless: start.endless, chapter: start.chapter, wave: start.wave });
+    expect(scored.score - start.score).toBe(start.endless ? ENDLESS_POINTS : OBSTACLE_POINTS);
+    const { run: hit } = crash(scored);
+    expect(hit.score).toBe(start.endless ? start.score : start.chapterScore);
+    flyOn(hit, next);
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Block } from './collide';
 import { RULES } from './rules';
 import {
-  blocksAt, CHAPTERS, ENDLESS_GROUPS, ENDLESS_SEED, endlessSpeed, endlessWave, endlessWaves, fallen, ghostShare, parseChapter, parseWave, passedAt, patternsOf,
+  blocksAt, CHAPTERS, clearedAt, ENDLESS_GROUPS, ENDLESS_SEED, endlessSpeed, endlessWave, endlessWaves, fallen, ghostShare, parseChapter, parseWave, passedAt, patternsOf,
   placedAt, POSE, RAMP, reachOf, ring, route, secondsOf, SHAPE, sightOf, spaceBetween, spacingProblems, speedAt, struck, throughHolding, timeAt,
   holdSpace, turnSeconds, waveProblems, wayOf, windowOf, type Pattern, type Piece, type Wave,
 } from './waves';
@@ -792,5 +792,38 @@ describe('the moment to change pose (issue 2156)', () => {
 
   it('leaves the same in the first 200 endless waves', () => {
     expect(tight('endless', endlessWaves(200))).toEqual([]);
+  });
+});
+
+describe('the obstacles passed (PRD 2159)', () => {
+  /** The count of obstacles passed at each sub-step, from 0 to the sub-step the wave is passed. */
+  function counts(wave: Wave): number[] {
+    const seen = [clearedAt(wave, 0)];
+    for (let tick = 1; !passedAt(wave, tick - 1); tick++) seen.push(clearedAt(wave, tick));
+    return seen;
+  }
+
+  it('counts a gate once, its two bars together', () => {
+    const gate = parseWave('speed 60\ngate · 0', 'test');
+    expect(blocksAt(gate, 0)).toHaveLength(2);
+    expect(new Set(counts(gate))).toEqual(new Set([0, 1]));
+  });
+
+  it('counts each obstacle once it is entirely below the circle, one after another', () => {
+    const wave = parseWave('speed 60\nL half · 0\nR half · 2R\ngate · 2R', 'test');
+    const seen = counts(wave);
+    expect(seen).toEqual([...seen].sort((a, b) => a - b));
+    expect(new Set(seen)).toEqual(new Set([0, 1, 2, 3]));
+  });
+
+  it('never falls, and reaches every obstacle on the sub-step the wave is passed and not before, in every chapter wave and the first 50 endless ones', () => {
+    for (const wave of [...CHAPTERS.flatMap((c) => c.waves), ...endlessWaves(50)]) {
+      const seen = counts(wave);
+      const last = seen.length - 1;
+      expect(seen[0]).toBe(0);
+      expect(seen[last]).toBe(wave.pieces.length);
+      expect(seen.slice(0, last).every((n) => n < wave.pieces.length)).toBe(true);
+      seen.forEach((n, i) => { expect(n).toBeGreaterThanOrEqual(seen[i - 1] ?? 0); });
+    }
   });
 });
