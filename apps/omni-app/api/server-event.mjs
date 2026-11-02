@@ -587,7 +587,7 @@ var FLOW_POINTS = Object.freeze([
   { point: "bug-fix.review", skills: ["bug-fix", "mega-bug-fix"], modes: EXTEND, inputs: ["issue", "branch", "base"], outputs: [] },
   {
     point: "bug-fix.proof",
-    skills: ["bug-fix"],
+    skills: ["bug-fix", "mega-bug-fix"],
     modes: ANY,
     inputs: ["issue", "base", "head", "pr", "targets", "reproduction", "out"],
     outputs: ["before.* and after.* in {out}, the two recordings omni bug film reads", "an env: line, the preview environment's URL and lifetime", "the verdict line"]
