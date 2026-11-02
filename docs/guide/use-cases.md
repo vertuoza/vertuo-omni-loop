@@ -190,16 +190,14 @@ proof. It is never marked ready just to get a CI run.
 On `demo-org/nimbus-web`, the hook deploys each pull request to its own preview and films the bug
 there:
 
-```yaml file
-# .omni-loop/config.yml
+```yaml file=.omni-loop/config.yml
 flow:
   hooks:
     bug-fix.proof:
       replace: .omni-loop/flow/preview-proof.md
 ```
 
-```markdown file
-<!-- .omni-loop/flow/preview-proof.md -->
+```markdown file=.omni-loop/flow/preview-proof.md
 Deploy pull request {pr} to https://pr-{pr}.preview.nimbus.example, at {head}.
 Film the steps of {reproduction} there, against a deploy of {base}, to {out}/before.webm,
 then against the deploy of {head}, to {out}/after.webm.
@@ -210,8 +208,7 @@ End with `omni-hook bug-fix.proof: pass`, or `omni-hook bug-fix.proof: fail <why
 No agent runs when you merge or close the pull request, so nimbus-web's own CI removes the preview
 then. Omni never creates or deletes an environment:
 
-```yaml file
-# .github/workflows/preview-cleanup.yml
+```yaml file=.github/workflows/preview-cleanup.yml
 on:
   pull_request:
     types: [closed]
