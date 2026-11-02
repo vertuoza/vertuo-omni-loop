@@ -59,7 +59,9 @@ A test outside them never runs.
   in `kit/lib/knowledge/check-knowledge.test.ts`, beside BR-PRODUCT-95's proof, which they leave
   untouched (PRD 1796, s1-04). PRD 1798's `get_knowledge_graph` tests do too, in
   `apps/galaxy/src/agent-connect/mcp/server.test.ts`, beside BR-PRODUCT-66's proof, with the
-  tool-listing test counting four tools (PRD 1798, s4-01).
+  tool-listing test counting four tools (PRD 1798, s4-01). PRD 2583's Domains lines do, in
+  `supabase/checks/product_knowledge.sql`, beside BR-PRODUCT-116's proof, whose earlier checks they
+  leave unchanged (PRD 2583, s1-01).
 
 ## Choosing the level
 <!-- slot: levels · optional -->
