@@ -301,6 +301,8 @@ keeps every skill it names calling `omni flow show` there.
 | `do-work.ready` | `/omni:do-work`, before the sub-PR is handed off | ✓ | — | — |
 | `pr.open` | `/omni:pr`, opening a feature, landing or standalone pull request | ✓ | ✓ | the PR's URL as its last line before the verdict |
 | `wave.merge` | `/omni:wave`, `/omni:ultra-wave`, after an `ok` gate | ✓ | ✓ | the merged PR's number in the verdict |
+| `bug-fix.reproduce` | `/omni:bug-fix` step 7 before the reproduction is written, and `/omni:mega-bug-fix` in each target; handed `{issue}`, `{branch}`, `{suspect}`, `{boundary}` | ✓ | — | — |
+| `bug-fix.review` | `/omni:bug-fix` after the guard and before mutation, and `/omni:mega-bug-fix` in each target; handed `{issue}`, `{branch}`, `{base}` | ✓ | — | — |
 | `yolo.ready` | `/omni:yolo`, `/omni:ultra-yolo`, before the feature PR is marked ready | ✓ | — | — |
 
 ### How a point runs
@@ -323,7 +325,7 @@ labels, the PR links, the base check (never into the default branch), the territ
 A hook is a Markdown file of the repository, named by its path from the root. It may open with a
 short front matter (fenced in `---`, or as its first `key: value` lines): `omni-hook: <point>`, the
 `inputs` it reads, its `verdict`. `{name}` in its text is filled with that input: `{prd}`, `{slice}`,
-`{territory}`, `{branch}` at the do-work points, `{base}`, `{head}`, `{title}` at `pr.open`. Its
+`{territory}`, `{branch}` at the do-work points, `{base}`, `{head}`, `{title}` at `pr.open`, `{issue}`, `{branch}`, `{suspect}`, `{boundary}` at `bug-fix.reproduce`, `{issue}`, `{branch}`, `{base}` at `bug-fix.review`. Its
 output ends with `omni-hook <point>: pass` or `omni-hook <point>: fail <why>`.
 
 The loop **fails closed**: a broken `flow`, a missing hook file or a missing verdict stops the point;

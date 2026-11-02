@@ -311,6 +311,15 @@ differs:
   closes the issue. A product run has no issue: it posts nothing, and the hand-off carries the same
   comment's text. The hand-off carries `Outcome: already-fixed`, then `Fixed by: <PR URL>` for the proven
   candidate only, never for a `Maybe:` one.
+- **Points `bug-fix.reproduce` and `bug-fix.review`** fire in each target, as `/omni:bug-fix` fires them
+  (step 7 before the reproduction is written, after step 9 before mutation, which does not run in a
+  target), with that target's own hooks, read from its default branch's committed
+  `.omni-loop/config.yml` as `commands.smoke` is: run
+  `(cd <target worktree> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show bug-fix.reproduce --path <p>)`
+  (and `... flow show bug-fix.review --path <p>`) once per territory path, follow each hook, and end it with `omni flow verdict`
+  run the same way. A target without a committed config has no flow. A failed hook is one line in that
+  target PR's **Reproduction** or **Guard** section, and the fix goes on. A red preflight after a
+  `bug-fix.review` hook counts as an attempt.
 - **Mutation:** the line is `Mutation: not run in a target`.
 - **The PR,** through `/omni:pr --repo <slug>`, a standalone PR into the target's default branch,
   draft until its red and its fix are pushed. Its body starts with `Part of <plan slug>#<n>`
