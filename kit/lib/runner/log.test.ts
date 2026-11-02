@@ -157,6 +157,43 @@ describe('runOutcome of a yolo job (PRD 2375)', () => {
   });
 });
 
+// A yolo job whose PRD waits for approval ends on the line `omni wait approval` printed when it gave up
+// (#2581), then the agent's own words under it: it is held, never stopped mid-way.
+describe('runOutcome of a yolo job held on its approval (#2581)', () => {
+  const prd = parsePrd(2375);
+  const hook = 'SessionEnd hook [node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" heartbeat --end || true] failed: Hook cancelled';
+  const ended = (held: string) => [
+    '10:49:55 Bash: node .omni-loop/bin/omni.mjs wait approval 2375 2>&1; echo "exit=$?"',
+    '10:50:09 Done: ok · 13 turns · $0.57 · 2m 2s',
+    '10:50:09 The run waits for `server unreachable · held, not failed` to clear.',
+    '11:50:11 Bash: node .omni-loop/bin/omni.mjs prd 2375 | head -5',
+    `11:50:11 › ${held}`,
+    '11:50:11 Done: ok · 3 turns · $0.85 · 15s',
+    `11:50:11 ${held}`,
+    '11:50:11 ',
+    '11:50:11 Nothing was built. Once Ada or Lin approves the PRD on its page, run `/omni:yolo 2375` again.',
+    hook,
+    '',
+  ].join('\n');
+
+  it.each([
+    'held: still waiting for Ada or Lin after 60 min',
+    'no sign-in (omni signin) · held',
+    'server unreachable · held, not failed',
+  ])('is held when its last answer says %s', (held) => {
+    expect(runOutcome(ended(held), prd, 'yolo')).toBe('held');
+  });
+
+  it('is stopped when the held line came in an earlier answer and the run went on', () => {
+    const log = `${ended('held: still waiting for Ada or Lin after 60 min')}12:10:00 Bash: omni board 2375\n12:30:00 Done: ok · 40 turns\n12:30:00 Built one slice of three.\n`;
+    expect(runOutcome(log, prd, 'yolo')).toBe('stopped');
+  });
+
+  it('is stopped when the last answer only quotes a held line in its words', () => {
+    expect(runOutcome('Done: ok\nThe wait printed `server unreachable · held, not failed`, then went on.\n', prd, 'yolo')).toBe('stopped');
+  });
+});
+
 // What a bug fix's log says of how it ended (PRD 2425, s2): its `Outcome:` line, the `Fixed by:` line of the
 // pull request it proved, and every `PR:` line, whichever repository it names.
 describe('bugFixReading (PRD 2425)', () => {
