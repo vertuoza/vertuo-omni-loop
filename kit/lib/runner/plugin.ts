@@ -15,9 +15,10 @@
 // The runner prints a line only when the version changed (`omni plugin v<x> → v<y>`) or an update
 // failed (`omni plugin update failed: <its last line>`). Nothing here throws.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { z } from 'zod';
+import { skillCopy } from '../agents/write.ts';
 import type { ExecText } from '../context.ts';
 import { MARKETPLACE, PLUGIN } from '../init/steps.ts';
 import { propertyOf } from '../narrow.ts';
@@ -89,6 +90,101 @@ export function readPlugin(exec: ExecText): PluginRead {
   if (entries.length === 0) return { kind: 'missing' };
   const version = versionOfEntries(entries.flatMap((entry) => (entry === null ? [] : [entry])));
   return version === null ? { kind: 'unread', why: `${OMNI_PLUGIN_ID} has no version in claude plugin list` } : { kind: 'version', version };
+}
+
+// The kit's skills for Codex and OpenCode instances (PRD 2537, s5). Those agents do not read the
+// Claude plugin; before a job on one, the runner writes the kit's skills, of the omni the job's
+// repository pins, in the instance's own skills folder (`<CODEX_HOME>/skills/omni-*`, OpenCode's
+// global `skills` folder). Never in the worktree: no skill file can enter the job's pull request. An
+// instance whose agent reads no skills folder outside the repository, whose folder would lie in the
+// worktree, or whose runner's omni is older than the repository's, is `unusable · no skills`.
+
+/** What an account reads as unusable when its agent cannot get the kit's skills. */
+const NO_SKILLS = 'no skills';
+
+/** The marker a skills folder keeps: which `omni-*` folders the runner owns there, and the version they were written at. */
+const SKILLS_MARKER = '.omni-runner-skills.json';
+
+/** Where an instance lives: its agent, its own home folder (`null`: the agent's default under `home`). */
+export type InstanceHome = { agent: string; dir: string | null; home: string };
+
+/** The skills folder of an instance, `null` for an agent that reads none outside the repository. */
+function instanceSkillsDir({ agent, dir, home }: InstanceHome): string | null {
+  if (agent === 'codex') return join(dir ?? join(home, '.codex'), 'skills');
+  if (agent === 'opencode') return join(dir ?? join(home, '.config', 'opencode'), 'skills');
+  return null;
+}
+
+/** Whether `path` is `parent` or lies inside it. */
+function inside(parent: string, path: string): boolean {
+  const rel = relative(resolve(parent), resolve(path));
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+/** The kit's skill files as `{ <omni-name/file>: text }`; a `SKILL.md` carries the name `omni-<name>`. */
+function renamedSkills(skills: Record<string, string>, version: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [path, text] of Object.entries(skills)) {
+    const [, name, rest] = /^([^/]+)\/(.+)$/.exec(path) ?? [];
+    if (name === undefined || rest === undefined) continue;
+    out.set(`omni-${name}/${rest}`, rest === 'SKILL.md' ? skillCopy(name, text, version) : text);
+  }
+  return out;
+}
+
+/** The `omni-*` folders the marker of `dir` names; none for a missing or unreadable marker. */
+function ownedFolders(dir: string): string[] {
+  try {
+    const kept: unknown = JSON.parse(readFileSync(join(dir, SKILLS_MARKER), 'utf8'));
+    const folders = propertyOf(kept, 'folders');
+    return Array.isArray(folders) ? folders.filter((folder): folder is string => typeof folder === 'string' && /^omni-[A-Za-z0-9][A-Za-z0-9._-]*$/.test(folder)) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Writes `text` at `file` whole: another job reading the folder never sees half a file. */
+function writeWhole(file: string, text: string): void {
+  mkdirSync(dirname(file), { recursive: true });
+  const part = `${file}.${String(process.pid)}.part`;
+  writeFileSync(part, text);
+  renameSync(part, file);
+}
+
+/** The result of preparing an instance's skills: ready at `ready` (a version), or unusable with its reason. */
+export type InstanceSkills = { readonly ready: string } | { readonly unusable: string };
+
+/**
+ * Writes the kit's skills in the instance's folder at the version `worktree` pins. `running` is the
+ * runner's own kit, whose `skills` are written: as new as the repository's omni, or the account reads
+ * `no skills`. Throws nothing; a folder that cannot be written is `no skills` too.
+ */
+export function prepareInstanceSkills({ instance, worktree, running, bundle, skills }: {
+  instance: InstanceHome;
+  worktree: string;
+  running: { version: string | null };
+  bundle: string | null;
+  skills: Record<string, string>;
+}): InstanceSkills {
+  const dir = instanceSkillsDir(instance);
+  if (dir === null || inside(worktree, dir)) return { unusable: NO_SKILLS };
+  const pinned = pinnedOmni({ root: worktree, running, bundle });
+  const version = running.version;
+  if (pinned !== null && (version === null || compareVersions(version, pinned) < 0)) return { unusable: `${NO_SKILLS}: the runner's omni is older than the repository's v${pinned}` };
+  const label = version ?? '(unversioned)';
+  try {
+    const files = renamedSkills(skills, label);
+    const folders = new Set([...files.keys()].map((path) => path.slice(0, path.indexOf('/'))));
+    for (const old of ownedFolders(dir)) if (!folders.has(old)) rmSync(join(dir, old), { recursive: true, force: true });
+    for (const [path, text] of files) {
+      const file = join(dir, path);
+      if (!existsSync(file) || readFileSync(file, 'utf8') !== text) writeWhole(file, text);
+    }
+    writeWhole(join(dir, SKILLS_MARKER), `${JSON.stringify({ version: label, folders: [...folders].sort() }, null, 2)}\n`);
+  } catch {
+    return { unusable: NO_SKILLS };
+  }
+  return { ready: label };
 }
 
 /** What a job is told before it starts: the reason it fails, or the line its log starts with (`null` for none). */

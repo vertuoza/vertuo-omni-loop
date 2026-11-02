@@ -180,7 +180,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     job.workspace_id === runner.workspace_id && job.status === 'queued' && !job.cancel_requested && runner.repos.includes(job.repo);
   // …sent to it, to its fleet, or, for a runner with no fleet only, to any runner.
   const addressed = (runner: RunnerRow, job: JobRow) => (job.to_runner === null ? job.to_fleet === runner.fleet : job.to_runner === runner.id);
-  // …and only a runner that registered `githubApp` claims a job at all (supabase/migrations/20270106090000_runner_claim_omni_app.sql).
+  // …and only a runner that registered `githubApp` claims a job at all (supabase/migrations/20270107090000_runner_claim_omni_app.sql).
   const may = (runner: RunnerRow, job: JobRow) => runner.github_app && takeable(runner, job) && addressed(runner, job);
   // Why runner_job_answer() and runner_job_dismiss() refuse before they change anything: no row, a closed row or a
   // job that is not waiting, then who may close it…

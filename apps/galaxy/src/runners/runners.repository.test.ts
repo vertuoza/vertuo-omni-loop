@@ -99,6 +99,16 @@ describe('the rows', () => {
     expect(await repository.job('j2')).toMatchObject({ follow_ups: [] });
   });
 
+  it("read a job's parts with the row, selecting the column, and a list out of shape as none (PRD 2537)", async () => {
+    const parts = [{ agent: 'claude', model: 'claude-opus-5-5', account: 'claude-1', from: '2026-10-27T13:41:02.000Z', to: null, ended: null }];
+    const crooked = { ...jobRow({ status: 'running' }), parts: [{ agent: 'claude' }] };
+    const { db, lines } = fakeDb([{ data: jobRow({ status: 'running', parts }), error: null }, { data: crooked, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.job('j1')).toMatchObject({ parts });
+    expect(lines[0]).toContain('parts');
+    expect(await repository.job('j2')).toMatchObject({ parts: null });
+  });
+
   it('read what a bug fix reported and what a key did with the row, selecting the columns, and a value out of shape as none (PRD 2425)', async () => {
     const proved = 'https://github.com/demo-org/app/pull/512';
     const job = jobRow({ status: 'done', outcome: 'already-fixed', fixed_by: proved, prs: ['https://github.com/demo-org/app/pull/549'], acting_for: 'Jane D.', cancelled_by_key: 'k1', cancelled_for: 'Sam' });

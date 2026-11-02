@@ -1,0 +1,27 @@
+{
+  "projectSettingsFolded": true,
+  "idleCompaction": "onReturn",
+  "providerInstances": {
+    "claude-b": {
+      "driver": "claudeAgent",
+      "displayName": "Claude B",
+      "enabled": true,
+      "config": {
+        "homePath": "~/.claude-b"
+      }
+    },
+    "codex-1": {
+      "driver": "codex",
+      "displayName": "Codex 1",
+      "enabled": true
+    },
+    "opencode": {
+      "driver": "opencode",
+      "enabled": true
+    },
+    "claude-off": {
+      "driver": "claudeAgent",
+      "enabled": false
+    }
+  }
+}
