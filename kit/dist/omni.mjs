@@ -29620,7 +29620,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     /** PRD 2417: the tech playbook of the settings repository of the workspace `repo` (owner/name) belongs to, as the
      * caller; `../omni-settings/schema.ts` shapes the answer, and `../omni-settings/sync.ts` reads it. */
     readOmniSettings: (repo) => call("GET", `/api/omni-settings/playbook?${new URLSearchParams({ repo })}`),
-    /** PRD 2268: adds or edits one Legal entry or Glossary term of the product `repo` belongs to (`product`, when
+    /** PRD 2268: adds or edits one Legal entry, Glossary term or domain (PRD 2583) of the product `repo` belongs to (`product`, when
      * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
      * `entry` names the item an edit changes, by the id or term the reads print.
      * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
@@ -40473,7 +40473,8 @@ import { readFileSync as readFileSync43, writeFileSync as writeFileSync23 } from
 import { join as join52 } from "node:path";
 var PRODUCT_KNOWLEDGE_FILE = join52(LOCAL_DIR, "product-knowledge.json");
 var LegalSchema = external_exports.object({ id: external_exports.string().min(1), statement: external_exports.string(), source: external_exports.string(), owner: external_exports.string() });
-var TermSchema = external_exports.object({ term: external_exports.string().min(1), meaning: external_exports.string(), avoid: external_exports.array(external_exports.string()) });
+var TermSchema = external_exports.object({ term: external_exports.string().min(1), meaning: external_exports.string(), avoid: external_exports.array(external_exports.string()) }).extend({ domains: external_exports.array(external_exports.string()).optional() });
+var DomainSchema = external_exports.object({ key: external_exports.string().min(1), name: external_exports.string(), meaning: external_exports.string() });
 var PersonaSchema = external_exports.object({ name: external_exports.string().min(1), stance: external_exports.string() });
 var ReplySchema = external_exports.object({
   state: external_exports.string().optional(),
@@ -40481,7 +40482,9 @@ var ReplySchema = external_exports.object({
   legal: external_exports.array(LegalSchema).optional(),
   glossary: external_exports.array(TermSchema).optional(),
   // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
-  personas: external_exports.array(external_exports.unknown()).optional()
+  personas: external_exports.array(external_exports.unknown()).optional(),
+  // Like a persona, a domain out of shape is left out, never a refusal.
+  domains: external_exports.array(external_exports.unknown()).optional()
 });
 var CopySchema2 = external_exports.object({
   product: external_exports.string(),
@@ -40489,7 +40492,9 @@ var CopySchema2 = external_exports.object({
   legal: external_exports.array(LegalSchema),
   glossary: external_exports.array(TermSchema),
   // A copy from before PRD 2299 has none: it still reads, with no persona.
-  personas: external_exports.array(PersonaSchema).default([])
+  personas: external_exports.array(PersonaSchema).default([]),
+  // A copy from before PRD 2583 has none: it still reads, with no domains.
+  domains: external_exports.array(DomainSchema).optional()
 });
 var archivedLine = (name3) => `product ${name3} is archived: an owner restores it on its page`;
 var KnowledgeStop = class extends Error {
@@ -40507,14 +40512,18 @@ function knowledgeOfReply(reply, repo) {
     const issue2 = parsed2.error.issues[0];
     throw new KnowledgeStop("refused", `the Omni page answered no product knowledge for ${repo}: ${issue2 ? `${issue2.path.join(".")} ${issue2.message}` : "out of shape"}`);
   }
-  const { state, product: product2, legal = [], glossary = [], personas = [] } = parsed2.data;
+  const { state, product: product2, legal = [], glossary = [], personas = [], domains } = parsed2.data;
   if (state === "archived" && product2) throw new KnowledgeStop("archived", archivedLine(product2.name));
   if (!product2) throw new KnowledgeStop("none", `no product knowledge: ${repo} belongs to no product on the Omni page`);
   const kept2 = personas.flatMap((one) => {
     const persona = PersonaSchema.safeParse(one);
     return persona.success ? [{ name: persona.data.name, stance: persona.data.stance }] : [];
   });
-  return { product: product2.name, legal, glossary, personas: kept2 };
+  const listed2 = domains?.flatMap((one) => {
+    const domain2 = DomainSchema.safeParse(one);
+    return domain2.success ? [domain2.data] : [];
+  });
+  return { product: product2.name, legal, glossary, personas: kept2, ...listed2 === void 0 ? {} : { domains: listed2 } };
 }
 function readCopy2(root) {
   let value;
@@ -40566,7 +40575,9 @@ function unreachableLine(readAt) {
   return `last read ${readAt.slice(0, 10)}: the Omni page is unreachable`;
 }
 var legalLines = (legal) => legal.map(({ id, statement: statement2, source: source2, owner }) => `${id}  ${statement2}  (source: ${source2}; owner: @${owner})`);
-var glossaryLines = (glossary) => glossary.map(({ term, meaning, avoid }) => `${term}: ${meaning}  (avoid: ${avoid.length > 0 ? avoid.join(", ") : "none"})`);
+var glossaryLines = (glossary) => glossary.map(({ term, meaning, avoid, domains = [] }) => `${term}: ${meaning}  (avoid: ${avoid.length > 0 ? avoid.join(", ") : "none"})${domains.length > 0 ? `  (domains: ${domains.join(", ")})` : ""}`);
+var NO_DOMAINS_LINE = "the product lists no domains yet";
+var domainLines = (domains) => domains.length === 0 ? [NO_DOMAINS_LINE] : domains.map(({ key: key2, name: name3, meaning }) => `${key2}  ${name3}: ${meaning}`);
 
 // kit/bin/commands/business.ts
 var CLAIM_USAGE = "usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>";
@@ -50014,10 +50025,10 @@ var ENTRIES = deepFreeze([
     name: "kb",
     kind: "command",
     who: "you",
-    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--product <name>] [--json]", "omni kb init"],
+    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb init"],
     label: "omni kb show <form>",
     summary: "one form of the playbook",
-    detail: "The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal; init lays down every missing form, blank, and changes no file that exists."
+    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. init lays down every missing form, blank, and changes no file that exists.`
   },
   {
     name: "knowledge",
@@ -53883,18 +53894,21 @@ function targetsTable(rows2) {
 init_define_OMNI_BUNDLE();
 var USAGE27 = {
   legal: 'usage: omni kb legal add --code <CODE> --statement "<text>" --source "<law>" [--product <name>] [--json] | omni kb legal edit <id> [--statement "<text>"] [--source "<law>"] [--product <name>] [--json]',
-  glossary: 'usage: omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>] [--product <name>] [--json] | omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>] [--product <name>] [--json]'
+  glossary: `usage: omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>] [--domain <a,b>] [--product <name>] [--json] | omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>] [--domain <a,b>|''] [--product <name>] [--json]`,
+  domains: 'usage: omni kb domains add --key <key> --name "<name>" --meaning "<text>" [--product <name>] [--json] | omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"] [--product <name>] [--json]'
 };
-var REQUIRED3 = { legal: ["code", "statement", "source"], glossary: ["term", "meaning"] };
-var ADDABLE = { legal: REQUIRED3.legal, glossary: ["term", "meaning", "avoid"] };
-var EDITABLE = { legal: ["statement", "source"], glossary: ["meaning", "avoid"] };
+var REQUIRED3 = { legal: ["code", "statement", "source"], glossary: ["term", "meaning"], domains: ["key", "name", "meaning"] };
+var ADDABLE = { legal: REQUIRED3.legal, glossary: ["term", "meaning", "avoid", "domain"], domains: REQUIRED3.domains };
+var EDITABLE = { legal: ["statement", "source"], glossary: ["meaning", "avoid", "domain"], domains: ["name", "meaning"] };
 var textOf6 = (value) => typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 var wordsOf2 = (value) => value.split(",").map((word2) => word2.trim()).filter(Boolean);
+var LISTS = { avoid: "avoid", domain: "domains" };
 function fieldsOf2(names, flags) {
   const given = names.map((name3) => {
     const raw = flags[name3];
-    if (name3 !== "avoid") return [name3, textOf6(raw)];
-    return [name3, typeof raw === "string" ? wordsOf2(raw) : null];
+    const list5 = LISTS[name3];
+    if (list5 === void 0) return [name3, textOf6(raw)];
+    return [list5, typeof raw === "string" ? wordsOf2(raw) : null];
   });
   return Object.fromEntries(given.filter(([, value]) => value !== null));
 }
@@ -53973,7 +53987,7 @@ var PACK_USAGE = "usage: omni kb pack get <repo> [--read-at <commit>]";
 var GRAPH_USAGE = "usage: omni kb graph [<id> | --paths <file>[,<file>\u2026] [<file>\u2026]] [--depth <1-3>] [--json]";
 var GRAPH_PRODUCT_USAGE = "usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]";
 var GRAPH_PUSH_USAGE = "usage: omni kb graph push";
-var USAGE28 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit \u2026] | omni kb glossary [add|edit \u2026] | omni kb index [--json]`;
+var USAGE28 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit \u2026] | omni kb glossary [add|edit \u2026] | omni kb domains [add|edit \u2026] | omni kb index [--json]`;
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -54071,12 +54085,16 @@ function columns2({ principles, rules, invariants, laws: laws2, proposed }) {
     `${count2(laws2, "law", "laws")} \xB7 ${proposed} proposed`
   ];
 }
+var OFF_THE_LIST = "not on the product's list";
 var pairOf = (entry3) => entry3.domains.length === 2 ? entry3.domains.join("--") : entry3.file;
-function graphText({ domains, entries: entries4, links: links2, loose, unserved }) {
+function graphText({ domains, entries: entries4, links: links2, loose, unserved }, listed2) {
   const pairs = /* @__PURE__ */ new Map();
   for (const entry3 of entries4.filter((one) => one.domain === null)) pairs.set(pairOf(entry3), [...pairs.get(pairOf(entry3)) ?? [], entry3]);
   const rows2 = [
-    ...domains.map(({ name: name3, counts: counts2 }) => [name3, ...columns2(counts2)]),
+    ...domains.map(({ name: name3, counts: counts2, scope }) => {
+      const [kinds, status5] = columns2(counts2);
+      return [name3, kinds, listed2 !== null && listed2.size > 0 && scope === "domain" && !listed2.has(name3) ? `${status5} \xB7 ${OFF_THE_LIST}` : status5];
+    }),
     ...[...pairs].map(([name3, held2]) => [name3, ...columns2(countsOf(held2))])
   ];
   const nameWidth = Math.max(0, ...rows2.map(([name3]) => name3.length));
@@ -54085,6 +54103,7 @@ function graphText({ domains, entries: entries4, links: links2, loose, unserved 
   return [
     `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries4.length, "entry", "entries")}, ${count2(links2.length, "link", "links")}`,
     ...rows2.map(([name3, kinds, status5]) => `  ${name3.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status5}`),
+    ...listed2 !== null && listed2.size === 0 ? [`  ${NO_DOMAINS_LINE}`] : [],
     ids2("unserved principles", unserved),
     ids2("loose entries", loose)
   ].join("\n");
@@ -54100,8 +54119,12 @@ function graph(args, io) {
   if (start4 !== void 0) return neighbourhoodOf({ ids: [start4] }, depth, flags, io);
   if (flags.depth !== void 0) throw usageError(GRAPH_USAGE);
   const built = readGraph({ ctx });
-  println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built, listedDomains(ctx)));
   return 0;
+}
+function listedDomains(ctx) {
+  const cache = readCachedKnowledge(ctx.root);
+  return cache.state === "cached" ? new Set((cache.domains ?? []).map(({ key: key2 }) => key2)) : null;
 }
 function pathsStart(flags, positional) {
   const files = [...(flags.paths ?? "").split(","), ...positional].map((path) => path.trim()).filter(Boolean);
@@ -54300,6 +54323,12 @@ function reachOf(ctx, options) {
   const client = signedInClient({ askUrl: askUrl2, tokens: options.tokens, home: options.home, fetch: options.fetch ?? globalThis.fetch, callMs: options.callMs });
   return client === null ? `no product knowledge: no sign-in for ${credentialsHost(askUrl2)} (omni signin)` : { repo, client };
 }
+var PRODUCT_LINES = {
+  legal: (read3) => legalLines(read3.legal),
+  glossary: (read3) => glossaryLines(read3.glossary),
+  domains: (read3) => domainLines(read3.domains ?? [])
+};
+var isProductVerb = (sub) => sub !== void 0 && Object.hasOwn(PRODUCT_LINES, sub);
 async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cwd) {
   if (positional.length > 0) throw usageError(`usage: omni kb ${verb2}`);
   const refuse7 = (line2) => {
@@ -54317,7 +54346,7 @@ async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cw
       fetchBusiness: () => client.readBusiness(repo)
     });
     if (read3.from === "copy") println(stdout, unreachableLine(read3.readAt));
-    for (const line2 of verb2 === "legal" ? legalLines(read3.legal) : glossaryLines(read3.glossary)) println(stdout, line2);
+    for (const line2 of PRODUCT_LINES[verb2](read3)) println(stdout, line2);
     return 0;
   } catch (error62) {
     return refuse7(messageOf(error62));
@@ -54422,7 +54451,7 @@ var kb2 = {
     if (sub === "pack") return pack(rest, full);
     if (sub === "graph" && rest[0] === "push") return graphPush(rest.slice(1), full);
     if (sub === "graph" && rest.includes("--product")) return graphProduct(rest, full);
-    if (sub === "legal" || sub === "glossary") return productCommand(sub, rest, { ...full, vars: io.vars }, io);
+    if (isProductVerb(sub)) return productCommand(sub, rest, { ...full, vars: io.vars }, io);
     return basic(args, full);
   }
 };

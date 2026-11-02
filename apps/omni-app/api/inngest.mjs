@@ -5109,7 +5109,8 @@ var SHOTS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 // kit/lib/product/knowledge.ts
 var PRODUCT_KNOWLEDGE_FILE = join13(LOCAL_DIR, "product-knowledge.json");
 var LegalSchema2 = z19.object({ id: z19.string().min(1), statement: z19.string(), source: z19.string(), owner: z19.string() });
-var TermSchema = z19.object({ term: z19.string().min(1), meaning: z19.string(), avoid: z19.array(z19.string()) });
+var TermSchema = z19.object({ term: z19.string().min(1), meaning: z19.string(), avoid: z19.array(z19.string()) }).extend({ domains: z19.array(z19.string()).optional() });
+var DomainSchema = z19.object({ key: z19.string().min(1), name: z19.string(), meaning: z19.string() });
 var PersonaSchema2 = z19.object({ name: z19.string().min(1), stance: z19.string() });
 var ReplySchema = z19.object({
   state: z19.string().optional(),
@@ -5117,7 +5118,9 @@ var ReplySchema = z19.object({
   legal: z19.array(LegalSchema2).optional(),
   glossary: z19.array(TermSchema).optional(),
   // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
-  personas: z19.array(z19.unknown()).optional()
+  personas: z19.array(z19.unknown()).optional(),
+  // Like a persona, a domain out of shape is left out, never a refusal.
+  domains: z19.array(z19.unknown()).optional()
 });
 var CopySchema = z19.object({
   product: z19.string(),
@@ -5125,7 +5128,9 @@ var CopySchema = z19.object({
   legal: z19.array(LegalSchema2),
   glossary: z19.array(TermSchema),
   // A copy from before PRD 2299 has none: it still reads, with no persona.
-  personas: z19.array(PersonaSchema2).default([])
+  personas: z19.array(PersonaSchema2).default([]),
+  // A copy from before PRD 2583 has none: it still reads, with no domains.
+  domains: z19.array(DomainSchema).optional()
 });
 
 // kit/lib/design/words/product.ts
