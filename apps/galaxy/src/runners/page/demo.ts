@@ -28,7 +28,7 @@ const FLEETS: Fleet[] =[{ name: 'comets', label: 'Comets' }, { name: 'nebula', l
 export function demoRunnersPage(now: Date): RunnersPageView {
   const at = (minutes: number) => new Date(now.getTime() + minutes * MIN).toISOString();
   const runner = (over: Partial<Runner> & Pick<Runner, 'id' | 'name' | 'state'>): Runner => ({
-    owner: YOU, fleet: null, slots: 2, used: 0, repos: ['acme/widgets'], version: '0.0.388', lastSeenAt: at(0), ...over,
+    owner: YOU, fleet: null, slots: 2, used: 0, repos: ['acme/widgets'], version: '0.0.388', lastSeenAt: at(0), githubApp: true, ...over,
   });
   const GB = 1024 ** 3;
   const LIMITS = { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 };
