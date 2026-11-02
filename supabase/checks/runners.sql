@@ -30,10 +30,12 @@ insert into public.teams (workspace_id, name, label, color) values
 
 -- Three runners of Olga's: a shared one with one slot, one of the fleet cia, and one that holds
 -- another repository only.
-insert into public.runners (id, workspace_id, owner, name, fleet, slots, repos) values
-  ('00000000-0000-4000-8000-0000018301a1', '00000000-0000-4000-8000-000001830001', '00000000-0000-4000-8000-0000018300a1', 'shared', null, 1, '{runners-check/app}'),
-  ('00000000-0000-4000-8000-0000018301b1', '00000000-0000-4000-8000-000001830001', '00000000-0000-4000-8000-0000018300a1', 'cia-box', 'cia', 4, '{runners-check/app}'),
-  ('00000000-0000-4000-8000-0000018301c1', '00000000-0000-4000-8000-000001830001', '00000000-0000-4000-8000-0000018300a1', 'other', null, 4, '{runners-check/other}');
+insert into public.runners (id, workspace_id, owner, name, fleet, slots, repos, github_app) values
+  ('00000000-0000-4000-8000-0000018301a1', '00000000-0000-4000-8000-000001830001', '00000000-0000-4000-8000-0000018300a1', 'shared', null, 1, '{runners-check/app}', true),
+  ('00000000-0000-4000-8000-0000018301b1', '00000000-0000-4000-8000-000001830001', '00000000-0000-4000-8000-0000018300a1', 'cia-box', 'cia', 4, '{runners-check/app}', true),
+  ('00000000-0000-4000-8000-0000018301c1', '00000000-0000-4000-8000-000001830001', '00000000-0000-4000-8000-0000018300a1', 'other', null, 4, '{runners-check/other}', true),
+  -- An old kit: registered without github_app, so it claims nothing, whatever it holds.
+  ('00000000-0000-4000-8000-0000018301d1', '00000000-0000-4000-8000-000001830001', '00000000-0000-4000-8000-0000018300a1', 'old-kit', null, 4, '{runners-check/app}', false);
 
 -- Queued in this order: to any runner, to the fleet cia, to the runner `other` on a repository it
 -- does not hold, to the fleet pirates, and a second one to any runner.
@@ -64,8 +66,8 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000018300b1');
 do $$
 begin
-  if (select count(*) from public.runners where workspace_id = '00000000-0000-4000-8000-000001830001') <> 3 then
-    raise exception 'FAIL: a member did not read the workspace''s three runners';
+  if (select count(*) from public.runners where workspace_id = '00000000-0000-4000-8000-000001830001') <> 4 then
+    raise exception 'FAIL: a member did not read the workspace''s four runners';
   end if;
   if (select count(*) from public.runner_jobs where workspace_id = '00000000-0000-4000-8000-000001830001') <> 5 then
     raise exception 'FAIL: a member did not read the workspace''s five jobs';
@@ -130,6 +132,18 @@ begin
   if exists (select 1 from public.runner_claim(shared)) then
     raise exception 'FAIL: a runner with no free slot claimed a job';
   end if;
+  -- A runner registered without github_app (an old kit) claims nothing, though it is free and holds the repository
+  -- and a job sits in the queue for it (PRD 2573); once it registers github_app it claims as any runner.
+  if exists (select 1 from public.runner_claim('00000000-0000-4000-8000-0000018301d1')) then
+    raise exception 'FAIL: a runner without github_app claimed a job';
+  end if;
+  update public.runners set github_app = true where id = '00000000-0000-4000-8000-0000018301d1';
+  select * into got from public.runner_claim('00000000-0000-4000-8000-0000018301d1');
+  if got.id is distinct from '00000000-0000-4000-8000-0000018302e1' then
+    raise exception 'FAIL: the runner with github_app claimed %, not the queued job', got.id;
+  end if;
+  update public.runner_jobs set status = 'queued', runner_id = null, claimed_at = null where id = got.id;
+  update public.runners set github_app = false where id = '00000000-0000-4000-8000-0000018301d1';
   -- An unknown runner claims nothing.
   if exists (select 1 from public.runner_claim('00000000-0000-4000-8000-000001830fff')) then
     raise exception 'FAIL: an unknown runner claimed a job';
@@ -174,9 +188,9 @@ declare
     insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000018303a1', 'race@runners.test');
     insert into public.workspaces (id, slug, name, github_org) values ('00000000-0000-4000-8000-000001830003', 'runners-race', 'Race', 'runners-race');
     insert into public.workspace_members (workspace_id, user_id, role) values ('00000000-0000-4000-8000-000001830003', '00000000-0000-4000-8000-0000018303a1', 'owner');
-    insert into public.runners (id, workspace_id, owner, name, repos) values
-      ('00000000-0000-4000-8000-0000018303b1', '00000000-0000-4000-8000-000001830003', '00000000-0000-4000-8000-0000018303a1', 'one', '{runners-race/app}'),
-      ('00000000-0000-4000-8000-0000018303b2', '00000000-0000-4000-8000-000001830003', '00000000-0000-4000-8000-0000018303a1', 'two', '{runners-race/app}');
+    insert into public.runners (id, workspace_id, owner, name, repos, github_app) values
+      ('00000000-0000-4000-8000-0000018303b1', '00000000-0000-4000-8000-000001830003', '00000000-0000-4000-8000-0000018303a1', 'one', '{runners-race/app}', true),
+      ('00000000-0000-4000-8000-0000018303b2', '00000000-0000-4000-8000-000001830003', '00000000-0000-4000-8000-0000018303a1', 'two', '{runners-race/app}', true);
     insert into public.runner_jobs (id, workspace_id, line, repo, sent_by) values
       ('00000000-0000-4000-8000-0000018303c1', '00000000-0000-4000-8000-000001830003', '/omni:yolo 1', 'runners-race/app', '00000000-0000-4000-8000-0000018303a1');
   $s$;

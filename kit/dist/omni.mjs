@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.566" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.568" };
   }
 });
 
@@ -64952,7 +64952,7 @@ function cleanUp(loop2, job2, place) {
 }
 var WAIT_FOR_AGENTS = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "0" };
 function asApp(loop2, job2) {
-  if (job2.github === null) return { env: {} };
+  if (job2.github === null) return { failed: "github app: the job came without its App" };
   const file2 = githubTokenFile(loop2.home, job2.id);
   if (loop2.githubToken === void 0 || file2 === null) return { failed: "github app: this runner cannot give the job its token" };
   try {

@@ -156,14 +156,14 @@ export function couldTake(job: Pick<Job, 'toRunner' | 'toFleet' | 'repo'>, runne
 
 /** Why a queued job can never be taken (the first reason that applies), or null: the job is not queued, or a runner could take it. */
 export function cannotRunReason(
-  job: Pick<Job, 'status' | 'toRunner' | 'toFleet' | 'repo' | 'sentByKey'> & { needsApp?: Job['needsApp'] },
+  job: Pick<Job, 'status' | 'toRunner' | 'toFleet' | 'repo'>,
   runners: readonly (Pick<Runner, 'id' | 'name' | 'fleet' | 'repos'> & { githubApp?: Runner['githubApp'] })[],
   fleets: readonly Fleet[],
 ): string | null {
   if (job.status !== 'queued') return null;
   const able = runners.filter((runner) => couldTake(job, runner));
-  // The third rule of runner_claim() (PRD 2482 s2): a job that needs its key's GitHub App goes only to a runner that registered it can run one.
-  if (able.length > 0) return job.needsApp === true && !able.some((runner) => runner.githubApp === true) ? `No runner can run it as ${job.sentByKey ?? 'its key'}'s GitHub App` : null;
+  // The first rule of runner_claim() (PRD 2573): every job runs as the Omni App, so a runner that did not register `githubApp` (an older kit) takes none.
+  if (able.length > 0) return able.some((runner) => runner.githubApp === true) ? null : "Update the runner's kit";
   if (job.toRunner !== null) {
     const sent = runners.find((runner) => runner.id === job.toRunner);
     return sent === undefined ? 'The runner it was sent to is gone' : `${sent.name} does not hold ${job.repo}`;
