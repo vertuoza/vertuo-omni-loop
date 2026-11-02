@@ -164,12 +164,12 @@ describe('the Omni App\'s bot', () => {
 });
 
 describe('what the runner did not register', () => {
-  it('a job the key\'s App marked waits queued for a runner that registered the App, and the person\'s job behind it runs as the Omni App', async () => {
+  it('takes no job at all, a key\'s or a person\'s, and both wait queued (PRD 2573)', async () => {
     const waiting = keyJob({ queued_at: new Date(T0.getTime() - 60_000).toISOString() });
     const person = personJob();
     const w = world({ jobs: [waiting, person], runners: [PLAIN_RUNNER] });
-    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ id: person.id, github: { token: TOKEN, ...BOT } });
-    expect(w.state.jobs.find((job) => job.id === waiting.id)?.status).toBe('queued');
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+    expect(w.state.jobs.map((job) => job.status)).toEqual(['queued', 'queued']);
   });
 
   it('never takes a job queued while its key held an App, though the key holds none now', async () => {
@@ -401,7 +401,7 @@ describe('a job that carries a key\'s job on runs as the Omni App (PRD 2425, PRD
 
   it('marks none when the key holds no App when the resume is queued, and the resume runs as the Omni App', async () => {
     const job = ended({ outcome: 'human' });
-    const w = world({ jobs: [job], keys: [{ id: API_KEY, app: null, working: true }], runners: [PLAIN_RUNNER], questions: [questionsRow({ job_id: job.id })] });
+    const w = world({ jobs: [job], keys: [{ id: API_KEY, app: null, working: true }], runners: [APP_RUNNER], questions: [questionsRow({ job_id: job.id })] });
     const resume = value(await w.service.answerByKey(OTHER, job.id, ANSWERS));
     expect(w.state.needsApp.has(resume.id)).toBe(false);
     expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ id: resume.id, github: { token: TOKEN, ...BOT } });

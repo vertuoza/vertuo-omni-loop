@@ -383,7 +383,7 @@ describe('registering', () => {
     const elsewhere = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
     const queued = jobRow();
     const w = world({ jobs: [starting, running, elsewhere, queued], start: at(10) });
-    value(await w.service.register(OLGA, { name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1' }));
+    value(await w.service.register(OLGA, { name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1', githubApp: true }));
     expect(w.state.jobs.map((j) => [j.status, j.reason])).toEqual([['failed', 'runner lost'], ['failed', 'runner lost'], ['running', null], ['queued', null]]);
     expect(value(await w.service.next(OLGA, SHARED))?.id).toBe(queued.id);
   });

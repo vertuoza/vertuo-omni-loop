@@ -294,7 +294,7 @@ describe('a job stopped mid-way (PRD 2375)', () => {
 
 // A queued job no runner can take reads Cannot run (PRD 2482 s1): the rules of runner_claim() that need no runner state.
 describe('cannotRunReason', () => {
-  const runner = (id: string, name: string, fleet: string | null, repos: string[], githubApp?: boolean) => ({ id, name, fleet, repos, ...(githubApp === undefined ? {} : { githubApp }) });
+  const runner = (id: string, name: string, fleet: string | null, repos: string[], githubApp = true) => ({ id, name, fleet, repos, githubApp });
   const fleets = [{ name: 'comets', label: 'Comets' }];
   const queued = { status: 'queued' as const, toRunner: null, toFleet: null, repo: 'acme/widgets', sentByKey: 'QA dashboard' };
   const holds = ['acme/widgets'];
@@ -327,24 +327,20 @@ describe('cannotRunReason', () => {
     expect(cannotRunReason(queued, [], fleets)).toBe('No runner holds acme/widgets');
   });
 
-  // PRD 2482 s2: the third rule of runner_claim().
-  it('says no runner can run it as the key\'s GitHub App, when runners of its target hold the repository and none registered an App', () => {
-    const needs = { ...queued, needsApp: true };
-    const words = "No runner can run it as QA dashboard's GitHub App";
-    expect(cannotRunReason(needs, [runner('a', 'ada', null, holds, false)], fleets)).toBe(words);
-    expect(cannotRunReason(needs, [runner('a', 'ada', null, holds)], fleets)).toBe(words);
-    expect(cannotRunReason({ ...needs, toFleet: 'comets' }, [runner('a', 'ada', 'comets', holds, false), runner('b', 'bob', null, holds, true)], fleets)).toBe(words);
+  // PRD 2573: a runner that did not register `githubApp` takes no job.
+  it("says to update the runner's kit when every runner that could take it registered no App", () => {
+    const words = "Update the runner's kit";
+    expect(cannotRunReason(queued, [runner('a', 'ada', null, holds, false)], fleets)).toBe(words);
+    expect(cannotRunReason({ ...queued, toFleet: 'comets' }, [runner('a', 'ada', 'comets', holds, false), runner('b', 'bob', null, holds, true)], fleets)).toBe(words);
   });
 
-  it('is null when one runner that could take it can run an App, or the job needs none', () => {
-    const needs = { ...queued, needsApp: true };
-    expect(cannotRunReason(needs, [runner('a', 'ada', null, holds, false), runner('b', 'bob', null, holds, true)], fleets)).toBeNull();
-    expect(cannotRunReason({ ...needs, needsApp: false }, [runner('a', 'ada', null, holds, false)], fleets)).toBeNull();
-    expect(cannotRunReason(queued, [runner('a', 'ada', null, holds)], fleets)).toBeNull();
+  it('is null when one runner that could take it registered an App', () => {
+    expect(cannotRunReason(queued, [runner('a', 'ada', null, holds, false), runner('b', 'bob', null, holds, true)], fleets)).toBeNull();
+    expect(cannotRunReason(queued, [runner('a', 'ada', null, holds, true)], fleets)).toBeNull();
   });
 
   it('puts a missing repository before the App', () => {
-    expect(cannotRunReason({ ...queued, needsApp: true }, [runner('a', 'ada', null, ['acme/other'], true)], fleets)).toBe('No runner holds acme/widgets');
+    expect(cannotRunReason(queued, [runner('a', 'ada', null, ['acme/other'], true)], fleets)).toBe('No runner holds acme/widgets');
   });
 
   it('is null for a job that is not queued', () => {

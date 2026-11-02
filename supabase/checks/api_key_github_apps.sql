@@ -7,9 +7,9 @@
 -- iv or `last_token_at`, which an owner reads; no one signed in selects either table, an owner included;
 -- another workspace's member reads none of it. Revoking the key, by api_key_revoke() or by
 -- agent_token_revoke(), deletes its row, and so does Remove. The service role alone opens a job's App
--- (api_key_github_app_of_job()) and records its mint. runner_claim() gives a job of a key with an App to a
--- runner that registered `githubApp` and never to another; a job queued while the key held an App stays
--- one after the App is removed or the key revoked, and a job queued while it held none is not.
+-- (api_key_github_app_of_job()) and records its mint. A job queued while the key held an App stays marked
+-- after the App is removed or the key revoked, and a job queued while it held none is not. Which runner
+-- claims a job no longer depends on the key's App: runner_claim() is proved in runners.sql (PRD 2573).
 --
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
@@ -446,19 +446,15 @@ end $$;
 set local role service_role;
 do $$
 begin
-  -- A runner that did not register githubApp skips the App's job and takes the others, oldest first.
-  if pg_temp.claims('plain-box') <> pg_temp.jid('person first')::text then
-    raise exception 'FAIL: the runner with no githubApp did not take the person''s job';
-  end if;
-  if pg_temp.claims('plain-box') <> pg_temp.jid('qa first')::text then
-    raise exception 'FAIL: the runner with no githubApp did not take the job of a key with no App';
-  end if;
+  -- A runner that did not register githubApp takes no job (PRD 2573): every job runs as the Omni App, whoever sent it.
   if pg_temp.claims('plain-box') <> 'none' then
-    raise exception 'FAIL: the runner with no githubApp took a job of a key with an App';
+    raise exception 'FAIL: the runner with no githubApp took a job';
   end if;
-  -- The runner that did takes it.
-  if pg_temp.claims('app-box') <> pg_temp.jid('digest first')::text then
-    raise exception 'FAIL: the runner with githubApp did not take the job of a key with an App';
+  -- The runner that did takes them, oldest first: the key's with an App, the person's, a key with none.
+  if pg_temp.claims('app-box') <> pg_temp.jid('digest first')::text
+     or pg_temp.claims('app-box') <> pg_temp.jid('person first')::text
+     or pg_temp.claims('app-box') <> pg_temp.jid('qa first')::text then
+    raise exception 'FAIL: the runner with githubApp did not take the three jobs, oldest first';
   end if;
 end $$;
 reset role;
@@ -499,14 +495,11 @@ set local role service_role;
 do $$
 declare got jsonb;
 begin
-  -- The runner with no githubApp still never takes them; the job queued after Remove is a job of a key with none.
-  if pg_temp.claims('plain-box') <> pg_temp.jid('digest after remove')::text then
-    raise exception 'FAIL: the runner with no githubApp did not take the job queued after Remove, or took one queued for the App';
-  end if;
+  -- The runner with no githubApp takes none of them, the job queued after Remove included.
   if pg_temp.claims('plain-box') <> 'none' then
-    raise exception 'FAIL: the runner with no githubApp took a job queued for a removed App';
+    raise exception 'FAIL: the runner with no githubApp took a job';
   end if;
-  -- The runner with githubApp takes it, and learns that it needs an App the key no longer holds.
+  -- The runner with githubApp takes them oldest first, and learns that the first needs an App the key no longer holds.
   if pg_temp.claims('app-box') <> pg_temp.jid('digest second')::text then
     raise exception 'FAIL: the runner with githubApp did not take the job queued for a removed App';
   end if;
@@ -548,9 +541,13 @@ reset role;
 set local role service_role;
 do $$
 begin
-  -- Not marked, and its key holds no App again: any runner may take it, as before this PRD.
-  if pg_temp.claims('plain-box') <> pg_temp.jid('qa second')::text then
-    raise exception 'FAIL: the runner with no githubApp did not take the job of a key whose App was removed, queued before it was attached';
+  -- Not marked, and its key holds no App again: still no runner without githubApp takes it (PRD 2573), and one with it does.
+  if pg_temp.claims('plain-box') <> 'none' then
+    raise exception 'FAIL: the runner with no githubApp took the job of a key whose App was removed';
+  end if;
+  if pg_temp.claims('app-box') <> pg_temp.jid('digest third')::text or pg_temp.claims('app-box') <> pg_temp.jid('digest after remove')::text
+     or pg_temp.claims('app-box') <> pg_temp.jid('qa second')::text then
+    raise exception 'FAIL: the runner with githubApp did not take the remaining jobs, oldest first';
   end if;
 end $$;
 reset role;
