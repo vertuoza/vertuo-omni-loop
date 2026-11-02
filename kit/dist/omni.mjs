@@ -63715,7 +63715,7 @@ var CAP_REASON = `no tokens left: the job changed account ${String(MAX_ACCOUNT_C
 var MAX_FRESH_SESSIONS = 5;
 var FRESH_CAP_REASON = `context full: the job opened ${String(MAX_FRESH_SESSIONS)} fresh sessions, the most a job may`;
 var NOTE_TURN_MS = 5 * 60 * 1e3;
-var notePrompt = (path) => `Write the handoff note for whoever continues this job to ${path}: what is done, what is next, the pull requests and branches open, and every decision you took. Change no other file.`;
+var notePrompt = (path, why3) => `The runner stopped your run, not a person, because ${why3}: another session takes this job over. Nothing you ran was refused: a command it cut short may not have finished, so say which. Write the handoff note for whoever continues this job to ${path}: what is done, what is next, the pull requests and branches open, and every decision you took. Change no other file.`;
 var WINDOW_WORDS = {
   five_hour: "5-hour",
   seven_day: "weekly",
@@ -64080,14 +64080,14 @@ function textAt(path) {
 }
 async function handoffNote(place, args) {
   const { cwd, files, out, env } = place;
-  const { line: line2, runs: runs3, ran, turnover } = args;
+  const { line: line2, runs: runs3, ran, turnover, why: why3 } = args;
   const path = handoffPath(files.log);
   rmSync21(path, { force: true });
   const session2 = runs3.agent.session({ cwd, lines: ran.lines, exit: ran.code });
   let by = "runner";
   if (session2 !== null) {
     say2(files, out, `\u21BB account ${runs3.account.id} writes its handoff note`);
-    const command2 = runs3.agent.resume({ line: line2, cwd }, runs3.account, session2, notePrompt(path));
+    const command2 = runs3.agent.resume({ line: line2, cwd }, runs3.account, session2, notePrompt(path, why3));
     const turn = await runOnce({ cwd, files, out, env: runEnv(env, command2), agent: runs3.agent, command: command2, timeoutMs: turnover.noteTurnMs ?? NOTE_TURN_MS });
     if (turn.code === 0 && textAt(path).trim() !== "") by = "agent";
   }
