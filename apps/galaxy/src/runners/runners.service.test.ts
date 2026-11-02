@@ -197,6 +197,14 @@ describe('the long poll', () => {
     expect(w.slept).toEqual([NEXT_POLL_MS]);
   });
 
+  it('claims no job once its runner hung up: a runner restarted mid check-in never loses the job sent next (#2593)', async () => {
+    const hangUp = new AbortController();
+    const late = jobRow();
+    const w = world({ onSleep: (jobs) => { if (jobs.length === 0) { jobs.push({ ...late }); hangUp.abort(); } } });
+    expect(value(await w.service.next(OLGA, SHARED, hangUp.signal))).toBeNull();
+    expect(w.state.jobs[0]).toMatchObject({ id: late.id, status: 'queued', runner_id: null });
+  });
+
   it('refuses a runner of someone else, and an unknown runner', async () => {
     const { service } = world();
     expect(await service.next(MO, SHARED)).toMatchObject({ ok: false, kind: 'forbidden' });
