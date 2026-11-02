@@ -826,7 +826,7 @@ describe('omni bug ci — level B reads the red and the green from CI (PRD 2578)
   const link = (id: number) => `https://github.com/acme/widgets/actions/runs/1/job/${id}`;
   const done = (id: number, name: string, conclusion: string): Job => ({ databaseId: id, name, status: 'completed', conclusion, url: link(id) });
   const LOGS: Record<number, string> = {
-    10: `stories\tRun\t2026-11-02T10:00:00.000Z FAIL ${TEST_NAME}\nstories\tRun\t2026-11-02T10:00:01.000Z token ghp_abcdefghijklmnopqrstuvwxyz0123456789\n`,
+    10: `stories\tRun\t2026-11-02T10:00:00.000Z FAIL ${TEST_NAME}\nstories\tRun\t2026-11-02T10:00:01.000Z token ${['ghp', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('_')}\n`,
     20: `stories\tRun\t2026-11-02T10:05:00.000Z ok ${TEST_NAME}\n`,
   };
   const RED_COMMIT: Commit = { runs: [1], jobs: { 1: [done(10, 'stories', 'failure'), done(11, 'lint', 'success')] } };

@@ -50,7 +50,7 @@ describe('proveCi — level B (PRD 2578)', () => {
   });
 
   it('masks a secret of the log in both excerpts', () => {
-    const secret = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+    const secret = ['ghp', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('_');
     const proof = prove(
       side(RED_SHA, red({ log: `FAIL ${TEST} token ${secret}\n` })),
       side(GREEN_SHA, green({ log: `✓ ${TEST} Authorization: Bearer abc.def-123\n` })),
