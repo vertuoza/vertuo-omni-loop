@@ -14,7 +14,8 @@
 // allowed, 404 no such product, 422 a value the database refuses (in its words), 500 the database failed.
 import { z } from 'zod';
 
-const KINDS = ['legal', 'glossary'] as const;
+/** The kinds a product's knowledge holds, each with its own owner, delegate and proposals; `domains` by PRD 2583. */
+const KINDS = ['legal', 'glossary', 'domains'] as const;
 const KindSchema = z.enum(KINDS);
 export type Kind = z.infer<typeof KindSchema>;
 
@@ -48,6 +49,17 @@ const GlossaryEntrySchema = z.object({
 });
 export type GlossaryEntry = z.infer<typeof GlossaryEntrySchema>;
 
+/** A domain of the product (PRD 2583): its key never changes and is never reused, even once retired. */
+const DomainEntrySchema = z.object({
+  entry: z.string(),
+  key: z.string(),
+  name: z.string(),
+  meaning: z.string(),
+  retiredAt: z.string().nullable(),
+  ...AUTHORED,
+});
+export type DomainEntry = z.infer<typeof DomainEntrySchema>;
+
 const ProposalSchema = z.object({
   proposal: z.string(),
   action: z.string(),
@@ -61,17 +73,25 @@ export type Proposal = z.infer<typeof ProposalSchema>;
 const section = <E extends z.ZodType>(entries: E) =>
   z.object({ owner: PersonSchema, delegate: PersonSchema, decides: z.boolean(), entries: z.array(entries), proposals: z.array(ProposalSchema) });
 
-/** product_knowledge_of(): what the tab shows a member of the workspace. */
+/**
+ * product_knowledge_of(): what the tab shows a member of the workspace. `domains` is absent from a server
+ * whose database has not had PRD 2583's migration yet: the service reads it as an empty list.
+ */
 export const KnowledgeReadSchema = z.object({
   product: z.object({ id: z.string(), name: z.string() }),
   canName: z.boolean(),
   latestEventId: z.string().nullable(),
   legal: section(LegalEntrySchema),
   glossary: section(GlossaryEntrySchema),
+  domains: section(DomainEntrySchema).optional(),
 });
 export type KnowledgeRead = z.infer<typeof KnowledgeReadSchema>;
 export type LegalSection = KnowledgeRead['legal'];
 export type GlossarySection = KnowledgeRead['glossary'];
+export type DomainSection = NonNullable<KnowledgeRead['domains']>;
+
+/** The Domains section a read without one stands for: no domain, and nobody named who decides. */
+export const NO_DOMAIN_SECTION: DomainSection = { owner: null, delegate: null, decides: false, entries: [], proposals: [] };
 
 /** A member a workspace owner may name. */
 export interface KnowledgeMember {
@@ -79,8 +99,9 @@ export interface KnowledgeMember {
   login: string;
 }
 
-/** What the tab draws: the read, and the members a workspace owner may name (none for anyone else). */
-export interface KnowledgeTab extends KnowledgeRead {
+/** What the tab draws: the read, its Domains section always there, and the members a workspace owner may name (none for anyone else). */
+export interface KnowledgeTab extends Omit<KnowledgeRead, 'domains'> {
+  domains: DomainSection;
   members: KnowledgeMember[];
 }
 
@@ -94,6 +115,8 @@ const FieldsSchema = z.strictObject({
   term: text(80),
   meaning: text(400),
   avoid: z.array(text(80)).max(20),
+  key: text(60),
+  name: text(80),
 }).partial();
 export type Fields = z.infer<typeof FieldsSchema>;
 
@@ -108,8 +131,8 @@ const ChangeSchema = z.strictObject({
   entry: UUID.optional(),
   fields: FieldsSchema.default({}),
 }).refine(
-  (w) => (w.kind === 'legal' ? w.action !== 'remove' : w.action !== 'retire') && (w.action === 'add' ? w.entry === undefined : w.entry !== undefined),
-  'An addition names no entry; an edit, a retirement or a removal names one; a Legal entry is retired, a term removed.',
+  (w) => (w.kind === 'glossary' ? w.action !== 'retire' : w.action !== 'remove') && (w.action === 'add' ? w.entry === undefined : w.entry !== undefined),
+  'An addition names no entry; an edit, a retirement or a removal names one; a Legal entry or a domain is retired, a term removed.',
 );
 export type ChangeWrite = z.infer<typeof ChangeSchema>;
 

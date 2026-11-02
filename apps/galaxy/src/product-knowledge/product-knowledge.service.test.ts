@@ -75,6 +75,26 @@ describe('a change', () => {
   });
 });
 
+describe('a domain (PRD 2583)', () => {
+  const domainAdd: KnowledgeWrite = { op: 'change', kind: 'domains', action: 'add', fields: { key: 'invoicing', name: 'Invoicing', meaning: 'Billing a customer.' } };
+  const domainRetire: KnowledgeWrite = { op: 'change', kind: 'domains', action: 'retire', entry: ENTRY, fields: {} };
+
+  it('is added directly by the Domains owner or delegate, and only proposed by anyone else', async () => {
+    const owner = fake({ read: () => Promise.resolve({ ok: true, read: read({ domains: section(true) }) }) });
+    expect(await owner.service.change(PRODUCT, domainAdd)).toEqual({ ok: true, value: { done: 'applied' } });
+    const member = fake();
+    expect(await member.service.change(PRODUCT, domainAdd)).toEqual({ ok: true, value: { done: 'proposed' } });
+    expect(await member.service.change(PRODUCT, domainRetire)).toEqual({ ok: true, value: { done: 'proposed' } });
+    expect([...owner.calls, ...member.calls]).toEqual(['apply domains add', 'propose domains add', 'propose domains retire']);
+  });
+
+  it('is only proposed while the server answers no Domains section, as before its migration', async () => {
+    const { service, calls } = fake({ read: () => Promise.resolve({ ok: true, read: read({ legal: section(true), glossary: section(true) }) }) });
+    expect(await service.change(PRODUCT, domainAdd)).toEqual({ ok: true, value: { done: 'proposed' } });
+    expect(calls).toEqual(['propose domains add']);
+  });
+});
+
 describe('a decision', () => {
   it('approves or rejects an open proposal', async () => {
     const { service, calls } = fake();
@@ -114,6 +134,13 @@ describe('the tab', () => {
     expect(await fake().service.tab('w-2', PRODUCT)).toBeNull();
     expect(await fake({ read: () => Promise.resolve({ ok: false, code: '42501', message: '' }) }).service.tab(WORKSPACE, PRODUCT)).toBeNull();
     expect(await fake({ product: () => Promise.resolve(null) }).service.tab(WORKSPACE, PRODUCT)).toBeNull();
+  });
+
+  it('reads a reply with no Domains section as an empty list nobody decides, so the page holds before the migration lands', async () => {
+    const tab = await fake().service.tab(WORKSPACE, PRODUCT);
+    expect(tab?.domains).toEqual({ owner: null, delegate: null, decides: false, entries: [], proposals: [] });
+    const domains = { ...section(true), entries: [] };
+    expect((await fake({ read: () => Promise.resolve({ ok: true, read: read({ domains }) }) }).service.tab(WORKSPACE, PRODUCT))?.domains).toEqual(domains);
   });
 
   it('throws when the read fails otherwise', async () => {

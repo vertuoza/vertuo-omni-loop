@@ -3,13 +3,13 @@ import type { ReactNode } from 'react';
 import { SortableList } from '../nav/SortableList';
 import type { Query } from '../nav/query';
 import {
-  GLOSSARY_COLUMNS, LEGAL_COLUMNS, NO_LEGAL, NO_TERMS, backHref, dayOf, excerpt, glossarySortOf, itemHref, legalSortOf, sectionHref, showHref, showOf,
-  shownEntries, whoOf, type Show,
+  DOMAIN_COLUMNS, GLOSSARY_COLUMNS, LEGAL_COLUMNS, NO_DOMAINS, NO_LEGAL, NO_TERMS, backHref, dayOf, domainSortOf, excerpt, glossarySortOf, itemHref, legalSortOf,
+  sectionHref, showHref, showOf, shownEntries, whoOf, type ListSection, type Show,
 } from './knowledge-sections';
 import { AddEntry, SectionTop, type TabSource } from './KnowledgeTabPage';
-import type { GlossaryEntry, KnowledgeTab, LegalEntry } from './product-knowledge.contract';
+import type { DomainEntry, GlossaryEntry, KnowledgeTab, LegalEntry } from './product-knowledge.contract';
 
-// The Legal and Glossary lists of the Knowledge home, drawn on the server (PRD 2240 s3): a SortableList
+// The Legal, Glossary and Domains lists of the Knowledge home, drawn on the server (PRD 2240 s3, PRD 2583 s1): a SortableList
 // whose every header sorts through the address, the first cell of a row opening the entry's page, the
 // `Active · n` and `Retired · n` filters above it, who answers for the kind and the open proposals above
 // that, the add form under it. Only the controls are client components (KnowledgeTabPage.tsx).
@@ -76,9 +76,43 @@ export function LegalList({ tab, source, query }: ListProps) {
   );
 }
 
+const LISTS: Readonly<Record<ListSection, (props: ListProps) => ReactNode>> = { legal: LegalList, glossary: GlossaryList, domains: DomainList };
+
 /** The list a section draws. */
-export function KnowledgeList({ section, ...props }: ListProps & { section: 'legal' | 'glossary' }) {
-  return section === 'legal' ? <LegalList {...props} /> : <GlossaryList {...props} />;
+export function KnowledgeList({ section, ...props }: ListProps & { section: ListSection }) {
+  const List = LISTS[section];
+  return <List {...props} />;
+}
+
+/** The product's one list of domains (PRD 2583 s1): each key opening its page; retired ones behind their filter, never deleted. */
+export function DomainList({ tab, source, query }: ListProps) {
+  const { domains, product } = tab;
+  const path = sectionHref(product.id, 'domains');
+  const show = showOf(query);
+  const rows = shownEntries(domains.entries, show);
+  return (
+    <Section id="domains-title" title="Domains" lede="The parts the product is cut into. Every repository of the product names them with these keys.">
+      <SectionTop product={product.id} source={source} kind="domains" section={domains} members={tab.members} canName={tab.canName} />
+      <Filters path={path} query={query} active={shownEntries(domains.entries, 'active').length} retired={shownEntries(domains.entries, 'retired').length} />
+      {rows.length === 0 ? <p className="products-empty">{show === 'retired' ? 'No retired domain.' : NO_DOMAINS}</p> : (
+        <div className="kn-scroll">
+          <SortableList
+            classes="kn" columns={DOMAIN_COLUMNS} rows={rows} sort={domainSortOf(query)} path={path} query={query} rowKey={(e: DomainEntry) => e.entry}
+            row={(e: DomainEntry) => (
+              <tr data-entry={e.key}>
+                <th scope="row"><Link href={backHref(itemHref(product.id, 'domains', e.key), query)}>{e.key}</Link></th>
+                <Cell full={e.name}>{excerpt(e.name, 50)}</Cell>
+                <Cell full={e.meaning}>{excerpt(e.meaning)}</Cell>
+                <td>{whoOf(e.createdBy)}</td>
+                <td>{dayOf(e.createdAt)}</td>
+              </tr>
+            )}
+          />
+        </div>
+      )}
+      <AddEntry product={product.id} source={source} kind="domains" decides={domains.decides} />
+    </Section>
+  );
 }
 
 export function GlossaryList({ tab, source, query }: ListProps) {

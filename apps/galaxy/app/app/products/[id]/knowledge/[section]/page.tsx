@@ -7,8 +7,9 @@ import { KnowledgePage } from '../../../../../../src/product-knowledge/Knowledge
 import { KnowledgeList } from '../../../../../../src/product-knowledge/KnowledgeLists';
 import { listSectionOf } from '../../../../../../src/product-knowledge/knowledge-sections';
 
-// /app/products/<id>/knowledge/legal and /glossary (PRD 2240 s3): a section of the Knowledge home as a
-// list sortable through the address (?sort=<column>&dir=asc|desc), its retired items behind ?show=retired.
+// /app/products/<id>/knowledge/legal, /glossary (PRD 2240 s3) and /domains (PRD 2583 s1): a section of the
+// Knowledge home as a list sortable through the address (?sort=<column>&dir=asc|desc), its retired items
+// behind ?show=retired.
 // Constituents, Personas, Pitch and Settings have a folder of their own beside this one. Rendered per
 // request, as the signed-in person (KnowledgePage.tsx).
 
