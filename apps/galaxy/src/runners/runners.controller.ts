@@ -147,7 +147,7 @@ export async function nextJob(request: Request, deps: RunnersDeps): Promise<Resp
   return answer(await kitCaller(request, deps), deps, RunnerJobSchema, async (service, caller) => {
     const query = NextQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
     if (!query.success) return refuse(RUNNER_REFUSALS.malformed, BAD_NEXT);
-    const served = await service.next(caller, query.data.runner, request.signal);
+    const served = await service.next(caller, query.data.runner);
     return served.ok && served.value === null ? new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } }) : served;
   });
 }

@@ -14,16 +14,18 @@
 
 ## Fix
 
-`GET /api/runners/next` holds a runner's check-in up to 40 s and claims any job that arrives, but never
-noticed its runner had hung up. A runner restarted mid check-in left that check-in running, and a job
-sent before it ended was claimed for the runner and answered to nobody. The route now passes its
-request's signal to the check-in, which claims nothing more once it aborts.
+`GET /api/runners/next` holds a runner's check-in up to 40 s and claims any job that arrives. A runner
+restarted mid check-in leaves that check-in held on the app, and a job sent before it ended was claimed
+for the runner and answered to nobody. The first fix (#2594) stopped on the request's abort signal, which
+Vercel never fires: live, the old check-in still claimed the job. Now each runner keeps `registered_at`,
+set when it registers, and a check-in claims only for the registration it began under: `runner_claim()`
+takes it and claims nothing once the runner has registered again. The signal code is gone.
 
 ## Guard
 
-The reproduction: a unit test of the held check-in that fails when a job arriving after the runner hung up
-is still claimed.
+The reproduction, a unit test of the held check-in across a re-registration, and the case added to
+`supabase/checks/runners.sql`: a claim made under an earlier registration takes nothing.
 
 ## Mutation
 
-mutation: no changed core file against origin/main (a0cc27c2): nothing to mutate
+mutation: no changed core file against origin/main (61987cdc): nothing to mutate
