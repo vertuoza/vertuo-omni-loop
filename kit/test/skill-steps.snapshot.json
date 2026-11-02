@@ -39,9 +39,11 @@
       "config",
       "decide",
       "dossier",
+      "flow",
       "item",
       "kb",
       "knowledge",
+      "proof",
       "sign"
     ],
     "guards": [
