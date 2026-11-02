@@ -33,7 +33,7 @@ export function NotOnList({ product, source, decides, found }: { product: string
           ))}
           {found.retired.map((row) => (
             <li key={row.key} className="links-row" data-folder={row.key} data-retired>
-              <span><Link href={`${itemHref(product, 'domains', row.key)}`}>{row.key}</Link> · <span className="ask-muted">{retiredLine(row.repositories)}</span></span>
+              <span><Link href={itemHref(product, 'domains', row.key)}>{row.key}</Link> · <span className="ask-muted">{retiredLine(row.repositories)}</span></span>
             </li>
           ))}
         </ul>
