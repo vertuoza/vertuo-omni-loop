@@ -44,6 +44,8 @@ const GlossaryEntrySchema = z.object({
   term: z.string(),
   meaning: z.string(),
   avoid: z.array(z.string()),
+  /** The keys of the domains the term names, retired ones too (PRD 2583); a reply without the field is a term naming none. */
+  domains: z.array(z.string()).default([]),
   removedAt: z.string().nullable(),
   ...AUTHORED,
 });
@@ -115,6 +117,8 @@ const FieldsSchema = z.strictObject({
   term: text(80),
   meaning: text(400),
   avoid: z.array(text(80)).max(20),
+  /** A term's domains, by key (PRD 2583): none, one or several; `[]` on an edit clears the active ones. */
+  domains: z.array(text(60)).max(20),
   key: text(60),
   name: text(80),
 }).partial();

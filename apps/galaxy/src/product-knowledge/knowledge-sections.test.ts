@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { sortRows } from '../nav/sortable-list';
 import {
-  DOMAIN_COLUMNS, FIRST_SECTION, SECTION_KEYS, backHref, countsOf, dayOf, domainOf, domainSortOf, excerpt, glossarySortOf, itemHref, knowledgeSectionTabs,
+  DOMAIN_COLUMNS, FIRST_SECTION, activeDomains, domainFilterOf, domainHref, retiredAmong, termsNaming, termsOfDomain, SECTION_KEYS, backHref, countsOf, dayOf, domainOf, domainSortOf, excerpt, glossarySortOf, itemHref, knowledgeSectionTabs,
   legalEntryOf, legalSortOf, listSectionOf, sectionHref, sectionOf, segmentOf, showHref, showOf, shownEntries, termOf, whoOf,
 } from './knowledge-sections';
 import { demoKnowledgeTab } from './KnowledgeTab';
@@ -155,5 +155,51 @@ describe('the sort', () => {
   it('sorts the glossary by its own columns', () => {
     const terms = [TAB.glossary.entries[0], { ...(TAB.glossary.entries[0] as (typeof TAB.glossary.entries)[number]), entry: 'z', term: 'Apple' }] as (typeof TAB.glossary.entries);
     expect(sortRows(terms, glossarySortOf({ sort: 'term' })).map((t) => t.term)).toEqual(['Apple', 'Credit note']);
+  });
+});
+
+
+describe('a term\'s domains (PRD 2583 s2)', () => {
+  const TERM = TAB.glossary.entries[0] as (typeof TAB.glossary.entries)[number];
+  const terms = [
+    { ...TERM, entry: 'a', term: 'Alpha', domains: ['invoicing'] },
+    { ...TERM, entry: 'b', term: 'Beta', domains: [] },
+    { ...TERM, entry: 'c', term: 'Gamma', domains: ['invoicing', 'planning'] },
+    { ...TERM, entry: 'd', term: 'Delta', domains: ['invoicing'], removedAt: '2026-12-01T00:00:00Z' },
+  ];
+  const tab = { ...TAB, glossary: { ...TAB.glossary, entries: terms }, domains: { ...TAB.domains, entries: [DOMAIN, domain('planning'), domain('old', { retiredAt: '2026-12-01T00:00:00Z' })] } };
+
+  it('reads ?domain=<key> as a filter, none for an empty or absent one, the first of several', () => {
+    expect(domainFilterOf({ domain: 'invoicing' })).toBe('invoicing');
+    expect(domainFilterOf({ domain: ' invoicing ' })).toBe('invoicing');
+    expect(domainFilterOf({ domain: ['planning', 'invoicing'] })).toBe('planning');
+    expect(domainFilterOf({ domain: '' })).toBeNull();
+    expect(domainFilterOf({})).toBeNull();
+  });
+
+  it('keeps the terms that name the domain, every term without a filter, none for a key nothing names', () => {
+    expect(termsOfDomain(terms, 'invoicing').map((t) => t.term)).toEqual(['Alpha', 'Gamma', 'Delta']);
+    expect(termsOfDomain(terms, 'planning').map((t) => t.term)).toEqual(['Gamma']);
+    expect(termsOfDomain(terms, null)).toHaveLength(4);
+    expect(termsOfDomain(terms, 'nowhere')).toEqual([]);
+  });
+
+  it('puts the filter in an address beside the rest of the query, and takes it out for none', () => {
+    expect(domainHref('/g', { sort: 'term', show: 'retired' }, 'planning')).toBe('/g?sort=term&show=retired&domain=planning');
+    expect(domainHref('/g', { domain: 'invoicing', sort: 'term' }, 'planning')).toBe('/g?sort=term&domain=planning');
+    expect(domainHref('/g', { domain: 'invoicing' }, null)).toBe('/g');
+  });
+
+  it('offers the active domains only, and finds which of a term\'s are retired', () => {
+    expect(activeDomains(tab).map((d) => d.key)).toEqual(['invoicing', 'planning']);
+    expect(retiredAmong(tab, ['invoicing', 'old'])).toEqual(['old']);
+  });
+
+  it('lists the live terms that name a domain for its page', () => {
+    expect(termsNaming(tab, 'invoicing').map((t) => t.term)).toEqual(['Alpha', 'Gamma']);
+  });
+
+  it('sorts the glossary by its Domains column', () => {
+    expect(sortRows(terms, glossarySortOf({ sort: 'domains' })).map((t) => t.term)).toEqual(['Alpha', 'Delta', 'Gamma', 'Beta']);
   });
 });

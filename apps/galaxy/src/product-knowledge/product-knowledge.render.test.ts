@@ -134,12 +134,70 @@ describe('the Glossary list', () => {
 
   it('has a column per field and links a term to its page', () => {
     const heads = [...html.matchAll(/<th scope="col"[^>]*>(.*?)<\/th>/g)].map((m) => text(m[1] ?? '').replace(/[▲▼]/g, '').trim());
-    expect(heads).toEqual(['Term', 'Meaning', 'Created by', 'Created']);
+    expect(heads).toEqual(['Term', 'Meaning', 'Domains', 'Created by', 'Created']);
     expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/glossary/demo-term-1"`);
   });
 
   it('says there is no term yet', () => {
     expect(text(glossaryPage({ ...BASE, glossary: { ...BASE.glossary, entries: [] } }))).toContain(NO_TERMS);
+  });
+});
+
+describe('the Glossary\'s domains (PRD 2583 s2)', () => {
+  const DOMAIN = BASE.domains.entries[0] as (typeof BASE.domains.entries)[number];
+  const OLD = { ...DOMAIN, entry: 'd-old', key: 'stock-v1', name: 'Old stock', retiredAt: '2026-12-01T00:00:00Z' };
+  const quote = { ...TERM, entry: 't-quote', term: 'Quote', domains: [] as string[] };
+  const credit = { ...TERM, domains: ['invoicing', 'stock-v1'] };
+  const planned = { ...TERM, entry: 't-plan', term: 'Plan', domains: ['stock-v1'] };
+  const tab = (decides = true): KnowledgeTab => ({
+    ...BASE,
+    domains: { ...BASE.domains, decides, entries: [DOMAIN, OLD] },
+    glossary: { ...BASE.glossary, decides, entries: [credit, quote, planned] },
+  });
+
+  it('shows each term\'s domains as links that filter the list, a retired one marked, and a dash for none', () => {
+    const html = glossaryPage(tab());
+    expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/glossary?domain=invoicing"`);
+    expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/glossary?domain=stock-v1"`);
+    expect(text(html)).toContain('invoicing , stock-v1 (retired)');
+    expect(/data-entry="Quote".*?<td class="kn-text">([^<]*)<\/td>/s.exec(html)?.[1]).toBe('—');
+  });
+
+  it('shows only the terms that name the domain in ?domain=<key>, says so, and keeps the way back to all of them', () => {
+    const html = glossaryPage(tab(), { domain: 'invoicing' });
+    expect(html).toContain('data-entry="Credit note"');
+    expect(html).not.toContain('data-entry="Quote"');
+    expect(html).not.toContain('data-entry="Plan"');
+    expect(text(html)).toContain('Terms naming invoicing · All domains');
+    expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/glossary"`);
+    expect(text(html)).toContain('Active · 1 Retired · 0');
+  });
+
+  it('keeps the filter in the links of its headers and of the Active and Retired filters', () => {
+    const html = glossaryPage(tab(), { domain: 'invoicing', sort: 'term' });
+    expect(html).toContain('domain=invoicing');
+    expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/glossary/demo-term-1?domain=invoicing&amp;sort=term"`);
+  });
+
+  it('says no term names a domain nothing names, and lists none', () => {
+    const html = glossaryPage(tab(), { domain: 'nowhere' });
+    expect(text(html)).toContain('No term names nowhere.');
+    expect(html).not.toContain('data-entry="Credit note"');
+  });
+
+  it('offers the add form the active domains only, none ticked, and says so when the product lists none', () => {
+    const html = glossaryPage(tab());
+    expect(html).toContain('<legend>Domains (optional)</legend>');
+    expect(html).toMatch(/<input type="checkbox"[^>]*\/> Invoicing/);
+    expect(html).not.toContain('Old stock');
+    expect(html).not.toContain('checked=""');
+    expect(text(glossaryPage({ ...tab(), domains: { ...BASE.domains, entries: [] } }))).toContain('The product lists no domain yet: a term names none.');
+  });
+
+  it('offers a member who may only propose the same picker, and Propose', () => {
+    const html = glossaryPage(tab(false));
+    expect(html).toContain('<legend>Domains (optional)</legend>');
+    expect(buttons(html)).toEqual(['Propose']);
   });
 });
 
@@ -222,6 +280,16 @@ describe('a term\'s page', () => {
     expect(text(html)).toContain('Avoid refund');
     expect(buttons(html)).toEqual(['Edit', 'Remove']);
     expect(buttons(page(withProposals(false)))).toEqual(['Propose an edit', 'Propose to remove']);
+  });
+
+  it('shows the domains the term names, each a link to its page, a retired one marked, and says when it names none', () => {
+    const DOMAIN = BASE.domains.entries[0] as (typeof BASE.domains.entries)[number];
+    const old = { ...DOMAIN, entry: 'd-old', key: 'stock-v1', retiredAt: '2026-12-01T00:00:00Z' };
+    const tab: KnowledgeTab = { ...BASE, domains: { ...BASE.domains, entries: [DOMAIN, old] } };
+    const html = page(tab, { ...TERM, domains: ['invoicing', 'stock-v1'] });
+    expect(text(html)).toContain('Domains invoicing , stock-v1 (retired)');
+    expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/domains/invoicing"`);
+    expect(text(page(tab, { ...TERM, domains: [] }))).toContain('Domains None: a cross-domain term');
   });
 
   it('reads a removed term as text, with no control', () => {
@@ -321,6 +389,15 @@ describe('a domain\'s page (PRD 2583)', () => {
     expect(text(html)).toContain('Added 2026-11-03 by @anna');
     expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/domains?sort=key"`);
     expect(text(html)).toContain('← Domains');
+  });
+
+  it('lists the live terms that name it, each a link to its page, and a dash when none does', () => {
+    const named = { ...BASE, glossary: { ...BASE.glossary, entries: [{ ...TERM, domains: [DOMAIN.key] }, { ...TERM, entry: 't-gone', term: 'Gone', domains: [DOMAIN.key], removedAt: '2026-12-01T00:00:00Z' }] } };
+    const html = page(named);
+    expect(text(html)).toContain('Terms Credit note');
+    expect(html).toContain(`href="/app/products/${PRODUCT}/knowledge/glossary/${TERM.entry}"`);
+    expect(text(html)).not.toContain('Gone');
+    expect(text(page(BASE))).toContain('Terms —');
   });
 
   it('offers Edit and Retire to whoever decides, the proposals to another member, and never Delete', () => {

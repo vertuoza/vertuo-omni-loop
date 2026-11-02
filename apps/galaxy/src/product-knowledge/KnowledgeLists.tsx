@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import { SortableList } from '../nav/SortableList';
 import type { Query } from '../nav/query';
 import {
-  DOMAIN_COLUMNS, GLOSSARY_COLUMNS, LEGAL_COLUMNS, NO_DOMAINS, NO_LEGAL, NO_TERMS, backHref, dayOf, domainSortOf, excerpt, glossarySortOf, itemHref, legalSortOf,
-  sectionHref, showHref, showOf, shownEntries, whoOf, type ListSection, type Show,
+  DOMAIN_COLUMNS, GLOSSARY_COLUMNS, LEGAL_COLUMNS, NO_DOMAINS, NO_LEGAL, NO_TERMS, NONE, activeDomains, backHref, dayOf, domainFilterOf, domainHref, domainSortOf, excerpt,
+  glossarySortOf, itemHref, legalSortOf, sectionHref, showHref, showOf, shownEntries, termsOfDomain, whoOf, type ListSection, type Show,
 } from './knowledge-sections';
 import { AddEntry, SectionTop, type TabSource } from './KnowledgeTabPage';
 import type { DomainEntry, GlossaryEntry, KnowledgeTab, LegalEntry } from './product-knowledge.contract';
@@ -115,16 +115,40 @@ export function DomainList({ tab, source, query }: ListProps) {
   );
 }
 
+/** A term's domains as links that filter the list by each; one left behind by a retired domain says so. */
+function TermDomains({ entry, tab, path, query }: { entry: GlossaryEntry; tab: KnowledgeTab; path: string; query: Query }) {
+  if (entry.domains.length === 0) return <td className="kn-text">{NONE}</td>;
+  const retired = new Set(tab.domains.entries.filter((d) => d.retiredAt !== null).map((d) => d.key));
+  return (
+    <td className="kn-text" data-domains>
+      {entry.domains.map((key, i) => (
+        <span key={key}>
+          {i > 0 && ', '}
+          <Link href={domainHref(path, query, key)}>{key}</Link>
+          {retired.has(key) && <span className="ask-muted"> (retired)</span>}
+        </span>
+      ))}
+    </td>
+  );
+}
+
 export function GlossaryList({ tab, source, query }: ListProps) {
   const { glossary, product } = tab;
   const path = sectionHref(product.id, 'glossary');
   const show = showOf(query);
-  const rows = shownEntries(glossary.entries, show);
+  const domain = domainFilterOf(query);
+  const named = termsOfDomain(glossary.entries, domain);
+  const rows = shownEntries(named, show);
   return (
-    <Section id="glossary-title" title="Glossary" lede="The product’s words, and the words to avoid in their place.">
+    <Section id="glossary-title" title="Glossary" lede="The product’s words, the domains they belong to, and the words to avoid in their place.">
       <SectionTop product={product.id} source={source} kind="glossary" section={glossary} members={tab.members} canName={tab.canName} />
-      <Filters path={path} query={query} active={shownEntries(glossary.entries, 'active').length} retired={shownEntries(glossary.entries, 'retired').length} />
-      {rows.length === 0 ? <p className="products-empty">{show === 'retired' ? 'No removed term.' : NO_TERMS}</p> : (
+      {domain !== null && (
+        <p className="ask-muted" data-domain-filter={domain}>
+          Terms naming {domain} · <Link href={domainHref(path, query, null)}>All domains</Link>
+        </p>
+      )}
+      <Filters path={path} query={query} active={shownEntries(named, 'active').length} retired={shownEntries(named, 'retired').length} />
+      {rows.length === 0 ? <p className="products-empty">{show === 'retired' ? 'No removed term.' : domain === null ? NO_TERMS : `No term names ${domain}.`}</p> : (
         <div className="kn-scroll">
           <SortableList
             classes="kn" columns={GLOSSARY_COLUMNS} rows={rows} sort={glossarySortOf(query)} path={path} query={query} rowKey={(e: GlossaryEntry) => e.entry}
@@ -132,6 +156,7 @@ export function GlossaryList({ tab, source, query }: ListProps) {
               <tr data-entry={e.term}>
                 <th scope="row"><Link href={backHref(itemHref(product.id, 'glossary', e.entry), query)}>{e.term}</Link></th>
                 <Cell full={e.meaning}>{excerpt(e.meaning)}</Cell>
+                <TermDomains entry={e} tab={tab} path={path} query={query} />
                 <td>{whoOf(e.createdBy)}</td>
                 <td>{dayOf(e.createdAt)}</td>
               </tr>
@@ -139,7 +164,7 @@ export function GlossaryList({ tab, source, query }: ListProps) {
           />
         </div>
       )}
-      <AddEntry product={product.id} source={source} kind="glossary" decides={glossary.decides} />
+      <AddEntry product={product.id} source={source} kind="glossary" decides={glossary.decides} domains={activeDomains(tab)} />
     </Section>
   );
 }

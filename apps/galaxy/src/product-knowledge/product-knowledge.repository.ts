@@ -75,10 +75,10 @@ export function knowledgeRepository(db: KnowledgeDb) {
         return write('product_domain_retire', { p_workspace: workspace, p_entry: entry });
       }
       if (change.action === 'add') {
-        return write('product_glossary_add',{ p_workspace: workspace, p_product: product, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid });
+        return write('product_glossary_add',{ p_workspace: workspace, p_product: product, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid, p_domains: f.domains });
       }
       if (change.action === 'edit') {
-        return write('product_glossary_edit', { p_workspace: workspace, p_entry: entry, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid });
+        return write('product_glossary_edit', { p_workspace: workspace, p_entry: entry, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid, p_domains: f.domains });
       }
       return write('product_glossary_remove', { p_workspace: workspace, p_entry: entry });
     },

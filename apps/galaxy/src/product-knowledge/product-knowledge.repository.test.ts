@@ -26,6 +26,8 @@ describe('a direct change', () => {
     [change({ kind: 'legal', action: 'retire', entry: ENTRY }), 'product_legal_retire', { p_entry: ENTRY }],
     [change({ kind: 'glossary', action: 'add', fields: { term: 't', meaning: 'm', avoid: ['x'] } }), 'product_glossary_add', { p_term: 't', p_meaning: 'm', p_avoid: ['x'] }],
     [change({ kind: 'glossary', action: 'edit', entry: ENTRY, fields: { term: 't' } }), 'product_glossary_edit', { p_entry: ENTRY, p_term: 't' }],
+    [change({ kind: 'glossary', action: 'add', fields: { term: 't', meaning: 'm', domains: ['invoicing', 'planning'] } }), 'product_glossary_add', { p_term: 't', p_domains: ['invoicing', 'planning'] }],
+    [change({ kind: 'glossary', action: 'edit', entry: ENTRY, fields: { domains: [] } }), 'product_glossary_edit', { p_entry: ENTRY, p_domains: [] }],
     [change({ kind: 'glossary', action: 'remove', entry: ENTRY }), 'product_glossary_remove', { p_entry: ENTRY }],
     [change({ kind: 'domains', action: 'add', fields: { key: 'invoicing', name: 'n', meaning: 'm' } }), 'product_domain_add', { p_product: 'p-1', p_key: 'invoicing', p_name: 'n', p_meaning: 'm' }],
     [change({ kind: 'domains', action: 'edit', entry: ENTRY, fields: { name: 'n' } }), 'product_domain_edit', { p_entry: ENTRY, p_name: 'n' }],
@@ -72,6 +74,14 @@ describe('the reads', () => {
     const withDomains = { ...READ, domains: { ...SECTION, entries: [domain] } };
     expect(await knowledgeRepository(db({ data: withDomains }).client).read('w-1', 'p-1')).toEqual({ ok: true, read: withDomains });
     await expect(knowledgeRepository(db({ data: { ...READ, domains: { ...SECTION, entries: [{ ...domain, key: 7 }] } } }).client).read('w-1', 'p-1')).rejects.toThrow();
+  });
+
+  it('reads a term\'s domains by key, and a term with no domain field as naming none (PRD 2583 s2)', async () => {
+    const term = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], removedAt: null, createdBy: null, createdAt: '2026-01-05T09:00:00+00:00', updatedAt: '2026-01-05T09:00:00+00:00' };
+    const read = (entries: unknown[]) => knowledgeRepository(db({ data: { ...READ, glossary: { ...SECTION, entries } } }).client).read('w-1', 'p-1');
+    const named = await read([{ ...term, domains: ['invoicing', 'planning'] }, { ...term, entry: 'g-2' }]);
+    expect(named.ok && named.read.glossary.entries.map((e) => e.domains)).toEqual([['invoicing', 'planning'], []]);
+    await expect(read([{ ...term, domains: 'invoicing' }])).rejects.toThrow();
   });
 
   it('answers a refused read with the database\'s code', async () => {

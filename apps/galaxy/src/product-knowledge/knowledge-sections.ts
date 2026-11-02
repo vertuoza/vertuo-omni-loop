@@ -62,6 +62,49 @@ type Entry = LegalEntry | GlossaryEntry | DomainEntry;
 
 const isRetired = (entry: Entry): boolean => ('retiredAt' in entry ? entry.retiredAt : entry.removedAt) !== null;
 
+/**
+ * `?domain=<key>` asks for the terms that name a domain (PRD 2583 s2); null for no filter. A key no domain of
+ * the product has is still a filter: it shows no term.
+ */
+export const domainFilterOf = (query: Query): string | null => {
+  const value = (Array.isArray(query.domain) ? query.domain[0] : query.domain)?.trim();
+  return value === undefined || value === '' ? null : value;
+};
+
+/** The terms that name the domain `key`, or every term when there is no filter. */
+export const termsOfDomain = (entries: readonly GlossaryEntry[], key: string | null): GlossaryEntry[] =>
+  key === null ? [...entries] : entries.filter((e) => e.domains.includes(key));
+
+/** `path` with the query as given and `domain` set (removed for null): the sort and the filter on what is shown are kept. */
+export function domainHref(path: string, query: Query, key: string | null): string {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(query)) {
+    if (name === 'domain' || value === undefined) continue;
+    for (const v of Array.isArray(value) ? value : [value]) params.append(name, v);
+  }
+  if (key !== null) params.set('domain', key);
+  const text = params.toString();
+  return text === '' ? path : `${path}?${text}`;
+}
+
+/** A domain a term's form offers: its key, which is what a change sends, and its name. */
+export interface DomainChoice {
+  key: string;
+  name: string;
+}
+
+/** The product's active domains, by key: the only ones a term may be newly linked to. */
+export const activeDomains = (tab: Pick<KnowledgeTab, 'domains'>): DomainChoice[] =>
+  tab.domains.entries.filter((e) => e.retiredAt === null).map(({ key, name }) => ({ key, name }));
+
+/** The keys among `keys` whose domain is retired. */
+export const retiredAmong = (tab: Pick<KnowledgeTab, 'domains'>, keys: readonly string[]): string[] =>
+  keys.filter((key) => tab.domains.entries.some((e) => e.key === key && e.retiredAt !== null));
+
+/** The terms of the glossary that name a domain, for its page. */
+export const termsNaming = (tab: Pick<KnowledgeTab, 'glossary'>, key: string): GlossaryEntry[] =>
+  tab.glossary.entries.filter((e) => e.removedAt === null && e.domains.includes(key));
+
 /** The items a list shows, active ones or retired ones. */
 export const shownEntries = <E extends Entry>(entries: readonly E[], show: Show): E[] =>
   entries.filter((e) => isRetired(e) === (show === 'retired'));
@@ -146,6 +189,7 @@ export const LEGAL_COLUMNS: readonly Column<LegalEntry>[] = [
 export const GLOSSARY_COLUMNS: readonly Column<GlossaryEntry>[] = [
   { key: 'term', label: 'Term', natural: 'asc', value: (e) => word(e.term) },
   { key: 'meaning', label: 'Meaning', natural: 'asc', value: (e) => word(e.meaning) },
+  { key: 'domains', label: 'Domains', natural: 'asc', value: (e) => word(e.domains.join(', ')) },
   ...authored<GlossaryEntry>(),
 ];
 

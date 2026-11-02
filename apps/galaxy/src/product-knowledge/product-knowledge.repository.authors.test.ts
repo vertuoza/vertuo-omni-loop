@@ -17,7 +17,7 @@ const READ = { product: { id: 'p-1', name: 'W' }, canName: false, latestEventId:
 const owen = { user: 'u-owen', login: 'owen' };
 const DATES = { createdAt: '2026-01-05T09:00:00+00:00', updatedAt: '2026-02-07T10:30:00+00:00' };
 const LEGAL = { entry: 'l-1', id: 'L-INVOICING-1', code: 'INVOICING', number: 1, statement: 's', source: 'u', owner: owen, retiredAt: null, createdBy: owen, ...DATES };
-const TERM = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], removedAt: null, createdBy: null, ...DATES };
+const TERM = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], domains: [], removedAt: null, createdBy: null, ...DATES };
 
 describe('the tab\'s read, its authors and dates', () => {
   it('reads who added each entry and when, an entry whose author is gone naming nobody', async () => {
