@@ -4,7 +4,7 @@
 // seen. The command reads the job and its lines every 5 seconds and prints what this answers.
 //
 // The milestones, in the order they can happen: `queued`; `claimed by <runner>`; `waiting for
-// approval` (while the lines show `omni wait approval` waiting); each `PR: <link>` the job writes;
+// approval` (while the lines show `omni wait approval` waiting); each `PR: <link>` the job writes of its own repository;
 // `<k>/<total> slices merged` when the count goes up; then the ending, with the PRD page link:
 // `Waiting on answers`, `Held`, `Ready`, `Need human` (PRD 2255), `Stopped mid-way · <k> / <n> slices merged`
 // and the line to send again (PRD 2375) or `Done` (PRD 2223's outcome), `Failed: <reason>`,
@@ -13,6 +13,8 @@
 /** The job, as the follow reads it: the part of the app's answer the milestones need. */
 export type FollowJob = {
   status: 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
+  /** The job's repository, as `owner/name`: only a pull request of it is the job's (bug 2567). */
+  repo: string;
   runner: string | null;
   outcome: 'answers' | 'held' | 'ready' | 'human' | 'stopped' | null;
   reason: string | null;
@@ -32,7 +34,8 @@ const NOTHING_SEEN: Seen = Object.freeze({ queued: false, claimedBy: null, waiti
 
 /** The runner's `hh:mm:ss ` stamp, when a line has one. */
 const STAMP = /^\d{2}:\d{2}:\d{2} /;
-const PR_LINE = /^PR: (\S+)/;
+/** A `PR: <link>` line the runner writes itself: a step's output is indented, and never one (bug 2567). */
+const PR_LINE = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
 /** `omni wait approval`'s waiting lines (`◌ PRD <n> · waiting for …`) and the one that ends them. */
 const WAITING = /^◌ PRD \d+ · waiting for /;
 const APPROVED = /^✓ PRD \d+ approved /;
@@ -52,7 +55,15 @@ function ending(job: FollowJob, merged: MergedCount): string | null {
 }
 
 /** What the lines add to what was seen: whether a wait is on, and each pull request not printed yet. */
-function readLines(lines: readonly string[], seen: Seen): { waiting: boolean; waitingStarted: boolean; prs: string[] } {
+/** The job's own pull request a line names, or `undefined`: a `PR:` line the job wrote, of the job's repository. */
+function ownPullRequest(raw: string, repo: string): string | undefined {
+  const link = PR_LINE.exec(raw.trimEnd())?.[1];
+  const [owner, name] = repo.toLowerCase().split('/');
+  const parts = link === undefined ? null : /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/\d+$/i.exec(link);
+  return parts !== null && parts[1]?.toLowerCase() === owner && parts[2]?.toLowerCase() === name ? link : undefined;
+}
+
+function readLines(lines: readonly string[], seen: Seen, repo: string): { waiting: boolean; waitingStarted: boolean; prs: string[] } {
   let waiting = seen.waiting;
   let waitingStarted = false;
   const prs = [...seen.prs];
@@ -65,7 +76,7 @@ function readLines(lines: readonly string[], seen: Seen): { waiting: boolean; wa
     } else if (APPROVED.test(line)) {
       waiting = false;
     }
-    const pr = PR_LINE.exec(line)?.[1];
+    const pr = ownPullRequest(raw, repo);
     if (pr !== undefined && !prs.includes(pr)) {
       prs.push(pr);
       fresh.push(pr);
@@ -88,7 +99,7 @@ export function milestones(previous: Seen | null, job: FollowJob, lines: readonl
     claimedBy = job.runner;
     out.push(`claimed by ${job.runner}`);
   }
-  const read = readLines(lines, seen);
+  const read = readLines(lines, seen, job.repo);
   if (read.waitingStarted) out.push('waiting for approval');
   for (const pr of read.prs.slice(seen.prs.length)) out.push(`PR: ${pr}`);
   let count = seen.merged;
