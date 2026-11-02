@@ -163,17 +163,67 @@ already clear: too small for a PRD.
 It opens an issue labelled `omni:bug` (or give it an issue that already reports the bug: `612`,
 `#612` or its link), and posts a triage on it: which area owns it, how bad it is (a
 `omni:risk-<level>` label), and whether a change broke it (`omni:regression`). On a fix branch it
-writes a test that shows the bug and runs it before any fix: it must fail. Then it fixes the bug,
-adds the cheap check that would have caught it, and opens one pull request into your default branch
-that closes the issue, with a **Bug** section saying what failed before the fix. The pull request
-shows the bug before and after, under a **Proof** heading, with the failing and passing lines beside
-it. A bug that shows in one component of a front end with Storybook is filmed: its story before and
-after, as a short GIF, with a link to each full clip. Any other bug gets two cards drawn from the
-test's own output, the failing run in red, then the passing run in green, with the failing and passing
-lines highlighted. Nothing but Omni draws them, so any machine can. Before the pull request opens,
-`omni bug` checks that its body carries that proof, so no pull request goes out without it. When the
-GIF cannot be made, the pull request opens as a draft that says why. There is no spec, no plan and no
-phase-0 pull request.
+writes a test that shows the bug and runs it before any fix: it must fail. It pushes that test alone
+and opens the pull request into your default branch then, as a draft that closes the issue. Then it
+fixes the bug, adds the cheap check that would have caught it, and pushes the fix on top. The pull
+request shows the bug before and after, under a **Proof** heading, with the failing and passing
+lines beside it and a **Proved on** line saying where they were seen. There is no spec, no plan and
+no phase-0 pull request.
+
+**Where the proof comes from.** It takes the first of these that works:
+
+1. **A preview environment**, when your repository has a `bug-fix.proof` hook (see
+   [Flow](/docs/flow)): the hook builds the pull request's environment, films the bug before and after,
+   and says where the environment is and how long it lives.
+2. **CI**: the run on the test alone failed, the run with the fix passed. The pull request links
+   both runs.
+3. **The machine that made the fix**: a bug that shows in one component of a front end with
+   Storybook is filmed there, its story before and after, with a link to each full clip; any other
+   bug gets two cards drawn from the test's own output, the failing run in red, then the passing run
+   in green. Nothing but Omni draws them, so any machine can.
+
+CI and the machine prove the test, not what a person sees, and their **Proved on** line says so.
+When none of the three works, the pull request stays a draft, and its proof is one line giving each
+one's reason. Before the pull request is marked ready, `omni bug` checks that its body carries that
+proof. It is never marked ready just to get a CI run.
+
+On `demo-org/nimbus-web`, the hook deploys each pull request to its own preview and films the bug
+there:
+
+```yaml file
+# .omni-loop/config.yml
+flow:
+  hooks:
+    bug-fix.proof:
+      replace: .omni-loop/flow/preview-proof.md
+```
+
+```markdown file
+<!-- .omni-loop/flow/preview-proof.md -->
+Deploy pull request {pr} to https://pr-{pr}.preview.nimbus.example, at {head}.
+Film the steps of {reproduction} there, against a deploy of {base}, to {out}/before.webm,
+then against the deploy of {head}, to {out}/after.webm.
+Print `env: https://pr-{pr}.preview.nimbus.example · until the pull request closes`.
+End with `omni-hook bug-fix.proof: pass`, or `omni-hook bug-fix.proof: fail <why>`.
+```
+
+No agent runs when you merge or close the pull request, so nimbus-web's own CI removes the preview
+then. Omni never creates or deletes an environment:
+
+```yaml file
+# .github/workflows/preview-cleanup.yml
+on:
+  pull_request:
+    types: [closed]
+jobs:
+  remove-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./scripts/preview.sh delete "pr-${{ github.event.pull_request.number }}"
+```
+
+A CI that skips a job on a draft is named in the proof's line: the job it skipped, so you can change
+that condition.
 
 A flaky check is not a bug: it says so on the issue and stops. When the fix needs a product
 decision, a change to stored data or a shared interface, or a new screen, route or API, it stops,

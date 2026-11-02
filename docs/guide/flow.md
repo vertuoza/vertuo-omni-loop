@@ -194,6 +194,8 @@ omni flow show do-work.test --prd 42 --slice s1
 
 ```text terminal
 point    do-work.test
+modes    before, after, replace
+inputs   prd, slice, territory, branch
 areas    kernel
 territory src/kernel/Bus/
 replace  .omni-loop/flow/kernel/tests.md  (kernel)
@@ -303,6 +305,7 @@ keeps every skill it names calling `omni flow show` there.
 | `wave.merge` | `/omni:wave`, `/omni:ultra-wave`, after an `ok` gate | ✓ | ✓ | the merged PR's number in the verdict |
 | `bug-fix.reproduce` | `/omni:bug-fix` step 7 before the reproduction is written, and `/omni:mega-bug-fix` in each target; handed `{issue}`, `{branch}`, `{suspect}`, `{boundary}` | ✓ | — | — |
 | `bug-fix.review` | `/omni:bug-fix` after the guard and before mutation, and `/omni:mega-bug-fix` in each target; handed `{issue}`, `{branch}`, `{base}` | ✓ | — | — |
+| `bug-fix.proof` | `/omni:bug-fix` step 12, once the draft pull request holds the fix; handed `{issue}`, `{base}`, `{head}`, `{pr}`, `{targets}`, `{reproduction}`, `{out}` | ✓ | ✓ | `before.*` and `after.*` in `{out}`, an `env:` line, the verdict line |
 | `yolo.ready` | `/omni:yolo`, `/omni:ultra-yolo`, before the feature PR is marked ready | ✓ | — | — |
 
 ### How a point runs
@@ -315,7 +318,7 @@ the order written), and an area's own `replace` wins over the default area's.
 ### Replace the act, never the guard
 
 **Extend is the default; replace is the exception.** A playbook form only adds to a skill
-(ADR-0025), and so do `before` and `after` hooks. A `replace` hook takes the kit's act at the three
+(ADR-0025), and so do `before` and `after` hooks. A `replace` hook takes the kit's act at the four
 points the catalog allows, and nothing more (ADR-0069). These run whatever the hooks say: signing,
 labels, the PR links, the base check (never into the default branch), the territory check,
 `omni plan check`, the slice's preflight before it ships, and the merge gate.
@@ -325,7 +328,7 @@ labels, the PR links, the base check (never into the default branch), the territ
 A hook is a Markdown file of the repository, named by its path from the root. It may open with a
 short front matter (fenced in `---`, or as its first `key: value` lines): `omni-hook: <point>`, the
 `inputs` it reads, its `verdict`. `{name}` in its text is filled with that input: `{prd}`, `{slice}`,
-`{territory}`, `{branch}` at the do-work points, `{base}`, `{head}`, `{title}` at `pr.open`, `{issue}`, `{branch}`, `{suspect}`, `{boundary}` at `bug-fix.reproduce`, `{issue}`, `{branch}`, `{base}` at `bug-fix.review`. Its
+`{territory}`, `{branch}` at the do-work points, `{base}`, `{head}`, `{title}` at `pr.open`, `{issue}`, `{branch}`, `{suspect}`, `{boundary}` at `bug-fix.reproduce`, `{issue}`, `{branch}`, `{base}` at `bug-fix.review`, `{issue}`, `{base}`, `{head}`, `{pr}`, `{targets}`, `{reproduction}`, `{out}` at `bug-fix.proof`. Its
 output ends with `omni-hook <point>: pass` or `omni-hook <point>: fail <why>`.
 
 The loop **fails closed**: a broken `flow`, a missing hook file or a missing verdict stops the point;
