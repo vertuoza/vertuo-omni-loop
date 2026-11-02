@@ -32,7 +32,7 @@ function service({ decides, domains }: { decides: boolean; domains: DomainEntry[
     },
   };
   const store = { productFor: () => Promise.resolve({ ok: true, value: { id: PRODUCT, workspace: 'w', name: 'Widgets' } }) } as unknown as KnowledgeApiRepository;
-  return { writes, api: knowledgeApiService(store, knowledge as never) };
+  return { writes, api: knowledgeApiService(store, knowledge) };
 }
 
 const add = (key: string) => CHANGES.domains.add.parse({ repo: 'acme/widgets', kind: 'domains', action: 'add', fields: { key, name: 'Stock', meaning: 'Shelves.' } });
