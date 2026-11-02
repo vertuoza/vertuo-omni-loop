@@ -80,6 +80,11 @@
  * carries the trailer line `Omni-Slice: <id>` (`INLINE_SLICE_TRAILER`) says slice `<id>` was built,
  * and `boardFor`, handed those ids as `inlineDone`, reads a slice with no pull request and such a
  * commit as `merged`.
+ *
+ * In a plan repository the count is per target (`inlineTargets`): a target with fewer slices than
+ * `wave.inlineBelow` is built inline, so a PRD of one slice in each of five repositories opens five
+ * pull requests, not ten. The plan repository cannot read a target's commits, so a target's feature
+ * pull request carries the same `Omni-Slice: <id>` lines in its body (`inlineSlicesInTargets`).
  */
 import type { PrNumber, WorkSliceId } from './ids.ts';
 import type { Config, Tier } from './types.ts';
@@ -482,7 +487,7 @@ export function boardFor<S extends BoardSlice>({
   });
 
   // A slice built inline has no pull request: its commits on the feature branch are its merge.
-  const builtInline = (slice: S, pr: BoardPr | null | undefined) => !pr && !acrossRepos && inlineDone.has(slice.id);
+  const builtInline = (slice: S, pr: BoardPr | null | undefined) => !pr && inlineDone.has(slice.id);
 
   const mergedById = new Map(
     slices.map((slice, index) => {
@@ -502,9 +507,11 @@ export function boardFor<S extends BoardSlice>({
       const state = builtInline(slice, pr) ? 'merged' : stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix, dead });
       return { ...rest, pr, state };
     }
-    const state = repo.readable
-      ? stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix, dead })
-      : 'unreadable';
+    const state = !repo.readable
+      ? 'unreadable'
+      : builtInline(slice, pr)
+        ? 'merged'
+        : stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix, dead });
     return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
   });
 
@@ -547,6 +554,63 @@ export function inlineWave(
   if (landings === undefined) return slices.length < inlineBelow;
   const current = landings.find((landing) => landing.landing === currentLanding);
   return current !== undefined && current.slices.length < inlineBelow;
+}
+
+/**
+ * The targets of a plan repository whose slices a wave builds inline (issue 1722, per repository): a
+ * target (a repository a slice's `repo` names) is inline when `wave.inlineBelow` is set, it has fewer
+ * slices than that (its current landing's, for a target of several landings) and none of them has a
+ * pull request. Each target is counted alone, so five targets of one slice each are five inline
+ * targets, while a target of two slices with `inlineBelow` 2 keeps its sub-PRs. A slice with no `repo`
+ * is never counted here: `inlineWave` answers for a PRD of one repository. 0 never does.
+ */
+export function inlineTargets(
+  { slices, landings }: Pick<ReturnType<typeof boardFor>, 'slices' | 'landings'>,
+  inlineBelow: number,
+): string[] {
+  if (inlineBelow <= 0) return [];
+  const names = [...new Set(slices.flatMap((row) => (row.repo === undefined || row.repo === null ? [] : [row.repo])))];
+  return names.filter((name) => {
+    if (slices.some((row) => row.repo === name && row.pr !== null)) return false;
+    if (landings === undefined) return slices.filter((row) => row.repo === name).length < inlineBelow;
+    const current = landings.find((landing) => landing.current && landing.repo === name);
+    return current !== undefined && current.slices.length < inlineBelow;
+  });
+}
+
+/**
+ * The ids of the slices built inline in the targets of a plan repository: a target's feature pull
+ * request lists each slice built there on its own `Omni-Slice: <id>` line (`inlineSlicesIn`), since a
+ * plan repository reads a target through its pull requests, never through its commits. Only the
+ * feature (or landing) pull request of the slice's own repository counts, and nothing does while
+ * `inlineBelow` is 0, so turning the key off reads the slices `runnable` again, as it does in one repository.
+ */
+export function inlineSlicesInTargets({
+  slices,
+  prs,
+  repos,
+  featureBranches,
+  inlineBelow,
+}: {
+  slices: readonly BoardSlice[];
+  prs: readonly BoardPr[];
+  repos: BoardRepos;
+  featureBranches: (repo: string) => readonly string[];
+  inlineBelow: number;
+}): Set<string> {
+  const built = new Set<string>();
+  if (inlineBelow <= 0) return built;
+  for (const slice of slices) {
+    const name = slice.repo ?? null;
+    const slug = name === null ? null : (repos[name]?.slug ?? null);
+    if (name === null || slug === null) continue;
+    const heads = featureBranches(name);
+    const listed = prs.some(
+      (pr) => pr.slug === slug && pr.headRefName !== undefined && heads.includes(pr.headRefName) && inlineSlicesIn(pr.body ?? '').has(slice.id),
+    );
+    if (listed) built.add(slice.id);
+  }
+  return built;
 }
 
 /** States a slice is open in: it has a pull request, not yet merged. */

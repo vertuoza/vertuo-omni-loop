@@ -290,6 +290,12 @@ reads a slice with no pull request and such a commit on `<remote>/<feature branc
 (`inlineSlicesIn`, `boardFor`'s `inlineDone`) and prints `inline` in its `--json` (`inlineWave`):
 `true` only when `wave.inlineBelow` is set, the plan is small enough, no slice lands in another
 repository, and no slice has a pull request, so a PRD that began with sub-PRs finishes with them.
+In a plan repository the same threshold is counted **per target** (`inlineTargets`, printed as
+`inlineRepos` in `omni board --json`): a target with fewer slices than `wave.inlineBelow`, none with a
+sub-PR, is built by `/omni:ultra-wave` on its feature branch with no sub-PR, so one slice in each of
+five repositories is five pull requests, not ten. The plan repository reads a target through its
+pull requests only, so a built slice is named on an `Omni-Slice: <id>` line of the target's feature PR
+body (`inlineSlicesInTargets`).
 The git read runs only when `wave.inlineBelow` is above `0`, in `omni board`, `omni next` and the
 status line's board refresh.
 
