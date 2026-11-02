@@ -8,6 +8,7 @@
  * log lines around the test, masked as every excerpt the kit writes (L-GDPR-2), then the run's link.
  * Anything else is one line saying why, never a guess.
  */
+import type { PrNumber } from '../ids.ts';
 import { maskSecrets } from '../openrouter.ts';
 
 /** One job of a run, as `gh run view --json jobs` lists it, with its `log` when the caller loaded it. */
@@ -55,7 +56,7 @@ function around(log: string, test: string): string[] {
 }
 
 /** One excerpt file: what the job was, the log lines, the run's link. */
-function excerpt(pr: number, side: CiSide, job: CiJob, test: string): string {
+function excerpt(pr: PrNumber, side: CiSide, job: CiJob, test: string): string {
   return `${[`#${pr} · ${short(side.sha)} · job ${job.name}`, ...around(job.log, test), `Run: ${job.url}`].join('\n')}\n`;
 }
 
@@ -82,7 +83,7 @@ function greenJob(side: CiSide, name: string): { job: CiJob } | { line: string }
  * The proof of two finished sides: the two excerpts, or the one line saying why there is none.
  * `pr` is the pull request the runs belong to, named in each excerpt's first line.
  */
-export function proveCi({ pr, test, reproduction, fix }: { pr: number; test: string; reproduction: CiSide; fix: CiSide }): CiProof {
+export function proveCi({ pr, test, reproduction, fix }: { pr: PrNumber; test: string; reproduction: CiSide; fix: CiSide }): CiProof {
   const red = redJob(reproduction, test);
   if ('line' in red) return { ok: false, line: red.line };
   const green = greenJob(fix, red.job.name);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PrNumberSchema } from '../ids.ts';
 import { failedNames, finished, proveCi } from './ci.ts';
 import type { CiJob, CiSide } from './ci.ts';
 
@@ -18,7 +19,7 @@ const red = (over: Partial<CiJob> = {}): CiJob =>
   job({ conclusion: 'failure', log: `stories\tRun tests\t2026-11-02T10:00:00.000Z FAIL ${TEST}\nstories\tRun tests\t2026-11-02T10:00:01.000Z AssertionError: expected 2 to be 1\n`, ...over });
 const green = (over: Partial<CiJob> = {}): CiJob => job({ log: `✓ ${TEST}\n`, ...over });
 const side = (sha: string, ...jobs: CiJob[]): CiSide => ({ sha, jobs });
-const prove = (reproduction: CiSide, fix: CiSide) => proveCi({ pr: 34, test: TEST, reproduction, fix });
+const prove = (reproduction: CiSide, fix: CiSide) => proveCi({ pr: PrNumberSchema.parse(34), test: TEST, reproduction, fix });
 
 describe('proveCi — level B (PRD 2578)', () => {
   it('proves the red and the green when a check failed naming the test, then passed on the fix commit', () => {

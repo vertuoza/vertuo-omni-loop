@@ -12,7 +12,8 @@ import { isAbsolute, join } from 'node:path';
 import { z } from 'zod';
 import { failedNames, finished, proveCi } from '../../lib/bug/ci.ts';
 import type { CiJob, CiSide } from '../../lib/bug/ci.ts';
-import { errorMessage, issueArg, parseArgs, println, usageError } from '../args.ts';
+import { PrNumberSchema, type PrNumber } from '../../lib/ids.ts';
+import { errorMessage, issueArg, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Exec, FreeIo } from '../io.ts';
 
 const USAGE = 'usage: omni bug ci <n> --pr <pr> --reproduction <sha> --fix <sha> --test <name> --out <dir> [--wait <minutes>]';
@@ -28,7 +29,7 @@ const JobsSchema = z.object({
 /** What a test injects: the clock and the sleep. */
 type CiOptions = { sleep?: ((ms: number) => Promise<void>) | undefined; now?: (() => number) | undefined };
 
-type Ask = { pr: number; reproduction: string; fix: string; test: string; out: string; waitMinutes: number };
+type Ask = { pr: PrNumber; reproduction: string; fix: string; test: string; out: string; waitMinutes: number };
 
 /** `--wait` as minutes: the default when absent, else a number, or a usage error. */
 function minutes(value: string | undefined): number {
@@ -43,7 +44,7 @@ function askOf(args: string[]): Ask {
   const { positional, flags } = parseArgs('bug ci', args, { values: ['pr', 'reproduction', 'fix', 'test', 'out', 'wait'] });
   if (positional.length !== 1) throw usageError(USAGE);
   issueArg('bug ci', '<n>', positional[0]);
-  const pr = issueArg('bug ci', '--pr', flags.pr);
+  const pr = PrNumberSchema.parse(positiveInt('bug ci', '--pr', flags.pr));
   const { reproduction = '', fix = '', test = '', out = '' } = flags;
   if ([reproduction, fix, test, out].includes('')) throw usageError(`${USAGE} (--reproduction, --fix, --test and --out are needed)`);
   return { pr, reproduction, fix, test, out, waitMinutes: minutes(flags.wait) };
