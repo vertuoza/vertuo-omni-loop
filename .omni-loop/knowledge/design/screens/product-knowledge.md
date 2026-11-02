@@ -19,7 +19,7 @@ that fit nowhere else. The product home's Knowledge tab, after Questions.
 
 - **The heading:** the product's name, `← Products`, one line, and the link to the knowledge graph.
 - **The tabs:** the product home's, `Knowledge` current.
-- **The sub-menu:** a second row, `Constituents · Personas · Legal · Glossary · Pitch · Settings`, each
+- **The sub-menu:** a second row, `Constituents · Personas · Legal · Glossary · Domains · Pitch · Repositories · Settings`, each
   list section with its count of active items; the current one marked. `/knowledge` opens Constituents.
 - **A list section** (Constituents, Personas, Legal, Glossary): a table, every header a sort link
   (`?sort=&dir=`), the one in use marked `aria-sort`; text cells one line, ending in "…"; each row's
@@ -41,7 +41,7 @@ that fit nowhere else. The product home's Knowledge tab, after Questions.
 ## Words
 
 Knowledge · Constituents · Personas · Legal · Glossary · Pitch · Settings · Active · Retired · Code ·
-Statement · Source law · Term · Meaning · Kind · Text · Name · Stance · Trade · Owner · Created by ·
+Statement · Source law · Term · Meaning · Domains · Kind · Text · Name · Stance · Trade · Owner · Created by ·
 Created · Updated · Add an entry · Propose · Approve · Reject · shared by every product.
 
 ## Refusals
@@ -60,3 +60,4 @@ Created · Updated · Add an entry · Propose · Approve · Reject · shared by 
 
 - PRD 1795 s2, drawn from the source by hand (no `/omni:pixel-perfect mock` run).
 - /omni:brainstorm, PRD 2240: .omni-loop/delivery/shipped/2240-product-knowledge-home/before-after.html
+- /omni:brainstorm, PRD 2583: .omni-loop/delivery/inbox/2583-product-domains/before-after.html
