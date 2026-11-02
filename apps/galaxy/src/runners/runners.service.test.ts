@@ -23,7 +23,7 @@ const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 /** The service on the fake store, with a clock that a held `next` moves forward as it sleeps. */
 function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questions = [], skills = [], start = T0, onSleep, notifier }: {
   jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[]; start?: Date;
-  onSleep?: (jobs: JobRow[]) => void; notifier?: Notifier;
+  onSleep?: (jobs: JobRow[]) => unknown; notifier?: Notifier;
 } = {}) {
   let now = start;
   const slept: number[] = [];
@@ -34,8 +34,7 @@ function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questio
     sleep: (ms) => {
       slept.push(ms);
       now = new Date(now.getTime() + ms);
-      onSleep?.(state.jobs);
-      return Promise.resolve();
+      return Promise.resolve(onSleep?.(state.jobs)).then(() => undefined);
     },
   }, stubGithub().deps, notifier);
   return { service, state, slept, setNow: (next: Date) => { now = next; } };
@@ -197,12 +196,18 @@ describe('the long poll', () => {
     expect(w.slept).toEqual([NEXT_POLL_MS]);
   });
 
-  it('claims no job once its runner hung up: a runner restarted mid check-in never loses the job sent next (#2593)', async () => {
-    const hangUp = new AbortController();
+  it('claims nothing for a runner registered again since it began: a restart never loses the job sent next (#2593)', async () => {
     const late = jobRow();
-    const w = world({ onSleep: (jobs) => { if (jobs.length === 0) { jobs.push({ ...late }); hangUp.abort(); } } });
-    expect(value(await w.service.next(OLGA, SHARED, hangUp.signal))).toBeNull();
+    // While the check-in holds, the runner restarts (it registers again), then a job is sent.
+    const w = world({ onSleep: async (jobs) => {
+      if (jobs.length > 0) return;
+      value(await w.service.register(OLGA, { name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1', githubApp: true }));
+      jobs.push({ ...late });
+    } });
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
     expect(w.state.jobs[0]).toMatchObject({ id: late.id, status: 'queued', runner_id: null });
+    // The restarted runner's own check-in takes it.
+    expect(value(await w.service.next(OLGA, SHARED))?.id).toBe(late.id);
   });
 
   it('refuses a runner of someone else, and an unknown runner', async () => {
