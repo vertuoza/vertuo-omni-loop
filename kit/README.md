@@ -85,7 +85,7 @@ then prints the token, its expiry and the line to paste it by, and keeps it nowh
 
 **Runners** (PRD 1830) run the `/omni:` lines people send from the Omni app with Send to terminal,
 on a machine set up for it, with no one at a terminal. Start one with
-`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
+`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14]
 [--max-memory 85] [--min-disk 10] [--max-load 1.5]`:
 
 - **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts

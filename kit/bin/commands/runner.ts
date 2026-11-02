@@ -1,7 +1,7 @@
 // `omni runner` (PRD 1830): makes this machine a runner of the Omni app, which runs the `/omni:` lines
 // people send it from the app with Send to terminal.
 //
-//   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
+//   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14]
 //               [--max-memory 85] [--min-disk 10] [--max-load 1.5]
 //   omni runner sender
 //   omni runner github-token [--git get]
@@ -119,14 +119,14 @@ import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { boardCount, followCommand, interrupts, send } from './runner-follow.ts';
 import type { FollowOptions } from './runner-follow.ts';
 
-const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
+const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
 const T3_RUN_USAGE = 'usage: omni runner t3-run --instance <id> --model <model> [--thread <id>]';
 const ASK_USAGE = 'usage: omni runner ask --file <file> --issue <n> --lead <file>';
 const ANSWERS_USAGE = 'usage: omni runner answers <job>';
 const GITHUB_TOKEN_USAGE = 'usage: omni runner github-token [--git get]';
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
-const DEFAULT_TIMEOUT = '3h';
+const DEFAULT_TIMEOUT = '8h';
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/;
 
 /** What a test hands `omni runner` beyond `main()`'s own. */
