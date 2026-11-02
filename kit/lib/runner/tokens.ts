@@ -2,6 +2,7 @@
 // `~/.claude/projects/<folder>/**/*.jsonl`, one folder per directory Claude ran in, named after it with
 // every character that is not a letter or a digit turned into `-`. The sum is the one ask rounds use
 // (`usageSum` in `../ask/context.ts`): `message.usage` over assistant entries, each message id once.
+// A runner with T3 accounts (PRD 2537) reads each Claude instance's own folder beside its own.
 //
 // - A job's tokens: every transcript whose folder is the job's worktree, or below it (the worktrees a
 //   wave's sub-agents run in sit under the job's `.claude/worktrees/`). `job-12` is not `job-123`.
@@ -65,14 +66,17 @@ const entriesOf = (text: string): Entry[] => text.split('\n').flatMap((raw) => (
 const missing = (error: unknown): boolean => typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 
 /**
- * The token counts of the transcripts under `projects`. `readFile` is the read of a transcript's text,
- * which a test counts; `now` is the clock.
+ * The token counts of the transcripts under `projects`: one Claude folder, or several (the machine's own
+ * and each T3 instance's, PRD 2537), each read once. A folder that does not exist yet counts as empty;
+ * the counts are `null` when none exists. `readFile` is the read of a transcript's text, which a test
+ * counts; `now` is the clock.
  */
 export function tokenSource({ projects, now = Date.now, readFile = (path) => readFileSync(path, 'utf8') }: {
-  projects: string;
+  projects: string | readonly string[];
   now?: (() => number) | undefined;
   readFile?: ((path: string) => string) | undefined;
 }): TokenSource {
+  const roots = [...new Set(typeof projects === 'string' ? [projects] : projects)];
   const cache = new Map<string, Read>();
 
   /** The entries of the transcript at `path`, read again only when its size or time changed; `[]` when it is older than `since` or gone, `null` when refused. */
@@ -91,34 +95,48 @@ export function tokenSource({ projects, now = Date.now, readFile = (path) => rea
     }
   }
 
-  /** The transcripts under one project folder, by their names; `null` when the folder is refused. */
-  function transcriptNames(folder: string): string[] | null {
+  /** The transcripts under one project folder of `root`, by their names; `null` when the folder is refused. */
+  function transcriptNames(root: string, folder: string): string[] | null {
     try {
-      return readdirSync(join(projects, folder), { recursive: true, encoding: 'utf8' }).filter((name) => name.endsWith('.jsonl'));
+      return readdirSync(join(root, folder), { recursive: true, encoding: 'utf8' }).filter((name) => name.endsWith('.jsonl'));
     } catch (error) {
       return missing(error) ? [] : null;
     }
   }
 
-  /** The transcripts of the folders `wanted` accepts, modified at `since` or after, with their entries; `null` when one cannot be read. */
-  function transcripts(wanted: (folder: string) => boolean, since: number): Entry[][] | null {
+  /** The transcripts of `root`'s folders `wanted` accepts, modified at `since` or after; `'missing'` when `root` does not exist, `null` when one cannot be read. */
+  function transcriptsIn(root: string, wanted: (folder: string) => boolean, since: number): Entry[][] | 'missing' | null {
     let folders: string[];
     try {
-      folders = readdirSync(projects).filter(wanted);
-    } catch {
-      return null;
+      folders = readdirSync(root).filter(wanted);
+    } catch (error) {
+      return missing(error) ? 'missing' : null;
     }
     const found: Entry[][] = [];
     for (const folder of folders) {
-      const names = transcriptNames(folder);
+      const names = transcriptNames(root, folder);
       if (names === null) return null;
       for (const name of names) {
-        const entries = entriesAt(join(projects, folder, name), since);
+        const entries = entriesAt(join(root, folder, name), since);
         if (entries === null) return null;
         found.push(entries);
       }
     }
     return found;
+  }
+
+  /** The transcripts of every root's folders `wanted` accepts; `null` when one cannot be read, or when no root exists. */
+  function transcripts(wanted: (folder: string) => boolean, since: number): Entry[][] | null {
+    const found: Entry[][] = [];
+    let present = false;
+    for (const root of roots) {
+      const inRoot = transcriptsIn(root, wanted, since);
+      if (inRoot === null) return null;
+      if (inRoot === 'missing') continue;
+      present = true;
+      found.push(...inRoot);
+    }
+    return present ? found : null;
   }
 
   /** The sum of the entries stamped at `from` or after (all of them when `from` is `null`), each message id once, the last entry of an id counting. */

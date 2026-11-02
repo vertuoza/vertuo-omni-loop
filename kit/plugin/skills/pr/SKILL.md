@@ -355,11 +355,18 @@ gh pr comment <n> --body-file <file>                                 # it printe
 - slices: <merged> / <total> merged            <!-- feature PR only -->
 - human steps: <missing labels, or "none">
 - job: <id> · runner <name>                    <!-- a runner job's session only -->
+- Parts: <agent> (<model>) until <time> · <agent> (<model>), <why>   <!-- a job that turned over only -->
 ```
 
 The `job:` line names the runner job that holds the claim, so the runner releases a dead job's
 claims. Every rewrite writes it from the session's own `OMNI_JOB` (`OMNI_RUNNER` for the name), and
 drops it when `OMNI_JOB` is not set.
+
+The `Parts:` line lists the parts of a job that turned over to another account or agent, one
+`<agent> (<model>)` per part, joined by ` · `: the runner writes them in one line through the job's
+environment (`OMNI_RUNNER_PARTS`), and the line is written from that variable on every rewrite. It
+is dropped when `OMNI_RUNNER_PARTS` is not set, which is every job that never turned over and every
+session outside a runner.
 
 This skill does not decide whether a claim is stale. The board does: `/omni:wave` reads the slice's
 `claimed-stale` state from `omni board <prd>`. Whoever picks up a stale PR takes it over and says so

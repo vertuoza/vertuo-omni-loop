@@ -17,7 +17,9 @@ import { DEFAULT_LIMITS } from './health.ts';
 import type { MachineReads } from './health.ts';
 import { runRunner } from './runner.ts';
 import type { RunnerOptions } from './runner.ts';
-import type { Terminal } from './terminal.ts';
+import type { JobSession, Terminal } from './terminal.ts';
+import { accountBook, accountsStateFile, DEFAULT_HANDOFF } from './accounts.ts';
+import type { Account, Accounts } from './accounts.ts';
 import type { TokenSource } from './tokens.ts';
 
 const GB = 1024 ** 3;
@@ -643,5 +645,201 @@ describe("a repository's own skill (PRD 2313, s2)", () => {
     const { sent, started } = await claimed({ line: '/omni:pr-care 7', allowed: [] });
     expect(started).toEqual(['job-7']);
     expect(sent.at(-1)).toMatchObject({ status: 'done', exitCode: 0 });
+  });
+});
+
+describe('the accounts (PRD 2537, s2)', () => {
+  const direct = (id: string, extra: Partial<Account> = {}): Account => ({ id, agent: 'claude', instance: null, model: null, secret: null, budget: null, takes: null, ...extra });
+  const file = (accounts: Account[]): Accounts => ({ file: true, accounts, handoff: DEFAULT_HANDOFF });
+
+  /** Runs one job of `line` with `over`: the reports the app got, what the runner printed, and the sessions it started. */
+  async function onAccounts(line: string, over: Partial<RunnerOptions>, log = '') {
+    const sessions: JobSession[] = [];
+    const printed: string[] = [];
+    const terminal: Terminal = {
+      start: (session) => {
+        sessions.push(session);
+        writeFileSync(session.argv[session.argv.indexOf('--log') + 1] ?? '', log);
+      },
+      stop: () => undefined,
+      alive: () => true,
+    };
+    const sent = await jobEnding(line, log, '0\n', { over: { terminal, print: (text) => printed.push(text), ...over } });
+    return { sent, sessions, printed };
+  }
+
+  const freshBook = (out: string[] = []) => {
+    const book = accountBook({ file: accountsStateFile(mkdtempSync(join(tmpdir(), 'omni-runner-book-'))), now: () => T0 });
+    for (const id of out) book.markOut(id, new Date(T0 + 3_600_000).toISOString());
+    return book;
+  };
+
+  it('starts a job on the one Claude account, adding nothing to its session, when there is no accounts file', async () => {
+    const { sessions } = await onAccounts('/omni:yolo 7', {});
+    expect(sessions[0]?.argv).not.toContain('--account');
+  });
+
+  it('starts a job on the first account that is not out, and names it to the session', async () => {
+    const { sessions, printed } = await onAccounts('/omni:yolo 7', { accounts: file([direct('one'), direct('two')]), accountBook: freshBook(['one']) });
+    expect(sessions[0]?.argv.slice(-2)).toEqual(['--account', 'two']);
+    expect(printed).toContain('job 7 runs on account two');
+  });
+
+  it('skips an account whose takes leaves out the job\'s skill', async () => {
+    const { sessions } = await onAccounts('/omni:yolo 7', { accounts: file([direct('narrow', { takes: ['plan'] }), direct('wide')]), accountBook: freshBook() });
+    expect(sessions[0]?.argv.slice(-2)).toEqual(['--account', 'wide']);
+  });
+
+  it('skips an account whose agent this kit lacks, and fails a job whose only agent fails its check', async () => {
+    const { sessions } = await onAccounts('/omni:yolo 7', { accounts: file([direct('t3', { agent: 't3', instance: 'i' }), direct('plain')]), accountBook: freshBook() });
+    expect(sessions[0]?.argv.slice(-2)).toEqual(['--account', 'plain']);
+    const broken = await onAccounts('/omni:yolo 7', { accounts: file([direct('only')]), accountBook: freshBook(), exec: (command) => { if (command === 'claude') throw new Error('no claude'); return ''; } });
+    expect(broken.sessions).toEqual([]);
+    expect(broken.sent.at(-1)).toMatchObject({ status: 'failed', reason: 'no account can take this job: only is unusable: claude is not installed' });
+  });
+
+  it('fails a job no account can take, naming each, and starts no session', async () => {
+    const { sent, sessions } = await onAccounts('/omni:yolo 7', { accounts: file([direct('one'), direct('narrow', { takes: ['plan'] })]), accountBook: freshBook(['one']) });
+    expect(sessions).toEqual([]);
+    expect(sent.at(-1)).toMatchObject({ status: 'failed', reason: `no account can take this job: one is out until ${new Date(T0 + 3_600_000).toISOString()}; narrow does not take this skill` });
+  });
+
+  it('never lets a secret reach a report: it reads *** wherever the job printed it', async () => {
+    const secretFile = join(mkdtempSync(join(tmpdir(), 'omni-runner-secret-')), 'token');
+    writeFileSync(secretFile, 'sk-ant-oat-very-secret\n');
+    const { sent, printed } = await onAccounts('/omni:yolo 7', { accounts: file([direct('keyed', { secret: secretFile })]), accountBook: freshBook() }, 'token is sk-ant-oat-very-secret\n');
+    expect(JSON.stringify(sent)).not.toContain('very-secret');
+    expect(JSON.stringify(sent)).toContain('token is ***');
+    expect(printed.join('\n')).not.toContain('very-secret');
+  });
+
+  it('frees the account when the job ends', async () => {
+    const book = freshBook();
+    await onAccounts('/omni:yolo 7', { accounts: file([direct('one')]), accountBook: book });
+    expect(book.stateOf('one').state).toBe('ready');
+  });
+});
+
+// A job's parts (PRD 2537, s3): the runner sends the parts its job's process kept beside the log with each
+// report, ends a job turnover gave up on with turnover's reason, sends a report an app refuses for its parts
+// again without them and none after, and masks the secret of every account the job may have turned over to.
+describe("a job's parts (PRD 2537, s3)", () => {
+  const PARTS = {
+    parts: [
+      { agent: 'claude', model: 'claude-opus-5-5', account: 'one', from: '2026-10-16T12:00:00.000Z', to: '2026-10-16T12:01:00.000Z', ended: 'limit', resetsAt: '2026-10-16T17:00:00.000Z', guessed: false, note: 'runner' },
+      { agent: 'claude', model: null, account: 'two', from: '2026-10-16T12:01:00.000Z', to: null, ended: null },
+    ],
+    reason: null,
+  };
+
+  /** A terminal whose job writes `log` and, beside it, the parts `parts`. */
+  const writing = (log: string, parts: unknown): Terminal => ({
+    start: (session) => {
+      const path = session.argv[session.argv.indexOf('--log') + 1] ?? '';
+      writeFileSync(path, log);
+      writeFileSync(path.replace(/\.log$/, '.parts.json'), JSON.stringify(parts));
+    },
+    stop: () => undefined,
+    alive: () => true,
+  });
+
+  it('sends the parts with the running reports and the last one', async () => {
+    const sent = await jobEnding('/omni:yolo 7', 'working\n', '0\n', { over: { terminal: writing('working\n', PARTS) } });
+    expect(sent.filter((update) => update.status === 'running' && update.parts !== undefined).length).toBeGreaterThan(0);
+    expect(sent.at(-1)).toMatchObject({ status: 'done', parts: PARTS.parts });
+  });
+
+  it('sends no parts when the job kept none, or kept a file out of shape', async () => {
+    const none = await jobEnding('/omni:yolo 7', 'working\n', '0\n');
+    expect(none.some((update) => update.parts !== undefined)).toBe(false);
+    const bad = await jobEnding('/omni:yolo 7', 'working\n', '0\n', { over: { terminal: writing('working\n', { parts: 'no' }) } });
+    expect(bad.some((update) => update.parts !== undefined)).toBe(false);
+  });
+
+  it("ends a job turnover gave up on with turnover's reason", async () => {
+    const reason = 'no tokens left: every account is out until 2026-10-16T17:00:00.000Z';
+    const sent = await jobEnding('/omni:yolo 7', 'working\n', '1\n', { over: { terminal: writing('working\n', { ...PARTS, reason }) } });
+    expect(sent.at(-1)).toMatchObject({ status: 'failed', exitCode: 1, reason });
+  });
+
+  it('sends a report an app refuses for its parts again without them, and none after', async () => {
+    const sent = await jobEnding('/omni:yolo 7', 'working\n', '0\n', { over: { terminal: writing('working\n', PARTS) }, refusing: (update) => update.parts !== undefined });
+    const refused = sent.findIndex((update) => update.parts !== undefined);
+    expect(refused).toBeGreaterThan(-1);
+    expect(sent.slice(refused + 1).some((update) => update.parts !== undefined)).toBe(false);
+    expect(sent.at(-1)).toMatchObject({ status: 'done' });
+  });
+
+  it('masks the secret of every account of the file, not only the one the job started on', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'omni-runner-secrets-'));
+    writeFileSync(join(dir, 'one'), 'first-account-secret-value\n');
+    writeFileSync(join(dir, 'two'), 'second-account-secret-value\n');
+    const accounts: Accounts = {
+      file: true,
+      handoff: DEFAULT_HANDOFF,
+      accounts: ['one', 'two'].map((id) => ({ id, agent: 'claude', instance: null, model: null, secret: join(dir, id), budget: null, takes: null })),
+    };
+    const log = 'printed second-account-secret-value\n';
+    const sent = await jobEnding('/omni:yolo 7', log, '0\n', { over: { terminal: writing(log, PARTS), accounts, accountBook: accountBook({ file: accountsStateFile(dir), now: () => T0 }) } });
+    expect(JSON.stringify(sent)).not.toContain('second-account-secret-value');
+    expect(JSON.stringify(sent)).toContain('printed ***');
+  });
+});
+
+describe('no tokens left (PRD 2537, s6)', () => {
+  const direct = (id: string): Account => ({ id, agent: 'claude', instance: null, model: null, secret: null, budget: null, takes: null });
+  const file = (accounts: Account[]): Accounts => ({ file: true, accounts, handoff: DEFAULT_HANDOFF });
+  const bookOf = (app: { clock: { now: number } }, out: Record<string, number>) => {
+    const book = accountBook({ file: accountsStateFile(mkdtempSync(join(tmpdir(), 'omni-runner-book-'))), now: () => app.clock.now });
+    for (const [id, until] of Object.entries(out)) book.markOut(id, new Date(until).toISOString());
+    return book;
+  };
+
+  it('opens no next while every account is out, reports Paused with the earliest reset and every account\'s state', async () => {
+    const app = holdingApp(2);
+    const reset = T0 + 3_600_000;
+    const { printed } = await run(app, { accounts: file([direct('one'), direct('two')]), accountBook: bookOf(app, { one: reset + 60_000, two: reset }) });
+    const at = new Date(reset);
+    const until = `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`;
+    expect(app.nexts()).toBe(0);
+    expect(app.reports.map((report) => report.paused)).toEqual([`no tokens left until ${until}`, `no tokens left until ${until}`]);
+    expect(app.reports[0]?.accounts).toEqual([
+      { id: 'one', agent: 'claude', state: 'out', resetsAt: new Date(reset + 60_000).toISOString() },
+      { id: 'two', agent: 'claude', state: 'out', resetsAt: new Date(reset).toISOString() },
+    ]);
+    expect(printed).toContain(`paused: no tokens left until ${until}`);
+  });
+
+  it('takes jobs again once the earliest reset has passed', async () => {
+    const nextsAt: number[] = [];
+    const app = holdingApp(4, () => nextsAt.push(app.nexts()));
+    const { printed } = await run(app, { accounts: file([direct('one')]), accountBook: bookOf(app, { one: T0 + 20_000 }) });
+    expect(app.reports.map((report) => report.paused === null)).toEqual([false, false, true, true]);
+    expect(app.reports.at(-1)?.accounts).toEqual([{ id: 'one', agent: 'claude', state: 'ready' }]);
+    expect(printed.filter((line) => /^(paused|resumed)/.test(line))).toEqual([expect.stringMatching(/^paused: no tokens left until /), 'resumed']);
+    expect(app.nexts()).toBe(2);
+  });
+
+  it('stays unpaused with one account ready, and sends no accounts without a file', async () => {
+    const ready = holdingApp(1);
+    await run(ready, { accounts: file([direct('one'), direct('two')]), accountBook: bookOf(ready, { one: T0 + 3_600_000 }) });
+    expect(ready.reports[0]?.paused).toBeNull();
+    expect(ready.reports[0]?.accounts?.map((account) => account.state)).toEqual(['out', 'ready']);
+    const none = holdingApp(1);
+    await run(none);
+    expect(none.reports[0]).not.toHaveProperty('accounts');
+  });
+
+  it('sends a report again without the accounts an app refuses, and none after', async () => {
+    const app = holdingApp(3);
+    const seen: boolean[] = [];
+    const health = app.api.health.bind(app.api);
+    app.api.health = (runner, report) => {
+      seen.push('accounts' in report);
+      return 'accounts' in report ? Promise.reject(new RunnerRefused('refused (400)')) : health(runner, report);
+    };
+    await run(app, { accounts: file([direct('one')]), accountBook: bookOf(app, {}) });
+    expect(seen).toEqual([true, false, false, false]);
+    expect(app.reports.every((report) => !('accounts' in report))).toBe(true);
   });
 });

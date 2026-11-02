@@ -61,6 +61,12 @@
 // while that fails. A job whose token expires with no fresh one is stopped and ends `failed`,
 // `github app: <why>`. Its claims are released with the job's token too, and with no token a job that ran as an
 // app is released by no one: never as the machine's account.
+//
+// A job's parts (PRD 2537, s3): its process keeps one part per account it ran on in `~/logs/job-<id>.parts.json`
+// (`turnover.ts`), and every report carries them. An app that refuses a report for them gets it again without,
+// and no later report carries any. A job its turnover gave up on (no account left) fails with turnover's reason
+// in place of its exit code. A job may turn over to any account of the file, so every account's secret is
+// masked in what it sends.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -70,13 +76,16 @@ import type { PrdNumber } from '../ids.ts';
 import { runnerJobVariables, runnerSenderVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
-import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
-import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
+import type { AccountReport, HealthLimits, HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import { accountsReport, DEFAULT_LIMITS, machineReads, nextPause, noTokensPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
 import { githubJobEnv, installGhShim } from './github-app.ts';
 import { keepGithubToken } from './github-refresh.ts';
 import type { RefreshOptions } from './github-refresh.ts';
+import { accountBook, accountsStateFile, agentAccountOf, chooseAccount, FALLBACK_ACCOUNT, DEFAULT_HANDOFF, readSecret } from './accounts.ts';
+import type { AccountBook, Accounts } from './accounts.ts';
+import { agentNamed } from './agents/index.ts';
 import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
@@ -84,6 +93,7 @@ import type { TokenSource } from './tokens.ts';
 import { bugFixReading, fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
 import type { BugFixReading, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
+import { partsPath, readParts } from './turnover.ts';
 import type { PluginKeeper } from './plugin.ts';
 import { notReleased } from './release.ts';
 import type { Released, Releaser } from './release.ts';
@@ -161,6 +171,10 @@ export type RunnerOptions = {
   askUrl?: string | undefined;
   /** The PRD's slices merged of all, read in the job's worktree when a job ended `stopped` (PRD 2375): never read unless given. */
   slices?: ((prd: PrdNumber, cwd: string) => Promise<MergedCount>) | undefined;
+  /** The accounts file's accounts (PRD 2537): the one fallback account (no file) unless given. */
+  accounts?: Accounts | undefined;
+  /** The states of the accounts, kept across restarts: `accounts-state.json` under the home unless given. */
+  accountBook?: AccountBook | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -190,6 +204,18 @@ type Loop = RunnerOptions & {
   tokensOk: boolean;
   /** Whether an app refused a report for its tokens: none is sent after. */
   tokensOff: boolean;
+  /** Why every account is out (PRD 2537): `no tokens left until 18:00`, `null` while one is not. Free slots open no `next` while it holds. */
+  noTokens: string | null;
+  /** Whether an app refused a health report for its accounts: none is sent after. */
+  accountsOff: boolean;
+  /** Whether an app refused a report for a job's parts (PRD 2537): none is sent after. */
+  partsOff: boolean;
+  /** The runner's accounts and their states. */
+  accounts: Accounts;
+  book: AccountBook;
+  /** The account each running job started on, and the secret values its run holds, masked in everything sent. */
+  chosen: Map<string, string>;
+  secrets: Map<string, string[]>;
 };
 
 /** A job's live lines: its log, and how many of its lines the app has accepted. */
@@ -214,7 +240,18 @@ const readText = (path: string): string => {
 };
 
 /** A job's log as the runner sends it (PRD 2433): every GitHub token the job had, past ones too, reads `***`, before any line is cut or counted. */
-const readLog = (loop: Loop, job: string, path: string): string => maskTokens(readText(path), jobTokens(loop.home, job));
+const readLog = (loop: Loop, job: string, path: string): string => maskTokens(readText(path), maskedOf(loop, job));
+
+/** Everything that must never leave this machine in what a job sends: its GitHub tokens and its account's secret. */
+const maskedOf = (loop: Loop, job: string): string[] => [...jobTokens(loop.home, job), ...(loop.secrets.get(job) ?? [])];
+
+/** The accounts and their book: the options', else the one fallback account and the book kept under the home. */
+function accountsOf({ accounts, accountBook: book, home, now }: RunnerOptions): { accounts: Accounts; book: AccountBook } {
+  return {
+    accounts: accounts ?? { file: false, accounts: [FALLBACK_ACCOUNT], handoff: DEFAULT_HANDOFF },
+    book: book ?? accountBook({ file: accountsStateFile(home), now }),
+  };
+}
 
 function loopOf(options: RunnerOptions): Loop {
   const refusal = new AbortController();
@@ -239,9 +276,15 @@ function loopOf(options: RunnerOptions): Loop {
     limits: options.limits ?? DEFAULT_LIMITS,
     pause: { reason: null, quiet: 0 },
     waiting: new Set(),
+    noTokens: null,
+    accountsOff: false,
     counts: options.tokens ?? tokenSource({ projects: join(options.home, '.claude', 'projects'), now: options.now ?? Date.now }),
     tokensOk: false,
     tokensOff: false,
+    partsOff: false,
+    ...accountsOf(options),
+    chosen: new Map(),
+    secrets: new Map(),
   };
 }
 
@@ -253,7 +296,7 @@ function wake(loop: Loop): void {
 
 /** Waits while the runner is paused: whether a free slot may open its `next`, `false` once the runner halts. */
 async function unpaused(loop: Loop): Promise<boolean> {
-  if (loop.pause.reason !== null && !loop.halt.aborted) {
+  if ((loop.pause.reason !== null || loop.noTokens !== null) && !loop.halt.aborted) {
     await new Promise<void>((resolve) => {
       loop.waiting.add(resolve);
     });
@@ -305,7 +348,7 @@ async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<
 
 /** `update` with every GitHub token the job had, past ones too, replaced by `***` in each text it carries (PRD 2433, L-GDPR-2). */
 function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
-  const tokens = jobTokens(loop.home, job);
+  const tokens = maskedOf(loop, job);
   if (tokens.length === 0) return update;
   const hide = (text: string): string => maskTokens(text, tokens);
   const hidden: JobUpdate = { ...update };
@@ -322,8 +365,7 @@ function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
  * is refused is sent again without them: an app older than PRD 2175, 2223, 2375, 2425 or 2508 refuses a field it
  * does not know, or an outcome word it has no value for, and the job's status must still reach it.
  */
-async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
-  const update = hideTokens(loop, job, raw);
+async function sendNewer(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
   const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps, ...rest } = update;
   const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps];
   if (newer.every((field) => field === undefined)) return sendCounted(loop, job, update);
@@ -342,6 +384,35 @@ async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ ca
       return sendCounted(loop, job, rest);
     }
   }
+}
+
+/**
+ * Sends a job's report, every token and secret it had masked. One that carries the job's parts (PRD 2537) and is
+ * refused is sent again without them, and no later report carries any: an app older than PRD 2537 refuses a field
+ * it does not know, and the job's status must still reach it.
+ */
+async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
+  const update = hideTokens(loop, job, raw);
+  const { parts, ...unparted } = update;
+  if (parts === undefined) return sendNewer(loop, job, update);
+  if (loop.partsOff) return sendNewer(loop, job, unparted);
+  try {
+    return await sendNewer(loop, job, update);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    loop.partsOff = true;
+    return sendNewer(loop, job, unparted);
+  }
+}
+
+/** The log of the job `job` on this machine. */
+const logOf = (loop: Loop, job: string): string => join(loop.home, 'logs', `job-${job}.log`);
+
+/** `update` with the job's parts as its process last wrote them (PRD 2537), unless an app refused them once. */
+function withParts(loop: Loop, update: JobUpdate, job: string): JobUpdate {
+  if (loop.partsOff) return update;
+  const parts = readParts(partsPath(logOf(loop, job)))?.parts ?? [];
+  return parts.length === 0 ? update : { ...update, parts };
 }
 
 /** `update` with the tokens of the worktree and every folder below it, when reports may carry them and they can be read. */
@@ -504,6 +575,7 @@ function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { 
 
 /** Writes the job's line and its log, empty or starting on `note`, then starts its session as `app`: whether it started. */
 function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null, app: Record<string, string>): boolean {
+  const account = loop.chosen.get(job.id);
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
   writeFileSync(place.line, `${job.line}\n`);
   writeFileSync(place.log, note === null ? '' : `${note}\n`);
@@ -513,7 +585,7 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
       name: place.session,
       cwd: place.worktree,
       env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...runnerSenderVariables(job, loop.name), ...WAIT_FOR_AGENTS, ...app },
-      argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
+      argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit, ...(account === undefined ? [] : ['--account', account])],
     });
     return true;
   } catch {
@@ -570,8 +642,11 @@ function failedWithPrs(failed: JobUpdate, log: string, line: string): JobUpdate 
   return reading === null || reading.prs.length === 0 ? failed : { ...failed, prs: reading.prs };
 }
 
-/** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
-function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
+/**
+ * The status a run that ended with `exitText` reports: done with its pull request, or failed with its code, or with
+ * the reason its turnover ended it on (`turnedOver`, PRD 2537: no account left to take it over).
+ */
+function ended(log: string, exitText: string, job: RunnerJob, turnedOver: string | null): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
   if (exitCode === 0) {
@@ -581,7 +656,7 @@ function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
     // A mega bug fix whose hand-off ends on the line that resumes it reads `stopped` (#2449), whatever its Outcome word.
     return { ...done, ...(bugFix === null ? {} : bugFixFields(bugFix)), ...(outcome === null ? {} : { outcome }) };
   }
-  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` }, log, job.line);
+  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: turnedOver ?? `exit code ${String(exitCode)}` }, log, job.line);
 }
 
 /** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
@@ -593,6 +668,9 @@ function vanished(log: string, job: RunnerJob): JobUpdate {
   if (outcome === null || outcome === 'stopped') return failedWithPrs({ status: 'failed', logTail: logTail(log), reason }, log, job.line);
   return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
 }
+
+/** The reason the job's turnover ended it on (PRD 2537): no account left to take it over; `null` when it did not. */
+const turnedOver = (place: Place): string | null => readParts(partsPath(place.log))?.reason ?? null;
 
 /** Stops the job's session and answers `update`. */
 function killed(loop: Loop, job: string, place: Place, update: JobUpdate): JobUpdate {
@@ -628,13 +706,51 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
   for (;;) {
     await loop.sleep(loop.tickMs);
     const log = readLog(loop, job.id, place.log);
-    if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
+    if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job, turnedOver(place)));
     if (!loop.terminal.alive(place.session)) return vanished(readLog(loop, job.id, place.log), job);
     if (loop.now() - started > loop.timeoutMs) return killed(loop, job.id, place, failedWithPrs({ status: 'failed', reason: 'timeout' }, log, job.line));
     const noApp = await appLacking(loop, job);
     if (noApp !== null) return killed(loop, job.id, place, { status: 'failed', reason: noApp });
-    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });
+    if (await tick(loop, job.id, withParts(loop, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), job.id), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });
   }
+}
+
+/**
+ * Picks the account `job` starts on (PRD 2537): the first, in the file's order, that is not out, whose `takes`
+ * allows the job's skill and whose agent passed its check. `null` once it holds one, else the reason the job
+ * ends on. A runner with no accounts file has its one Claude account and checks nothing here, as before.
+ */
+function takeAccount(loop: Loop, job: RunnerJob): string | null {
+  if (!loop.accounts.file) return null;
+  const line = checkRunnerLine(job.line, job.allowedSkills);
+  const skill = line.ok && line.kind === 'omni' ? line.skill : null;
+  const projects = join(loop.home, '.claude', 'projects');
+  const chosen = chooseAccount({
+    accounts: loop.accounts.accounts,
+    book: loop.book,
+    skill,
+    unusable: (account) => {
+      const agent = agentNamed(account.agent, { projects, exec: loop.exec });
+      return agent === null ? `the ${account.agent} agent is not available in this kit` : agent.check(agentAccountOf(account, loop.home));
+    },
+  });
+  if ('none' in chosen) return chosen.none;
+  const { account } = chosen;
+  loop.book.activate(account.id);
+  loop.chosen.set(job.id, account.id);
+  // The job may turn over to any account of the file (PRD 2537, s3): every one's secret is masked in what it sends.
+  const secrets = loop.accounts.accounts.flatMap((each) => (each.secret === null ? [] : [readSecret(each.secret, loop.home)])).filter((secret) => secret !== '');
+  if (secrets.length > 0) loop.secrets.set(job.id, secrets);
+  loop.print(`job ${job.id} runs on account ${account.id}`);
+  return null;
+}
+
+/** The account a job ran on is free again, and its secret forgotten. */
+function freeAccount(loop: Loop, job: string): void {
+  const id = loop.chosen.get(job);
+  if (id !== undefined) loop.book.release(id);
+  loop.chosen.delete(job);
+  loop.secrets.delete(job);
 }
 
 /** Runs `job` to its end, and answers its last status and its live lines, once it has a log. */
@@ -650,6 +766,8 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
     if ('failed' in plugin) return { last: { status: 'failed', reason: plugin.failed }, live: null };
     const app = asApp(loop, job);
     if ('failed' in app) return { last: { status: 'failed', reason: app.failed }, live: null };
+    const taken = takeAccount(loop, job);
+    if (taken !== null) return { last: { status: 'failed', reason: taken }, live: null };
     if (!startSession(loop, job, place, plugin.note, app.env)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
@@ -773,11 +891,12 @@ async function slot(loop: Loop, runner: string): Promise<void> {
       const { last, live } = await runJob(loop, job);
       // A job whose session never started made no claim: it has nothing to release.
       const report = live === null ? last : await releasing(loop, job, last);
-      await finish(loop, job.id, withTokens(loop, report, worktreeOf(loop, job)), live);
+      await finish(loop, job.id, withParts(loop, withTokens(loop, report, worktreeOf(loop, job)), job.id), live);
       loop.print(endLine(job, last));
     } finally {
       // Once its last report is sent: the log is masked with the file until then.
       forgetJobToken(loop, job.id);
+      freeAccount(loop, job.id);
       loop.jobs.delete(job.id);
       loop.running -= 1;
     }
@@ -792,6 +911,34 @@ function decide(loop: Loop, reason: string | null): void {
   if (change === 'resumed') {
     loop.print('resumed');
     wake(loop);
+  }
+}
+
+/** Pauses the runner while every account is out and takes jobs again once one is ready (PRD 2537), printing the change once. A runner with no accounts file never pauses so. */
+function decideTokens(loop: Loop): AccountReport[] | null {
+  if (!loop.accounts.file) return null;
+  const accounts = accountsReport(loop.accounts.accounts, loop.book);
+  const reason = noTokensPause(accounts);
+  if (reason !== null && loop.noTokens === null) loop.print(`paused: ${reason}`);
+  const resumed = reason === null && loop.noTokens !== null;
+  loop.noTokens = reason;
+  if (resumed) {
+    loop.print('resumed');
+    wake(loop);
+  }
+  return accounts;
+}
+
+/** Sends one health report; one an app refuses for its accounts is sent again without them, and none carries them after. */
+async function sendHealth(loop: Loop, runner: string, report: HealthReport): Promise<void> {
+  const { accounts, ...plain } = report;
+  if (accounts === undefined || loop.accountsOff) return loop.api.health(runner, plain);
+  try {
+    await loop.api.health(runner, report);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    loop.accountsOff = true;
+    await loop.api.health(runner, plain);
   }
 }
 
@@ -813,9 +960,10 @@ async function reporter(loop: Loop, runner: string): Promise<void> {
     const taken = sample(reads, times);
     times = taken.times;
     decide(loop, pressure(taken.sample, loop.limits));
+    const accounts = decideTokens(loop);
     try {
       const tokens = loop.counts.machine();
-      await loop.api.health(runner, { ...taken.sample, paused: loop.pause.reason, limits: loop.limits, ...(tokens === null ? {} : { tokens }) });
+      await sendHealth(loop, runner, { ...taken.sample, paused: loop.pause.reason ?? loop.noTokens, limits: loop.limits, ...(tokens === null ? {} : { tokens }), ...(accounts === null ? {} : { accounts }) });
       loop.tokensOk = !loop.tokensOff;
     } catch (error) {
       loop.print(`health not sent: ${error instanceof Error ? error.message : String(error)}`);
