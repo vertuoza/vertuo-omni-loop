@@ -1,0 +1,3 @@
+event: message
+data: {"jsonrpc":"2.0","id":2,"result":{"isError":true,"content":[{"type":"text","text":"{\"message\":\"Your access does not allow t3_thread_interrupt.\"}"}]}}
+

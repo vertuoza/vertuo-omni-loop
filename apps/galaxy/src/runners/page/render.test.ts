@@ -522,3 +522,34 @@ describe('a job stopped mid-way (PRD 2375 s3)', () => {
     expect(actions(html, '/omni:yolo 1702')).toEqual(['Send again']);
   });
 });
+
+// A job's agent and parts (PRD 2537 s3): the demo's running yolo turned over from codex-1, at its usage limit, to
+// open-1. Its row names the agent and model it runs on now, and one line per part; a job that reported none names
+// neither.
+describe("a job's agent and parts", () => {
+  const html = render(demo());
+
+  it('names the agent and model beside the status, and one line per part under it', () => {
+    const row = jobRow(html, '/omni:yolo 1717');
+    expect(row).toContain('<span class="runners-agent" data-content="true">opencode · mistral/devstral-medium-latest</span>');
+    expect(text(row)).toContain('codex-1 · gpt-5-codex · 13:48–13:55 · usage limit');
+    expect(text(row)).toContain('open-1 · mistral/devstral-medium-latest · since 13:55');
+    expect(row).toContain('title="codex, codex-1 out until 17:00 UTC"');
+  });
+
+  it('names no agent and no part for a job whose runner reported none', () => {
+    const row = jobRow(html, '/omni:pr-care 1801');
+    expect(row).not.toContain('runners-agent');
+    expect(row).not.toContain('runners-part');
+  });
+
+  it('names the agent but no part line for a job that ran on one account', () => {
+    const one = withBoard((board) => ({
+      ...board,
+      jobs: board.jobs.map((job): Job => (job.line === '/omni:yolo 1717' ? { ...job, parts: [{ agent: 'codex', model: 'gpt-5-codex', account: 'codex-1', from: NOW.toISOString(), to: null, ended: null }] } : job)),
+    }));
+    const row = jobRow(render(one), '/omni:yolo 1717');
+    expect(text(row)).toContain('codex · gpt-5-codex');
+    expect(row).not.toContain('runners-part');
+  });
+});

@@ -239,6 +239,28 @@ git commit --allow-empty -m "chore: redeploy with the right author"
 git push
 ```
 
+## A job Failed with `github app:`
+
+Every job a runner runs signs as the Omni App's bot, `<slug>[bot]`, and never as the runner's GitHub
+login. When Omni cannot give a job that token, the job ends Failed before any session starts, with a
+reason that starts `github app:`. Read the rest of the reason, then fix it and send the job again:
+
+- `github app: the Omni App is not configured on this server`: nothing is wrong on your computer. The
+  Omni server has no Omni App set up, so no job can run. Tell the Omni Loop team.
+- `github app: the App is not installed on <repo>`: the Omni App is not installed on that repository.
+  Install it on the repository's account or organization ([Install the GitHub App](/docs/install#install-the-github-app)).
+- a reason that names a permission (`contents`, `pull requests` or `issues`): the Omni App's
+  installation on that repository lacks write access. Open the installation on GitHub and accept the
+  permissions the App asks for, then send the job again.
+- a reason that says the App's bot id could not be read: GitHub did not answer for the Omni App. Send
+  the job again later; tell the Omni Loop team if it keeps failing.
+- `github app: the job came without its App`: the runner refused a job that reached it without a token,
+  because its kit is older than the Omni App. Update the runner's kit ([Look after it](/docs/runners#4-look-after-it)),
+  restart it while no job runs, then send the job again.
+
+A job sent with an API key whose own key no longer works (revoked, or its maker left the workspace)
+also ends Failed with this prefix: send it again with a key that works.
+
 ## `omni sync` shows a finding
 
 Each line of the `omni sync` block is one finding, and its fix follows the arrow. Run the fix, then

@@ -1,0 +1,23 @@
+{
+  "displayName": "OpenCode",
+  "enabled": true,
+  "installed": true,
+  "version": "2.1.311",
+  "status": "ready",
+  "auth": {
+    "status": "authenticated",
+    "type": "opencode"
+  },
+  "setup": {
+    "canAuthenticate": false,
+    "canInstall": false
+  },
+  "checkedAt": "2026-10-27T13:00:53.890Z",
+  "models": [
+    {
+      "slug": "opencode/beam-free",
+      "name": "Beam Free",
+      "isCustom": false
+    }
+  ]
+}

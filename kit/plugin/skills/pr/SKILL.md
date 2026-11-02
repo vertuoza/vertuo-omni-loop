@@ -355,11 +355,18 @@ gh pr comment <n> --body-file <file>                                 # it printe
 - slices: <merged> / <total> merged            <!-- feature PR only -->
 - human steps: <missing labels, or "none">
 - job: <id> · runner <name>                    <!-- a runner job's session only -->
+- Parts: <agent> (<model>) until <time> · <agent> (<model>), <why>   <!-- a job that turned over only -->
 ```
 
 The `job:` line names the runner job that holds the claim, so the runner releases a dead job's
 claims. Every rewrite writes it from the session's own `OMNI_JOB` (`OMNI_RUNNER` for the name), and
 drops it when `OMNI_JOB` is not set.
+
+The `Parts:` line lists the parts of a job that turned over to another account or agent, one
+`<agent> (<model>)` per part, joined by ` · `: the runner writes them in one line through the job's
+environment (`OMNI_RUNNER_PARTS`), and the line is written from that variable on every rewrite. It
+is dropped when `OMNI_RUNNER_PARTS` is not set, which is every job that never turned over and every
+session outside a runner.
 
 This skill does not decide whether a claim is stale. The board does: `/omni:wave` reads the slice's
 `claimed-stale` state from `omni board <prd>`. Whoever picks up a stale PR takes it over and says so
@@ -370,7 +377,8 @@ in this comment.
 Claim mode takes one slice of a PRD, given its plan id and title. It does not loop.
 
 1. Cut the slice branch (`branches.slice`, with `{topic}` and `{slice}` filled) from the feature
-   branch (`branches.feature`): `git fetch <remote> && git switch -c <slice branch> <remote>/<feature branch>`.
+   branch (`branches.feature`): `git fetch <remote>`, then
+   `git switch -c <slice branch> <remote>/<feature branch>`.
 2. Make one empty claim commit, `git commit --allow-empty -m "chore(<slice>): claim"`, its message
    ending with the co-author trailer your agent adds, if it adds one (in Claude: the
    `Co-Authored-By` line its session gives), then the `omni sign trailer` line (**Signing**). Then
@@ -413,7 +421,7 @@ workflow; when the app is not installed, that check is simply absent.
 
 | What you see | What you do |
 |---|---|
-| `mergeable: CONFLICTING` | `git fetch <remote> && git merge <remote>/<base>`, resolve, run the preflight, push. Not an attempt. |
+| `mergeable: CONFLICTING` | `git fetch <remote>`, then `git merge <remote>/<base>`, resolve, run the preflight, push. Not an attempt. |
 | `mergeable: UNKNOWN` | GitHub is still computing. Look again in a minute. |
 | `mergeStateStatus: BEHIND` only | Leave it. A person decides when a PR into the default branch, or a stacked feature PR into its base, is updated. |
 | checks pending | Watch in the background (below), then loop. |
@@ -463,7 +471,8 @@ No CI runs on a sub-PR, and its checks are never read. The preflight, run on thi
    status comment, and run it again. After `limits.attempts` failures, take the **Stuck** path above,
    with the preflight step as the red check.
 2. Check `gh pr view <n> --json mergeable`. When the PR conflicts with its feature branch, run
-   `git fetch <remote> && git merge <remote>/<feature branch>`, resolve the conflict, and go back to step 1.
+   `git fetch <remote>`, then `git merge <remote>/<feature branch>`, resolve the conflict, and go back
+   to step 1.
 3. Once the preflight is green and the PR does not conflict, run `gh pr ready <n>` (this skill owns
    that step for a sub-PR). Then remove `labels.inProgress` and write the final status comment. The
    orchestrator merges it, once it has judged the sub-PR's review threads, when a reviewer left

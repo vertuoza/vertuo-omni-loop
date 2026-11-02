@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { JobRow, RunnerRow } from './runners.repository';
-import { runnersService } from './runners.service';
+import { productReposOf, runnersService } from './runners.service';
 import { OTHER_INSTALLATION, stubGithub, type Installed } from './fixtures/github.fake';
 import { API_KEY, fakeStore, jobRow, KEY_APP, OLGA, runnerRow, SHARED, T0, type KeyState, type ProductState } from './fixtures/store.fake';
 
-// Which repositories a key's job token reaches (PRD 2433 s7, the outbox answer to s7-01, BR-PRODUCT-63): the job's own
-// repository; for a mega bug fix also every other repository of its plan repository's product that the App's installation
-// holds; and never one outside the key's allow-list (agent_tokens.repos, which api_key_github_app_of_job() hands the server;
-// no list means every repository of the workspace), at the claim or at a refresh. The service on the store's fake and a
-// stubbed GitHub (./fixtures/github.fake.ts).
+// Which repositories a job's Omni App token reaches (PRD 2433 s7, the outbox answer to s7-01, PRD 2573 s1, BR-PRODUCT-63): the
+// job's own repository; for a mega bug fix also every other repository of its plan repository's product that the App's
+// installation holds, whoever sent it; and, for a key's job, never one outside the key's allow-list (agent_tokens.repos, which
+// api_key_github_app_of_job() hands the server; no list means every repository of the workspace), at the claim or at a refresh.
+// The service on the store's fake and a stubbed GitHub (./fixtures/github.fake.ts).
 
 const PLAN = 'demo-org/plan';
 /** A product whose plan repository is `PLAN`: three repositories of demo-org and one of another organisation. */
@@ -26,11 +26,11 @@ function world({ jobs, repos = [], products = [SHOP], installed = INSTALLED }: {
 }) {
   let now = T0;
   const keys: KeyState[] = [{ id: API_KEY, app: KEY_APP, working: true, repos }];
-  const { store, state } = fakeStore({ jobs, runners: [RUNNER], keys, products, now: () => now });
+  const { store, state, products: productsOf } = fakeStore({ jobs, runners: [RUNNER], keys, products, now: () => now });
   const stub = stubGithub({}, installed);
   // A held `next` moves the clock as it sleeps, so it ends after its 40 s with no job.
   const clock = { now: () => now, sleep: (ms: number) => { now = new Date(now.getTime() + ms); return Promise.resolve(); } };
-  return { service: runnersService(store, clock, stub.deps), state, asked: stub.asked };
+  return { service: runnersService(store, clock, stub.deps, undefined, productsOf), state, asked: stub.asked };
 }
 
 /** The repositories each minted token reaches, in the order asked. */
@@ -145,13 +145,73 @@ describe('the token never reaches beyond the key\'s allowed repositories (BR-PRO
     const w = world({ jobs: [keyJob({ line: '/omni:bug-fix 2433', repo: 'demo-org/app' })], repos: [PLAN] });
     expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
     expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'github app: the API key may not reach demo-org/app' });
-    expect(w.asked).toEqual({ opened: [], installations: [], minted: [] });
-    expect(w.state.minted).toEqual([]);
+    expect(w.asked).toEqual({ bots: 0, installations: [], minted: [] });
   });
 
   it('refuses a refresh for a job whose own repository is outside the list, with the same words', async () => {
     const w = world({ jobs: [running({ line: '/omni:bug-fix 2433', repo: 'demo-org/app' })], repos: [PLAN] });
     expect(await w.service.githubToken(OLGA, w.state.jobs[0]?.id ?? '')).toEqual({ ok: false, kind: 'conflict', error: 'the API key may not reach demo-org/app' });
     expect(w.asked.minted).toEqual([]);
+  });
+});
+
+// A job sent from the page has no key, so no allow-list: its repository was checked against its workspace when it was sent,
+// and a mega bug fix of it reaches its product's other repositories that the installation holds (PRD 2573 s1).
+describe('a mega bug fix sent from the page', () => {
+  const pageJob = (more: Partial<JobRow> = {}) => keyJob({ sent_by_key: null, ...more });
+
+  it('covers its plan repository and the other repositories of its product that the installation holds, reading no key', async () => {
+    const w = world({ jobs: [pageJob()] });
+    value(await w.service.next(OLGA, SHARED));
+    expect(mintedFor(w.asked)).toEqual([[PLAN, 'demo-org/api', 'demo-org/web']]);
+    expect(w.state.calls.filter((call) => call.startsWith('app of job'))).toEqual([]);
+  });
+
+  it('covers only its plan repository when its repository is in no product, or its product is archived', async () => {
+    const none = world({ jobs: [pageJob()], products: [] });
+    value(await none.service.next(OLGA, SHARED));
+    const archived = world({ jobs: [pageJob()], products: [{ ...SHOP, archived: true }] });
+    value(await archived.service.next(OLGA, SHARED));
+    expect([...mintedFor(none.asked), ...mintedFor(archived.asked)]).toEqual([[PLAN], [PLAN]]);
+  });
+
+  it('is as wide at a refresh as at the claim', async () => {
+    const w = world({ jobs: [running({ sent_by_key: null })] });
+    value(await w.service.githubToken(OLGA, w.state.jobs[0]?.id ?? ''));
+    expect(mintedFor(w.asked)).toEqual([[PLAN, 'demo-org/api', 'demo-org/web']]);
+  });
+
+  it('keeps a bug fix sent from the page to its own repository, and reads no product for it', async () => {
+    const w = world({ jobs: [pageJob({ line: '/omni:bug-fix 2433' })] });
+    value(await w.service.next(OLGA, SHARED));
+    expect(mintedFor(w.asked)).toEqual([[PLAN]]);
+    expect(w.asked.installations).toEqual([PLAN]);
+  });
+});
+
+describe('the product repositories of a repository, as the database reads them', () => {
+  const read = {
+    products: [{ id: 'shop', archived_at: null }, { id: 'old', archived_at: '2026-10-01T00:00:00Z' }, { id: 'docs', archived_at: null }],
+    links: [
+      { product_id: 'shop', repository: 'demo-org/plan' }, { product_id: 'shop', repository: 'demo-org/web' }, { product_id: 'shop', repository: 'demo-org/api' },
+      { product_id: 'shop', repository: 'demo-org/gone' },
+      { product_id: 'old', repository: 'demo-org/plan' }, { product_id: 'old', repository: 'demo-org/legacy' },
+      { product_id: 'docs', repository: 'demo-org/site' },
+    ],
+    repositories: ['demo-org/plan', 'Demo-Org/Web', 'demo-org/api', 'demo-org/legacy', 'demo-org/site'],
+  };
+
+  it('are every repository of the live products that name it, lower case, sorted, once each, the job\'s own among them', () => {
+    expect(productReposOf(read, 'Demo-Org/Plan')).toEqual(['demo-org/api', 'demo-org/plan', 'demo-org/web']);
+  });
+
+  it('leave out an archived product\'s, and a repository the workspace no longer lists', () => {
+    expect(productReposOf(read, 'demo-org/plan')).not.toContain('demo-org/legacy');
+    expect(productReposOf(read, 'demo-org/plan')).not.toContain('demo-org/gone');
+  });
+
+  it('are none for a repository in no live product', () => {
+    expect(productReposOf(read, 'demo-org/legacy')).toEqual([]);
+    expect(productReposOf(read, 'demo-org/unknown')).toEqual([]);
   });
 });

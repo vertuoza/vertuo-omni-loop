@@ -1,0 +1,48 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-27",
+      "personas": [
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "A roadmap keeps building overnight when one account runs out, so more features land by morning.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "My quick wins stop failing for reasons I cannot fix myself, like a token limit.", "citations": ["persona:Irisa"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "A paused runner that says it is out of tokens until 18:00 tells me the loop is waiting, not broken.", "citations": ["persona:Lead Engineer"] },
+        { "name": "F-E Developer", "stance": "skeptical", "score": 2, "reaction": "If an open model finishes a job Claude started, I review a pull request where half the code came from a weaker model, and I cannot tell which half.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Three CLIs behind one adapter is real plumbing I can play with, not fluff, as long as it does not hide which tool wrote what.", "citations": ["persona:B-E DEv"] }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "If an open model finishes a job Claude started, I review a pull request where half the code came from a weaker model, and I cannot tell which half.",
+        "citations": ["persona:F-E Developer"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-27",
+      "personas": [
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Two Claude accounts, Codex and an open model in one file, and the job carries on by itself.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Nothing changes for me until someone writes the accounts file, and then my jobs just fail less.", "citations": ["persona:Irisa"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Each part is on the page and on the pull request, so the team can still say who, or what, did which part.", "citations": ["persona:Lead Engineer"] },
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "takes keeps the open model off a yolo, every part is named, and every check still runs before a person merges.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Recorded CLI output, fake binaries and a crash that never turns over: that is a design I would trust.", "citations": ["persona:B-E DEv"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-28",
+      "personas": [
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "A job carries on on the next account, and the Runners page says which part ran where.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "With no accounts file my runner works as before, and with one my jobs stop failing on a token limit.", "citations": ["persona:Irisa"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Paused: no tokens left until a time tells me the loop is waiting; I still want to see the T3 sign-in tried live.", "citations": ["persona:Lead Engineer"] },
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "Each part names its agent and model on the pull request, but a runner with one account now fails at Claude's first usage warning.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Recorded outputs and fake binaries for Claude and T3, and a crash never turns over: solid, though T3's limit is read from its words.", "citations": ["persona:B-E DEv"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
+    }
+  ]
+}

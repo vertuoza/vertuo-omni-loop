@@ -3918,6 +3918,7 @@ export type Database = {
           log_tail: string
           notify_url: string | null
           outcome: string | null
+          parts: Json | null
           pr_url: string | null
           prs: Json
           queued_at: string
@@ -3954,6 +3955,7 @@ export type Database = {
           log_tail?: string
           notify_url?: string | null
           outcome?: string | null
+          parts?: Json | null
           pr_url?: string | null
           prs?: Json
           queued_at?: string
@@ -3990,6 +3992,7 @@ export type Database = {
           log_tail?: string
           notify_url?: string | null
           outcome?: string | null
+          parts?: Json | null
           pr_url?: string | null
           prs?: Json
           queued_at?: string
@@ -4120,6 +4123,7 @@ export type Database = {
           last_seen_at: string
           name: string
           owner: string
+          registered_at: string
           repos: string[]
           slots: number
           version: string
@@ -4134,6 +4138,7 @@ export type Database = {
           last_seen_at?: string
           name: string
           owner: string
+          registered_at?: string
           repos?: string[]
           slots?: number
           version?: string
@@ -4148,6 +4153,7 @@ export type Database = {
           last_seen_at?: string
           name?: string
           owner?: string
+          registered_at?: string
           repos?: string[]
           slots?: number
           version?: string
@@ -6877,7 +6883,7 @@ export type Database = {
       }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }
       runner_claim: {
-        Args: { p_runner: string }
+        Args: { p_registered_at?: string; p_runner: string }
         Returns: {
           acting_for: string | null
           cancel_requested: boolean
@@ -6894,6 +6900,7 @@ export type Database = {
           log_tail: string
           notify_url: string | null
           outcome: string | null
+          parts: Json | null
           pr_url: string | null
           prs: Json
           queued_at: string
@@ -6945,6 +6952,7 @@ export type Database = {
           log_tail: string
           notify_url: string | null
           outcome: string | null
+          parts: Json | null
           pr_url: string | null
           prs: Json
           queued_at: string
