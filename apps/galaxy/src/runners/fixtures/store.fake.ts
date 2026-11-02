@@ -70,7 +70,7 @@ const ORGS: Record<string, string> = { 'demo-org': WORKSPACE, elsewhere: ELSEWHE
 
 /** A runner row, seen at `T0` unless told otherwise. */
 export function runnerRow(more: Partial<RunnerRow> & Pick<RunnerRow, 'id' | 'name'>): RunnerRow {
-  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['demo-org/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, github_app: true, ...more };
+  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['demo-org/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, github_app: true, registered_at: T0.toISOString(), ...more };
 }
 
 /** Olga's three runners: a shared one with one slot, one of the fleet cia, one that holds another repository. */
@@ -294,7 +294,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       const row = runnerRow({
         id: `00000000-0000-4000-8000-${String(1830010000 + state.runners.length).padStart(12, '0')}`, workspace_id: runner.workspaceId,
         owner: runner.owner, name: runner.name, slots: runner.slots, repos: runner.repos, version: runner.version, last_seen_at: runner.seenAt,
-        github_app: runner.githubApp,
+        github_app: runner.githubApp, registered_at: runner.seenAt,
       });
       state.runners.push(row);
       state.calls.push(`insert runner ${runner.name}`);
@@ -329,10 +329,11 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       for (const job of lost) Object.assign(job, { status: 'failed', reason: 'runner lost', ended_at: at });
       return Promise.resolve(lost.map((job) => ({ ...job })));
     },
-    claim: (runnerId) => {
+    claim: (runnerId, registeredAt) => {
       state.calls.push(`claim ${runnerId}`);
       const runner = state.runners.find((r) => r.id === runnerId);
-      if (!runner) return Promise.resolve(null);
+      // …and none for a check-in begun under an earlier registration (bug #2593).
+      if (!runner || runner.registered_at !== registeredAt) return Promise.resolve(null);
       const busy = state.jobs.filter((j) => j.runner_id === runner.id && (j.status === 'claimed' || j.status === 'running')).length;
       if (busy >= runner.slots) return Promise.resolve(null);
       const job = state.jobs.filter((j) => may(runner, j)).sort((a, b) => a.queued_at.localeCompare(b.queued_at) || a.id.localeCompare(b.id))[0];

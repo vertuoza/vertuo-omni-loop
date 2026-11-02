@@ -868,7 +868,7 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
       const placed = await workspaceOf(caller, repos);
       if (!placed.ok) return placed;
       const workspaceId = placed.value;
-      const seen = { slots: request.slots, repos, version: request.version, last_seen_at: iso(), github_app: request.githubApp ?? false };
+      const seen = { slots: request.slots, repos, version: request.version, last_seen_at: iso(), github_app: request.githubApp ?? false, registered_at: iso() };
       const existing = await store.runnerNamed(workspaceId, request.name);
       if (existing && existing.owner !== caller) return no('forbidden', `A runner named ${request.name} was registered by someone else: pick another name.`);
       if (existing) await loseJobsOf(existing);
@@ -879,19 +879,19 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
     },
 
     /**
-     * Counts as a check-in, then holds up to 40 s for a job the runner may claim; null when none came. Once `hungUp`
-     * aborts (the runner closed the check-in, as a restart does), it claims nothing more: a job claimed then would be
-     * answered to nobody and end runner lost (#2593).
+     * Counts as a check-in, then holds up to 40 s for a job the runner may claim; null when none came. It claims only
+     * for the registration it began under: once the runner registers again (a restart), this check-in is nobody's, and
+     * a job it claimed would be answered to nobody and end runner lost (#2593).
      */
-    async next(caller: string, runnerId: string, hungUp?: AbortSignal): Promise<Served<RunnerJob | null>> {
+    async next(caller: string, runnerId: string): Promise<Served<RunnerJob | null>> {
       const owned = await ownRunner(caller, runnerId);
       if (!owned.ok) return owned;
+      const registeredAt = owned.value.registered_at;
       const deadline = clock.now().getTime() + NEXT_HOLD_MS;
       for (;;) {
-        if (hungUp?.aborted) return ok(null);
         await markLost();
         await store.updateRunner(runnerId, { last_seen_at: iso() });
-        const job = await store.claim(runnerId);
+        const job = await store.claim(runnerId, registeredAt);
         if (job) {
           // The claim is stored: a job with a link tells it that it is Starting (PRD 2425 s8).
           tell(job, 'status');

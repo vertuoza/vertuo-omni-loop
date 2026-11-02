@@ -351,7 +351,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'runner',
     kind: 'command',
     who: 'you',
-    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender', "omni runner send '<line>' [--to <runner|fleet>]", 'omni runner follow <n>'],
+    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h]', 'omni runner sender', "omni runner send '<line>' [--to <runner|fleet>]", 'omni runner follow <n>'],
     label: 'omni runner',
     summary: 'run the lines the Omni app sends, on this machine',
     detail:
@@ -368,7 +368,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
-      'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind, knowledge-add and rewind-apply run. A job past --timeout (3h by default) ' +
+      'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind, knowledge-add and rewind-apply run. A job past --timeout (8h by default) ' +
       'is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
       'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
