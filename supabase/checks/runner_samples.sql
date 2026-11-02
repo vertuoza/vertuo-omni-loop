@@ -3,8 +3,8 @@
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/runner_samples.sql
 -- A member of the workspace reads its runners' samples and last health; an account of another
 -- workspace, or signed out, nothing; nobody signed in adds, changes or deletes a sample, or writes a
--- runner's health. As the service role: a sample is one per runner and instant, a figure out of range is
--- refused, the route stores a job's tokens (runner_jobs.tokens, member-read, service-role-written), and the route's trim deletes one runner's old samples and no other's. Deleting a runner
+-- runner's health, or calls runner_report_health(). As the service role: a sample is one per runner and instant, a figure out of range is
+-- refused, the route stores a job's tokens (runner_jobs.tokens, member-read, service-role-written), the route's trim deletes one runner's old samples and no other's, and runner_report_health() (bug #2557) does a report's writes in one call, refusing a runner that is missing or someone else's. Deleting a runner
 -- deletes its samples. Any `FAIL:` stops the run.
 
 begin;
@@ -78,6 +78,10 @@ begin
     raise exception 'FAIL: a member wrote a sample by deleting it';
   exception when insufficient_privilege then null; end;
   begin
+    perform public.runner_report_health('00000000-0000-4000-8000-0000021021a1', '00000000-0000-4000-8000-0000021020b1', now(), '{}', '{}', now(), now());
+    raise exception 'FAIL: a member called runner_report_health()';
+  exception when insufficient_privilege then null; end;
+  begin
     update public.runners set health = '{"cpu": 1}' where id = '00000000-0000-4000-8000-0000021021a1';
     raise exception 'FAIL: a member wrote a runner''s health';
   exception when insufficient_privilege then null; end;
@@ -141,6 +145,57 @@ begin
   update public.runner_jobs set tokens = '{"input": 50, "output": 60, "cacheRead": 70, "cacheWrite": 80}' where id = '00000000-0000-4000-8000-0000021022a1';
   if (select (tokens ->> 'input')::integer from public.runner_jobs where id = '00000000-0000-4000-8000-0000021022a1') <> 50 then
     raise exception 'FAIL: the route did not store a job''s tokens';
+  end if;
+end $$;
+reset role;
+
+-- ── A health report in one call (bug #2557), as the service role ──
+set local role service_role;
+do $$
+declare
+  box     constant uuid := '00000000-0000-4000-8000-0000021021a1';
+  old_box constant uuid := '00000000-0000-4000-8000-0000021021b1';
+  olga    constant uuid := '00000000-0000-4000-8000-0000021020a1';
+  job     constant uuid := '00000000-0000-4000-8000-0000021022a1';
+  sent    constant timestamptz := now();
+  sample  constant jsonb := '{"cpu": 40, "mem_used": 1, "mem_total": 2, "disk_free": 3, "tokens_5h": 9}';
+begin
+  -- No such runner, or one someone else registered: nothing is written.
+  if public.runner_report_health('00000000-0000-4000-8000-0000021021ff', olga, sent, '{"cpu": 1}', sample, now() - interval '90 seconds', now() - interval '1 hour') <> 'missing' then
+    raise exception 'FAIL: a report for no runner was not missing';
+  end if;
+  if public.runner_report_health(box, '00000000-0000-4000-8000-0000021020b1', sent, '{"cpu": 1}', sample, now() - interval '90 seconds', now() - interval '1 hour') <> 'forbidden' then
+    raise exception 'FAIL: a report for another owner''s runner was not forbidden';
+  end if;
+  if exists (select 1 from public.runner_samples where at = sent) or (select health ->> 'cpu' from public.runners where id = box) = '1' then
+    raise exception 'FAIL: a refused report wrote something';
+  end if;
+  -- The old box went silent with a claimed job: the report ends it `runner lost`.
+  update public.runners set last_seen_at = now() - interval '2 minutes' where id = old_box;
+  insert into public.runner_samples (runner_id, workspace_id, at, cpu) values (box, '00000000-0000-4000-8000-000002102001', now() - interval '2 minutes', 5);
+  update public.runner_jobs set status = 'claimed', runner_id = old_box, claimed_at = now() - interval '2 minutes' where id = job;
+  if public.runner_report_health(box, olga, sent, '{"cpu": 40, "at": "2026-10-16T12:00:30.000Z"}', sample, now() - interval '90 seconds', now() - interval '1 minute') <> 'ok' then
+    raise exception 'FAIL: the owner''s report was not ok';
+  end if;
+  if (select status || '/' || reason from public.runner_jobs where id = job) <> 'failed/runner lost' then
+    raise exception 'FAIL: the silent runner''s job was not ended runner lost';
+  end if;
+  if (select (health ->> 'cpu')::numeric from public.runners where id = box) <> 40 or (select last_seen_at from public.runners where id = box) <> sent then
+    raise exception 'FAIL: the report did not store the last health and the check-in';
+  end if;
+  if (select cpu::text || '/' || tokens_5h::text || '/' || workspace_id::text from public.runner_samples where runner_id = box and at = sent)
+     <> '40/9/00000000-0000-4000-8000-000002102001' then
+    raise exception 'FAIL: the report did not add its sample in the runner''s workspace';
+  end if;
+  -- Its samples before the kept time go, the other runner's stay; the same instant again is held once.
+  if exists (select 1 from public.runner_samples where runner_id = box and at < now() - interval '1 minute')
+     or (select count(*) from public.runner_samples where runner_id = box) <> 2
+     or (select count(*) from public.runner_samples where runner_id = old_box) <> 1 then
+    raise exception 'FAIL: the report trimmed the wrong samples';
+  end if;
+  perform public.runner_report_health(box, olga, sent, '{"cpu": 1}', '{"cpu": 1}', now() - interval '90 seconds', now() - interval '1 hour');
+  if (select cpu from public.runner_samples where runner_id = box and at = sent) <> 40 then
+    raise exception 'FAIL: a sample sent again was not held once, as first sent';
   end if;
 end $$;
 reset role;

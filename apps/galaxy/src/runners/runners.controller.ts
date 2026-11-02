@@ -6,7 +6,7 @@ import {
   GithubTokenReplySchema, JobUpdateReplySchema, JobUpdateSchema, KitRunnersSchema, NextQuerySchema, PrdJobsQuerySchema, PrdJobsSchema, RegisterReplySchema, RegisterRequestSchema,
   RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, RunnersQuerySchema, SendRequestSchema,
 } from './runners.contract';
-import type { RunnersService, Served } from './runners.service';
+import type { RunnersService, Served, StepTimer } from './runners.service';
 
 // The runners' routes (PRD 1830 s1; ADR-0095), as plain functions of a Request, so they are tested with
 // the real service on a fake store and each route stays one line:
@@ -45,6 +45,9 @@ export type RunnersDeps = {
   /** The rules, as the service role; null when this deployment has no service role. */
   service: RunnersService | null;
   log: (line: string) => void;
+  /** A stopwatch started for each step of a health report, whose steps are logged when they add up to
+   * HEALTH_SLOW_MS or more. None, nothing is timed. */
+  timer?(): () => number;
 };
 
 const MAX_BODY_CHARS = 300 * 1024;
@@ -165,13 +168,33 @@ export async function refreshGithubToken(request: Request, id: string, deps: Run
   ));
 }
 
-/** POST /api/runners/<id>/health: a runner's machine, from its owner; answers when the server took it. */
+/** A health report whose steps add up to this long is logged with each step's time: the runner gives up on it
+ * after 5 s (kit/lib/runner/api.ts), and the steps show which one is slow. */
+const HEALTH_SLOW_MS = 1000;
+
+/** POST /api/runners/<id>/health: a runner's machine, from its owner; answers when the server took it. Logs
+ * its steps' times when they add up to HEALTH_SLOW_MS or more. */
 export async function reportHealth(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
-  return answer(await kitCaller(request, deps), deps, HealthReplySchema, async (service, caller) => {
+  const times: [string, number][] = [];
+  const step: StepTimer = async (name, run) => {
+    const stop = deps.timer?.();
+    try {
+      return await run();
+    } finally {
+      if (stop) times.push([name, stop()]);
+    }
+  };
+  const answered = await answer(await step('sign-in', () => kitCaller(request, deps)), deps, HealthReplySchema, async (service, caller) => {
     if (!IdSchema.safeParse(id).success) return refuse(RUNNER_REFUSALS.missing, BAD_ID);
     const body = await bodyAs(request, HealthReportSchema);
-    return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_HEALTH) : service.health(caller, id, body);
+    return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_HEALTH) : service.health(caller, id, body, step);
   });
+  const total = times.reduce((sum, [, ms]) => sum + ms, 0);
+  if (total >= HEALTH_SLOW_MS) {
+    const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+    deps.log(`runners: the health report of ${id} took ${seconds(total)} — ${times.map(([name, ms]) => `${name} ${seconds(ms)}`).join(', ')}`);
+  }
+  return answered;
 }
 
 /** GET /api/runners/jobs/<id>/lines?after=<seq>: a job's live lines, for a member of its workspace, from the

@@ -228,6 +228,15 @@ describe('a lost runner', () => {
     expect(w.state.jobs.map((j) => j.status)).toEqual(['failed', 'running']);
   });
 
+  // Bug #2557: the report is one call to the database, which ends the silent runners' jobs itself.
+  it('is marked on another runner\'s health report, and a job still Starting past its deadline ends beside it', async () => {
+    const runners = [runnerRow({ id: SHARED, name: 'shared', last_seen_at: at(600).toISOString() }), runnerRow({ id: CIA_BOX, name: 'cia-box', fleet: 'cia' })];
+    const starting = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [running(), starting], runners, start: at(601) });
+    value(await w.service.health(OLGA, SHARED, { cpu: 1, load1: 0, cores: 1, memUsed: 1, memTotal: 2, diskFree: 1, diskTotal: 2 }));
+    expect(w.state.jobs.map((j) => [j.status, j.reason])).toEqual([['failed', 'runner lost'], ['failed', 'runner lost']]);
+  });
+
   // #2550: the app stored the claim, its answer to `next` was lost (a 504), and the runner, polling on,
   // never names the job: Starting forever, the runner's one slot held.
   describe('whose hand-over never reached it, though it keeps checking in (#2550)', () => {

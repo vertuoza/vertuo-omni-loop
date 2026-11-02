@@ -90,6 +90,10 @@ import type { AppOfJob, ContinuationsRepository, JobPatch, JobRow, JobRowStatus,
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
 
+/** Runs one named step of a request, timing it when the caller keeps the times. */
+export type StepTimer = <T>(name: string, run: () => Promise<T>) => Promise<T>;
+const untimed: StepTimer = (_name, run) => run();
+
 /** A rule's answer: its value, or why not, in plain words. */
 export type Served<T> = { ok: true; value: T } | { ok: false; kind: RunnerRefusal; error: string };
 
@@ -270,6 +274,10 @@ function runnerOf(row: RunnerRow, used: number, now: Date, samples?: RunnerSampl
     lastSeenAt: row.last_seen_at, state: runnerState(row, used, now), health: row.health, ...(samples ? { samples } : {}),
   };
 }
+
+/** Why a runner's own route is refused: no such runner, or another person's. */
+const MISSING_RUNNER = 'No such runner. Register it again.';
+const FORBIDDEN_RUNNER = 'This runner was registered by someone else.';
 
 /** A token count's four figures added up; null for a count the runner could not read or never sent. */
 const tokenSum = (counts: { input: number; output: number; cacheRead: number; cacheWrite: number } | null | undefined): number | null =>
@@ -502,15 +510,18 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
   /** Ends `runner lost` a silent runner's jobs (the database, telling none) and every job still Starting past its deadline, whose
    * runner never received it (#2550): each of those tells its link, as this process ends it. */
   const markLost = async (): Promise<void> => {
-    const [, unstarted] = await Promise.all([store.markLost(ago(LOST_AFTER_MS)), store.loseUnstarted(ago(STARTING_LOST_AFTER_MS), iso())]);
-    for (const job of unstarted) tell(job, 'status');
+    await Promise.all([store.markLost(ago(LOST_AFTER_MS)), loseUnstarted()]);
+  };
+  /** Ends `runner lost` every job still Starting past its deadline (#2550), telling each its link. */
+  const loseUnstarted = async (): Promise<void> => {
+    for (const job of await store.loseUnstarted(ago(STARTING_LOST_AFTER_MS), iso())) tell(job, 'status');
   };
 
   /** The runner the caller owns, or why not. */
   async function ownRunner(caller: string, runnerId: string): Promise<Served<RunnerRow>> {
     const runner = await store.runner(runnerId);
-    if (!runner) return no('missing', 'No such runner. Register it again.');
-    if (runner.owner !== caller) return no('forbidden', 'This runner was registered by someone else.');
+    if (!runner) return no('missing', MISSING_RUNNER);
+    if (runner.owner !== caller) return no('forbidden', FORBIDDEN_RUNNER);
     return ok(runner);
   }
 
@@ -893,18 +904,21 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
 
     /** A runner's health report (PRD 2102), from its owner: its last health and a check-in, one sample
      * more, and its samples older than an hour gone. Answers when the server took it. */
-    async health(caller: string, runnerId: string, report: HealthReport): Promise<Served<{ at: string }>> {
-      const owned = await ownRunner(caller, runnerId);
-      if (!owned.ok) return owned;
-      await markLost();
+    async health(caller: string, runnerId: string, report: HealthReport, step: StepTimer = untimed): Promise<Served<{ at: string }>> {
+      // One call writes the report (bug #2557): six, one after another, passed the 5 s the runner waits. The jobs still
+      // Starting past their deadline are ended beside it, since this process tells their links.
       const now = clock.now();
       const at = now.toISOString();
-      await store.updateRunner(runnerId, { health: { ...report, at }, last_seen_at: at });
-      await store.insertSample({
-        runner_id: runnerId, workspace_id: owned.value.workspace_id, at,
-        cpu: report.cpu, mem_used: report.memUsed, mem_total: report.memTotal, disk_free: report.diskFree, tokens_5h: tokenSum(report.tokens?.last5h),
-      });
-      await store.trimSamples(runnerId, new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString());
+      const [written] = await step('report', () => Promise.all([
+        store.reportHealth({
+          runner: runnerId, owner: caller, at, health: { ...report, at },
+          sample: { cpu: report.cpu, mem_used: report.memUsed, mem_total: report.memTotal, disk_free: report.diskFree, tokens_5h: tokenSum(report.tokens?.last5h) },
+          lostCutoff: ago(LOST_AFTER_MS), keptSince: new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString(),
+        }),
+        loseUnstarted(),
+      ]));
+      if (written === 'missing') return no('missing', MISSING_RUNNER);
+      if (written === 'forbidden') return no('forbidden', FORBIDDEN_RUNNER);
       return ok({ at });
     },
 

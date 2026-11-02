@@ -234,7 +234,7 @@ describe('the follow-ups migration (PRD 2508)', () => {
 });
 
 describe("the job parts migration (PRD 2537)", () => {
-  const PARTS = read('supabase/migrations/20270105090000_runner_job_parts.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+  const PARTS = read('supabase/migrations/20270106090000_runner_job_parts.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 
   it('adds runner_jobs.parts, empty for a job whose runner never reported any, a list of at most the 20 parts the contract lets a report carry', () => {
     expect(PARTS).toContain('alter table public.runner_jobs add column parts jsonb check (');
