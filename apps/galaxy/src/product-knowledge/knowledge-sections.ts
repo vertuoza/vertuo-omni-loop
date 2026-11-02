@@ -129,28 +129,31 @@ const author = (person: Person): string | null => (person ? (person.login ?? per
 
 type Column<R> = ListColumn<R>;
 
+/** The two last columns of every list: who added the item, and when. */
+const authored = <E extends Entry>(): Column<E>[] => [
+  { key: 'by', label: 'Created by', natural: 'asc', value: (e) => author(e.createdBy) },
+  { key: 'created', label: 'Created', natural: 'desc', value: (e) => dateOf(e.createdAt) },
+];
+
 export const LEGAL_COLUMNS: readonly Column<LegalEntry>[] = [
   { key: 'code', label: 'Code', natural: 'asc', value: (e) => word(e.id) },
   { key: 'statement', label: 'Statement', natural: 'asc', value: (e) => word(e.statement) },
   { key: 'source', label: 'Source law', natural: 'asc', value: (e) => word(e.source) },
   { key: 'owner', label: 'Owner', natural: 'asc', value: (e) => author(e.owner) },
-  { key: 'by', label: 'Created by', natural: 'asc', value: (e) => author(e.createdBy) },
-  { key: 'created', label: 'Created', natural: 'desc', value: (e) => dateOf(e.createdAt) },
+  ...authored<LegalEntry>(),
 ];
 
 export const GLOSSARY_COLUMNS: readonly Column<GlossaryEntry>[] = [
   { key: 'term', label: 'Term', natural: 'asc', value: (e) => word(e.term) },
   { key: 'meaning', label: 'Meaning', natural: 'asc', value: (e) => word(e.meaning) },
-  { key: 'by', label: 'Created by', natural: 'asc', value: (e) => author(e.createdBy) },
-  { key: 'created', label: 'Created', natural: 'desc', value: (e) => dateOf(e.createdAt) },
+  ...authored<GlossaryEntry>(),
 ];
 
 export const DOMAIN_COLUMNS: readonly Column<DomainEntry>[] = [
   { key: 'key', label: 'Key', natural: 'asc', value: (e) => word(e.key) },
   { key: 'name', label: 'Name', natural: 'asc', value: (e) => word(e.name) },
   { key: 'meaning', label: 'Meaning', natural: 'asc', value: (e) => word(e.meaning) },
-  { key: 'by', label: 'Created by', natural: 'asc', value: (e) => author(e.createdBy) },
-  { key: 'created', label: 'Created', natural: 'desc', value: (e) => dateOf(e.createdAt) },
+  ...authored<DomainEntry>(),
 ];
 
 /** The default order of every list: newest first. */
