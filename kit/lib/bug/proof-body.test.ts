@@ -8,6 +8,8 @@ const ISSUE = parseIssue(12);
 const PR = parsePr(34);
 const IMAGE = '![Before and after the fix](https://omni.example/api/proofs/9f0c1d2e/preview.gif)';
 const LINES = ['- **Before the fix** (red): `AssertionError`', '- **After the fix** (green, `a1b2c3d`): `✓ saves once`'];
+const PROVED = '- **Proved on:** the machine that made the fix · reproduction test only, the screen was not filmed';
+const D = 'GIF not produced - A: no hook; B: job story skipped on a draft; C: the story needs CI';
 const file = (...lines: string[]): ProofSource => ({ kind: 'file', body: lines.join('\n') });
 const faults = (...lines: string[]) => proofFaults(file(...lines), ISSUE);
 
@@ -37,17 +39,88 @@ describe('proofSection', () => {
 
 describe('proofFaults', () => {
   it('has none for an https image with its two lines', () => {
-    expect(faults('## Proof', IMAGE, ...LINES)).toEqual([]);
+    expect(faults('## Proof', IMAGE, ...LINES, PROVED)).toEqual([]);
+  });
+
+  describe('Proved on', () => {
+    const proof = (...lines: string[]) => faults('## Proof', IMAGE, ...LINES, ...lines);
+
+    it('passes at level A with its Preview line', () => {
+      expect(proof('- **Proved on:** a preview environment', '- **Preview:** https://pr-34.example · until the pull request closes')).toEqual([]);
+    });
+
+    it('passes at level B and at level C with the not-filmed mention', () => {
+      expect(proof('- **Proved on:** CI · reproduction test only, the screen was not filmed')).toEqual([]);
+      expect(proof(PROVED)).toEqual([]);
+    });
+
+    it('passes at level C for a component filmed in Storybook, beside its Clips line', () => {
+      expect(
+        proof('- **Proved on:** the machine that made the fix · the component filmed in Storybook', 'Clips: [before](https://omni.example/b.webm) · [after](https://omni.example/a.webm)'),
+      ).toEqual([]);
+    });
+
+    it('refuses a GIF without a Proved on line', () => {
+      expect(proof()).toEqual(['## Proof has no "Proved on" line']);
+    });
+
+    it('refuses a B or C line without the not-filmed mention', () => {
+      const mention = '## Proof\'s "Proved on" line has no "reproduction test only, the screen was not filmed" mention';
+      expect(proof('- **Proved on:** CI')).toEqual([mention]);
+      expect(proof('- **Proved on:** the machine that made the fix')).toEqual([mention]);
+    });
+
+    it('refuses the Storybook line without a Clips line', () => {
+      expect(proof('- **Proved on:** the machine that made the fix · the component filmed in Storybook')).toEqual([
+        '## Proof\'s "the component filmed in Storybook" line has no "Clips:" line',
+      ]);
+    });
+
+    it('refuses level A without its Preview line', () => {
+      expect(proof('- **Proved on:** a preview environment')).toEqual(['## Proof\'s "Proved on: a preview environment" has no "Preview" line']);
+    });
+
+    it('refuses a Proved on line that names no level', () => {
+      expect(proof('- **Proved on:** my laptop')).toEqual([
+        '## Proof\'s "Proved on" line names no level: a preview environment, CI or the machine that made the fix',
+      ]);
+    });
+
+    it('keeps the Before and After rules unchanged', () => {
+      expect(faults('## Proof', IMAGE, PROVED)).toEqual(['## Proof\'s image has no "Before the fix" or "After the fix" line']);
+    });
+  });
+
+  describe('GIF not produced at level D', () => {
+    it('refuses a level with no reason, each on its own line', () => {
+      expect(faults('## Proof', 'GIF not produced - A: no hook; B: skipped')).toEqual(['## Proof\'s "GIF not produced" line has no reason for level C']);
+      expect(faults('## Proof', 'GIF not produced - A: ; B: ; C: x')).toEqual([
+        '## Proof\'s "GIF not produced" line has no reason for level A',
+        '## Proof\'s "GIF not produced" line has no reason for level B',
+      ]);
+    });
+
+    it('refuses a bare reason: every level answers', () => {
+      expect(faults('## Proof', 'GIF not produced - ffmpeg not found')).toEqual([
+        '## Proof\'s "GIF not produced" line has no reason for level A',
+        '## Proof\'s "GIF not produced" line has no reason for level B',
+        '## Proof\'s "GIF not produced" line has no reason for level C',
+      ]);
+    });
+
+    it('allows a semicolon inside a reason', () => {
+      expect(faults('## Proof', 'GIF not produced - A: none; still none; B: x; C: y')).toEqual([]);
+    });
   });
 
   it('has none for a not-produced line with a reason, whatever else the section says', () => {
-    expect(faults('## Proof', 'GIF not produced - ffmpeg not found')).toEqual([]);
-    expect(faults('## Proof', '  GIF not produced - the pinned omni is too old: run omni update')).toEqual([]);
-    expect(faults('## Proof', IMAGE, 'GIF not produced - ffmpeg not found')).toEqual([]);
+    expect(faults('## Proof', D)).toEqual([]);
+    expect(faults('## Proof', `  ${D}`)).toEqual([]);
+    expect(faults('## Proof', IMAGE, ...LINES, PROVED, D)).toEqual([]);
   });
 
   it('is no section when the heading is missing', () => {
-    expect(faults('Closes #12', IMAGE, ...LINES)).toEqual(['no ## Proof section']);
+    expect(faults('Closes #12', IMAGE, ...LINES, PROVED)).toEqual(['no ## Proof section']);
   });
 
   it('is no image and no not-produced line for prose, a bare dash, or an image that is not https', () => {
@@ -56,8 +129,8 @@ describe('proofFaults', () => {
     expect(faults('## Proof', 'GIF not produced -')).toEqual([line]);
     expect(faults('## Proof', 'GIF not produced - ')).toEqual([line]);
     expect(faults('## Proof', 'GIF not produced')).toEqual([line]);
-    expect(faults('## Proof', '![x](http://omni.example/a.gif)', ...LINES)).toEqual([line]);
-    expect(faults('## Proof', '[x](https://omni.example/a.gif)', ...LINES)).toEqual([line]);
+    expect(faults('## Proof', '![x](http://omni.example/a.gif)', ...LINES, PROVED)).toEqual([line]);
+    expect(faults('## Proof', '[x](https://omni.example/a.gif)', ...LINES, PROVED)).toEqual([line]);
     expect(faults('## Proof', '')).toEqual([line]);
   });
 
@@ -70,7 +143,7 @@ describe('proofFaults', () => {
   });
 
   it('reads an indented Before and After line', () => {
-    expect(faults('## Proof', IMAGE, ...LINES.map((line) => `  ${line}`))).toEqual([]);
+    expect(faults('## Proof', IMAGE, ...LINES.map((line) => `  ${line}`), PROVED)).toEqual([]);
   });
 
   it('says how to proceed, with the issue\'s number, when there is no body', () => {
@@ -85,15 +158,15 @@ describe('proofFaults', () => {
     const pull = (isDraft: boolean, ...lines: string[]): ProofSource => ({ kind: 'pull-request', body: lines.join('\n'), pr: PR, isDraft });
 
     it('asks for a draft when the proof was not produced and the pull request is not one', () => {
-      expect(proofFaults(pull(false, '## Proof', 'GIF not produced - ffmpeg not found'), ISSUE)).toEqual([
+      expect(proofFaults(pull(false, '## Proof', D), ISSUE)).toEqual([
         'the proof was not produced but #34 is not a draft: gh pr ready 34 --undo',
       ]);
     });
 
     it('is content with a draft that says so, and with a filmed proof on either', () => {
-      expect(proofFaults(pull(true, '## Proof', 'GIF not produced - ffmpeg not found'), ISSUE)).toEqual([]);
-      expect(proofFaults(pull(false, '## Proof', IMAGE, ...LINES), ISSUE)).toEqual([]);
-      expect(proofFaults(pull(true, '## Proof', IMAGE, ...LINES), ISSUE)).toEqual([]);
+      expect(proofFaults(pull(true, '## Proof', D), ISSUE)).toEqual([]);
+      expect(proofFaults(pull(false, '## Proof', IMAGE, ...LINES, PROVED), ISSUE)).toEqual([]);
+      expect(proofFaults(pull(true, '## Proof', IMAGE, ...LINES, PROVED), ISSUE)).toEqual([]);
     });
 
     it('does not ask for a draft when the proof has a fault of its own, or when a filmed proof also carries the line', () => {
@@ -101,11 +174,11 @@ describe('proofFaults', () => {
         '## Proof has no image and no "GIF not produced - <reason>" line',
       ]);
       expect(proofFaults(pull(false, 'Closes #12'), ISSUE)).toEqual(['no ## Proof section']);
-      expect(proofFaults(pull(false, '## Proof', IMAGE, ...LINES, 'GIF not produced - x'), ISSUE)).toEqual([]);
+      expect(proofFaults(pull(false, '## Proof', IMAGE, ...LINES, PROVED, D), ISSUE)).toEqual([]);
     });
 
     it('asks nothing of a draft in a body read from a file', () => {
-      expect(faults('## Proof', 'GIF not produced - ffmpeg not found')).toEqual([]);
+      expect(faults('## Proof', D)).toEqual([]);
     });
   });
 });

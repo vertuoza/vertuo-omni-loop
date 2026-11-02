@@ -74,7 +74,9 @@ const PROOF = [
   '',
   '- **Before the fix** (red): `AssertionError: expected 2 to be 1`',
   '- **After the fix** (green, `a1b2c3d`): `✓ saves once`',
+  '- **Proved on:** the machine that made the fix · reproduction test only, the screen was not filmed',
 ].join('\n');
+const NOT_FILMED_LEVELS = 'A: no hook; B: no CI; C: ffmpeg not found';
 
 /** A pull request body in the skill's shape, its `## Proof` section replaced (a string) or left out (`null`). */
 function prBody(proof: string | null = PROOF) {
@@ -461,7 +463,7 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
     '- no pull request body to check: make the GIF (omni bug film 12 --before <red> --after <green>, then omni proof push --kind bug 12 <folder>), ' +
     'write the body with its ## Proof section to a file, and rerun omni bug 12 --body-file <file>; ' +
     'with no GIF, ## Proof is the line GIF not produced - <reason> and the pull request opens as a draft';
-  const NOT_PRODUCED = prBody('GIF not produced - ffmpeg not found');
+  const NOT_PRODUCED = prBody(`GIF not produced - ${NOT_FILMED_LEVELS}`);
 
   /** A fake process runner: git is real; `gh` answers as told, and its calls are recorded. */
   function withGh(answer: string | Error) {
@@ -532,7 +534,7 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
     it('reads a ## Proof that runs to the end of the body, with CRLF line ends and a ### inside it', async () => {
       const crlf = ['Closes #12', '', '## Proof', '', '### The GIF', '', PROOF, ''].join('\r\n');
       expect((await fromFile(crlf)).code).toBe(0);
-      expect((await fromFile(['## Proof', 'GIF not produced - no ffmpeg', ''].join('\r\n'))).code).toBe(0);
+      expect((await fromFile(['## Proof', `GIF not produced - ${NOT_FILMED_LEVELS}`, ''].join('\r\n'))).code).toBe(0);
     });
 
     it('grades the first ## Proof when the body has two', async () => {
