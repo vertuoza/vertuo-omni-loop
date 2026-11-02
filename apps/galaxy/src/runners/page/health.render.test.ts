@@ -127,3 +127,31 @@ describe('the tokens', () => {
     expect((html.match(/runners-tokens/g) ?? []).length).toBe(1);
   });
 });
+
+describe('the account chips and the tokens pause (PRD 2537 s6)', () => {
+  it('shows a runner\'s accounts as chips in order, each titled with its agent and state', () => {
+    const row = runnerRow(render(demo()), 'acme-agents');
+    expect(row.indexOf('>seat-1<')).toBeGreaterThan(-1);
+    expect(row.indexOf('>seat-1<')).toBeLessThan(row.indexOf('>codex-1<'));
+    expect(row.indexOf('>codex-1<')).toBeLessThan(row.indexOf('>seat-2<'));
+    expect(row).toContain('runners-chip is-out');
+    expect(row).toContain('runners-chip is-active');
+    expect(row).toContain('runners-chip is-ready');
+    expect(row).toContain('title="opencode · out until 18:00 UTC"');
+  });
+
+  it('shows no chips for a runner that reported no accounts', () => {
+    expect(runnerRow(render(demo()), 'mac-mini-office')).not.toContain('runners-chip');
+  });
+
+  it('reads Paused: no tokens left until 18:00 in place of Online, and Waiting: every runner out of tokens on a queued job', () => {
+    const paused = { paused: 'no tokens left until 18:00', accounts: [{ id: 'claude-1', agent: 'claude', state: 'out' as const, resetsAt: '2026-10-13T18:00:00Z' }] };
+    const html = render(withBoard((board) => ({
+      ...board,
+      jobs: board.jobs.map((job) => (job.status === 'queued' ? { ...job, toFleet: null } : job)),
+      runners: board.runners.filter((r) => r.state !== 'offline').map((r) => ({ ...r, fleet: null, health: r.health && { ...r.health, ...paused } })),
+    })));
+    expect(text(runnerRow(html, 'mac-mini-office'))).toContain('Paused: no tokens left until 18:00');
+    expect(text(html)).toContain('Waiting: every runner out of tokens until 18:00');
+  });
+});

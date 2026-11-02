@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Runner } from '../runners.contract';
-import { asOfWords, gaugesOf, gbWords, jobTokensWords, sparkPoints, stateTone, tokenFigure, tokenSplit, tokenTotal, waitingWords } from './health';
+import { accountChips, asOfWords, gaugesOf, gbWords, jobTokensWords, sparkPoints, stateTone, tokenFigure, tokenSplit, tokenTotal, waitingWords } from './health';
 import { stateWords } from './model';
 
 // The health line's words and numbers (PRD 2102 s3): each gauge, each state of the line, the paused state and both
@@ -231,5 +231,50 @@ describe('the tokens', () => {
     expect(jobTokensWords({ tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } })?.text).toBe('0 tokens');
     expect(jobTokensWords({ tokens: null })).toBeNull();
     expect(jobTokensWords({})).toBeNull();
+  });
+});
+
+describe('the account chips (PRD 2537 s6)', () => {
+  const accounts: NonNullable<Health['accounts']> = [
+    { id: 'claude-1', agent: 'claude', state: 'out', resetsAt: '2026-10-16T18:00:00Z' },
+    { id: 'codex-1', agent: 't3', state: 'active' },
+    { id: 'spare', agent: 'claude', state: 'ready' },
+  ];
+
+  it('lists each account in the file\'s order, its state as its tone and its agent and state in the title', () => {
+    expect(accountChips({ health: health({ accounts }) })).toEqual([
+      { id: 'claude-1', tone: 'out', title: 'claude · out until 18:00 UTC' },
+      { id: 'codex-1', tone: 'active', title: 't3 · active' },
+      { id: 'spare', tone: 'ready', title: 'claude · ready' },
+    ]);
+  });
+
+  it('has no chip for a runner that reported no accounts or never reported', () => {
+    expect(accountChips({ health: health() })).toEqual([]);
+    expect(accountChips({ health: null })).toEqual([]);
+  });
+
+  it('reads an out account without a reset time as out', () => {
+    expect(accountChips({ health: health({ accounts: [{ id: 'a', agent: 'claude', state: 'out' }] }) })[0]?.title).toBe('claude · out');
+  });
+});
+
+describe('a queued job when every runner is out of tokens (PRD 2537 s6)', () => {
+  const out = (id: string, until: string): { id: string; name: string; fleet: null; state: Runner['state']; repos: string[]; health: Health } =>
+    ({ id, name: `runner-${id}`, fleet: null, state: 'online', repos: ['acme/widgets'], health: health({ paused: 'no tokens left until 00:00', accounts: [{ id: 'a', agent: 'claude', state: 'out', resetsAt: until }] }) });
+  const queued = { status: 'queued' as const, toRunner: null, toFleet: null, repo: 'acme/widgets' };
+
+  it('names the earliest reset of all the runners the job could go to', () => {
+    expect(waitingWords(queued, [out('a', '2026-10-16T20:00:00Z'), out('b', '2026-10-16T18:00:00Z')])).toBe('Waiting: every runner out of tokens until 18:00');
+  });
+
+  it('keeps the memory reasons for a pause that is not about tokens', () => {
+    const mixed = [out('a', '2026-10-16T18:00:00Z'), { ...out('b', '2026-10-16T18:00:00Z'), health: health({ paused: 'memory 91%' }) }];
+    expect(waitingWords(queued, mixed)).toBe('Waiting: every runner paused (no tokens left until 00:00)');
+  });
+
+  it('says it without a time when no runner reported a reset', () => {
+    const bare = { ...out('a', 'x'), health: health({ paused: 'no tokens left' }) };
+    expect(waitingWords(queued, [bare])).toBe('Waiting: every runner out of tokens');
   });
 });

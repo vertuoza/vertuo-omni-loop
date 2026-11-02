@@ -205,6 +205,27 @@ Each one must run the loop (a `.omni-loop/` folder at its root) and belong to yo
 runner knows each by its `origin`, and runs each job in a fresh worktree of it, so leave these
 checkouts on their default branch and never work in them by hand.
 
+### Accounts and turnover
+
+A runner can hold more than one account. When the account a job runs on runs out of tokens, the job
+turns over to the next ready account in the same worktree, with a handoff note, and carries on. A
+runner with no accounts file runs one Claude account, exactly as before.
+
+The accounts are listed in `~/.config/omni/accounts.yml`, on the runner's machine. The order of the
+file is the order the runner tries them in. Each account has an `id`, and either an `instance`
+(a T3 Code provider instance, signed in in T3) or an `agent: claude` with its `secret`. Read the
+file on the machine only: never put it in a repository.
+
+- **`takes`** limits an account to the skills it may run or take over (`pr-care`, `plan`,
+  `bug-fix`, and the others the runner lists). No `takes` means any skill.
+- **Codex and OpenCode** accounts are signed in inside their own instance, the way Claude is. The
+  runner writes the Omni skills into the agent's own folder before a job, never into the worktree.
+- **Chips and pause.** The Runners page shows one chip per account, in the file's order, each in its
+  state. When every account is out, the runner pauses: it starts no new job, and the page reads
+  `Paused: no tokens left until <time>`. It takes jobs again once one account is ready.
+- **Seats and keys.** Give each account its own seat or API key. Two accounts that share one
+  seat or key share its limit, so a turnover between them gains nothing.
+
 ## Connect it
 
 ### 1. Make a token for the Omni page
@@ -305,6 +326,8 @@ it.
 | a job Failed with a reason that starts `github app:` | the job's API key has a GitHub App, and Omni could not make its token (the app was removed or uninstalled, GitHub refuses its pair, the key was revoked or its maker left the workspace), or the runner could not keep the token current until the job ended | read the rest of the reason, fix the app on the key (attach it again, or install it on the repository), then send the job again. It never runs as the runner's account |
 | a job of an API key with a GitHub App stays Queued | no runner of the workspace is free that registered as able to run a job as an app: a runner on an older kit never is | update the runners ([Look after it](#4-look-after-it)) and restart them while no job runs |
 | a job's row says **Could not release this job's claims:** and why | the runner could not reach GitHub with `gh`, or `gh` is signed out, or the `omni:released` label is missing | sign `gh` in as the runner's user (`gh auth status`), or create the label. The claims become takeable after 240 quiet minutes anyway |
+| an account's chip reads `T3 not running` | T3 Code is not running on the runner's machine, or the account's instance is unknown to it | start T3 Code (its service), check the instance's name in `accounts.yml`; the job starts on the next account meanwhile |
+| an account's chip reads `unusable · no skills` | its agent reads no skills folder outside the repository, so the Omni skills cannot reach it | use an agent that reads one, or remove the account from `accounts.yml`; the job starts on the next account meanwhile |
 | a job's log starts with a line that says the plugin's version was not read | `claude plugin list` did not answer in time or its answer was unreadable, so the plugin's age was not checked | nothing: the job ran. If it keeps showing, run `claude plugin list --json` as the runner's user |
 
 [Next → How the loop works](/docs/loop)
