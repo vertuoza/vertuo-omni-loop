@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✗"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-02",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Every runner PR now reads as the Omni bot, so the team can tell agent work from a colleague's at a glance.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The server, the database and the runner each refuse a job without the App: three locks, and the full suite is green.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The Runners page names the fix in four words instead of a sentence about a key's App.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Any reviewer can now approve the bot's PRs, so my quick wins stop waiting on whoever hosts the runner.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Once the runner is reinstalled my jobs flow as before; until then the page tells me why they wait.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ~"
     }
   ]
 }
