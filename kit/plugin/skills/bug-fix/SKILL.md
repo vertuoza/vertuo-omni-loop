@@ -244,6 +244,16 @@ the term (stop rule 2).
 
 ## 7. Prove red
 
+**Point `bug-fix.reproduce`.** Before the reproduction is written, run
+`node .omni-loop/bin/omni.mjs flow show bug-fix.reproduce --path <p>` (once per path the fix may touch, or with no
+`--path` for the default area's hooks) and follow it (`/omni:do-work`'s **Flow points**, read from this repository's config): every `before` hook,
+the kit's step (empty: only hooks run), then every `after` hook, `{issue}`, `{branch}`, `{suspect}`
+(the triage's suspect) and `{boundary}` (step 4's) filled by you from this fix. A hook gives back notes you read
+to write the reproduction; it never replaces it (the point allows no `replace`: the red is always a
+test committed alone). End each hook with `node .omni-loop/bin/omni.mjs flow verdict bug-fix.reproduce
+--from <file>`. A hook that fails (`not ok`, or a missing file) never stops the fix: the PR's
+**Reproduction** section gets one line, `Hook bug-fix.reproduce failed: <why>`, and step 7 goes on.
+
 Write the reproduction, in the domain's words:
 
 - an acceptance scenario under `acceptance.dir` when `acceptance.enabled` is true and the harness
@@ -381,6 +391,15 @@ workflow under `.github/workflows/`):
   comment on the issue name the CI step to add.
 
 The skill never edits CI: a repository's workflows are a person's to change.
+
+**Point `bug-fix.review`.** After the guard and before mutation, run
+`node .omni-loop/bin/omni.mjs flow show bug-fix.review --path <p>` (as above)
+and follow it (every `before` hook, the kit's step (empty), every `after` hook; `{issue}`, `{branch}`
+and `{base}` (`<repo.remote>/<repo.defaultBranch>`) filled by you), each ending in `node .omni-loop/bin/omni.mjs flow verdict bug-fix.review --from <file>`.
+A hook may commit fixes, signed (**Signing**): run `commands.preflightFull` (or `commands.preflight`)
+again after it, and a red one counts as an attempt (stop rule 5), as a red fix does. A hook that
+fails never stops the fix: the PR's **Guard** section gets one line,
+`Hook bug-fix.review failed: <why>`, and the fix goes on.
 
 ## 10. Mutation
 

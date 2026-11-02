@@ -39,6 +39,8 @@ export const FLOW_POINTS: readonly FlowPoint[] = Object.freeze([
     outputs: ["the PR's URL as its last line before the verdict", 'the verdict line'],
   },
   { point: 'wave.merge', skills: ['wave', 'ultra-wave'], modes: ANY, inputs: ['prd', 'slice', 'pr'], outputs: ["the merged PR's number in the verdict"] },
+  { point: 'bug-fix.reproduce', skills: ['bug-fix', 'mega-bug-fix'], modes: EXTEND, inputs: ['issue', 'branch', 'suspect', 'boundary'], outputs: [] },
+  { point: 'bug-fix.review', skills: ['bug-fix', 'mega-bug-fix'], modes: EXTEND, inputs: ['issue', 'branch', 'base'], outputs: [] },
   { point: 'yolo.ready', skills: ['yolo', 'ultra-yolo'], modes: EXTEND, inputs: ['prd', 'pr'], outputs: [] },
 ]);
 

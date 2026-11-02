@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { FLOW_POINTS, flowPoint } from './points.ts';
 
 describe('the catalog of flow points', () => {
-  it('lists the nine points of the spec, in order', () => {
+  it('lists the points of the spec, in order', () => {
     expect(FLOW_POINTS.map(({ point }) => point)).toEqual([
-      'plan.slice', 'plan.done', 'do-work.start', 'do-work.test', 'do-work.review', 'do-work.ready', 'pr.open', 'wave.merge', 'yolo.ready',
+      'plan.slice', 'plan.done', 'do-work.start', 'do-work.test', 'do-work.review', 'do-work.ready', 'pr.open', 'wave.merge', 'bug-fix.reproduce', 'bug-fix.review', 'yolo.ready',
     ]);
   });
 
@@ -28,9 +28,16 @@ describe('the catalog of flow points', () => {
       'do-work.ready': ['do-work'],
       'pr.open': ['pr'],
       'wave.merge': ['wave', 'ultra-wave'],
+      'bug-fix.reproduce': ['bug-fix', 'mega-bug-fix'],
+      'bug-fix.review': ['bug-fix', 'mega-bug-fix'],
       'yolo.ready': ['yolo', 'ultra-yolo'],
     });
     for (const { inputs } of FLOW_POINTS) expect(inputs.length).toBeGreaterThan(0);
+  });
+
+  it('hands bug-fix.reproduce and bug-fix.review their inputs, before and after only', () => {
+    expect(flowPoint('bug-fix.reproduce')).toMatchObject({ modes: ['before', 'after'], inputs: ['issue', 'branch', 'suspect', 'boundary'] });
+    expect(flowPoint('bug-fix.review')).toMatchObject({ modes: ['before', 'after'], inputs: ['issue', 'branch', 'base'] });
   });
 
   it('finds a point by its name, and nothing for an unknown one', () => {
