@@ -1,5 +1,6 @@
 import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import type { Question } from '../runners.contract';
+import type { ProductRepos } from '../runners.service';
 import type { Acted, AppOfJob, JobLineRow, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, NewRunner, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
@@ -12,7 +13,7 @@ import type { Acted, AppOfJob, JobLineRow, JobPatch, JobRow, JobRowStatus, KeySt
 // supabase/migrations/20261218100000_runner_job_questions.sql writes them and
 // supabase/checks/runner_job_questions.sql proves them, and, for an API key closing them (PRD 2425), as
 // supabase/migrations/20261229090000_api_key_job_control.sql writes them; and an API key's GitHub App (PRD 2433), with
-// runner_claim() keeping a job that needs an App from a runner that did not register `githubApp`, and
+// runner_claim() giving no job to a runner that did not register `githubApp` (PRD 2573), and
 // api_key_github_app_of_job() and api_key_github_app_minted() as supabase/migrations/20261228090000_api_key_github_apps.sql
 // writes them. A realistic workspace: Olga owns it and plays in
 // the fleet cia, Mo plays in cia, Pia in pirates, Sam in no fleet; Eve belongs to another workspace.
@@ -69,7 +70,7 @@ const ORGS: Record<string, string> = { 'demo-org': WORKSPACE, elsewhere: ELSEWHE
 
 /** A runner row, seen at `T0` unless told otherwise. */
 export function runnerRow(more: Partial<RunnerRow> & Pick<RunnerRow, 'id' | 'name'>): RunnerRow {
-  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['demo-org/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, github_app: false, ...more };
+  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['demo-org/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, github_app: true, ...more };
 }
 
 /** Olga's three runners: a shared one with one slot, one of the fleet cia, one that holds another repository. */
@@ -179,8 +180,8 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     job.workspace_id === runner.workspace_id && job.status === 'queued' && !job.cancel_requested && runner.repos.includes(job.repo);
   // …sent to it, to its fleet, or, for a runner with no fleet only, to any runner.
   const addressed = (runner: RunnerRow, job: JobRow) => (job.to_runner === null ? job.to_fleet === runner.fleet : job.to_runner === runner.id);
-  // …and a job that needs an App goes only to a runner that registered `githubApp`.
-  const may = (runner: RunnerRow, job: JobRow) => takeable(runner, job) && addressed(runner, job) && (runner.github_app || !needsAppJob(job));
+  // …and only a runner that registered `githubApp` claims a job at all (supabase/migrations/20270107090000_runner_claim_omni_app.sql).
+  const may = (runner: RunnerRow, job: JobRow) => runner.github_app && takeable(runner, job) && addressed(runner, job);
   // Why runner_job_answer() and runner_job_dismiss() refuse before they change anything: no row, a closed row or a
   // job that is not waiting, then who may close it…
   const refusal = (jobId: string, closer: Closer): QuestionsRefusal | null => {
@@ -427,5 +428,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     answerByKey: (jobId, answers, key, actingFor) => answerAs(jobId, answers, { key }, actingFor),
     dismissByKey: (jobId, key, actingFor) => dismissAs(jobId, { key }, actingFor),
   };
-  return { store, state };
+  // What the service reads of a job no key sent (PRD 2573): the same repositories, the products being WORKSPACE's.
+  const productsOf: ProductRepos = (workspaceId, repo) => Promise.resolve(workspaceId === WORKSPACE ? productRepos(repo) : []);
+  return { store, state, products: productsOf };
 }
