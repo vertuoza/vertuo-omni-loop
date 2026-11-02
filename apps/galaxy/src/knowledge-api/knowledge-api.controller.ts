@@ -34,7 +34,7 @@ export type KnowledgeChangesDeps = {
 
 const NO_DATABASE = 'Knowledge changes are not available here: this deployment has no database.';
 const COULD_NOT_SAVE = 'The change could not be saved. Try again.';
-const UNKNOWN = 'A knowledge change names its kind (legal, glossary or constituent) and its action (add or edit).';
+const UNKNOWN = 'A knowledge change names its kind (legal, glossary, domains or constituent) and its action (add or edit).';
 
 /** The change a body sends, or the problem with it, in one line naming the field. */
 function changeOf(sent: unknown): KnowledgeChange | { problem: string } {
