@@ -55,6 +55,11 @@ describe('FlowSchema', () => {
     expect(FlowSchema.parse({ hooks: { 'bug-fix.reproduce': 'a.md', 'bug-fix.review': { before: 'b.md' } } }).hooks).toEqual({ 'bug-fix.reproduce': 'a.md', 'bug-fix.review': { before: 'b.md' } });
   });
 
+  it('reads a replace hook at bug-fix.proof, beside before and after (PRD 2578)', () => {
+    const value = { before: 'a.md', replace: 'b.md', after: ['c.md'] };
+    expect(FlowSchema.parse({ hooks: { 'bug-fix.proof': value } }).hooks).toEqual({ 'bug-fix.proof': value });
+  });
+
   it('reads the spec example', () => {
     const flow = parseConfig(`kit: 1\n${SPEC_FLOW}`).flow;
     expect(Object.keys(flow?.areas ?? {})).toEqual(['kernel', 'migrations']);

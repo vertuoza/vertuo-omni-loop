@@ -3,7 +3,8 @@
 // repository's flow, as an agent follows it, through `kit/lib/flow/show.ts`, `verdict.ts` and
 // `merge-gate.ts`.
 //
-// - `show <point>` prints the point's resolved hooks — every `before`, the `replace`, every `after`,
+// - `show <point>` prints the modes the point allows and the inputs a hook there is handed (PRD 2578),
+//   then its resolved hooks — every `before`, the `replace`, every `after`,
 //   each with its area, its text with the inputs filled in and its verdict line — and `kitStep: run`
 //   or `kitStep: replaced`. With `--prd` and `--slice` it reads the slice's territory from the plan;
 //   with `--path` the path is the territory; with neither, the default area's hooks. Exit 1, each
@@ -95,8 +96,8 @@ function sliceInputs(ctx: Context, prdText: string, sliceText: string): { territ
 const hookLine = ({ path, area, alias }: ShownHook) => `${path}  (${area}${alias === null ? '' : `, alias ${alias}`})`;
 
 /** A point's view as text: its areas, each hook by mode, `kitStep`, then each hook's text in the order it runs. */
-function pointText(view: PointView): string {
-  const lines = [`point    ${view.point}`, `areas    ${view.areas.join(', ')}`];
+function pointText(view: PointView, { modes, inputs }: FlowPoint): string {
+  const lines = [`point    ${view.point}`, `modes    ${modes.join(', ')}`, `inputs   ${inputs.join(', ')}`, `areas    ${view.areas.join(', ')}`];
   if (view.territory !== null) lines.push(`territory ${view.territory.join(' ')}`);
   const hooks = [...view.before, ...(view.replace ? [view.replace] : []), ...view.after];
   if (hooks.length === 0) lines.push('hooks    none');
@@ -212,7 +213,7 @@ function showOnePoint(
 ): number {
   const point = pointArg('show', name);
   const view = showPoint(shown.flow, point, { ...pointGround(ctx, flags, bySlice), readHook: shown.readHook });
-  print(view, pointText(view));
+  print(view, pointText(view, point));
   for (const problem of view.problems) println(stdout, `not ok ${point.point} ${problem}`);
   return view.problems.length > 0 ? 1 : 0;
 }
