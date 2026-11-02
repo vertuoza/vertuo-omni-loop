@@ -63405,7 +63405,7 @@ function cleanUp(loop2, job2, place) {
 }
 var WAIT_FOR_AGENTS = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "0" };
 function asApp(loop2, job2) {
-  if (job2.github === null) return { env: {} };
+  if (job2.github === null) return { failed: "github app: the job came without its App" };
   const file2 = githubTokenFile(loop2.home, job2.id);
   if (loop2.githubToken === void 0 || file2 === null) return { failed: "github app: this runner cannot give the job its token" };
   try {
