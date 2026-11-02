@@ -111,6 +111,58 @@
         }
       ],
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-02",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The list and its count on the tab give me one place to plan with the same domain words.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The count makes drift visible, though nothing forces anyone to act on it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "It follows the Glossary's shape and never fails my pull requests.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "No failing check costs me nothing, and I can read the list from the terminal when I need it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A term now says which part of the product it belongs to, which helps me with customers.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
     }
   ]
 }
