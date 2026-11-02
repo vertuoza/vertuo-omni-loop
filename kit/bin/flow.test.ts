@@ -81,7 +81,17 @@ describe('omni flow show <point>', () => {
   it('prints no hook and kitStep: run with no flow (spec acceptance 1)', async () => {
     const { code, out } = await omni(['flow', 'show', 'do-work.test'], { flow: '', files: {} });
     expect(code).toBe(0);
-    expect(out).toBe('point    do-work.test\nareas    default\nhooks    none\nkitStep: run\n');
+    expect(out).toBe(
+      'point    do-work.test\nmodes    before, after, replace\ninputs   prd, slice, territory, branch\nareas    default\nhooks    none\nkitStep: run\n',
+    );
+  });
+
+  it('prints bug-fix.proof with its modes and what it hands a hook (PRD 2578, acceptance 8)', async () => {
+    const { code, out } = await omni(['flow', 'show', 'bug-fix.proof'], { flow: '', files: {} });
+    expect(code).toBe(0);
+    expect(out).toBe(
+      'point    bug-fix.proof\nmodes    before, after, replace\ninputs   issue, base, head, pr, targets, reproduction, out\nareas    default\nhooks    none\nkitStep: run\n',
+    );
   });
 
   it("returns a kernel slice's replace hook as JSON (spec acceptance 6)", async () => {

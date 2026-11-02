@@ -1,6 +1,6 @@
 ---
 name: bug-fix
-description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug (its pull request body checked for its proof before the PR opens), opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix (naming the merged pull request that fixed the bug, when one is proven), and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. On a runner (OMNI_UNATTENDED set) that stop first asks the person on its job, with omni runner ask, and ends on a Waiting for an answer on Omni line; --answers <job> resumes from what they answered on the Omni page, and Design it first hands over the same line. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
+description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, opens the PR into the default branch as a draft on the reproduction alone, takes its proof from the first level that works (a preview environment, CI, this machine), checks the open PR's body with omni bug before it is marked ready, and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix (naming the merged pull request that fixed the bug, when one is proven), and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. On a runner (OMNI_UNATTENDED set) that stop first asks the person on its job, with omni runner ask, and ends on a Waiting for an answer on Omni line; --answers <job> resumes from what they answered on the Omni page, and Design it first hands over the same line. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
 ---
 
 <!-- Ported from nimbus-brain@47a1a194a:.claude/skills/nimbus-fix-bug/SKILL.md — changes in kit/porting/plugin--bug-fix.md -->
@@ -244,6 +244,16 @@ the term (stop rule 2).
 
 ## 7. Prove red
 
+**Point `bug-fix.reproduce`.** Before the reproduction is written, run
+`node .omni-loop/bin/omni.mjs flow show bug-fix.reproduce --path <p>` (once per path the fix may touch, or with no
+`--path` for the default area's hooks) and follow it (`/omni:do-work`'s **Flow points**, read from this repository's config): every `before` hook,
+the kit's step (empty: only hooks run), then every `after` hook, `{issue}`, `{branch}`, `{suspect}`
+(the triage's suspect) and `{boundary}` (step 4's) filled by you from this fix. A hook gives back notes you read
+to write the reproduction; it never replaces it (the point allows no `replace`: the red is always a
+test committed alone). End each hook with `node .omni-loop/bin/omni.mjs flow verdict bug-fix.reproduce
+--from <file>`. A hook that fails (`not ok`, or a missing file) never stops the fix: the PR's
+**Reproduction** section gets one line, `Hook bug-fix.reproduce failed: <why>`, and step 7 goes on.
+
 Write the reproduction, in the domain's words:
 
 - an acceptance scenario under `acceptance.dir` when `acceptance.enabled` is true and the harness
@@ -302,6 +312,27 @@ it) also starts Storybook once and films the story headless with Playwright, at 
 `/omni:prove` films a criterion, to `before.webm`. Every other bug is filmed from its reproduction's
 output. A story that cannot be filmed (no Playwright, Storybook does not start, the story does not
 render) is no stop: keep the reason for step 12 and go on with the outputs alone.
+
+**The draft pull request, on the reproduction alone.** Once the reproduction failed (or smoke did), or
+cannot run in this session, and before any fix, the pull request opens: a preview environment is
+built from it and CI runs on it, which levels A and B of step 12's proof read.
+
+1. Commit the reproduction alone, with the glossary terms step 6 added, as
+   `test(<scope>): reproduce <the line> (#<n>)`, signed (**Signing**). Keep its sha: it is the
+   reproduction commit level B reads.
+2. Push the fix branch: `git push -u <remote> <fix branch>`.
+3. Write the draft's body to a file outside the repository (`mktemp`): `Closes #<n>`, then
+   `## What was wrong` as the triage tells it, then `## Proof` holding the one line
+   `Pending: the fix is not pushed yet.`, then the `omni sign footer` line (**Signing**). Open it
+   through `/omni:pr`, as a standalone PR and as a **draft**, at point `pr.open` as `/omni:pr` says
+   (its hooks see the reproduction alone): base `repo.defaultBranch`, label `labels.bug` (subject to
+   its **Labels** rules), title the fix's commit subject to come,
+   `gh pr create --draft --body-file <file>`. Keep its number, `<pr>`. `/omni:pr`'s watch does not
+   start here: it starts at step 12, once the fix is pushed.
+
+**The red on the reproduction counts no attempt.** A check that fails on this commit is level B's red,
+the one the draft was opened to show: it counts nothing against `limits.attempts` (stop rule 5), and
+nothing is fixed for it.
 
 **Who fixed it.** Only when the reproduction passed (stop rule 3): the bug may be gone because a
 merged pull request fixed it since it was first seen. Look before commenting.
@@ -381,6 +412,15 @@ workflow under `.github/workflows/`):
   comment on the issue name the CI step to add.
 
 The skill never edits CI: a repository's workflows are a person's to change.
+
+**Point `bug-fix.review`.** After the guard and before mutation, run
+`node .omni-loop/bin/omni.mjs flow show bug-fix.review --path <p>` (as above)
+and follow it (every `before` hook, the kit's step (empty), every `after` hook; `{issue}`, `{branch}`
+and `{base}` (`<repo.remote>/<repo.defaultBranch>`) filled by you), each ending in `node .omni-loop/bin/omni.mjs flow verdict bug-fix.review --from <file>`.
+A hook may commit fixes, signed (**Signing**): run `commands.preflightFull` (or `commands.preflight`)
+again after it, and a red one counts as an attempt (stop rule 5), as a red fix does. A hook that
+fails never stops the fix: the PR's **Guard** section gets one line,
+`Hook bug-fix.review failed: <why>`, and the fix goes on.
 
 ## 10. Mutation
 
@@ -535,55 +575,114 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 
 ## 12. Ship
 
+The draft pull request `<pr>` holds the reproduction (step 7). It now gets the fix on top, its
+proof and its body, and is marked ready only once `omni bug <n>` has checked that body.
+
 1. **Commit** on the fix branch as `fix(<scope>): <what the user gets back> (#<n>)`, with the
    session's co-author trailer, then the `omni sign trailer` line (**Signing**). The scope follows
    `omni kb show conventions`.
-2. **Push** the fix branch: `git push -u <remote> <fix branch>`.
+2. **Push** the fix branch: `git push -u <remote> <fix branch>`. The pushed head is the fix commit,
+   `<head>`. From here a red on the fix commit is one more attempt at the fix (stop rule 5); a red on
+   the reproduction commit never is.
 3. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`, and carry on
    whatever it prints. Keep the link it printed for the hand-off.
-4. **Film it:** run `node .omni-loop/bin/omni.mjs bug film <n> --before <red file> --after <green file>
-   --out <run folder>` (the two clips, `before.webm` and `after.webm`, for a component bug; `red.txt`
-   and `green.txt` otherwise), then
-   `node .omni-loop/bin/omni.mjs proof push --kind bug <n> <folder>`. The second prints the bug page's
-   link, then the GIF's stable link: keep that second line. A component bug's run prints two more
-   lines, the `before.webm` link then the `after.webm` link: keep both for the `Clips:` line (a pinned
-   omni that prints none leaves that line out).
+4. **The proof ladder.** Take the proof from the first level that works, in this order, and keep each
+   level's reason when it does not. Each produced level films two files with
+   `node .omni-loop/bin/omni.mjs bug film <n> --before <red file> --after <green file> --out <folder>`,
+   then sends them with `node .omni-loop/bin/omni.mjs proof push --kind bug <n> <folder>`, which
+   prints the bug page's link, then the GIF's stable link: keep that second line. The run folder is
+   step 7's.
+
+   **Level A, a preview environment.** Point `bug-fix.proof`: run
+   `node .omni-loop/bin/omni.mjs flow show bug-fix.proof --path <p>` (as step 7 does) and follow it,
+   every `before` hook, the kit's step (empty: only hooks run) or, when it prints `kitStep: replaced`,
+   the `replace` hook, then every `after` hook, filled by you: `{issue}` `<n>`, `{base}`
+   `<repo.remote>/<repo.defaultBranch>`, `{head}` `<head>`, `{pr}` `<pr>`, `{targets}`
+   `<repo.slug>#<pr>`, `{reproduction}` the reproduction's path, `{out}` `<run folder>/preview/`. End
+   each with `node .omni-loop/bin/omni.mjs flow verdict bug-fix.proof --from <file>`. Level A is
+   reached when a hook ran, every verdict is `ok`, `{out}` holds a readable `before.*` and a readable
+   `after.*` (two `.webm`, or two `.txt`) and a hook printed `env: <url> · <lifetime>`: film those two
+   files with `omni.mjs bug film`, push them, and keep the `env:` line for the `Preview` line. The
+   hook builds the environment and says how long it lives; the repository's own CI removes it on
+   `pull_request: closed`. The skill never creates or deletes an environment. Anything else is level
+   A's reason, and the ladder goes on to B:
+
+   | at level A | reason |
+   |---|---|
+   | `flow show` prints `hooks none` | `no bug-fix.proof hook` |
+   | `flow verdict` prints `not ok` (a `fail`, or no verdict), or `flow show` exits 1 | `hook failed: <why>` |
+   | `{out}` lacks a readable `before.*` or `after.*` | `no before.* or after.* in out` |
+   | no hook printed the `env:` line | `no env: line` |
+
+   **Level B, CI.** Run
+   `node .omni-loop/bin/omni.mjs bug ci <n> --pr <pr> --reproduction <reproduction sha> --fix <head> --test <the reproduction's test name> --out <run folder>/ci/`.
+   It waits for both commits' runs (`--wait`, 30 minutes by default) and, on exit 0, prints the
+   folder holding `red.txt` and `green.txt`, the log lines around the test and each run's link: film
+   them with `omni.mjs bug film`, push them. Exit 1 prints level B's reason on one line:
+   `job <name> skipped` (a CI condition skipped the reproduction's job on the draft: the reason names
+   the job, so a person can change that condition), `no failed log names <test>`,
+   `every check passed on <commit>`,
+   `the runs did not finish within <wait> minutes` or `gh failed: <its last line>`. The skill never
+   edits CI and never marks the pull request ready to get a run.
+
+   **Level C, the machine that made the fix.** Film `red.txt` and `green.txt` from steps 7 and 8, or,
+   for a component bug, the two clips, `before.webm` and `after.webm`. A component bug's push prints
+   two more lines, the `before.webm` link then the `after.webm` link: keep both for the `Clips:` line
+   (a pinned omni that prints none leaves that line out). Red not seen in this session
+   (`Red not proven here`) is level C's reason.
 
    **Clips that fail make the GIF of the two outputs.** A story that could not be filmed (step 7 kept
    the reason), or two clips that `omni bug film` exits 1 on (`ffmpeg not found`, or
-   `ffmpeg failed: <its last line>`), are no reason for a draft: the GIF of the two outputs needs no
-   ffmpeg. Run `omni bug film <n> --before <red file> --after <green file> --out <run folder>` on
-   `red.txt` and `green.txt` instead, push that run as above, leave out the `Clips:` line, and write
-   `Storybook not filmed - <reason>` under the GIF, the reason being the story's or the clips' own line
-   (`ffmpeg not found` included).
+   `ffmpeg failed: <its last line>`), are no reason for level D: the GIF of the two outputs needs no
+   ffmpeg. Film `red.txt` and `green.txt` instead, push that run as above, leave out the `Clips:` line,
+   and write `Storybook not filmed - <reason>` under the GIF, the reason being the story's or the
+   clips' own line (`ffmpeg not found` included).
 
-   A GIF that cannot be made at all never stops the skill either: the PR opens as a **draft**, its
-   `## Proof` holds the one line `GIF not produced - <reason>`, and the reason is the row's:
+   **Level D, nowhere.** `## Proof` holds the one line
+   `GIF not produced - A: <why>; B: <why>; C: <why>`, each level's reason, and the pull request stays a
+   **draft**. When B's reason is `job <name> skipped`, the line names the job. Level D never stops the
+   skill. A reason at any level, beside the ones above:
 
    | cause | reason |
    |---|---|
-   | `omni bug film` or `omni proof push --kind` exits 2 (the pinned omni does not know them) | `the pinned omni is too old: run omni update` |
+   | `omni bug film`, `omni bug ci` or `omni proof push --kind` exits 2 (the pinned omni does not know them) | `the pinned omni is too old: run omni update` |
    | `omni bug film` exits 1 otherwise | its line |
    | `omni proof push` exits 1 (`off`, `no sign-in (omni signin)`, `unreachable`, `none`, `refused (…)`) | `proof push: <its line>` |
-   | red was not seen in this session (`Red not proven here`) | `red not proven here` |
+   | at level C, red was not seen in this session (`Red not proven here`) | `red not proven here` |
+
+   **The Proved on line.** A produced proof says where it comes from, on one line under the GIF:
+
+   - A: `- **Proved on:** a preview environment`, then `- **Preview:** <url> · <lifetime>` from the
+     hook's `env:` line;
+   - B: `- **Proved on:** CI · reproduction test only, the screen was not filmed`, each of the two
+     lines ending with its run's link;
+   - C: `- **Proved on:** the machine that made the fix · reproduction test only, the screen was not filmed`;
+   - C, a component bug whose clips were filmed:
+     `- **Proved on:** the machine that made the fix · the component filmed in Storybook`, beside its
+     `Clips:` line.
 
 5. **Write the body** of the pull request, shaped as below, to a file outside the repository
-   (`mktemp`), ending with the `omni sign footer` line (**Signing**). This one file is checked, then
-   opened.
-6. **Prove it:** `node .omni-loop/bin/omni.mjs bug <n> --body-file <file>`. Run it until it prints
-   `ok`:
+   (`mktemp`), ending with the `omni sign footer` line (**Signing**).
+6. **Put it on the pull request:** `gh pr edit <pr> --body-file <file>`, with
+   `--title "<the commit's subject>"` when the draft's title differs.
+7. **Check it before ready:** `node .omni-loop/bin/omni.mjs bug <n>`, in the fix's worktree. It reads
+   the open pull request's body (`gh pr view`), so it runs once the body is on the pull request, and
+   never before the pull request opens. Run it until it prints `ok`:
 
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check. A proof line (`no ## Proof section`, `## Proof has no image and no "GIF not produced - <reason>" line`, `## Proof's image has no "Before the fix" or "After the fix" line`) is mended in the body file: no commit. Any other (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit) is fixed on the branch: commit, push again, and send the record again when it changed. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. Then rerun. |
-   | `2` | A pinned omni that does not know the flag prints `omni bug: unknown flag --body-file.`: run `node .omni-loop/bin/omni.mjs bug <n>` without it, carry on with its answer, and say in the hand-off that the pinned omni did not check the body (`omni update` fixes it). Any other exit 2 (the kit is not installed here, its config does not read, `--base` does not resolve, the file cannot be read): say so and stop. |
+   | `1` | `not ok`, one line per failed check. A proof line (`no ## Proof section`, `## Proof has no image and no "GIF not produced - <reason>" line`, `## Proof's image has no "Before the fix" or "After the fix" line`, `## Proof has no "Proved on" line`, a `Proved on` line missing its `Preview` line, its mention or its `Clips:` line, a `GIF not produced` line missing a level's reason, `the proof was not produced but #<pr> is not a draft: gh pr ready <pr> --undo`) is mended in the body file and put on the pull request again: no commit. `no pull request body to check` means `gh` could not read it: sign in and rerun. Any other (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit) is fixed on the branch: commit, push again, and send the record again when it changed. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. Then rerun. |
+   | `2` | The kit is not installed here, its config does not read, or `--base` does not resolve: say so and stop. |
 
-7. **Open the PR through `/omni:pr`**, as a standalone PR (a draft when no GIF was made), only once
-   `omni bug <n> --body-file <file>` printed `ok` (or the pinned omni refused the flag, above): base
-   `repo.defaultBranch`, label `labels.bug` (subject to its **Labels** rules), title the commit's
-   subject, and **that same file** as its body, signed (**Signing**): `gh pr create --body-file <file>`,
-   at point `pr.open` as `/omni:pr` says. The body's shape:
+8. **Watch it through `/omni:pr`** as a standalone PR: its watch starts now, once the fix is pushed,
+   until it is green or stuck. Its Done row runs `gh pr ready <pr>` only once `omni bug <n>` printed
+   `ok` on a produced proof (levels A, B and C). At level D the pull request stays a draft: skip that
+   `gh pr ready`, and the status comment says the proof was not produced. The skill never marks the
+   pull request ready to get a CI run. A red CI run on the fix commit is one more attempt at the fix:
+   back to step 8, and once its fix is pushed, the ladder and steps 5 to 7 run again on the new head.
+
+   The body's shape:
 
    ```markdown
    Closes #<n>
@@ -598,6 +697,8 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 
    Clips: [before](<the before.webm link>) · [after](<the after.webm link>)
 
+   - **Proved on:** <the level's line>
+   - **Preview:** <url> · <lifetime>
    - **Before the fix** (red): `<the failing line>`
    - **After the fix** (green, `<short sha>`): `<the passing line>`
 
@@ -615,7 +716,7 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    ## Verified
 
    - <commands.preflight>: <green, or "none set here">
-   - `omni bug <n> --body-file <file>`: ok
+   - `omni bug <n>` on the open pull request's body: ok
    - <what was run and seen green, and what was not>
 
    ## Risk and rollback
@@ -626,16 +727,16 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    ```
 
    The `Clips:` line is for a component bug whose clips were filmed: any other body leaves it out.
-   When the clips were not filmed, `## Proof` gains `Storybook not filmed - <reason>` under the GIF
-   instead. When no GIF was made, `## Proof` is the one line `GIF not produced - <reason>`.
-
-   The record line is a repository path, never a URL. `/omni:pr` watches it until it is green or
-   stuck. A red CI run is one more attempt at the fix: back to step 8.
+   The `Preview` line is level A's alone. When the clips were not filmed, `## Proof` gains
+   `Storybook not filmed - <reason>` under the GIF instead. At level D, `## Proof` is the one line
+   `GIF not produced - A: <why>; B: <why>; C: <why>`. The record line is a repository path, never a
+   URL.
 
 ## 13. Hand off
 
 Print, in a few lines: the issue, the PR, the fix's page beside it, what was proven and what was
-not (the red line, the preflight, the `omni bug` line, the guard, the mutation line), each item a
+not (the red line, the preflight, the level the proof reached and its `Proved on` line, or level D's
+reasons, the `omni bug` line, the guard, the mutation line), each item a
 change to a law raised and the law it bears on, then the line `Outcome: pr-opened` (**The outcome
 line**), then one `Follow-up:` line for each problem the run saw and did not fix (**The follow-up
 line**), then:
@@ -782,7 +883,7 @@ carries (**The outcome line**):
 2. A term cannot be defined without inventing behaviour: stop and ask: `Outcome: need-human`.
 3. The reproduction passes before the fix (a unit-level pass alone never reaches this rule while the third reading applies): stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue. The hand-off: `Outcome: already-fixed`, then `Fixed by: <PR URL>` for that proven pull request only.
 4. The boundary is crossed: stop, comment with the `/omni:brainstorm` line (on a runner, ask first: **Asking on a runner**): `Outcome: needs-brainstorm`, or `Outcome: need-human` on a runner whose `omni runner ask` exited 0.
-5. `limits.attempts` red attempts at the fix, or at CI on the PR: the PR stays draft, labelled
+5. `limits.attempts` red attempts at the fix, or at CI on the fix commit (a check failing on the reproduction commit is never one): the PR stays draft, labelled
    `labels.needsFix`, with a comment saying what is stuck, and the issue gets a comment linking it:
    `Outcome: stuck`.
 6. `--answers <job>` whose answers `omni runner answers` cannot read, or reads empty: stop with its
@@ -805,7 +906,7 @@ comment on the issue with the PR's link.
 - **Never delete the reproduction, its branch or its worktree on a stop.**
 - **Never edit a repository's CI workflows**, and never run a build script or a probe of your own:
   the build level is reached only through `commands.smoke`.
-- **Never open the PR before `omni bug <n> --body-file` printed `ok`**, unless the pinned omni refused the flag.
+- **Never mark the PR ready before `omni bug <n>` printed `ok` on its open body**, and never mark it ready to get a CI run: a proof that was not produced keeps it a draft.
 - **Never write a `Fixed by` line for a pull request that is not proven**, and never close the issue.
 - **Never write two `Outcome:` lines**, nor one for an end the run did not take, nor a hand-off
   `Fixed by` line for a pull request that is not proven.

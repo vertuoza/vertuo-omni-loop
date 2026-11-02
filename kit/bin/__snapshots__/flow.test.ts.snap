@@ -2,6 +2,8 @@
 
 exports[`omni flow show <point> > prints a slice's hooks as text, each with its text 1`] = `
 "point    do-work.test
+modes    before, after, replace
+inputs   prd, slice, territory, branch
 areas    kernel
 territory src/kernel/Bus/
 replace  .omni-loop/flow/kernel/tests.md  (kernel)
