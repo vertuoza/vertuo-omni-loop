@@ -52,11 +52,19 @@ const businessLegalSchema = z.object({
   owner: z.string().min(1),
 }).strict();
 
-/** One live glossary term of the repository's product (PRD 1795), with the words to avoid in its place. */
+/** One live glossary term of the repository's product (PRD 1795), with the words to avoid in its place and, by PRD 2583, the keys of the active domains it names. */
 const businessTermSchema = z.object({
   term: z.string().min(1),
   meaning: z.string(),
   avoid: z.array(z.string()),
+  domains: z.array(z.string()).optional(),
+}).strict();
+
+/** One active domain of the repository's product (PRD 2583): the key its folder is named by, its name and its meaning. */
+const businessDomainSchema = z.object({
+  key: z.string().min(1),
+  name: z.string(),
+  meaning: z.string(),
 }).strict();
 
 /** The database's words for an archived product (PRD 2232), as its P0002 refusals say them. */
@@ -75,6 +83,7 @@ const businessReadSchema = z.object({
   personas: z.array(businessPersonaSchema).default([]),
   legal: z.array(businessLegalSchema).default([]),
   glossary: z.array(businessTermSchema).default([]),
+  domains: z.array(businessDomainSchema).optional(),
 }).strict().refine((read) => (read.state === 'ok') === (read.claims.length > 0), 'state is ok exactly when there are claims')
   .refine((read) => read.state !== 'archived' || read.product !== null, 'an archived read names its product');
 

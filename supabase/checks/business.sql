@@ -39,6 +39,10 @@
 -- never another product's, `[]` with none or no product. The App's read also answers `knowledgeEventId`,
 -- the product's newest knowledge event. Who may change them is supabase/checks/product_knowledge.sql's.
 --
+-- PRD 2583 s2 (20270106090000_product_domains.sql): both answer `domains`, the product's active domains
+-- `{key, name, meaning}` by key, and each term's `domains`, the keys of the active ones it names, `[]` for a
+-- cross-domain term; a retired domain is in neither.
+--
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -381,8 +385,8 @@ begin
     raise exception 'FAIL: business_for_repo''s legal on nimbus-apps: %', got->'legal';
   end if;
   if got->'glossary' <> jsonb_build_array(
-       jsonb_build_object('term', 'Credit note', 'meaning', 'A document that cancels all or part of an invoice.', 'avoid', jsonb_build_array('refund')),
-       jsonb_build_object('term', 'quote', 'meaning', 'A priced offer the customer may accept.', 'avoid', '[]'::jsonb)) then
+       jsonb_build_object('term', 'Credit note', 'meaning', 'A document that cancels all or part of an invoice.', 'avoid', jsonb_build_array('refund'), 'domains', '[]'::jsonb),
+       jsonb_build_object('term', 'quote', 'meaning', 'A priced offer the customer may accept.', 'avoid', '[]'::jsonb, 'domains', '[]'::jsonb)) then
     raise exception 'FAIL: business_for_repo''s glossary on nimbus-apps: %', got->'glossary';
   end if;
   if got->>'state' <> 'ok' then raise exception 'FAIL: Legal entries changed the read''s state: %', got->>'state'; end if;
@@ -395,6 +399,50 @@ begin
   got := public.business_for_repo('initech/pdf-builder');
   if got->'legal' <> '[]'::jsonb or got->'glossary' <> '[]'::jsonb then
     raise exception 'FAIL: a repository in no product reads knowledge: % %', got->'legal', got->'glossary';
+  end if;
+end $$;
+
+-- ── PRD 2583 s2: agents read the product's active domains and each term's domains ──
+-- Still Olga, who decides while nobody is named. `legacy` is linked, then retired: the list and the term
+-- leave it out, as a retired domain is no longer one an agent may name.
+do $$
+declare
+  ws uuid := pg_temp.ws('initech');
+  erp uuid := pg_temp.made('erp');
+  got jsonb;
+  legacy public.product_domains;
+  credit uuid := (select g.id from public.product_glossary g where g.product_id = pg_temp.made('erp') and g.term = 'Credit note');
+  quote_ uuid := (select g.id from public.product_glossary g where g.product_id = pg_temp.made('erp') and g.term = 'quote');
+begin
+  perform public.product_domain_add(ws, erp, 'planning', 'Planning', 'Plans and schedules.');
+  perform public.product_domain_add(ws, erp, 'invoicing', 'Invoicing', 'Everything about invoices.');
+  legacy := public.product_domain_add(ws, erp, 'legacy', 'Legacy', 'An old part.');
+  perform public.product_glossary_edit(ws, credit, null, null, null, array['planning', 'invoicing']);
+  perform public.product_glossary_edit(ws, quote_, null, null, null, array['legacy', 'planning']);
+  perform public.product_domain_retire(ws, legacy.id);
+
+  got := public.business_for_repo('initech/nimbus-apps');
+  if got->'domains' <> jsonb_build_array(
+       jsonb_build_object('key', 'invoicing', 'name', 'Invoicing', 'meaning', 'Everything about invoices.'),
+       jsonb_build_object('key', 'planning', 'name', 'Planning', 'meaning', 'Plans and schedules.')) then
+    raise exception 'FAIL: business_for_repo''s domains on nimbus-apps (active ones, by key): %', got->'domains';
+  end if;
+  if got->'glossary' <> jsonb_build_array(
+       jsonb_build_object('term', 'Credit note', 'meaning', 'A document that cancels all or part of an invoice.', 'avoid', jsonb_build_array('refund'),
+                          'domains', jsonb_build_array('invoicing', 'planning')),
+       jsonb_build_object('term', 'quote', 'meaning', 'A priced offer the customer may accept.', 'avoid', '[]'::jsonb,
+                          'domains', jsonb_build_array('planning'))) then
+    raise exception 'FAIL: business_for_repo''s terms name their active domains, by key: %', got->'glossary';
+  end if;
+
+  -- Another product of the workspace reads none of them.
+  got := public.business_for_repo('initech/nimbus-plan');
+  if got->'domains' <> '[]'::jsonb then
+    raise exception 'FAIL: nimbus-plan reads another product''s domains: %', got->'domains';
+  end if;
+  got := public.business_for_repo('initech/pdf-builder');
+  if got->'domains' is not null and got->'domains' <> '[]'::jsonb then
+    raise exception 'FAIL: a repository in no product reads domains: %', got->'domains';
   end if;
 end $$;
 
@@ -950,6 +998,12 @@ begin
   end if;
   if got->'personas' <> '[{"name": "Marc", "stance": "skeptical", "trade": "plumber", "who": "Runs five plumbers", "usage": "The quotes"}]'::jsonb then
     raise exception 'FAIL: the App does not read the product''s personas: %', got->'personas';
+  end if;
+  -- PRD 2583 s2: and its active domains, each term's active domains.
+  if (select string_agg(x->>'key', ',') from jsonb_array_elements(got->'domains') x) <> 'invoicing,planning'
+     or got->'glossary'->0->'domains' <> '["invoicing", "planning"]'::jsonb
+     or got->'glossary'->1->'domains' <> '["planning"]'::jsonb then
+    raise exception 'FAIL: the App does not read the product''s domains: % %', got->'domains', got->'glossary';
   end if;
   -- PRD 1795: the product's active Legal entries and live terms, as agents read them, and its newest
   -- knowledge event.

@@ -11,6 +11,12 @@
 -- event, in the same transaction; nobody writes the table directly, the service role included. An
 -- author's deleted account leaves the domain and its history, naming nobody (L-GDPR-3).
 --
+-- PRD 2583 s2, a term's domains: a glossary term names none, one or several domains of its own product, by
+-- key; none is a cross-domain term and records no field. A key the product lacks, a retired one, an invalid
+-- one and another product's are refused naming `domains`, and no link to another product's domain can exist
+-- even past the functions; a link made before its domain was retired stays and a new one is refused; a
+-- member who only proposes proposes the same; the links are the members' to read and nobody's to write.
+--
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -431,6 +437,154 @@ begin
   end if;
 end $$;
 
+-- ── A term names none, one or several domains of its product (PRD 2583 s2) ──
+-- Dina owns the Domains; nobody is named for the Glossary, so Olga decides it and Max proposes.
+create function pg_temp.term_domains(entry uuid) returns text language sql security definer as $$
+  select coalesce(string_agg(d.key, ',' order by d.key), '')
+    from public.product_glossary_domains l join public.product_domains d on d.id = l.domain_id where l.glossary_id = entry;
+$$;
+set local role authenticated;
+do $$
+declare
+  n bigint;
+  e public.product_knowledge_events;
+  legacy public.product_domains;
+  t public.product_glossary;
+  t2 public.product_glossary;
+  p public.product_knowledge_proposals;
+  pd uuid := pg_temp.id('pd');
+  stock uuid := pg_temp.id('stock');
+  got jsonb;
+begin
+  perform pg_temp.as_('dina');
+  legacy := public.product_domain_add(pd, stock, 'legacy', 'Legacy', 'An old part of Stock.');
+  insert into made values ('legacy', legacy.id);
+
+  -- None, one or several, by key; the event keeps them. A term that names none records what it always did.
+  perform pg_temp.as_('olga');
+  n := pg_temp.events();
+  t := public.product_glossary_add(pd, stock, 'Stock take', 'Counting what is on the shelves.', array['inventory'], array['invoicing', ' legacy ', 'invoicing']);
+  e := pg_temp.newest();
+  if e.glossary_id <> t.id or e.action <> 'added' or pg_temp.events() <> n + 1 or e.after->'domains' <> '["invoicing", "legacy"]'::jsonb
+     or pg_temp.term_domains(t.id) <> 'invoicing,legacy' then
+    raise exception 'FAIL: a term naming two domains (once each, trimmed): % %', pg_temp.term_domains(t.id), e;
+  end if;
+  insert into made values ('stock-take', t.id);
+  t2 := public.product_glossary_add(pd, stock, 'Shelf', 'Where stock sits.');
+  e := pg_temp.newest();
+  if pg_temp.term_domains(t2.id) <> '' or e.after ? 'domains' or e.after <> jsonb_build_object('term', 'Shelf', 'meaning', 'Where stock sits.', 'avoid', '[]'::jsonb) then
+    raise exception 'FAIL: a term naming no domain is cross-domain and records no field for it: % %', pg_temp.term_domains(t2.id), e;
+  end if;
+  insert into made values ('shelf', t2.id);
+  got := public.product_knowledge_of(pd, stock)->'glossary'->'entries';
+  if (select x->'domains' from jsonb_array_elements(got) x where x->>'term' = 'Stock take') <> '["invoicing", "legacy"]'::jsonb
+     or (select x->'domains' from jsonb_array_elements(got) x where x->>'term' = 'Shelf') <> '[]'::jsonb then
+    raise exception 'FAIL: the page does not read each term''s domains: %', got;
+  end if;
+
+  -- A key the product does not have, a retired one, an invalid one and another product's: refused, naming `domains`.
+  perform pg_temp.refused(format('select public.product_glossary_add(%L, %L, ''Pallet'', ''A'', ''{}'', array[''nowhere''])', pd, stock), '22023', 'domains');
+  perform pg_temp.refused(format('select public.product_glossary_add(%L, %L, ''Pallet'', ''A'', ''{}'', array[''planning''])', pd, stock), '22023', 'domains');
+  perform pg_temp.refused(format('select public.product_glossary_add(%L, %L, ''Pallet'', ''A'', ''{}'', array[''Bad Key''])', pd, stock), '22023', 'domains');
+  perform pg_temp.refused(format('select public.product_glossary_add(%L, %L, ''Pallet'', ''A'', ''{}'', array[%L])', pd, pg_temp.id('payroll'), repeat('x', 60)), '22023', 'domains');
+  perform pg_temp.refused(format('select public.product_glossary_edit(%L, %L, null, null, null, array[''planning''])', pd, t2.id), '22023', 'domains');
+  perform pg_temp.refused(format('select public.product_knowledge_propose(%L, %L, ''glossary'', ''add'', null, ''{"term": "Pallet", "meaning": "A", "domains": ["planning"]}'')', pd, stock), '22023', 'domains');
+  perform pg_temp.refused(format('select public.product_knowledge_propose(%L, %L, ''glossary'', ''edit'', %L, ''{"domains": "invoicing"}'')', pd, stock, t2.id), '22023', 'domains');
+  if (select count(*) from public.product_glossary g where g.term = 'Pallet') <> 0 then
+    raise exception 'FAIL: a refused term was added';
+  end if;
+
+  -- An edit sets them, and leaves one event; the same ones change nothing and log nothing.
+  n := pg_temp.events();
+  perform public.product_glossary_edit(pd, t2.id, null, null, null, array['invoicing']);
+  e := pg_temp.newest();
+  if pg_temp.events() <> n + 1 or e.action <> 'edited' or e.before ? 'domains' or e.after->'domains' <> '["invoicing"]'::jsonb
+     or pg_temp.term_domains(t2.id) <> 'invoicing' then
+    raise exception 'FAIL: an edit naming a domain: % %', pg_temp.term_domains(t2.id), e;
+  end if;
+  perform public.product_glossary_edit(pd, t2.id, null, null, null, array['invoicing']);
+  if pg_temp.events() <> n + 1 then raise exception 'FAIL: naming the same domains logged an event'; end if;
+  perform public.product_glossary_edit(pd, t2.id, 'Shelf', null, null, null);
+  if pg_temp.events() <> n + 1 or pg_temp.term_domains(t2.id) <> 'invoicing' then
+    raise exception 'FAIL: a null keeps the term''s domains';
+  end if;
+  perform public.product_glossary_edit(pd, t2.id, null, null, null, '{}'::text[]);
+  if pg_temp.events() <> n + 2 or pg_temp.term_domains(t2.id) <> '' or not (pg_temp.newest()).before @> '{"domains": ["invoicing"]}'::jsonb then
+    raise exception 'FAIL: an empty list did not clear the term''s domains: %', pg_temp.newest();
+  end if;
+
+  -- Dina retires legacy: the link made before stays, and shows; no new link to it is made.
+  perform pg_temp.as_('dina');
+  perform public.product_domain_retire(pd, legacy.id);
+  perform pg_temp.as_('olga');
+  if pg_temp.term_domains(t.id) <> 'invoicing,legacy' then raise exception 'FAIL: retiring a domain unlinked its terms'; end if;
+  perform pg_temp.refused(format('select public.product_glossary_edit(%L, %L, null, null, null, array[''legacy''])', pd, t2.id), '22023', 'domains');
+  perform pg_temp.refused(format('select public.product_knowledge_propose(%L, %L, ''glossary'', ''edit'', %L, ''{"domains": ["legacy"]}'')', pd, stock, t2.id), '22023', 'domains');
+  -- The term keeps its old link while another is named, and while the list is emptied.
+  perform public.product_glossary_edit(pd, t.id, null, null, null, array['legacy', 'invoicing']);
+  if pg_temp.term_domains(t.id) <> 'invoicing,legacy' then raise exception 'FAIL: naming an old link again changed it'; end if;
+  n := pg_temp.events();
+  perform public.product_glossary_edit(pd, t.id, null, null, null, array[]::text[]);
+  if pg_temp.term_domains(t.id) <> 'legacy' or pg_temp.events() <> n + 1 then
+    raise exception 'FAIL: clearing a term''s domains lost the retired link or logged wrongly: %', pg_temp.term_domains(t.id);
+  end if;
+  perform public.product_glossary_edit(pd, t.id, null, null, null, array['invoicing']);
+  if pg_temp.term_domains(t.id) <> 'invoicing,legacy' then raise exception 'FAIL: naming a live domain beside a retired link'; end if;
+
+  -- A member who may only propose proposes the same: nothing is linked until it is approved.
+  perform pg_temp.as_('max');
+  p := public.product_knowledge_propose(pd, stock, 'glossary', 'add', null, '{"term": "Pallet", "meaning": "A load.", "domains": ["invoicing", "invoicing"]}');
+  if p.fields->'domains' <> '["invoicing"]'::jsonb or exists (select 1 from public.product_glossary g where g.term = 'Pallet') then
+    raise exception 'FAIL: a proposed term with domains: %', p;
+  end if;
+  perform pg_temp.refused(format('select public.product_glossary_add(%L, %L, ''X'', ''Y'', ''{}'', array[''invoicing''])', pd, stock), '42501');
+  perform pg_temp.as_('olga');
+  p := public.product_knowledge_approve(pd, p.id);
+  if pg_temp.term_domains(p.glossary_id) <> 'invoicing' then
+    raise exception 'FAIL: approving a proposed term did not link its domains';
+  end if;
+  insert into made values ('pallet', p.glossary_id);
+end $$;
+reset role;
+
+-- A link to another product's domain cannot exist, even written past the functions; and only the functions write.
+do $$
+begin
+  perform pg_temp.refused(format(
+    'insert into public.product_glossary_domains (glossary_id, domain_id, workspace_id, product_id) values (%L, (select d.id from public.product_domains d where d.product_id = %L and d.key = ''invoicing''), %L, %L)',
+    pg_temp.made('stock-take'), pg_temp.id('payroll'), pg_temp.id('pd'), pg_temp.id('stock')), '23503');
+  perform pg_temp.refused(format(
+    'insert into public.product_glossary_domains (glossary_id, domain_id, workspace_id, product_id) values (%L, %L, %L, %L)',
+    pg_temp.made('shelf'), pg_temp.made('invoicing'), pg_temp.id('pd'), pg_temp.id('payroll')), '23503');
+end $$;
+set local role authenticated;
+do $$
+declare c text;
+begin
+  perform pg_temp.as_('olga');
+  foreach c in array array[
+    format('insert into public.product_glossary_domains (glossary_id, domain_id, workspace_id, product_id) values (%L, %L, %L, %L)', pg_temp.made('shelf'), pg_temp.made('invoicing'), pg_temp.id('pd'), pg_temp.id('stock')),
+    'update public.product_glossary_domains set linked_at = now()',
+    'delete from public.product_glossary_domains',
+    format('select public.product_glossary_domain_link(%L, %L, ''["invoicing"]'')', pg_temp.id('stock'), pg_temp.made('shelf')),
+    format('select public.product_glossary_domain_check(%L, null, ''[]'')', pg_temp.id('stock'))
+  ] loop perform pg_temp.refused(c, '42501'); end loop;
+  -- A member reads their workspace's links; a member of another workspace and a stranger read none.
+  if (select count(*) from public.product_glossary_domains) < 3 then raise exception 'FAIL: a member reads no term domains'; end if;
+  foreach c in array array['carl', 'sam'] loop
+    perform pg_temp.as_(c);
+    if exists (select 1 from public.product_glossary_domains) then raise exception 'FAIL: % reads PD''s term domains', c; end if;
+  end loop;
+end $$;
+reset role;
+set local role anon;
+do $$
+begin
+  perform pg_temp.refused('select * from public.product_glossary_domains', '42501');
+  perform pg_temp.refused(format('select public.product_glossary_add(%L, %L, ''Planted'', ''P'', ''{}'', array[''invoicing''])', pg_temp.id('pd'), pg_temp.id('stock')), '42501');
+end $$;
+reset role;
+
 -- ── An archived product's domains change no more ──
 set local role authenticated;
 do $$
@@ -445,9 +599,9 @@ reset role;
 -- ── Every change left exactly one event, and every event is a change ──
 do $$
 begin
-  -- Direct changes: invoicing (Stock), invoicing (Payroll) and the sixty-character key added; one
-  -- edit (the edit that changed nothing logged none); planning retired.
-  if (select count(*) from public.product_knowledge_events e where e.kind = 'domains' and e.action in ('added', 'edited', 'retired', 'removed')) <> 3 + 1 + 1 then
+  -- Direct changes: invoicing (Stock), invoicing (Payroll), the sixty-character key and legacy added; one
+  -- edit (the edit that changed nothing logged none); planning and legacy retired.
+  if (select count(*) from public.product_knowledge_events e where e.kind = 'domains' and e.action in ('added', 'edited', 'retired', 'removed')) <> 4 + 1 + 2 then
     raise exception 'FAIL: % domain events, not one per direct change',
       (select count(*) from public.product_knowledge_events e where e.kind = 'domains' and e.action in ('added', 'edited', 'retired', 'removed'));
   end if;

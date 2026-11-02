@@ -28,7 +28,7 @@ const legal = (entry: string, code: string, number: number, statement: string, s
   createdBy: person('lea'), createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z',
 });
 const term = (entry: string, name: string, meaning: string): GlossaryEntry => ({
-  entry, term: name, meaning, avoid: [], removedAt: null, createdBy: person('olga'), createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z',
+  entry, term: name, meaning, avoid: [], domains: [], removedAt: null, createdBy: person('olga'), createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z',
 });
 
 const GDPR = '00000000-0000-4000-8000-00000000a001';

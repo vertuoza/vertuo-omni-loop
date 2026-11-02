@@ -1,7 +1,8 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { demoKnowledgePort, knowledgeClient, type Changed, type KnowledgePort } from './product-knowledge.client';
+import type { DomainChoice } from './knowledge-sections';
 import type {
   DomainEntry, DomainSection, Fields, GlossaryEntry, GlossarySection, Kind, KnowledgeMember, KnowledgeWrite, LegalEntry, LegalSection, Person, Proposal,
 } from './product-knowledge.contract';
@@ -151,7 +152,42 @@ function Input({ label, value, max, disabled, onChange }: { label: string; value
   );
 }
 
-function AddLegal({ decides, status, send }: { decides: boolean; status: Status; send: Send }) {
+/** What an add form takes: who decides, the call's state and send, and the domains a term may name. */
+interface FormProps {
+  decides: boolean;
+  status: Status;
+  send: Send;
+  domains: readonly DomainChoice[];
+}
+
+/**
+ * A term's domains (PRD 2583 s2): none, one or several of the product's active ones, each a box. A domain the
+ * term already names and that was retired since stays, ticked and fixed: it can be kept, never newly chosen.
+ * A term that ticks none is cross-domain, which is a normal term.
+ */
+function DomainPicker({ choices, retired, chosen, disabled, onChange }: {
+  choices: readonly DomainChoice[]; retired: readonly string[]; chosen: readonly string[]; disabled: boolean; onChange: (keys: string[]) => void;
+}) {
+  if (choices.length === 0 && retired.length === 0) return <p className="ask-muted">The product lists no domain yet: a term names none.</p>;
+  const toggle = (key: string, on: boolean) => { onChange(on ? [...chosen, key] : chosen.filter((k) => k !== key)); };
+  return (
+    <fieldset className="links-field" data-domains>
+      <legend>Domains (optional)</legend>
+      {choices.map((d) => (
+        <label key={d.key}>
+          <input type="checkbox" checked={chosen.includes(d.key)} disabled={disabled} onChange={(e) => { toggle(d.key, e.currentTarget.checked); }} /> {d.name} <span className="ask-muted">({d.key})</span>
+        </label>
+      ))}
+      {retired.map((key) => (
+        <label key={key}>
+          <input type="checkbox" checked disabled readOnly /> {key} <span className="ask-muted">(retired)</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function AddLegal({ decides, status, send }: FormProps) {
   const [fields, setFields] = useState({ code: '', statement: '', source: '' });
   const set = (key: keyof typeof fields) => (v: string) => { setFields((f) => ({ ...f, [key]: v })); };
   return (
@@ -167,25 +203,32 @@ function AddLegal({ decides, status, send }: { decides: boolean; status: Status;
   );
 }
 
-function AddTerm({ decides, status, send }: { decides: boolean; status: Status; send: Send }) {
+function AddTerm({ decides, status, send, domains }: FormProps) {
   const [fields, setFields] = useState({ term: '', meaning: '', avoid: '' });
+  const [chosen, setChosen] = useState<string[]>([]);
   const set = (key: keyof typeof fields) => (v: string) => { setFields((f) => ({ ...f, [key]: v })); };
   return (
     <form className="links-form" aria-label="Add a term" onSubmit={(e) => {
       e.preventDefault();
-      const sent: Fields = { term: fields.term, meaning: fields.meaning, avoid: words(fields.avoid) };
-      void send({ op: 'change', kind: 'glossary', action: 'add', fields: sent }).then((saved) => { if (saved) setFields({ term: '', meaning: '', avoid: '' }); });
+      const sent: Fields = { term: fields.term, meaning: fields.meaning, avoid: words(fields.avoid), ...(chosen.length > 0 ? { domains: chosen } : {}) };
+      void send({ op: 'change', kind: 'glossary', action: 'add', fields: sent }).then((saved) => {
+        if (saved) {
+          setFields({ term: '', meaning: '', avoid: '' });
+          setChosen([]);
+        }
+      });
     }}>
       <Input label="Term" value={fields.term} max={80} disabled={status.busy} onChange={set('term')} />
       <Input label="Meaning" value={fields.meaning} max={400} disabled={status.busy} onChange={set('meaning')} />
       <Input label="Avoid" value={fields.avoid} max={1700} disabled={status.busy} onChange={set('avoid')} />
+      <DomainPicker choices={domains} retired={[]} chosen={chosen} disabled={status.busy} onChange={setChosen} />
       <span className="links-actions"><button className="ask-button" type="submit" disabled={status.busy}>{decides ? 'Add an entry' : 'Propose'}</button></span>
     </form>
   );
 }
 
 /** A domain: its key given once, the folder's word, and its name and meaning. */
-function AddDomain({ decides, status, send }: { decides: boolean; status: Status; send: Send }) {
+function AddDomain({ decides, status, send }: FormProps) {
   const [fields, setFields] = useState({ key: '', name: '', meaning: '' });
   const set = (key: keyof typeof fields) => (v: string) => { setFields((f) => ({ ...f, [key]: v })); };
   return (
@@ -233,15 +276,17 @@ export function SectionTop({ product, source, kind, section, members, canName }:
   );
 }
 
-const ADD_FORMS: Readonly<Record<Kind, typeof AddLegal>> = { legal: AddLegal, glossary: AddTerm, domains: AddDomain };
+const ADD_FORMS: Readonly<Record<Kind, (props: FormProps) => ReactNode>> = { legal: AddLegal, glossary: AddTerm, domains: AddDomain };
 
 /** Under a list: the form that adds an entry, or proposes one. */
-export function AddEntry({ product, source, kind, decides }: { product: string; source: TabSource; kind: Kind; decides: boolean }) {
+export function AddEntry({ product, source, kind, decides, domains = [] }: {
+  product: string; source: TabSource; kind: Kind; decides: boolean; domains?: readonly DomainChoice[];
+}) {
   const { status, send } = useSend(product, source);
   const Form = ADD_FORMS[kind];
   return (
     <>
-      <Form decides={decides} status={status} send={send} />
+      <Form decides={decides} status={status} send={send} domains={domains} />
       <Refusal status={status} />
     </>
   );
@@ -337,15 +382,19 @@ export function DomainItemControls({ product, source, entry, decides }: ItemProp
   );
 }
 
-/** A term's page: the same, with Remove in place of Retire. */
-export function TermItemControls({ product, source, entry, decides }: ItemProps<GlossaryEntry>) {
+/** A term's page: the same, with Remove in place of Retire, and the domains it names: `domains` the active ones to pick from, `retired` those it keeps. */
+export function TermItemControls({ product, source, entry, decides, domains, retired }: ItemProps<GlossaryEntry> & { domains: readonly DomainChoice[]; retired: readonly string[] }) {
   const { status, send } = useSend(product, source);
   const [editing, setEditing] = useState(false);
   const [term, setTerm] = useState(entry.term);
   const [meaning, setMeaning] = useState(entry.meaning);
   const [avoid, setAvoid] = useState(csv(entry.avoid));
+  const named = entry.domains.filter((key) => !retired.includes(key));
+  const [chosen, setChosen] = useState<string[]>(named);
   const save = async () => {
-    if (await send({ op: 'change', kind: 'glossary', action: 'edit', entry: entry.entry, fields: { term, meaning, avoid: words(avoid) } })) setEditing(false);
+    const changed = chosen.length !== named.length || chosen.some((key) => !named.includes(key));
+    const sent: Fields = { term, meaning, avoid: words(avoid), ...(changed ? { domains: chosen } : {}) };
+    if (await send({ op: 'change', kind: 'glossary', action: 'edit', entry: entry.entry, fields: sent })) setEditing(false);
   };
   return (
     <div className="kn-controls" data-entry={entry.term}>
@@ -359,6 +408,7 @@ export function TermItemControls({ product, source, entry, decides }: ItemProps<
           <Input label="Term" value={term} max={80} disabled={status.busy} onChange={setTerm} />
           <Input label="Meaning" value={meaning} max={400} disabled={status.busy} onChange={setMeaning} />
           <Input label="Avoid" value={avoid} max={1700} disabled={status.busy} onChange={setAvoid} />
+          <DomainPicker choices={domains} retired={retired} chosen={chosen} disabled={status.busy} onChange={setChosen} />
           <Save decides={decides} status={status} onCancel={() => { setEditing(false); }} />
         </form>
       )}

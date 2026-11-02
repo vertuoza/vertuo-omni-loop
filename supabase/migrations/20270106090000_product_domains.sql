@@ -25,6 +25,12 @@
 --     {owner, delegate, decides, entries, proposals}, each entry {entry, key, name, meaning, retiredAt,
 --     createdBy, createdAt, updatedAt}, by key
 --
+--   product_glossary_domains      (s2) the domains a term names, none, one or several, of its own product
+--   a term's `domains`            a list of keys on a glossary add or edit (and its proposal), `[]` clears the
+--                                 active ones; a retired domain is never linked anew, an old link stays
+--   product_knowledge_for_agents  (s2) answers `domains` {key, name, meaning} and each term's `domains`,
+--                                 which business_for_product() and business_for_repo_app() carry
+--
 -- Refusals as the other kinds': 42501 not allowed (not a member, or may only propose), P0002 no such
 -- product, domain or open proposal (or an archived product), 22023 a bad value with the field in `hint`:
 -- `key` for an invalid key, one the product has, or one it retired.
@@ -38,7 +44,11 @@
 -- product_knowledge_entry_product() from 20261217100000_archive_product.sql and product_knowledge_of() from
 -- 20261218090000_product_knowledge_authors.sql; deletes the owners, proposals and events of the kind
 -- `domains`; drops the two `domain_id` columns, restores the three tables' checks as they were; then drops
--- product_domain_add(), _edit(), _retire(), _fields(), _live(), _unique() and the table.
+-- product_domain_add(), _edit(), _retire(), _fields(), _live(), _unique() and the table. The s2 part:
+-- drop product_glossary_domains and its helpers (product_glossary_domain_keys(), _domains_object(),
+-- _domain_check(), _domain_link()), restore product_glossary_add() and product_glossary_edit() without
+-- `p_domains` and product_knowledge_for_agents() from 20261212110000_product_knowledge.sql, then drop the
+-- unique constraint product_glossary_id_product_key.
 
 -- ── The table ────────────────────────────────────────────────────────────────────
 
@@ -55,13 +65,39 @@ create table public.product_domains (
   retired_at   timestamptz,
   retired_by   uuid references auth.users on delete set null,
   -- A key is the product's for good: a retired domain keeps it.
-  unique (product_id, key)
+  unique (product_id, key),
+  -- What product_glossary_domains points at, so a term never names another product's domain.
+  unique (id, product_id)
 );
 
 create index product_domains_workspace_idx on public.product_domains (workspace_id);
 
 comment on table public.product_domains is
   'A product''s domains (PRD 2583): a key, the same word as its folder under domains/, a name and a meaning. The key never changes and is never reused in its product, even once retired. Written only by product_domain_add/edit/retire() and an approved proposal; retiring sets retired_at and keeps the row.';
+
+-- ── A term's domains (PRD 2583 s2) ───────────────────────────────────────────────
+
+alter table public.product_glossary add constraint product_glossary_id_product_key unique (id, product_id);
+
+-- A term names zero, one or several domains of its own product. Both foreign keys carry the product, so a
+-- link to another product's domain cannot exist. A link made before its domain was retired stays.
+create table public.product_glossary_domains (
+  glossary_id  uuid not null,
+  domain_id    uuid not null,
+  workspace_id uuid not null references public.workspaces on delete cascade,
+  product_id   uuid not null references public.products on delete cascade,
+  linked_by    uuid references auth.users on delete set null,
+  linked_at    timestamptz not null default now(),
+  primary key (glossary_id, domain_id),
+  foreign key (glossary_id, product_id) references public.product_glossary (id, product_id) on delete cascade,
+  foreign key (domain_id, product_id) references public.product_domains (id, product_id) on delete cascade
+);
+
+create index product_glossary_domains_domain_idx on public.product_glossary_domains (domain_id);
+create index product_glossary_domains_workspace_idx on public.product_glossary_domains (workspace_id);
+
+comment on table public.product_glossary_domains is
+  'The domains a glossary term names (PRD 2583 s2), none meaning a cross-domain term. Written only by product_knowledge_apply(), as the term is added or edited; a link to a retired domain is never made, and one made before its retirement stays.';
 
 -- ── The kinds: `domains` beside `legal` and `glossary` ───────────────────────────
 
@@ -163,7 +199,7 @@ begin
     when p_kind = 'legal' then array['statement', 'source', 'owner']
     when p_kind = 'domains' and adding then array['key', 'name', 'meaning']
     when p_kind = 'domains' then array['name', 'meaning']
-    else array['term', 'meaning', 'avoid'] end;
+    else array['term', 'meaning', 'avoid', 'domains'] end;
   for key in select jsonb_object_keys(f) loop
     if not key = any (allowed) then
       raise exception 'Fields: % is not a field of this change.', key using errcode = '22023', hint = key;
@@ -239,6 +275,24 @@ begin
       end loop;
       out := out || jsonb_build_object('avoid', to_jsonb(words));
     end if;
+    -- A term's domains: keys, trimmed, once each; `[]` or null names none. Whether each is the product's, and
+    -- live, is product_glossary_domain_check()'s.
+    if f ? 'domains' then
+      if jsonb_typeof(f->'domains') not in ('array', 'null') or jsonb_array_length(case when jsonb_typeof(f->'domains') = 'array' then f->'domains' else '[]'::jsonb end) > 20 then
+        raise exception 'Domains: at most 20 domain keys.' using errcode = '22023', hint = 'domains';
+      end if;
+      words := '{}';
+      for word in select * from jsonb_array_elements(case when jsonb_typeof(f->'domains') = 'array' then f->'domains' else '[]'::jsonb end) loop
+        v := btrim(coalesce(case when jsonb_typeof(word) = 'string' then word #>> '{}' end, ''));
+        if v !~ '^[a-z][a-z0-9-]*$' or char_length(v) > 60 then
+          raise exception 'Domains: each a domain key (lower-case letters, digits and hyphens).' using errcode = '22023', hint = 'domains';
+        end if;
+        if not v = any (words) then
+          words := words || v;
+        end if;
+      end loop;
+      out := out || jsonb_build_object('domains', to_jsonb(words));
+    end if;
   end if;
   return out;
 end;
@@ -293,7 +347,64 @@ begin
 end;
 $$;
 
--- As 20261212110000_product_knowledge.sql, with a domain added, edited or retired.
+-- The keys of the domains a term names, retired ones too, by key: a jsonb array.
+create function public.product_glossary_domain_keys(p_glossary uuid) returns jsonb
+language sql stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(jsonb_agg(dm.key order by dm.key collate "C"), '[]'::jsonb)
+    from public.product_glossary_domains lk join public.product_domains dm on dm.id = lk.domain_id
+   where lk.glossary_id = p_glossary
+$$;
+
+-- What a term's domains add to its fields in an event or a proposal: `{domains: [...]}`, nothing for none,
+-- so a term with no domain records what it always did.
+create function public.product_glossary_domains_object(p_keys jsonb) returns jsonb
+language sql immutable
+set search_path = ''
+as $$
+  select case when jsonb_array_length(coalesce(p_keys, '[]'::jsonb)) = 0 then '{}'::jsonb else jsonb_build_object('domains', p_keys) end
+$$;
+
+-- 22023 naming `domains` when a key is no domain of the product, or a retired one the term (`p_glossary`,
+-- null for an addition) is not already linked to: a new link to a retired domain is refused, an old one stays.
+create function public.product_glossary_domain_check(p_product uuid, p_glossary uuid, p_keys jsonb) returns void
+language plpgsql stable
+security definer
+set search_path = ''
+as $$
+declare
+  wanted text;
+  dom public.product_domains;
+begin
+  for wanted in select jsonb_array_elements_text(coalesce(p_keys, '[]'::jsonb)) loop
+    select * into dom from public.product_domains dm where dm.product_id = p_product and dm.key = wanted;
+    if not found then
+      raise exception 'Domains: this product has no domain %.', wanted using errcode = '22023', hint = 'domains';
+    end if;
+    if dom.retired_at is not null and not exists (
+         select 1 from public.product_glossary_domains lk where lk.glossary_id = p_glossary and lk.domain_id = dom.id) then
+      raise exception 'Domains: % is retired: a term cannot be linked to it anew.', wanted using errcode = '22023', hint = 'domains';
+    end if;
+  end loop;
+end;
+$$;
+
+-- Links the term to the domains of `p_keys`, those it has already kept.
+create function public.product_glossary_domain_link(p_product uuid, p_glossary uuid, p_keys jsonb) returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into public.product_glossary_domains (glossary_id, domain_id, workspace_id, product_id, linked_by)
+  select p_glossary, dm.id, dm.workspace_id, dm.product_id, (select auth.uid())
+    from public.product_domains dm
+   where dm.product_id = p_product and dm.key in (select jsonb_array_elements_text(p_keys))
+  on conflict do nothing
+$$;
+
+-- As 20261212110000_product_knowledge.sql, with a domain added, edited or retired, and a term's domains.
 create or replace function public.product_knowledge_apply(p_product public.products, p_kind text, p_action text, p_entry uuid, p_fields jsonb, p_owner uuid)
 returns jsonb
 language plpgsql
@@ -308,6 +419,8 @@ declare
   g2 public.product_glossary;
   d public.product_domains;
   d2 public.product_domains;
+  was_keys jsonb;
+  kept_keys jsonb;
   next_number integer;
 begin
   perform 1 from public.products p where p.id = p_product.id for update;
@@ -337,11 +450,14 @@ begin
     return jsonb_build_object('entry', l.id, 'before', public.product_legal_fields(l), 'after', null, 'changed', true);
   elsif p_kind = 'glossary' and p_action = 'add' then
     perform public.product_glossary_unique(p_product.id, p_fields->>'term', null);
+    perform public.product_glossary_domain_check(p_product.id, null, p_fields->'domains');
     insert into public.product_glossary (workspace_id, product_id, term, meaning, avoid, created_by)
     values (p_product.workspace_id, p_product.id, p_fields->>'term', p_fields->>'meaning',
             array(select jsonb_array_elements_text(p_fields->'avoid')), by_whom)
     returning * into g;
-    return jsonb_build_object('entry', g.id, 'before', null, 'after', public.product_glossary_fields(g), 'changed', true);
+    perform public.product_glossary_domain_link(p_product.id, g.id, p_fields->'domains');
+    return jsonb_build_object('entry', g.id, 'before', null,
+             'after', public.product_glossary_fields(g) || public.product_glossary_domains_object(public.product_glossary_domain_keys(g.id)), 'changed', true);
   elsif p_kind = 'glossary' and p_action = 'edit' then
     g := public.product_glossary_live(p_product.workspace_id, p_product.id, p_entry);
     g2 := g;
@@ -350,13 +466,33 @@ begin
     if p_fields ? 'avoid' then
       g2.avoid := array(select jsonb_array_elements_text(p_fields->'avoid'));
     end if;
-    if public.product_glossary_fields(g2) = public.product_glossary_fields(g) then
-      return jsonb_build_object('entry', g.id, 'before', public.product_glossary_fields(g), 'after', public.product_glossary_fields(g), 'changed', false);
+    -- The domains named replace the term's live ones; the retired ones it already names stay.
+    was_keys := public.product_glossary_domain_keys(g.id);
+    kept_keys := was_keys;
+    if p_fields ? 'domains' then
+      perform public.product_glossary_domain_check(p_product.id, g.id, p_fields->'domains');
+      select coalesce(jsonb_agg(x.k order by x.k collate "C"), '[]'::jsonb) into kept_keys from (
+        select w.k from jsonb_array_elements_text(p_fields->'domains') w(k)
+        union
+        select dm.key from public.product_glossary_domains lk join public.product_domains dm on dm.id = lk.domain_id
+         where lk.glossary_id = g.id and dm.retired_at is not null) x(k);
+    end if;
+    if public.product_glossary_fields(g2) || public.product_glossary_domains_object(kept_keys)
+       = public.product_glossary_fields(g) || public.product_glossary_domains_object(was_keys) then
+      return jsonb_build_object('entry', g.id, 'before', public.product_glossary_fields(g) || public.product_glossary_domains_object(was_keys),
+               'after', public.product_glossary_fields(g) || public.product_glossary_domains_object(was_keys), 'changed', false);
     end if;
     perform public.product_glossary_unique(p_product.id, g2.term, g.id);
     update public.product_glossary x set term = g2.term, meaning = g2.meaning, avoid = g2.avoid, updated_at = now()
      where x.id = g.id returning * into g2;
-    return jsonb_build_object('entry', g.id, 'before', public.product_glossary_fields(g), 'after', public.product_glossary_fields(g2), 'changed', true);
+    if kept_keys <> was_keys then
+      delete from public.product_glossary_domains lk using public.product_domains dm
+       where lk.glossary_id = g.id and dm.id = lk.domain_id and dm.retired_at is null
+         and dm.key not in (select jsonb_array_elements_text(kept_keys));
+      perform public.product_glossary_domain_link(p_product.id, g.id, kept_keys);
+    end if;
+    return jsonb_build_object('entry', g.id, 'before', public.product_glossary_fields(g) || public.product_glossary_domains_object(was_keys),
+             'after', public.product_glossary_fields(g2) || public.product_glossary_domains_object(kept_keys), 'changed', true);
   elsif p_kind = 'glossary' and p_action = 'remove' then
     g := public.product_glossary_live(p_product.workspace_id, p_product.id, p_entry);
     update public.product_glossary x set removed_at = now(), removed_by = by_whom, updated_at = now() where x.id = g.id;
@@ -498,6 +634,9 @@ begin
     end if;
     if p_kind = 'glossary' then
       perform public.product_glossary_unique(product.id, f->>'term', null);
+      if f ? 'domains' then
+        perform public.product_glossary_domain_check(product.id, null, f->'domains');
+      end if;
     elsif p_kind = 'domains' then
       perform public.product_domain_unique(product.id, f->>'key');
     end if;
@@ -506,9 +645,13 @@ begin
   elsif p_kind = 'domains' then
     before_fields := public.product_domain_fields(public.product_domain_live(p_workspace, product.id, p_entry));
   else
-    before_fields := public.product_glossary_fields(public.product_glossary_live(p_workspace, product.id, p_entry));
+    before_fields := public.product_glossary_fields(public.product_glossary_live(p_workspace, product.id, p_entry))
+                     || public.product_glossary_domains_object(public.product_glossary_domain_keys(p_entry));
     if f ? 'term' then
       perform public.product_glossary_unique(product.id, f->>'term', p_entry);
+    end if;
+    if f ? 'domains' then
+      perform public.product_glossary_domain_check(product.id, p_entry, f->'domains');
     end if;
   end if;
   insert into public.product_knowledge_proposals (workspace_id, product_id, kind, action, legal_id, glossary_id, domain_id, fields, proposed_by)
@@ -613,7 +756,8 @@ begin
            from public.product_domains d where d.product_id = product.id)
         else
         (select coalesce(jsonb_agg(jsonb_build_object(
-                  'entry', g.id, 'term', g.term, 'meaning', g.meaning, 'avoid', to_jsonb(g.avoid), 'removedAt', g.removed_at,
+                  'entry', g.id, 'term', g.term, 'meaning', g.meaning, 'avoid', to_jsonb(g.avoid),
+                  'domains', public.product_glossary_domain_keys(g.id), 'removedAt', g.removed_at,
                   'createdBy', public.product_knowledge_person(p_workspace, g.created_by),
                   'createdAt', g.created_at, 'updatedAt', g.updated_at)
                 order by lower(g.term), g.removed_at nulls first, g.id), '[]'::jsonb)
@@ -632,6 +776,73 @@ begin
     'latestEventId', (select max(e.id)::text from public.product_knowledge_events e where e.product_id = product.id))
     || sections;
 end;
+$$;
+
+-- ── A term's domains: the glossary's own functions, one argument wider ─────────────
+
+-- As 20261212110000_product_knowledge.sql, with the domains the term names (null or empty: none).
+drop function public.product_glossary_add(uuid, uuid, text, text, text[]);
+create function public.product_glossary_add(p_workspace uuid, p_product uuid, p_term text, p_meaning text, p_avoid text[] default '{}', p_domains text[] default null)
+returns public.product_glossary
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  product public.products := public.product_knowledge_product(p_workspace, p_product);
+  made uuid;
+begin
+  made := public.product_knowledge_change(product, 'glossary', 'add', null,
+            jsonb_strip_nulls(jsonb_build_object('term', coalesce(p_term, ''), 'meaning', coalesce(p_meaning, ''),
+                                                 'avoid', to_jsonb(coalesce(p_avoid, '{}'::text[])), 'domains', to_jsonb(p_domains))),
+            'added');
+  return (select g from public.product_glossary g where g.id = made);
+end;
+$$;
+
+-- As 20261212110000_product_knowledge.sql, with the domains the term names: null keeps them, an empty list
+-- clears the active ones (a link to a retired domain stays).
+drop function public.product_glossary_edit(uuid, uuid, text, text, text[]);
+create function public.product_glossary_edit(p_workspace uuid, p_entry uuid, p_term text default null, p_meaning text default null, p_avoid text[] default null, p_domains text[] default null)
+returns public.product_glossary
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  product public.products := public.product_knowledge_entry_product(p_workspace, 'glossary', p_entry);
+begin
+  perform public.product_knowledge_change(product, 'glossary', 'edit', p_entry,
+            jsonb_strip_nulls(jsonb_build_object('term', p_term, 'meaning', p_meaning, 'avoid', to_jsonb(p_avoid), 'domains', to_jsonb(p_domains))), 'edited');
+  return (select g from public.product_glossary g where g.id = p_entry);
+end;
+$$;
+
+-- ── What agents read ─────────────────────────────────────────────────────────────
+
+-- As 20261212110000_product_knowledge.sql, with `domains` (the product's active ones, `{key, name, meaning}`
+-- by key) and, on each term, the keys of the active domains it names (`[]`: a cross-domain term). It is what
+-- business_for_product() and business_for_repo_app() append, so both answer them. Internal.
+create or replace function public.product_knowledge_for_agents(p_product uuid) returns jsonb
+language sql stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'legal', (select coalesce(jsonb_agg(jsonb_build_object(
+                       'id', 'L-' || l.code || '-' || l.number, 'statement', l.statement, 'source', l.source,
+                       'owner', case when l.owner_id is not null then public.member_login(l.workspace_id, l.owner_id) end)
+                     order by l.code collate "C", l.number), '[]'::jsonb)
+                from public.product_legal l where l.product_id = p_product and l.retired_at is null),
+    'glossary', (select coalesce(jsonb_agg(jsonb_build_object('term', g.term, 'meaning', g.meaning, 'avoid', to_jsonb(g.avoid),
+                        'domains', (select coalesce(jsonb_agg(dm.key order by dm.key collate "C"), '[]'::jsonb)
+                                      from public.product_glossary_domains lk join public.product_domains dm on dm.id = lk.domain_id
+                                     where lk.glossary_id = g.id and dm.retired_at is null))
+                        order by lower(g.term), g.term), '[]'::jsonb)
+                   from public.product_glossary g where g.product_id = p_product and g.removed_at is null),
+    'domains', (select coalesce(jsonb_agg(jsonb_build_object('key', dm.key, 'name', dm.name, 'meaning', dm.meaning)
+                        order by dm.key collate "C"), '[]'::jsonb)
+                  from public.product_domains dm where dm.product_id = p_product and dm.retired_at is null))
 $$;
 
 -- ── Who may do what ──────────────────────────────────────────────────────────────
@@ -656,3 +867,22 @@ revoke execute on function public.product_domain_edit(uuid, uuid, text, text) fr
 grant execute on function public.product_domain_edit(uuid, uuid, text, text) to authenticated;
 revoke execute on function public.product_domain_retire(uuid, uuid) from public, anon;
 grant execute on function public.product_domain_retire(uuid, uuid) to authenticated;
+
+-- A term's domains, as the domains: a member reads, nobody writes, the service role included.
+alter table public.product_glossary_domains enable row level security;
+
+create policy "a member reads their workspace's term domains" on public.product_glossary_domains
+  for select to authenticated using (workspace_id in (select public.my_workspaces()));
+
+revoke all on public.product_glossary_domains from public, anon, authenticated, service_role;
+grant select on public.product_glossary_domains to authenticated, service_role;
+
+revoke execute on function public.product_glossary_domain_keys(uuid) from public, anon, authenticated, service_role;
+revoke execute on function public.product_glossary_domains_object(jsonb) from public, anon, authenticated, service_role;
+revoke execute on function public.product_glossary_domain_check(uuid, uuid, jsonb) from public, anon, authenticated, service_role;
+revoke execute on function public.product_glossary_domain_link(uuid, uuid, jsonb) from public, anon, authenticated, service_role;
+
+revoke execute on function public.product_glossary_add(uuid, uuid, text, text, text[], text[]) from public, anon;
+grant execute on function public.product_glossary_add(uuid, uuid, text, text, text[], text[]) to authenticated;
+revoke execute on function public.product_glossary_edit(uuid, uuid, text, text, text[], text[]) from public, anon;
+grant execute on function public.product_glossary_edit(uuid, uuid, text, text, text[], text[]) to authenticated;

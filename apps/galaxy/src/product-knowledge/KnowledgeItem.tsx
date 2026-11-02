@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { Query } from '../nav/query';
-import { NONE, SECTIONS, backHref, dayOf, domainOf, legalEntryOf, sectionHref, termOf, whoOf, type ListSection, type SectionKey } from './knowledge-sections';
+import {
+  NONE, SECTIONS, activeDomains, backHref, dayOf, domainOf, itemHref, legalEntryOf, retiredAmong, sectionHref, termOf, termsNaming, whoOf, type ListSection, type SectionKey,
+} from './knowledge-sections';
 import { DomainItemControls, LegalItemControls, TermItemControls, type TabSource } from './KnowledgeTabPage';
 import type { DomainEntry, GlossaryEntry, KnowledgeTab, LegalEntry, Person } from './product-knowledge.contract';
 
@@ -72,11 +74,20 @@ export function TermItem({ tab, source, entry, query }: ItemProps<GlossaryEntry>
   return (
     <Frame
       tab={tab} section="glossary" query={query} title={entry.term} status={removed ? `removed ${dayOf(entry.removedAt)}` : null}
-      controls={removed ? null : <TermItemControls product={tab.product.id} source={source} entry={entry} decides={tab.glossary.decides} />}
+      controls={removed ? null : <TermItemControls product={tab.product.id} source={source} entry={entry} decides={tab.glossary.decides} domains={activeDomains(tab)} retired={retiredAmong(tab, entry.domains)} />}
       history={<>{added(entry.createdBy, entry.createdAt)}{changed(entry.createdAt, entry.updatedAt)}{removed && <li className="links-row ask-muted">{`Removed ${dayOf(entry.removedAt)}`}</li>}</>}
     >
       <Field term="Meaning">{entry.meaning}</Field>
       <Field term="Avoid">{entry.avoid.length === 0 ? NONE : entry.avoid.join(', ')}</Field>
+      <Field term="Domains">
+        {entry.domains.length === 0 ? 'None: a cross-domain term' : entry.domains.map((key, i) => (
+          <span key={key}>
+            {i > 0 && ', '}
+            <Link href={itemHref(tab.product.id, 'domains', key)}>{key}</Link>
+            {retiredAmong(tab, [key]).length > 0 && <span className="ask-muted"> (retired)</span>}
+          </span>
+        ))}
+      </Field>
       <Authored entry={entry} />
     </Frame>
   );
@@ -85,6 +96,7 @@ export function TermItem({ tab, source, entry, query }: ItemProps<GlossaryEntry>
 /** A domain read whole (PRD 2583 s1): /knowledge/domains/<key>. Its key heads the page and never changes; a retired one reads as text. */
 export function DomainItem({ tab, source, entry, query }: ItemProps<DomainEntry>) {
   const retired = entry.retiredAt !== null;
+  const terms = termsNaming(tab, entry.key);
   return (
     <Frame
       tab={tab} section="domains" query={query} title={entry.key} status={retired ? `retired ${dayOf(entry.retiredAt)}` : null}
@@ -93,6 +105,14 @@ export function DomainItem({ tab, source, entry, query }: ItemProps<DomainEntry>
     >
       <Field term="Name">{entry.name}</Field>
       <Field term="Meaning">{entry.meaning}</Field>
+      <Field term="Terms">
+        {terms.length === 0 ? NONE : terms.map((t, i) => (
+          <span key={t.entry}>
+            {i > 0 && ', '}
+            <Link href={itemHref(tab.product.id, 'glossary', t.entry)}>{t.term}</Link>
+          </span>
+        ))}
+      </Field>
       <Authored entry={entry} />
     </Frame>
   );

@@ -49,7 +49,7 @@ export function demoKnowledgeTab(id: string): KnowledgeTab | null {
       delegate: null,
       decides: false,
       entries: [{
-        entry: 'demo-term-1', term: 'Credit note', meaning: 'A document that cancels all or part of an invoice.', avoid: ['refund'], removedAt: null,
+        entry: 'demo-term-1', term: 'Credit note', meaning: 'A document that cancels all or part of an invoice.', avoid: ['refund'], domains: [], removedAt: null,
         createdBy: anna, createdAt: '2026-11-04T10:15:00Z', updatedAt: '2026-11-04T10:15:00Z',
       }],
       proposals: [],
