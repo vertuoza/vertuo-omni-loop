@@ -8,7 +8,7 @@ import { KnowledgeReadSchema, type ChangeWrite, type Kind, type KnowledgeRead } 
 // the client it is given, the signed-in person's, so row-level security and the definer functions of
 // 20261212110000_product_knowledge.sql have the last word. The product, the tab's read
 // (product_knowledge_of()), the workspace's members (workspace_roster()), and the writes
-// (product_legal_*, product_glossary_*, product_domain_* of 20270106090000_product_domains.sql,
+// (product_legal_*, product_glossary_*, product_domain_* of 20270107090000_product_domains.sql,
 // product_knowledge_propose / approve / reject / name). A failed read
 // throws, and an answer out of shape too; a refused write answers the database's code and words. No rule
 // lives here: who may change what is product-knowledge.service.ts's, and the database's.

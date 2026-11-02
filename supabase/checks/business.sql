@@ -39,7 +39,7 @@
 -- never another product's, `[]` with none or no product. The App's read also answers `knowledgeEventId`,
 -- the product's newest knowledge event. Who may change them is supabase/checks/product_knowledge.sql's.
 --
--- PRD 2583 s2 (20270106090000_product_domains.sql): both answer `domains`, the product's active domains
+-- PRD 2583 s2 (20270107090000_product_domains.sql): both answer `domains`, the product's active domains
 -- `{key, name, meaning}` by key, and each term's `domains`, the keys of the active ones it names, `[]` for a
 -- cross-domain term; a retired domain is in neither.
 --
