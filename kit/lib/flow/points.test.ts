@@ -30,7 +30,7 @@ describe('the catalog of flow points', () => {
       'wave.merge': ['wave', 'ultra-wave'],
       'bug-fix.reproduce': ['bug-fix', 'mega-bug-fix'],
       'bug-fix.review': ['bug-fix', 'mega-bug-fix'],
-      'bug-fix.proof': ['bug-fix'],
+      'bug-fix.proof': ['bug-fix', 'mega-bug-fix'],
       'yolo.ready': ['yolo', 'ultra-yolo'],
     });
     for (const { inputs } of FLOW_POINTS) expect(inputs.length).toBeGreaterThan(0);
@@ -43,7 +43,7 @@ describe('the catalog of flow points', () => {
 
   it('hands bug-fix.proof its inputs, before, after and replace, a replace giving back the two recordings, the env: line and the verdict (PRD 2578)', () => {
     expect(flowPoint('bug-fix.proof')).toMatchObject({
-      skills: ['bug-fix'],
+      skills: ['bug-fix', 'mega-bug-fix'],
       modes: ['before', 'after', 'replace'],
       inputs: ['issue', 'base', 'head', 'pr', 'targets', 'reproduction', 'out'],
     });

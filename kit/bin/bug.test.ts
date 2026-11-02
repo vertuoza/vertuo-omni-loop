@@ -640,18 +640,32 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
   });
 
   describe('a record with ## Fixes (PRD 1118)', () => {
-    it('passes with no ## Proof, with the flag or without it, and asks gh nothing', async () => {
-      const flagged = await fromFile(prBody(null), recordBranch());
+    it('is graded for its proof as any other record (PRD 2578): ok with a ## Proof, asking gh nothing', async () => {
+      const flagged = await fromFile(prBody(), recordBranch());
       expect(flagged.out).toBe('ok\n');
       expect(flagged.code).toBe(0);
-      const bare = await check([], undefined, recordBranch());
-      expect(bare.out).toBe('ok\n');
-      expect(bare.code).toBe(0);
-      expect(bare.calls).toEqual([]);
+      expect(flagged.calls).toEqual([]);
+    });
+
+    it('is not ok for a body with no ## Proof section', async () => {
+      const { code, out } = await fromFile(prBody(null), recordBranch());
+      expect(code).toBe(1);
+      expect(failures(out)).toEqual([NO_PROOF]);
+    });
+
+    it('is not ok for a GIF without its Proved on line', async () => {
+      const noLine = PROOF.split('\n').filter((line: string) => !line.includes('Proved on')).join('\n');
+      const { out } = await fromFile(prBody(noLine), recordBranch());
+      expect(failures(out)).toEqual(['- ## Proof has no "Proved on" line']);
+    });
+
+    it('reads the open pull request through gh when it is given no body file', async () => {
+      const { out } = await check([], viewed({ body: prBody(null) }), recordBranch());
+      expect(failures(out)).toEqual([NO_PROOF]);
     });
 
     it('is still graded by its own rows', async () => {
-      const { out } = await check([], undefined, recordBranch(multiRecord([])));
+      const { out } = await fromFile(prBody(), recordBranch(multiRecord([])));
       expect(failures(out)).toEqual([`- ${RECORD}: the "## Fixes" table has no rows.`]);
     });
 

@@ -1,6 +1,6 @@
 ---
 name: mega-bug-fix
-description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed setup and preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line, after asking the person on its job with omni runner ask when it runs on a runner (OMNI_UNATTENDED set); --answers <job> resumes from what they answered on the Omni page. A rerun of an issue whose fix plan names a pull request resumes the stopped fix on its branches, never starting over, and a stop a rerun can finish ends on the line that resumes it, which a runner reads as stopped mid-way. Runs nothing in a target but its own committed setup, then its own committed preflight, never merges. With --product <key>, runs from any kitted checkout of a product's repository instead, the bug being recorded on the server as <key>-B<n> with its Fixes rows, each fix PR's body starts with Fixes <key>-B<n> and a link, and there is no record PR and no plan-repository issue. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
+description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed setup and preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line, after asking the person on its job with omni runner ask when it runs on a runner (OMNI_UNATTENDED set); --answers <job> resumes from what they answered on the Omni page. A rerun of an issue whose fix plan names a pull request resumes the stopped fix on its branches, never starting over, and a stop a rerun can finish ends on the line that resumes it, which a runner reads as stopped mid-way. Makes one proof, not one per target (the point bug-fix.proof fires once, in the target where the bug shows, handed every target's pull request, and the record PR carries it, checked by omni bug <n> --body-file (a product bug's proof sits on that target's fix PR, checked by omni bug check --product <key> <file> --body-file <body>), and with no hook there, each target keeps its CI red and the proof says the screen was not filmed. Runs nothing in a target but its own committed setup, then its own committed preflight, never merges. With --product <key>, runs from any kitted checkout of a product's repository instead, the bug being recorded on the server as <key>-B<n> with its Fixes rows, each fix PR's body starts with Fixes <key>-B<n> and a link, and there is no record PR and no plan-repository issue. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
 ---
 
 # Mega bug fix: one bug, one PR per target, one record
@@ -171,9 +171,15 @@ Reproduction and one Guard line per row, each keyed by the repository. Then:
 whose repository and PR match when a fix PR merges, and the record ships when the last row is merged.
 A person merges the PRs in the order the `Merge after` lines give.
 
+**The one proof (step 7b) goes on the fix PR of the target where the bug shows**, there being no
+record PR: write that PR's body with its `## Proof` to a file, and run
+`node .omni-loop/bin/omni.mjs bug check --product <key> <file> --body-file <body>`, until it prints
+`ok`: it grades the proof by the same rule as `omni bug <n>`, and runs as before without the flag.
+Then `gh pr edit <pr> --repo <slug> --body-file <body>`. The other target PRs carry none.
+
 **Step 10, the hand-off,** names the bug id and its page, each PR in merge order, and what was proven
 and what was not, per target. `omni bug <n>` and `omni check` read a repository's issue and folder: the
-hand-off names them as not run.
+hand-off names them as not run, and the proof's `omni bug check --product … --body-file` line as run.
 
 ## 1. Issue
 
@@ -207,7 +213,11 @@ comment adds one line, after **Domain**, naming every target that must change, b
 
 ```markdown
 - **Repositories:** <name>, <name>
+- **Shows in:** <name>
 ```
+
+**Shows in** names the one target where the bug is seen, among the **Repositories**: it is where the
+one proof is made (step 7b).
 
 Its **Reproduction** and **Branch** lines name one per target, `<name>: <path>` and
 `<name>: <fix branch>`. A regression's evidence is read in the target it happened in, and so is the
@@ -326,7 +336,7 @@ differs:
   (`<plan slug>` is the plan repository's `repo.slug`), **never a closing keyword**, so it never
   closes the plan repository's issue. A consumer's PR adds one `Merge after <slug>#<pr>` line per
   PR before it in the plan. Then `/omni:bug-fix`'s body from **What was wrong** on,
-  without its `## Proof` section (no film is made in a target), its `## Bug`
+  without its `## Proof` section (a target PR carries none: the proof is made once, step 7b), its `## Bug`
   section with one more line, `- **Fix plan:** <the fix-plan comment's link>`, and its **Record**
   line naming the record in the plan repository. `labels.bug` is added only when the target has
   it; a label is never created in a target.
@@ -341,6 +351,41 @@ differs:
 Push nothing to any target before every earlier target's worktree is ready: a target that cannot be
 pushed to stops the whole fix (**All or nothing across targets**). Remove each worktree
 (`git -C <clone> worktree remove`) once its PR is open.
+
+## 7b. The one proof
+
+A mega bug fix makes **one** proof, not one per target: a bug across two repositories is seen only
+with both fixes together. It runs once every target's PR holds its fix (step 7 is done for every
+row, each PR pushed), in the target the triage's **Shows in** line names, and it goes on the record
+PR; the target PRs carry none (a product run has no record PR: **From a product** puts it on the
+fix PR of that target). It is `/omni:bug-fix` step 12.4's ladder, taken once:
+
+1. **Level A, point `bug-fix.proof`,** fires **once**, in the **Shows in** target, with that
+   target's own hooks, read from its default branch's committed `.omni-loop/config.yml` as the
+   other points are: run
+   `(cd <target worktree> && node <plan repository root>/.omni-loop/bin/omni.mjs flow show bug-fix.proof --path <p>)`
+   once per territory path, follow each hook, and end it with `omni flow verdict bug-fix.proof` run
+   the same way. It is handed `{issue}` `<n>`, `{base}` that target's default branch, `{head}` that
+   target's fix head, `{pr}` that target's PR, `{targets}` **every** target's repository and pull
+   request, one `<slug>#<pr>` per line, in the fix plan's order, so the hook can build one
+   environment holding them all, `{reproduction}` that target's reproduction path and `{out}`
+   `<run folder>/preview/`. Level A is reached as `/omni:bug-fix` step 12.4 says (a verdict `ok`, two
+   readable files, an `env:` line): `omni bug film`, `omni proof push --kind bug`, and the
+   `Preview` line. Anything else is level A's reason. The kit never creates or deletes an
+   environment.
+2. **No hook in that target** (`flow show` prints `hooks none`), or a level A that fell through:
+   each target keeps **today's CI red** (step 7), and level B is
+   `node .omni-loop/bin/omni.mjs bug ci <n> --pr <that target's PR> --reproduction <its reproduction sha> --fix <its fix head> --test <the reproduction's test name> --out <run folder>/ci/`
+   as `/omni:bug-fix` step 12.4 runs it; then level C, the red and green outputs of that target's
+   preflight, and level D, `GIF not produced - A: <why>; B: <why>; C: <why>`, the record PR left a
+   **draft**.
+3. **The `Proved on` line** is `/omni:bug-fix`'s: `a preview environment` at level A (with its
+   `Preview` line), and at B and C `CI · reproduction test only, the screen was not filmed` or
+   `the machine that made the fix · reproduction test only, the screen was not filmed`: with no hook
+   in the target, the record's `Proved on` line says the screen was not filmed.
+
+The proof is the record PR's `## Proof` section (step 9), checked there. A failed hook is one line in
+the record PR, and the fix goes on.
 
 ## 8. The record
 
@@ -378,14 +423,17 @@ per target, keyed by the target's name, in the plan's order:
 As `/omni:bug-fix` step 12, in the plan repository:
 
 1. **Commit** the record, signed.
-2. **Prove it:** `node .omni-loop/bin/omni.mjs bug <n>`, until it prints `ok`. It checks the
-   `## Fixes` rows against `plan.targets`, in order 1..k, each with its PR and its Reproduction and
-   Guard lines. A `## Fixes` record is exempt from the proof check: no body file, and no `## Proof`.
+2. **Prove it:** write the record PR's body (item 5's shape, its `## Proof` from step 7b) to a file
+   outside the repository, then run `node .omni-loop/bin/omni.mjs bug <n> --body-file <file>`, until it
+   prints `ok`. It checks the `## Fixes` rows against `plan.targets`, in order 1..k, each with its PR
+   and its Reproduction and Guard lines, and the body's `## Proof` as any other bug fix's: a `## Fixes`
+   record is no longer exempt (PRD 2578). A proof line is mended in the body file; the record is never
+   marked ready before `ok`, and at level D it stays a draft.
 3. **Push** the fix branch.
 4. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`.
 5. **The record PR,** through `/omni:pr`, a standalone PR into `repo.defaultBranch`: its body
    starts with `Closes #<n>` and one `Merge after <slug>#<pr>` line per target PR, in the plan's
-   order, then `/omni:bug-fix`'s body, without its `## Proof` section. **The record PR is the only one
+   order, then `/omni:bug-fix`'s body, with the `## Proof` of step 7b (a target PR carries none). **The record PR is the only one
    that closes the issue, and it merges last.**
 
    ```markdown

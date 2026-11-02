@@ -305,7 +305,7 @@ keeps every skill it names calling `omni flow show` there.
 | `wave.merge` | `/omni:wave`, `/omni:ultra-wave`, after an `ok` gate | ✓ | ✓ | the merged PR's number in the verdict |
 | `bug-fix.reproduce` | `/omni:bug-fix` step 7 before the reproduction is written, and `/omni:mega-bug-fix` in each target; handed `{issue}`, `{branch}`, `{suspect}`, `{boundary}` | ✓ | — | — |
 | `bug-fix.review` | `/omni:bug-fix` after the guard and before mutation, and `/omni:mega-bug-fix` in each target; handed `{issue}`, `{branch}`, `{base}` | ✓ | — | — |
-| `bug-fix.proof` | `/omni:bug-fix` step 12, once the draft pull request holds the fix; handed `{issue}`, `{base}`, `{head}`, `{pr}`, `{targets}`, `{reproduction}`, `{out}` | ✓ | ✓ | `before.*` and `after.*` in `{out}`, an `env:` line, the verdict line |
+| `bug-fix.proof` | `/omni:bug-fix` step 12, once the draft pull request holds the fix, and `/omni:mega-bug-fix` once, in the target where the bug shows, after every target's pull request holds its fix (`{targets}` hands it all of them, and the record's pull request carries the proof); handed `{issue}`, `{base}`, `{head}`, `{pr}`, `{targets}`, `{reproduction}`, `{out}` | ✓ | ✓ | `before.*` and `after.*` in `{out}`, an `env:` line, the verdict line |
 | `yolo.ready` | `/omni:yolo`, `/omni:ultra-yolo`, before the feature PR is marked ready | ✓ | — | — |
 
 ### How a point runs
