@@ -28,4 +28,4 @@ The reproduction, a unit test of the held check-in across a re-registration, and
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (61987cdc): nothing to mutate
