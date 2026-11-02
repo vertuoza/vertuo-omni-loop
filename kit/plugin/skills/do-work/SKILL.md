@@ -160,7 +160,9 @@ building, commit and push work in progress at least every half of
   ports over broad clients; one responsibility per module.
 - **Reviewable commits:** one coherent change each, no unrelated formatting, each ending with the
   co-author trailer your agent adds, if it adds one (in Claude: the `Co-Authored-By` line its
-  session gives), then the `omni sign trailer` line (**Signing**).
+  session gives), then the `omni sign trailer` line (**Signing**). Write the message to a scratch
+  file and commit with `git -C <your worktree> commit -F <file>`, never a heredoc in `$( … )`: an
+  agent isolated in a worktree may refuse a git command it cannot prove stays inside it.
 
 ## 3. Record the decision, keep building
 
