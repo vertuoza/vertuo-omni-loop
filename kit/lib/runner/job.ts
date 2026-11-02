@@ -390,16 +390,16 @@ function textAt(path: string): string {
  * written by resuming its session for one turn of `turnover.noteTurnMs`; the runner's when the run named no
  * session, or the turn failed, ran out of time or wrote nothing. Every secret masked.
  */
-async function handoffNote(place: JobPlace, args: TurnArgs): Promise<{ note: string; by: 'agent' | 'runner' }> {
+async function handoffNote(place: JobPlace, args: TurnArgs & { why: string }): Promise<{ note: string; by: 'agent' | 'runner' }> {
   const { cwd, files, out, env } = place;
-  const { line, runs, ran, turnover } = args;
+  const { line, runs, ran, turnover, why } = args;
   const path = handoffPath(files.log);
   rmSync(path, { force: true });
   const session = runs.agent.session({ cwd, lines: ran.lines, exit: ran.code });
   let by: 'agent' | 'runner' = 'runner';
   if (session !== null) {
     say(files, out, `↻ account ${runs.account.id} writes its handoff note`);
-    const command = runs.agent.resume({ line, cwd }, runs.account, session, notePrompt(path));
+    const command = runs.agent.resume({ line, cwd }, runs.account, session, notePrompt(path, why));
     const turn = await runOnce({ cwd, files, out, env: runEnv(env, command), agent: runs.agent, command, timeoutMs: turnover.noteTurnMs ?? NOTE_TURN_MS });
     if (turn.code === 0 && textAt(path).trim() !== '') by = 'agent';
   }
