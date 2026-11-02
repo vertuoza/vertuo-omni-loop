@@ -878,12 +878,17 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
       return ok({ id: runner.id, name: runner.name, fleet: runner.fleet });
     },
 
-    /** Counts as a check-in, then holds up to 40 s for a job the runner may claim; null when none came. */
-    async next(caller: string, runnerId: string): Promise<Served<RunnerJob | null>> {
+    /**
+     * Counts as a check-in, then holds up to 40 s for a job the runner may claim; null when none came. Once `hungUp`
+     * aborts (the runner closed the check-in, as a restart does), it claims nothing more: a job claimed then would be
+     * answered to nobody and end runner lost (#2593).
+     */
+    async next(caller: string, runnerId: string, hungUp?: AbortSignal): Promise<Served<RunnerJob | null>> {
       const owned = await ownRunner(caller, runnerId);
       if (!owned.ok) return owned;
       const deadline = clock.now().getTime() + NEXT_HOLD_MS;
       for (;;) {
+        if (hungUp?.aborted) return ok(null);
         await markLost();
         await store.updateRunner(runnerId, { last_seen_at: iso() });
         const job = await store.claim(runnerId);
