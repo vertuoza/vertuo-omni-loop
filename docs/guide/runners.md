@@ -257,7 +257,7 @@ exec node .omni-loop/bin/omni.mjs runner --name <name> --repos ~/runner-repos --
 - `--repos` is the folder of step 4 above.
 - `--slots` is how many jobs run at once, 4 unless given, 8 at most. Each job installs and tests a
   whole repository, so count about 4 cores and 8 GB of memory per slot.
-- `--timeout` stops a job that runs longer, `3h` unless given.
+- `--timeout` stops a job that runs longer, `8h` unless given.
 - `--keep-logs` is how many days the job logs are kept, 14 unless given.
 
 Make it executable with `chmod +x ~/start-runner.sh`.

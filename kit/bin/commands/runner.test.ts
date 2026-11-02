@@ -589,6 +589,24 @@ describe('omni runner', () => {
     expect(run.terminal.sessions).toEqual([]);
   });
 
+  it('gives a job 8 hours when no --timeout is given', async () => {
+    const HOUR = 3_600_000;
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 18, line: '/omni:yolo sleep-5', repo: 'acme/widgets', sentBy: 'ada' }] });
+    let clock = 0;
+    const run = startRunner(f, app, { now: () => clock });
+    await until(() => lastStatus(app) === 'running', 'the job to run');
+    clock = 8 * HOUR;
+    const ticks = app.updates().length;
+    await until(() => app.updates().length > ticks, 'the runner to look at the job once more');
+    expect(lastStatus(app)).toBe('running');
+    clock = 8 * HOUR + 1;
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', reason: 'timeout' });
+  });
+
   it('kills a job past --timeout and reports it failed, reason timeout', async () => {
     const f = fixture();
     const app = fakeApp({ jobs: [{ id: 13, line: '/omni:yolo sleep-5', repo: 'acme/widgets', sentBy: 'ada' }] });
