@@ -101,10 +101,15 @@ export interface KnowledgeMember {
   login: string;
 }
 
-/** What the tab draws: the read, its Domains section always there, and the members a workspace owner may name (none for anyone else). */
+/**
+ * What the tab draws: the read, its Domains section always there, and the members a workspace owner may name
+ * (none for anyone else). `notOnList` is how many folders of the product's repositories its list of domains
+ * does not hold (PRD 2583 s3), put there by the page; absent when none is known.
+ */
 export interface KnowledgeTab extends Omit<KnowledgeRead, 'domains'> {
   domains: DomainSection;
   members: KnowledgeMember[];
+  notOnList?: number;
 }
 
 const text = (most: number) => z.string().trim().max(most);

@@ -3,6 +3,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { demoKnowledgePort, knowledgeClient, type Changed, type KnowledgePort } from './product-knowledge.client';
 import type { DomainChoice } from './knowledge-sections';
+import { adoptFields, type FolderRow } from './found-domains';
 import type {
   DomainEntry, DomainSection, Fields, GlossaryEntry, GlossarySection, Kind, KnowledgeMember, KnowledgeWrite, LegalEntry, LegalSection, Person, Proposal,
 } from './product-knowledge.contract';
@@ -241,6 +242,22 @@ function AddDomain({ decides, status, send }: FormProps) {
       <Input label="Meaning" value={fields.meaning} max={400} disabled={status.busy} onChange={set('meaning')} />
       <span className="links-actions"><button className="ask-button" type="submit" disabled={status.busy}>{decides ? 'Add a domain' : 'Propose'}</button></span>
     </form>
+  );
+}
+
+/**
+ * A folder off the list (PRD 2583 s3), added in one action with its key, name and meaning filled from the
+ * folder; whoever may only propose proposes the same. In the demo, nothing is saved.
+ */
+export function AdoptFolder({ product, source, row, decides }: { product: string; source: TabSource; row: FolderRow; decides: boolean }) {
+  const { status, send } = useSend(product, source);
+  return (
+    <span className="links-actions">
+      <button className="ask-button" type="button" disabled={status.busy} onClick={() => { void send({ op: 'change', kind: 'domains', action: 'add', fields: adoptFields(row) }); }}>
+        {decides ? 'Add to the list' : 'Propose'}
+      </button>
+      <Refusal status={status} />
+    </span>
   );
 }
 

@@ -2,6 +2,7 @@ import type { ListColumn } from '../nav/SortableList';
 import type { Query } from '../nav/query';
 import type { SectionTab } from '../nav/section-tabs';
 import { newestFirst, sortOf, type Sort } from '../nav/sortable-list';
+import { notOnListLabel } from './found-domains';
 import { knowledgeTabHref, type DomainEntry, type GlossaryEntry, type KnowledgeTab, type LegalEntry, type Person } from './product-knowledge.contract';
 
 // The Knowledge home's sections (PRD 2240 s3; Repositories, PRD 2419 s1; Domains, PRD 2583 s1): the eight
@@ -122,11 +123,17 @@ export const countsOf = (tab: Pick<KnowledgeTab, 'legal' | 'glossary' | 'domains
   domains: shownEntries(tab.domains.entries, 'active').length,
 });
 
-/** The sub-menu's tabs, in order; a count only on a section whose items are read here. */
-export function knowledgeSectionTabs(product: string, counts: Counts): SectionTab[] {
+/**
+ * The sub-menu's tabs, in order; a count only on a section whose items are read here. With folders off the
+ * list (`notOnList` above 0, PRD 2583 s3) the Domains entry says so in its text, `Domains 6 · 2 not on the
+ * list`, in place of its badge.
+ */
+export function knowledgeSectionTabs(product: string, counts: Counts, notOnList: number | null = null): SectionTab[] {
   const count: Partial<Record<SectionKey, number>> = counts;
   return SECTION_KEYS.map((key) => {
     const n = count[key];
+    const off = key === 'domains' && n !== undefined ? notOnListLabel(n, notOnList) : null;
+    if (off !== null) return { href: sectionHref(product, key), label: off };
     return { href: sectionHref(product, key), label: SECTIONS[key].label, ...(n === undefined ? {} : { count: n }) };
   });
 }

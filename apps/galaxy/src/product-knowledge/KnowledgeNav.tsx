@@ -6,7 +6,9 @@ import type { KnowledgeTab } from './product-knowledge.contract';
 // section in the order of knowledge-sections.ts, each list section with its count of active items, the
 // section showing marked.
 
+// The Domains entry also counts the folders off the product's list (`tab.notOnList`), when there are any (PRD 2583 s3).
+
 export function KnowledgeNav({ tab, current }: { tab: KnowledgeTab; current: SectionKey | null }) {
   const { id, name } = tab.product;
-  return <SectionTabs label={`${name} knowledge`} tabs={knowledgeSectionTabs(id, countsOf(tab))} current={current === null ? '' : sectionHref(id, current)} />;
+  return <SectionTabs label={`${name} knowledge`} tabs={knowledgeSectionTabs(id, countsOf(tab), tab.notOnList ?? null)} current={current === null ? '' : sectionHref(id, current)} />;
 }
