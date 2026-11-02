@@ -815,3 +815,147 @@ describe('omni bug film (PRD 1972, PRD 2100)', () => {
     expect((await film(root, ['twelve', '--before', 'red.txt', '--after', 'green.txt'])).code).toBe(2);
   });
 });
+
+describe('omni bug ci — level B reads the red and the green from CI (PRD 2578)', () => {
+  const SLUG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
+  const RED_SHA = 'aaaaaaa1111';
+  const FIX_SHA = 'bbbbbbb2222';
+  const TEST_NAME = 'saves once';
+  type Job = { databaseId: number; name: string; status: string; conclusion: string | null; url: string };
+  type Commit = { runs: number[]; jobs: Record<number, Job[]> };
+  const link = (id: number) => `https://github.com/acme/widgets/actions/runs/1/job/${id}`;
+  const done = (id: number, name: string, conclusion: string): Job => ({ databaseId: id, name, status: 'completed', conclusion, url: link(id) });
+  const LOGS: Record<number, string> = {
+    10: `stories\tRun\t2026-11-02T10:00:00.000Z FAIL ${TEST_NAME}\nstories\tRun\t2026-11-02T10:00:01.000Z token ghp_abcdefghijklmnopqrstuvwxyz0123456789\n`,
+    20: `stories\tRun\t2026-11-02T10:05:00.000Z ok ${TEST_NAME}\n`,
+  };
+  const RED_COMMIT: Commit = { runs: [1], jobs: { 1: [done(10, 'stories', 'failure'), done(11, 'lint', 'success')] } };
+  const FIX_COMMIT: Commit = { runs: [2], jobs: { 2: [done(20, 'stories', 'success'), done(21, 'lint', 'success')] } };
+  type Answer = Commit | (() => Commit);
+  const read = (answer: Answer | undefined): Commit | undefined => (typeof answer === 'function' ? answer() : answer);
+
+  /** What `gh run …` answers for `args`, from `commits` (a function is asked on every read). */
+  function runAnswer(commits: Record<string, Answer>, args: readonly string[]): string {
+    if (args[1] === 'list') return JSON.stringify((read(commits[args[args.indexOf('--commit') + 1] ?? ''])?.runs ?? []).map((databaseId) => ({ databaseId })));
+    if (args[2] === '--job') return LOGS[Number(args[3])] ?? '';
+    const owner = Object.values(commits).map(read).find((entry) => entry?.runs.includes(Number(args[2])));
+    return JSON.stringify({ jobs: owner?.jobs[Number(args[2])] ?? [] });
+  }
+
+  /** A fake runner: git is real; `gh` answers reads of runs only, and every call is recorded. */
+  function fake(commits: Record<string, Answer>) {
+    const calls: string[][] = [];
+    const exec = ((file: string, args: readonly string[], options?: unknown) => {
+      if (file !== 'gh') return execFileSync(file, args, options as never);
+      calls.push([...args]);
+      if (args[0] !== 'run') throw new Error(`gh ${args.join(' ')} is not a read of runs`);
+      return runAnswer(commits, args);
+    }) as never;
+    return { exec, calls };
+  }
+
+  async function ci(commits: Record<string, Answer>, extra: string[] = [], options: Record<string, unknown> = {}) {
+    const { root } = setup(SLUG);
+    const s = io();
+    const { exec, calls } = fake(commits);
+    const out = join(root, 'ci-out');
+    const code = await main(
+      ['bug', 'ci', '12', '--pr', '34', '--reproduction', RED_SHA, '--fix', FIX_SHA, '--test', TEST_NAME, '--out', out, ...extra],
+      { cwd: root, exec, ...s, ...options },
+    );
+    return { code, out, root, stdout: s.out.join('').trim(), stderr: s.err.join('').trim(), calls };
+  }
+
+  it('writes red.txt and green.txt with the masked lines around the test and each run link, and prints the folder', async () => {
+    const { code, out, stdout, stderr } = await ci({ [RED_SHA]: RED_COMMIT, [FIX_SHA]: FIX_COMMIT });
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(stdout).toBe(out);
+    expect(readFileSync(join(out, 'red.txt'), 'utf8')).toBe(`#34 · aaaaaaa · job stories\nFAIL ${TEST_NAME}\ntoken [masked]\nRun: ${link(10)}\n`);
+    expect(readFileSync(join(out, 'green.txt'), 'utf8')).toBe(`#34 · bbbbbbb · job stories\nok ${TEST_NAME}\nRun: ${link(20)}\n`);
+  });
+
+  it('writes files omni bug film makes a gif of', async () => {
+    const { root, out } = await ci({ [RED_SHA]: RED_COMMIT, [FIX_SHA]: FIX_COMMIT });
+    const s = io();
+    const code = await main(['bug', 'film', '12', '--before', join(out, 'red.txt'), '--after', join(out, 'green.txt'), '--out', join(root, 'film')], { cwd: root, ...s });
+    expect(code).toBe(0);
+    expect(readFileSync(join(root, 'film', 'preview.gif')).subarray(0, 6).toString()).toBe('GIF89a');
+  });
+
+  it('only reads runs: no call edits a CI file or the pull request', async () => {
+    const { calls } = await ci({ [RED_SHA]: RED_COMMIT, [FIX_SHA]: FIX_COMMIT });
+    expect(calls.length).toBeGreaterThan(0);
+    for (const args of calls) {
+      expect(args[0]).toBe('run');
+      expect(['list', 'view']).toContain(args[1]);
+    }
+  });
+
+  it.each([
+    ['a skipped job, by name', { runs: [1], jobs: { 1: [done(10, 'stories', 'skipped')] } }, 'job stories skipped'],
+    ['no failed log naming the test', { runs: [1], jobs: { 1: [done(11, 'lint', 'failure')] } }, `no failed log names ${TEST_NAME}`],
+    ['every check green on the reproduction commit', { runs: [1], jobs: { 1: [done(11, 'lint', 'success')] } }, 'every check passed on aaaaaaa'],
+  ])('prints one line on stderr and exits 1 for %s, writing nothing', async (_name: string, red: Commit, line: string) => {
+    const { code, stderr, stdout, out } = await ci({ [RED_SHA]: red, [FIX_SHA]: FIX_COMMIT });
+    expect(code).toBe(1);
+    expect(stderr).toBe(line);
+    expect(stdout).toBe('');
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it('waits for runs still going, then reads them', async () => {
+    let polls = 0;
+    const running = (): Commit => {
+      polls += 1;
+      return polls < 3 ? { runs: [1], jobs: { 1: [{ ...done(10, 'stories', ''), status: 'in_progress', conclusion: null }] } } : RED_COMMIT;
+    };
+    let clock = 0;
+    const slept: number[] = [];
+    const sleep = (ms: number) => {
+      slept.push(ms);
+      clock += ms;
+      return Promise.resolve();
+    };
+    const { code } = await ci({ [RED_SHA]: running, [FIX_SHA]: FIX_COMMIT }, [], { sleep, now: () => clock });
+    expect(code).toBe(0);
+    expect(slept).toEqual([30000]);
+  });
+
+  it('says the runs did not finish within the wait, and exits 1', async () => {
+    let clock = 0;
+    const sleep = (ms: number) => {
+      clock += ms;
+      return Promise.resolve();
+    };
+    const none: Commit = { runs: [], jobs: {} };
+    const { code, stderr } = await ci({ [RED_SHA]: none, [FIX_SHA]: none }, ['--wait', '2'], { sleep, now: () => clock });
+    expect(code).toBe(1);
+    expect(stderr).toBe('the runs did not finish within 2 minutes');
+  });
+
+  it('says gh failed, with its last line, and exits 1', async () => {
+    const { root } = setup(SLUG);
+    const s = io();
+    const exec = ((file: string, args: readonly string[], options?: unknown) => {
+      if (file !== 'gh') return execFileSync(file, args, options as never);
+      throw Object.assign(new Error('x'), { stderr: 'banner\ngh: not logged in\n' });
+    }) as never;
+    const code = await main(['bug', 'ci', '12', '--pr', '34', '--reproduction', RED_SHA, '--fix', FIX_SHA, '--test', TEST_NAME, '--out', join(root, 'o')], { cwd: root, exec, ...s });
+    expect(code).toBe(1);
+    expect(s.err.join('').trim()).toBe('gh failed: gh: not logged in');
+  });
+
+  it.each([
+    ['no issue number', ['bug', 'ci', '--pr', '34', '--reproduction', 'a', '--fix', 'b', '--test', 't', '--out', 'o']],
+    ['a pull request that is not a number', ['bug', 'ci', '12', '--pr', 'x', '--reproduction', 'a', '--fix', 'b', '--test', 't', '--out', 'o']],
+    ['a missing --fix', ['bug', 'ci', '12', '--pr', '34', '--reproduction', 'a', '--test', 't', '--out', 'o']],
+    ['a wait that is not a number', ['bug', 'ci', '12', '--pr', '34', '--reproduction', 'a', '--fix', 'b', '--test', 't', '--out', 'o', '--wait', 'soon']],
+  ])('is exit 2 for %s, before gh is asked', async (_name: string, argv: string[]) => {
+    const { root } = setup(SLUG);
+    const s = io();
+    const { exec, calls } = fake({});
+    expect(await main(argv, { cwd: root, exec, ...s })).toBe(2);
+    expect(calls).toEqual([]);
+  });
+});
