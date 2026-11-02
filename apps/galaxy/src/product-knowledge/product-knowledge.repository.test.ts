@@ -27,6 +27,9 @@ describe('a direct change', () => {
     [change({ kind: 'glossary', action: 'add', fields: { term: 't', meaning: 'm', avoid: ['x'] } }), 'product_glossary_add', { p_term: 't', p_meaning: 'm', p_avoid: ['x'] }],
     [change({ kind: 'glossary', action: 'edit', entry: ENTRY, fields: { term: 't' } }), 'product_glossary_edit', { p_entry: ENTRY, p_term: 't' }],
     [change({ kind: 'glossary', action: 'remove', entry: ENTRY }), 'product_glossary_remove', { p_entry: ENTRY }],
+    [change({ kind: 'domains', action: 'add', fields: { key: 'invoicing', name: 'n', meaning: 'm' } }), 'product_domain_add', { p_product: 'p-1', p_key: 'invoicing', p_name: 'n', p_meaning: 'm' }],
+    [change({ kind: 'domains', action: 'edit', entry: ENTRY, fields: { name: 'n' } }), 'product_domain_edit', { p_entry: ENTRY, p_name: 'n' }],
+    [change({ kind: 'domains', action: 'retire', entry: ENTRY }), 'product_domain_retire', { p_entry: ENTRY }],
   ])('calls the kind\'s definer function', async (write, fn, args) => {
     const { client, calls } = db();
     expect(await knowledgeRepository(client).apply('w-1', 'p-1', write)).toEqual({ ok: true });
@@ -62,6 +65,13 @@ describe('the reads', () => {
   it('parses the tab\'s read, and throws on an answer out of shape', async () => {
     expect(await knowledgeRepository(db({ data: READ }).client).read('w-1', 'p-1')).toEqual({ ok: true, read: READ });
     await expect(knowledgeRepository(db({ data: { product: 1 } }).client).read('w-1', 'p-1')).rejects.toThrow();
+  });
+
+  it('parses the Domains section, and a read that has none (PRD 2583)', async () => {
+    const domain = { entry: 'd-1', key: 'invoicing', name: 'Invoicing', meaning: 'm', retiredAt: null, createdBy: null, createdAt: '2026-01-05T09:00:00+00:00', updatedAt: '2026-01-05T09:00:00+00:00' };
+    const withDomains = { ...READ, domains: { ...SECTION, entries: [domain] } };
+    expect(await knowledgeRepository(db({ data: withDomains }).client).read('w-1', 'p-1')).toEqual({ ok: true, read: withDomains });
+    await expect(knowledgeRepository(db({ data: { ...READ, domains: { ...SECTION, entries: [{ ...domain, key: 7 }] } } }).client).read('w-1', 'p-1')).rejects.toThrow();
   });
 
   it('answers a refused read with the database\'s code', async () => {

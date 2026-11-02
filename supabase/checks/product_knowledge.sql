@@ -604,6 +604,11 @@ begin
   if got->>'latestEventId' <> (select max(e.id)::text from public.product_knowledge_events e where e.product_id = pg_temp.id('invoicing')) then
     raise exception 'FAIL: the page read''s newest event: %', got->>'latestEventId';
   end if;
+  -- The third kind (PRD 2583): a product with no domain reads an empty Domains section, which nobody
+  -- named answers for.
+  if got->'domains' is distinct from jsonb_build_object('owner', null, 'delegate', null, 'decides', false, 'entries', '[]'::jsonb, 'proposals', '[]'::jsonb) then
+    raise exception 'FAIL: the page read''s Domains section, with no domain: %', got->'domains';
+  end if;
   perform pg_temp.as_('lena');
   got := public.product_knowledge_of(pg_temp.id('pk'), pg_temp.id('invoicing'));
   if not (got->'legal'->>'decides')::boolean or (got->'glossary'->>'decides')::boolean or (got->>'canName')::boolean then
@@ -615,7 +620,8 @@ begin
     raise exception 'FAIL: what the workspace owner may do once Legal names its owner: %', got;
   end if;
   got := public.product_knowledge_of(pg_temp.id('pk'), pg_temp.id('payroll'));
-  if not (got->'legal'->>'decides')::boolean or got->'legal'->'owner' <> 'null'::jsonb or got->'glossary'->'owner' <> 'null'::jsonb then
+  if not (got->'legal'->>'decides')::boolean or got->'legal'->'owner' <> 'null'::jsonb or got->'glossary'->'owner' <> 'null'::jsonb
+     or not (got->'domains'->>'decides')::boolean then
     raise exception 'FAIL: a workspace owner decides a kind that names nobody (Payroll): %', got;
   end if;
 end $$;
@@ -744,6 +750,25 @@ begin
         <> (select count(*) from public.product_knowledge_proposals p where p.state <> 'open') then
     raise exception 'FAIL: a proposal or a decision does not have exactly one event';
   end if;
+end $$;
+
+-- ── The kinds' checks, widened to the Domains kind (PRD 2583, 20270106090000_product_domains.sql) ──
+-- Read past every grant, as the table owner would write: each kind keeps its own actions and its own
+-- entry column, an event names at most one entry, and a kind outside the three is refused.
+do $$
+declare c text;
+begin
+  foreach c in array array[
+    format('insert into public.product_knowledge_owners (workspace_id, product_id, kind, role, user_id) values (%L, %L, ''law'', ''owner'', %L)', pg_temp.id('pk'), pg_temp.id('payroll'), pg_temp.id('mia')),
+    format('insert into public.product_knowledge_proposals (workspace_id, product_id, kind, action) values (%L, %L, ''law'', ''add'')', pg_temp.id('pk'), pg_temp.id('payroll')),
+    format('insert into public.product_knowledge_proposals (workspace_id, product_id, kind, action, domain_id) values (%L, %L, ''domains'', ''remove'', gen_random_uuid())', pg_temp.id('pk'), pg_temp.id('payroll')),
+    format('insert into public.product_knowledge_proposals (workspace_id, product_id, kind, action, legal_id) values (%L, %L, ''domains'', ''retire'', %L)', pg_temp.id('pk'), pg_temp.id('invoicing'), pg_temp.made('inv-1')),
+    format('insert into public.product_knowledge_proposals (workspace_id, product_id, kind, action, domain_id) values (%L, %L, ''legal'', ''retire'', gen_random_uuid())', pg_temp.id('pk'), pg_temp.id('invoicing')),
+    format('insert into public.product_knowledge_proposals (workspace_id, product_id, kind, action) values (%L, %L, ''domains'', ''edit'')', pg_temp.id('pk'), pg_temp.id('invoicing')),
+    format('insert into public.product_knowledge_events (workspace_id, product_id, kind, action) values (%L, %L, ''law'', ''added'')', pg_temp.id('pk'), pg_temp.id('invoicing')),
+    format('insert into public.product_knowledge_events (workspace_id, product_id, kind, action, legal_id, domain_id) values (%L, %L, ''domains'', ''added'', %L, gen_random_uuid())', pg_temp.id('pk'), pg_temp.id('invoicing'), pg_temp.made('inv-1'))
+  ] loop perform pg_temp.refused(c, '23514'); end loop;
+  insert into public.product_knowledge_owners (workspace_id, product_id, kind, role, user_id) values (pg_temp.id('pk'), pg_temp.id('payroll'), 'domains', 'owner', pg_temp.id('mia'));
 end $$;
 
 rollback;

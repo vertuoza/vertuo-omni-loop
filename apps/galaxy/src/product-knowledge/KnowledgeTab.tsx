@@ -24,7 +24,7 @@ export const GRAPH_LINK = 'Explore the knowledge graph →';
 
 export type KnowledgeTabView = Situation | { kind: 'not-found' } | { kind: 'tab'; source: TabSource; tab: KnowledgeTab };
 
-/** The demo's tab: a Legal owner, one entry and one term, each with who added it and when; the reader a member. */
+/** The demo's tab: a Legal owner, one entry, one term and one domain, each with who added it and when; the reader a member. */
 export function demoKnowledgeTab(id: string): KnowledgeTab | null {
   if (id !== 'demo-product-1') return null;
   const anna = { user: 'demo-anna', login: 'anna' };
@@ -51,6 +51,16 @@ export function demoKnowledgeTab(id: string): KnowledgeTab | null {
       entries: [{
         entry: 'demo-term-1', term: 'Credit note', meaning: 'A document that cancels all or part of an invoice.', avoid: ['refund'], removedAt: null,
         createdBy: anna, createdAt: '2026-11-04T10:15:00Z', updatedAt: '2026-11-04T10:15:00Z',
+      }],
+      proposals: [],
+    },
+    domains: {
+      owner: anna,
+      delegate: null,
+      decides: false,
+      entries: [{
+        entry: 'demo-domain-1', key: 'invoicing', name: 'Invoicing', meaning: 'Billing a customer for what they bought, and crediting them back.',
+        retiredAt: null, createdBy: anna, createdAt: '2026-11-03T08:30:00Z', updatedAt: '2026-11-03T08:30:00Z',
       }],
       proposals: [],
     },

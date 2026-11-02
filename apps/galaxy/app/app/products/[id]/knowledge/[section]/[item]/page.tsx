@@ -7,7 +7,8 @@ import { KnowledgePage } from '../../../../../../../src/product-knowledge/Knowle
 import { KnowledgeEntry, entryExists } from '../../../../../../../src/product-knowledge/KnowledgeItem';
 import { listSectionOf, segmentOf } from '../../../../../../../src/product-knowledge/knowledge-sections';
 
-// /app/products/<id>/knowledge/legal/<code> and /glossary/<entry> (PRD 2240 s3): one entry read whole, with
+// /app/products/<id>/knowledge/legal/<code>, /glossary/<entry> (PRD 2240 s3) and /domains/<key> (PRD 2583
+// s1): one entry read whole, with
 // the controls the reader's role allows and its history. An entry the product does not hold is the 404
 // page. `← Legal` returns to the list with the sort the address carried. Rendered per request, as the
 // signed-in person (KnowledgePage.tsx).

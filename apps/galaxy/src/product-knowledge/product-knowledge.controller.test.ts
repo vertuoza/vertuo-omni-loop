@@ -12,7 +12,7 @@ vi.mock('server-only', () => ({}));
 
 const PRODUCT = '22222222-2222-4222-8222-222222222221';
 const SECTION = { owner: null, delegate: null, decides: false, entries: [], proposals: [] };
-const TAB: KnowledgeTab = { product: { id: PRODUCT, name: 'Mobile' }, canName: false, latestEventId: null, legal: SECTION, glossary: SECTION, members: [] };
+const TAB: KnowledgeTab = { product: { id: PRODUCT, name: 'Mobile' }, canName: false, latestEventId: null, legal: SECTION, glossary: SECTION, domains: SECTION, members: [] };
 
 describe('the page\'s view', () => {
   const signedIn = { kind: 'signed-in', db: {}, env: { url: 'u', key: 'k' }, user: { id: 'u-1' } } as unknown as MemberSession;
@@ -89,6 +89,23 @@ describe('the route', () => {
       expect(KnowledgeErrorSchema.safeParse(refused.body).success).toBe(true);
     }
     expect(h.calls).toEqual([]);
+  });
+
+  it('takes a domain\'s addition, edit, retirement and naming, and refuses its removal (PRD 2583)', async () => {
+    const h = handlers({});
+    const id = '33333333-3333-4333-8333-333333333331';
+    for (const body of [
+      { op: 'change', kind: 'domains', action: 'add', fields: { key: 'invoicing', name: 'Invoicing', meaning: 'Billing a customer.' } },
+      { op: 'change', kind: 'domains', action: 'edit', entry: id, fields: { name: 'Billing' } },
+      { op: 'change', kind: 'domains', action: 'retire', entry: id, fields: {} },
+      { op: 'name', kind: 'domains', role: 'owner', user: id },
+    ]) expect((await answer(await h.change(post(body), PRODUCT))).status).toBe(200);
+    for (const body of [
+      { op: 'change', kind: 'domains', action: 'remove', entry: id, fields: {} },
+      { op: 'change', kind: 'domains', action: 'add', fields: { key: 'x'.repeat(61), name: 'N', meaning: 'M' } },
+      { op: 'change', kind: 'domains', action: 'add', fields: { key: 'invoicing', name: 'N'.repeat(81), meaning: 'M' } },
+    ]) expect((await answer(await h.change(post(body), PRODUCT))).status).toBe(400);
+    expect(h.calls).toHaveLength(4);
   });
 
   it('accepts a decision and a naming', async () => {

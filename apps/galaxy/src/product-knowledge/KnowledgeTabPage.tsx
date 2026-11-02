@@ -3,15 +3,23 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { demoKnowledgePort, knowledgeClient, type Changed, type KnowledgePort } from './product-knowledge.client';
 import type {
-  Fields, GlossaryEntry, GlossarySection, Kind, KnowledgeMember, KnowledgeWrite, LegalEntry, LegalSection, Person, Proposal,
+  DomainEntry, DomainSection, Fields, GlossaryEntry, GlossarySection, Kind, KnowledgeMember, KnowledgeWrite, LegalEntry, LegalSection, Person, Proposal,
 } from './product-knowledge.contract';
 
-// What changes on the Knowledge home, in the browser (PRD 1795 s2, PRD 2240 s3): the controls of the
-// Legal and Glossary lists and of an entry's page. The kind's owner or delegate (`decides`) edits, retires
-// or removes directly and approves or rejects proposals; any other member proposes; a workspace owner
-// (`canName`) names the owner and the delegate. Every change goes through the tab's one route as the
-// signed-in person (product-knowledge.client.ts); once it is saved the page refreshes in place, so the
-// server draws what is now true and the address, with its sort, stays. In the demo, nothing is saved.
+// What changes on the Knowledge home, in the browser (PRD 1795 s2, PRD 2240 s3, PRD 2583 s1): the controls
+// of the Legal, Glossary and Domains lists and of an entry's page. The kind's owner or delegate (`decides`)
+// edits, retires or removes directly and approves or rejects proposals; any other member proposes; a
+// workspace owner (`canName`) names the owner and the delegate. A domain's key is given once, when it is
+// added, and never edited. Every change goes through the tab's one route as the signed-in person
+// (product-knowledge.client.ts); once it is saved the page refreshes in place, so the server draws what is
+// now true and the address, with its sort, stays. In the demo, nothing is saved.
+
+/** A kind's section, whichever the kind. */
+type AnySection = LegalSection | GlossarySection | DomainSection;
+type AnyEntry = LegalEntry | GlossaryEntry | DomainEntry;
+
+/** Each kind as the page names it: in "Who answers for …". */
+const KIND_NAMES: Readonly<Record<Kind, string>> = { legal: 'Legal', glossary: 'the Glossary', domains: 'the Domains' };
 
 export type TabSource = { kind: 'demo' } | { kind: 'live' };
 
@@ -55,20 +63,30 @@ const who = (person: Person): string => (person ? `@${person.login ?? 'a member'
 const csv = (words: readonly string[]): string => words.join(', ');
 const words = (text: string): string[] => text.split(',').map((w) => w.trim()).filter((w) => w !== '');
 
+/** How an entry is named in a line: a Legal entry by its code, a term by itself, a domain by its key. */
+const nameOf = (entry: AnyEntry): string => ('id' in entry ? entry.id : 'term' in entry ? entry.term : entry.key);
+
+/** Per kind, the field a proposed addition is named by, and the one an edit shows. */
+const PROPOSAL_FIELDS: Readonly<Record<Kind, { subject: string; detail: string }>> = {
+  legal: { subject: 'statement', detail: 'statement' },
+  glossary: { subject: 'term', detail: 'meaning' },
+  domains: { subject: 'key', detail: 'name' },
+};
+
 /** A proposal in one line: what it does, to what, by whom. */
-export function proposalLine(kind: Kind, proposal: Proposal, entries: readonly (LegalEntry | GlossaryEntry)[]): string {
+export function proposalLine(kind: Kind, proposal: Proposal, entries: readonly AnyEntry[]): string {
   const target = entries.find((e) => e.entry === proposal.entry);
-  const named = target ? ('id' in target ? target.id : target.term) : null;
+  const named = target ? nameOf(target) : null;
   const f = proposal.fields;
   const field = (key: string): string | null => (typeof f[key] === 'string' ? f[key] : null);
-  const subject = named ?? field(kind === 'legal' ? 'statement' : 'term') ?? '';
-  const detail = kind === 'legal' ? field('statement') : field('meaning');
+  const subject = named ?? field(PROPOSAL_FIELDS[kind].subject) ?? '';
+  const detail = field(PROPOSAL_FIELDS[kind].detail) ?? (kind === 'domains' ? field('meaning') : null);
   const verb = { add: 'adds', edit: 'edits', retire: 'retires', remove: 'removes' }[proposal.action] ?? proposal.action;
   const by = proposal.proposedBy ? ` · proposed by @${proposal.proposedBy.login ?? 'a member'}` : '';
   return `${verb} ${subject}${detail && named ? `: ${detail}` : ''}${by}`;
 }
 
-function Naming({ kind, section, members, status, send }: { kind: Kind; section: LegalSection | GlossarySection; members: KnowledgeMember[]; status: Status; send: Send }) {
+function Naming({ kind, section, members, status, send }: { kind: Kind; section: AnySection; members: KnowledgeMember[]; status: Status; send: Send }) {
   const [owner, setOwner] = useState(section.owner?.user ?? '');
   const [delegate, setDelegate] = useState(section.delegate?.user ?? '');
   const options = (current: string) => (
@@ -88,7 +106,7 @@ function Naming({ kind, section, members, status, send }: { kind: Kind; section:
     }
   };
   return (
-    <form className="links-form" aria-label={`Who answers for ${kind === 'legal' ? 'Legal' : 'the Glossary'}`} onSubmit={(e) => { e.preventDefault(); void save(); }}>
+    <form className="links-form" aria-label={`Who answers for ${KIND_NAMES[kind]}`} onSubmit={(e) => { e.preventDefault(); void save(); }}>
       <label className="links-field">
         <span>Owner</span>
         <select className="products-look-select" value={owner} disabled={status.busy} onChange={(e) => { setOwner(e.currentTarget.value); }}>{options(owner)}</select>
@@ -102,7 +120,7 @@ function Naming({ kind, section, members, status, send }: { kind: Kind; section:
   );
 }
 
-function Proposals({ kind, section, status, send }: { kind: Kind; section: LegalSection | GlossarySection; status: Status; send: Send }) {
+function Proposals({ kind, section, status, send }: { kind: Kind; section: AnySection; status: Status; send: Send }) {
   if (section.proposals.length === 0) return null;
   return (
     <>
@@ -166,8 +184,25 @@ function AddTerm({ decides, status, send }: { decides: boolean; status: Status; 
   );
 }
 
+/** A domain: its key given once, the folder's word, and its name and meaning. */
+function AddDomain({ decides, status, send }: { decides: boolean; status: Status; send: Send }) {
+  const [fields, setFields] = useState({ key: '', name: '', meaning: '' });
+  const set = (key: keyof typeof fields) => (v: string) => { setFields((f) => ({ ...f, [key]: v })); };
+  return (
+    <form className="links-form" aria-label="Add a domain" onSubmit={(e) => {
+      e.preventDefault();
+      void send({ op: 'change', kind: 'domains', action: 'add', fields }).then((saved) => { if (saved) setFields({ key: '', name: '', meaning: '' }); });
+    }}>
+      <Input label="Key" value={fields.key} max={60} disabled={status.busy} onChange={set('key')} />
+      <Input label="Name" value={fields.name} max={80} disabled={status.busy} onChange={set('name')} />
+      <Input label="Meaning" value={fields.meaning} max={400} disabled={status.busy} onChange={set('meaning')} />
+      <span className="links-actions"><button className="ask-button" type="submit" disabled={status.busy}>{decides ? 'Add a domain' : 'Propose'}</button></span>
+    </form>
+  );
+}
+
 /** Who answers for a kind. */
-function Owners({ section }: { section: LegalSection | GlossarySection }) {
+function Owners({ section }: { section: AnySection }) {
   const none = section.owner === null && section.delegate === null;
   return (
     <p className="ask-muted" data-owners>
@@ -180,7 +215,7 @@ export interface SectionTopProps {
   product: string;
   source: TabSource;
   kind: Kind;
-  section: LegalSection | GlossarySection;
+  section: AnySection;
   members: KnowledgeMember[];
   canName: boolean;
 }
@@ -198,12 +233,15 @@ export function SectionTop({ product, source, kind, section, members, canName }:
   );
 }
 
+const ADD_FORMS: Readonly<Record<Kind, typeof AddLegal>> = { legal: AddLegal, glossary: AddTerm, domains: AddDomain };
+
 /** Under a list: the form that adds an entry, or proposes one. */
 export function AddEntry({ product, source, kind, decides }: { product: string; source: TabSource; kind: Kind; decides: boolean }) {
   const { status, send } = useSend(product, source);
+  const Form = ADD_FORMS[kind];
   return (
     <>
-      {kind === 'legal' ? <AddLegal decides={decides} status={status} send={send} /> : <AddTerm decides={decides} status={status} send={send} />}
+      <Form decides={decides} status={status} send={send} />
       <Refusal status={status} />
     </>
   );
@@ -263,6 +301,34 @@ export function LegalItemControls({ product, source, entry, decides }: ItemProps
         <form className="links-form" aria-label={`Edit ${entry.id}`} onSubmit={(e) => { e.preventDefault(); void save(); }}>
           <Input label="Statement" value={statement} max={400} disabled={status.busy} onChange={setStatement} />
           <Input label="Source law" value={sourceLaw} max={500} disabled={status.busy} onChange={setSourceLaw} />
+          <Save decides={decides} status={status} onCancel={() => { setEditing(false); }} />
+        </form>
+      )}
+      <Refusal status={status} />
+    </div>
+  );
+}
+
+/** A domain's page: Edit its name and meaning (its key never changes), Retire it, or the proposals for both. No Delete: a domain is retired. */
+export function DomainItemControls({ product, source, entry, decides }: ItemProps<DomainEntry>) {
+  const { status, send } = useSend(product, source);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(entry.name);
+  const [meaning, setMeaning] = useState(entry.meaning);
+  const save = async () => {
+    if (await send({ op: 'change', kind: 'domains', action: 'edit', entry: entry.entry, fields: { name, meaning } })) setEditing(false);
+  };
+  return (
+    <div className="kn-controls" data-entry={entry.key}>
+      <Actions
+        editing={editing} decides={decides} status={status} onEdit={() => { setEditing(true); }}
+        retireLabel={decides ? 'Retire' : 'Propose to retire'}
+        onRetire={() => { void send({ op: 'change', kind: 'domains', action: 'retire', entry: entry.entry, fields: {} }); }}
+      />
+      {editing && (
+        <form className="links-form" aria-label={`Edit ${entry.key}`} onSubmit={(e) => { e.preventDefault(); void save(); }}>
+          <Input label="Name" value={name} max={80} disabled={status.busy} onChange={setName} />
+          <Input label="Meaning" value={meaning} max={400} disabled={status.busy} onChange={setMeaning} />
           <Save decides={decides} status={status} onCancel={() => { setEditing(false); }} />
         </form>
       )}
