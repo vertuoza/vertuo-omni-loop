@@ -80,3 +80,158 @@ Either way it is one regenerated file and one workflow step; nothing stored chan
 ```
 
 <!-- /omni-outbox-settled: s1-02-db-types-and-ci-check-outside-territory -->
+
+<!-- omni-outbox-settled: s2-01-business-read-and-fixtures-outside-territory -->
+
+## s2-01-business-read-and-fixtures-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-02
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-02
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-business-read-and-fixtures-outside-territory
+prd: 2583
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-02
+wave: 2
+---
+
+## The question, in plain words
+
+The page and the agents' business read both had to learn about domains, and the agents' read sits in files this slice does not own. Is it right that this slice made the small change there rather than leaving it for a later slice?
+
+## The decision, in plain words
+
+The agents' business read was made to accept the new domains fields, and three test fixtures were given an empty domains list so they still read as before. Without it, the read would have refused every answer once the database sends domains, for every terminal and agent.
+
+## The intro, for fun
+
+The glossary grew a new column and the back door had a strict bouncer.
+
+## The punchline, for fun
+
+A one-line note to the bouncer, and everyone gets in again.
+
+## The options, in plain words
+
+A. A. Keep the small changes made here, in the business read's schema and in one fixture line of the knowledge API test.
+B. B. Have the owner of those files make them in a later slice, leaving the business read to refuse the database's answer until then.
+
+## What I had to decide
+
+Answer A to keep the two small changes made outside the slice's own files (the business read's schema and one fixture line in the knowledge API test); answer B to have them made by the slice that owns those files instead, accepting that the business read refuses the database's answer until then.
+
+## What I did meanwhile
+
+The business read accepts the optional domains fields, and the fixture lines are updated; every existing test still passes.
+
+## What it costs to change later
+
+Undoing it is removing one optional field from two schemas and one line from a fixture; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for this slice names the product knowledge files and the migration, not apps/galaxy/src/business-api/ or apps/galaxy/src/knowledge-api/, yet the criterion that the business read carries the domains needs the first, and the typed glossary entry needs the second.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-business-read-and-fixtures-outside-territory -->
+
+<!-- omni-outbox-settled: s2-02-clearing-a-terms-domains-keeps-retired-links -->
+
+## s2-02-clearing-a-terms-domains-keeps-retired-links — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-02
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-02
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-clearing-a-terms-domains-keeps-retired-links
+prd: 2583
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-02
+wave: 2
+---
+
+## The question, in plain words
+
+When someone clears a term's domains, should the links to domains that were retired since also go? This slice keeps them, because the spec says a link made before retirement stays.
+
+## The decision, in plain words
+
+Emptying a term's domains removes the links to the domains that are still active and keeps the ones to retired domains, which the term keeps showing as retired. A person who wants one gone has no control for it yet.
+
+## The intro, for fun
+
+A retired domain left the building, but its name tag stayed on the term.
+
+## The punchline, for fun
+
+Clearing the list is tidying, not erasing history.
+
+## The options, in plain words
+
+A. A. Keep retired links when a term's domains are cleared or replaced.
+B. B. Remove retired links as well when the list is cleared or replaced.
+C. C. Keep them, and add a control on the term's page to remove one retired link at a time.
+
+## What I had to decide
+
+Answer A to keep retired links when a term's domains are cleared or replaced; answer B to remove them too, so clearing really empties the list.
+
+## What I did meanwhile
+
+The wave carries on with retired links kept, as the spec words it.
+
+## What it costs to change later
+
+Undoing it is changing one delete rule in the database function and its check; the links already kept stay in the table.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a link made before a domain was retired stays, but not whether a person may remove it on purpose.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-clearing-a-terms-domains-keeps-retired-links -->
