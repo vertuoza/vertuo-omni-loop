@@ -46,4 +46,4 @@ Add to the list · Propose · Retired · Not read yet.
 
 ## Source
 
-- /omni:brainstorm, PRD 2583: .omni-loop/delivery/inbox/2583-product-domains/before-after.html
+- /omni:brainstorm, PRD 2583: .omni-loop/delivery/shipped/2583-product-domains/before-after.html

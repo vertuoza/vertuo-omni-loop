@@ -60,4 +60,4 @@ Created · Updated · Add an entry · Propose · Approve · Reject · shared by 
 
 - PRD 1795 s2, drawn from the source by hand (no `/omni:pixel-perfect mock` run).
 - /omni:brainstorm, PRD 2240: .omni-loop/delivery/shipped/2240-product-knowledge-home/before-after.html
-- /omni:brainstorm, PRD 2583: .omni-loop/delivery/inbox/2583-product-domains/before-after.html
+- /omni:brainstorm, PRD 2583: .omni-loop/delivery/shipped/2583-product-domains/before-after.html
