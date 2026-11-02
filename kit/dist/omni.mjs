@@ -64058,8 +64058,9 @@ function turnOver(place, args) {
   return takenOver(args, next2, LIMIT_WHY, note);
 }
 function outAndNext({ cwd }, { line: line2, runs: runs3, parts, turnover }, given, changes) {
-  const guessed = given === null;
-  const resetsAt = given ?? isoOf2(Date.parse(parts.iso()) + GUESSED_RESET_MS);
+  const at2 = Date.parse(parts.iso());
+  const guessed = given === null || !(Date.parse(given) > at2);
+  const resetsAt = guessed ? isoOf2(at2 + GUESSED_RESET_MS) : given;
   turnover.book.markOut(runs3.account.id, resetsAt);
   const next2 = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line2), cwd);
   return { resetsAt, guessed, next: next2 };

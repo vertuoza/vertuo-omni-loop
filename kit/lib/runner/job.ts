@@ -357,13 +357,14 @@ function turnOver(place: JobPlace, args: TurnArgs & { limit: Limit; changes: num
 }
 
 /**
- * The account that ran is out until `given` (an hour from now, guessed, when it is `null`); the account the
+ * The account that ran is out until `given` (an hour from now, guessed, when it is `null` or already past); the account the
  * job goes on on, or why none can: the cap once it changed account `MAX_ACCOUNT_CHANGES` times, else every
  * account out.
  */
 function outAndNext({ cwd }: JobPlace, { line, runs, parts, turnover }: TurnArgs, given: string | null, changes: number): { resetsAt: string; guessed: boolean; next: { account: Account; agent: Agent } | { none: string } } {
-  const guessed = given === null;
-  const resetsAt = given ?? isoOf(Date.parse(parts.iso()) + GUESSED_RESET_MS);
+  const at = Date.parse(parts.iso());
+  const guessed = given === null || !(Date.parse(given) > at);
+  const resetsAt = guessed ? isoOf(at + GUESSED_RESET_MS) : given;
   turnover.book.markOut(runs.account.id, resetsAt);
   const next = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line), cwd);
   return { resetsAt, guessed, next };
