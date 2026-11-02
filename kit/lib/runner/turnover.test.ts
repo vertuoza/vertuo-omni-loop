@@ -274,13 +274,19 @@ describe('a planned handoff, read from the pressure (PRD 2537, s8)', () => {
     expect(read({ usage: usage({ percent: 95 }), context: { used: 190_000, window: 200_000 } })?.ended).toBe('usage');
   });
 
+  it('tells the stopped agent the runner stopped it for a handoff, not a person (#2590)', () => {
+    const prompt = notePrompt('/logs/job-7.handoff.md', 'its account spent its budget of 300 tokens for the day');
+    expect(prompt).toContain('The runner stopped your run, not a person, because its account spent its budget of 300 tokens for the day');
+    expect(prompt).toContain('Nothing you ran was refused: a command it cut short may not have finished, so say which.');
+  });
+
   it('asks the outgoing agent for its note at a path beside the log, and nothing else', () => {
-    expect(notePrompt('/logs/job-7.handoff.md')).toBe('Write the handoff note for whoever continues this job to /logs/job-7.handoff.md: what is done, what is next, the pull requests and branches open, and every decision you took. Change no other file.');
+    expect(notePrompt('/logs/job-7.handoff.md', 'its account reached 92 % of its 5-hour window')).toBe('The runner stopped your run, not a person, because its account reached 92 % of its 5-hour window: another session takes this job over. Nothing you ran was refused: a command it cut short may not have finished, so say which. Write the handoff note for whoever continues this job to /logs/job-7.handoff.md: what is done, what is next, the pull requests and branches open, and every decision you took. Change no other file.');
   });
 });
 
 /** The shell words that read the note's path from the note prompt on standard input. */
-const NOTE_PATH = String.raw`sed -n 's/^Write the handoff note for whoever continues this job to \(.*\): what is done.*$/\1/p'`;
+const NOTE_PATH = String.raw`sed -n 's/^.*Write the handoff note for whoever continues this job to \(.*\): what is done.*$/\1/p'`;
 
 /** The resetsAt of the recorded Claude warning, and of the Codex event below: 2026-10-28 at 17:00 UTC. */
 const WARNING_RESET = new Date(1_793_206_800 * 1000).toISOString();
@@ -392,7 +398,7 @@ describe('a planned handoff, before the wall (PRD 2537, s8)', () => {
 
     // The same session, resumed for one turn, asked for its note beside the log.
     expect(readFileSync(join(f.root, 'resume.args'), 'utf8').split('\n')).toEqual(expect.arrayContaining(['--resume', '7d8e9f0a-1b2c-4d3e-9f4a-5b6c7d8e9f0a']));
-    expect(readFileSync(join(f.root, 'resume.stdin'), 'utf8')).toBe(`${notePrompt(handoffPath(f.files.log))}\n`);
+    expect(readFileSync(join(f.root, 'resume.stdin'), 'utf8')).toBe(`${notePrompt(handoffPath(f.files.log), 'its account warned that its weekly window is nearly used up')}\n`);
     expect(readFileSync(handoffPath(f.files.log), 'utf8')).toBe('The lint is clean; the tests are next.\n');
 
     const stdin = readFileSync(join(root, 'codex.stdin'), 'utf8');
