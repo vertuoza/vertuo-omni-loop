@@ -9,12 +9,12 @@ the feature branch, with `Part of #2578`.
 | id | slice | territory | blocked by | wave | tier |
 | --- | --- | --- | --- | --- | --- |
 | s1 | Level B is a command: `omni bug ci <n>` reads the checks of the reproduction commit and the fix commit through `gh`, writes `red.txt` and `green.txt` (masked log lines and each run's link), or prints why on one line and exits 1 | `kit/lib/bug/ci` `kit/bin/commands/bug-ci.ts` `kit/bin/commands/index.ts` `kit/bin/omni.ts` `kit/bin/bug.test.ts` `kit/lib/help/` | — | 1 | build |
-| s2 | `omni bug <n>` requires the `Proved on` line with every GIF, its `reproduction test only, the screen was not filmed` mention at B and C, and a reason per level in `GIF not produced - A: …; B: …; C: …` | `kit/lib/bug/proof-body` | — | 1 | build |
+| s2 | `omni bug <n>` requires the `Proved on` line with every GIF, its `reproduction test only, the screen was not filmed` mention at B and C (or, at C, `the component filmed in Storybook` beside a `Clips:` line), and a reason per level in `GIF not produced - A: …; B: …; C: …` | `kit/lib/bug/proof-body` | — | 1 | build |
 | s3 | A repository's reproduction and review hooks run on a bug fix: the points `bug-fix.reproduce` and `bug-fix.review` (before, after; no replace), fired by `/omni:bug-fix` and in each target of `/omni:mega-bug-fix`, a failed one a line in the pull request | `kit/lib/flow/points` `kit/lib/flow/schema` `kit/lib/flow/show` `kit/test/flow-points.test.ts` `kit/plugin/skills/bug-fix/` `kit/plugin/skills/mega-bug-fix/` `kit/test/skill-steps.snapshot.json` `docs/guide/flow.md` | — | 1 | build |
-| s4 | `/omni:bug-fix` opens its draft pull request on the reproduction alone, then takes its proof from the ladder: A at the new point `bug-fix.proof`, B through `omni bug ci`, C on its machine, D a draft naming each level's reason; `omni bug` checks the open pull request's body before it is marked ready | `kit/lib/flow/points` `kit/lib/flow/schema` `kit/lib/flow/show` `kit/test/flow-points.test.ts` `kit/plugin/skills/bug-fix/` `kit/test/bug-fix-` `kit/test/skill-steps.snapshot.json` `docs/guide/flow.md` `docs/guide/use-cases.md` | s1, s2, s3 | 2 | deep |
-| s5 | `/omni:mega-bug-fix` makes one proof: `bug-fix.proof` fires once, in the target where the bug shows, handed every target's pull request, and the record's pull request carries the proof; with no hook there, today's CI red per target and a `Proved on` line that says the screen was not filmed | `kit/lib/flow/points` `kit/test/flow-points.test.ts` `kit/plugin/skills/mega-bug-fix/` `kit/test/mega-bug-fix-` `kit/test/skill-steps.snapshot.json` `docs/guide/flow.md` | s4 | 3 | build |
+| s4 | `/omni:bug-fix` opens its draft pull request on the reproduction alone, then takes its proof from the ladder: A at the new point `bug-fix.proof`, B through `omni bug ci`, C on its machine, D a draft naming each level's reason; the red on the reproduction counts no attempt; `omni bug` checks the open pull request's body before it is marked ready | `kit/lib/flow/points` `kit/lib/flow/schema` `kit/lib/flow/show` `kit/test/flow-points.test.ts` `kit/plugin/skills/bug-fix/` `kit/test/bug-fix-` `kit/test/skill-steps.snapshot.json` `docs/guide/flow.md` `docs/guide/use-cases.md` | s1, s2, s3 | 2 | deep |
+| s5 | `/omni:mega-bug-fix` makes one proof: `bug-fix.proof` fires once, in the target where the bug shows, handed every target's pull request, and the record's pull request carries the proof, which `omni bug` now checks (a product bug's on the fix pull request of that target, through `omni bug check --product --body-file`); with no hook there, today's CI red per target and a `Proved on` line that says the screen was not filmed | `kit/lib/flow/points` `kit/test/flow-points.test.ts` `kit/plugin/skills/mega-bug-fix/` `kit/test/mega-bug-fix-` `kit/test/skill-steps.snapshot.json` `docs/guide/flow.md` `kit/lib/bug/verdict.ts` `kit/bin/commands/bug.ts` `kit/bin/bug.test.ts` `kit/bin/bug-product.test.ts` | s4 | 3 | build |
 
-**Shared ground.** Five prefixes are declared by more than one slice, and the waves keep them apart:
+**Shared ground.** These prefixes are declared by more than one slice, and the waves keep them apart:
 
 - `kit/lib/flow/points`, `kit/test/flow-points.test.ts` and `docs/guide/flow.md` (s3, s4, s5): the
   points' catalog, the test that every skill a point lists calls `omni flow show <point>`, and the
@@ -29,8 +29,12 @@ the feature branch, with `Part of #2578`.
 - `kit/test/skill-steps.snapshot.json` (s3, s4, s5): rewording a skill never drops a step, so each
   slice that changes a skill's `omni` commands updates that skill's entry, one wave after another.
 
-`kit/bin/bug.test.ts` is s1's alone; s2 tests the rule in `kit/lib/bug/proof-body.test.ts`. s4 reads
-the `omni bug ci` and the `Proved on` rule s1 and s2 settle; it waits for both. `kit/dist/` is
+- `kit/bin/bug.test.ts` (s1, s5): s1 tests `omni bug ci` there in wave 1; s5 tests a `## Fixes`
+  record's proof there in wave 3.
+
+s2 tests the rule in `kit/lib/bug/proof-body.test.ts`. s4 reads the `omni bug ci` and the `Proved on`
+rule s1 and s2 settle; it waits for both. s5 changes `kit/bin/commands/bug.ts`, s1 adds
+`kit/bin/commands/bug-ci.ts` beside it: the two prefixes do not meet. `kit/dist/` is
 generated: no slice lists it, and the wave rebuilds it once.
 
 ## Per slice: done when
@@ -55,10 +59,12 @@ generated: no slice lists it, and the wave rebuilds it once.
 
 - `kit/lib/bug/proof-body.test.ts`: a body at level A (GIF, `Proved on: a preview environment`,
   `Preview: <url> · <lifetime>`), at B and C (GIF, `Proved on: CI · reproduction test only, the screen
-  was not filmed` or `… the machine that made the fix · …`) and at D
+  was not filmed` or `… the machine that made the fix · …`), at C for a component bug
+  (`the machine that made the fix · the component filmed in Storybook` beside its `Clips:` line) and at D
   (`GIF not produced - A: <why>; B: <why>; C: <why>`) each passes.
 - It refuses, each fault on its own line: a GIF without `Proved on`; a B or C `Proved on` without
-  `reproduction test only, the screen was not filmed`; a level A `Proved on` without its `Preview`
+  `reproduction test only, the screen was not filmed`; the Storybook line without a `Clips:` line;
+  a level A `Proved on` without its `Preview`
   line; a D line missing a level or a level's reason (acceptance 5).
 - A body that passed before keeps passing when it carries the new line: the `Before the fix` and
   `After the fix` rules are unchanged.
@@ -90,8 +96,12 @@ generated: no slice lists it, and the wave rebuilds it once.
   to 4).
 - `omni bug <n>` runs on the open pull request's body before it is marked ready, never before it
   opens; the skill never marks it ready to get a CI run.
+- A check that fails on the reproduction commit is level B's red and counts no attempt; `/omni:pr`'s
+  watch starts once the fix is pushed, and a red on the fix commit counts one, as today.
+- A component bug whose Storybook clips were filmed writes `Proved on: the machine that made the fix ·
+  the component filmed in Storybook`, beside its `Clips:` line.
 - `kit/test/bug-fix-proof.test.ts` fails when the skill drops the early draft, a level of the ladder
-  or its order, the `Proved on` line or the check before ready. The law proofs of BR-PRODUCT-3,
+  or its order, the `Proved on` line, the attempt rule or the check before ready. The law proofs of BR-PRODUCT-3,
   BR-PRODUCT-5 and N-PRODUCT-15 in `kit/test/plugin.test.ts` pass unchanged: the slice leaves that file alone.
 - `docs/guide/use-cases.md` › Fix a bug tells the ladder on nimbus-web, with a `bug-fix.proof` hook
   for a preview environment and the CI job that removes it on `pull_request: closed`;
@@ -106,5 +116,13 @@ generated: no slice lists it, and the wave rebuilds it once.
   requests none (acceptance 7).
 - With no hook in that target, each target keeps today's CI red, and the record's `Proved on` line
   says `reproduction test only, the screen was not filmed`.
+- `kit/lib/bug/verdict.ts` no longer exempts a `## Fixes` record: given a body, `omni bug <n>` grades
+  its proof as any other, tested in `kit/bin/bug.test.ts`; mega runs `omni bug <n> --body-file` on the
+  record pull request's body before it is marked ready.
+- A product bug (`--product <key>`) carries its proof on the fix pull request of the target where the
+  bug shows; `omni bug check --product <key> <file> --body-file <body>` grades it by the same rule and
+  runs as before without the flag, tested in `kit/bin/bug-product.test.ts`.
+- `omni bug` still compares with the base branch exactly as before (N-PRODUCT-14 governs the
+  command; this slice reads it and changes nothing of it).
 - The `mega-bug-fix-*.test.ts` files fail when the skill drops the one proof, its target or the
   fallback; `docs/guide/flow.md` names `/omni:mega-bug-fix` beside `bug-fix.proof`.

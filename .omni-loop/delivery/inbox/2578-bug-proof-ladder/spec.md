@@ -53,6 +53,11 @@ the reproduction is committed and pushed alone, the pull request opens as a draf
 on top, then the proof is made and the body completed. The proof check (`omni bug <n>`) moves from
 before the pull request opens to before it is marked ready, reading the open pull request's body.
 
+**The red on the reproduction is expected.** A check that fails on the reproduction commit is level
+B's red, never a failed attempt: it counts nothing against `limits.attempts`. `/omni:pr`'s watch
+starts once the fix is pushed, and from then on, as today, a red on the fix commit is one more
+attempt at the fix.
+
 **Three flow points.** `/omni:bug-fix` and `/omni:mega-bug-fix` fire them; a repository plugs its own
 markdown hooks there, as PRD 1089 lets it do at every other point:
 
@@ -94,9 +99,12 @@ with every GIF:
 - **Proved on:** a preview environment
 - **Proved on:** CI · reproduction test only, the screen was not filmed
 - **Proved on:** the machine that made the fix · reproduction test only, the screen was not filmed
+- **Proved on:** the machine that made the fix · the component filmed in Storybook
 ```
 
-Level A adds `- **Preview:** <url> · <lifetime>` from the hook's `env:` line.
+Level A adds `- **Preview:** <url> · <lifetime>` from the hook's `env:` line. The Storybook line is
+level C for a component bug whose clips were filmed, as `/omni:bug-fix` films them today: it needs the
+body's `Clips:` line, and a C body without clips keeps the `reproduction test only` mention.
 
 **The preview environment lives with the pull request.** The hook creates it and says how long it
 lives (`until the pull request closes`, a date, or `deleted`). No agent runs when a person merges or
@@ -110,6 +118,12 @@ holds its fix: `targets` hands it every target's repository and pull request, so
 environment holding them all. The record's pull request carries the proof; target pull requests stay
 without one. When that target has no hook, mega keeps today's CI red per target, and the record's
 `Proved on` line says the screen was not filmed.
+
+Today `omni bug` never reads a `## Fixes` record's body: its proof is exempt. That exemption ends, so
+the record's proof is checked as any other: mega runs `omni bug <n> --body-file <file>` on the record
+pull request's body before it is marked ready. A product bug (`--product <key>`) has no record pull
+request: its proof goes on the fix pull request of the target where the bug shows, and
+`omni bug check --product <key> <file> --body-file <body>` checks it by the same rule.
 
 ## Conventions
 
@@ -148,6 +162,13 @@ without one. When that target has no hook, mega keeps today's CI red per target,
   filmed screen, I'll merge slop thinking I saw it fixed." So levels B and C say
   `reproduction test only, the screen was not filmed` on their `Proved on` line.
 - **No proof video** for this PRD: it changes skills and the CLI, not a screen of the arcade.
+- **Four gaps closed after the skills were read line by line:**
+  - the red on the reproduction counts no attempt, or an early draft would spend `limits.attempts`
+    on the red it was opened to show;
+  - a component bug filmed in Storybook says so on its `Proved on` line, never "not filmed";
+  - the `## Fixes` record's proof exemption ends, or the mega proof would be checked by nobody;
+  - a product bug's proof goes on the fix pull request of the target where the bug shows, since it
+    has no record pull request.
 
 ## User stories
 
@@ -167,7 +188,10 @@ In:
 
 - `kit/lib/flow/points.ts`: the three points, their modes, inputs and outputs.
 - `kit/lib/bug/ci.ts` and `omni bug ci <n>`: level B.
-- `kit/lib/bug/proof-body.ts`: the `Proved on` line, its mention at B and C, and D's reasons.
+- `kit/lib/bug/proof-body.ts`: the `Proved on` line, its mention at B and C, the Storybook variant
+  at C, and D's reasons.
+- `kit/lib/bug/verdict.ts` and `kit/bin/commands/bug.ts`: a `## Fixes` record's proof checked, and
+  `omni bug check --product` taking `--body-file`.
 - `kit/plugin/skills/bug-fix/SKILL.md`: the early draft pull request, the three points, the ladder.
 - `kit/plugin/skills/mega-bug-fix/SKILL.md`: the points in each target, the one proof.
 - `docs/guide/flow.md` (the three points) and `docs/guide/use-cases.md` › Fix a bug (the ladder), on nimbus, with a
@@ -194,8 +218,12 @@ Tests sit beside the code, as `omni kb show testing` says; none calls GitHub.
   the excerpt.
 - `kit/bin/bug.test.ts`: `omni bug ci` through `main()` on a fixture repository, with a fake `gh`,
   writes `red.txt` and `green.txt` or prints its one line and exits 1.
-- `kit/lib/bug/proof-body.test.ts`: each level's body passes; a GIF without `Proved on`, a B or C
-  line without its mention, and a D line without a reason per level are refused.
+- `kit/lib/bug/proof-body.test.ts`: each level's body passes, the Storybook line with its `Clips:`
+  line included; a GIF without `Proved on`, a B or C line without its mention, a Storybook line
+  without `Clips:`, and a D line without a reason per level are refused.
+- `kit/bin/bug.test.ts` and `kit/bin/bug-product.test.ts`: a `## Fixes` record's body is graded by
+  the proof rule; `omni bug check --product <key> <file> --body-file <body>` refuses a body without
+  its proof, and runs as before without the flag.
 - `kit/test/plugin.test.ts` and the `mega-bug-fix-*.test.ts` files: the skills name the three points,
   the ladder's order and the early draft pull request.
 - `kit/test/dist.test.ts`: the bundle is rebuilt.
@@ -242,5 +270,10 @@ The locked laws it touches:
 - A hook at `bug-fix.reproduce` and one at `bug-fix.review` run in a bug fix, and in each target of a
   mega bug fix; a failed one is a line in the pull request, and the fix goes on.
 - A mega bug fix runs `bug-fix.proof` once, in the target where the bug shows, handed every target's
-  pull request, and its record's pull request carries the proof.
+  pull request, and its record's pull request carries the proof, which `omni bug <n> --body-file`
+  checks; a product bug's proof sits on the fix pull request of that target, checked by
+  `omni bug check --product`.
+- A check that fails on the reproduction commit counts no attempt; a red on the fix commit counts one.
+- A component bug filmed in Storybook reads `Proved on: the machine that made the fix · the component
+  filmed in Storybook`, beside its `Clips:` line.
 - `omni flow show bug-fix.proof` prints the point, its modes and what it hands a hook.

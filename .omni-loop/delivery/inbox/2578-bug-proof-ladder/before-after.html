@@ -121,7 +121,8 @@ details > summary { cursor: pointer; color: var(--muted); }
 <tr><td><code>bug-fix.review</code> flow point</td><td><span class="badge added">added</span></td><td>—</td><td>before, after; handed issue, branch, base</td><td>kit</td></tr>
 <tr><td><code>bug-fix.proof</code> flow point</td><td><span class="badge added">added</span></td><td>—</td><td>before, after, replace; handed issue, base, head, pr, targets, reproduction, out</td><td>kit</td></tr>
 <tr><td><code>omni bug ci &lt;n&gt;</code></td><td><span class="badge added">added</span></td><td>—</td><td>writes red.txt and green.txt, or one line and exit 1</td><td>kit</td></tr>
-<tr><td><code>omni bug &lt;n&gt;</code> proof check</td><td>changed</td><td>an image, Before and After lines</td><td>the same, plus <code>Proved on</code>, its mention at B and C, a reason per level at D</td><td>kit</td></tr>
+<tr><td><code>omni bug &lt;n&gt;</code> proof check</td><td>changed</td><td>an image, Before and After lines</td><td>the same, plus <code>Proved on</code>, its mention at B and C (or the Storybook line beside <code>Clips:</code>), a reason per level at D; a <code>## Fixes</code> record's body graded too</td><td>kit</td></tr>
+<tr><td><code>omni bug check --product</code></td><td>changed</td><td>grades the record file</td><td>the same, and with <code>--body-file</code> the proof of the fix pull request where the bug shows</td><td>kit</td></tr>
 </table>
 <p>No breaking change: the points and the verb are added; the stricter check applies when a pull request is next marked ready, and no config key changes.</p>
 </div>
