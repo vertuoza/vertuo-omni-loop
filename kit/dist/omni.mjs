@@ -63760,7 +63760,7 @@ import { setTimeout as delay } from "node:timers/promises";
 init_define_OMNI_BUNDLE();
 var NOTHING_SEEN = Object.freeze({ queued: false, claimedBy: null, waiting: false, prs: [], merged: 0, ended: false });
 var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
-var PR_LINE2 = /^PR: (\S+)/;
+var PR_LINE2 = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
 var WAITING = /^◌ PRD \d+ · waiting for /;
 var APPROVED = /^✓ PRD \d+ approved /;
 var DONE_WORDS = { answers: "Waiting on answers", held: "Held", ready: "Ready", human: "Need human", stopped: "Stopped mid-way" };
@@ -63772,7 +63772,13 @@ function ending(job2, merged) {
   if (job2.outcome === "stopped") return merged === null || merged.total === 0 ? DONE_WORDS.stopped : `${DONE_WORDS.stopped} \xB7 ${String(merged.merged)} / ${String(merged.total)} slices merged`;
   return job2.outcome === null ? "Done" : DONE_WORDS[job2.outcome];
 }
-function readLines(lines3, seen) {
+function ownPullRequest(raw, repo) {
+  const link3 = PR_LINE2.exec(raw.trimEnd())?.[1];
+  const [owner, name3] = repo.toLowerCase().split("/");
+  const parts = link3 === void 0 ? null : /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/\d+$/i.exec(link3);
+  return parts !== null && parts[1]?.toLowerCase() === owner && parts[2]?.toLowerCase() === name3 ? link3 : void 0;
+}
+function readLines(lines3, seen, repo) {
   let waiting = seen.waiting;
   let waitingStarted = false;
   const prs = [...seen.prs];
@@ -63785,7 +63791,7 @@ function readLines(lines3, seen) {
     } else if (APPROVED.test(line2)) {
       waiting = false;
     }
-    const pr = PR_LINE2.exec(line2)?.[1];
+    const pr = ownPullRequest(raw, repo);
     if (pr !== void 0 && !prs.includes(pr)) {
       prs.push(pr);
       fresh.push(pr);
@@ -63802,7 +63808,7 @@ function milestones(previous, job2, lines3, merged, page2) {
     claimedBy = job2.runner;
     out.push(`claimed by ${job2.runner}`);
   }
-  const read3 = readLines(lines3, seen);
+  const read3 = readLines(lines3, seen, job2.repo);
   if (read3.waitingStarted) out.push("waiting for approval");
   for (const pr of read3.prs.slice(seen.prs.length)) out.push(`PR: ${pr}`);
   let count5 = seen.merged;
@@ -63973,7 +63979,7 @@ async function read2(run2) {
   const ended2 = isEnded(job2);
   run2.merged = await countOf(run2, ended2);
   const page2 = ended2 ? await pageOf4(run2.prd, run2.at, run2.io.fetch ?? globalThis.fetch) : null;
-  const next2 = milestones(run2.seen, job2, lines3, run2.merged, page2);
+  const next2 = milestones(run2.seen, { ...job2, repo: run2.at.repo }, lines3, run2.merged, page2);
   run2.seen = next2.seen;
   for (const line2 of next2.lines) println(run2.io.stdout, line2);
   const last = next2.lines.at(-1);
