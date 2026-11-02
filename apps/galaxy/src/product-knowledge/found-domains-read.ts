@@ -1,4 +1,5 @@
-import { foldersOf, type PackFile, type RepositoryFolders } from './found-domains';
+import type { RepositoryFolders } from './found-domains';
+import { foldersOf, type PackFile } from './found-domains-pack';
 
 // How Not on the list reads (PRD 2583 s3), over ports it is given: the product's repositories and plan
 // repository, then the newest pack of each, once. A repository with no pack is `folders: null` (not read

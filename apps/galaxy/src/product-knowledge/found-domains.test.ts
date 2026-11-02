@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { adoptFields, canBeKey, foldersOf, foundDomains, knowledgeRootOf, notOnListLabel, type RepositoryFolders } from './found-domains';
+import { adoptFields, canBeKey, foundDomains, notOnListLabel, type RepositoryFolders } from './found-domains';
+import { foldersOf, knowledgeRootOf } from './found-domains-pack';
 
 // The folders of a product's repositories that its list of domains does not hold (PRD 2583 s3), from a
 // knowledge pack's files: pure. Fictional repositories and folders.
@@ -120,5 +122,12 @@ describe('the sub-menu\'s entry', () => {
     expect(notOnListLabel(0, 1)).toBe('Domains 0 · 1 not on the list');
     expect(notOnListLabel(6, 0)).toBeNull();
     expect(notOnListLabel(6, null)).toBeNull();
+  });
+});
+
+describe('found-domains in the browser', () => {
+  it('imports nothing, so a client component can read it without the kit\'s file system', () => {
+    const source = readFileSync(new URL('./found-domains.ts', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/^import\s(?!type\s)/m);
   });
 });
