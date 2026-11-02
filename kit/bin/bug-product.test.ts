@@ -71,6 +71,53 @@ describe('omni bug check --product', () => {
   });
 });
 
+describe('omni bug check --product --body-file (PRD 2578)', () => {
+  const GIF = 'https://omni.example/api/proofs/9f0c1d2e-0000-4000-8000-000000000001/preview.gif';
+  const withProof = (lines: string[]) => ['Fixes mobile-B74', '', '## Proof', '', `![Before and after the fix](${GIF})`, '', ...lines, ''].join('\n');
+  const PASSING = [
+    '- **Before the fix** (red): `boom`',
+    '- **After the fix** (green, `a1b2c3d`): `ok`',
+    '- **Proved on:** CI · reproduction test only, the screen was not filmed',
+  ];
+
+  function repoWithBody(body: string) {
+    const root = repoWith(record('acme/api'));
+    writeFileSync(join(root, 'body.md'), body);
+    return root;
+  }
+
+  it('grades the proof of the fix pull request beside the rows, and passes a body that has it', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'body.md'], repoWithBody(withProof(PASSING)), app().fetch);
+    expect(code).toBe(0);
+    expect(out).toContain('1 Fixes row(s)');
+  });
+
+  it('refuses a body without its proof', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'body.md'], repoWithBody('Fixes mobile-B74\n'), app().fetch);
+    expect(code).toBe(1);
+    expect(out).toContain('bug.md: no ## Proof section');
+  });
+
+  it('refuses a GIF without its Proved on line', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'body.md'], repoWithBody(withProof(PASSING.slice(0, 2))), app().fetch);
+    expect(code).toBe(1);
+    expect(out).toContain('## Proof has no "Proved on" line');
+  });
+
+  it('is a usage error for a body file that cannot be read, and runs as before without the flag', async () => {
+    const root = repoWith(record('acme/api'));
+    const missing = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'nope.md'], root, app().fetch);
+    expect(missing.code).toBe(2);
+    expect((await omni(['bug', 'check', '--product', 'mobile', 'bug.md'], root, app().fetch)).code).toBe(0);
+  });
+
+  it('is for check: push refuses it', async () => {
+    const { code, err } = await omni(['bug', 'push', '--product', 'mobile', '--new', 'bug.md', '--body-file', 'body.md'], repoWithBody(''), app().fetch);
+    expect(code).toBe(2);
+    expect(err).toContain('--body-file is for check');
+  });
+});
+
 describe('omni bug push --product', () => {
   it('creates the next bug and prints its id first', async () => {
     const { calls, fetch } = app();

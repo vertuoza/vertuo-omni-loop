@@ -17,6 +17,10 @@
 // the product's own repositories, which the app answers (`../../lib/bug/product.ts`), never
 // `plan.targets`; a push checks first, so a row outside the product is refused by name and nothing is
 // written. It prints the bug's id (`mobile-B74`). Without `--product` every verb runs exactly as before.
+//
+// `omni bug check --product <key> <file> --body-file <body>` (PRD 2578) also grades the body of the fix
+// pull request of the target where the bug shows: its `## Proof`, by the same rule as `omni bug <n>`.
+// A product bug has no record pull request, so that is where its proof sits.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
@@ -26,6 +30,7 @@ import { openPullRequest, proofFaults } from '../../lib/bug/proof-body.ts';
 import type { ProofSource } from '../../lib/bug/proof-body.ts';
 import { bugVerdict } from '../../lib/bug/verdict.ts';
 import { formatFailure, formatPass } from '../../lib/check-report.ts';
+import { parseIssue } from '../../lib/ids.ts';
 import { isProductKey } from '../../lib/product/checkout.ts';
 import { issueArg, parseArgs, println, readUserFile, usageError } from '../args.ts';
 import { fixLaws, loggedPaths, rangeBase, rangeCommits } from '../branch-range.ts';
@@ -40,7 +45,7 @@ type BugOptions = { tokens?: TokenStore | undefined; home?: string | undefined; 
 const USAGE = [
   'usage: omni bug <n> [--base <ref>] [--body-file <file>]',
   '       omni bug film <n> --before <file> --after <file> [--out <dir>]',
-  '       omni bug check --product <key> <file>',
+  '       omni bug check --product <key> <file> [--body-file <body>]',
   '       omni bug push --product <key> (--new | --bug <n>) <file>',
 ].join('\n');
 
@@ -74,23 +79,24 @@ function refuse(stderr: Out, line: string): number {
 /** What a product verb is handed: this checkout's context and the injected options. */
 type ProductIo = FreeIo & BugOptions & Pick<CommandIo, 'ctx'>;
 
-type ProductArgs = { key: string; file: string; bug: string | null; create: boolean };
+type ProductArgs = { key: string; file: string; bug: string | null; create: boolean; bodyFile: string | null };
 
 /** The usage error a flag combination earns, or null when `check` or `push` may take it. */
-function flagFault(verb: 'check' | 'push', flags: { new?: true; bug?: string }): string | null {
+function flagFault(verb: 'check' | 'push', flags: { new?: true; bug?: string; 'body-file'?: string }): string | null {
   if (verb === 'check') return flags.new === true || flags.bug !== undefined ? 'omni bug check: --new and --bug are for push.' : null;
+  if (flags['body-file'] !== undefined) return 'omni bug push: --body-file is for check.';
   if (flags.new === true && flags.bug !== undefined) return 'omni bug push: --new and --bug are two ways to name the bug: give one.';
   return flags.new !== true && flags.bug === undefined ? 'omni bug push: say where it goes: --new for the next bug of the product, or --bug <n>.' : null;
 }
 
 function productArgs(verb: 'check' | 'push', rest: string[]): ProductArgs {
-  const { positional, flags } = parseArgs(`bug ${verb}`, rest, { values: ['product', 'bug'], booleans: ['new'] });
+  const { positional, flags } = parseArgs(`bug ${verb}`, rest, { values: ['product', 'bug', 'body-file'], booleans: ['new'] });
   const key = flags.product ?? '';
   if (!isProductKey(key)) throw usageError(`omni bug ${verb}: --product "${key}" needs a product key (lowercase kebab-case, as mobile).`);
   if (positional.length !== 1) throw usageError(USAGE);
   const fault = flagFault(verb, flags);
   if (fault !== null) throw usageError(fault);
-  return { key, file: positional[0] ?? '', bug: flags.bug ?? null, create: flags.new === true };
+  return { key, file: positional[0] ?? '', bug: flags.bug ?? null, create: flags.new === true, bodyFile: flags['body-file'] ?? null };
 }
 
 /** What a product verb starts from: its arguments, the record read, the connection and the grade; or its exit code. */
@@ -114,7 +120,8 @@ async function checkProduct(rest: string[], io: ProductIo): Promise<number> {
   const prepared = await prepare('check', rest, io);
   if (typeof prepared === 'number') return prepared;
   const { args, graded } = prepared;
-  const lines = graded.ok ? graded.violations : graded.lines;
+  const proof = args.bodyFile === null ? [] : proofFaults({ kind: 'file', body: readUserFile('bug check', io.ctx, args.bodyFile) }, parseIssue(1));
+  const lines = [...(graded.ok ? graded.violations : graded.lines), ...proof];
   if (lines.length > 0) {
     println(io.stdout, formatFailure(`omni bug check — ${args.file}: violation(s):`, lines.map((line) => `${args.file}: ${line}`)));
     return 1;
