@@ -1,6 +1,6 @@
 // `omni kb index` (PRD 2299) prints the capped block of the product's knowledge a session starts with.
-// `omni kb legal | glossary` (PRD 1795) print the product's Legal entries or glossary terms from the Omni page, or
-// the local copy when it is unreachable. `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
+// `omni kb legal | glossary | domains` (PRD 1795, 2583) print the product's Legal entries, glossary terms or domains
+// from the Omni page, or the local copy when it is unreachable. `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
 // section (a pointer, then the repository's section, then the kit default), each section labelled
@@ -46,7 +46,8 @@ import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
 import { INDEX_BUDGET_MS, readIndex, withDeadline } from '../../lib/product/index.ts';
 import type { IndexBody, IndexIo } from '../../lib/product/index.ts';
-import { glossaryLines, legalLines, productKnowledge, readCachedKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
+import type { ProductKnowledge } from '../../lib/product/knowledge.ts';
+import { domainLines, glossaryLines, legalLines, NO_DOMAINS_LINE, productKnowledge, readCachedKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
@@ -84,7 +85,7 @@ const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
 const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
 const GRAPH_PRODUCT_USAGE = 'usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]';
 const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb index [--json]`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb domains [add|edit …] | omni kb index [--json]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -210,6 +211,9 @@ function columns({ principles, rules, invariants, laws, proposed }: GraphCounts)
   ];
 }
 
+/** The mark of a domain folder the product's list does not hold (PRD 2583). */
+const OFF_THE_LIST = "not on the product's list";
+
 /** A cross-domain entry's pair, `<a>--<b>`, or its file when the file's name names no pair. */
 const pairOf = (entry: GraphEntry): string => (entry.domains.length === 2 ? entry.domains.join('--') : entry.file);
 
@@ -218,11 +222,14 @@ const pairOf = (entry: GraphEntry): string => (entry.domains.length === 2 ? entr
  * and its laws and proposals, the columns lined up; then the unserved principles and the loose
  * entries, every id named.
  */
-function graphText({ domains, entries, links, loose, unserved }: Graph): string {
+function graphText({ domains, entries, links, loose, unserved }: Graph, listed: ReadonlySet<string> | null): string {
   const pairs = new Map<string, GraphEntry[]>();
   for (const entry of entries.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...(pairs.get(pairOf(entry)) ?? []), entry]);
   const rows: [string, string, string][] = [
-    ...domains.map(({ name, counts }): [string, string, string] => [name, ...columns(counts)]),
+    ...domains.map(({ name, counts, scope }): [string, string, string] => {
+      const [kinds, status] = columns(counts);
+      return [name, kinds, listed !== null && listed.size > 0 && scope === 'domain' && !listed.has(name) ? `${status} · ${OFF_THE_LIST}` : status];
+    }),
     ...[...pairs].map(([name, held]): [string, string, string] => [name, ...columns(countsOf(held))]),
   ];
   const nameWidth = Math.max(0, ...rows.map(([name]) => name.length));
@@ -231,6 +238,7 @@ function graphText({ domains, entries, links, loose, unserved }: Graph): string 
   return [
     `kb graph — ${count(domains.length, 'domain', 'domains')}, ${count(entries.length, 'entry', 'entries')}, ${count(links.length, 'link', 'links')}`,
     ...rows.map(([name, kinds, status]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status}`),
+    ...(listed !== null && listed.size === 0 ? [`  ${NO_DOMAINS_LINE}`] : []),
     ids('unserved principles', unserved),
     ids('loose entries', loose),
   ].join('\n');
@@ -250,8 +258,17 @@ function graph(args: string[], io: CommandIo): number {
   if (start !== undefined) return neighbourhoodOf({ ids: [start] }, depth, flags, io);
   if (flags.depth !== undefined) throw usageError(GRAPH_USAGE);
   const built = readGraph({ ctx });
-  println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built, listedDomains(ctx)));
   return 0;
+}
+
+/**
+ * The keys of the product's domains, read from the local copy and never the network (PRD 2583); null with no
+ * copy, so nothing is marked. A copy from before the domains lists none.
+ */
+function listedDomains(ctx: Context): ReadonlySet<string> | null {
+  const cache = readCachedKnowledge(ctx.root);
+  return cache.state === 'cached' ? new Set((cache.domains ?? []).map(({ key }) => key)) : null;
 }
 
 /** The files `--paths` starts from, read as `omni kb laws --paths` reads them; none, or an id beside them, is a usage error. */
@@ -517,7 +534,17 @@ function reachOf(ctx: Context, options: PackOptions): { repo: string; client: No
  * `last read <date>: the Omni page is unreachable`, or exit 1 with no copy. A refusal prints the
  * server's reason and exits 1, whatever the copy.
  */
-async function productVerb(verb: 'legal' | 'glossary', positional: string[], { ctx, stdout, exec }: CommandIo, options: PackOptions, cwd: string): Promise<number> {
+/** The lines each product read prints, from what was read. */
+const PRODUCT_LINES = {
+  legal: (read: ProductKnowledge) => legalLines(read.legal),
+  glossary: (read: ProductKnowledge) => glossaryLines(read.glossary),
+  domains: (read: ProductKnowledge) => domainLines(read.domains ?? []),
+} as const;
+
+/** Whether `sub` is a verb that reads or changes the product's knowledge: legal, glossary or domains. */
+const isProductVerb = (sub: string | undefined): sub is keyof typeof PRODUCT_LINES => sub !== undefined && Object.hasOwn(PRODUCT_LINES, sub);
+
+async function productVerb(verb: 'legal' | 'glossary' | 'domains', positional: string[], { ctx, stdout, exec }: CommandIo, options: PackOptions, cwd: string): Promise<number> {
   if (positional.length > 0) throw usageError(`usage: omni kb ${verb}`);
   const refuse = (line: string): number => {
     println(stdout, line);
@@ -534,15 +561,15 @@ async function productVerb(verb: 'legal' | 'glossary', positional: string[], { c
       fetchBusiness: () => client.readBusiness(repo),
     });
     if (read.from === 'copy') println(stdout, unreachableLine(read.readAt));
-    for (const line of verb === 'legal' ? legalLines(read.legal) : glossaryLines(read.glossary)) println(stdout, line);
+    for (const line of PRODUCT_LINES[verb](read)) println(stdout, line);
     return 0;
   } catch (error) {
     return refuse(messageOf(error));
   }
 }
 
-/** `omni kb legal | glossary`: the read, or with `add` or `edit` (PRD 2268) the write of `../kb-write.ts`. */
-function productCommand(verb: 'legal' | 'glossary', args: string[], io: CommandIo & PackOptions, options: PackOptions & { cwd: string }): Promise<number> {
+/** `omni kb legal | glossary | domains`: the read, or with `add` or `edit` (PRD 2268, 2583) the write of `../kb-write.ts`. */
+function productCommand(verb: 'legal' | 'glossary' | 'domains', args: string[], io: CommandIo & PackOptions, options: PackOptions & { cwd: string }): Promise<number> {
   if (args[0] === 'add' || args[0] === 'edit') return knowledgeWrite(verb, args, io, options);
   return productVerb(verb, args, io, options, options.cwd);
 }
@@ -659,7 +686,7 @@ export const kb: FreeCommand = {
     if (sub === 'pack') return pack(rest, full);
     if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
     if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
-    if (sub === 'legal' || sub === 'glossary') return productCommand(sub, rest, { ...full, vars: io.vars }, io);
+    if (isProductVerb(sub)) return productCommand(sub, rest, { ...full, vars: io.vars }, io);
     return basic(args, full);
   },
 };

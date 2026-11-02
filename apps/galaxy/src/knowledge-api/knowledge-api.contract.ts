@@ -11,8 +11,10 @@
 //   the database checks every value):
 //     legal add          fields {code, statement, source}
 //     legal edit         entry `L-<CODE>-<n>`, fields {statement?, source?}
-//     glossary add       fields {term, meaning, avoid?}
-//     glossary edit      entry the term, fields {term?, meaning?, avoid?}
+//     glossary add       fields {term, meaning, avoid?, domains?}
+//     glossary edit      entry the term, fields {term?, meaning?, avoid?, domains?}; domains [] clears them
+//     domains add        fields {key, name, meaning} (PRD 2583)
+//     domains edit       entry the key, fields {name?, meaning?}: the key never changes, nothing is retired here
 //     constituent add    fields {statement} or {never}: the Statement, or a Never line
 //     constituent edit   entry `statement` or `never#<n>`, fields {text}
 // - The answer: `applied` (the change is saved; id is the item's, url its page) or `proposed` (a member
@@ -31,6 +33,9 @@ const REPO = /^[\w.-]+\/[\w.-]+$/;
 const text = (most: number) => z.string().trim().max(most);
 
 const AVOID = z.array(text(80)).max(20);
+
+/** A term's domains, by key (PRD 2583); the database checks each against the product's active list. */
+const DOMAIN_KEYS = z.array(text(60)).max(20);
 
 const NEVER_ID = /^never#[1-9]\d{0,8}$/;
 
@@ -56,11 +61,19 @@ const LegalEdit = z.strictObject({
 });
 const GlossaryAdd = z.strictObject({
   ...WHERE, kind: z.literal('glossary'), action: z.literal('add'),
-  fields: z.strictObject({ term: text(80), meaning: text(400), avoid: AVOID.optional() }),
+  fields: z.strictObject({ term: text(80), meaning: text(400), avoid: AVOID.optional(), domains: DOMAIN_KEYS.optional() }),
 });
 const GlossaryEdit = z.strictObject({
   ...WHERE, kind: z.literal('glossary'), action: z.literal('edit'), entry: ENTRY,
-  fields: z.strictObject({ term: text(80), meaning: text(400), avoid: AVOID }).partial().refine(some, SOME),
+  fields: z.strictObject({ term: text(80), meaning: text(400), avoid: AVOID, domains: DOMAIN_KEYS }).partial().refine(some, SOME),
+});
+const DomainsAdd = z.strictObject({
+  ...WHERE, kind: z.literal('domains'), action: z.literal('add'),
+  fields: z.strictObject({ key: text(60), name: text(80), meaning: text(400) }),
+});
+const DomainsEdit = z.strictObject({
+  ...WHERE, kind: z.literal('domains'), action: z.literal('edit'), entry: ENTRY,
+  fields: z.strictObject({ name: text(80), meaning: text(400) }).partial().refine(some, SOME),
 });
 const ConstituentAdd = z.strictObject({
   ...WHERE, kind: z.literal('constituent'), action: z.literal('add'),
@@ -76,16 +89,18 @@ const ConstituentEdit = z.strictObject({
 export const CHANGES = {
   legal: { add: LegalAdd, edit: LegalEdit },
   glossary: { add: GlossaryAdd, edit: GlossaryEdit },
+  domains: { add: DomainsAdd, edit: DomainsEdit },
   constituent: { add: ConstituentAdd, edit: ConstituentEdit },
 } as const;
 
 /** What picks a change's schema. */
-export const ChangeHeadSchema = z.object({ kind: z.enum(['legal', 'glossary', 'constituent']), action: z.enum(['add', 'edit']) });
+export const ChangeHeadSchema = z.object({ kind: z.enum(['legal', 'glossary', 'domains', 'constituent']), action: z.enum(['add', 'edit']) });
 
 export type LegalChange = z.infer<typeof LegalAdd> | z.infer<typeof LegalEdit>;
 export type GlossaryChange = z.infer<typeof GlossaryAdd> | z.infer<typeof GlossaryEdit>;
+export type DomainsChange = z.infer<typeof DomainsAdd> | z.infer<typeof DomainsEdit>;
 export type ConstituentChange = z.infer<typeof ConstituentAdd> | z.infer<typeof ConstituentEdit>;
-export type KnowledgeChange = LegalChange | GlossaryChange | ConstituentChange;
+export type KnowledgeChange = LegalChange | GlossaryChange | DomainsChange | ConstituentChange;
 
 export const KnowledgeChangeReplySchema = z.strictObject({
   done: z.enum(['applied', 'proposed']),

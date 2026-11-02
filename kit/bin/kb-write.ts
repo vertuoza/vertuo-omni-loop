@@ -5,14 +5,16 @@
 //
 //   omni kb legal add --code <CODE> --statement "<text>" --source "<law>"
 //   omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]
-//   omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]
-//   omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]
+//   omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>] [--domain <a,b>]
+//   omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>] [--domain <a,b>]   (--domain '' clears them)
+//   omni kb domains add --key <key> --name "<name>" --meaning "<text>"        (PRD 2583)
+//   omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]
 //   each takes --product <name> and --json
 //
 // One line on success (`added <id> · <url>`, `edited <id> · <url>` or `proposed · waits for @<owner> ·
 // <url>`), or with `--json` the route's answer. A refusal, a missing sign-in or an unreachable page is
 // one line and exit 1 (with `--json`, `{error}` on stdout); a missing flag, an edit with no field or an
-// unknown flag is a usage error, exit 2. No remove and no retire: those stay on the Knowledge tab.
+// unknown flag is a usage error, exit 2. No remove and no retire (a domain is retired on the Knowledge tab only).
 import { askClient, AskCallError } from '../lib/ask/client.ts';
 import type { Fetch, TokenStore } from '../lib/ask/client.ts';
 import { homeTokens } from '../lib/ask/client-tokens.ts';
@@ -30,7 +32,7 @@ export type WriteOptions = {
   callMs?: number | undefined;
 };
 
-type Kind = 'legal' | 'glossary';
+type Kind = 'legal' | 'glossary' | 'domains';
 type Action = 'add' | 'edit';
 
 /** The body of one change, as `POST /api/knowledge/changes` takes it, less the repository. */
@@ -38,26 +40,31 @@ type Change = { product?: string; kind: Kind; action: Action; entry?: string; fi
 
 const USAGE: Record<Kind, string> = {
   legal: 'usage: omni kb legal add --code <CODE> --statement "<text>" --source "<law>" [--product <name>] [--json] | omni kb legal edit <id> [--statement "<text>"] [--source "<law>"] [--product <name>] [--json]',
-  glossary: 'usage: omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>] [--product <name>] [--json] | omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>] [--product <name>] [--json]',
+  glossary: 'usage: omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>] [--domain <a,b>] [--product <name>] [--json] | omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>] [--domain <a,b>|\'\'] [--product <name>] [--json]',
+  domains: 'usage: omni kb domains add --key <key> --name "<name>" --meaning "<text>" [--product <name>] [--json] | omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"] [--product <name>] [--json]',
 };
 
 /** The fields an add must carry, the ones it may carry, and the ones an edit may change (an edit names its item apart). */
-const REQUIRED: Record<Kind, readonly string[]> = { legal: ['code', 'statement', 'source'], glossary: ['term', 'meaning'] };
-const ADDABLE: Record<Kind, readonly string[]> = { legal: REQUIRED.legal, glossary: ['term', 'meaning', 'avoid'] };
-const EDITABLE: Record<Kind, readonly string[]> = { legal: ['statement', 'source'], glossary: ['meaning', 'avoid'] };
+const REQUIRED: Record<Kind, readonly string[]> = { legal: ['code', 'statement', 'source'], glossary: ['term', 'meaning'], domains: ['key', 'name', 'meaning'] };
+const ADDABLE: Record<Kind, readonly string[]> = { legal: REQUIRED.legal, glossary: ['term', 'meaning', 'avoid', 'domain'], domains: REQUIRED.domains };
+const EDITABLE: Record<Kind, readonly string[]> = { legal: ['statement', 'source'], glossary: ['meaning', 'avoid', 'domain'], domains: ['name', 'meaning'] };
 
 /** A text, trimmed, or null when it is absent or blank. */
 const textOf = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null);
 
-/** The avoid words of `--avoid a,b`: trimmed, none empty. */
+/** The words of a list flag, `--avoid a,b` or `--domain a,b`: trimmed, none empty. */
 const wordsOf = (value: string): string[] => value.split(',').map((word) => word.trim()).filter(Boolean);
 
-/** The fields of `names` that `flags` give: text trimmed and never blank, `avoid` a list (empty clears it). */
+/** The flags that carry a list, and the field each fills (`--domain` fills `domains`). */
+const LISTS: Record<string, string> = { avoid: 'avoid', domain: 'domains' };
+
+/** The fields of `names` that `flags` give: text trimmed and never blank, `avoid` and `domain` lists (empty clears it). */
 function fieldsOf(names: readonly string[], flags: Record<string, string | true | undefined>): Record<string, unknown> {
   const given = names.map((name): [string, unknown] => {
     const raw = flags[name];
-    if (name !== 'avoid') return [name, textOf(raw)];
-    return [name, typeof raw === 'string' ? wordsOf(raw) : null];
+    const list = LISTS[name];
+    if (list === undefined) return [name, textOf(raw)];
+    return [list, typeof raw === 'string' ? wordsOf(raw) : null];
   });
   return Object.fromEntries(given.filter(([, value]) => value !== null));
 }
