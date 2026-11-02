@@ -175,8 +175,9 @@ Steps 5 (the wave's check, adopt, rebuild) and 6 (the report) run as written; th
   reads it `runnable`, so a drive stops on its "a wave merged nothing and the board did not change"
   row (`/omni:yolo` step 3) rather than looping.
 - **Never inline a PRD that has a sub-PR,** nor across repositories: `inlineWave` says `false`, so a
-  config change in the middle of a PRD never mixes the two shapes, and `/omni:ultra-wave` is
-  untouched.
+  config change in the middle of a PRD never mixes the two shapes. A plan repository's targets are
+  counted one by one instead (`inlineTargets`, built by `/omni:ultra-wave`), and a target that
+  already has a sub-PR is left out the same way.
 - **Turning the key back to `0` in the middle of a PRD** makes its built slices read `runnable` again
   (nothing reads the trailer then); set it back, or finish the PRD by hand.
 

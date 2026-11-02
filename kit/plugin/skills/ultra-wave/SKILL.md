@@ -1,6 +1,6 @@
 ---
 name: ultra-wave
-description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch), start one agent per slice, each in its own worktree, following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. With a product PRD's id (<key>-<n>) it reads the approval first and claims nothing while it is drifted or the server is held, takes the plan through omni dossier get and relays every item to the PRD's outbox on the server, with no plan PR. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
+description: Build ONE wave of a multi-repository PRD from its plan repository — read the board across every repository, claim each takeable slice in its target (a draft sub-PR into that target's feature branch; a target the board names under `inlineRepos` is built on its feature branch itself, with no sub-PR), start one agent per slice, each in its own worktree, following /omni:do-work --in-wave --target, merge each sub-PR in its target after the territory check, relay each slice's items into the plan repository's outbox, adopt the wave's medium decisions there, check each touched target and tick the slices on both feature PRs. With a product PRD's id (<key>-<n>) it reads the approval first and claims nothing while it is drifted or the server is held, takes the plan through omni dossier get and relays every item to the PRD's outbox on the server, with no plan PR. Followed by /omni:ultra-yolo for each wave; a person may run it on a PRD. Never merges into any default branch. Triggers on "run the next ultra wave", "build this wave across the repositories", "/omni:ultra-wave".
 ---
 
 # Ultra-wave: one wave, across repositories
@@ -201,6 +201,45 @@ As `/omni:wave` step 4, with `--repo <slug>` on every `gh` call and git in the t
 The "not merged" table and its status comments apply as written, with `--repo <slug>`. A slice not
 merged relays nothing; its `<out>` stays, named in the report.
 
+## Inline targets
+
+The board's `inlineRepos` (`omni board <prd> --json`) names each target the wave builds **inline**:
+`wave.inlineBelow` is set (above `0`), the target holds fewer slices than it (its current landing's,
+for a target of several landings), and none of its slices has a sub-PR. Each target is counted
+alone: five targets of one slice each are five inline targets, so the PRD opens five pull requests,
+its target feature PRs, and no sub-PR; a target of two slices, with `inlineBelow` at `2`, keeps its
+sub-PRs. `inlineRepos` empty (or `wave.inlineBelow` at its default `0`): this section does not
+apply and every step runs as written.
+
+A slice whose `repo` is in `inlineRepos` skips steps 2 and 4 (no claim, no slice branch, no sub-PR,
+nothing to merge) and is built by `/omni:do-work --inline --target <repo>` on its target's feature
+branch. Slices of different targets share no branch, so they run side by side as in step 3; slices
+of one target share one and run one after the other, in board order. Its prompt:
+
+> Build slice `<id>` of PRD <prd>, inline on feature branch `<feature branch>` of `<slug>`: follow
+> `/omni:do-work --inline --target <repo>`. Do not spawn subagents. Return only do-work's result
+> JSON: no diffs, no logs.
+
+The result carries `repo` and `out` as in step 3, with `branch` the feature branch and `prUrl`
+`null`. Then, per built (`done`) slice, in this order:
+
+1. **Territory.** `git diff --name-only <the feature branch before the slice>..<remote>/<feature branch>`
+   in the target's clone, against the row's `territory`, as step 4 item 2 reads it. A breach is
+   reported and never fatal.
+2. **The built mark.** The plan repository cannot read a target's commits, only its pull requests,
+   so the target's **feature PR body** names each built slice on a line of its own,
+   `Omni-Slice: <id>`, which the board reads (`inlineSlicesInTargets`). Add that line with
+   `gh pr edit <n> --repo <slug> --body-file <file>`, keeping the body's `omni sign footer` line and
+   its **Slices** checklist. The slice's commits carry the same trailer, as `/omni:do-work --inline`
+   writes it.
+3. **Relay.** As step 4 item 6, the slice's items from `<out>`.
+
+A slice that does not end `done` is not built: its feature PR body gets no `Omni-Slice` line, the
+board still holds it, and the report says why, as `/omni:wave`'s inline wave does. Step 5 runs as
+written for each touched target, and its item 4 ticks an inline slice in its target PR's **Slices**
+checklist (`<title> — built inline`, no sub-PR number) and in the plan PR's. The report's sub-PR
+column reads `inline`, the outcome `built`.
+
 ## 5. Check the wave together
 
 1. **Adopt, then commit once.** In the plan repository's worktree of step 4, as `/omni:wave` step 5
@@ -247,3 +286,5 @@ with its reason. This is what `/omni:ultra-yolo` reads.
   written by hand.
 - Every item ends up in the plan repository's outbox; a refused one is named, never dropped.
 - Subagents never merge; one slice per worktree, branch and sub-PR; claim before you dispatch.
+- Inline only for a target `inlineRepos` names: never claim, open a sub-PR or build side by side on one
+  branch then, and never inline a target that already has a sub-PR (the board leaves it out).

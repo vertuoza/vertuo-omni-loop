@@ -38,7 +38,7 @@ prints `hooks none` and `kitStep: run`: the step runs as written.
 | slice | `s5` | a row of the PRD's plan |
 | feature branch | shaped like `branches.feature` | the branch the slice is cut from and its sub-PR targets |
 | `--in-wave` | — | set by `/omni:wave` only. Changes three things, below: the claimed slice branch is checked out rather than cut, medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
-| `--inline` | — | set by `/omni:wave` only, when the board says `inline` (`wave.inlineBelow`): the plan is small enough for the feature PR to be the record of every slice. The slice is built on the feature branch itself, with no claim, no slice branch and no sub-PR: see **Under `--inline`** |
+| `--inline` | — | set by `/omni:wave` only, when the board says `inline` (`wave.inlineBelow`): the plan is small enough for the feature PR to be the record of every slice. The slice is built on the feature branch itself, with no claim, no slice branch and no sub-PR: see **Under `--inline`**. `/omni:ultra-wave` sets it too, with `--target <name>`, for a target the board names under `inlineRepos`: see **Under `--inline --target`** |
 | tier | `Tier: light · claude haiku · low` | set by `/omni:wave` in the prompt: the tier the slice's agent was started on, and its model. Absent, the slice runs on the terminal's model: see **The tier** |
 | `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository, or for a product PRD (`mobile-12`) in any kitted checkout of its product: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which setup and preflight run and what the result carries: see **Under `--target <name>`** |
 
@@ -486,6 +486,22 @@ differences.
   the work is, and an item it wrote is on that branch.
 - **The result** is `--in-wave`'s, with `branch` the feature branch and `prUrl` `null` when `done`,
   and `branch` the slice branch and `prUrl` `null` otherwise.
+
+## Under `--inline --target <name>`
+
+`/omni:ultra-wave` sets both when the board's `inlineRepos` names the target (`wave.inlineBelow`
+counted per target): the target holds so few slices that its feature PR is the record of each.
+**Under `--inline`** applies, in the target's clone and on the target's feature branch, with these
+differences.
+
+- **The mark goes to the pull request too.** A plan repository reads a target through its pull
+  requests, never its commits, so the commit trailer `Omni-Slice: <id>` is not enough: this skill
+  never edits the feature PR itself, and a `done` result is what makes `/omni:ultra-wave`
+  add the same `Omni-Slice: <id>` line to the target's feature PR body.
+- **The items stay in `<out>`,** the scratch folder, as under `--target`: `/omni:ultra-wave` relays
+  them once the slice is built.
+- **No plan row to tick:** the target holds no plan. The setup and the preflight that run are the
+  target's own, as under `--target`.
 
 ## Under `--target <name>`
 
