@@ -31,6 +31,8 @@ const RunnerRow = z.object({
   health: RunnerHealthSchema.nullable().catch(null),
   /** Whether it registered able to run a job as an API key's GitHub App (PRD 2433). */
   github_app: z.boolean(),
+  /** When it last registered: a check-in claims only for the registration it began under (bug #2593). */
+  registered_at: z.string(),
 });
 export type RunnerRow = z.infer<typeof RunnerRow>;
 
@@ -88,7 +90,7 @@ const JobRow = z.object({
 export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
-const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app';
+const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app, registered_at';
 const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
@@ -332,7 +334,7 @@ export function runnersRepository(db: RunnersDb) {
         version: runner.version, last_seen_at: runner.seenAt, github_app: runner.githubApp,
       }).select(RUNNER_COLUMNS).single(), RunnerRow, 'runners'),
 
-    updateRunner: async (id: string, patch: Partial<Pick<RunnerRow, 'fleet' | 'slots' | 'repos' | 'version' | 'last_seen_at' | 'health' | 'github_app'>>): Promise<RunnerRow> =>
+    updateRunner: async (id: string, patch: Partial<Pick<RunnerRow, 'fleet' | 'slots' | 'repos' | 'version' | 'last_seen_at' | 'health' | 'github_app' | 'registered_at'>>): Promise<RunnerRow> =>
       parsed(db.from('runners').update(patch).eq('id', id).select(RUNNER_COLUMNS).single(), RunnerRow, 'runners'),
 
     /** A runner's health report in one call (bug #2557, runner_report_health()): 'missing' or 'forbidden' for a runner that is not
@@ -367,9 +369,9 @@ export function runnersRepository(db: RunnersDb) {
     allowedSkills: async (workspaceId: string, repo: string): Promise<string[]> =>
       parsed(db.rpc('repository_runner_skills_of', { p_workspace: workspaceId, p_full_name: repo }), z.array(z.string()), 'repository_runner_skills_of()'),
 
-    /** The oldest queued job the runner may run, claimed for it; null when none (runner_claim()). */
-    claim: async (runnerId: string): Promise<JobRow | null> =>
-      (await parsed(db.rpc('runner_claim', { p_runner: runnerId }), z.array(JobRow), 'runner_claim()'))[0] ?? null,
+    /** The oldest queued job the runner may run, claimed for it; null when none, or when the runner registered again since `registeredAt` (runner_claim()). */
+    claim: async (runnerId: string, registeredAt: string): Promise<JobRow | null> =>
+      (await parsed(db.rpc('runner_claim', { p_runner: runnerId, p_registered_at: registeredAt }), z.array(JobRow), 'runner_claim()'))[0] ?? null,
 
     job: async (id: string): Promise<JobRow | null> =>
       parsed(db.from('runner_jobs').select(JOB_COLUMNS).eq('id', id).maybeSingle(), JobRow.nullable(), 'runner_jobs'),

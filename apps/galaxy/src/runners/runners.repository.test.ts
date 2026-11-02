@@ -32,11 +32,13 @@ function fakeDb(answers: Answer[]) {
 }
 
 describe('the claim', () => {
-  it('calls runner_claim() and answers the one job it took', async () => {
+  const REGISTERED = '2026-11-02T12:17:34.000Z';
+
+  it('calls runner_claim() for the registration the check-in began under, and answers the one job it took', async () => {
     const job = jobRow({ status: 'claimed', runner_id: SHARED });
     const { db, lines } = fakeDb([{ data: [job], error: null }]);
-    expect(await runnersRepository(db).claim(SHARED)).toEqual(job);
-    expect(lines).toEqual([`rpc("runner_claim",{"p_runner":"${SHARED}"})`]);
+    expect(await runnersRepository(db).claim(SHARED, REGISTERED)).toEqual(job);
+    expect(lines).toEqual([`rpc("runner_claim",{"p_runner":"${SHARED}","p_registered_at":"${REGISTERED}"})`]);
   });
 
   it('answers none when another runner won the job', async () => {
@@ -44,18 +46,18 @@ describe('the claim', () => {
     // Two claims on one job: the database gives it to one, and the other's call answers no row.
     const { db } = fakeDb([{ data: [job], error: null }, { data: [], error: null }]);
     const repository = runnersRepository(db);
-    const claims = await Promise.all([repository.claim(SHARED), repository.claim('00000000-0000-4000-8000-0000018301b1')]);
+    const claims = await Promise.all([repository.claim(SHARED, REGISTERED), repository.claim('00000000-0000-4000-8000-0000018301b1', REGISTERED)]);
     expect(claims.filter((claim) => claim !== null)).toEqual([job]);
   });
 
   it('throws on the database\'s refusal, naming the call', async () => {
     const { db } = fakeDb([{ data: null, error: { code: '42501', message: 'permission denied for function runner_claim' } }]);
-    await expect(runnersRepository(db).claim(SHARED)).rejects.toThrow('runner_claim(): permission denied for function runner_claim');
+    await expect(runnersRepository(db).claim(SHARED, REGISTERED)).rejects.toThrow('runner_claim(): permission denied for function runner_claim');
   });
 
   it('throws on an answer out of shape', async () => {
     const { db } = fakeDb([{ data: [{ id: 1 }], error: null }]);
-    await expect(runnersRepository(db).claim(SHARED)).rejects.toThrow('runner_claim() answered out of shape');
+    await expect(runnersRepository(db).claim(SHARED, REGISTERED)).rejects.toThrow('runner_claim() answered out of shape');
   });
 });
 
@@ -254,7 +256,7 @@ describe('a key\'s GitHub App (PRD 2433)', () => {
     const runner = runnerRow({ id: SHARED, name: 'shared', github_app: false });
     const { db, lines } = fakeDb([{ data: runner, error: null }]);
     await runnersRepository(db).updateRunner(SHARED, { github_app: false });
-    expect(lines).toEqual([`from("runners").update({"github_app":false}).eq("id","${SHARED}").select("id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app").single()`]);
+    expect(lines).toEqual([`from("runners").update({"github_app":false}).eq("id","${SHARED}").select("id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app, registered_at").single()`]);
   });
 });
 

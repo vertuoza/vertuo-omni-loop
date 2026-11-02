@@ -1,4 +1,4 @@
--- Who may read and change a product's domains (PRD 2583 s1, 20270107090000_product_domains.sql). The
+-- Who may read and change a product's domains (PRD 2583 s1, 20270109090000_product_domains.sql). The
 -- supabase workflow runs it on every pull request, after `supabase db start` has applied the migrations
 -- and the demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/product_domains.sql

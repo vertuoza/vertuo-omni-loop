@@ -124,8 +124,13 @@ begin
   if exists (select 1 from public.runner_claim(other)) then
     raise exception 'FAIL: a runner claimed a job for a repository it does not hold';
   end if;
+  -- A check-in begun under an earlier registration of the runner claims nothing (bug #2593)…
+  if exists (select 1 from public.runner_claim(shared, '2000-01-01 00:00:00+00')) then
+    raise exception 'FAIL: a check-in of an earlier registration claimed a job';
+  end if;
+  -- …while one begun under its registration claims as before.
   -- The shared runner takes the oldest job sent to any runner, then, its one slot full, nothing.
-  select * into got from public.runner_claim(shared);
+  select * into got from public.runner_claim(shared, (select registered_at from public.runners where id = shared));
   if got.id is distinct from '00000000-0000-4000-8000-0000018302a1' then
     raise exception 'FAIL: the shared runner claimed %, not the oldest job sent to any runner', got.id;
   end if;

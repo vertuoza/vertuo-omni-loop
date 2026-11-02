@@ -752,7 +752,7 @@ begin
   end if;
 end $$;
 
--- ── The kinds' checks, widened to the Domains kind (PRD 2583, 20270107090000_product_domains.sql) ──
+-- ── The kinds' checks, widened to the Domains kind (PRD 2583, 20270109090000_product_domains.sql) ──
 -- Read past every grant, as the table owner would write: each kind keeps its own actions and its own
 -- entry column, an event names at most one entry, and a kind outside the three is refused.
 do $$
