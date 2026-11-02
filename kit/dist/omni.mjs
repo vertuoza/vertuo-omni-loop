@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.564" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.565" };
   }
 });
 
@@ -62571,7 +62571,14 @@ function runOutcome(log, prd2, skill) {
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(lastLine3(log));
   const outcome2 = match?.[1] !== void 0 && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : void 0;
   if (outcome2 !== void 0 && match?.[2] === String(prd2)) return outcome2;
-  return skill === void 0 ? null : "stopped";
+  if (skill === void 0) return null;
+  return lastAnswer(log).some((line2) => HELD_LINE.test(line2)) ? "held" : "stopped";
+}
+var HELD_LINE = /^(?:held: .+|.+ · held(?:, not failed)?(?:: .+)?)$/;
+var ANSWER_DONE = /^Done: /;
+function lastAnswer(log) {
+  const lines3 = log.split("\n").map((line2) => line2.trim().replace(STAMP2, ""));
+  return lines3.slice(lines3.findLastIndex((line2) => ANSWER_DONE.test(line2)) + 1);
 }
 function lastLine3(log) {
   return (log.split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "" && !HOOK_FAILED.test(line2)).at(-1) ?? "").replace(STAMP2, "");

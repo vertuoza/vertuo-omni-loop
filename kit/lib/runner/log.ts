@@ -178,13 +178,29 @@ const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
  * on its next command), or `null` for any other line, a line naming another PRD, or an empty log. The
  * runner's `hh:mm:ss ` stamp, when the line has one, is ignored, and so is a failed hook's line after it.
  * For a job of `skill` (`yolo` or `yolo-fix`, PRD 2375) a last line that is no hand-off for `prd` is
- * `stopped` instead of `null`.
+ * `stopped` instead of `null`, or `held` when the session's last answer says so on a line of its own
+ * (#2581): a PRD still waiting for approval, or a read the loop cannot make.
  */
 export function runOutcome(log: string, prd: PrdNumber, skill?: HandOffSkill): RunOutcome | null {
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(lastLine(log));
   const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
   if (outcome !== undefined && match?.[2] === String(prd)) return outcome;
-  return skill === undefined ? null : 'stopped';
+  if (skill === undefined) return null;
+  return lastAnswer(log).some((line) => HELD_LINE.test(line)) ? 'held' : 'stopped';
+}
+
+/**
+ * A line a yolo run ends held on (#2581): what `omni wait approval` prints when it gives up
+ * (`held: still waiting for <names> after <minutes> min`, `no sign-in (omni signin) · held`), and a read
+ * the loop cannot make (`server unreachable · held, not failed`, `<line> · held, not failed: run this again …`).
+ */
+const HELD_LINE = /^(?:held: .+|.+ · held(?:, not failed)?(?:: .+)?)$/;
+const ANSWER_DONE = /^Done: /;
+
+/** The lines of the session's last answer, the ones after its last `Done:` line, without the runner's stamp. */
+function lastAnswer(log: string): string[] {
+  const lines = log.split('\n').map((line) => line.trim().replace(STAMP, ''));
+  return lines.slice(lines.findLastIndex((line) => ANSWER_DONE.test(line)) + 1);
 }
 
 /** The run's last non-empty line, without the runner's stamp, a failed hook's line after it ignored. */
