@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.565" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.566" };
   }
 });
 
@@ -64301,8 +64301,8 @@ function runOutcome(log, prd2, skill) {
 var HELD_LINE = /^(?:held: .+|.+ · held(?:, not failed)?(?:: .+)?)$/;
 var ANSWER_DONE = /^Done: /;
 function lastAnswer(log) {
-  const lines3 = log.split("\n").map((line2) => line2.trim().replace(STAMP2, ""));
-  return lines3.slice(lines3.findLastIndex((line2) => ANSWER_DONE.test(line2)) + 1);
+  const lines4 = log.split("\n").map((line2) => line2.trim().replace(STAMP2, ""));
+  return lines4.slice(lines4.findLastIndex((line2) => ANSWER_DONE.test(line2)) + 1);
 }
 function lastLine4(log) {
   return (log.split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "" && !HOOK_FAILED.test(line2)).at(-1) ?? "").replace(STAMP2, "");
