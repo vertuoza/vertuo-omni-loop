@@ -517,6 +517,13 @@ var FLOW_POINTS = Object.freeze([
   { point: "wave.merge", skills: ["wave", "ultra-wave"], modes: ANY, inputs: ["prd", "slice", "pr"], outputs: ["the merged PR's number in the verdict"] },
   { point: "bug-fix.reproduce", skills: ["bug-fix", "mega-bug-fix"], modes: EXTEND, inputs: ["issue", "branch", "suspect", "boundary"], outputs: [] },
   { point: "bug-fix.review", skills: ["bug-fix", "mega-bug-fix"], modes: EXTEND, inputs: ["issue", "branch", "base"], outputs: [] },
+  {
+    point: "bug-fix.proof",
+    skills: ["bug-fix"],
+    modes: ANY,
+    inputs: ["issue", "base", "head", "pr", "targets", "reproduction", "out"],
+    outputs: ["before.* and after.* in {out}, the two recordings omni bug film reads", "an env: line, the preview environment's URL and lifetime", "the verdict line"]
+  },
   { point: "yolo.ready", skills: ["yolo", "ultra-yolo"], modes: EXTEND, inputs: ["prd", "pr"], outputs: [] }
 ]);
 function flowPoint(name) {
