@@ -52,14 +52,14 @@ function askOf(args: string[]): Ask {
 /** The last line gh wrote when it failed, from its error. */
 function ghReason(error: unknown): string {
   const written: unknown = error instanceof Error && 'stderr' in error ? error.stderr : undefined;
-  const text = written === undefined ? errorMessage(error) : String(written);
+  const text = typeof written === 'string' ? written : errorMessage(error);
   return text.trim().split('\n').at(-1)?.trim() || 'no output';
 }
 
 /** What `gh` printed for `args`, or the error `ci` prints as `gh failed: <its last line>`. */
 function gh(exec: Exec, cwd: string, args: string[]): string {
   try {
-    return String(exec('gh', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+    return exec('gh', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (error) {
     throw Object.assign(new Error(`gh failed: ${ghReason(error)}`), { name: GH_ERROR });
   }
