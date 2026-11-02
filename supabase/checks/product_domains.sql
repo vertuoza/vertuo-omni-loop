@@ -17,6 +17,10 @@
 -- even past the functions; a link made before its domain was retired stays and a new one is refused; a
 -- member who only proposes proposes the same; the links are the members' to read and nobody's to write.
 --
+-- PRD 2583 s3, the folders off the list: the pages read each repository's newest pack as the person; a member
+-- reads the folders of their product's repositories and plan repository, a member of another workspace and a
+-- stranger read no repository, pack or folder name, and anon reads no pack.
+--
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -593,6 +597,85 @@ begin
   perform public.product_archive(pg_temp.id('payroll'));
   perform pg_temp.refused(format('select public.product_domain_add(%L, %L, ''planted'', ''P'', ''P'')', pg_temp.id('pd'), pg_temp.id('payroll')), 'P0002', 'product');
   perform pg_temp.refused(format('select public.product_domain_retire(%L, (select d.id from public.product_domains d where d.product_id = %L))', pg_temp.id('pd'), pg_temp.id('payroll')), 'P0002', 'product');
+end $$;
+reset role;
+
+-- ── The folders of a product's repositories: a member reads them, nobody else reads a name (PRD 2583 s3) ──
+-- Not on the list reads the newest knowledge pack of each repository the product links, and of its plan
+-- repository, as the signed-in person: the same tables the Repositories section reads (BR-PRODUCT-63). A
+-- folder is a directory directly under <knowledge root>/domains/; imported copies under repos/<target>/domains/
+-- are carried by the pack and left out by the page. Nothing here fails a check.
+insert into public.repositories (workspace_id, full_name) values
+  (pg_temp.id('pd'), 'pd-org/stock-api'), (pg_temp.id('pd'), 'pd-org/stock-plan'), (pg_temp.id('other'), 'pd-other/widgets-api');
+insert into public.product_repositories (product_id, workspace_id, repository, added_by) values
+  (pg_temp.id('stock'), pg_temp.id('pd'), 'pd-org/stock-api', 'person'),
+  (pg_temp.id('stock'), pg_temp.id('pd'), 'pd-org/stock-plan', 'person'),
+  (pg_temp.id('widgets'), pg_temp.id('other'), 'pd-other/widgets-api', 'person');
+update public.products set plan_repository = 'pd-org/stock-plan' where id = pg_temp.id('stock');
+set local role service_role;
+do $$
+begin
+  perform public.knowledge_pack_put('pd-org/stock-api', repeat('a', 40), '2026-12-12 09:00+00', jsonb_build_array(
+    jsonb_build_object('path', '.omni-loop/knowledge/domains/planning/rules.md', 'content', E'# Planning\n'),
+    jsonb_build_object('path', '.omni-loop/knowledge/domains/stock-levels/README.md', 'content', E'# Stock levels\n\nWhat is on the shelves.\n')));
+  perform public.knowledge_pack_put('pd-org/stock-plan', repeat('b', 40), '2026-12-12 09:00+00', jsonb_build_array(
+    jsonb_build_object('path', '.omni-loop/knowledge/domains/planning/rules.md', 'content', E'# Planning\n'),
+    jsonb_build_object('path', '.omni-loop/knowledge/repos/backend/domains/imported/rules.md', 'content', E'# Imported\n')));
+  perform public.knowledge_pack_put('pd-other/widgets-api', repeat('c', 40), '2026-12-12 09:00+00', jsonb_build_array(
+    jsonb_build_object('path', '.omni-loop/knowledge/domains/secret-sprocket/rules.md', 'content', E'# Secret\n')));
+end $$;
+reset role;
+-- What the page reads of Stock, as a person: the repositories, then each one's newest pack's folders.
+create function pg_temp.folders_seen(product uuid) returns text language sql as $$
+  select coalesce(string_agg(distinct split_part(substr(f.path, length('.omni-loop/knowledge/domains/') + 1), '/', 1), ',' order by
+           split_part(substr(f.path, length('.omni-loop/knowledge/domains/') + 1), '/', 1)), '')
+    from public.products p
+    join public.product_repositories l on l.product_id = p.id
+    join public.knowledge_packs k on k.repository = l.repository and k.newest
+    join public.knowledge_pack_files f on f.pack_id = k.id and f.path like '.omni-loop/knowledge/domains/%/%'
+   where p.id = folders_seen.product;
+$$;
+set local role authenticated;
+do $$
+declare
+  c text;
+begin
+  -- A member, who only proposes or who decides, reads the folders of Stock's repositories and its plan repository.
+  foreach c in array array['max', 'dina', 'olga'] loop
+    perform pg_temp.as_(c);
+    if pg_temp.folders_seen(pg_temp.id('stock')) <> 'planning,stock-levels' then
+      raise exception 'FAIL: % reads the folders % of Stock, not planning and stock-levels', c, pg_temp.folders_seen(pg_temp.id('stock'));
+    end if;
+    if (select p.plan_repository from public.products p where p.id = pg_temp.id('stock')) is distinct from 'pd-org/stock-plan'
+       or (select count(*) from public.knowledge_packs k where k.newest and k.repository in ('pd-org/stock-api', 'pd-org/stock-plan')) <> 2 then
+      raise exception 'FAIL: % does not read Stock''s plan repository and its two packs', c;
+    end if;
+  end loop;
+  -- A member of another workspace reads no repository, pack or folder of PD: only their own.
+  perform pg_temp.as_('carl');
+  if pg_temp.folders_seen(pg_temp.id('stock')) <> '' or exists (select 1 from public.products p where p.id = pg_temp.id('stock'))
+     or exists (select 1 from public.product_repositories l where l.product_id = pg_temp.id('stock'))
+     or exists (select 1 from public.knowledge_packs k where k.repository like 'pd-org/%')
+     or exists (select 1 from public.knowledge_pack_files f where f.path like '%planning%' or f.path like '%stock-levels%') then
+    raise exception 'FAIL: a member of another workspace reads a folder of PD''s repositories';
+  end if;
+  if pg_temp.folders_seen(pg_temp.id('widgets')) <> 'secret-sprocket' then
+    raise exception 'FAIL: a member does not read their own workspace''s folders';
+  end if;
+  -- A stranger reads nothing at all, of either workspace.
+  perform pg_temp.as_('sam');
+  if pg_temp.folders_seen(pg_temp.id('stock')) <> '' or pg_temp.folders_seen(pg_temp.id('widgets')) <> ''
+     or exists (select 1 from public.knowledge_packs) or exists (select 1 from public.knowledge_pack_files)
+     or exists (select 1 from public.product_repositories l where l.repository in ('pd-org/stock-api', 'pd-org/stock-plan', 'pd-other/widgets-api')) then
+    raise exception 'FAIL: a stranger reads a repository, a pack or a folder name';
+  end if;
+end $$;
+reset role;
+set local role anon;
+do $$
+begin
+  perform pg_temp.refused('select * from public.knowledge_packs', '42501');
+  perform pg_temp.refused('select * from public.knowledge_pack_files', '42501');
 end $$;
 reset role;
 
