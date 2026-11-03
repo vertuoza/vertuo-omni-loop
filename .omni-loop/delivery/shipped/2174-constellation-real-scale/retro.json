@@ -595,6 +595,11 @@
           "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2207",
           "state": "open"
         }
+      },
+      "outcomes": {
+        "repeated-red:check": {
+          "staysHere": "playbook/conventions#naming already says it: \"A migration stays the newest until it merges\" re-dates an overtaken migration after main's newest, and \"The database types are generated, never written\" regenerates the types with each re-date (cites #2207); the briefing Never rules repeat it"
+        }
       }
     },
     {

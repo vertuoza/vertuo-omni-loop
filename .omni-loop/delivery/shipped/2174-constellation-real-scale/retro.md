@@ -21,6 +21,7 @@ The delivery taught the database to keep the repositories each PRD's plan target
 - **Proposed lesson:** A slice that adds a migration checks its date against the newest migration on the default branch right before it lands, not only when it is written. If another migration has merged since, it re-dates the file, then regenerates the types from the re-dated migration.
 - **Kept:** Re-dating a migration that was overtaken on main is a delivery behaviour that neither the knowledge nor the earlier lessons describe; the types drift part is already known.
 - **Evidence:** [check on 386b06a in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39228562079/job/117980723476), [check on fec7a7f in s5](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39245378435/job/118035911074)
+- **Stays here:** playbook/conventions#naming already says it: "A migration stays the newest until it merges" re-dates an overtaken migration after main's newest, and "The database types are generated, never written" regenerates the types with each re-date (cites #2207); the briefing Never rules repeat it
 
 ### F2 · The new migration was written once and then rewritten in full — `churn:supabase/migrations/20261213100000_prd_targets.sql`
 
