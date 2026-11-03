@@ -209,9 +209,6 @@ short paragraph saying what shipped, for people outside the team. You review it 
 the feature pull request, and once merged it sits in the shipped folder, at
 `.omni-loop/delivery/shipped/<n>-<topic>/release.md`.
 
-The **Release notes** page of the Omni Loop app lists the releases of Omni Loop itself for now;
-the release notes of your own repository will be shown there in a later version.
-
 ## A switch worth turning on
 
 `omni init` switches dossiers on and points the kit at the Omni Loop app, but it leaves release

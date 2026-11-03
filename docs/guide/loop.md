@@ -133,7 +133,7 @@ approval, and waits for it, instead of stopping.
   notification on this device, once the Omni page is installed on it; on an iPhone, added to the home
   screen first) and **Email**, both off by default. Each request also shows in the page's bell.
 - **The wait.** `/omni:yolo <n>` on a ◆ PRD waiting for approval runs `omni wait approval <n>`: it
-  asks the approvers, prints `◌ PRD <n> · waiting for Irisa or Paul`, and follows the approval as it
+  asks the approvers, prints `◌ PRD <n> · waiting for ana or ben`, and follows the approval as it
   happens. The moment someone approves, it prints `✓ PRD <n> approved by <login> · <time> · <k> files
   pinned` and the build starts wave 1, with nothing typed again. The status line's band shows the same
   lines. You can run `omni wait approval <n>` alone too: it exits 0 once approved.
@@ -351,7 +351,7 @@ being told. Give each owner a **delegate**, and name **product leadership**:
 ```yaml file=.omni-loop/config.yml
 laws:
   owners:
-    - login: pierrederval
+    - login: ana
       delegate: jdoe
     - acme/platform          # an owner with no delegate
   leadership: [cto-login]
@@ -363,7 +363,7 @@ limits:
   `omni kb owners` writes each owner and each delegate on every line of its block, so a delegate's
   approval clears a law as the owner's does. Run it again after you add a delegate:
   `omni check knowledge` reports the block out of date until you do. `omni kb laws` names the
-  delegate: `Changing it needs @pierrederval (or the delegate @jdoe) to approve the pull request.`
+  delegate: `Changing it needs @ana (or the delegate @jdoe) to approve the pull request.`
 - Leadership is a list of logins. It is never written into CODEOWNERS, so its approval never clears
   a law.
 - `limits.escalationWorkingDays` is 1 to 10, 2 by default. Working days are Monday to Friday, in

@@ -12,7 +12,7 @@ most votes first, then the oldest first. The lane is the team's call, never the 
 
 A board is off until a member turns it public. In the Omni app, open **Settings ›
 Repositories** and switch **Public ideas** on beside the repository. Its board is then served to
-anyone at `/ideas/<owner>/<repo>`, for this repository `/ideas/vertuoza/vertuo-omni-loop`. Switch it
+anyone at `/ideas/<owner>/<repo>`. Switch it
 off and only the workspace's members see it again.
 
 A board that is off and a repository with no board answer the same "No public board here" page, so
