@@ -25,13 +25,21 @@ Use this page when getting a checkout ready to build, test, and run locally.
 - pnpm 12: `packageManager` in `package.json` pins it, every workflow's `pnpm/action-setup` reads
   that pin, and any pnpm 10 or later hands off to it. Its settings (`allowBuilds`,
   `ignoredOptionalDependencies`) live in `pnpm-workspace.yaml`.
+- Docker, for the local database (`supabase db start`). The Supabase CLI itself is a dev dependency,
+  at the version the workflows pin (`scripts/fresh-worktree.test.ts` holds them equal): run it as
+  `pnpm exec supabase`.
 - The GitHub CLI, logged in, as the README's prerequisites ask. The tests do not need it: they
   never call GitHub.
 
 ## Install
 <!-- slot: install · required · by: invade · verified: 2026-10-20 -->
-`pnpm install --frozen-lockfile`, once, from the root: one install for the whole workspace (the
-root package, `apps/*` and `packages/*`), exactly as the `game` workflow runs it.
+`pnpm install --frozen-lockfile`, from the root: one install for the whole workspace (the root
+package, `apps/*` and `packages/*`), exactly as the `game` workflow runs it. A checkout needs it once,
+by hand: it turns on the git hooks. Each worktree has its own `node_modules`, and from then on
+`.githooks/post-checkout` installs every new worktree before `git worktree add` returns. A worktree
+Claude Code makes for a subagent runs no git hook, so `.omni-loop/bin/omni.mjs` also installs what is
+missing before its first command. An install that fails says so in one line and stops nothing: run
+the same command in that worktree.
 
 ## Run
 <!-- slot: run · optional · by: invade -->

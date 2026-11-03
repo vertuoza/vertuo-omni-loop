@@ -1,0 +1,13 @@
+#!/bin/sh
+# post-checkout (#2613): a worktree just made gets its dependencies, so a commit's hook and `omni` find
+# them. Git calls this hook with an all-zero previous commit only then; a switch installs nothing. It
+# runs before `git worktree add` returns, so the worktree is ready when it does. It never fails the
+# checkout: an install that fails says so in one line, and the worktree stays.
+case "$1" in
+  *[!0]*) exit 0 ;;
+esac
+[ -f pnpm-lock.yaml ] || exit 0
+if ! pnpm install --frozen-lockfile --silent >/dev/null 2>&1; then
+  echo "post-checkout: pnpm install failed here: run pnpm install --frozen-lockfile" >&2
+fi
+exit 0
