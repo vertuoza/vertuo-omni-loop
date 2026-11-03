@@ -1814,11 +1814,30 @@ describe('omni runner send', () => {
     expect(page.calls).toEqual([]);
   });
 
-  it('queues the line for any runner and prints the job id', async () => {
+  it('queues the line for any runner and prints the job id, then the line that follows it', async () => {
     const page = fakePage();
     const run = await terminal(fixture(), page, ['send', '/omni:yolo 2251']);
-    expect(run).toMatchObject({ code: 0, stdout: 'job-9\n' });
+    expect(run).toMatchObject({ code: 0, stdout: 'job-9\nfollow it: omni runner follow 2251\n' });
     expect(page.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs', body: { line: '/omni:yolo 2251', repo: 'acme/widgets', target: { kind: 'any' } } }]);
+  });
+
+  it('prints the follow line that follows the job it sent, when the line names a PRD (#2592)', async () => {
+    const f = fixture();
+    const sent = await terminal(f, fakePage(), ['send', '/omni:pr-care 2537 --once']);
+    const follow = /^follow it: omni runner (follow \S+)$/m.exec(sent.stdout)?.[1];
+    expect(sent).toMatchObject({ code: 0, stdout: 'job-9\nfollow it: omni runner follow 2537\n' });
+    const page = fakePage({ jobs: [[{ id: 'job-9', status: 'done', runner: 'box-1', line: '/omni:pr-care 2537 --once' }]] });
+    const run = await terminal(f, page, (follow ?? '').split(' '));
+    expect(run.code).toBe(0);
+    expect(run.stdout).toContain('Done');
+    expect(page.calls[0]?.path).toBe('/api/runners/jobs?repo=acme%2Fwidgets&prd=2537');
+  });
+
+  it('prints the job id alone for a line that names no PRD: a bug fix, a repository\'s own skill', async () => {
+    for (const line of ['/omni:bug-fix 612', '/omni:visual-fix 7', '/validate-prd 347']) {
+      const run = await terminal(fixture(), fakePage(), ['send', line]);
+      expect(run, line).toMatchObject({ code: 0, stdout: 'job-9\n' });
+    }
   });
 
   it('sends to a runner by its name first, else to a fleet, else refuses', async () => {
