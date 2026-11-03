@@ -2,7 +2,7 @@
 // repository's own skills (PRD 2313): `/<name> <args>`, when the job's allowed skills name it; the app
 // runs the shared table through both checks (apps/galaxy/src/runners/runners.contract.test.ts).
 import { describe, expect, it } from 'vitest';
-import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
+import { checkRunnerLine, LINE_MAX, prdOfRunnerLine, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
 
 describe('checkRunnerLine', () => {
   it('takes every listed skill, with and without arguments', () => {
@@ -73,5 +73,20 @@ describe('checkRunnerLine on a repository\'s own skill (PRD 2313)', () => {
     const longest = `a${'b'.repeat(SKILL_NAME_MAX - 1)}`;
     expect(checkRunnerLine(`/${longest} 1`, [longest])).toMatchObject({ ok: true, kind: 'repository' });
     expect(checkRunnerLine(`/${longest}b 1`, [`${longest}b`])).toEqual({ ok: false, reason: `a skill's name is ${String(SKILL_NAME_MAX)} characters at most` });
+  });
+});
+
+describe('prdOfRunnerLine (#2592)', () => {
+  it('reads the PRD a PRD skill names first', () => {
+    expect(prdOfRunnerLine('/omni:yolo 2251')).toBe(2251);
+    expect(prdOfRunnerLine('/omni:pr-care 2537 --once')).toBe(2537);
+    expect(prdOfRunnerLine('/omni:do-work 2270 s1')).toBe(2270);
+    for (const skill of ['yolo-fix', 'wave', 'plan', 'pitch', 'prove']) expect(prdOfRunnerLine(`/omni:${skill} 7`), skill).toBe(7);
+  });
+
+  it('reads none from a skill that takes no PRD, a line with no number first, or a line no runner runs', () => {
+    for (const line of ['/omni:bug-fix 612', '/omni:visual-fix 7', '/omni:retro-apply 7', '/validate-prd 347', '/omni:yolo', '/omni:yolo s1 7', '/omni:yolo 0', '/omni:yolo 7x', '/omni:brainstorm 7']) {
+      expect(prdOfRunnerLine(line), line).toBeNull();
+    }
   });
 });

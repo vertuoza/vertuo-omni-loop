@@ -1,7 +1,8 @@
 // `omni runner send '<line>' [--to <runner|fleet>]` and `omni runner follow <n>` (PRD 2251): the
 // terminal's side of Send to terminal, with its own sign-in.
 //
-// `send` queues a line for this repository's workspace and prints the job's id. A line no runner runs is
+// `send` queues a line for this repository's workspace and prints the job's id, then, when the line names a PRD,
+// `follow it: omni runner follow <n>`: the line that follows that job (#2592). A line no runner runs is
 // refused before any call (`../../lib/runner/line.ts`). `--to` names a runner or a fleet of the workspace
 // (the runner first); without it the job goes to any runner.
 //
@@ -26,7 +27,7 @@ import { RunnerRefused, RunnerUnreachable, runnerApi } from '../../lib/runner/ap
 import type { KitReads, PrdJob, SendTarget } from '../../lib/runner/api.ts';
 import { exitCodeOf, isEnded, milestones } from '../../lib/runner/follow.ts';
 import type { MergedCount, Seen } from '../../lib/runner/follow.ts';
-import { checkRunnerLine } from '../../lib/runner/line.ts';
+import { checkRunnerLine, prdOfRunnerLine } from '../../lib/runner/line.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeIo, Out } from '../io.ts';
 import { board } from './board.ts';
@@ -127,6 +128,8 @@ export async function send(args: string[], io: Io): Promise<number> {
     }
     const job = await at.api.send({ line, repo: at.repo, target });
     println(io.stdout, job.id);
+    const prd = prdOfRunnerLine(line);
+    if (prd !== null) println(io.stdout, `follow it: omni runner follow ${String(prd)}`);
     return 0;
   } catch (error) {
     println(io.stderr, `omni runner: ${error instanceof Error ? error.message : String(error)}`);

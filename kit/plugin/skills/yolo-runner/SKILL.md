@@ -50,8 +50,9 @@ timeout 20 node .omni-loop/bin/omni.mjs runner follow <n>
    nothing and send to any runner. With one runner online, or with none, or when the read fails,
    ask nothing and send to any runner; with none online, say the job waits in the queue.
 2. Send it: `node .omni-loop/bin/omni.mjs runner send '/omni:yolo <n>' [--to <runner|fleet>]`
-   (`--to` only when the person chose a fleet or a runner). It prints the job's id: keep it. A refusal
-   (a line no runner runs, a workspace that is not yours) stops the skill with its line.
+   (`--to` only when the person chose a fleet or a runner). It prints the job's id, then the line
+   that follows it: keep the id. A refusal (a line no runner runs, a workspace that is not yours)
+   stops the skill with its line.
 
 ## 2. Follow it
 

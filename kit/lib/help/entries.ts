@@ -378,7 +378,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'run, its log saying so. At start and once an hour it updates the plugin, printing a line only ' +
       'when its version changed or the update failed. sender prints the line /omni:pr writes in a ' +
       'pull request a job opens, naming who sent it and the runner. send "<line>" [--to <runner|fleet>] ' +
-      'queues a line for this repository\'s workspace with your own sign-in and prints the job\'s id (a line no ' +
+      'queues a line for this repository\'s workspace with your own sign-in and prints the job\'s id, then follow it: omni runner follow <n> when the line names a PRD (a line no ' +
       'runner runs is refused before any call; --to names a runner, else a fleet). follow <n> finds the PRD\'s ' +
       'newest job in this repository and prints one line per milestone until it ends (queued, claimed by <runner>, ' +
       'waiting for approval, PR: <link>, <k>/<total> slices merged, then Waiting on answers, Held, Ready, Done, ' +
