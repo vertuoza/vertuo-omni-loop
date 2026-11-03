@@ -1,12 +1,15 @@
-import type { Done, KnowledgeMember, KnowledgeRefusal, KnowledgeTab, KnowledgeWrite } from './product-knowledge.contract';
+import {
+  NO_DOMAIN_SECTION, type DomainSection, type Done, type KnowledgeMember, type KnowledgeRead, type KnowledgeRefusal, type KnowledgeTab, type KnowledgeWrite,
+} from './product-knowledge.contract';
 import { knowledgeRepository, type KnowledgeDb, type KnowledgeRepository, type Refused } from './product-knowledge.repository';
 
 // The product home's Knowledge tab, its rules (PRD 1795 s2).
 //
-// - tab: what the tab shows, for a product of the reader's workspace: both kinds with their owner and
-//   delegate, entries and open proposals (product_knowledge_of()), and, for a workspace owner only, the
-//   members they may name. A product the reader does not read, or one of another workspace, or a reader
-//   who is no member, is none.
+// - tab: what the tab shows, for a product of the reader's workspace: each kind (Legal, Glossary and, by
+//   PRD 2583, Domains) with its owner and delegate, entries and open proposals (product_knowledge_of()),
+//   and, for a workspace owner only, the members they may name. A product the reader does not read, or one
+//   of another workspace, or a reader who is no member, is none. A read with no Domains section (the
+//   database before PRD 2583's migration) shows an empty list, and a domain is then only proposed.
 // - change: the kind's owner or delegate (or, while it names neither, a workspace owner: `decides`, as the
 //   database says it) changes an entry directly; any other member's change is a proposal. The service asks
 //   the database who the caller is and picks the verb; the database still checks.
@@ -33,6 +36,9 @@ const settled = (written: { ok: true } | Refused, done: Done): Outcome => (writt
 
 const loginOf = (login: string | null, name: string | null, id: string) => login ?? name ?? id;
 
+/** The read's Domains section; none (a database before PRD 2583's migration) is an empty list nobody decides. */
+const domainsOf = (read: KnowledgeRead): DomainSection => read.domains ?? NO_DOMAIN_SECTION;
+
 export function knowledgeService(store: KnowledgeRepository) {
   return {
     /** What the tab shows, or null when the workspace holds no such product or the reader is no member. */
@@ -47,7 +53,7 @@ export function knowledgeService(store: KnowledgeRepository) {
       const members: KnowledgeMember[] = read.read.canName
         ? (await store.roster(workspace)).map((m) => ({ id: m.user_id, login: loginOf(m.github_login, m.name, m.user_id) }))
         : [];
-      return { ...read.read, members };
+      return { ...read.read, domains: domainsOf(read.read), members };
     },
 
     /** Applies a change as the signed-in person. */
@@ -63,7 +69,8 @@ export function knowledgeService(store: KnowledgeRepository) {
 
       const read = await store.read(workspace, found.id);
       if (!read.ok) return refusal(read);
-      return read.read[write.kind].decides
+      const kind = write.kind === 'domains' ? domainsOf(read.read) : read.read[write.kind];
+      return kind.decides
         ? settled(await store.apply(workspace, found.id, write), 'applied')
         : settled(await store.propose(workspace, found.id, write), 'proposed');
     },

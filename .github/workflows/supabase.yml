@@ -300,6 +300,10 @@ jobs:
         # and a removed term are kept, a live term is unique without case, every change logs exactly one
         # event, and nobody writes the five tables directly (PRD 1795).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_knowledge.sql
+      - name: A product's governed domains
+        # Who decides and who proposes, a key is never changed or reused, a term names only its own
+        # product's domains, and every change logs exactly one event (PRD 2583).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_domains.sql
       - name: Who may read and write the GitHub budget
         # The service role keeps ETags and budgets, refreshes them in place, keeps a pause through a
         # refresh and drops old ETags. Nobody signed in, nor signed out, reads or writes either table.

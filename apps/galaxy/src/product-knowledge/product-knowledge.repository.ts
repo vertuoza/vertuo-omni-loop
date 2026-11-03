@@ -8,7 +8,8 @@ import { KnowledgeReadSchema, type ChangeWrite, type Kind, type KnowledgeRead } 
 // the client it is given, the signed-in person's, so row-level security and the definer functions of
 // 20261212110000_product_knowledge.sql have the last word. The product, the tab's read
 // (product_knowledge_of()), the workspace's members (workspace_roster()), and the writes
-// (product_legal_*, product_glossary_*, product_knowledge_propose / approve / reject / name). A failed read
+// (product_legal_*, product_glossary_*, product_domain_* of 20270109090000_product_domains.sql,
+// product_knowledge_propose / approve / reject / name). A failed read
 // throws, and an answer out of shape too; a refused write answers the database's code and words. No rule
 // lives here: who may change what is product-knowledge.service.ts's, and the database's.
 
@@ -66,11 +67,18 @@ export function knowledgeRepository(db: KnowledgeDb) {
         if (change.action === 'edit') return write('product_legal_edit', { p_workspace: workspace, p_entry: entry, p_statement: f.statement, p_source: f.source });
         return write('product_legal_retire', { p_workspace: workspace, p_entry: entry });
       }
+      if (change.kind === 'domains') {
+        if (change.action === 'add') {
+          return write('product_domain_add', { p_workspace: workspace, p_product: product, p_key: f.key, p_name: f.name, p_meaning: f.meaning });
+        }
+        if (change.action === 'edit') return write('product_domain_edit', { p_workspace: workspace, p_entry: entry, p_name: f.name, p_meaning: f.meaning });
+        return write('product_domain_retire', { p_workspace: workspace, p_entry: entry });
+      }
       if (change.action === 'add') {
-        return write('product_glossary_add', { p_workspace: workspace, p_product: product, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid });
+        return write('product_glossary_add',{ p_workspace: workspace, p_product: product, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid, p_domains: f.domains });
       }
       if (change.action === 'edit') {
-        return write('product_glossary_edit', { p_workspace: workspace, p_entry: entry, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid });
+        return write('product_glossary_edit', { p_workspace: workspace, p_entry: entry, p_term: f.term, p_meaning: f.meaning, p_avoid: f.avoid, p_domains: f.domains });
       }
       return write('product_glossary_remove', { p_workspace: workspace, p_entry: entry });
     },

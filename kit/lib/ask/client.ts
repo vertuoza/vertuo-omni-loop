@@ -522,12 +522,12 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 2417: the tech playbook of the settings repository of the workspace `repo` (owner/name) belongs to, as the
      * caller; `../omni-settings/schema.ts` shapes the answer, and `../omni-settings/sync.ts` reads it. */
     readOmniSettings: (repo: string) => call('GET', `/api/omni-settings/playbook?${new URLSearchParams({ repo })}`),
-    /** PRD 2268: adds or edits one Legal entry or Glossary term of the product `repo` belongs to (`product`, when
+    /** PRD 2268: adds or edits one Legal entry, Glossary term or domain (PRD 2583) of the product `repo` belongs to (`product`, when
      * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
      * `entry` names the item an edit changes, by the id or term the reads print.
      * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
     changeKnowledge: ({ repo, product, kind, action, entry, fields }: {
-      repo: string; product?: string | undefined; kind: 'legal' | 'glossary' | 'constituent'; action: 'add' | 'edit'; entry?: string | undefined; fields: Record<string, unknown>;
+      repo: string; product?: string | undefined; kind: 'legal' | 'glossary' | 'domains' | 'constituent'; action: 'add' | 'edit'; entry?: string | undefined; fields: Record<string, unknown>;
     }) =>
       call('POST', '/api/knowledge/changes', {
         body: { repo, ...(product === undefined ? {} : { product }), kind, action, ...(entry === undefined ? {} : { entry }), fields },

@@ -2,7 +2,9 @@
 // (`GET /api/business?repo=`) answers as `legal` and `glossary`, for `omni kb legal` and
 // `omni kb glossary`.
 //
-// - A reply from before the page held either sends neither: both read as `[]`.
+// - A reply from before the page held either sends neither: both read as `[]`. The product's domains
+//   (PRD 2583) and each term's `domains` ride the same read; a reply or a copy without them is a product
+//   that lists none.
 // - Each read is kept in `.omni-loop/local/product-knowledge.json` (`{ product, readAt, legal,
 //   glossary, personas }`; `personas` is the name and stance of each, PRD 2299, and a copy without it still reads), the way `targets.ts` keeps `product-targets.json`. When the server cannot be reached
 //   (no answer within the client's 5 seconds, or a 5xx), the copy is read instead, said by
@@ -20,7 +22,9 @@ import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 export const PRODUCT_KNOWLEDGE_FILE = join(LOCAL_DIR, 'product-knowledge.json');
 
 const LegalSchema = z.object({ id: z.string().min(1), statement: z.string(), source: z.string(), owner: z.string() });
-const TermSchema = z.object({ term: z.string().min(1), meaning: z.string(), avoid: z.array(z.string()) });
+// A term's domains are optional: a reply or a copy from before PRD 2583 has none, and a term naming none is cross-domain.
+const TermSchema = z.object({ term: z.string().min(1), meaning: z.string(), avoid: z.array(z.string()) }).extend({ domains: z.array(z.string()).optional() });
+const DomainSchema = z.object({ key: z.string().min(1), name: z.string(), meaning: z.string() });
 const PersonaSchema = z.object({ name: z.string().min(1), stance: z.string() });
 
 /** One active Legal entry, as the business read carries it. */
@@ -31,6 +35,9 @@ export type GlossaryTerm = z.infer<typeof TermSchema>;
 /** One persona of the product, as the copy keeps it: its name and stance (PRD 2299). */
 export type KnowledgePersona = z.infer<typeof PersonaSchema>;
 
+/** One active domain of the product, as the business read carries it (PRD 2583): its key, name and meaning. */
+export type KnowledgeDomain = z.infer<typeof DomainSchema>;
+
 /** The business read, as far as the product's knowledge goes. */
 const ReplySchema = z.object({
   state: z.string().optional(),
@@ -39,6 +46,8 @@ const ReplySchema = z.object({
   glossary: z.array(TermSchema).optional(),
   // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
   personas: z.array(z.unknown()).optional(),
+  // Like a persona, a domain out of shape is left out, never a refusal.
+  domains: z.array(z.unknown()).optional(),
 });
 
 const CopySchema = z.object({
@@ -48,10 +57,12 @@ const CopySchema = z.object({
   glossary: z.array(TermSchema),
   // A copy from before PRD 2299 has none: it still reads, with no persona.
   personas: z.array(PersonaSchema).default([]),
+  // A copy from before PRD 2583 has none: it still reads, with no domains.
+  domains: z.array(DomainSchema).optional(),
 });
 
 /** What a read gives: the knowledge, and whether it came from the server or the last copy. */
-export type ProductKnowledge = { product: string; legal: LegalEntry[]; glossary: GlossaryTerm[]; personas?: KnowledgePersona[] | undefined };
+export type ProductKnowledge = { product: string; legal: LegalEntry[]; glossary: GlossaryTerm[]; personas?: KnowledgePersona[] | undefined; domains?: KnowledgeDomain[] | undefined };
 export type ProductKnowledgeRead = ({ from: 'server' } | { from: 'copy'; readAt: string }) & ProductKnowledge;
 
 /** The one line for a product an owner archived (PRD 2232): an answer, not an outage, so no copy is served for it. */
@@ -76,14 +87,18 @@ export function knowledgeOfReply(reply: unknown, repo: string): ProductKnowledge
     const issue = parsed.error.issues[0];
     throw new KnowledgeStop('refused', `the Omni page answered no product knowledge for ${repo}: ${issue ? `${issue.path.join('.')} ${issue.message}` : 'out of shape'}`);
   }
-  const { state, product, legal = [], glossary = [], personas = [] } = parsed.data;
+  const { state, product, legal = [], glossary = [], personas = [], domains } = parsed.data;
   if (state === 'archived' && product) throw new KnowledgeStop('archived', archivedLine(product.name));
   if (!product) throw new KnowledgeStop('none', `no product knowledge: ${repo} belongs to no product on the Omni page`);
   const kept = personas.flatMap((one) => {
     const persona = PersonaSchema.safeParse(one);
     return persona.success ? [{ name: persona.data.name, stance: persona.data.stance }] : [];
   });
-  return { product: product.name, legal, glossary, personas: kept };
+  const listed = domains?.flatMap((one) => {
+    const domain = DomainSchema.safeParse(one);
+    return domain.success ? [domain.data] : [];
+  });
+  return { product: product.name, legal, glossary, personas: kept, ...(listed === undefined ? {} : { domains: listed }) };
 }
 
 function readCopy(root: string): (ProductKnowledge & { readAt: string }) | null {
@@ -159,6 +174,14 @@ export function unreachableLine(readAt: string): string {
 export const legalLines = (legal: readonly LegalEntry[]): string[] =>
   legal.map(({ id, statement, source, owner }) => `${id}  ${statement}  (source: ${source}; owner: @${owner})`);
 
-/** One line per glossary term: term, meaning, words to avoid. */
+/** One line per glossary term: term, meaning, words to avoid, and the domains it names when it names any. */
 export const glossaryLines = (glossary: readonly GlossaryTerm[]): string[] =>
-  glossary.map(({ term, meaning, avoid }) => `${term}: ${meaning}  (avoid: ${avoid.length > 0 ? avoid.join(', ') : 'none'})`);
+  glossary.map(({ term, meaning, avoid, domains = [] }) =>
+    `${term}: ${meaning}  (avoid: ${avoid.length > 0 ? avoid.join(', ') : 'none'})${domains.length > 0 ? `  (domains: ${domains.join(', ')})` : ''}`);
+
+/** The line of an empty list: no domain is on the product's list yet. */
+export const NO_DOMAINS_LINE = 'the product lists no domains yet';
+
+/** One line per active domain: key, name, meaning. */
+export const domainLines = (domains: readonly KnowledgeDomain[]): string[] =>
+  domains.length === 0 ? [NO_DOMAINS_LINE] : domains.map(({ key, name, meaning }) => `${key}  ${name}: ${meaning}`);

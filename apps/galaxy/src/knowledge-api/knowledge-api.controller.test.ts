@@ -28,7 +28,7 @@ const legal = (entry: string, code: string, number: number, statement: string, s
   createdBy: person('lea'), createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z',
 });
 const term = (entry: string, name: string, meaning: string): GlossaryEntry => ({
-  entry, term: name, meaning, avoid: [], removedAt: null, createdBy: person('olga'), createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z',
+  entry, term: name, meaning, avoid: [], domains: [], removedAt: null, createdBy: person('olga'), createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z',
 });
 
 const GDPR = '00000000-0000-4000-8000-00000000a001';
@@ -318,7 +318,7 @@ describe('POST /api/knowledge/changes: the edge (PRD 2268)', () => {
     const { deps, written } = world();
     const malformed = async (body: unknown) => answer(await postKnowledgeChange(post(body), deps()));
     expect(await malformed('not json')).toEqual({ status: 400, cache: 'no-store', body: { error: 'The body must be a JSON object.' } });
-    expect((await malformed({ ...vatAdd, kind: 'persona' })).body).toEqual({ error: 'A knowledge change names its kind (legal, glossary or constituent) and its action (add or edit).' });
+    expect((await malformed({ ...vatAdd, kind: 'persona' })).body).toEqual({ error: 'A knowledge change names its kind (legal, glossary, domains or constituent) and its action (add or edit).' });
     expect((await malformed({ ...vatAdd, action: 'retire' })).status).toBe(400);
     expect((await malformed({ ...vatAdd, entry: 'L-VAT-1' })).body).toEqual({ error: 'A knowledge change does not carry entry.' });
     expect((await malformed({ ...vatAdd, repo: 'kp-org' })).body).toEqual({ error: 'A knowledge change\'s `repo` is malformed: the repository as owner/name.' });

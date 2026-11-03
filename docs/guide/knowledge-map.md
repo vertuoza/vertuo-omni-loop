@@ -1,6 +1,6 @@
 ---
 title: Knowledge map
-description: The ten layers and nine roles every repository of a product shares, the alias table for the words in use before them, and the optional map from layers to paths.
+description: The ten layers and nine roles every repository of a product shares, a product's domains, the alias table for the words in use before them, and the optional map from layers to paths.
 ---
 
 An agent about to change a file asks the knowledge base what applies. The answer is better when a
@@ -60,6 +60,49 @@ product's Repositories tab. Nine words:
 | `monorepo` | several of the roles above in one repository | any |
 
 The last column is guidance only: nothing checks it.
+
+## Domains
+
+A product is often cut into **domains**: the parts of it a reader thinks in, such as invoicing, planning
+or stock. A product's domains are one list, kept on the Omni page beside its Legal entries and Glossary,
+in the **Domains** section of the product's Knowledge. Every repository of the product uses the same words
+for them.
+
+- **A domain** has a key, a name and a meaning. The key is lower-case words joined by hyphens, the same
+  word as its folder, and it never changes. The name and the meaning can be edited.
+- **Who decides.** An owner or a named delegate of the Domains kind decides, and while nobody is named, the
+  workspace's owners do. Any other member proposes a domain, and it joins the list once someone who decides
+  approves it. Nothing is deleted: a retired domain stays readable behind `Retired · n`, and its key is never
+  reused in that product.
+- **A term's domains are optional.** A glossary term names none, one or several of the product's active
+  domains. A term that names none is cross-domain: a normal term, not a missing field. The Glossary filters
+  its terms by domain.
+
+### How a folder comes onto the list
+
+A repository lays out a domain as a folder directly under `domains/` in its knowledge root, for example
+`.omni-loop/knowledge/domains/invoicing/` (the root is `.omni-loop/knowledge` unless the repository sets
+`paths.knowledge`). The Domains section reads those folders from the newest knowledge pack of each repository
+linked to the product, and lists the folders the list does not hold under **Not on the list**, with the
+repositories that hold each one. Whoever decides adds a folder in one action: its key, name and meaning are
+filled in from the folder, and can be changed before it is saved. Any other member proposes it the same way.
+
+The section does not count three things:
+
+- a folder under `repos/<target>/domains/` in a plan repository, because it belongs to another repository;
+- a folder whose name cannot be a key. It is marked `Cannot be a key: rename the folder` and has no action:
+  the repository renames it;
+- a repository with no pack yet, which shows as `not read yet` and adds nothing to the count.
+
+A retired domain that a repository still holds shows as `retired, still in <repo>`.
+
+### Nothing blocks
+
+A folder off the list is never a failure. No check goes red for a domain, and no pull request waits for one:
+the list is shown so its owner can adopt the folder. While any folder is off the list, the sub-menu's Domains
+entry reads `Domains <n> · <k> not on the list` on every Knowledge section, so the owner sees it without
+opening Domains. A new product starts with an empty list, and its folders appear there to adopt. Nothing is
+seeded.
 
 ## Tech levels
 

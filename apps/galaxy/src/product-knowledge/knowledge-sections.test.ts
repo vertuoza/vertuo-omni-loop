@@ -2,15 +2,17 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { sortRows } from '../nav/sortable-list';
 import {
-  FIRST_SECTION, SECTION_KEYS, backHref, countsOf, dayOf, excerpt, glossarySortOf, itemHref, knowledgeSectionTabs, legalEntryOf, legalSortOf, sectionHref,
-  sectionOf, segmentOf, showHref, showOf, shownEntries, termOf, whoOf,
+  DOMAIN_COLUMNS, FIRST_SECTION, activeDomains, domainFilterOf, domainHref, retiredAmong, termsNaming, termsOfDomain, SECTION_KEYS, backHref, countsOf, dayOf, domainOf, domainSortOf, excerpt, glossarySortOf, itemHref, knowledgeSectionTabs,
+  legalEntryOf, legalSortOf, listSectionOf, sectionHref, sectionOf, segmentOf, showHref, showOf, shownEntries, termOf, whoOf,
 } from './knowledge-sections';
 import { demoKnowledgeTab } from './KnowledgeTab';
 import type { KnowledgeTab } from './product-knowledge.contract';
 
 const TAB = demoKnowledgeTab('demo-product-1') as KnowledgeTab;
 const LEGAL = TAB.legal.entries[0] as (typeof TAB.legal.entries)[number];
+const DOMAIN = TAB.domains.entries[0] as (typeof TAB.domains.entries)[number];
 const entry = (id: string, over: Partial<typeof LEGAL> = {}) => ({ ...LEGAL, entry: id, id, ...over });
+const domain = (key: string, over: Partial<typeof DOMAIN> = {}) => ({ ...DOMAIN, entry: `d-${key}`, key, ...over });
 
 describe('a save', () => {
   it('refreshes the page in place and never reloads it, so the address and its sort stay', () => {
@@ -21,30 +23,69 @@ describe('a save', () => {
 });
 
 describe('the sections', () => {
-  it('are seven, in the sub-menu\'s order, Knowledge opening on the first', () => {
-    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'pitch', 'repositories', 'settings']);
+  it('are eight, in the sub-menu\'s order, Domains after Glossary, Knowledge opening on the first', () => {
+    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'domains', 'pitch', 'repositories', 'settings']);
     expect(FIRST_SECTION).toBe('constituents');
   });
 
   it('have an address each under the product\'s Knowledge, and a section from a segment', () => {
     expect(sectionHref('p 1', 'legal')).toBe('/app/products/p%201/knowledge/legal');
     expect(itemHref('p', 'legal', 'L-GDPR-1')).toBe('/app/products/p/knowledge/legal/L-GDPR-1');
+    expect(itemHref('p', 'domains', 'invoicing')).toBe('/app/products/p/knowledge/domains/invoicing');
     expect(sectionOf('glossary')).toBe('glossary');
+    expect(sectionOf('domains')).toBe('domains');
     expect(sectionOf('graph')).toBeNull();
   });
 
+  it('draw Legal, Glossary and Domains as lists of entries with a page each, and nothing else', () => {
+    expect(listSectionOf('legal')).toBe('legal');
+    expect(listSectionOf('glossary')).toBe('glossary');
+    expect(listSectionOf('domains')).toBe('domains');
+    expect(listSectionOf('pitch')).toBeNull();
+    expect(listSectionOf('nope')).toBeNull();
+  });
+
   it('give a count only to the sections whose items are read, and none at 0 once drawn', () => {
-    const tabs = knowledgeSectionTabs('p', { legal: 3, glossary: 0 });
-    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Pitch', 'Repositories', 'Settings']);
-    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, undefined, undefined, undefined]);
-    expect(tabs[5]?.href).toBe('/app/products/p/knowledge/repositories');
+    const tabs = knowledgeSectionTabs('p', { legal: 3, glossary: 0, domains: 6 });
+    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Pitch', 'Repositories', 'Settings']);
+    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, 6, undefined, undefined, undefined]);
+    expect(tabs[4]?.href).toBe('/app/products/p/knowledge/domains');
+    expect(tabs[6]?.href).toBe('/app/products/p/knowledge/repositories');
     expect(tabs[0]?.href).toBe('/app/products/p/knowledge/constituents');
   });
 
   it('count active items only', () => {
-    const tab = { ...TAB, legal: { ...TAB.legal, entries: [LEGAL, entry('x', { retiredAt: '2026-12-01' })] } };
-    expect(countsOf(tab)).toEqual({ legal: 1, glossary: 1 });
+    const tab = {
+      ...TAB,
+      legal: { ...TAB.legal, entries: [LEGAL, entry('x', { retiredAt: '2026-12-01' })] },
+      domains: { ...TAB.domains, entries: [DOMAIN, domain('stock-v1', { retiredAt: '2026-12-01' })] },
+    };
+    expect(countsOf(tab)).toEqual({ legal: 1, glossary: 1, domains: 1 });
     expect(shownEntries(tab.legal.entries, 'retired').map((e) => e.id)).toEqual(['x']);
+    expect(shownEntries(tab.domains.entries, 'retired').map((e) => e.key)).toEqual(['stock-v1']);
+  });
+});
+
+describe('the domains', () => {
+  it('find a domain by its key, retired ones too, and none for another', () => {
+    const tab = { ...TAB, domains: { ...TAB.domains, entries: [DOMAIN, domain('stock-v1', { retiredAt: '2026-12-01' })] } };
+    expect(domainOf(tab, 'invoicing')).toBe(DOMAIN);
+    expect(domainOf(tab, 'stock-v1')?.retiredAt).toBe('2026-12-01');
+    expect(domainOf(tab, 'Invoicing')).toBeNull();
+  });
+
+  it('sort by key, name or meaning, newest first by default', () => {
+    const rows = [
+      domain('stock', { name: 'Warehouse', createdAt: '2026-01-01T00:00:00Z' }),
+      domain('billing', { name: 'Zebra', createdAt: '2026-03-01T00:00:00Z' }),
+      domain('planning', { name: 'Agenda', createdAt: '2026-02-01T00:00:00Z' }),
+    ];
+    const keys = (query: Record<string, string>) => sortRows(rows, domainSortOf(query)).map((r) => r.key);
+    expect(keys({})).toEqual(['billing', 'planning', 'stock']);
+    expect(keys({ sort: 'key' })).toEqual(['billing', 'planning', 'stock']);
+    expect(keys({ sort: 'key', dir: 'desc' })).toEqual(['stock', 'planning', 'billing']);
+    expect(keys({ sort: 'name' })).toEqual(['planning', 'stock', 'billing']);
+    expect(DOMAIN_COLUMNS.map((c) => c.label)).toEqual(['Key', 'Name', 'Meaning', 'Created by', 'Created']);
   });
 });
 
@@ -114,5 +155,51 @@ describe('the sort', () => {
   it('sorts the glossary by its own columns', () => {
     const terms = [TAB.glossary.entries[0], { ...(TAB.glossary.entries[0] as (typeof TAB.glossary.entries)[number]), entry: 'z', term: 'Apple' }] as (typeof TAB.glossary.entries);
     expect(sortRows(terms, glossarySortOf({ sort: 'term' })).map((t) => t.term)).toEqual(['Apple', 'Credit note']);
+  });
+});
+
+
+describe('a term\'s domains (PRD 2583 s2)', () => {
+  const TERM = TAB.glossary.entries[0] as (typeof TAB.glossary.entries)[number];
+  const terms = [
+    { ...TERM, entry: 'a', term: 'Alpha', domains: ['invoicing'] },
+    { ...TERM, entry: 'b', term: 'Beta', domains: [] },
+    { ...TERM, entry: 'c', term: 'Gamma', domains: ['invoicing', 'planning'] },
+    { ...TERM, entry: 'd', term: 'Delta', domains: ['invoicing'], removedAt: '2026-12-01T00:00:00Z' },
+  ];
+  const tab = { ...TAB, glossary: { ...TAB.glossary, entries: terms }, domains: { ...TAB.domains, entries: [DOMAIN, domain('planning'), domain('old', { retiredAt: '2026-12-01T00:00:00Z' })] } };
+
+  it('reads ?domain=<key> as a filter, none for an empty or absent one, the first of several', () => {
+    expect(domainFilterOf({ domain: 'invoicing' })).toBe('invoicing');
+    expect(domainFilterOf({ domain: ' invoicing ' })).toBe('invoicing');
+    expect(domainFilterOf({ domain: ['planning', 'invoicing'] })).toBe('planning');
+    expect(domainFilterOf({ domain: '' })).toBeNull();
+    expect(domainFilterOf({})).toBeNull();
+  });
+
+  it('keeps the terms that name the domain, every term without a filter, none for a key nothing names', () => {
+    expect(termsOfDomain(terms, 'invoicing').map((t) => t.term)).toEqual(['Alpha', 'Gamma', 'Delta']);
+    expect(termsOfDomain(terms, 'planning').map((t) => t.term)).toEqual(['Gamma']);
+    expect(termsOfDomain(terms, null)).toHaveLength(4);
+    expect(termsOfDomain(terms, 'nowhere')).toEqual([]);
+  });
+
+  it('puts the filter in an address beside the rest of the query, and takes it out for none', () => {
+    expect(domainHref('/g', { sort: 'term', show: 'retired' }, 'planning')).toBe('/g?sort=term&show=retired&domain=planning');
+    expect(domainHref('/g', { domain: 'invoicing', sort: 'term' }, 'planning')).toBe('/g?sort=term&domain=planning');
+    expect(domainHref('/g', { domain: 'invoicing' }, null)).toBe('/g');
+  });
+
+  it('offers the active domains only, and finds which of a term\'s are retired', () => {
+    expect(activeDomains(tab).map((d) => d.key)).toEqual(['invoicing', 'planning']);
+    expect(retiredAmong(tab, ['invoicing', 'old'])).toEqual(['old']);
+  });
+
+  it('lists the live terms that name a domain for its page', () => {
+    expect(termsNaming(tab, 'invoicing').map((t) => t.term)).toEqual(['Alpha', 'Gamma']);
+  });
+
+  it('sorts the glossary by its Domains column', () => {
+    expect(sortRows(terms, glossarySortOf({ sort: 'domains' })).map((t) => t.term)).toEqual(['Alpha', 'Delta', 'Gamma', 'Beta']);
   });
 });

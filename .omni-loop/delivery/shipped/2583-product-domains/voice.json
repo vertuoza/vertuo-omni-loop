@@ -1,0 +1,168 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-02",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "One list means I can plan across every repository with the same domain words.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Showing drift helps cohesion, though I would still rather it blocked.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "It is the Glossary's list and proposal shape again, with nothing new to break in my pull requests.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "No failing check means it costs me nothing, but I may never look at it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I can find the words for the part of the product a customer is talking about.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "I'm trying to keep my teams cohesive. If nothing ever stops an unlisted folder, this list becomes one more page people ignore, and the drift stays.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-02",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The spec adopts folders in one action, so my list fills itself from what exists.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The count on every Knowledge section means the drift is seen, even if nothing blocks it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Imported copies are excluded and fields only widen, so nothing surprises my repository.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A clean additive migration; I still doubt people will keep the list current.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The Glossary filter by domain is what I will really use.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-02",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The list and its count on the tab give me one place to plan with the same domain words.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The count makes drift visible, though nothing forces anyone to act on it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "It follows the Glossary's shape and never fails my pull requests.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "No failing check costs me nothing, and I can read the list from the terminal when I need it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A term now says which part of the product it belongs to, which helps me with customers.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
+    }
+  ]
+}

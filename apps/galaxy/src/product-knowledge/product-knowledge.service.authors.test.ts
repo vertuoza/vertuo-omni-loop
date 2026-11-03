@@ -12,7 +12,7 @@ const PRODUCT = 'p-1';
 const owen = { user: 'u-owen', login: 'owen' };
 const DATES = { createdAt: '2026-01-05T09:00:00+00:00', updatedAt: '2026-02-07T10:30:00+00:00' };
 const LEGAL = { entry: 'l-1', id: 'L-VAT-1', code: 'VAT', number: 1, statement: 's', source: 'u', owner: null, retiredAt: null, createdBy: owen, ...DATES };
-const TERM = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], removedAt: null, createdBy: null, ...DATES };
+const TERM = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], domains: [], removedAt: null, createdBy: null, ...DATES };
 const section = { owner: null, delegate: null, decides: false, proposals: [] };
 const READ: KnowledgeRead = {
   product: { id: PRODUCT, name: 'Widgets' }, canName: false, latestEventId: null,

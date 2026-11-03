@@ -2645,6 +2645,63 @@ export type Database = {
           },
         ]
       }
+      product_domains: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string
+          meaning: string
+          name: string
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key: string
+          meaning: string
+          name: string
+          product_id: string
+          retired_at?: string | null
+          retired_by?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key?: string
+          meaning?: string
+          name?: string
+          product_id?: string
+          retired_at?: string | null
+          retired_by?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_domains_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_domains_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_glossary: {
         Row: {
           avoid: string[]
@@ -2702,6 +2759,62 @@ export type Database = {
           },
         ]
       }
+      product_glossary_domains: {
+        Row: {
+          domain_id: string
+          glossary_id: string
+          linked_at: string
+          linked_by: string | null
+          product_id: string
+          workspace_id: string
+        }
+        Insert: {
+          domain_id: string
+          glossary_id: string
+          linked_at?: string
+          linked_by?: string | null
+          product_id: string
+          workspace_id: string
+        }
+        Update: {
+          domain_id?: string
+          glossary_id?: string
+          linked_at?: string
+          linked_by?: string | null
+          product_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_glossary_domains_domain_id_product_id_fkey"
+            columns: ["domain_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_domains"
+            referencedColumns: ["id", "product_id"]
+          },
+          {
+            foreignKeyName: "product_glossary_domains_glossary_id_product_id_fkey"
+            columns: ["glossary_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_glossary"
+            referencedColumns: ["id", "product_id"]
+          },
+          {
+            foreignKeyName: "product_glossary_domains_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_glossary_domains_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_knowledge_events: {
         Row: {
           action: string
@@ -2709,6 +2822,7 @@ export type Database = {
           before: Json | null
           changed_at: string
           changed_by: string | null
+          domain_id: string | null
           glossary_id: string | null
           id: number
           kind: string
@@ -2723,6 +2837,7 @@ export type Database = {
           before?: Json | null
           changed_at?: string
           changed_by?: string | null
+          domain_id?: string | null
           glossary_id?: string | null
           id?: never
           kind: string
@@ -2737,6 +2852,7 @@ export type Database = {
           before?: Json | null
           changed_at?: string
           changed_by?: string | null
+          domain_id?: string | null
           glossary_id?: string | null
           id?: never
           kind?: string
@@ -2746,6 +2862,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_knowledge_events_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "product_domains"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_knowledge_events_glossary_id_fkey"
             columns: ["glossary_id"]
@@ -2833,6 +2956,7 @@ export type Database = {
           action: string
           decided_at: string | null
           decided_by: string | null
+          domain_id: string | null
           fields: Json
           glossary_id: string | null
           id: string
@@ -2848,6 +2972,7 @@ export type Database = {
           action: string
           decided_at?: string | null
           decided_by?: string | null
+          domain_id?: string | null
           fields?: Json
           glossary_id?: string | null
           id?: string
@@ -2863,6 +2988,7 @@ export type Database = {
           action?: string
           decided_at?: string | null
           decided_by?: string | null
+          domain_id?: string | null
           fields?: Json
           glossary_id?: string | null
           id?: string
@@ -2875,6 +3001,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_knowledge_proposals_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "product_domains"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_knowledge_proposals_glossary_id_fkey"
             columns: ["glossary_id"]
@@ -5930,9 +6063,117 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      product_domain_add: {
+        Args: {
+          p_key: string
+          p_meaning: string
+          p_name: string
+          p_product: string
+          p_workspace: string
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string
+          meaning: string
+          name: string
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_domains"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_domain_edit: {
+        Args: {
+          p_entry: string
+          p_meaning?: string
+          p_name?: string
+          p_workspace: string
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string
+          meaning: string
+          name: string
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_domains"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_domain_fields: {
+        Args: { e: Database["public"]["Tables"]["product_domains"]["Row"] }
+        Returns: Json
+      }
+      product_domain_live: {
+        Args: { p_entry: string; p_product: string; p_workspace: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string
+          meaning: string
+          name: string
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_domains"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_domain_retire: {
+        Args: { p_entry: string; p_workspace: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string
+          meaning: string
+          name: string
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_domains"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_domain_unique: {
+        Args: { p_key: string; p_product: string }
+        Returns: undefined
+      }
       product_glossary_add: {
         Args: {
           p_avoid?: string[]
+          p_domains?: string[]
           p_meaning: string
           p_product: string
           p_term: string
@@ -5958,9 +6199,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      product_glossary_domain_check: {
+        Args: { p_glossary: string; p_keys: Json; p_product: string }
+        Returns: undefined
+      }
+      product_glossary_domain_keys: {
+        Args: { p_glossary: string }
+        Returns: Json
+      }
+      product_glossary_domain_link: {
+        Args: { p_glossary: string; p_keys: Json; p_product: string }
+        Returns: undefined
+      }
+      product_glossary_domains_object: { Args: { p_keys: Json }; Returns: Json }
       product_glossary_edit: {
         Args: {
           p_avoid?: string[]
+          p_domains?: string[]
           p_entry: string
           p_meaning?: string
           p_term?: string
@@ -6055,6 +6310,7 @@ export type Database = {
           action: string
           decided_at: string | null
           decided_by: string | null
+          domain_id: string | null
           fields: Json
           glossary_id: string | null
           id: string
@@ -6188,6 +6444,7 @@ export type Database = {
           action: string
           decided_at: string | null
           decided_by: string | null
+          domain_id: string | null
           fields: Json
           glossary_id: string | null
           id: string
@@ -6250,6 +6507,7 @@ export type Database = {
           action: string
           decided_at: string | null
           decided_by: string | null
+          domain_id: string | null
           fields: Json
           glossary_id: string | null
           id: string
@@ -6274,6 +6532,7 @@ export type Database = {
           action: string
           decided_at: string | null
           decided_by: string | null
+          domain_id: string | null
           fields: Json
           glossary_id: string | null
           id: string

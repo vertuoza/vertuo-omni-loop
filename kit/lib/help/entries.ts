@@ -268,7 +268,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb domains', 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', '  [--product <name>] [--json]', 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', '  [--product <name>] [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -292,7 +292,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'product when the repository is in several. They print added <id>, edited <id> or proposed (a ' +
       "member who does not own the section proposes, and waits for its owner) with the item's link; " +
       "--json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or " +
-      'retired from the terminal; init lays down every missing form, blank, and ' +
+      'retired from the terminal. domains prints the product\'s active list of domains (PRD 2583), one line ' +
+      'each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one ' +
+      'as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to ' +
+      "name the term's domains, and on edit --domain '' clears them, and glossary prints each term's " +
+      'domains on its line. graph marks each domains/ folder the product does not list, ' +
+      "\"not on the product's list\", from the local copy and never the network, marks nothing with no copy, " +
+      'and prints "the product lists no domains yet" for an empty list; no exit code changes. init lays down every missing form, blank, and ' +
       'changes no file that exists.',
   },
   {

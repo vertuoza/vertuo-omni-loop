@@ -8,12 +8,13 @@ import type { SectionKey } from './knowledge-sections';
 import { LIVE_KNOWLEDGE_TAB, knowledgeTabViewOf } from './product-knowledge.controller';
 import { KnowledgeScreen, type KnowledgeTabView } from './KnowledgeTab';
 import type { TabSource } from './KnowledgeTabPage';
+import { loadNotOnList } from './found-domains-load';
 import type { KnowledgeTab } from './product-knowledge.contract';
 
 // A page of the Knowledge home (PRD 2240 s3), read as the signed-in person: the product home beside the
 // product's knowledge, so row-level security decides what the reads return. An archived product (PRD 2232)
 // has no Knowledge: its home's Ledger answers. `found` says whether the page's item exists once the product
-// is read; one that does not is the 404 page. In development (or OMNI_LOOP_DEMO=1), the demo.
+// is read; one that does not is the 404 page. Every section's sub-menu counts the folders off the product's list (PRD 2583 s3). In development (or OMNI_LOOP_DEMO=1), the demo.
 
 export interface KnowledgePageProps {
   id: string;
@@ -37,5 +38,5 @@ export async function KnowledgePage({ id, section, found, children }: KnowledgeP
   const tabs = tabsOf(home);
   if (tabs === null) return <ProductHome tab="ledger" view={home} />;
   if (missing(view, found)) notFound();
-  return <KnowledgeScreen view={view} tabs={tabs} section={section}>{children}</KnowledgeScreen>;
+  return <KnowledgeScreen view={await loadNotOnList(view)} tabs={tabs} section={section}>{children}</KnowledgeScreen>;
 }
