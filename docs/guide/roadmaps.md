@@ -429,4 +429,4 @@ rules' kind stands. **Shadow** asks Jev and logs its answer, keeping the rules' 
 Jev's answer as the kind. An answer outside the four kinds, or Jev failing, keeps the rules' kind, and
 the push never fails because of it. An entry keeps the kind it was first given on every later push.
 
-[Next → Landings](/docs/landings)
+[Next → Repository flow](/docs/flow)
