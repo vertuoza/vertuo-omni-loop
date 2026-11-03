@@ -284,13 +284,8 @@ the plan repository:
 /loop /omni:mega-drive
 ```
 
-It is [driving the loop](/docs/drive) for a plan repository: one step per tick, each running
-`/omni:ultra-wave`, `/omni:ultra-yolo`, `/omni:ultra-yolo-fix` or `/omni:mega-pr-care --once`. A step
-in one repository never waits for a step in another unless they touch the same path in the same
-repository. When a PRD waits on you, the loop says so on the plan pull request, naming each pull
-request still open by repository, and stops itself once nothing moves without you. With
-`--roadmap <n>` it drives a roadmap's PRDs, each held until its blockers' plan and target pull
-requests all merged. `/loop /omni:drive` in a plan repository prints this line instead.
+It is [driving the loop](/docs/drive#drive-a-plan-repository) with the skills that build across
+repositories; `--roadmap <n>` drives a roadmap's PRDs.
 
 ## Which skill runs which
 
