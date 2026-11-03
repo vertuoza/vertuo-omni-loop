@@ -54,6 +54,43 @@ describe('ghClient', () => {
   });
 });
 
+describe('ghClient.canWrite (#2610)', () => {
+  const client = (permission: string) => ghClient({ owner: 'acme', repo: 'widgets', issue: parsePr(7), exec: fakeExec({ 'api repos/acme/widgets/collaborators/ada/permission': JSON.stringify({ permission }) }).exec });
+
+  it('says yes to admin and write, and no to anything less', () => {
+    expect(client('admin').canWrite('ada')).toBe(true);
+    expect(client('write').canWrite('ada')).toBe(true);
+    expect(client('read').canWrite('ada')).toBe(false);
+    expect(client('none').canWrite('ada')).toBe(false);
+  });
+
+  it('reads a 404 as no: GitHub knows no such person on the repository', () => {
+    const exec = () => {
+      throw Object.assign(new Error('Command failed'), { stderr: 'gh: Not Found (HTTP 404)' });
+    };
+    expect(ghClient({ owner: 'acme', repo: 'widgets', issue: parsePr(7), exec }).canWrite('ada')).toBe(false);
+  });
+
+  it('lets any other failure through: an outage never reads as an answer to ignore', () => {
+    const exec = () => {
+      throw Object.assign(new Error('Command failed'), { stderr: 'gh: Server Error (HTTP 502)' });
+    };
+    expect(() => ghClient({ owner: 'acme', repo: 'widgets', issue: parsePr(7), exec }).canWrite('ada')).toThrow('Command failed');
+  });
+
+  it('asks about the login as a path segment', () => {
+    const { exec, calls } = fakeExec({ 'api repos': '{"permission":"read"}' });
+    ghClient({ owner: 'acme', repo: 'widgets', issue: parsePr(7), exec }).canWrite('a/b');
+    expect(calls[0]?.args).toEqual(['api', 'repos/acme/widgets/collaborators/a%2Fb/permission']);
+  });
+
+  it('runs through githubClientFor with the same answer', () => {
+    const { exec } = fakeExec({ 'api repos/acme/widgets/collaborators/ada/permission': '{"permission":"write"}' });
+    const ctx = { config: { github: { user: null }, repo: { slug: 'acme/widgets' } } };
+    expect(githubClientFor(ctx, { issue: parsePr(7), exec, env: {} }).canWrite('ada')).toBe(true);
+  });
+});
+
 describe('githubClientFor', () => {
   const ctx = (user: string | null) => ({ config: { repo: { slug: 'acme/widgets' }, github: { user } } });
 
