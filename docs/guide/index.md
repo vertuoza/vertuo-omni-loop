@@ -27,7 +27,7 @@ with a link to the next.
 You need no product to start. A [product](/docs/products) on the Omni page is optional: it gathers
 the repositories it is built from, gives its PRDs a home and approvers, and a repository can be in
 none, one or several. A product can also hold a PRD built across its repositories, with no plan
-repository: a [product PRD](/docs/products#a-product-prd).
+repository: a [product PRD](/docs/several-repositories#a-product-prd).
 
 ## What you will have at the end
 

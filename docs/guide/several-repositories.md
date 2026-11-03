@@ -21,7 +21,7 @@ slice s1 lands in `nimbus-backend-php`, and s2 and s3 in `nimbus-apps`.
 
 There is a second way, with no plan repository at all: a **product PRD**, kept on a
 [product](/docs/products) on the Omni page and run from any of its repositories.
-[Without a plan repository](#without-a-plan-repository) compares the two.
+[A product PRD](#a-product-prd) compares the two.
 
 ## The repositories
 
@@ -337,12 +337,19 @@ The skills and checks read an imported target's knowledge from its pack, which t
 rather than from a copy under `.omni-loop/knowledge/repos/`; `omni kb pack get <repo>` fetches it.
 The [knowledge packs](/docs/products#knowledge-packs) section says how a pack is fetched and refused.
 
-## Without a plan repository
+## A product PRD
 
-A [product PRD](/docs/products#a-product-prd), such as `mobile-12`, is built across the product's
-repositories with no plan repository. Its spec, plan and questions live on its page on the Omni
-page, and you run the same skills from a checkout of any of the product's repositories that has the
-loop installed. Every repository it lands in must have phase 0 on the server.
+A feature that lands in several of a [product](/docs/products)'s repositories can live on the
+product itself. Such a **product PRD** (◆) has no home repository, no GitHub issue and no folder in
+any repository. Its id is the product's key and a counter, such as `mobile-12`. Its spec, plan,
+before/after page and voice are versions on its page on the Omni page, and so are the questions its
+agents raise. You run the same skills from a checkout of any of the product's repositories that has
+the loop installed.
+
+Its code still lands on GitHub: one feature pull request per repository, each saying
+`Part of mobile-12`. There is **no plan repository, no phase-0 pull request and no plan pull
+request**. You approve it once, on its page, and you answer its questions once, on the product's
+**Questions** tab.
 
 | step | in a plan repository | as a product PRD |
 |---|---|---|
@@ -353,7 +360,128 @@ loop installed. Every repository it lands in must have phase 0 on the server.
 | questions | answered on the plan pull request | answered on the product's **Questions** tab, or in the terminal |
 | the gate | `omni status 600`, then the plan pull request ready last | `omni status mobile-12`, then each target's pull request ready; there is no plan pull request |
 
-[A product PRD](/docs/products#a-product-prd) walks it from brainstorm to ready, with the two checks
-and what does not work yet.
+### Before you start
+
+- **The product has a key.** One short lowercase word, such as `mobile` or `field-app`, that starts
+  every one of its PRD ids. An owner of the workspace sets it once, and nobody changes it after. The
+  Omni page has no field for it yet: an owner sets it through the database's `product_set_key`.
+- **You run from a repository of the product** that has the loop installed, a plan repository or
+  not, signed in to the Omni page (`omni signin`).
+- **Every repository it lands in has phase 0 on the server.** A repository still on phase-0 pull
+  requests cannot take a product PRD. To check, type:
+
+```bash terminal agent
+omni product phase0 demo-org/nimbus-app demo-org/nimbus-api
+```
+
+It prints one line per repository: `is phase0: server`, or
+`is phase0: pr · switch it to server on its Omni page, or leave it out`.
+
+### Brainstorm it
+
+In a checkout of one of the product's repositories, type (in your agent's form:
+[Any coding agent](/docs/any-agent#set-up-your-agent)):
+
+```text agent
+/omni:mega-brainstorm --product mobile
+```
+
+with your product's key. The checkout remembers the product from then on (`omni product use mobile`
+does the same alone, and `omni product which` names it first). The brainstorm talks the idea
+through with you and asks which repository does what: it never assumes it. It refuses a repository
+whose phase 0 is not on the server, by name, and you leave it out or switch it.
+
+It then creates the PRD on the Omni page and prints its id and its page. Nothing is written in any
+repository: no issue, no branch, no commit, no pull request. `omni plan check` does not grade a
+product PRD's plan yet: the hand-off says so. Its last lines are what to do next: approve the PRD on
+its page, then run `/omni:ultra-yolo mobile-12`.
+
+To read a product PRD in the terminal, type:
+
+```bash terminal agent
+omni prd mobile-12
+```
+
+It prints its state, `birthplace: server`, its approval, its page and its product. With
+`--show spec` (or `plan`, `before-after`, `voice`) it prints that file, read-only, under a line
+saying its version and when it was read. The last copy read answers while the Omni page is down,
+marked `as of` that time; no gate ever trusts it.
+
+### Approve it
+
+An approver of the product approves it on its page, as for any PRD born on the server
+([The approval handshake](/docs/loop#the-approval-handshake)). The approval pins every file by its
+hash. A later change to a pinned file voids it, and the PRD must be approved again.
+
+### Build it
+
+Once it is approved, from the same checkout, type:
+
+```text agent
+/omni:ultra-yolo mobile-12
+```
+
+It waits for the approval when there is none yet, asking again every minute, for up to an hour. It
+refuses to build a PRD whose approval was voided, and it parks, without failing, while the Omni page
+does not answer. It reads the plan from the PRD's page, clones each repository, and opens one draft
+feature pull request in each. Each one's description starts with `Part of mobile-12` and the
+PRD's page. It builds the slices wave by wave, as for any PRD across repositories, and sends every
+decision an agent took alone to the PRD's questions on the Omni page.
+
+### The two checks
+
+The Omni Loop GitHub App posts two checks on each of those feature pull requests:
+
+| check | what it says |
+|---|---|
+| **`omni/approved`** | `building · 4 of 4 pinned` when every pinned file is the one approved; `drifted · ≠ plan.md in <commit> · content` (or `· whitespace only`) when one changed; `held · server unreachable since <time> · held, not failed` when the Omni page cannot be read. It fails while nobody approved the PRD (`pending`), or when the approver left the workspace |
+| **the outbox check** | `0 open · one gate on Mobile` once no question is open; `3 open · answer on Mobile › Questions` while three wait on a person |
+
+**Details** on `omni/approved` opens the PRD page's attestation: who approved it and when, whether
+they are still a member and an approver of the product, and each pinned file's hash beside today's.
+A drifted file offers **Restore** (its approved version) and the card **Ask again** (the approve
+screen).
+
+The App posts both checks when a pull request opens or moves, and again when the Omni page says the
+PRD was approved, its approval voided, or a question raised or answered. It never polls.
+
+### Answer its questions
+
+The product home's **Questions** tab lists every open question of the product's PRDs, the most
+pressing first within each PRD, each with its PRD, its repository and who it is for. A product
+PRD's question shows its options as buttons, **A** being what the agent built, and **other…** for
+an answer of your own. An answer that does not say whether it keeps what was built is refused, never guessed.
+An answer is saved at once, and the outbox check follows. Nothing is posted on GitHub.
+
+You can also answer in the terminal, at the end of a red `/omni:ultra-yolo`: it offers to take the
+answers there.
+
+### Ready
+
+The one gate is read from the Omni page:
+
+```bash terminal agent
+omni status mobile-12
+```
+
+Once it is green and every repository's CI is green, `/omni:ultra-yolo` marks each feature pull
+request ready, in the order to merge them. Merging them is yours. To keep them green and their
+review comments handled, run `/omni:mega-pr-care mobile-12`. To drive several, run
+`/loop /omni:mega-drive mobile-12`: a product PRD is driven only when you name it.
+
+### What does not work yet
+
+- **The PRDs list and a PRD's page** still expect every PRD to have a home repository. Until they
+  learn otherwise, a product PRD may not show in the list, or may break it. Read it with
+  `omni prd mobile-12`.
+- **A changed answer given on the Questions tab** is not reworked by `/omni:ultra-yolo-fix`, which
+  reworks only the answers given in the terminal in the same run. It reports the others as held.
+- **The gate counts open questions only.** A question answered with a change does not hold it until
+  the change is made. The Omni page keeps no record yet of the risky changes an agent accounts for:
+  the run names them in its report.
+- **`omni board`, `omni next`, `omni care` and `omni loop`** read a repository's PRD numbers only.
+  The skills read the plan and the pull requests themselves, and each says in its report which
+  command did not run.
+- **One feature pull request per repository.** A product PRD's plan cannot be split into landings.
 
 [Next → Roadmaps](/docs/roadmaps)
