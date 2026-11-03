@@ -19,7 +19,7 @@ in where no browser opens.
 
 - **The header:** the person's name, `@login` to GitHub, their fleet, their season place.
 - **Alerts** (your own profile only): its intro line, then **Phone alerts on this device** and
-  **Email · <address>**, each a switch.
+  **Email · <address>**, each a switch (Email on by default, PRD 2608).
 - **Terminal tokens** (your own profile only, PRD 1628): the line `Sign in where no browser opens.`;
   your live kit tokens, newest first, each with its name and `··<last four>`, then `Made <date>`,
   `Used <when>` (`just now`, `<n> min ago`, `<n> h ago`, then the day; or `Never used`) and
@@ -66,5 +66,6 @@ already: revoke one to make another.`, `Demo: no token here signs anything in.`
 
 ## Source
 
+- /omni:brainstorm, PRD 2608: .omni-loop/delivery/inbox/2608-tech-approval/before-after.html
 /omni:brainstorm, PRD 1628: .omni-loop/delivery/shipped/1628-cloud-sign-in/before-after.html; brought
 up to the built screen by PRD 1628 s4.

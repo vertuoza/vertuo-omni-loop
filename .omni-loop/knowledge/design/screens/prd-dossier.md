@@ -63,7 +63,7 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 ## Words
 
 Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbox, PR care, Proof, Launch,
-Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
+Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Request a Tech Approval, Give Tech Approval (PRD 2608), Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval, Main,
 Repo, Repos, On GitHub, Opened. Main's words (PRD 2410): Watching · n days left, Clean, Broke main,
 Could not check; on a finding: Approve, Reject. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
@@ -91,6 +91,7 @@ Could not check; on a finding: Approve, Reject. An approved missing-rule finding
 
 ## Source
 
+- /omni:brainstorm, PRD 2608: .omni-loop/delivery/inbox/2608-tech-approval/before-after.html
 - apps/galaxy/app/prd/[id]/page.tsx@b884e26
 - apps/galaxy/app/prd/[id]/not-found.tsx@f848a24
 - apps/galaxy/app/prd/[id]/loading.tsx@4e5224b

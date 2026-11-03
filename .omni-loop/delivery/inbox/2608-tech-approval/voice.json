@@ -1,0 +1,116 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-03",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "I want to ship fast, and a second approval slows me, but I choose when to ask for it.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I don't master the technical harness, so one named engineer checking it lets me push quick wins with less worry.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "It keeps the teams' code cohesive, but I only look at the board, so a request could sit with me.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A person reads the plan before agents write slop, and only that person can approve it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Being able to change the data shape before code exists is useful, if the grill stays short and isn't fluff.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "I mostly just look at the board. If PMs can send me a long grilling session whenever they like, those requests will sit there, and nothing tells the PM that their PRD is stuck on me.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · persona:B-E DEv ~ · persona:Lead Engineer ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-03",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Asked last, and only if I want it, so my normal brainstorm stays the same. Once I ask, I wait.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The product choices stay mine, and the review covers coding only, so my customer decisions aren't reopened.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "An email and my Waiting section are enough, and the agent asks only what the plan leaves open.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Nobody can skip it once requested, and the database refuses the product approval without it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Reading the code before asking is right. I'll judge it by whether the questions are worth answering.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "fit": "fits persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · persona:B-E DEv ~"
+    }
+  ]
+}
