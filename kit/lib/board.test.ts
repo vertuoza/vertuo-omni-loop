@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardFor, fillBranch, inlineSlicesIn, inlineWave, isClaimedStale, landingBranches, runnableFrontier } from './board.ts';
+import { boardFor, fillBranch, inlineSlicesIn, inlineSlicesInTargets, inlineTargets, inlineWave, isClaimedStale, landingBranches, runnableFrontier } from './board.ts';
 import type { BoardLanding, BoardPr, BoardRepos, BoardSlice, FrontierRow } from './board.ts';
 import { assertDefined } from '../test/assert.ts';
 import { parsePr, parseWorkSliceId } from './ids.ts';
@@ -427,10 +427,12 @@ describe('boardFor — slices built inline on the feature branch (issue 1722)', 
     expect(firstRow(withPr).state).toBe('in-flight');
   });
 
-  it('ignores inlineDone in a plan repository', () => {
-    const repos = { backend: { slug: 'acme/backend', readable: true } };
-    const result = boardFor({ slices: [slice({ id: s1, repo: 'backend' })], prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, repos, inlineDone: new Set(['s1']) });
-    expect(firstRow(result).state).toBe('runnable');
+  it('reads inlineDone in a plan repository too, for a readable target only', () => {
+    const repos = { backend: { slug: 'acme/backend', readable: true }, frontend: { slug: null, readable: false } };
+    const slices = [slice({ id: s1, repo: 'backend' }), slice({ id: s2, repo: 'frontend', territory: ['b/'] })];
+    const result = boardFor({ slices, prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, repos, inlineDone: new Set(['s1', 's2']) });
+    expect(firstRow(result).state).toBe('merged');
+    expect(rowOf(result, 's2').state).toBe('unreadable');
   });
 
   describe('inlineWave', () => {
@@ -748,5 +750,108 @@ describe('landings in a plan repository: one chain per target', () => {
       [1, ['s1'], null],
       [2, ['s2', 's3'], 7],
     ]);
+  });
+});
+
+describe('inline targets — a plan repository counts its slices per repository (issue 1722)', () => {
+  const REPOS: BoardRepos = {
+    apps: { slug: 'acme/apps', readable: true },
+    backend: { slug: 'acme/backend', readable: true },
+    soft: { slug: 'acme/soft', readable: true },
+  };
+  const id = (value: string) => parseWorkSliceId(value);
+  const oneEach = () => [
+    slice({ id: id('s1'), repo: 'apps' }),
+    slice({ id: id('s2'), repo: 'backend', territory: ['b/'] }),
+    slice({ id: id('s3'), repo: 'soft', territory: ['c/'] }),
+  ];
+  const across = (slices: BoardSlice[], prs: BoardPr[] = [], inlineDone: ReadonlySet<string> = new Set()) =>
+    boardFor({ slices, prs, now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, repos: REPOS, inlineDone });
+
+  describe('inlineTargets', () => {
+    it('never builds a target inline with wave.inlineBelow at 0, its default', () => {
+      expect(inlineTargets(across(oneEach()), 0)).toEqual([]);
+    });
+
+    it('builds inline every target holding fewer slices than wave.inlineBelow: one slice in each of three repositories is three inline targets', () => {
+      expect(inlineTargets(across(oneEach()), 2)).toEqual(['apps', 'backend', 'soft']);
+    });
+
+    it('counts each repository alone: a target of two slices keeps its sub-PRs while a target of one goes inline', () => {
+      const slices = [...oneEach(), slice({ id: id('s4'), repo: 'apps', territory: ['d/'] })];
+      expect(inlineTargets(across(slices), 2)).toEqual(['backend', 'soft']);
+      expect(inlineTargets(across(slices), 3)).toEqual(['apps', 'backend', 'soft']);
+    });
+
+    it('keeps the threshold strict: a target holding exactly wave.inlineBelow slices is not inline', () => {
+      const slices = [slice({ id: id('s1'), repo: 'apps' }), slice({ id: id('s2'), repo: 'apps', territory: ['b/'] })];
+      expect(inlineTargets(across(slices), 2)).toEqual([]);
+    });
+
+    it('never builds inline a target that already has a sub-PR, and leaves the other targets alone', () => {
+      const subPr = pr({ number: parsePr(9), headRefName: 'feat/widgets--s2', slug: 'acme/backend' });
+      expect(inlineTargets(across(oneEach(), [subPr]), 2)).toEqual(['apps', 'soft']);
+    });
+
+    it('answers nothing for a plan with no repo column: inlineWave answers for one repository', () => {
+      expect(inlineTargets(board([slice()], []), 2)).toEqual([]);
+    });
+
+    it('counts the current landing of each target’s own chain, for a target of several landings', () => {
+      const slices = [
+        slice({ id: id('s1'), repo: 'apps', landing: 1 }),
+        slice({ id: id('s2'), repo: 'apps', landing: 1, territory: ['b/'] }),
+        slice({ id: id('s3'), repo: 'apps', landing: 2, territory: ['c/'] }),
+        slice({ id: id('s4'), repo: 'backend', landing: 1, territory: ['d/'] }),
+      ];
+      const landings = [
+        { landing: 1, name: 'first', branch: 'feat/widgets-1of2-first', repo: 'apps' },
+        { landing: 2, name: 'second', branch: 'feat/widgets-2of2-second', repo: 'apps' },
+        { landing: 1, name: 'only', branch: 'feat/widgets', repo: 'backend' },
+      ];
+      const result = boardFor({ slices, prs: [], now: NOW, limits: LIMITS, config: CONFIG, prd: PRD, repos: REPOS, landings });
+      expect(inlineTargets(result, 3)).toEqual(['apps', 'backend']);
+      expect(inlineTargets(result, 2)).toEqual(['backend']);
+    });
+  });
+
+  describe('inlineSlicesInTargets', () => {
+    const feature = (slug: string, body: string) => pr({ number: parsePr(5), headRefName: 'feat/widgets', baseRefName: 'main', slug, body });
+    const featureBranches = () => ['feat/widgets'];
+    const read = (prs: BoardPr[], inlineBelow = 2) => inlineSlicesInTargets({ slices: oneEach(), prs, repos: REPOS, featureBranches, inlineBelow });
+
+    it('reads a slice as built once its own repository’s feature PR lists it on an Omni-Slice line', () => {
+      expect([...read([feature('acme/apps', 'Summary\n\nOmni-Slice: s1\n')])]).toEqual(['s1']);
+    });
+
+    it('never credits a slice from another repository’s feature PR', () => {
+      expect([...read([feature('acme/backend', 'Omni-Slice: s1')])]).toEqual([]);
+    });
+
+    it('never credits a pull request that is not the feature branch’s own', () => {
+      const other = pr({ number: parsePr(6), headRefName: 'feat/other', slug: 'acme/apps', body: 'Omni-Slice: s1' });
+      expect([...read([other])]).toEqual([]);
+    });
+
+    it('reads nothing with wave.inlineBelow at 0, so turning the key off reads the slices runnable again', () => {
+      expect([...read([feature('acme/apps', 'Omni-Slice: s1')], 0)]).toEqual([]);
+    });
+
+    it('reads nothing for a repository the plan cannot resolve', () => {
+      const result = inlineSlicesInTargets({ slices: oneEach(), prs: [feature('acme/apps', 'Omni-Slice: s1')], repos: {}, featureBranches, inlineBelow: 2 });
+      expect([...result]).toEqual([]);
+    });
+  });
+
+  describe('boardFor', () => {
+    it('reads a slice built inline in its target as merged, and unblocks the slice that waits on it', () => {
+      const slices = [slice({ id: id('s1'), repo: 'apps' }), slice({ id: id('s2'), repo: 'backend', territory: ['b/'], blockedBy: [id('s1')] })];
+      const before = across(slices);
+      expect(rowOf(before, 's1').state).toBe('runnable');
+      expect(rowOf(before, 's2').state).toBe('blocked');
+      const after = across(slices, [], new Set(['s1']));
+      expect(rowOf(after, 's1').state).toBe('merged');
+      expect(rowOf(after, 's2').state).toBe('runnable');
+    });
   });
 });

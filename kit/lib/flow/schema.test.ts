@@ -51,6 +51,15 @@ function refusal(extra: string): string {
 const hooks = (body: string) => `flow:\n  hooks:\n${body}`;
 
 describe('FlowSchema', () => {
+  it('reads hooks at bug-fix.reproduce and bug-fix.review', () => {
+    expect(FlowSchema.parse({ hooks: { 'bug-fix.reproduce': 'a.md', 'bug-fix.review': { before: 'b.md' } } }).hooks).toEqual({ 'bug-fix.reproduce': 'a.md', 'bug-fix.review': { before: 'b.md' } });
+  });
+
+  it('reads a replace hook at bug-fix.proof, beside before and after (PRD 2578)', () => {
+    const value = { before: 'a.md', replace: 'b.md', after: ['c.md'] };
+    expect(FlowSchema.parse({ hooks: { 'bug-fix.proof': value } }).hooks).toEqual({ 'bug-fix.proof': value });
+  });
+
   it('reads the spec example', () => {
     const flow = parseConfig(`kit: 1\n${SPEC_FLOW}`).flow;
     expect(Object.keys(flow?.areas ?? {})).toEqual(['kernel', 'migrations']);
@@ -67,6 +76,8 @@ describe('FlowSchema', () => {
     ['an unknown point', hooks('    do-work.lint: a.md\n'), 'flow.hooks.do-work.lint: not a point of the catalog'],
     ['replace on plan.slice', hooks('    plan.slice: { replace: a.md }\n'), 'flow.hooks.plan.slice.replace: plan.slice takes before and after hooks only'],
     ['replace on an area hook that does not allow it', "flow:\n  areas:\n    kernel:\n      paths: ['^k/']\n      hooks:\n        yolo.ready: { replace: a.md }\n", 'flow.areas.kernel.hooks.yolo.ready.replace:'],
+    ['replace on bug-fix.reproduce', hooks('    bug-fix.reproduce: { replace: a.md }\n'), 'flow.hooks.bug-fix.reproduce.replace: bug-fix.reproduce takes before and after hooks only'],
+    ['replace on bug-fix.review', hooks('    bug-fix.review: { replace: a.md }\n'), 'flow.hooks.bug-fix.review.replace: bug-fix.review takes before and after hooks only'],
     ['an absolute hook path', hooks('    do-work.test: /etc/hook.md\n'), 'flow.hooks.do-work.test: /etc/hook.md is an absolute path'],
     ['a hook path holding ..', hooks('    do-work.test: { after: ../hook.md }\n'), 'flow.hooks.do-work.test.after: ../hook.md holds ..'],
     ['a hook that is a URL', hooks('    do-work.test: { before: https://example.com/h.md }\n'), 'flow.hooks.do-work.test.before: https://example.com/h.md is a URL'],

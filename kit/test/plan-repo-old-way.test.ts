@@ -3,6 +3,9 @@
 // checks a bug record's Fixes table, and an imported knowledge copy is read, all as before this PRD.
 // No test calls GitHub or the Omni page: `gh` is stubbed and the page's `POST /api/roadmaps` is a fetch.
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
@@ -146,11 +149,13 @@ describe('the plan repository, as before the product way', () => {
       '- **backend:** Mutation: not run in a target',
       '',
     ].join('\n');
+    const proofBody = join(tmpdir(), 'omni-old-way-proof-body.md');
+    writeFileSync(proofBody, ['## Proof', '', '![Before and after the fix](https://omni.example/preview.gif)', '', '- **Before the fix** (red): `red`', '- **After the fix** (green, `a1b2c3d`): `green`', '- **Proved on:** CI · reproduction test only, the screen was not filmed', ''].join('\n'));
     const bugAt = (repository: string) => {
       write('.omni-loop/delivery/bugs/0012-double-save/bug.md', record(repository));
       execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
       execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', `docs(delivery): the record of bug #12 across the targets (#12)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${trailer}\n`], { cwd: root, stdio: 'ignore' });
-      return omni(root, ['bug', '12', '--base', base]);
+      return omni(root, ['bug', '12', '--base', base, '--body-file', proofBody]);
     };
     const ok = await bugAt('backend');
     expect({ code: ok.code, ok: /^ok$/m.test(ok.out)}).toEqual({ code: 0, ok: true});

@@ -6,7 +6,7 @@
 // pitch's `tokens`, `home`, `fetch`, `callMs`, `now`, `launch`, `openBrowser` and `studioUntil`;
 // business's, decide's, approval's, product's and status's `tokens`, `home`, `fetch` and `callMs`; item's, adopt's, settle's and answers' `tokens`, `home`, `fetch`, `callMs` and `now`; wait's `tokens`, `home`, `fetch`, `callMs`, `sleep`, `now`, `idleMs` and `deadline`; constituents' and session's `tokens`, `home`, `fetch`, `now` and `budgetMs`;
 // version's `kit`; update's `kit` and `bundle`; sync's `now` and `spawn`; worktrees' `board` and `processes`; statusline's `stdin`, `now`, `readFacts` and `spawn`; now's `stdin` and `now`; runner's `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs` and `backoff`).
-import type { Command, FreeCommand } from '../io.ts';
+import type { Command, FreeCommand, FreeIo } from '../io.ts';
 import { adopt } from './adopt.ts';
 import { answers } from './answers.ts';
 import { approval } from './approval.ts';
@@ -17,7 +17,8 @@ import { beforeAfter } from './before-after.ts';
 import { budget } from './budget.ts';
 import { care } from './care.ts';
 import { business } from './business.ts';
-import { bug } from './bug.ts';
+import { bug as bugCommand } from './bug.ts';
+import { ci as bugCi } from './bug-ci.ts';
 import { check } from './check.ts';
 import { claim } from './claim.ts';
 import { comment } from './comment.ts';
@@ -70,5 +71,11 @@ import { update } from './update.ts';
 import { version } from './version.ts';
 import { visual } from './visual.ts';
 import { worktrees } from './worktrees.ts';
+
+/** `omni bug ci …` is level B's command (PRD 2578); every other `omni bug …` is `./bug.ts`'s, as before. */
+const bug = {
+  withoutContext: true,
+  run: (args: string[], io: FreeIo) => (args[0] === 'ci' ? bugCi(args.slice(1), io) : bugCommand.run(args, io)),
+} satisfies FreeCommand;
 
 export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, 'before-after': beforeAfter, prd, budget, approval, wait, status, settle, adopt, replies, answers, comment, ship, harvest, retro, rewind, check, claim, generated, design, knowledge, kb, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version, update, help, statusline, now, targets, product, session, runner, tier, sync, worktrees });

@@ -1053,8 +1053,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'bug',
     kind: 'command',
     who: 'skills',
-    usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'],
-    summary: 'grade a bug fix branch and its pull request, or film its before and after',
+    usage: [
+      'omni bug <n> [--base <ref>] [--body-file <file>]',
+      'omni bug film <n> --before <file> --after <file> [--out <dir>]',
+      'omni bug ci <n> --pr <pr> --reproduction <sha> --fix <sha>',
+      '  --test <name> --out <dir> [--wait <minutes>]',
+    ],
+    summary: 'grade a bug fix branch and its pull request, film its before and after, or read them from CI',
     detail:
       "The proof step of /omni:bug-fix, run on its fix branch: one folder for issue <n> under the " +
       "delivery folder's bugs/, holding a bug.md with its Triage, Reproduction, Fix, Guard and " +
@@ -1074,7 +1079,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '(640 pixels wide, looping), and without ffmpeg exits 1 with ffmpeg not found. It writes ' +
       'preview.gif, the two inputs and a run.json that omni proof push --kind bug sends, in --out ' +
       '(by default proof-bug-<n>/<time> under the worktrees folder), and prints that folder; for two ' +
-      '.txt it exits 1 only for a folder it cannot write (could not write <path>).',
+      '.txt it exits 1 only for a folder it cannot write (could not write <path>). omni bug ci is level B ' +
+      'of the proof: handed the pull request, the reproduction commit, the fix commit and the ' +
+      "reproduction test's name, it reads the checks of both commits through gh (it edits no CI file and " +
+      "never changes the pull request's draft state), waits for them up to --wait minutes (30 by " +
+      'default), and writes red.txt and green.txt in --out (the log lines around the test, masked, and ' +
+      "each run's link) for omni bug film, printing that folder. It proves the red when a check failed " +
+      'on the reproduction commit with a log naming the test, and the green when that same check passed ' +
+      'on the fix commit. Otherwise it prints why on one line and exits 1: job <name> skipped, no ' +
+      'failed log names <test>, every check passed on <commit>, or the runs did not finish within ' +
+      '<wait>.',
   },
   {
     name: 'concept',

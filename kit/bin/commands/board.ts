@@ -30,7 +30,7 @@
 // `omni board` does, from the reads they hand it; the command itself only prints what it returns.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardFor, couldBeDead, deadClaimRules, fillBranch, inlineSlicesIn, inlineWave, landingBranches } from '../../lib/board.ts';
+import { boardFor, couldBeDead, deadClaimRules, fillBranch, inlineSlicesIn, inlineSlicesInTargets, inlineTargets, inlineWave, landingBranches } from '../../lib/board.ts';
 import type { BoardLanding, BoardPr, BoardRepos, BoardRow, DeadClaimRules, LandingRow } from '../../lib/board.ts';
 import { loadContext } from '../../lib/context.ts';
 import type { Context, ExecText } from '../../lib/context.ts';
@@ -211,9 +211,18 @@ export async function buildBoard(
       : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name }).map(
           (step) => ({ landing: step.planLanding, name: step.name, branch: step.branch, repo: name }),
         );
-  const across = await readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
+  const { inlineBelow } = ctx.config.wave;
+  const across = await readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader, withFeature: inlineBelow > 0 });
   const chains = landed === null ? null : across.chains;
-  return { slices, result: board(across.prs, { repos: across.repos, landings: chains }), unreadable: across.unreadable, landings: chains ?? landings };
+  // Each target's slices built inline, read from its feature pull request (`inlineSlicesInTargets`).
+  const inlineDone = inlineSlicesInTargets({
+    slices,
+    prs: across.prs,
+    repos: across.repos,
+    featureBranches: (name) => (chains ?? []).filter((step) => step.repo === name).map(({ branch }) => branch).concat(reader.featureBranch),
+    inlineBelow,
+  });
+  return { slices, result: board(across.prs, { repos: across.repos, landings: chains, inlineDone }), unreadable: across.unreadable, landings: chains ?? landings };
 }
 
 /** What reading a feature's changes needs: the reads, and the config it narrows by. */
@@ -222,13 +231,20 @@ type Reader = { reads: BoardReads; now: number; staleMinutes: number; dead: Dead
 /** One repository's pull requests of this feature, each that could be `claimed-stale` with its head
  * commit date. With a landing chain: the sub-PRs into each landing branch (once, by label, in
  * `label` mode), then each landing's own pull request by head. */
-async function readPrs(slug: string, chain: readonly BoardLanding[] | null, reader: Reader): Promise<BoardPr[]> {
+async function readPrs(slug: string, chain: readonly BoardLanding[] | null, reader: Reader, { withFeature = false }: { withFeature?: boolean } = {}): Promise<BoardPr[]> {
   const { reads, now, staleMinutes, dead, ...narrowing } = reader;
   const list = async (query: { base: string } | { label: string } | { head: string }) =>
     (await reads.changes({ repo: slug, state: 'all', ...query })).map(boardPrOf);
   let prs: BoardPr[];
-  if (chain === null) prs = await list(narrowingOf(narrowing));
-  else {
+  if (chain === null) {
+    prs = await list(narrowingOf(narrowing));
+    // A target built inline lists its slices on its feature pull request, which the sub-PR read never returns.
+    if (withFeature) {
+      const own = await list({ head: narrowing.featureBranch });
+      const seen = new Set(prs.map((pr) => pr.number));
+      prs = [...prs, ...own.filter((pr) => !seen.has(pr.number))];
+    }
+  } else {
     const subs =
       narrowing.matchBy === 'label'
         ? await list(narrowingOf(narrowing))
@@ -252,7 +268,7 @@ async function readPrs(slug: string, chain: readonly BoardLanding[] | null, read
  */
 async function readAcrossRepos(
   slices: readonly Slice[],
-  { known, chainOf, reader }: { known: Map<string, string>; chainOf: (name: string | null) => BoardLanding[] | null; reader: Reader },
+  { known, chainOf, reader, withFeature }: { known: Map<string, string>; chainOf: (name: string | null) => BoardLanding[] | null; reader: Reader; withFeature: boolean },
 ): Promise<{ prs: BoardPr[]; repos: BoardRepos; unreadable: Unreadable[]; chains: BoardLanding[] }> {
   const out: { prs: BoardPr[]; repos: BoardRepos; unreadable: Unreadable[]; chains: BoardLanding[] } = { prs: [], repos: {}, unreadable: [], chains: [] };
   for (const name of new Set(slices.map((slice) => slice.repo))) {
@@ -267,7 +283,7 @@ async function readAcrossRepos(
       continue;
     }
     try {
-      out.prs.push(...(await readPrs(slug, chain, reader)).map((pr) => ({ ...pr, slug })));
+      out.prs.push(...(await readPrs(slug, chain, reader, { withFeature })).map((pr) => ({ ...pr, slug })));
       out.repos[key] = { slug, readable: true };
     } catch (error) {
       if (!holdsOneRepository(error)) throw error;
@@ -362,9 +378,12 @@ function printFrontier(stdout: Out, result: Built['result']): void {
 
 /** What the board says last: that a wave builds it inline (`inlineBelow` is then the threshold), and that
  * its branch is behind the default branch. */
-function printNotices(stdout: Out, { inlineBelow, base }: { inlineBelow: number | null; base: BoardBase | null }): void {
+function printNotices(stdout: Out, { inlineBelow, inlineRepos, base }: { inlineBelow: number | null; inlineRepos: readonly string[]; base: BoardBase | null }): void {
   if (inlineBelow !== null) {
     println(stdout, `omni board — inline: fewer than ${inlineBelow} slices (wave.inlineBelow) — a wave builds them on the feature branch, with no sub-PR.`);
+  }
+  if (inlineRepos.length > 0) {
+    println(stdout, `omni board — inline targets: ${inlineRepos.join(', ')} (fewer slices than wave.inlineBelow each) — a wave builds their slices on the target's feature branch, with no sub-PR.`);
   }
   if (base?.behind === true) {
     println(stdout, `omni board — ${base.branch} is behind ${base.onto}: merge ${base.onto} into it before reading the plan or running a wave.`);
@@ -432,8 +451,9 @@ export const board = {
     const base = baseOf(ctx, io.exec, built);
 
     const inline = inlineWave(result, ctx.config.wave.inlineBelow);
+    const inlineRepos = inlineTargets(result, ctx.config.wave.inlineBelow);
     if (flags.json) {
-      println(stdout, JSON.stringify({ ...result, base, inline }, null, 2));
+      println(stdout, JSON.stringify({ ...result, base, inline, inlineRepos }, null, 2));
       return 0;
     }
 
@@ -443,7 +463,7 @@ export const board = {
       println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
     }
     printFrontier(stdout, result);
-    printNotices(stdout, { inlineBelow: inline ? ctx.config.wave.inlineBelow : null, base });
+    printNotices(stdout, { inlineBelow: inline ? ctx.config.wave.inlineBelow : null, inlineRepos, base });
     return 0;
   },
 } satisfies FreeCommand;

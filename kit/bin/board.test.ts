@@ -448,6 +448,40 @@ describe('omni board — a plan repository (PRD 563)', () => {
     expect(payload.frontier).toMatchObject({ wave: 2, takeable: ['s2', 's3'] });
   });
 
+  describe('inline targets (issue 1722)', () => {
+    const inlineConfig = `${PLAN_CONFIG}wave:\n  inlineBelow: 2\n`;
+    const plan = multiPlan(['| s1 | backend | Alpha | `a/` | — | 1 |', '| s2 | frontend | Beta | `b/` | s1 | 2 |']);
+    const featurePr = (body: string) => change({ number: parsePr(20), title: 'The feature', head: 'feat/widgets', base: 'main', state: 'draft', body });
+
+    it('reads a slice built inline from its target’s feature PR, unblocks what waits on it, and names the inline targets', async () => {
+      const { out, reads } = await across(plan, { changes: { 'acme/backend': [featurePr('Summary\n\nOmni-Slice: s1')] } }, ['--json'], inlineConfig);
+      const payload = JSON.parse(out) as BoardPayload & { inlineRepos: string[]; inline: boolean };
+      expect(payload.slices.map(({ id, state }) => ({ id, state }))).toEqual([
+        { id: 's1', state: 'merged' },
+        { id: 's2', state: 'runnable' },
+      ]);
+      expect(payload.inlineRepos).toEqual(['backend', 'frontend']);
+      expect(payload.inline).toBe(false);
+      expect(listQueries(reads).filter((query) => query.head === 'feat/widgets').map((query) => query.repo)).toEqual(['acme/backend', 'acme/frontend']);
+    });
+
+    it('says so on the text board: one line naming the inline targets', async () => {
+      const { out } = await across(plan, {}, [], inlineConfig);
+      expect(out).toContain('inline targets: backend, frontend');
+    });
+
+    it('reads nothing inline with wave.inlineBelow at 0: the feature PR’s lines count for nothing, and no feature PR is listed', async () => {
+      const { out, reads } = await across(plan, { changes: { 'acme/backend': [featurePr('Omni-Slice: s1')] } });
+      const payload = JSON.parse(out) as BoardPayload & { inlineRepos: string[] };
+      expect(payload.slices.map(({ id, state }) => ({ id, state }))).toEqual([
+        { id: 's1', state: 'runnable' },
+        { id: 's2', state: 'blocked' },
+      ]);
+      expect(payload.inlineRepos).toEqual([]);
+      expect(listQueries(reads).some((query) => query.head !== undefined)).toBe(false);
+    });
+  });
+
   it('reads a head commit date from the repository the change lives in', async () => {
     const oldClaim = new Date(Date.now() - 2 * HOUR_MS).toISOString();
     const { out, reads } = await across(multiPlan(['| s1 | frontend | Alpha | `a/` | — | 1 |']), {

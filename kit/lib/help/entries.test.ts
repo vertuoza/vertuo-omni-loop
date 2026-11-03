@@ -304,7 +304,8 @@ describe('the help table in this repository', () => {
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
     const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
     assertDefined(bug, 'bug');
-    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'] });
+    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]', 'omni bug ci <n> --pr <pr> --reproduction <sha> --fix <sha>', '  --test <name> --out <dir> [--wait <minutes>]'] });
+    expect(bug.detail).toMatch(/omni bug ci is level B/);
     expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
   });
 
