@@ -3,7 +3,7 @@
 // job's questions (PRD 2255, s2): `jobQuestionsApi()` posts them, reads them back with their answers, and
 // carries the app's own words when it refuses. And the job `next` hands over, with the skills of its
 // repository's own it may run (PRD 2313, s2).
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Tokens } from '../ask/schema.ts';
 import { parseIssue, parsePrd } from '../ids.ts';
 import { jobQuestionsApi, RunnerRefused, RunnerUnreachable, runnerApi } from './api.ts';
@@ -28,6 +28,16 @@ function api(answer: (init: RequestInit) => Promise<Response>) {
 const status = (code: number) => () => Promise.resolve(new Response(code === 204 ? null : '{}', { status: code }));
 
 describe('runnerApi().health()', () => {
+  it('waits past the slowest report seen, 16.8 s, so a report the app is still storing is not given up on (#2621)', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      await api(status(200)).client.health('r1', REPORT);
+      expect(timeout).toHaveBeenCalledWith(20_000);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
   it('posts the report to the runner\'s health route with the sign-in, within 5 s', async () => {
     const { client, calls } = api(status(200));
     await client.health('r 1', REPORT);
