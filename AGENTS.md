@@ -38,9 +38,14 @@ form wins.
 - **pnpm 12**, pinned by `packageManager` in `package.json`. Any pnpm 10 or later on the PATH hands
   off to the pinned version by itself; pnpm 9 and older refuse the lockfile ("expected a single
   document in the stream"). Settings live in `pnpm-workspace.yaml`, not in `package.json`.
-- Install once, from the root: `pnpm install --frozen-lockfile`. It also turns on the git hooks
-  (`.githooks/`: pre-commit, pre-push). A dependency whose install script must run is listed under
-  `allowBuilds` in `pnpm-workspace.yaml`.
+- Docker, for the local database. The Supabase CLI is a dev dependency, at the version the workflows
+  pin: run it as `pnpm exec supabase`.
+- Install from the root of the first checkout: `pnpm install --frozen-lockfile`. It also turns on the
+  git hooks (`.githooks/`: pre-commit, pre-push, post-checkout). After that, `git worktree add`
+  installs each new worktree by itself (post-checkout). A worktree Claude Code makes for a subagent
+  runs no git hook: there, the first `omni` command installs instead. If either prints that the
+  install failed, run the same command there. A dependency whose install script must run is listed under `allowBuilds` in
+  `pnpm-workspace.yaml`.
 - `apps/galaxy/.env.local` (copied from `apps/galaxy/.env.example`) is only for the game's scripts
   and the arcade. The tests never need it and never call GitHub.
 

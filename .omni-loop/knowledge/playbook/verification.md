@@ -70,7 +70,7 @@ runs `fallow audit` of the work tree committed (~1 s), **pre-push** the open-sou
 lint from the upstream, else `origin/main` (~10 s), plus, when the push touches a migration or
 `supabase/database.types.ts`, the types drift check against the local database (refused on drift,
 only warned when no local database answers). Both fail closed. Tests are left to CI, so the
-hooks stay fast. A green commit is not a green branch. Never skip
+hooks stay fast. A third, **post-checkout**, installs a worktree just made and never fails. A green commit is not a green branch. Never skip
 a hook.
 
 ## Checks

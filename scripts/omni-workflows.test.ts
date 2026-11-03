@@ -40,7 +40,7 @@ const workflows = Object.fromEntries(
 
 describe('when a workflow of this repository runs omni', () => {
   it("runs the kit's source here, which needs the workspace installed", () => {
-    expect(read(new URL('.omni-loop/bin/omni.mjs', root))).toContain("from '../../kit/bin/omni.ts'");
+    expect(read(new URL('.omni-loop/bin/omni.mjs', root))).toContain("import('../../kit/bin/omni.ts')");
   });
 
   it('installs the workspace in the same job, before omni runs', () => {

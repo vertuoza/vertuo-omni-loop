@@ -1,9 +1,10 @@
 // A fresh worktree of this repository is ready to work in (#2613): `git worktree add` installs its
 // dependencies through `.githooks/post-checkout`, and the Supabase CLI the repository relies on is
-// declared at the version its workflows pin. The hook runs for real, in a scratch repository, with a
-// `pnpm` of the test's own on the PATH: nothing is installed.
+// declared at the version its workflows pin. A worktree Claude Code makes for a subagent runs no git
+// hook, so `omni`, the first thing every skill runs, installs what is missing too. Hook and bin run for
+// real, in a scratch folder, with a `pnpm` of the test's own on the PATH: nothing is installed.
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,6 +62,45 @@ describe('.githooks/post-checkout', () => {
     expect(made.status).toBe(0);
     expect(existsSync(join(home, 'fresh', 'pnpm-lock.yaml'))).toBe(true);
     expect(made.stderr).toContain('post-checkout: pnpm install failed here: run pnpm install --frozen-lockfile');
+  });
+});
+
+/** A worktree holding this repository's `omni` bin, a kit that prints `ran`, and a `pnpm` that runs `pnpmBody`. */
+function scratchBin({ installed = false, pnpmBody = 'mkdir -p node_modules/yaml' } = {}) {
+  const home = mkdtempSync(join(tmpdir(), 'fresh-omni-'));
+  scratch.push(home);
+  const tree = join(home, 'tree');
+  const calls = join(home, 'calls');
+  mkdirSync(join(tree, '.omni-loop/bin'), { recursive: true });
+  mkdirSync(join(tree, 'kit/bin'), { recursive: true });
+  if (installed) mkdirSync(join(tree, 'node_modules/yaml'), { recursive: true });
+  cpSync(join(ROOT, '.omni-loop/bin/omni.mjs'), join(tree, '.omni-loop/bin/omni.mjs'));
+  writeFileSync(join(tree, 'kit/bin/omni.ts'), "export const main = async (args) => { console.log('ran', args.join(' ')); return 3; };\n");
+  writeFileSync(join(home, 'pnpm'), `#!/bin/sh\necho "$*" >> "${calls}"\necho noise\n${pnpmBody}\n`);
+  chmodSync(join(home, 'pnpm'), 0o755);
+  const env = { ...process.env, PATH: `${home}${delimiter}${process.env.PATH ?? ''}` };
+  const omni = spawnSync(process.execPath, [join(tree, '.omni-loop/bin/omni.mjs'), 'config'], { cwd: home, env, encoding: 'utf8' });
+  return { omni, calls: () => (existsSync(calls) ? readFileSync(calls, 'utf8').trim().split('\n') : []) };
+}
+
+describe('.omni-loop/bin/omni.mjs', () => {
+  it('installs what a worktree lacks before it starts, and keeps its stdout the command\'s own', () => {
+    const { omni, calls } = scratchBin();
+    expect(calls()).toEqual(['install --frozen-lockfile --silent']);
+    expect(omni.stdout).toBe('ran config\n');
+    expect(omni.status).toBe(3);
+  });
+
+  it('installs nothing when the dependencies are there', () => {
+    const { omni, calls } = scratchBin({ installed: true });
+    expect(calls()).toEqual([]);
+    expect(omni.stdout).toBe('ran config\n');
+  });
+
+  it('says what to run when the install fails, and still tries the command', () => {
+    const { omni } = scratchBin({ pnpmBody: 'exit 1' });
+    expect(omni.stderr).toContain('omni: pnpm install failed here: run pnpm install --frozen-lockfile');
+    expect(omni.stdout).toBe('ran config\n');
   });
 });
 
