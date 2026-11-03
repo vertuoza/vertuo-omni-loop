@@ -92,7 +92,7 @@ tiers:
     build: { model: sonnet, effort: medium }
     light: { model: haiku, effort: low }
 # The knowledge map (PRD 2346): `omni kb laws --paths` lists what applies to a file first, then what is
-# global. `layers` maps each canonical layer (docs/guide/knowledge-map.md) to the paths that hold it; a
+# global. `layers` maps each canonical layer (docs/guide/knowledge.md) to the paths that hold it; a
 # file may sit in several. Each flow area names the domain folder (`.omni-loop/knowledge/domains/`) whose
 # entries apply to its files; a file belongs to the first area that matches it. The areas carry no rule
 # and no hook, so planning and merging are unchanged. A pattern matching no tracked file turns
