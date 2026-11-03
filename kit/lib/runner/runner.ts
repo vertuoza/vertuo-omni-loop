@@ -5,7 +5,7 @@
 // the branch too unless it was pushed, and `git worktree prune` runs in the checkout (PRD 1911).
 //
 // Once registered, it samples its machine every 15 s and sends the sample to the app (PRD 2102,
-// `health.ts`). A report the app refuses or never answers within 5 s prints one line, and nothing else
+// `health.ts`). A report the app refuses or never answers within 20 s prints one line, and nothing else
 // changes: the runner keeps taking and running jobs.
 //
 // Tokens (PRD 2102, `tokens.ts`): each health report carries the machine's tokens of the last 5 h and

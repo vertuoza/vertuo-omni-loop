@@ -501,13 +501,8 @@ feature branch: its work waits on its slice branch, with no pull request, and th
 sub-pull request finishes with them; a PRD of several landings counts the slices of the landing it
 builds; a PRD that spans repositories never builds inline.
 
-When `/loop /omni:drive` drives several PRDs, their waves also run side by side: a **pool** of up to
-`limits.parallelSteps` steps at once, 3 by default, each step its own agent in its own worktree. A
-step joins the pool only when it passes four rules against every step running: it is of **another
-PRD**, its PRD has **no open blocker**, its slices share **no path in the same repository** with a
-running step's, and **the plan allows it** (the steps it comes after are done). A step kept back is
-held, with the rule and the step it waits on. Set `limits.parallelSteps: 1` in
-`.omni-loop/config.yml` to run one step per tick, as before ([Drive the loop](/docs/drive)).
+When `/loop /omni:drive` drives several PRDs, their waves also run side by side, up to three at
+once and never two that touch the same files ([Drive the loop](/docs/drive#several-steps-at-once)).
 
 In a repository that turned [design craft](/docs/design) on, a slice that changes a screen is also
 looked at before its sub-pull request is marked ready: `/omni:do-work` runs `/omni:pixel-perfect

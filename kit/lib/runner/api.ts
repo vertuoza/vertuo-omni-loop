@@ -37,8 +37,8 @@ const NO_SIGN_IN = 'no sign-in (omni setup-token)';
 const CALL_MS = 10_000;
 /** How long a `next` waits: the app holds it up to 40 s. */
 const NEXT_MS = 65_000;
-/** How long a health report waits: well under the 15 s between two. */
-const HEALTH_MS = 5000;
+/** How long a health report waits: past the slowest seen, 16.8 s (#2621). The next one goes out once it ends. */
+const HEALTH_MS = 20_000;
 
 export class RunnerUnreachable extends Error {
   constructor(message: string) {

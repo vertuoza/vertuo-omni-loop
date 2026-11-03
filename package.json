@@ -1,6 +1,6 @@
 {
   "name": "omni-loop",
-  "version": "0.0.575",
+  "version": "0.0.580",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -55,6 +55,7 @@
     "fallow": "3.30.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "supabase": "2.117.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.0",
     "vite": "^8.3.1",

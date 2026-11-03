@@ -104,27 +104,6 @@ entry reads `Domains <n> · <k> not on the list` on every Knowledge section, so 
 opening Domains. A new product starts with an empty list, and its folders appear there to adopt. Nothing is
 seeded.
 
-## Tech levels
-
-A playbook form (review, verification, definition of done, bug fixing…) is answered by the first
-level that has text for it, read from the closest to the most shared:
-
-1. **This repository.** Its own playbook, as written in the repository.
-2. **The plan repository.** The copy of the plan repository's playbook, when this repository has a
-   plan repository.
-3. **The Omni settings.** The workspace's settings repository keeps its tech playbook in
-   `.omni-loop/settings/`. A sync copies that folder into this checkout, so the same pages apply
-   to every repository of the workspace.
-4. **The kit's first default.** Shipped with the kit, used only when no level above has text.
-
-A level whose section is empty, holds only open questions, or is a pointer to another file is
-skipped, and the next level answers. A repository that wants a rule of its own writes it at level 1
-and it wins. The text of a level is never filled from the config. The Omni settings copy is written
-by `omni sync`; until a sync has copied it, or with no settings repository, level 3 is skipped and
-the kit's default answers.
-
-[Playbook](/docs/playbook) explains these levels in full, and the two screens that show them.
-
 ## Old words
 
 Two small tables read the words in use before the lists, once:

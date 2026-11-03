@@ -74,4 +74,4 @@ node .omni-loop/bin/omni.mjs idea list
 `omni idea list` prints the ideas lane by lane with their votes; `--json` prints them as JSON.
 Signed out, or with the app out of reach, each prints one line and changes nothing.
 
-[Next → Landings](/docs/landings)
+[Next → Repository flow](/docs/flow)

@@ -21,13 +21,13 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'cloud', 'runners', 'any-agent', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'playbook', 'knowledge-map', 'design', 'validate-e2e',
-  'use-cases', 'troubleshooting', 'observability', 'api',
+  'index', 'install', 'join', 'cloud', 'runners', 'any-agent', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'flow', 'playbook', 'knowledge-map', 'design', 'validate-e2e',
+  'use-cases', 'troubleshooting', 'api',
 ];
 const TITLES = [
   'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Runners', 'Any coding agent', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
-  'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Playbook', 'Knowledge map', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
-  'Observability', 'API',
+  'Roadmaps', 'Ideas board', 'Repository flow', 'Playbook', 'Knowledge map', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
+  'API',
 ];
 
 describe('docs/guide', () => {
@@ -35,7 +35,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its twenty-four pages, in order, each with its title', () => {
+  it('holds its twenty-two pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -45,7 +45,7 @@ describe('docs/guide', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
       '/docs/install', '/docs/join', '/docs/loop', '/docs/runners', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
-      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/knowledge-map', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs', '/docs',
+      '/docs/roadmaps', '/docs/flow', '/docs/flow', '/docs/design', '/docs/knowledge-map', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs',
     ]);
   });
 
@@ -57,7 +57,7 @@ describe('docs/guide', () => {
   });
 
   it('explains watching the App and the arcade on Vercel: the phase 0 checklist, the JSON logs, a Health issue and OMNI_APP_URL (PRD 1723)', () => {
-    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'observability')?.body ?? '';
+    const page = readFileSync(join(REPO, 'docs/observability.md'), 'utf8');
     for (const heading of ['## Phase 0: the Vercel dashboard', '## Search the logs', '## A `Health: <app> is down` issue', '## Set `OMNI_APP_URL`']) {
       expect(page, heading).toContain(heading);
     }

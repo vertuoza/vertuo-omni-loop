@@ -82,7 +82,7 @@ The roadmap lives in the inbox, in a folder named after its issue, under `roadma
 ```markdown file=.omni-loop/delivery/inbox/roadmaps/1200-crew/roadmap.md
 ---
 roadmap: 1200
-title: Vertuoza Crew — from skeleton to earned autonomy
+title: Crew — from skeleton to earned autonomy
 milestone: A company grants its first mandate after a trial week.
 product: Crew
 target: 2026-12-18
@@ -315,17 +315,9 @@ or, in a plan repository:
 
 ![The PRDs of roadmap 1200 over time in two repositories: P1.1 and P1.2 build side by side; P3.4 is held, naming app#1201, the feature pull request of P1.1 it waits on; you merge P1.1, which unblocks P2.1 and P3.4, which then build side by side](diagrams/roadmap-waves.svg)
 
-Every PRD whose blockers have merged is planned and built; a PRD whose blocker is still open waits,
-and says which pull request it waits on and where that one stands:
-
-```text agent
-held: PRD 1213 — waits on app#1201 (P1.1 Crew API and worker skeleton): ready, waiting for your merge
-```
-
-A blocker stops blocking when its feature pull request is **merged**, so a PRD always builds on
-reviewed code: the pull request named is the one to review first. In a plan repository, a blocker
-has merged once its plan pull request and every target pull request it lands in have merged.
-[Drive the loop](/docs/drive#drive-a-roadmap) explains the loop itself.
+Every PRD whose blockers have merged is planned and built; a PRD whose blocker is still open waits
+on it, naming the pull request to review first. [Drive the loop](/docs/drive#drive-a-roadmap)
+explains how.
 
 ## Answer a question
 
@@ -429,4 +421,4 @@ rules' kind stands. **Shadow** asks Jev and logs its answer, keeping the rules' 
 Jev's answer as the kind. An answer outside the four kinds, or Jev failing, keeps the rules' kind, and
 the push never fails because of it. An entry keeps the kind it was first given on every later push.
 
-[Next → Landings](/docs/landings)
+[Next → Repository flow](/docs/flow)
