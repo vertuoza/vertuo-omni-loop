@@ -211,7 +211,6 @@ describe('docs/guide', () => {
       'omni flow verdict do-work.test --from out.txt',
       'not ok kernel: approval person',
       'gh pr merge 12 --squash --delete-branch',
-      'ADR-0069',
     ]) expect(flow, step).toContain(step);
   });
 

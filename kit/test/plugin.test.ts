@@ -2202,9 +2202,9 @@ describe('the validate-e2e skill (PRD 1233)', () => {
     for (const phrase of ['Merge the e2e sub-PR before you give the answer', 'branches from the feature branch', '`<number>: B`']) expect(guide, phrase).toContain(phrase);
   });
 
-  it('the guide describes the list, the two tags, the two levels and that PRD 1277 runs them (PRD 1737)', () => {
+  it('the guide describes the list, the two tags and the two levels (PRD 1737)', () => {
     const guide = readFileSync(join(repoRoot, 'docs', 'guide', 'validate-e2e.md'), 'utf8').replace(/\s+/g, ' ');
-    for (const phrase of ['critical-flows.md', '`flow-<id>`', '`critical`', '`standard`', 'PRD #1277']) expect(guide, phrase).toContain(phrase);
+    for (const phrase of ['critical-flows.md', '`flow-<id>`', '`critical`', '`standard`']) expect(guide, phrase).toContain(phrase);
   });
 
   it('opens a Part of sub-PR with the table, signed, and never merges or marks anything ready', () => {

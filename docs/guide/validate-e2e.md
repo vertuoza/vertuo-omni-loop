@@ -119,7 +119,7 @@ several repositories, the skill works differently in four ways.
   target pull requests together, not one repository's preview. `e2e.url` and `e2e.setup` name that
   environment, and the skill reads them from config; it never guesses them.
 - **A name unique to the run.** Every record a test creates carries a name built from a value that is
-  new on every run (a timestamp or a random suffix), so two runs on the shared QA tenant do not
+  new on every run (a timestamp or a random suffix), so two runs on a shared test tenant do not
   collide. This holds outside a plan repository too, unless the PRD's answer says otherwise.
 - **A saved session, from the framework's own login.** `credentials` in `e2e.config.ts` read the
   account from environment variables. A `test.setup` file in `e2e.dir` fills the login form and calls
@@ -149,7 +149,7 @@ names is fixed. With `e2e.enabled` false it says so in one line and exits non-ze
 The kit does not choose what to test or who signs in. **QA chooses the flows** to cover first and **the
 test account** the runs use, and keeps its credentials out of the code (in the environment variables the
 `credentials` read). The sub-PR states which QA flow and which account the run used, the account **by
-label**, never the secret. The first real run is done by QA in the plan repository.
+label**, never the secret.
 
 ## Critical flows and the two levels
 
@@ -165,7 +165,6 @@ A test's level is decided by the flow it covers, and declared as tags on the tes
 
 A test with no `critical` tag is `standard`. There are two levels: `critical` tests are meant to run
 after each deploy on QA and block it; `standard` tests are meant to run at night and never block.
-The CI jobs that run each level are PRD #1277's work, which reads the level this guide defines.
 
 Run by hand, `/omni:validate-e2e` asks, for each new test, which flow of the list it covers (or
 none) and whether its failure breaks that flow. A flow and a breaking failure write `flow-<id>` and
@@ -266,8 +265,8 @@ A healed recording is not committed with the rest. Three commands decide where i
 - **`reject`** drops the held recordings, leaves the committed ones as they were, and exits non-zero,
   so the test stays red: the product broke, or the change was not wanted.
 
-**Who confirms is a separate decision.** These commands say what happens on each answer, not who
-gives it: that is asked of QA in the PRD that wires this into `/omni:yolo`.
+**Who confirms is your team's decision.** These commands say what happens on each answer, not who
+gives it.
 
 ## The strict replay, by hand
 

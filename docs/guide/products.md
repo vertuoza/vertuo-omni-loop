@@ -20,7 +20,7 @@ A product adds three things:
 - **a home**: one page that shows what waits on whom across the product's PRDs, and lists its ideas,
   roadmaps, fixes and questions;
 - **approvers**: the members asked to approve its PRDs. With no product, any member of the workspace
-  approves, as before;
+  approves;
 - **a shared voice**: the product's claims and personas, which its PRDs are written for.
 
 A new repository is in no product. Products are made, renamed and deleted under
@@ -127,7 +127,7 @@ only the workspace's members see.
 **Work › Questions** is the workspace's own list of questions, in two tabs. **Inbox** holds the
 questions the ask mode put to you. **Outbox** holds the open outbox items of every PRD of the workspace, product PRDs and repository
 PRDs alike, with their product and PRD id, the ones waiting on you first. A product PRD's question is
-answered in place, as before. A repository PRD's question is answered on its PRD page's Outbox tab
+answered in place. A repository PRD's question is answered on its PRD page's Outbox tab
 (`/prd/<id>?tab=outbox`), which sends the answer to its feature pull request; its row links there and
 shows `as of <time>`, the last time the server read it, which can lag up to 15 minutes behind an
 answer typed on GitHub. A repository PRD's medium items are not listed.

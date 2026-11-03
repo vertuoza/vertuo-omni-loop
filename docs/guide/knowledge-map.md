@@ -7,7 +7,7 @@ An agent about to change a file asks the knowledge base what applies. The answer
 file has a **domain** and **layers**, and when a repository's **role** in its product means the same
 thing in every repository. The kit ships one list of each, so `db` in one repository and `database`
 in another meet. Everything on this page is optional: a repository that declares nothing narrows
-nothing, and works as before.
+nothing.
 
 ## The layers
 
@@ -30,9 +30,9 @@ A repository maps layers to the paths that hold them, in `.omni-loop/config.yml`
 
 ```yaml file=.omni-loop/config.yml
 layers:
-  db:   [^supabase/migrations/, ^supabase/checks/]
-  cli:  [^kit/bin/]
-  auth: [^apps/galaxy/src/auth/]
+  db:   [^db/migrations/, ^db/checks/]
+  cli:  [^bin/]
+  auth: [^src/auth/]
 ```
 
 Each value is a list of regular expressions over repository paths, written as a flow area's `paths`

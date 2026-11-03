@@ -120,7 +120,7 @@ The settings repository is chosen on **Settings › Playbook**. While none is ch
 plan repository is its default, so the two can be the same repository or two different ones. A
 workspace with neither named has no settings repository, and level 3 is empty for every repository.
 Choosing a settings repository does not move the plan repository: the game, the dossiers and the
-points keep reading the plan repository as before.
+points keep reading the plan repository.
 
 ## Settings › Playbook
 
@@ -241,32 +241,11 @@ In a repository of the workspace:
    that read it.
 2. Run `omni kb show review`: a section the repository does not write shows `[omni settings]`.
 
-**The local demo.** Both screens have a demo with fictional data, which opens nothing on GitHub.
-From the root of a clone of this repository, with no Supabase variables in
-`apps/galaxy/.env.local` (no file at all is fine), start the arcade:
-
-```bash terminal
-pnpm galaxy:dev
-```
-
-Then open:
-
-- `http://localhost:3000/app/settings/playbook`: two pages, one in the settings repository and one
-  on the kit's first default, seen as an owner. **Open pull request** shows **Pull request #1** and
-  opens nothing.
-- `http://localhost:3000/app/products/demo-product-1/knowledge/repositories`: two repositories, one
-  whose pages read every level, one with no knowledge pack.
-
-The demo runs in development whenever `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` are not set; with them set, the arcade uses that database and its
-real sign-in instead.
-
 ## The first defaults
 
 The kit ships a first version of the Omni settings playbook for a settings repository to start from:
 four pages, **Review** (fix, push back, ask), **Definition of done**, **Verification** and
-**Bug fixing**. This repository holds them in its own `.omni-loop/settings/playbook/`, the same text
-the kit carries. Settings › Playbook shows them as **The kit's first default** until the settings
+**Bug fixing**. Settings › Playbook shows them as **The kit's first default** until the settings
 repository holds its own copy of each page.
 
 Each page names its owners on an `owner:` line in its header; `owner: null`, as the first defaults
