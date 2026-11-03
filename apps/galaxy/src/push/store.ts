@@ -1,18 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
 import type { Database } from '../../../../supabase/database.types.ts';
-import { AlertChannels, CHANNELS_OFF, type PushDevice } from './device';
+import { AlertChannels, CHANNELS_DEFAULT, type PushDevice } from './device';
 
 // The one way into a person's alert switches and devices (PRD 1322 s9), as that person:
 // `alert_channels` and `push_subscriptions` (supabase/migrations/20261124090000_product_approvers.sql),
 // each read and written by its own person only, so row-level security keeps every call to the caller's
-// own rows. A person with no row has both switches off. A failed call throws, naming what failed.
+// own rows. A person with no row has Email on and Phone alerts off. A failed call throws, naming what failed.
 
 /** The columns of `alert_channels` the page reads. */
 export const CHANNEL_COLUMNS = 'push, email';
 
 export interface AlertStore {
-  /** Their switches, off when they never set one. */
+  /** Their switches: Email on, Phone alerts off when they never set one. */
   channels(userId: string): Promise<AlertChannels>;
   /** Both switches, set as given; answers them as stored. */
   setChannels(userId: string, channels: AlertChannels): Promise<AlertChannels>;
@@ -29,7 +29,7 @@ export function alertStore(db: SupabaseClient<Database>): AlertStore {
     async channels(userId) {
       const { data, error } = await db.from('alert_channels').select(CHANNEL_COLUMNS).eq('user_id', userId);
       if (error) throw failed('read your alert channels', error.message);
-      return orThrow(parseRows(AlertChannels, data, 'push: alert_channels'))[0] ?? CHANNELS_OFF;
+      return orThrow(parseRows(AlertChannels, data, 'push: alert_channels'))[0] ?? CHANNELS_DEFAULT;
     },
     async setChannels(userId, channels) {
       const { data, error } = await db
