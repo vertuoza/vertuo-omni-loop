@@ -1,8 +1,10 @@
 // Many tests build real git repositories and run `node` and `git` as child processes, so their wall
 // time grows with the machine's load: a test that takes 1 s on a quiet machine takes 20 s beside a
 // full suite and other work. The limits catch a hang, not slowness, so they are one generous value for
-// the whole suite, and no test sets its own (scripts/test-timeouts.test.ts holds that) (#570).
-export const TEST_TIMEOUT_MS = 120_000;
+// the whole suite, and no test sets its own (scripts/test-timeouts.test.ts holds that) (#570). The value
+// leaves room for the slowest correct test on the slowest machine that runs the suite: the pitch render
+// takes about 170 s on a quiet runner, and longer beside a full suite (#2618).
+export const TEST_TIMEOUT_MS = 600_000;
 
 export default {
   test: {
@@ -11,6 +13,7 @@ export default {
     // The omni-hud mod's tests run under `claude plugin test kit/plugin-hud` alone (PRD 1208): they
     // import Claude Code's own test kit, which vitest cannot load.
     exclude: ['**/node_modules/**', 'kit/plugin-hud/**'],
+    setupFiles: ['./vitest.setup.ts'],
     testTimeout: TEST_TIMEOUT_MS,
     hookTimeout: TEST_TIMEOUT_MS,
   },
