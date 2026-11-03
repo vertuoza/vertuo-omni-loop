@@ -185,8 +185,6 @@ information only. The plan repository is kept: the loop never archives it, and t
 action. A plan repository keeps its roadmaps, bug records and imported knowledge copies working side
 by side with the product way.
 
-## A product PRD
-
 ## Product knowledge
 
 A product keeps two kinds of knowledge on its Omni page, shared by every repository it links:

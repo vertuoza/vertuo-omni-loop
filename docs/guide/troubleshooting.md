@@ -21,20 +21,6 @@ you. Do not run the npm line with `sudo`. Follow npm's own page on it,
 which moves npm's global folder to one of yours (or installs Node with a version manager), then run
 the npm line of [Install](/docs/install) again.
 
-## An old `~/.local/bin/omni`
-
-Before this version, the guide had you write a small script, `~/.local/bin/omni`, and add
-`~/.local/bin` to your PATH. It is harmless: it runs your repository's own copy of the kit, as the
-`omni` npm installs does. To remove it, delete the script:
-
-```bash terminal
-rm ~/.local/bin/omni
-```
-
-Then open `~/.zshrc` (or `~/.bashrc`) and delete the line
-`export PATH="$HOME/.local/bin:$PATH"` if nothing else of yours lives in `~/.local/bin`. Open a new
-terminal: `omni --version` now runs the one npm installed.
-
 ## `omni config` fails: the kit is not installed
 
 Every skill starts by running `omni config`. When it fails, the agent stops at once and says in one
@@ -153,31 +139,6 @@ Two related lines:
   dossier:
     enabled: true
   ```
-
-## Your config still names vertuo-omni-loop-galaxy.vercel.app
-
-The Omni Loop app lives at `https://www.omni-loop.xyz`. A repository installed before it moved there
-names the old address, `https://vertuo-omni-loop-galaxy.vercel.app`, as its `ask.url` in
-`.omni-loop/config.yml`. Nothing is broken: the old address keeps working, with every page, sign-in,
-dossiers and ask mode, and so do the links your signed pull requests and issues already carry. You
-do not have to change anything.
-
-To switch, when you want to, set `ask.url` to the new address in `.omni-loop/config.yml`, then commit
-and merge the change:
-
-```yaml file=.omni-loop/config.yml
-ask:
-  url: https://www.omni-loop.xyz
-```
-
-If your config also sets `signature.home`, switch it the same way, so that new signatures link to
-the new address. If it does not set it, there is nothing to do: the kit's default is the new address in every kit
-since the move, and `omni update` brings one to a repository whose kit is older.
-
-```yaml file=.omni-loop/config.yml
-signature:
-  home: https://www.omni-loop.xyz
-```
 
 ## `refused (403): you are not a member of <workspace>, which owns <owner/repo>`
 
