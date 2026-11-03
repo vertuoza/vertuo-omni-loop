@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { prdOfRunnerLine, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { answeredAll, prdOfLine, shouldContinue, type JobSeen } from './continue';
 
@@ -103,5 +104,13 @@ describe('prdOfLine', () => {
     expect(prdOfLine('/omni:yolo')).toBeNull();
     expect(prdOfLine('/omni:yolo 22x')).toBeNull();
     expect(prdOfLine('/omni:drive 2270')).toBeNull();
+  });
+
+  it('reads the same PRD as the kit, which prints the follow line of omni runner send from it, for every runnable skill (#2592)', () => {
+    for (const skill of RUNNABLE_SKILLS) {
+      for (const line of [`/omni:${skill} 2270`, `/omni:${skill} 2270 s1`, `/omni:${skill}`, `/omni:${skill} s1 2270`]) {
+        expect(prdOfRunnerLine(line), line).toBe(prdOfLine(line));
+      }
+    }
   });
 });

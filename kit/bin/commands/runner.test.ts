@@ -1814,10 +1814,10 @@ describe('omni runner send', () => {
     expect(page.calls).toEqual([]);
   });
 
-  it('queues the line for any runner and prints the job id', async () => {
+  it('queues the line for any runner and prints the job id, then the line that follows it', async () => {
     const page = fakePage();
     const run = await terminal(fixture(), page, ['send', '/omni:yolo 2251']);
-    expect(run).toMatchObject({ code: 0, stdout: 'job-9\n' });
+    expect(run).toMatchObject({ code: 0, stdout: 'job-9\nfollow it: omni runner follow 2251\n' });
     expect(page.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs', body: { line: '/omni:yolo 2251', repo: 'acme/widgets', target: { kind: 'any' } } }]);
   });
 

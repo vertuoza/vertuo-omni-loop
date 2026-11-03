@@ -11,6 +11,9 @@
 /** The skills a runner runs: they run without a person typing, and end on their own. */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add', 'rewind-apply']);
 
+/** The skills whose line names a PRD by its number first: the Omni app's own list, which a test of the app holds to this one. */
+const PRD_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'plan', 'pitch', 'prove']);
+
 /** The longest line a runner takes, in characters. */
 export const LINE_MAX = 200;
 
@@ -50,4 +53,13 @@ function checkOwn(skill: string, args: string, allowed: readonly string[]): Runn
   if (RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` };
   if (!allowed.includes(skill)) return { ok: false, reason: `/${skill} is not allowed on a runner for this repository` };
   return { ok: true, kind: 'repository', skill, args };
+}
+
+/** The PRD a runner's line names (`/omni:yolo 2251`, `/omni:do-work 2270 s1`), so `omni runner follow` can follow
+ * its job (#2592); `null` for any other line. */
+export function prdOfRunnerLine(line: string): number | null {
+  const checked = checkRunnerLine(line);
+  if (!checked.ok || !PRD_SKILLS.includes(checked.skill)) return null;
+  const first = checked.args.split(' ')[0] ?? '';
+  return /^[1-9]\d*$/.test(first) ? Number(first) : null;
 }
