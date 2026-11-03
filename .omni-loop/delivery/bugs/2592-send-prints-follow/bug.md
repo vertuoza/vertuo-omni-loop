@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `kit/bin/commands/runner.test.ts` (omni runner send › prints the follow line that follows the job it sent, when the line names a PRD (#2592))
+- **File:** `kit/bin/commands/runner.test.ts`
 - **Level:** unit
 - **Red:** `AssertionError: expected { code: +0, stdout: 'job-9\n', …(1) } to match object { code: +0, …(1) }` — send printed `job-9` and no follow line
 
