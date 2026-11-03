@@ -1,7 +1,6 @@
----
-title: Observability
-description: How the team hears that the arcade or the Omni App broke, on Vercel alone — the dashboard settings, searching the JSON logs, the Health issue and OMNI_APP_URL.
----
+# Observability
+
+How the team hears that the arcade or the Omni App broke, on Vercel alone — the dashboard settings, searching the JSON logs, the Health issue and OMNI_APP_URL.
 
 This page is for whoever runs this repository's two Vercel projects: the arcade and docs site
 (`apps/galaxy`) and the Omni GitHub App (`apps/omni-app`). It says how you hear that one of them
@@ -98,5 +97,3 @@ gh variable set OMNI_APP_URL --body https://<the App's production domain>
 Or set it in the repository's **Settings › Secrets and variables › Actions › Variables**. With
 neither variable set, the workflow's job does not run. To check the address first, open
 `<the App's production domain>/api/health`: it answers `"app":"omni-app"`.
-
-[Next → Getting started](/docs)

@@ -82,7 +82,7 @@ The roadmap lives in the inbox, in a folder named after its issue, under `roadma
 ```markdown file=.omni-loop/delivery/inbox/roadmaps/1200-crew/roadmap.md
 ---
 roadmap: 1200
-title: Vertuoza Crew — from skeleton to earned autonomy
+title: Crew — from skeleton to earned autonomy
 milestone: A company grants its first mandate after a trial week.
 product: Crew
 target: 2026-12-18

@@ -9,8 +9,7 @@ counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh sta
 game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
 and levels open arcade games in the game room: Entropy Invaders from LV 1, STARHOP
 from LV 2, OMNI KART from LV 3, OMNI DUET from LV 4, then PULSAR VOLLEY from LV 5 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
-Game Boy's buttons on a phone (design:
-[`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
+Game Boy's buttons on a phone.
 
 - Game pixels drawn on a canvas, on one of two grids (wide 640×360 or tall 320×288, see
   [Three forms, two grids](#three-forms-two-grids)), and scaled to fit with hard pixel edges (late
@@ -1886,7 +1885,7 @@ To see the effect: Vercel › Usage › Build CPU Minutes, per day, against the 
   the releases workflow fails loudly in Actions until it wakes. `public.releases` rebuilds from
   `main`'s history: empty it and run the sync.
 - **`GET /api/health`** (PRD 1723): `200` or `503` with the env and Supabase checks and the live
-  commit; [the observability guide](../../docs/guide/observability.md) says the rest.
+  commit; [the observability page](../../docs/observability.md) says the rest.
 
 ## Share it without a server
 
