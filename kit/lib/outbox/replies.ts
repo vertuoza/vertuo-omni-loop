@@ -5,9 +5,10 @@
  * the answers people leave under it into settled entries:
  *
  * 1. It lists the pull request's comments and keeps only the **writers'** — `author_association`
- *    `OWNER`, `MEMBER` or `COLLABORATOR` — that carry **no** outbox marker (the configured marker
- *    prefix, `markers.any`), so the question comment and the round comments, which hold reply-shaped
- *    lines themselves, are never read as answers.
+ *    `OWNER`, `MEMBER` or `COLLABORATOR`, or a person GitHub says can write ({@link countWriters}) —
+ *    that carry **no** outbox marker (the configured marker prefix, `markers.any`), so the question
+ *    comment and the round comments, which hold reply-shaped lines themselves, are never read as
+ *    answers.
  * 2. It reads each kept comment line by line: `<n>: <answer>` answers question `n`; a line that is
  *    exactly `approve all` agrees with every question listed before that comment was written. Every
  *    other line is ignored, and so is a number that names no open question.
@@ -62,7 +63,7 @@ const ReplyCommentSchema = z.object({
   id: CommentIdSchema,
   body: z.string().nullish(),
   created_at: z.string().optional(),
-  user: z.object({ login: z.string().optional() }).nullish(),
+  user: z.object({ login: z.string().optional(), type: z.string().optional() }).nullish(),
   author_association: z.string().optional(),
   html_url: z.string().optional(),
 });
@@ -200,6 +201,28 @@ export function isCountedReply(comment: ReplyComment | null | undefined, markers
     !comment.body.includes(markers.any) &&
     WRITER_ASSOCIATIONS.has(comment.author_association ?? '')
   );
+}
+
+/**
+ * The comments, with each reply of a person who can write counted as a writer's. The role a comment shows
+ * depends on who reads it: to a GitHub App, a member whose membership is private is a `CONTRIBUTOR` (#2610).
+ * So a reply the role leaves out is asked about, once per login. A bot is never asked: only a person answers.
+ */
+function countWriters(comments: ReplyComment[], markers: Pick<Markers, 'any'>, canWrite: ((login: string) => boolean) | undefined): ReplyComment[] {
+  if (!canWrite) return comments;
+  const known = new Map<string, boolean>();
+  const writes = (login: string): boolean => {
+    const seen = known.get(login);
+    if (seen !== undefined) return seen;
+    const answer = canWrite(login);
+    known.set(login, answer);
+    return answer;
+  };
+  return comments.map((comment) => {
+    const login = comment.user?.login;
+    const asks = login !== undefined && comment.user?.type === 'User' && !isCountedReply(comment, markers) && !comment.body?.includes(markers.any) && parseReplyLines(comment.body).length > 0;
+    return asks && writes(login) ? { ...comment, author_association: 'COLLABORATOR' } : comment;
+  });
 }
 
 function time(iso: string | undefined): number {
@@ -477,16 +500,16 @@ export function appendObjection({
  * comment is posted as a NEW comment (by body); without it, the body is only returned.
  *
  * @param {{ ctx: object, prd: PrdNumber, pr: PrNumber, post?: boolean }} args
- * @param {{ listComments: () => Array, createComment: (body: string) => any }} client
+ * @param {{ listComments: () => Array, createComment: (body: string) => any, canWrite?: (login: string) => boolean }} client
  */
 export function readReplies(
   { ctx, prd, pr, post = false }: { ctx: Context; prd: PrdNumber; pr: PrNumber; post?: boolean },
-  client: { listComments: () => object[]; createComment: (body: string) => unknown },
+  client: { listComments: () => object[]; createComment: (body: string) => unknown; canWrite?: (login: string) => boolean },
 ) {
   const comments = client.listComments();
   const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
-  const plan = planFor({ comments: replyComments(comments), items, adopted, markers: ctx.markers });
+  const plan = planFor({ comments: countWriters(replyComments(comments), ctx.markers, client.canWrite), items, adopted, markers: ctx.markers });
 
   const settled: {
     number: number;

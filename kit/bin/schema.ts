@@ -17,6 +17,9 @@ export const GhCommentsSchema = z.array(GhCommentSchema);
 /** The comment `gh` hands back after a create or an update. */
 export const GhWrittenCommentSchema = z.looseObject({ id: CommentIdSchema.nullish(), html_url: z.string().nullish() }).nullish();
 
+/** A person's access to a repository (`GET repos/<slug>/collaborators/<login>/permission`). */
+export const GhPermissionSchema = z.looseObject({ permission: z.string() });
+
 /** One pull request (`GET repos/<slug>/pulls/<n>`), the fields the harvest reads. */
 export const GhPullRequestSchema = z.looseObject({
   number: PrNumberSchema,

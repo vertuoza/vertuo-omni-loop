@@ -34132,7 +34132,7 @@ var ReplyCommentSchema = external_exports.object({
   id: CommentIdSchema,
   body: external_exports.string().nullish(),
   created_at: external_exports.string().optional(),
-  user: external_exports.object({ login: external_exports.string().optional() }).nullish(),
+  user: external_exports.object({ login: external_exports.string().optional(), type: external_exports.string().optional() }).nullish(),
   author_association: external_exports.string().optional(),
   html_url: external_exports.string().optional()
 });
@@ -34191,6 +34191,22 @@ function interpretAnswer({
 }
 function isCountedReply(comment2, markers) {
   return typeof comment2?.body === "string" && !comment2.body.includes(markers.any) && WRITER_ASSOCIATIONS.has(comment2.author_association ?? "");
+}
+function countWriters(comments, markers, canWrite) {
+  if (!canWrite) return comments;
+  const known2 = /* @__PURE__ */ new Map();
+  const writes = (login2) => {
+    const seen = known2.get(login2);
+    if (seen !== void 0) return seen;
+    const answer = canWrite(login2);
+    known2.set(login2, answer);
+    return answer;
+  };
+  return comments.map((comment2) => {
+    const login2 = comment2.user?.login;
+    const asks = login2 !== void 0 && comment2.user?.type === "User" && !isCountedReply(comment2, markers) && !comment2.body?.includes(markers.any) && parseReplyLines(comment2.body).length > 0;
+    return asks && writes(login2) ? { ...comment2, author_association: "COLLABORATOR" } : comment2;
+  });
 }
 function time3(iso) {
   const value = Date.parse(String(iso));
@@ -34378,7 +34394,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post3 = false }, client) {
   const comments = client.listComments();
   const items = openItemsForPrd(prd2, { ctx });
   const adopted = adoptedEntriesForPrd(prd2, { ctx });
-  const plan2 = planFor({ comments: replyComments(comments), items, adopted, markers: ctx.markers });
+  const plan2 = planFor({ comments: countWriters(replyComments(comments), ctx.markers, client.canWrite), items, adopted, markers: ctx.markers });
   const settled2 = [];
   const failed5 = [];
   for (const { number: number5, item: item2, answer, judgement, adoptedEntry } of plan2.settle) {
@@ -34858,6 +34874,7 @@ var GhCommentSchema = external_exports.looseObject({
 });
 var GhCommentsSchema = external_exports.array(GhCommentSchema);
 var GhWrittenCommentSchema = external_exports.looseObject({ id: CommentIdSchema.nullish(), html_url: external_exports.string().nullish() }).nullish();
+var GhPermissionSchema = external_exports.looseObject({ permission: external_exports.string() });
 var GhPullRequestSchema = external_exports.looseObject({
   number: PrNumberSchema,
   html_url: external_exports.string(),
@@ -34907,8 +34924,21 @@ function ghClient({
         ["api", "-X", "PATCH", `repos/${repoSlug2}/issues/comments/${id}`, "--input", "-"],
         options({ input: JSON.stringify({ body }) })
       )
-    ))
+    )),
+    canWrite: (login2) => {
+      try {
+        const { permission } = GhPermissionSchema.parse(JSON.parse(exec("gh", ["api", `repos/${repoSlug2}/collaborators/${encodeURIComponent(login2)}/permission`], options())));
+        return permission === "admin" || permission === "write";
+      } catch (error62) {
+        if (isNotFound(error62)) return false;
+        throw error62;
+      }
+    }
   };
+}
+function isNotFound(error62) {
+  const stderr = propertyOf(error62, "stderr");
+  return /HTTP 404/.test(typeof stderr === "string" ? stderr : error62 instanceof Error ? error62.message : "");
 }
 function appToken(app, env, { githubToken, home }) {
   const handed = githubToken?.(env) ?? null;
@@ -34940,7 +34970,8 @@ function githubClientFor(ctx, { repo = ctx.config.repo.slug, issue: issue2, exec
   return {
     listComments: () => client().listComments(),
     createComment: (body) => client().createComment(body),
-    updateComment: (id, body) => client().updateComment(id, body)
+    updateComment: (id, body) => client().updateComment(id, body),
+    canWrite: (login2) => client().canWrite(login2)
   };
 }
 
@@ -53974,7 +54005,7 @@ function ghLine(error62) {
   const line2 = text16.split("\n").map((l) => l.trim()).find((l) => l.startsWith("gh:")) ?? text16.split("\n").map((l) => l.trim()).find(Boolean);
   return line2 ?? "gh could not read it";
 }
-var isNotFound = (error62) => /HTTP 404/.test(ghText2(error62));
+var isNotFound2 = (error62) => /HTTP 404/.test(ghText2(error62));
 var Unreachable = class extends Error {
 };
 var GH_MAX_BUFFER2 = 64 * 1024 * 1024;
@@ -53984,7 +54015,7 @@ function ghReader({ exec, env }) {
     try {
       return api(args);
     } catch (error62) {
-      if (isNotFound(error62)) return null;
+      if (isNotFound2(error62)) return null;
       throw new Unreachable(ghLine(error62));
     }
   };

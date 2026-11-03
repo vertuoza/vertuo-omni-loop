@@ -9221,7 +9221,7 @@ var ReplyCommentSchema = z32.object({
   id: CommentIdSchema,
   body: z32.string().nullish(),
   created_at: z32.string().optional(),
-  user: z32.object({ login: z32.string().optional() }).nullish(),
+  user: z32.object({ login: z32.string().optional(), type: z32.string().optional() }).nullish(),
   author_association: z32.string().optional(),
   html_url: z32.string().optional()
 });
@@ -9280,6 +9280,22 @@ function interpretAnswer({
 }
 function isCountedReply(comment, markers) {
   return typeof comment?.body === "string" && !comment.body.includes(markers.any) && WRITER_ASSOCIATIONS.has(comment.author_association ?? "");
+}
+function countWriters(comments, markers, canWrite) {
+  if (!canWrite) return comments;
+  const known = /* @__PURE__ */ new Map();
+  const writes = (login) => {
+    const seen = known.get(login);
+    if (seen !== void 0) return seen;
+    const answer = canWrite(login);
+    known.set(login, answer);
+    return answer;
+  };
+  return comments.map((comment) => {
+    const login = comment.user?.login;
+    const asks = login !== void 0 && comment.user?.type === "User" && !isCountedReply(comment, markers) && !comment.body?.includes(markers.any) && parseReplyLines(comment.body).length > 0;
+    return asks && writes(login) ? { ...comment, author_association: "COLLABORATOR" } : comment;
+  });
 }
 function time(iso2) {
   const value = Date.parse(String(iso2));
@@ -9464,7 +9480,7 @@ function readReplies({ ctx, prd, pr, post = false }, client) {
   const comments = client.listComments();
   const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
-  const plan = planFor({ comments: replyComments(comments), items, adopted, markers: ctx.markers });
+  const plan = planFor({ comments: countWriters(replyComments(comments), ctx.markers, client.canWrite), items, adopted, markers: ctx.markers });
   const settled = [];
   const failed2 = [];
   for (const { number, item, answer, judgement, adoptedEntry } of plan.settle) {
