@@ -38,7 +38,7 @@ describe('runnerApi().health()', () => {
     }
   });
 
-  it('posts the report to the runner\'s health route with the sign-in, within 5 s', async () => {
+  it('posts the report to the runner\'s health route with the sign-in', async () => {
     const { client, calls } = api(status(200));
     await client.health('r 1', REPORT);
     expect(calls).toHaveLength(1);

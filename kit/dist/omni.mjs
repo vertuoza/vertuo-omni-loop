@@ -58094,7 +58094,7 @@ init_define_OMNI_BUNDLE();
 var NO_SIGN_IN4 = "no sign-in (omni setup-token)";
 var CALL_MS2 = 1e4;
 var NEXT_MS = 65e3;
-var HEALTH_MS = 5e3;
+var HEALTH_MS = 2e4;
 var RunnerUnreachable = class extends Error {
   constructor(message2) {
     super(message2);
