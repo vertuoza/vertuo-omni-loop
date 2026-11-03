@@ -129,7 +129,7 @@ members, one per line, for `/omni:brainstorm` to offer.
 |---|---|---|---|
 | vertuo-omni-loop | db | `approvals.approval_kind`, `approval_requests.approval_kind` | no written convention: follows `approval_requests.kind` ← supabase/migrations/20261125090000_approval_requests.sql:54, renamed because that column is taken |
 | vertuo-omni-loop | db | `dossier_request_tech_approval` | no written convention: follows `dossier_approve` ← supabase/migrations/20261210100000_product_roadmaps.sql:416 |
-| vertuo-omni-loop | db | `20270109090000_tech_approval.sql` | conventions › A new migration takes the next free version; re-dated if `main` overtakes it |
+| vertuo-omni-loop | db | `20270110090000_tech_approval.sql` | conventions › A new migration takes the next free version; re-dated if `main` overtakes it |
 | vertuo-omni-loop | db | `supabase/checks/tech_approval.sql` | no written convention: follows supabase/checks/approval_requests.sql |
 | vertuo-omni-loop | cli | `omni approval tech request` | no written convention: follows `omni approval restore` ← kit/bin/commands/approval.ts:9 |
 | vertuo-omni-loop | ui | `RequestTechApproval.tsx`, `GiveTechApprovalButton.tsx` | no written convention: follows apps/galaxy/src/dossier/page/ApproveButton.tsx:12 |
