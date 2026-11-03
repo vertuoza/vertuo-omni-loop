@@ -72,8 +72,7 @@ version and says why in one line, such as `replanned v2: s4 of PRD 1030 stuck â†
 
 ## One step per tick, up to three at once
 
-Each tick asks `omni next` for the steps to run, up to three at once (see **Several steps at once**,
-below), and for each one does one thing:
+Each tick asks `omni next` for the steps to run and, for each one, does one thing:
 
 | the step's PRD | the tick |
 |---|---|
@@ -123,8 +122,8 @@ feature PR carrying `omni:in-progress` with a fresh status comment. A closed ter
 counts the steps still running and launches nothing twice; an agent that died frees its slot when its
 claim goes stale (`limits.claimStaleMinutes`).
 
-Each step costs what a tick cost before, so three running steps cost up to three times as much. To
-keep today's loop, one step per tick, set the limit to 1 in `.omni-loop/config.yml`:
+Three running steps cost up to three times as much as one. To run one step per tick, set the limit
+to 1 in `.omni-loop/config.yml`:
 
 ```yaml file=.omni-loop/config.yml
 limits:
@@ -153,6 +152,9 @@ person can answer parks the PRDs it blocks, naming the question and the command 
 merging parks its dependents until someone fixes the roadmap. After every tick the loop sends the
 roadmap's page where each PRD stands (`omni roadmap push`); with the app out of reach it prints one
 line and carries on.
+
+In a plan repository, a blocker has merged once its plan pull request and every target pull request
+it lands in have merged.
 
 ## Drive a plan repository
 

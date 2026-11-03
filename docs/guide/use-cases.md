@@ -96,23 +96,18 @@ what each one does: a page, a file in the repository, or text you paste.
 /omni:roadmap docs/plans/crew.md
 ```
 
-The agent reads the plan and shows you **one map**: every PRD it will write, what blocks each and
-why, the wave each sits in, and the open questions. You answer it in one message. It then writes
-every PRD's issue, spec and before/after page, with no plan yet, opens the roadmap's issue, writes
-`roadmap.md`, and opens **one phase-0 pull request** for the whole roadmap. In a plan repository,
-type `/omni:mega-roadmap` instead: it also says where each PRD lands.
+The agent reads the plan and shows you **one map** of every PRD, what blocks each and the open
+questions; you answer it in one message. It ends with **one phase-0 pull request** for the whole
+roadmap. In a plan repository, type `/omni:mega-roadmap` instead.
 
-**Then:** read the phase-0 pull request and merge it, which approves every PRD at once. Then drive
-it, with the roadmap's number:
+**Then:** merge the phase-0 pull request, which approves every PRD at once, and drive it:
 
 ```text agent
 /loop /omni:drive --roadmap 1200
 ```
 
-Each PRD is planned and built once the PRDs it waits on have merged; one that waits names the pull
-request to review first. Merge each feature pull request as it becomes ready: that is what unblocks
-the next ones. Follow it on the **Roadmaps** page of the app, and answer a question that parks a PRD
-with `omni roadmap answer`. The whole walk is [Roadmaps](/docs/roadmaps).
+Merge each feature pull request as it becomes ready: that is what unblocks the next ones. The whole
+walk is [Roadmaps](/docs/roadmaps).
 
 ### Make a small visual change
 
@@ -237,47 +232,30 @@ gets a line `Fixed by #<number>` naming it; if not, the issue lists the pull req
 
 ### Build an approved PRD
 
-The phase-0 pull request is merged. Start from a clean session (`/clear`) and a checkout with no
-uncommitted changes, then:
+The phase-0 pull request is merged. In a clean session (`/clear`):
 
 ```text agent
 /omni:yolo 7
 ```
 
-It asks you nothing. It plans the PRD if it has no plan yet, builds every slice wave by wave, merges
-each sub-pull request into the feature branch, then reads the outbox. Its reply always ends with
-**What is next?**, whose last line says what to do:
-
-- **`Nothing to run: merging #… is yours.`** No question is open, and the feature pull request is
-  ready for review: review it, and merge it.
-- **`/omni:yolo-fix 7`**: questions wait for you. See
-  [Answer the agents' questions](#answer-the-agents-questions).
-- **`/omni:yolo 7`**: something holds it. See [Pick up a build that stopped](#pick-up-a-build-that-stopped).
-
-It leaves your checkout on a detached commit: `git switch main` brings you back.
+It asks you nothing: it plans the PRD if it has no plan yet, builds every slice wave by wave, then
+reads the outbox. The last line of its reply says what comes next: merge the feature pull request,
+[answer the agents' questions](#answer-the-agents-questions), or
+[pick up a build that stopped](#pick-up-a-build-that-stopped). The whole walk is
+[Your first PRD](/docs/first-prd#3-build-it-clear-then-omniyolo-n).
 
 ### Answer the agents' questions
 
-The feature pull request has a comment listing every decision the agents took alone, each under a
-number, with the option they built (A) and the others. Reply in a new comment on that pull request,
-one line per question:
-
-```text github
-1: A
-2: B because the export must include cancelled invoices
-```
-
-`go with recommendation`, alone on a line, keeps what was built for every question. A question that
-asks you to do something, such as adding a secret, takes `3: ok` once it is done. Then, in a clean
-session:
+Reply in a new comment on the feature pull request, one line per question, such as `1: A` or
+`2: B because …`; `go with recommendation` keeps what was built. Then, in a clean session:
 
 ```text agent
 /omni:yolo-fix 7
 ```
 
-It records your answers, rebuilds every part where you chose another option, one sub-pull request
-each and never wider than the question said, and marks the feature pull request ready when nothing
-is left open. It raises no question of its own.
+It rebuilds every part where you chose another option, and marks the feature pull request ready when
+nothing is left open. Every way to answer is in
+[Your first PRD](/docs/first-prd#4-answer-the-outbox-then-omniyolo-fix-n).
 
 ### Build one wave at a time
 

@@ -10,13 +10,17 @@ import { homedir } from 'node:os';
 import type { ExecText } from '../lib/context.ts';
 import { githubAppOf, processEnv, runnerJobOf, withGithubToken } from '../lib/env/read.ts';
 import type { IssueNumber, PrNumber } from '../lib/ids.ts';
+import { propertyOf } from '../lib/narrow.ts';
 import type { CommentClient } from '../lib/outbox/comment.ts';
 import { jobGithubToken } from '../lib/runner/github-token.ts';
 import type { Env } from './io.ts';
-import { GhCommentsSchema, GhWrittenCommentSchema } from './schema.ts';
+import { GhCommentsSchema, GhPermissionSchema, GhWrittenCommentSchema } from './schema.ts';
 
 /** What the GitHub helpers read of the context: the `gh` user and the repository's slug. */
 type GithubContext = { config: { github: { user: string | null }; repo: { slug: string | null } } };
+
+/** What `omni replies` asks GitHub beside the comments: whether a login can write to the repository. */
+type WriterCheck = { canWrite: (login: string) => boolean };
 
 /**
  * The production comment client. `--input -` feeds the body as JSON on stdin rather than an argv
@@ -37,7 +41,7 @@ export function ghClient({
   issue: IssueNumber | PrNumber;
   exec?: ExecText;
   env?: Env | undefined;
-}): CommentClient {
+}): CommentClient & WriterCheck {
   const repoSlug = `${owner}/${repo}`;
   const options = (extra: { input?: string } = {}): ExecFileSyncOptionsWithStringEncoding => ({
     encoding: 'utf8',
@@ -63,7 +67,22 @@ export function ghClient({
           options({ input: JSON.stringify({ body }) }),
         ),
       )),
+    canWrite: (login) => {
+      try {
+        const { permission } = GhPermissionSchema.parse(JSON.parse(exec('gh', ['api', `repos/${repoSlug}/collaborators/${encodeURIComponent(login)}/permission`], options())));
+        return permission === 'admin' || permission === 'write';
+      } catch (error) {
+        if (isNotFound(error)) return false;
+        throw error;
+      }
+    },
   };
+}
+
+/** Whether `gh api` failed on a 404: GitHub knows no such person on this repository. */
+function isNotFound(error: unknown): boolean {
+  const stderr = propertyOf(error, 'stderr');
+  return /HTTP 404/.test(typeof stderr === 'string' ? stderr : error instanceof Error ? error.message : '');
 }
 
 /**
@@ -107,7 +126,7 @@ export function githubEnv(
 export function githubClientFor(
   ctx: GithubContext,
   { repo = ctx.config.repo.slug, issue, exec = execFileSync, env = processEnv() }: { repo?: string | null; issue: IssueNumber | PrNumber; exec?: ExecText; env?: Env },
-): CommentClient {
+): CommentClient & WriterCheck {
   const [owner, name] = (repo ?? '').split('/');
   let resolved: Env | undefined;
   let fetched = false;
@@ -123,5 +142,6 @@ export function githubClientFor(
     listComments: () => client().listComments(),
     createComment: (body) => client().createComment(body),
     updateComment: (id, body) => client().updateComment(id, body),
+    canWrite: (login) => client().canWrite(login),
   };
 }

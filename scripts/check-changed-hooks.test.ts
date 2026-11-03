@@ -25,12 +25,13 @@ function tempDir(): string {
 
 const which = (name: string) => execFileSync('/bin/sh', ['-c', `command -v ${name}`], { encoding: 'utf8' }).trim();
 
-/** A folder holding only `node` and `git`, so neither `pnpm` nor `fallow` is reachable through it. */
+/** A folder holding only `node`, `git` and `dirname`, so neither `pnpm` nor `fallow` is reachable through it. */
 function toolsOnly(): string {
   const bin = join(tempDir(), 'bin');
   mkdirSync(bin);
   symlinkSync(process.execPath, join(bin, 'node'));
   symlinkSync(which('git'), join(bin, 'git'));
+  symlinkSync(which('dirname'), join(bin, 'dirname'));
   return bin;
 }
 
@@ -55,8 +56,8 @@ function repo(files: Record<string, string> = { 'kit/lib/a.ts': 'export const a 
 }
 
 /** Runs `.githooks/<hook>` from `cwd` as git does, with `extraPath` before the tools-only PATH. */
-function runGitHook(hook: 'pre-commit' | 'pre-push', cwd: string, extraPath: string[] = []) {
-  const env: NodeJS.ProcessEnv = { ...process.env, PATH: [...extraPath, toolsOnly(), '/usr/bin', '/bin'].join(':') };
+function runGitHook(hook: 'pre-commit' | 'pre-push', cwd: string, extraPath: string[] = [], system: string[] = ['/usr/bin', '/bin']) {
+  const env: NodeJS.ProcessEnv = { ...process.env, PATH: [...extraPath, toolsOnly(), ...system].join(':') };
   delete env.npm_execpath;
   const result = spawnSync('/bin/sh', [join(HOOKS, hook)], { cwd, env, encoding: 'utf8' });
   return { code: result.status, out: `${result.stdout}${result.stderr}`, stderr: result.stderr };
@@ -202,7 +203,8 @@ describe('pre-push: check:changed’s typecheck and lint, nothing else', () => {
 
   it('refuses in one line naming pnpm and `run pnpm install` when pnpm is nowhere', () => {
     const root = pushRepo();
-    const { code, stderr } = runGitHook('pre-push', root);
+    // No system folder: a machine may keep pnpm in /usr/bin (#2618).
+    const { code, stderr } = runGitHook('pre-push', root, [], []);
     expect(code).not.toBe(0);
     expect(stderr).toMatch(/^pre-push: pnpm not found .*run pnpm install\n$/);
   });

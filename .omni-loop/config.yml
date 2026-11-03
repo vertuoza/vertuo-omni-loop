@@ -10,6 +10,7 @@ paths:
 labels:
   autoCreate: false
 commands:
+  setup: pnpm install --frozen-lockfile
   preflight: pnpm test
   preflightFull: pnpm test
   test: pnpm test

@@ -845,3 +845,77 @@ describe('readReplies — an adopted item', () => {
     });
   });
 });
+
+describe('readReplies — a writer GitHub lists as a contributor (#2610)', () => {
+  const person = (body: string, login = 'ada') => ({ ...reply(body, { login, association: 'CONTRIBUTOR' }), user: { login, type: 'User' } });
+
+  it('settles the answer of a person GitHub says can write, whatever role the comment shows', () => {
+    withFixtureRoot((root) => {
+      writeItem(root, 's1-01-country');
+      const client = { ...fakeClient([prComment(numbering('s1-01-country')), person('1: ok')]), canWrite: vi.fn((login: string) => login === 'ada') };
+
+      const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
+
+      expect(result.settled.map((s) => [s.number, s.verdict])).toEqual([[1, 'agreed']]);
+      expect(settledOf(root).map((e) => e.id)).toEqual(['s1-01-country']);
+      expect(readFileSync(join(root, 'docs/outbox', String(PRD), 'settled.md'), 'utf8')).toContain('ada');
+    });
+  });
+
+  it('keeps ignoring a person who cannot write', () => {
+    withFixtureRoot((root) => {
+      writeItem(root, 's1-01-country');
+      const client = { ...fakeClient([prComment(numbering('s1-01-country')), person('1: ok')]), canWrite: vi.fn(() => false) };
+
+      const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
+
+      expect(result.settled).toEqual([]);
+      expect(client.canWrite).toHaveBeenCalledWith('ada');
+    });
+  });
+
+  it('never counts a bot, even one that can write: only a person answers', () => {
+    withFixtureRoot((root) => {
+      writeItem(root, 's1-01-country');
+      const bot = { ...reply('1: ok', { login: 'omni-man[bot]', association: 'NONE' }), user: { login: 'omni-man[bot]', type: 'Bot' } };
+      const client = { ...fakeClient([prComment(numbering('s1-01-country')), bot]), canWrite: vi.fn(() => true) };
+
+      const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
+
+      expect(result.settled).toEqual([]);
+      expect(client.canWrite).not.toHaveBeenCalled();
+    });
+  });
+
+  it('asks about a person once, and never about a comment that is no reply or already counts', () => {
+    withFixtureRoot((root) => {
+      writeItem(root, 's1-01-country');
+      writeItem(root, 's2-01-currency');
+      const client = {
+        ...fakeClient([
+          prComment(numbering('s1-01-country', 's2-01-currency')),
+          person('nice work', 'chatty'),
+          person(`${markers.round(2, [1])}\n1: ok`, 'marked'),
+          { ...reply('2: ok', { association: 'MEMBER', login: 'member' }), user: { login: 'member', type: 'User' } },
+          person('1: ok'),
+          person('2: ok'),
+        ]),
+        canWrite: vi.fn(() => true),
+      };
+
+      readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, client);
+
+      expect(client.canWrite.mock.calls).toEqual([['ada']]);
+    });
+  });
+
+  it('counts only the role the comment shows when the client cannot ask', () => {
+    withFixtureRoot((root) => {
+      writeItem(root, 's1-01-country');
+
+      const result = readReplies({ ctx: flatCtx(root), prd: PRD, pr: PR }, fakeClient([prComment(numbering('s1-01-country')), person('1: ok')]));
+
+      expect(result.settled).toEqual([]);
+    });
+  });
+});

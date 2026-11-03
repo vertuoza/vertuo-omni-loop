@@ -66,12 +66,9 @@ fleet's key) to choose where it runs; with neither, any runner of the workspace 
 The Runners page shows the job as sent by `API key <name>`, with `made by @<login>` under it, then
 ` · for <acting_for>` when you sent one, and the pull request the job opens says it was sent by the
 key: `Sent through the Omni API by API key <name> on runner <runner>`, with no login in it. The job
-still ends in a pull request a person merges: a key never merges anything. Unless you
-[run as your own GitHub App](#run-as-your-own-github-app), the job writes on GitHub as the account
-of the person who set the runner up.
-
-That is no longer true: every job writes on GitHub as the Omni App's bot, `<slug>[bot]`, never as a
-person's account, whether or not the key has a GitHub App of its own.
+still ends in a pull request a person merges: a key never merges anything. The job writes on
+GitHub as the Omni App's bot, `<slug>[bot]`, never as a person's account, whether or not the key has
+a [GitHub App of its own](#run-as-your-own-github-app).
 
 ## Start a bug fix across repositories
 

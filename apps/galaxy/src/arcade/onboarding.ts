@@ -1,4 +1,4 @@
-// Who goes where, as pure functions (docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md §2).
+// Who goes where, as pure functions.
 //
 //   START ─ signed out ─▶ INSERT COIN ─▶ GitHub ─▶ PRESS START ─▶ INTRO ─▶ FLEET ─▶ NAME ─▶ HERO ─▶ READY ─▶ MENU
 //         ├ in no workspace ─▶ OUTSIDER (the way to /signup)
