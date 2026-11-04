@@ -82,3 +82,160 @@ One condition in the layout check to remove; no stored data changes.
 ```
 
 <!-- /omni-outbox-settled: s1-01-law-only-domain-folder -->
+
+<!-- omni-outbox-settled: s2-01-law-home-business-read-key -->
+
+## s2-01-law-home-business-read-key — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-law-home-business-read-key
+prd: 2632
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 2
+---
+
+## The question, in plain words
+
+The page's read of a product's business only accepts the keys it already knows, so the new law home answer would have made every read fail. Is it fine that slice s2 let that read accept one more key, though the file sits outside its listed territory?
+
+## The decision, in plain words
+
+The read now accepts an optional law home, and a server that sends none reads exactly as before. Nothing else in that file changed.
+
+## The intro, for fun
+
+A strict doorman kept turning away a guest nobody had put on the list.
+
+## The punchline, for fun
+
+We added one name to the list, and only that name.
+
+## The options, in plain words
+
+A. A. Accept the key in the business read, as built: one optional line, covered by a test.
+B. B. Leave the read untouched and serve the law home from another endpoint, which needs a new route and a second call from every terminal.
+
+## What I had to decide
+
+One optional line in apps/galaxy/src/business-api/read.ts: lawHome: z.string().nullable().optional(). The read schema is strict, so without it the law home returned by business_for_repo() makes every business read fail with an unexpected answer. Reverting the line while keeping the migration would break the read, so the migration and the line go together.
+
+## What I did meanwhile
+
+Nothing waits: the line is in the slice's pull request, and the law home reads as none until a server sends one.
+
+## What it costs to change later
+
+Reverting means removing one optional line and the law home key from the database function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a separate endpoint would be preferred over widening the strict read (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-01-law-home-business-read-key -->
+
+<!-- omni-outbox-settled: s3-01-business-law-held-on-knowledge-and-feature-prs -->
+
+## s3-01-business-law-held-on-knowledge-and-feature-prs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-business-law-held-on-knowledge-and-feature-prs
+prd: 2632
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 2
+---
+
+## The question, in plain words
+
+Which pull requests into the main branch should wait for the product manager when they change a business law?
+
+## The decision, in plain words
+
+A feature pull request and a knowledge pull request wait for the product manager, whatever the repository's law setting. A pull request from any other branch is not held, as for the other laws today.
+
+## The intro, for fun
+
+A rule only the manager may change needs every change to walk through a guarded door.
+
+## The punchline, for fun
+
+Two doors are guarded now; the side door is still the one nobody watches.
+
+## The options, in plain words
+
+A. A. Hold a business law on feature and knowledge pull requests only, the knowledge one found by its branch name (built).
+B. B. Hold it on every pull request into the main branch, reading each one's changed files before skipping it; the gate law's test changes, approved by its owner.
+C. C. A, and also hold fix and enforce pull requests under every law setting.
+
+## What I had to decide
+
+Answer A to keep it. B makes the check read the changed files of every pull request into the main branch before it skips one, which changes the proof of BR-PRODUCT-6 and N-PRODUCT-4 (apps/omni-app/src/outbox-check/outbox-check.test.ts asserts a skipped pull request reads no compare): only @pierrederval or @dervalp approve that. C widens A to fix and enforce branches under laws.source none.
+Decided by: Jev (hardToRevert 0.46) · agent said false
+
+## What I did meanwhile
+
+Built as A: checkTarget gates a knowledge PR under any laws.source by its branch alone, and law-locked holds a changed business-laws.md on it and on every graded feature PR, until a CODEOWNER of the file (or laws.owners) approves the head.
+
+## What it costs to change later
+
+B costs one more GitHub read (the compare) for every pull request into the main branch the check would skip, and an owner's approval of the change to a locked law's test. C costs a read of the changed files on fix and enforce PRs the check skips today.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- A business law changed on another branch (a chore branch, or a feature branch with no PRD folder) merges unheld until B is chosen; the register laws have the same gap today. (author)
+- The skipped knowledge PR now opens its check in progress and reads its comments and changed files before it completes skipped, where it completed skipped at once before. (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-business-law-held-on-knowledge-and-feature-prs -->
