@@ -57,7 +57,7 @@ loop plan v1 · PRDs 1017, 1030 · 5 steps
   4. PRD 1017 wave 2: s2 · after 2, 3
   5. PRD 1030 finish · after 3
 orders across PRDs:
-  step 4: 1017 s2 after 1030 s3: both touch apps/galaxy/src/nav/
+  step 4: 1017 s2 after 1030 s3: both touch src/nav/
 ```
 
 Each PRD's waves keep their order. Two PRDs whose slices touch the same files run those steps one
@@ -111,7 +111,7 @@ A step kept back is **held**, with one line naming the rule and the step it wait
 and on the Loop page:
 
 ```text agent
-step 7 (PRD 1030 w2) held: apps/galaxy/src/nav/ shared with step 4 (PRD 1017 w1, running)
+step 7 (PRD 1030 w2) held: src/nav/ shared with step 4 (PRD 1017 w1, running)
 ```
 
 It starts at the first tick after that step is done. `omni next --json` returns the pool as

@@ -232,7 +232,7 @@ concerns; a check on a target only reads, and never installs.
 `omni roadmap check` refuses, naming the row: an unknown `category` or `who`, an id used twice, a
 `blocks` naming no row, a `check` naming no base check, a `fix` on a row that is not `agent` or naming
 no base fix, an `agent` row without a fix, a `check` or `person` row without its card, and a card
-missing one of its four lines. A roadmap without the section checks as before.
+missing one of its four lines. A roadmap without the section skips these checks.
 
 ### The base checks
 

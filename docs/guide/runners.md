@@ -169,7 +169,7 @@ same account:
 gh auth login
 ```
 
-Jobs no longer push branches or open pull requests as this account: every job signs as the Omni App's
+Jobs never push branches or open pull requests as this account: every job signs as the Omni App's
 bot ([above](#what-a-job-writes-as)). Sign in anyway if you use `gh` yourself on this machine.
 
 ### 3. Sign in to Claude
@@ -208,7 +208,7 @@ checkouts on their default branch and never work in them by hand.
 
 A runner can hold more than one account. When the account a job runs on runs out of tokens, the job
 turns over to the next ready account in the same worktree, with a handoff note, and carries on. A
-runner with no accounts file runs one Claude account, exactly as before.
+runner with no accounts file runs one Claude account.
 
 The accounts are listed in `~/.config/omni/accounts.yml`, on the runner's machine. The order of the
 file is the order the runner tries them in. Each account has an `id`, and either an `instance`

@@ -163,7 +163,7 @@ plan, build and look after a PRD work with a product named. When the Omni page c
 uses the last read, with a note, or stops with one line saying why. A few readers still see only
 `plan.targets`, which is empty when the config names a product: the status line's board, roadmaps,
 bug fixes across repositories, `/omni:mega-invade --sync` and the retro. Keep `plan.targets` while
-you need those. A config that keeps `plan.targets` works exactly as before.
+you need those. A config that keeps `plan.targets` reads its targets from there.
 
 ## Plan across them
 
