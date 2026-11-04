@@ -1232,7 +1232,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'ref',
     kind: 'command',
     who: 'skills',
-    usage: ['omni ref <issue> --title "<title>" [--json]'],
+    usage: ['omni ref <issue> --title "<title>" [--repo <owner/name>] [--json]'],
     summary: "the title and link a pull request carries for its issue's external reference",
     detail:
       "Reads the issue's body through gh and takes the first valid <!-- omni-ref: <ref> --> marker (1 to " +
@@ -1240,7 +1240,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'pr.ref (title, none, link) and link: none when there is no link; --json prints { ref, title, link }, ' +
       'ref null with no marker. A title that already reads as the format is printed unchanged, so it ' +
       'is safe to run twice. With pr.ref null (the default) the title is unchanged. An issue gh cannot ' +
-      'read exits 1 with one line naming it. /omni:pr runs it at point pr.open.',
+      'read exits 1 with one line naming it. With --repo <owner/name> (a pull request opened in another ' +
+      "repository), the format is that repository's committed pr.ref, read through gh api: none there " +
+      'leaves the title unchanged, and a config gh cannot read, or that does not read, exits 1. /omni:pr ' +
+      'runs it at point pr.open.',
   },
   {
     name: 'design',

@@ -479,6 +479,12 @@ unchanged when it already reads as the format) and `link:` (or `none`); `--json`
 `{ ref, title, link }`. An issue it cannot read exits 1 with one line, and the pull request then opens
 with its title unchanged.
 
+A pull request opened in another repository (`/omni:pr --repo`, from `/omni:mega-bug-fix` or
+`/omni:ultra-yolo`) takes that repository's format: `omni ref <issue> --title "<title>" --repo <owner/name>`
+reads the marker on this repository's issue and formats with the `pr.ref` the other repository
+commits on its default branch. A repository that commits no config, or no `pr.ref`, leaves the title
+as it is; a config `gh` cannot read, or that does not read, exits 1 with one line.
+
 `/omni:pr` runs it at point `pr.open` for a feature, landing or standalone pull request that has an
 issue, never for a sub-PR. With no `replace`, the printed title goes to `gh pr create`. With a
 `replace` (or `pr.openWith`), the skill opens the pull request as usual, then `/omni:pr` sets the

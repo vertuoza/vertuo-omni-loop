@@ -117,7 +117,8 @@ Never add `labels.outboxGo`; it is a person's override.
 
 ## `--repo <slug>`
 
-Set by `/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix` and `/omni:do-work --target`,
+Set by `/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix`, `/omni:do-work --target` and
+`/omni:mega-bug-fix`,
 from a plan repository: the pull request lives in the target repository `<slug>` (`owner/name`, a
 `plan.targets` entry), not in this checkout. Every step above and below holds, with these
 differences.
@@ -156,6 +157,12 @@ differences.
   the kit's step runs. Its hooks, the skill `pr.openWith` names included, live in the target and are
   followed only in its worktree (the clone), never from the imported copy, as **Opening: point
   `pr.open`** says.
+- **The external reference is the target's format** (#2658): the issue is the plan repository's
+  (the PRD's, or the one `--issue <n>` names), and the title and the link follow the
+  target's `pr.ref`. Run omni ref with `--repo <slug>`, from the plan repository
+  (`node .omni-loop/bin/omni.mjs ref <issue> --title "<title>" --repo <slug>`): it reads the marker on the plan repository's issue and formats with the
+  `pr.ref` the target commits on its default branch. A target that commits no config, or whose
+  `pr.ref` is null, keeps the title as it is, with no link.
 
 ## Merging and ready
 
@@ -304,9 +311,10 @@ whose base is the default branch or a landing branch. A **sub-PR never is**: the
 `flow show`: a Claude-only alias naming a skill. With no `replace`, nothing below applies.
 
 **The external reference.** For a feature, landing or standalone PR that has an issue (`--issue` for
-a bug fix or a visual update, the PRD's issue for a feature or landing PR), run
+a bug fix or a visual update, the PRD's issue for a feature or landing PR; for a PR opened in another
+repository, the plan repository's issue), run
 `node .omni-loop/bin/omni.mjs ref <issue> --title "<title>"` once, with the title you would
-open it with. It prints `title:` and `link:` lines: the title formatted by `pr.ref`, and the link
+open it with, adding `--repo <slug>` under **`--repo <slug>`**. It prints `title:` and `link:` lines: the title formatted by `pr.ref`, and the link
 (`none` when there is none). With `pr.ref` null it prints the title unchanged and no link. A sub-PR's
 claim never runs `omni ref`: a sub-PR's title is never formatted. `omni ref` exiting 1 (an issue it
 cannot read) opens the PR with its title unchanged: say so in one line, and carry on.
