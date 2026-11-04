@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { parse } from 'yaml';
 import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
@@ -31,6 +32,11 @@ const TITLES = [
 ];
 
 describe('docs/guide', () => {
+  it.each(ORDER)('%s: its frontmatter is YAML the build can read (#2639)', (slug) => {
+    const front = sure(/^---\r?\n([\s\S]*?)\r?\n---/.exec(readFileSync(join(GUIDE, `${slug}.md`), 'utf8')), slug);
+    expect(() => { parse(sure(front[1], slug)); }).not.toThrow();
+  });
+
   it('passes the guard', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
