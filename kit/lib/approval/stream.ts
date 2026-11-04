@@ -10,9 +10,13 @@
 // | `voided`    | `{ pusher, kind, from, to }`: a login, the pinned kind, the old and new sha256 |
 // | `ping`      | none: the stream is alive                                                     |
 // | `reconnect` | none: the server closes now, reconnect with `Last-Event-ID`                   |
+// | `tech-asked`    | `{ login }`: the person a Tech Approval names (PRD 2608)                   |
+// | `tech-approved` | `{ login, approvedAt }`: they gave it                                      |
+// | `tech-voided`   | `{ login, pusher, kind, from, to }`: a push voided it                      |
 //
 // Every event but `ping` and `reconnect` carries an `id:` that increases. An event this module does
-// not know, or whose data is not its shape, reads as `null`: the wait ignores it.
+// not know, or whose data is not its shape, reads as `null`: the wait ignores it. That is what keeps a
+// Tech Approval from ever ending an older kit's wait: `approved` and `voided` are the product approval's.
 import { z } from 'zod';
 
 /** One message of a Server-Sent Events stream: its event name (`message` when none), its id, its data. */
@@ -33,6 +37,12 @@ const ApprovedSchema = z.object({ approver: text, approvedAt: text, pinned: z.nu
 
 const VoidedSchema = z.object({ pusher: text, kind: text, from: text, to: text });
 
+const TechAskedSchema = z.object({ login: text });
+
+const TechApprovedSchema = z.object({ login: text, approvedAt: text });
+
+const TechVoidedSchema = VoidedSchema.extend({ login: text });
+
 /** Who a request asked, as the request and the `asked` events say it. */
 export type Asking = z.infer<typeof AskingSchema>;
 
@@ -41,6 +51,9 @@ export type ApprovalEvent =
   | { type: 'asked' | 're-asked'; asking: Asking }
   | ({ type: 'approved' } & z.infer<typeof ApprovedSchema>)
   | ({ type: 'voided' } & z.infer<typeof VoidedSchema>)
+  | ({ type: 'tech-asked' } & z.infer<typeof TechAskedSchema>)
+  | ({ type: 'tech-approved' } & z.infer<typeof TechApprovedSchema>)
+  | ({ type: 'tech-voided' } & z.infer<typeof TechVoidedSchema>)
   | { type: 'ping' | 'reconnect' };
 
 function json(data: string): unknown {
@@ -64,6 +77,23 @@ export function approvalEvent({ event, data }: SseMessage): ApprovalEvent | null
   }
   if (event === 'voided') {
     const voided = VoidedSchema.safeParse(json(data));
+    return voided.success ? { type: event, ...voided.data } : null;
+  }
+  return techEvent({ event, data });
+}
+
+/** The Tech Approval event a message carries, or null. */
+function techEvent({ event, data }: Pick<SseMessage, 'event' | 'data'>): ApprovalEvent | null {
+  if (event === 'tech-asked') {
+    const asked = TechAskedSchema.safeParse(json(data));
+    return asked.success ? { type: event, ...asked.data } : null;
+  }
+  if (event === 'tech-approved') {
+    const approved = TechApprovedSchema.safeParse(json(data));
+    return approved.success ? { type: event, ...approved.data } : null;
+  }
+  if (event === 'tech-voided') {
+    const voided = TechVoidedSchema.safeParse(json(data));
     return voided.success ? { type: event, ...voided.data } : null;
   }
   return null;

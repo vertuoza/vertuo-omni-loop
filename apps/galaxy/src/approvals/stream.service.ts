@@ -15,12 +15,17 @@ import type { Answer, ApprovalHistory, HistoryRepository } from './approvals.rep
 // came after that request or the latest void, whichever is later, so an approval a void ended is never
 // replayed as if it held. Realtime only says "look again": every look re-reads the history and sends
 // what is past the last event sent, so a missed notification costs a ping's delay, never an event.
+//
+// A Tech Approval's rows (PRD 2608) are events of their own, tech-asked {login}, tech-approved {login,
+// approvedAt} and tech-voided {login, pusher, kind, from, to}, which an older kit ignores (it reads a name it
+// does not know as nothing). So `asked`, `approved` and `voided` stay the product approval's: a tech
+// approval never ends an older kit's wait, and a void of one never makes it ask the approvers again.
 
 /** How often the stream says it is alive, and looks at the history again. */
 export const PING_EVERY_MS = 15_000;
 
 /** One event of the stream: its id, its name, its data. */
-export type StreamEvent = { id: string; event: 'asked' | 're-asked' | 'approved' | 'voided'; data: unknown };
+export type StreamEvent = { id: string; event: 'asked' | 're-asked' | 'approved' | 'voided' | 'tech-asked' | 'tech-approved' | 'tech-voided'; data: unknown };
 
 /** An event before its id: when it happened (microseconds), and how it sorts at the same time. */
 type Timed = { at: number; rank: number; key: string; event: StreamEvent['event']; data: unknown };
@@ -48,8 +53,16 @@ function peopleOf(history: ApprovalHistory) {
 /** The PRD's history as the stream's events, in time order, each id its place. */
 export function eventsOf(history: ApprovalHistory): StreamEvent[] {
   const person = peopleOf(history);
+  const kindOf = new Map(history.approvals.map((approval) => [approval.id, approval.kind]));
+  const techRequests = history.requests.filter((request) => request.approvalKind === 'tech');
+  const lastNamed = techRequests.reduce<(typeof techRequests)[number] | null>((latest, request) => (!latest || micros(request.askedAt) >= micros(latest.askedAt) ? request : latest), null);
+  const named = lastNamed?.asked[0];
+  const namedLogin = named === undefined ? null : person(named).login;
   const timed: Timed[] = [
     ...history.requests.map((request): Timed => {
+      if (request.approvalKind === 'tech') {
+        return { at: micros(request.askedAt), rank: 0, key: request.id, event: 'tech-asked', data: { login: person(request.asked[0] ?? request.askedBy).login } };
+      }
       const asking: Asking = {
         asked: request.asked.map((user) => person(user)),
         nobodyElse: request.nobodyElse,
@@ -58,14 +71,19 @@ export function eventsOf(history: ApprovalHistory): StreamEvent[] {
       };
       return { at: micros(request.askedAt), rank: 0, key: request.id, event: request.kind, data: asking };
     }),
-    ...history.approvals.map((approval): Timed => ({
-      at: micros(approval.approvedAt), rank: 1, key: approval.id, event: 'approved',
-      data: { approver: approval.approver, approvedAt: approval.approvedAt, pinned: approval.pinned },
-    })),
-    ...history.voids.map((voided): Timed => ({
-      at: micros(voided.voidedAt), rank: 2, key: voided.id, event: 'voided',
-      data: { pusher: voided.pusher, kind: voided.kind, from: voided.from, to: voided.to },
-    })),
+    ...history.approvals.map((approval): Timed => (approval.kind === 'tech'
+      ? { at: micros(approval.approvedAt), rank: 1, key: approval.id, event: 'tech-approved', data: { login: namedLogin ?? approval.approver, approvedAt: approval.approvedAt } }
+      : {
+          at: micros(approval.approvedAt), rank: 1, key: approval.id, event: 'approved',
+          data: { approver: approval.approver, approvedAt: approval.approvedAt, pinned: approval.pinned },
+        })),
+    ...history.voids.map((voided): Timed => {
+      const change = { pusher: voided.pusher, kind: voided.kind, from: voided.from, to: voided.to };
+      const at = micros(voided.voidedAt);
+      return kindOf.get(voided.approval ?? '') === 'tech'
+        ? { at, rank: 2, key: voided.id, event: 'tech-voided', data: { login: namedLogin ?? voided.pusher, ...change } }
+        : { at, rank: 2, key: voided.id, event: 'voided', data: change };
+    }),
   ];
   timed.sort((a, b) => a.at - b.at || a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   return timed.map(({ event, data }, place) => ({ id: String(place + 1), event, data }));

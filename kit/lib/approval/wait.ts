@@ -11,6 +11,7 @@
 // |------------|---------------------------------------------------------------------------|------|
 // | waiting    | `◌ PRD <n> · waiting for Irisa or Paul` (`… for 4 members` past three)     | —    |
 // |            | `◌ PRD <n> · waiting for <author> · <product> has no other approver`       | —    |
+// |            | `◌ PRD <n> · waiting for <login>'s tech approval`                          | —    |
 // | approved   | `✓ PRD <n> approved by <login> · <time> · <k> files pinned`                 | 0    |
 // | voided     | `✗ approval voided by <pusher>'s push <old>→<new> · asked again`            | —    |
 // | held       | `server unreachable · held, not failed`                                     | —    |
@@ -21,13 +22,21 @@
 // The HUD reads the current state from the waiting file, `.omni-loop/local/approval-wait/<n>.json`:
 // `{ prd, state, line, waiting, at }`, `waiting` being the waiting line (null before anyone is asked)
 // and `at` when the state was written. The command owns the file and leaves its last state there.
+//
+// **A Tech Approval (PRD 2608).** While a requested one is not in force, the wait asks no approver: an
+// early request would only be recorded (BR-PRODUCT-126), the named person comes first. It prints
+// `◌ PRD <n> · waiting for <login>'s tech approval` and follows the stream, where an earlier request to the
+// approvers no longer moves the line; each such event reads the state again, in case the stream opened
+// after the tech approval landed. Once it is given, the server itself asks the approvers, whose `asked`
+// event carries the wait on as today. A void reads the state before it asks: a push voids both kinds, the
+// product's first, and a voided tech approval means the named person comes first again.
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AskCallError } from '../ask/client.ts';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import type { Layout } from '../layout.ts';
 import type { PrdNumber } from '../ids.ts';
-import { readApproval, UNREACHABLE_LINE } from './approval.ts';
+import { readApproval, techWaitsOn, UNREACHABLE_LINE, waitingForTech } from './approval.ts';
 import { approvalEvent, AskingSchema, sseReader } from './stream.ts';
 import type { ApprovalEvent, Asking } from './stream.ts';
 
@@ -142,6 +151,8 @@ type Run = {
   idleMs: number;
   waiting: string | null;
   asking: Asking | null;
+  /** Who a requested Tech Approval not yet in force names; the approvers wait until it is. */
+  tech: string | null;
   failures: number;
 };
 
@@ -177,16 +188,39 @@ function end(run: Run, code: 0 | 1, state: WaitState, line: string): WaitResult 
   return { code, state };
 }
 
-const timedOut = (run: Run): WaitResult =>
-  end(run, 1, 'timeout', `held: still waiting for ${run.asking ? namesOf(run.asking) : 'approval'} after ${run.options.timeoutMinutes} min`);
+/** Who the wait is held on, as its timeout names them. */
+const heldOn = (run: Run): string => {
+  if (run.tech !== null) return `${run.tech}'s tech approval`;
+  return run.asking ? namesOf(run.asking) : 'approval';
+};
 
-/** Who is asked now: the waiting line, printed when it changed. */
-function ask(run: Run, asking: Asking): void {
-  run.asking = asking;
-  const line = waitingLine(run.options.prd, asking);
+const timedOut = (run: Run): WaitResult =>
+  end(run, 1, 'timeout', `held: still waiting for ${heldOn(run)} after ${run.options.timeoutMinutes} min`);
+
+/** The waiting line now, printed when it changed. */
+function waitOn(run: Run, line: string): void {
   if (line === run.waiting) return;
   run.waiting = line;
   say(run, 'waiting', line);
+}
+
+/** Who is asked now. */
+function ask(run: Run, asking: Asking): void {
+  run.asking = asking;
+  waitOn(run, waitingLine(run.options.prd, asking));
+}
+
+/** The named person comes first now. */
+function holdForTech(run: Run, login: string): void {
+  run.tech = login;
+  waitOn(run, `◌ PRD ${Number(run.options.prd)} · ${waitingForTech(login)}`);
+}
+
+/** Who the page says the PRD waits on first; `known` when the state could not be read. */
+async function techNow(run: Run, known: string | null): Promise<string | null> {
+  const { ctx, prd, repo, client } = run.options;
+  const reading = await readApproval(ctx, prd, () => client.readApproval({ repo, prd }));
+  return reading.url === null ? known : techWaitsOn(reading.tech);
 }
 
 /** One more failed try: the held line on the third in a row, then the pause. */
@@ -237,13 +271,46 @@ async function request(run: Run): Promise<WaitResult | null> {
   }
 }
 
+/** A request to the product's approvers: the waiting line, once the named person, if any, is done. */
+async function onAsked(run: Run, asking: Asking): Promise<void> {
+  if (run.tech !== null) run.tech = await techNow(run, run.tech);
+  if (run.tech === null) ask(run, asking);
+}
+
+/** A void of the product approval: the named person first when theirs went with it, else the approvers. */
+async function onVoided(run: Run, event: { pusher: string; from: string; to: string }): Promise<WaitResult | null> {
+  const voided = `✗ approval voided by ${event.pusher}'s push ${short(event.from)}→${short(event.to)}`;
+  const first = await techNow(run, null);
+  if (first === null) {
+    say(run, 'voided', `${voided} · asked again`);
+    return request(run);
+  }
+  say(run, 'voided', `${voided} · ${first} approves first`);
+  holdForTech(run, first);
+  return null;
+}
+
+/** What one Tech Approval event does. */
+function onTech(run: Run, event: Extract<ApprovalEvent, { type: 'tech-asked' | 'tech-approved' | 'tech-voided' }>): void {
+  if (event.type === 'tech-approved') {
+    // The server asks the approvers now: their `asked` event sets the next waiting line.
+    run.tech = null;
+    run.waiting = null;
+    say(run, 'waiting', `✓ PRD ${Number(run.options.prd)} · tech approval given by ${event.login} · ${event.approvedAt}`);
+    return;
+  }
+  if (event.type === 'tech-voided') {
+    say(run, 'voided', `✗ tech approval voided by ${event.pusher}'s push ${short(event.from)}→${short(event.to)} · ${event.login} asked again`);
+  }
+  holdForTech(run, event.login);
+}
+
 /** What one event does: an exit when it ends the wait. */
 async function on(run: Run, event: ApprovalEvent): Promise<WaitResult | null> {
-  if (event.type === 'asked' || event.type === 're-asked') ask(run, event.asking);
+  if (event.type === 'asked' || event.type === 're-asked') await onAsked(run, event.asking);
+  if (event.type === 'tech-asked' || event.type === 'tech-approved' || event.type === 'tech-voided') onTech(run, event);
   if (event.type === 'approved') return end(run, 0, 'approved', approvedLine(run.options.prd, event.approver, event.approvedAt, event.pinned));
-  if (event.type !== 'voided') return null;
-  say(run, 'voided', `✗ approval voided by ${event.pusher}'s push ${short(event.from)}→${short(event.to)} · asked again`);
-  return request(run);
+  return event.type === 'voided' ? onVoided(run, event) : null;
 }
 
 /** Whether a message was acted on already; else it is marked seen. */
@@ -301,12 +368,18 @@ export async function waitForApproval(options: WaitOptions): Promise<WaitResult>
     idleMs: options.idleMs ?? IDLE_MS,
     waiting: null,
     asking: null,
+    tech: null,
     failures: 0,
   };
   const before = await readApproval(ctx, prd, () => client.readApproval({ repo, prd }));
   if (before.state === 'approved' && before.approval) {
     const { approver, approvedAt, files } = before.approval;
     return end(run, 0, 'approved', approvedLine(prd, approver.login, approvedAt, files.length));
+  }
+  const first = techWaitsOn(before.tech);
+  if (first !== null) {
+    holdForTech(run, first);
+    return stream(run);
   }
   return (await request(run)) ?? stream(run);
 }

@@ -36,9 +36,10 @@ export function judgeRepository(db: ServiceDb) {
       db.from('dossiers').select('id, workspace_id').eq('home_repo', repo).eq('kind', 'prd').eq('prd', prd)
         .order('numbered_at', { ascending: false, nullsFirst: false }).order('id').limit(1),
       DossierRows, 'dossiers'),
-    /** The dossier's newest approval: its approval in force, unless a void says otherwise. */
+    /** The dossier's newest product approval: its approval in force, unless a void says otherwise. A Tech
+     * Approval alone is no approval: the gate would open on it (PRD 2608). */
     latestApproval: (dossier: string) => parsed(
-      db.from('approvals').select('id, approved_by, approver_login, approved_at, files').eq('dossier_id', dossier)
+      db.from('approvals').select('id, approved_by, approver_login, approved_at, files').eq('dossier_id', dossier).eq('approval_kind', 'product')
         .order('approved_at', { ascending: false }).order('id', { ascending: false }).limit(1),
       ApprovalRows, 'approvals'),
     /** The voids of an approval, oldest first. */

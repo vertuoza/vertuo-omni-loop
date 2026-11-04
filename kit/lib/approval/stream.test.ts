@@ -32,6 +32,17 @@ describe('approvalEvent', () => {
     expect(approvalEvent({ event: 'ping', id: null, data: '' })).toEqual({ type: 'ping' });
   });
 
+  it('reads the Tech Approval events (PRD 2608)', () => {
+    expect(approvalEvent({ event: 'tech-asked', id: '5', data: '{"login":"irisa"}' })).toEqual({ type: 'tech-asked', login: 'irisa' });
+    expect(approvalEvent({ event: 'tech-approved', id: '6', data: '{"login":"irisa","approvedAt":"t"}' }))
+      .toEqual({ type: 'tech-approved', login: 'irisa', approvedAt: 't' });
+    expect(approvalEvent({ event: 'tech-voided', id: '7', data: '{"login":"irisa","pusher":"ada","kind":"spec","from":"a","to":"b"}' }))
+      .toEqual({ type: 'tech-voided', login: 'irisa', pusher: 'ada', kind: 'spec', from: 'a', to: 'b' });
+    for (const event of ['tech-asked', 'tech-approved', 'tech-voided']) {
+      expect(approvalEvent({ event, id: '8', data: '{"pusher":"ada"}' }), event).toBeNull();
+    }
+  });
+
   it('reads an unknown event, or one whose data is not its shape, as null', () => {
     expect(approvalEvent({ event: 'message', id: null, data: '{}' })).toBeNull();
     expect(approvalEvent({ event: 'approved', id: '1', data: 'not json' })).toBeNull();
