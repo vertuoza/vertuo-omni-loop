@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { formatLink, formatTitle, readRef } from '../../lib/ref/ref.ts';
 import { issueArg, parseArgs, println, usageError } from '../args.ts';
+import type { IssueNumber } from '../../lib/ids.ts';
 import { githubEnv } from '../github.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
@@ -15,7 +16,7 @@ const USAGE = 'usage: omni ref <issue> --title "<title>" [--json]';
 const IssueBodySchema = z.object({ body: z.string().nullable() });
 
 /** The body of issue `issue`, read through `gh`; `null` when `gh` cannot read it. */
-function issueBody(issue: number, { ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): string | null {
+function issueBody(issue: IssueNumber, { ctx, exec, env }: Pick<CommandIo, 'ctx' | 'exec' | 'env'>): string | null {
   try {
     const slug = ctx.config.repo.slug;
     const ghEnv = githubEnv(ctx, { exec, env });

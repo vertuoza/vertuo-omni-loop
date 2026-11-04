@@ -492,9 +492,7 @@ export const ConfigSchema = z
         .object({ channelVar: text.default('OMNI_SLACK_CHANNEL'), tokenSecret: text.default('SLACK_BOT_TOKEN') })
         .strict()
         .nullable()
-        // Optional, not defaulted: a reader takes a missing `ref` as null, and the code that builds a
-        // `pr` section by hand (`kit/lib/plan-repo/copy-flow.ts`) need not know the key.
-        .optional(),
+        .default(null),
     }),
     limits: section({
       stallDays: z.number().int().positive().default(5),
