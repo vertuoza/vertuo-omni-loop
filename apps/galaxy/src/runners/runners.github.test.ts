@@ -95,10 +95,24 @@ describe('a job claimed over the Omni App\'s own calls', () => {
     },
   );
 
-  it('asks for the bot with no token, as GitHub refuses the App\'s there (#2528)', async () => {
+  it('asks for the bot with the job\'s token, never the App\'s JWT, which GitHub refuses there (#2528, #2656)', async () => {
     const w = world({ jobs: [pageJob()] });
     value(await w.service.next(OLGA, SHARED));
-    expect(w.calls.find((call) => call.path === '/users/omni-demo[bot]')?.headers.authorization).toBeUndefined();
+    expect(w.calls.filter((call) => call.path === '/users/omni-demo[bot]').map((call) => call.headers.authorization)).toEqual([`Bearer ${TOKEN}`]);
+  });
+
+  it('asks for the bot with no token when GitHub refuses the job\'s token there', async () => {
+    const refusesToken = ({ headers }: RequestInit) => ((headers as Record<string, string>).authorization === undefined ? json(200, { id: 4242 })() : new Response('{}', { status: 403 }));
+    const w = world({ jobs: [pageJob()], answers: { ...HAPPY, 'GET /users/omni-demo[bot]': refusesToken } });
+    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ github: { token: TOKEN, ...BOT } });
+    expect(w.calls.filter((call) => call.path === '/users/omni-demo[bot]').map((call) => call.headers.authorization)).toEqual([`Bearer ${TOKEN}`, undefined]);
+  });
+
+  it('fails the job, saying why, when GitHub refuses the bot\'s route both ways', async () => {
+    const w = world({ jobs: [pageJob()], answers: { ...HAPPY, 'GET /users/omni-demo[bot]': () => new Response('{}', { status: 403 }) } });
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'github app: the App\'s bot could not be read: GitHub answered 403 to GET /users/omni-demo[bot]' });
+    expect(JSON.stringify(w.state.jobs[0])).not.toContain(TOKEN);
   });
 
   it('runs a job while GitHub refuses the bot\'s route to a call with no token (#2656)', async () => {
@@ -118,8 +132,9 @@ describe('a job claimed over the Omni App\'s own calls', () => {
   });
 
   it('names the bot again after a read that failed', async () => {
-    let first = true;
-    const answers = { ...HAPPY, 'GET /users/omni-demo[bot]': () => (first ? (first = false, new Response('{}', { status: 403 })) : new Response(JSON.stringify({ id: 4242 }), { status: 200 })) };
+    // The first read is refused twice, with the job's token and with none.
+    let refusals = 2;
+    const answers = { ...HAPPY, 'GET /users/omni-demo[bot]': () => (refusals > 0 ? (refusals -= 1, new Response('{}', { status: 403 })) : new Response(JSON.stringify({ id: 4242 }), { status: 200 })) };
     const w = world({ jobs: [pageJob({ queued_at: new Date(NOW - 60_000).toISOString() }), pageJob()], answers });
     expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ github: { ...BOT } });
     expect(w.state.jobs.map((job) => [job.status, job.reason])).toEqual([
@@ -148,7 +163,7 @@ describe('a job claimed over the Omni App\'s own calls', () => {
     ['a GitHub that fails the lookup', { answers: { ...HAPPY, 'GET /repos/demo-org/app/installation': json(502, {}) } }, 'GitHub answered 502 to GET /repos/demo-org/app/installation', 1],
     ['a GitHub that fails the mint', { answers: { ...HAPPY, 'POST /app/installations/9001/access_tokens': json(500, {}) } }, 'GitHub answered 500 to POST /app/installations/9001/access_tokens', 2],
     ['an App GitHub does not know', { answers: { ...HAPPY, 'GET /app': json(401, {}) } }, 'the App\'s bot could not be read: GitHub answered 401 to GET /app', 3],
-    ['a bot GitHub does not name', { answers: { ...HAPPY, 'GET /users/omni-demo[bot]': json(404, {}) } }, 'the App\'s bot could not be read: GitHub answered 404 to GET /users/omni-demo[bot]', 4],
+    ['a bot GitHub does not name', { answers: { ...HAPPY, 'GET /users/omni-demo[bot]': json(404, {}) } }, 'the App\'s bot could not be read: GitHub answered 404 to GET /users/omni-demo[bot]', 5],
   ])('ends the job failed, `github app: <why>`, for %s, never answering it without the App', async (_, setup, why, asked) => {
     const job = pageJob();
     const w = world({ jobs: [job], ...setup });
