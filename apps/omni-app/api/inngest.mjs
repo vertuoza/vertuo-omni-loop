@@ -3732,8 +3732,8 @@ function openedEntry(id) {
   const read = OutboxItemIdSchema.safeParse(id);
   return read.success ? { id: read.data, fields: {}, blocks: [] } : null;
 }
-function closedEntry({ id, fields, blocks }) {
-  const [answerText = "", itemText = ""] = blocks;
+function closedEntry({ id, fields, blocks: blocks2 }) {
+  const [answerText = "", itemText = ""] = blocks2;
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
@@ -5550,12 +5550,12 @@ function questionsOf(section4) {
     const kind = cell3(row, "kind");
     const known = QUESTION_KINDS;
     if (!known.includes(kind)) rowFaults.push(`Open questions: ${label2} has the kind "${kind}", not one of ${QUESTION_KINDS.join(", ")}.`);
-    const blocks = listCell(cell3(row, "blocks"));
-    rowFaults.push(...idListFaults(blocks, `Open questions: ${label2} blocks`));
+    const blocks2 = listCell(cell3(row, "blocks"));
+    rowFaults.push(...idListFaults(blocks2, `Open questions: ${label2} blocks`));
     faults.push(...rowFaults);
     if (rowFaults.length > 0) return;
     const typed = QUESTION_KINDS.find((name) => name === kind) ?? "default";
-    questions.push({ id, question, recommendation: cell3(row, "recommendation"), blocks, kind: typed });
+    questions.push({ id, question, recommendation: cell3(row, "recommendation"), blocks: blocks2, kind: typed });
   });
   return { questions, faults };
 }
@@ -5586,13 +5586,13 @@ function cardOf(lines) {
   return { ...card, command: card.command === null ? null : codeCell(card.command) };
 }
 function cardsOf(lines) {
-  const blocks = [];
+  const blocks2 = [];
   for (const line of lines) {
     const heading = CARD_HEADING.exec(line);
-    if (heading) blocks.push({ id: group(heading, 1), lines: [] });
-    else blocks.at(-1)?.lines.push(line);
+    if (heading) blocks2.push({ id: group(heading, 1), lines: [] });
+    else blocks2.at(-1)?.lines.push(line);
   }
-  return new Map(blocks.map(({ id, lines: under }) => [id, cardOf(under)]));
+  return new Map(blocks2.map(({ id, lines: under }) => [id, cardOf(under)]));
 }
 function oneOf(names, value) {
   return names.find((name) => name === value) ?? null;
@@ -5608,16 +5608,16 @@ function prerequisiteRow(row, index, cell3) {
   const who = oneOf(PREREQUISITE_WHO, cell3(row, "who"));
   const need = cell3(row, "need");
   const blocksCell = cell3(row, "blocks");
-  const blocks = blocksCell.toLowerCase() === "all" ? "all" : listCell(blocksCell);
+  const blocks2 = blocksCell.toLowerCase() === "all" ? "all" : listCell(blocksCell);
   const faults = [
     ...rowFaults,
     ...enumFault(cell3(row, "category"), PREREQUISITE_CATEGORIES, "category", label2),
     ...enumFault(cell3(row, "who"), PREREQUISITE_WHO, "who", label2),
     ...need === "" ? [`${WHERE}: ${label2} needs nothing: its need is empty.`] : [],
-    ...blocks === "all" ? [] : idListFaults(blocks, `${WHERE}: ${label2} blocks`)
+    ...blocks2 === "all" ? [] : idListFaults(blocks2, `${WHERE}: ${label2} blocks`)
   ];
   if (faults.length > 0 || category === null || who === null) return { record: null, faults };
-  return { record: { id, category, need, check: codeCell(cell3(row, "check")), fix: codeCell(cell3(row, "fix")), blocks, who }, faults };
+  return { record: { id, category, need, check: codeCell(cell3(row, "check")), fix: codeCell(cell3(row, "fix")), blocks: blocks2, who }, faults };
 }
 function prerequisitesOf(section4) {
   const table = section4 ? firstTable(section4.lines) : null;
@@ -12105,6 +12105,83 @@ function settleAtMerge({
 import { existsSync as existsSync44, readFileSync as readFileSync42, statSync as statSync13 } from "node:fs";
 import { join as join59 } from "node:path";
 
+// kit/lib/knowledge/business-laws.ts
+var BUSINESS_LAWS_FILE = "business-laws.md";
+var HEADING3 = /^##\s+(.*?)\s*$/;
+var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
+var FIELD = /^(Why|Also):\s*(.*)$/;
+var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+function blocks(text16) {
+  const found = [];
+  for (const line of text16.split("\n")) {
+    const match = line.match(HEADING3);
+    if (match) found.push({ heading: match[1] ?? "", lines: [] });
+    else found.at(-1)?.lines.push(line);
+  }
+  return found;
+}
+function readBody2(raw) {
+  const lines = raw.map((line) => line.trim());
+  const fieldAt = lines.findIndex((line) => FIELD.test(line));
+  const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter(Boolean).join(" ");
+  return { statement: statement2, why: fieldValue(lines, "Why") || null, also: fieldValue(lines, "Also") };
+}
+function fieldValue(lines, name) {
+  const at4 = lines.findIndex((line) => line.match(FIELD)?.[1] === name);
+  if (at4 === -1) return null;
+  const rest = lines.slice(at4 + 1);
+  const end = rest.findIndex((line) => line === "" || FIELD.test(line));
+  const continued = end === -1 ? rest : rest.slice(0, end);
+  return [lines[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
+}
+function idProblem(file, id, place) {
+  const code2 = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
+  const match = id.match(ID);
+  if (!match) return `${file}: ${id} \u2014 is not a business law id: write BL-${code2}-<n>.`;
+  if (match[1] !== code2) return `${file}: ${id} \u2014 names ${match[1] ?? ""}, but it sits in the ${place.domain} folder: write BL-${code2}-<n>.`;
+  return null;
+}
+function parseBusinessLaws(file, text16, place) {
+  return blocks(text16).map(({ heading, lines }) => {
+    const { statement: statement2, why, also } = readBody2(lines);
+    const problems = [
+      idProblem(file, heading, place),
+      statement2 === "" ? `${file}: ${heading} \u2014 has no statement.` : null,
+      why === null ? `${file}: ${heading} \u2014 is missing a "Why:" line: a business law says why it exists, and a red shows it.` : null
+    ].filter((problem) => problem !== null);
+    return { id: heading, statement: statement2, why, also: also === null ? [] : keysOf2(also), scope: place.scope, domain: place.domain, file, problems };
+  });
+}
+function readBusinessLaws({ ctx, source = diskSource(ctx.root) }) {
+  const product = productDir(ctx);
+  const domains = domainsDir(ctx);
+  const laws = [];
+  if (source.files(product).includes(BUSINESS_LAWS_FILE)) {
+    const file = `${product}/${BUSINESS_LAWS_FILE}`;
+    laws.push(...parseBusinessLaws(file, source.read(file), { scope: "product", domain: "product" }));
+  }
+  for (const name of source.dirs(domains)) {
+    if (!source.files(`${domains}/${name}`).includes(BUSINESS_LAWS_FILE)) continue;
+    const file = `${domains}/${name}/${BUSINESS_LAWS_FILE}`;
+    laws.push(...parseBusinessLaws(file, source.read(file), { scope: "domain", domain: name }));
+  }
+  return laws;
+}
+function businessLawProblems(laws, { owners, where }) {
+  const seen = /* @__PURE__ */ new Map();
+  const problems = laws.flatMap((law) => {
+    const first = seen.get(law.id);
+    if (first === void 0) seen.set(law.id, law.file);
+    const reused = first === void 0 ? [] : [`${law.file}: ${law.id} \u2014 already used in ${first}: a business law's number is used once.`];
+    return [...law.problems, ...reused];
+  });
+  if (laws.length > 0 && owners?.length === 0) {
+    const counted3 = `${laws.length} business ${laws.length === 1 ? "law" : "laws"}`;
+    problems.push(`${where}: ${counted3}, and laws.owners is empty \u2014 name the product's PM in laws.owners: only they approve a change to one.`);
+  }
+  return problems;
+}
+
 // kit/lib/codeowners-laws.ts
 import { existsSync as existsSync43, mkdirSync as mkdirSync10, readFileSync as readFileSync41, writeFileSync as writeFileSync15 } from "node:fs";
 import { dirname as dirname12, join as join58 } from "node:path";
@@ -12223,7 +12300,7 @@ function findLayoutViolations(ctx, knowledge, { glossaryText = "" } = {}) {
       violations.push(violation(`${productDir(ctx)}/${name}`, "product", "is missing."));
     }
   }
-  for (const domain of knowledge.domains) {
+  for (const domain of knowledge.domains.filter((one) => !isLawsOnly(one.files))) {
     const dir = `${domainsDir(ctx)}/${domain.name}`;
     for (const name of ["README.md", ...REQUIRED_LAYER_FILES]) {
       if (!domain.files.includes(name)) {
@@ -12247,6 +12324,7 @@ function findLayoutViolations(ctx, knowledge, { glossaryText = "" } = {}) {
   }
   return violations;
 }
+var isLawsOnly = (files) => files.length === 1 && files[0] === BUSINESS_LAWS_FILE;
 function glossaryHolds(glossaryText, term) {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^\\w])${escaped}([^\\w]|$)`, "i").test(glossaryText);
@@ -12630,6 +12708,10 @@ function findLevelContradictions(ctx) {
     };
   });
 }
+function findBusinessLawViolations(ctx) {
+  const owners = ctx.copyOf ? null : ctx.config.laws?.owners ?? [];
+  return businessLawProblems(readBusinessLaws({ ctx }), { owners, where: ctx.layout.knowledgeRoot }).map((text16) => ({ text: text16 }));
+}
 function findUnresolvedCitations(file, text16, resolve3) {
   return idsCitedIn(text16).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
@@ -12668,6 +12750,7 @@ function gradeKnowledge({
     ...findThesisViolations(ctx, knowledge.entries),
     ...findOwnersBlockViolations(ctx, knowledge),
     ...findLevelContradictions(ctx),
+    ...findBusinessLawViolations(ctx),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve3))
   ];
   return {
@@ -15613,13 +15696,13 @@ function runJobs(octokit, { owner, repo, runId, filter }) {
 // apps/omni-app/src/retro/kinds/churn-lines.ts
 var HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 function changeBlocks(patch) {
-  const blocks = [];
+  const blocks2 = [];
   let inHunk = false;
   let oldLine = 0;
   let newLine = 0;
   let open = null;
   const close = () => {
-    if (open) blocks.push([open.oldStart, open.oldCount, open.newStart, open.newCount]);
+    if (open) blocks2.push([open.oldStart, open.oldCount, open.newStart, open.newCount]);
     open = null;
   };
   for (const line of patch.split("\n")) {
@@ -15650,24 +15733,24 @@ function changeBlocks(patch) {
     }
   }
   close();
-  return blocks;
+  return blocks2;
 }
-function followLines(lines, blocks, commit) {
+function followLines(lines, blocks2, commit) {
   const next = /* @__PURE__ */ new Map();
-  const replaced = blocks.map(() => []);
+  const replaced = blocks2.map(() => []);
   let index = 0;
   let shift = 0;
   for (const [line, commits] of lines) {
-    let block = blocks[index];
+    let block = blocks2[index];
     while (block !== void 0 && block[0] + block[1] <= line) {
       shift += block[3] - block[1];
       index += 1;
-      block = blocks[index];
+      block = blocks2[index];
     }
     if (block !== void 0 && block[0] <= line) replaced[index]?.push(...commits);
     else put(next, line + shift, commits);
   }
-  blocks.forEach(([, , newStart, newCount], i) => {
+  blocks2.forEach(([, , newStart, newCount], i) => {
     const commits = unique3([...replaced[i] ?? [], commit]);
     for (let line = newStart; line < newStart + newCount; line += 1) put(next, line, commits);
   });

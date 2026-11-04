@@ -12522,7 +12522,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve23) {
+function isRecursive(inst, stack, resolve24) {
   const cached4 = recursive.get(inst);
   if (cached4 !== void 0)
     return cached4 ? PROVEN : NONE;
@@ -12532,7 +12532,7 @@ function isRecursive(inst, stack, resolve23) {
   let result2 = NONE;
   const check5 = (child) => {
     if (result2 !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve23);
+      const answer = isRecursive(child, stack, resolve24);
       if (answer > result2)
         result2 = answer;
     }
@@ -12543,7 +12543,7 @@ function isRecursive(inst, stack, resolve23) {
       const desc = Object.getOwnPropertyDescriptor(sh, key2);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve23) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve24) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -12607,7 +12607,7 @@ function isRecursive(inst, stack, resolve23) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve23 ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve24 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -31986,7 +31986,7 @@ function lawsFor(ctx) {
     }
     return invariants;
   };
-  function resolve23(bearsOn) {
+  function resolve24(bearsOn) {
     if (bearsOn === "none") return { ok: true };
     const adr = ADR_ID.exec(bearsOn);
     if (adr) {
@@ -32009,7 +32009,7 @@ function lawsFor(ctx) {
     if (source2 === "claudeMdInvariants") return invariantSet().has(bearsOn);
     return false;
   }
-  return Object.freeze({ source: source2, resolve: resolve23, floorsHigh });
+  return Object.freeze({ source: source2, resolve: resolve24, floorsHigh });
 }
 
 // kit/lib/outbox/account.ts
@@ -32278,8 +32278,8 @@ function openedEntry(id) {
   const read3 = OutboxItemIdSchema.safeParse(id);
   return read3.success ? { id: read3.data, fields: {}, blocks: [] } : null;
 }
-function closedEntry({ id, fields, blocks: blocks2 }) {
-  const [answerText3 = "", itemText2 = ""] = blocks2;
+function closedEntry({ id, fields, blocks: blocks3 }) {
+  const [answerText3 = "", itemText2 = ""] = blocks3;
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText: answerText3, itemText: itemText2, became };
 }
@@ -33180,9 +33180,9 @@ function serverOutboxStore({ ctx, connect: connect2, now: now2 }) {
     },
     // A product PRD's questions are answered on its Questions tab: no reply on GitHub settles one.
     replies(request2) {
-      return new Promise((resolve23) => {
+      return new Promise((resolve24) => {
         productPrd(request2.prd);
-        resolve23({ settled: [], failed: [], held: [], round: null });
+        resolve24({ settled: [], failed: [], held: [], round: null });
       });
     },
     async prComment(prd2) {
@@ -34512,8 +34512,8 @@ function settledInOutbox(ctx, prd2) {
   return existsSync26(settledFile) ? parseSettledEntries(readFileSync24(settledFile, "utf8"), ctx.markers) : [];
 }
 function promised(run2) {
-  return new Promise((resolve23) => {
-    resolve23(run2());
+  return new Promise((resolve24) => {
+    resolve24(run2());
   });
 }
 function gitOutboxStore(ctx) {
@@ -35868,16 +35868,16 @@ var IDLE_MS = 45e3;
 var backoffMs = (failures) => [1e3, 2e3, 5e3][failures - 1] ?? 1e4;
 var SIGNED_OUT_LINE = "no sign-in (omni signin) \xB7 held";
 function pause(ms, signal) {
-  return new Promise((resolve23) => {
+  return new Promise((resolve24) => {
     if (signal.aborted) {
-      resolve23();
+      resolve24();
       return;
     }
     const timer = setTimeout(done, ms);
     function done() {
       clearTimeout(timer);
       signal.removeEventListener("abort", done);
-      resolve23();
+      resolve24();
     }
     signal.addEventListener("abort", done, { once: true });
   });
@@ -35895,10 +35895,10 @@ function waitingLine(prd2, asking) {
 var approvedLine = (prd2, login2, at2, pinned) => `\u2713 PRD ${Number(prd2)} approved by ${login2} \xB7 ${at2} \xB7 ${pinned} ${pinned === 1 ? "file" : "files"} pinned`;
 var short = (sha) => sha.slice(0, 7);
 function aborted2(signal) {
-  return new Promise((resolve23) => {
-    if (signal.aborted) resolve23("aborted");
+  return new Promise((resolve24) => {
+    if (signal.aborted) resolve24("aborted");
     else signal.addEventListener("abort", () => {
-      resolve23("aborted");
+      resolve24("aborted");
     }, { once: true });
   });
 }
@@ -36255,14 +36255,14 @@ function readLead(text16, toolUseId) {
   let at2 = -1;
   if (toolUseId) at2 = entries4.findLastIndex((entry3) => field(entry3, "type") === "assistant" && blocksOf(entry3).some((b) => isQuestion(b, toolUseId)));
   const parts = [];
-  const texts = (blocks2) => blocks2.flatMap((b) => {
+  const texts = (blocks3) => blocks3.flatMap((b) => {
     const text17 = field(b, "text");
     return field(b, "type") === "text" && typeof text17 === "string" && text17.trim() ? [text17.trim()] : [];
   });
   let from = entries4.length - 1;
   if (at2 >= 0) {
-    const blocks2 = blocksOf(entries4[at2]);
-    parts.unshift(...texts(blocks2.slice(0, blocks2.findIndex((b) => isQuestion(b, toolUseId)))));
+    const blocks3 = blocksOf(entries4[at2]);
+    parts.unshift(...texts(blocks3.slice(0, blocks3.findIndex((b) => isQuestion(b, toolUseId)))));
     from = at2 - 1;
   }
   for (let i = from; i >= 0; i -= 1) {
@@ -36864,12 +36864,12 @@ var SLOW_DOWN_S = 2;
 var positive2 = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
 var text7 = (value) => typeof value === "string" && value.length > 0;
 function wait2(ms, signal) {
-  return new Promise((resolve23) => {
+  return new Promise((resolve24) => {
     const timer = setTimeout(done, ms);
     function done() {
       clearTimeout(timer);
       signal.removeEventListener("abort", done);
-      resolve23();
+      resolve24();
     }
     signal.addEventListener("abort", done);
   });
@@ -37021,8 +37021,8 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
   let settle4 = { resolve: () => {
   }, reject: () => {
   } };
-  const caught = new Promise((resolve23, reject2) => {
-    settle4 = { resolve: resolve23, reject: reject2 };
+  const caught = new Promise((resolve24, reject2) => {
+    settle4 = { resolve: resolve24, reject: reject2 };
   });
   caught.catch(() => {
   });
@@ -37056,8 +37056,8 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
   });
   let closedResolve = () => {
   };
-  const closed = new Promise((resolve23) => {
-    closedResolve = resolve23;
+  const closed = new Promise((resolve24) => {
+    closedResolve = resolve24;
   });
   let timer = void 0;
   function finish2(outcome2) {
@@ -37069,11 +37069,11 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
     });
     server.closeAllConnections();
   }
-  await new Promise((resolve23, reject2) => {
+  await new Promise((resolve24, reject2) => {
     server.once("error", reject2);
     server.listen(0, HOST, () => {
       server.off("error", reject2);
-      resolve23();
+      resolve24();
     });
   });
   const listening = server.address();
@@ -37112,7 +37112,7 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
 init_define_OMNI_BUNDLE();
 function firstOf(contenders) {
   if (contenders.length === 0) return Promise.reject(new Error("a race needs at least one contender: no contender given"));
-  return new Promise((resolve23, reject2) => {
+  return new Promise((resolve24, reject2) => {
     let won = false;
     const failed5 = /* @__PURE__ */ new Set();
     contenders.forEach((contender) => {
@@ -37121,7 +37121,7 @@ function firstOf(contenders) {
           if (won) return;
           won = true;
           await Promise.all(contenders.filter((other) => other !== contender && !failed5.has(other)).map(async (other) => other.close()));
-          resolve23(value);
+          resolve24(value);
         },
         (error62) => {
           if (won) return;
@@ -37136,8 +37136,8 @@ function firstOf(contenders) {
 // kit/bin/synchronous.ts
 init_define_OMNI_BUNDLE();
 function synchronous(run2) {
-  return (...args) => new Promise((resolve23) => {
-    resolve23(run2(...args));
+  return (...args) => new Promise((resolve24) => {
+    resolve24(run2(...args));
   });
 }
 
@@ -40521,10 +40521,10 @@ function postReply({ thread, verdict: verdict2, body }, { ctx, stdout, stderr, e
   const ghEnv = githubEnv(ctx, { exec, env });
   try {
     const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv }));
-    const resolve23 = verdict2 !== "asked";
-    if (resolve23) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
+    const resolve24 = verdict2 !== "asked";
+    if (resolve24) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
     const url2 = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
-    println(stdout, JSON.stringify({ thread, verdict: verdict2, url: url2, resolved: resolve23 }));
+    println(stdout, JSON.stringify({ thread, verdict: verdict2, url: url2, resolved: resolve24 }));
     return 0;
   } catch (error62) {
     if (!(error62 instanceof Error) || error62.name !== "GitHubError") throw error62;
@@ -41037,12 +41037,12 @@ function questionsOf(section7) {
     const kind2 = cell2(row, "kind");
     const known2 = QUESTION_KINDS;
     if (!known2.includes(kind2)) rowFaults.push(`Open questions: ${label2} has the kind "${kind2}", not one of ${QUESTION_KINDS.join(", ")}.`);
-    const blocks2 = listCell(cell2(row, "blocks"));
-    rowFaults.push(...idListFaults(blocks2, `Open questions: ${label2} blocks`));
+    const blocks3 = listCell(cell2(row, "blocks"));
+    rowFaults.push(...idListFaults(blocks3, `Open questions: ${label2} blocks`));
     faults.push(...rowFaults);
     if (rowFaults.length > 0) return;
     const typed = QUESTION_KINDS.find((name3) => name3 === kind2) ?? "default";
-    questions2.push({ id, question, recommendation: cell2(row, "recommendation"), blocks: blocks2, kind: typed });
+    questions2.push({ id, question, recommendation: cell2(row, "recommendation"), blocks: blocks3, kind: typed });
   });
   return { questions: questions2, faults };
 }
@@ -41073,13 +41073,13 @@ function cardOf(lines4) {
   return { ...card, command: card.command === null ? null : codeCell(card.command) };
 }
 function cardsOf(lines4) {
-  const blocks2 = [];
+  const blocks3 = [];
   for (const line2 of lines4) {
     const heading2 = CARD_HEADING.exec(line2);
-    if (heading2) blocks2.push({ id: group(heading2, 1), lines: [] });
-    else blocks2.at(-1)?.lines.push(line2);
+    if (heading2) blocks3.push({ id: group(heading2, 1), lines: [] });
+    else blocks3.at(-1)?.lines.push(line2);
   }
-  return new Map(blocks2.map(({ id, lines: under }) => [id, cardOf(under)]));
+  return new Map(blocks3.map(({ id, lines: under }) => [id, cardOf(under)]));
 }
 function oneOf(names, value) {
   return names.find((name3) => name3 === value) ?? null;
@@ -41095,16 +41095,16 @@ function prerequisiteRow(row, index2, cell2) {
   const who2 = oneOf(PREREQUISITE_WHO, cell2(row, "who"));
   const need = cell2(row, "need");
   const blocksCell = cell2(row, "blocks");
-  const blocks2 = blocksCell.toLowerCase() === "all" ? "all" : listCell(blocksCell);
+  const blocks3 = blocksCell.toLowerCase() === "all" ? "all" : listCell(blocksCell);
   const faults = [
     ...rowFaults,
     ...enumFault(cell2(row, "category"), PREREQUISITE_CATEGORIES, "category", label2),
     ...enumFault(cell2(row, "who"), PREREQUISITE_WHO, "who", label2),
     ...need === "" ? [`${WHERE}: ${label2} needs nothing: its need is empty.`] : [],
-    ...blocks2 === "all" ? [] : idListFaults(blocks2, `${WHERE}: ${label2} blocks`)
+    ...blocks3 === "all" ? [] : idListFaults(blocks3, `${WHERE}: ${label2} blocks`)
   ];
   if (faults.length > 0 || category === null || who2 === null) return { record: null, faults };
-  return { record: { id, category, need, check: codeCell(cell2(row, "check")), fix: codeCell(cell2(row, "fix")), blocks: blocks2, who: who2 }, faults };
+  return { record: { id, category, need, check: codeCell(cell2(row, "check")), fix: codeCell(cell2(row, "fix")), blocks: blocks3, who: who2 }, faults };
 }
 function prerequisitesOf(section7) {
   const table = section7 ? firstTable(section7.lines) : null;
@@ -41532,7 +41532,7 @@ function prerequisitesOf2(roadmap2, result2) {
   const rows2 = roadmap2.prerequisites ?? [];
   if (rows2.length === 0) return {};
   return {
-    prerequisites: rows2.map(({ repos, blocks: blocks2, ...row }) => ({ ...row, blocks: blocks2 === "all" ? "all" : [...blocks2], repos: repos ?? [] })),
+    prerequisites: rows2.map(({ repos, blocks: blocks3, ...row }) => ({ ...row, blocks: blocks3 === "all" ? "all" : [...blocks3], repos: repos ?? [] })),
     prerequisiteResult: result2
   };
 }
@@ -43172,7 +43172,7 @@ function parseJson(text16) {
   }
 }
 function wait3(ms) {
-  return new Promise((resolve23) => setTimeout(resolve23, ms));
+  return new Promise((resolve24) => setTimeout(resolve24, ms));
 }
 
 // kit/lib/bug/ci.ts
@@ -43279,7 +43279,7 @@ function jobsOf(exec, cwd, sha) {
 function withLogs(exec, cwd, jobs, names) {
   return jobs.map(({ id, ...job2 }) => names.includes(job2.name) ? { ...job2, log: gh(exec, cwd, ["run", "view", "--job", String(id), "--log"]) } : job2);
 }
-var wait4 = (ms) => new Promise((resolve23) => setTimeout(resolve23, ms));
+var wait4 = (ms) => new Promise((resolve24) => setTimeout(resolve24, ms));
 async function finishedSides(exec, cwd, ask6, { sleep: sleep2 = wait4, now: now2 = Date.now }) {
   const deadline2 = now2() + ask6.waitMinutes * 6e4;
   for (; ; ) {
@@ -43651,6 +43651,119 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync43, readFileSync as readFileSync50, statSync as statSync13 } from "node:fs";
 import { join as join62 } from "node:path";
 
+// kit/lib/knowledge/business-laws.ts
+init_define_OMNI_BUNDLE();
+var BUSINESS_LAWS_FILE = "business-laws.md";
+var HEADING2 = /^##\s+(.*?)\s*$/;
+var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
+var FIELD = /^(Why|Also):\s*(.*)$/;
+var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+function blocks(text16) {
+  const found2 = [];
+  for (const line2 of text16.split("\n")) {
+    const match = line2.match(HEADING2);
+    if (match) found2.push({ heading: match[1] ?? "", lines: [] });
+    else found2.at(-1)?.lines.push(line2);
+  }
+  return found2;
+}
+function readBody2(raw) {
+  const lines4 = raw.map((line2) => line2.trim());
+  const fieldAt = lines4.findIndex((line2) => FIELD.test(line2));
+  const statement2 = (fieldAt === -1 ? lines4 : lines4.slice(0, fieldAt)).filter(Boolean).join(" ");
+  return { statement: statement2, why: fieldValue(lines4, "Why") || null, also: fieldValue(lines4, "Also") };
+}
+function fieldValue(lines4, name3) {
+  const at2 = lines4.findIndex((line2) => line2.match(FIELD)?.[1] === name3);
+  if (at2 === -1) return null;
+  const rest = lines4.slice(at2 + 1);
+  const end3 = rest.findIndex((line2) => line2 === "" || FIELD.test(line2));
+  const continued = end3 === -1 ? rest : rest.slice(0, end3);
+  return [lines4[at2]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
+}
+function idProblem(file2, id, place) {
+  const code = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
+  const match = id.match(ID);
+  if (!match) return `${file2}: ${id} \u2014 is not a business law id: write BL-${code}-<n>.`;
+  if (match[1] !== code) return `${file2}: ${id} \u2014 names ${match[1] ?? ""}, but it sits in the ${place.domain} folder: write BL-${code}-<n>.`;
+  return null;
+}
+function parseBusinessLaws(file2, text16, place) {
+  return blocks(text16).map(({ heading: heading2, lines: lines4 }) => {
+    const { statement: statement2, why: why3, also } = readBody2(lines4);
+    const problems = [
+      idProblem(file2, heading2, place),
+      statement2 === "" ? `${file2}: ${heading2} \u2014 has no statement.` : null,
+      why3 === null ? `${file2}: ${heading2} \u2014 is missing a "Why:" line: a business law says why it exists, and a red shows it.` : null
+    ].filter((problem) => problem !== null);
+    return { id: heading2, statement: statement2, why: why3, also: also === null ? [] : keysOf2(also), scope: place.scope, domain: place.domain, file: file2, problems };
+  });
+}
+function readBusinessLaws({ ctx, source: source2 = diskSource(ctx.root) }) {
+  const product2 = productDir(ctx);
+  const domains = domainsDir(ctx);
+  const laws2 = [];
+  if (source2.files(product2).includes(BUSINESS_LAWS_FILE)) {
+    const file2 = `${product2}/${BUSINESS_LAWS_FILE}`;
+    laws2.push(...parseBusinessLaws(file2, source2.read(file2), { scope: "product", domain: "product" }));
+  }
+  for (const name3 of source2.dirs(domains)) {
+    if (!source2.files(`${domains}/${name3}`).includes(BUSINESS_LAWS_FILE)) continue;
+    const file2 = `${domains}/${name3}/${BUSINESS_LAWS_FILE}`;
+    laws2.push(...parseBusinessLaws(file2, source2.read(file2), { scope: "domain", domain: name3 }));
+  }
+  return laws2;
+}
+function businessLawDomains(law) {
+  return law.scope === "product" ? [] : [.../* @__PURE__ */ new Set([law.domain, ...law.also])];
+}
+function businessLawProblems(laws2, { owners: owners2, where }) {
+  const seen = /* @__PURE__ */ new Map();
+  const problems = laws2.flatMap((law) => {
+    const first = seen.get(law.id);
+    if (first === void 0) seen.set(law.id, law.file);
+    const reused = first === void 0 ? [] : [`${law.file}: ${law.id} \u2014 already used in ${first}: a business law's number is used once.`];
+    return [...law.problems, ...reused];
+  });
+  if (laws2.length > 0 && owners2?.length === 0) {
+    const counted5 = `${laws2.length} business ${laws2.length === 1 ? "law" : "laws"}`;
+    problems.push(`${where}: ${counted5}, and laws.owners is empty \u2014 name the product's PM in laws.owners: only they approve a change to one.`);
+  }
+  return problems;
+}
+var FRONT_MATTER3 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+function splitSpec(spec) {
+  const match = spec.match(FRONT_MATTER3);
+  return match ? { front: match[1] ?? "", body: match[2] ?? "" } : { front: "", body: spec };
+}
+function specAreas(spec) {
+  const line2 = splitSpec(spec).front.split("\n").map((one) => one.match(/^areas:\s*\[(.*)\]\s*$/)).find((match) => match !== null);
+  return line2 ? keysOf2(line2[1] ?? "") : [];
+}
+function usesWord(text16, word2) {
+  const escaped2 = word2.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  if (escaped2 === "") return false;
+  return new RegExp(`(?<![\\p{L}\\p{N}_])${escaped2}(?![\\p{L}\\p{N}_])`, "iu").test(text16);
+}
+function selectBusinessLaws({ spec, laws: laws2, glossary }) {
+  const taken = /* @__PURE__ */ new Map();
+  const take = (key2, reason2) => {
+    const reasons2 = taken.get(key2) ?? [];
+    if (!reasons2.includes(reason2)) reasons2.push(reason2);
+    taken.set(key2, reasons2);
+  };
+  for (const key2 of specAreas(spec)) take(key2, "areas");
+  const { body } = splitSpec(spec);
+  for (const { term, avoid, domains = [] } of glossary) {
+    if (domains.length === 0) continue;
+    const word2 = usesWord(body, term) ? `"${term}"` : avoid.filter((one) => usesWord(body, one)).map((one) => `"${one}" (for "${term}")`)[0];
+    if (word2 === void 0) continue;
+    for (const key2 of domains) take(key2, word2);
+  }
+  const selected = laws2.filter((law) => law.scope === "product" || businessLawDomains(law).some((key2) => taken.has(key2)));
+  return { domains: [...taken].map(([key2, reasons2]) => ({ key: key2, reasons: reasons2 })), laws: selected };
+}
+
 // kit/lib/codeowners-laws.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync42, mkdirSync as mkdirSync19, readFileSync as readFileSync49, writeFileSync as writeFileSync27 } from "node:fs";
@@ -43788,7 +43901,7 @@ function findLayoutViolations(ctx, knowledge2, { glossaryText = "" } = {}) {
       violations.push(violation(`${productDir(ctx)}/${name3}`, "product", "is missing."));
     }
   }
-  for (const domain2 of knowledge2.domains) {
+  for (const domain2 of knowledge2.domains.filter((one) => !isLawsOnly(one.files))) {
     const dir = `${domainsDir(ctx)}/${domain2.name}`;
     for (const name3 of ["README.md", ...REQUIRED_LAYER_FILES]) {
       if (!domain2.files.includes(name3)) {
@@ -43812,6 +43925,7 @@ function findLayoutViolations(ctx, knowledge2, { glossaryText = "" } = {}) {
   }
   return violations;
 }
+var isLawsOnly = (files) => files.length === 1 && files[0] === BUSINESS_LAWS_FILE;
 function glossaryHolds(glossaryText, term) {
   const escaped2 = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^\\w])${escaped2}([^\\w]|$)`, "i").test(glossaryText);
@@ -44195,8 +44309,12 @@ function findLevelContradictions(ctx) {
     };
   });
 }
-function findUnresolvedCitations(file2, text16, resolve23) {
-  return idsCitedIn(text16).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve23(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
+function findBusinessLawViolations(ctx) {
+  const owners2 = ctx.copyOf ? null : ctx.config.laws?.owners ?? [];
+  return businessLawProblems(readBusinessLaws({ ctx }), { owners: owners2, where: ctx.layout.knowledgeRoot }).map((text16) => ({ text: text16 }));
+}
+function findUnresolvedCitations(file2, text16, resolve24) {
+  return idsCitedIn(text16).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve24(id)).map((id) => violation(file2, id, `is cited in ${file2} but does not resolve to any entry.`));
 }
 function findWishes(entries4) {
   return entries4.filter((entry3) => entry3.kind === "principle" && servedBy(entries4, entry3.id).length === 0).map(
@@ -44218,7 +44336,7 @@ function gradeKnowledge({
   glossaryText
 }) {
   const knowledge2 = readKnowledge({ ctx });
-  const resolve23 = (id) => knowledge2.entries.find((entry3) => entry3.id === id);
+  const resolve24 = (id) => knowledge2.entries.find((entry3) => entry3.id === id);
   const text16 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
     ...findLayoutViolations(ctx, knowledge2, { glossaryText: text16 }),
@@ -44233,7 +44351,8 @@ function gradeKnowledge({
     ...findThesisViolations(ctx, knowledge2.entries),
     ...findOwnersBlockViolations(ctx, knowledge2),
     ...findLevelContradictions(ctx),
-    ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve23))
+    ...findBusinessLawViolations(ctx),
+    ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve24))
   ];
   return {
     violations: violations.map(formatViolation),
@@ -44512,7 +44631,7 @@ var KIT_FOLDER = `${dirname15(CONFIG_FILE)}/`;
 var FRONT_MATTER_BLOCK6 = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
 var FIELD_LINE2 = /^([A-Za-z][\w-]*):(?:[ \t]+(.*))?$/;
 var PRD_NUMBER = /^[1-9]\d*$/;
-var HEADING2 = /^#{1,6}(?:\s|$)/;
+var HEADING3 = /^#{1,6}(?:\s|$)/;
 var LIST_ITEM = /^(?:[-*+]|\d+[.)])\s/;
 var PRD_REFERENCE = /\bPRD\s*\d+/i;
 var FORBIDDEN = [
@@ -44604,7 +44723,7 @@ function descriptionViolations(lines4, description) {
   const out = [];
   if (characters(description) > DESCRIPTION_MAX) out.push(`description is ${characters(description)} characters \u2014 ${DESCRIPTION_MAX} at most`);
   if (lines4.includes("")) out.push("description holds a blank line \u2014 one paragraph");
-  const heading2 = lines4.find((line2) => HEADING2.test(line2));
+  const heading2 = lines4.find((line2) => HEADING3.test(line2));
   if (heading2) out.push(`description holds a heading ("${heading2}") \u2014 one paragraph of prose`);
   const item2 = lines4.find((line2) => LIST_ITEM.test(line2));
   if (item2) out.push(`description holds a list item ("${item2}") \u2014 one paragraph of prose`);
@@ -44972,7 +45091,7 @@ import { readdirSync as readdirSync19, readFileSync as readFileSync55 } from "no
 import { join as join70 } from "node:path";
 var SCREEN_STATUSES = ["draft", "locked", "superseded"];
 var SCREEN_KINDS = ["page", "shared"];
-var FRONT_MATTER3 = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
+var FRONT_MATTER4 = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 var DATE4 = /^\d{4}-\d{2}-\d{2}$/;
 var AMENDMENT = /^> Amended /;
 var SECTION = /^## (.+?)\s*$/;
@@ -44993,7 +45112,7 @@ var ScreenFrontMatter = external_exports.object({
   routes: list2("routes"),
   supersedes: optional2("supersedes")
 }).strict();
-function readBody2(body) {
+function readBody3(body) {
   const amendments = [];
   const sections = {};
   let current = null;
@@ -45011,7 +45130,7 @@ function readBody2(body) {
 }
 function parseScreen(text16, file2) {
   const fail2 = (why3) => ({ ok: false, problem: `${file2}: ${why3}` });
-  const fence = FRONT_MATTER3.exec(text16);
+  const fence = FRONT_MATTER4.exec(text16);
   const block = fence?.[1];
   if (!fence || block === void 0) return fail2("no front matter \u2014 a screen starts with a --- block");
   let raw;
@@ -45034,7 +45153,7 @@ function parseScreen(text16, file2) {
     const missing2 = [["locked-by", lockedBy], ["locked-on", lockedOn], ["quote", quote]].flatMap(([field3, value]) => value === null ? [field3] : []);
     if (missing2.length) return fail2(`a locked screen needs locked-by, locked-on and quote \u2014 missing ${missing2.join(", ")}`);
   }
-  const body = readBody2(text16.slice(fence[0].length));
+  const body = readBody3(text16.slice(fence[0].length));
   return { ok: true, screen: { file: file2, screen, status: status5, kind: kind2, lockedBy, lockedOn, quote, mock, implements: paths, reads, routes, supersedes, ...body } };
 }
 function readScreens(dir) {
@@ -45343,11 +45462,13 @@ async function checkKnowledge({ ctx, stdout, stderr, exec }, { cwd, reach: reach
   const legal = await verifyServedLegal({ ctx, entries: knowledge2.entries, cwd, exec, reach: reach7 });
   for (const note of legal.notes) println(stdout, note);
   const count8 = (kind2) => knowledge2.entries.filter((entry3) => entry3.kind === kind2).length;
+  const lawCount = readBusinessLaws({ ctx }).length;
+  const business2 = lawCount === 0 ? "" : `; ${lawCount} business law(s)`;
   return report3(
     stdout,
     title,
     [...violations, ...legal.violations],
-    `check knowledge \u2014 ${count8("principle")} principle(s), ${count8("rule")} rule(s), ${count8("invariant")} invariant(s), ${count8("contract")} contract(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
+    `check knowledge \u2014 ${count8("principle")} principle(s), ${count8("rule")} rule(s), ${count8("invariant")} invariant(s), ${count8("contract")} contract(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed${business2}.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
@@ -48183,7 +48304,7 @@ var FlowsError = class extends Error {
     this.name = "FlowsError";
   }
 };
-var ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var ID2 = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function parseFlows(file2, text16) {
   if (text16 === void 0) return { kind: "none" };
   const sections = [];
@@ -48201,7 +48322,7 @@ function parseFlows(file2, text16) {
     const name3 = colon === -1 ? "" : heading2.slice(colon + 1).trim();
     if (id === "") throw new FlowsError(file2, `flow ${index2 + 1} ("${name3}") has no id`);
     if (name3 === "") throw new FlowsError(file2, `flow "${id}" has no name`);
-    if (!ID.test(id)) throw new FlowsError(file2, `flow "${name3}": id "${id}" must be lowercase letters, digits and hyphens`);
+    if (!ID2.test(id)) throw new FlowsError(file2, `flow "${name3}": id "${id}" must be lowercase letters, digits and hyphens`);
     if (seen.has(id)) throw new FlowsError(file2, `id "${id}" is used twice`);
     seen.add(id);
     flows.push({ id, name: name3, cost: body.join("\n").trim() });
@@ -50284,7 +50405,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni check [config|inbox|outbox|knowledge|kb|releases|design|", "  coverage|context|all] [--base <ref>] [--prd <n>] [--retro <prd>]"],
     label: "omni check [all]",
     summary: "the repository's guards",
-    detail: "The repository's guards, each printing its violations or one line saying it passed: config (the config file, its flow and every hook file the flow names, each refusal naming its key), inbox (the PRDs waiting to be built, a spec's front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers), kb (the playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch accounted for, against --base) and context (what every agent session reads, held to the ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit 0, when a target cannot be measured). all, the default, runs every one, skips coverage when {remote}/{defaultBranch} has not been fetched, and runs context only while budgets.context.enabled is true. Exit 1 on any violation."
+    detail: "The repository's guards, each printing its violations or one line saying it passed: config (the config file, its flow and every hook file the flow names, each refusal naming its key), inbox (the PRDs waiting to be built, a spec's front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers and the business laws), kb (the playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch accounted for, against --base) and context (what every agent session reads, held to the ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit 0, when a target cannot be measured). all, the default, runs every one, skips coverage when {remote}/{defaultBranch} has not been fetched, and runs context only while budgets.context.enabled is true. Exit 1 on any violation."
   },
   {
     name: "flow",
@@ -50304,10 +50425,10 @@ var ENTRIES = deepFreeze([
     name: "kb",
     kind: "command",
     who: "you",
-    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb init"],
+    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb business-laws [--domain <key> | --spec <file>] [--json]", "omni kb init"],
     label: "omni kb show <form>",
     summary: "one form of the playbook",
-    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. init lays down every missing form, blank, and changes no file that exists.`
+    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. business-laws prints the product's business laws (PRD 2632), the rules written in product/business-laws.md and domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain's, by its folder or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why it was taken, the glossary read from the local copy. A business law is never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and changes no file that exists.`
   },
   {
     name: "knowledge",
@@ -52242,9 +52363,9 @@ var FilledFrontMatterSchema = external_exports.looseObject({ state: external_exp
 
 // kit/lib/playbook/filled.ts
 var DEFAULT_PLAYBOOK = ".omni-loop/knowledge/playbook";
-var FRONT_MATTER4 = /^---\r?\n([\s\S]*?)\r?\n---/;
+var FRONT_MATTER5 = /^---\r?\n([\s\S]*?)\r?\n---/;
 function frontMatter3(text16) {
-  const block = FRONT_MATTER4.exec(text16 ?? "");
+  const block = FRONT_MATTER5.exec(text16 ?? "");
   if (!block) return null;
   try {
     const read3 = FilledFrontMatterSchema.safeParse((0, import_yaml9.parse)(block[1] ?? ""));
@@ -52319,7 +52440,7 @@ function detectInstall(root, { exec }) {
 // kit/lib/init/plugin.ts
 init_define_OMNI_BUNDLE();
 var QUIET9 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
-var ID2 = `${PLUGIN}@${MARKETPLACE}`;
+var ID3 = `${PLUGIN}@${MARKETPLACE}`;
 var PLACEHOLDER_HOME = "<owner>/<kit repository>";
 function listed(exec, args, schema) {
   try {
@@ -52330,25 +52451,25 @@ function listed(exec, args, schema) {
   }
 }
 function installPlugin({ exec, kitHome: kitHome2 }) {
-  if (listed(exec, ["plugin", "list"], ClaudePluginsSchema)?.some((plugin) => plugin?.id === ID2)) return { outcome: "already" };
+  if (listed(exec, ["plugin", "list"], ClaudePluginsSchema)?.some((plugin) => plugin?.id === ID3)) return { outcome: "already" };
   if (!kitHome2) return { outcome: "failed" };
   try {
     const marketplaces = listed(exec, ["plugin", "marketplace", "list"], ClaudeMarketplacesSchema);
     if (!marketplaces?.some((marketplace) => marketplace?.name === MARKETPLACE)) {
       exec("claude", ["plugin", "marketplace", "add", kitHome2], QUIET9);
     }
-    exec("claude", ["plugin", "install", ID2], QUIET9);
+    exec("claude", ["plugin", "install", ID3], QUIET9);
   } catch {
     return { outcome: "failed" };
   }
   return { outcome: "installed" };
 }
 function pluginLines({ outcome: outcome2 }, { kitHome: kitHome2 }) {
-  if (outcome2 === "installed") return { status: [`  plugin  installed ${ID2}, run /reload-plugins in an open Claude Code`], todo: [] };
-  if (outcome2 === "already") return { status: [`  plugin  ${ID2} installed already`], todo: [] };
+  if (outcome2 === "installed") return { status: [`  plugin  installed ${ID3}, run /reload-plugins in an open Claude Code`], todo: [] };
+  if (outcome2 === "already") return { status: [`  plugin  ${ID3} installed already`], todo: [] };
   return {
-    status: [`  plugin  could not install ${ID2} from here`],
-    todo: [`/plugin marketplace add ${kitHome2 ?? PLACEHOLDER_HOME}`, `/plugin install ${ID2}`]
+    status: [`  plugin  could not install ${ID3} from here`],
+    todo: [`/plugin marketplace add ${kitHome2 ?? PLACEHOLDER_HOME}`, `/plugin install ${ID3}`]
   };
 }
 
@@ -53196,7 +53317,33 @@ var item = {
 // kit/bin/commands/kb.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync71, readFileSync as readFileSync83 } from "node:fs";
-import { join as join104 } from "node:path";
+import { join as join104, resolve as resolve8 } from "node:path";
+
+// kit/lib/knowledge/business-laws-text.ts
+init_define_OMNI_BUNDLE();
+function businessLawLines(law) {
+  const domains = law.scope === "product" ? ["product"] : businessLawDomains(law);
+  return [`${law.id} \u2014 ${law.statement} (${domains.join(", ")})`, `  Why: ${law.why ?? "(none written)"}`];
+}
+function lawsOfDomain(laws2, key2) {
+  return laws2.filter((law) => key2 === "product" ? law.scope === "product" : businessLawDomains(law).includes(key2));
+}
+function businessLawsText(laws2, { domain: domain2, knowledgeRoot }) {
+  if (laws2.length === 0) {
+    return domain2 === null ? `kb business-laws \u2014 no business law yet: write one in ${knowledgeRoot}/domains/<key>/business-laws.md or ${knowledgeRoot}/product/business-laws.md.` : `kb business-laws \u2014 no business law in ${domain2}.`;
+  }
+  const where = domain2 === null ? "" : ` in ${domain2}`;
+  return [`kb business-laws \u2014 ${laws2.length} business law(s)${where}`, ...laws2.flatMap(businessLawLines)].join("\n");
+}
+function selectionText(selection, { spec, glossaryRead }) {
+  const domains = selection.domains.map(({ key: key2, reasons: reasons2 }) => `${key2} \u2190 ${reasons2.join(", ")}`);
+  return [
+    `kb business-laws \u2014 ${spec} is judged against ${selection.laws.length} business law(s)`,
+    `Domains: ${domains.length === 0 ? "none taken" : domains.join("; ")}`,
+    ...glossaryRead ? [] : ["glossary: no local copy, so no term was read \u2014 omni kb glossary reads it"],
+    ...selection.laws.flatMap(businessLawLines)
+  ].join("\n");
+}
 
 // kit/lib/knowledge/graph-push.ts
 init_define_OMNI_BUNDLE();
@@ -53254,12 +53401,20 @@ function placeRecord(record2, places, files) {
   const line2 = { kind: "adr", id: `ADR-${record2.number}`, file: record2.file, text: recordText(record2), why: why3, proposed: false };
   return { group: why3.length > 0 ? "applies" : "hidden", line: line2 };
 }
+function placeBusinessLaw(law, map2, places, files) {
+  const domains = businessLawDomains(law);
+  const why3 = reasons(places, files, { governs: null, domains, layers: [] });
+  const line2 = { kind: "business-law", id: law.id, file: law.file, text: law.statement, why: why3, proposed: false };
+  if (why3.length > 0) return { group: "applies", line: line2 };
+  return { group: !map2.mapped || !reachable(map2, null, domains, []) ? "global" : "hidden", line: line2 };
+}
 function lookup(sources2, map2, files) {
   const places = files.map((file2) => placeOf4(map2, file2));
   const ruleLike = sources2.entries.filter((entry3) => entry3.kind === "rule" || entry3.kind === "invariant");
   const placed = [
     ...[...ruleLike.filter(isLaw), ...ruleLike.filter((entry3) => !isLaw(entry3))].map((entry3) => placeEntry(entry3, sources2.thesis, map2, places, files)),
     ...sources2.records.flatMap((record2) => placeRecord(record2, places, files) ?? []),
+    ...(sources2.businessLaws ?? []).map((law) => placeBusinessLaw(law, map2, places, files)),
     ...sources2.legal.map((legal) => ({
       group: "global",
       line: { kind: "legal", id: legal.id, file: null, text: headline(legal.statement), why: [], proposed: false }
@@ -53284,7 +53439,7 @@ function lookupLine(entry3, owners2) {
     return `${lawLine({ id: entry3.id, file: entry3.file ?? "", sentence: entry3.text, lockedBy: null, lockedOn: null, governs: [] }, owners2)}${because}`;
   }
   const proposed = entry3.proposed ? " (proposed, not yet confirmed by a person)" : "";
-  return `${entry3.kind} ${entry3.id} \u2014 ${entry3.text}${proposed}${because}`;
+  return `${entry3.kind === "business-law" ? "business law" : entry3.kind} ${entry3.id} \u2014 ${entry3.text}${proposed}${because}`;
 }
 
 // kit/lib/knowledge/graph.ts
@@ -54271,7 +54426,7 @@ var PACK_USAGE = "usage: omni kb pack get <repo> [--read-at <commit>]";
 var GRAPH_USAGE = "usage: omni kb graph [<id> | --paths <file>[,<file>\u2026] [<file>\u2026]] [--depth <1-3>] [--json]";
 var GRAPH_PRODUCT_USAGE = "usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]";
 var GRAPH_PUSH_USAGE = "usage: omni kb graph push";
-var USAGE29 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit \u2026] | omni kb glossary [add|edit \u2026] | omni kb domains [add|edit \u2026] | omni kb index [--json]`;
+var USAGE29 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb business-laws [--domain <key> | --spec <file>] [--json] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit \u2026] | omni kb glossary [add|edit \u2026] | omni kb domains [add|edit \u2026] | omni kb index [--json]`;
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -54445,8 +54600,8 @@ function neighbourhoodOf(from, depth, flags, { ctx, stdout, stderr }) {
     println(stdout, ["kb graph \u2014 no entry governs those files.", productLine(product2, unreadable2)].join("\n"));
     return 0;
   }
-  const blocks2 = built.start.flatMap((id) => neighbourhoodBody(buildNeighbourhood(walked, { start: [id], depth }), entries4));
-  println(stdout, [...blocks2, productLine(product2, unreadable2)].join("\n"));
+  const blocks3 = built.start.flatMap((id) => neighbourhoodBody(buildNeighbourhood(walked, { start: [id], depth }), entries4));
+  println(stdout, [...blocks3, productLine(product2, unreadable2)].join("\n"));
   return 0;
 }
 function territoryPaths(ctx, exec, territory) {
@@ -54521,7 +54676,13 @@ function laws(args, io) {
     return 0;
   }
   const cache = readCachedKnowledge(ctx.root);
-  const sources2 = { entries: knowledge2.entries, records: readDecisions({ ctx }).records, legal: cache.state === "cached" ? cache.legal : [], thesis };
+  const sources2 = {
+    entries: knowledge2.entries,
+    records: readDecisions({ ctx }).records,
+    legal: cache.state === "cached" ? cache.legal : [],
+    thesis,
+    businessLaws: readBusinessLaws({ ctx })
+  };
   const found2 = lookup(sources2, knowledgeMap(ctx.config), what.paths);
   println(stdout, flags.json ? JSON.stringify({ ...disclosure, ...found2 }, null, 2) : lookupText(found2, disclosure.ungoverned, owners2));
   return 0;
@@ -54714,16 +54875,40 @@ function productGraphArgs(args) {
 function pageClient(askUrl2, io) {
   return askUrl2 ? signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
 }
+var BUSINESS_LAWS_USAGE = "usage: omni kb business-laws [--domain <key> | --spec <file>] [--json]";
+function businessLaws(args, io) {
+  const { positional, flags } = parseArgs("kb business-laws", args, { values: ["domain", "spec"], booleans: ["json"] });
+  if (positional.length > 0 || flags.domain !== void 0 && flags.spec !== void 0) throw usageError(BUSINESS_LAWS_USAGE);
+  const all = readBusinessLaws({ ctx: io.ctx });
+  const text16 = flags.spec === void 0 ? lawsOf(all, flags.domain ?? null, flags.json === true, io.ctx) : specLaws(all, flags.spec, flags.json === true, io);
+  println(io.stdout, text16);
+  return 0;
+}
+function lawsOf(all, domain2, json3, ctx) {
+  const shown6 = domain2 === null ? all : lawsOfDomain(all, domain2);
+  return json3 ? JSON.stringify({ laws: shown6 }, null, 2) : businessLawsText(shown6, { domain: domain2, knowledgeRoot: ctx.layout.knowledgeRoot });
+}
+function specLaws(all, spec, json3, { ctx, exec }) {
+  const path = resolve8(ctx.root, spec);
+  if (!existsSync71(path)) throw usageError(`omni kb business-laws: no spec at ${spec}. ${BUSINESS_LAWS_USAGE}`);
+  const cache = readCachedKnowledge(mainCheckout(ctx.root, exec) ?? ctx.root);
+  const glossary = cache.state === "cached" ? cache.glossary : [];
+  const selection = selectBusinessLaws({ spec: readFileSync83(path, "utf8"), laws: all, glossary });
+  return json3 ? JSON.stringify(selection, null, 2) : selectionText(selection, { spec, glossaryRead: cache.state === "cached" });
+}
+var OWN_FLAGS = { laws, graph, "business-laws": businessLaws };
+var PLAIN = { init: init2, show: show3, status: status2, owners };
+function verbOf(table, name3) {
+  return name3 !== void 0 && Object.hasOwn(table, name3) ? table[name3] : void 0;
+}
 var basic = synchronous((args, io) => {
-  if (args[0] === "laws") return laws(args.slice(1), io);
-  if (args[0] === "graph") return graph(args.slice(1), io);
+  const ownFlags = verbOf(OWN_FLAGS, args[0]);
+  if (ownFlags) return ownFlags(args.slice(1), io);
   const { positional, flags } = parseArgs("kb", args, { booleans: ["json", "all"] });
   const [sub, ...rest] = positional;
   if (flags.all && sub !== "show") throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE29}`);
-  if (sub === "init") return init2(rest, flags, io);
-  if (sub === "show") return show3(rest, flags, io);
-  if (sub === "status") return status2(rest, flags, io);
-  if (sub === "owners") return owners(rest, flags, io);
+  const plain2 = verbOf(PLAIN, sub);
+  if (plain2) return plain2(rest, flags, io);
   throw usageError(USAGE29);
 });
 var kb2 = {
@@ -54854,12 +55039,12 @@ function lawIssueOf(entry3) {
   ].join("\n");
   return { id: entry3.id, entry: entry3.id, register: entry3.file, statement: entry3.statement, source: source2, title: `Law: ${entry3.statement}`, body };
 }
-var HEADING3 = /^#{1,2}\s/;
+var HEADING4 = /^#{1,2}\s/;
 var entryHeading = (id) => new RegExp(`^##\\s+${id}\\s*$`);
 function entrySpan(lines4, id) {
   const start4 = lines4.findIndex((line2) => entryHeading(id).test(line2));
   if (start4 === -1) return null;
-  const next2 = lines4.findIndex((line2, index2) => index2 > start4 && HEADING3.test(line2));
+  const next2 = lines4.findIndex((line2, index2) => index2 > start4 && HEADING4.test(line2));
   return [start4, next2 === -1 ? lines4.length : next2];
 }
 function pendLaw(text16, id, issue2) {
@@ -54886,7 +55071,7 @@ function linesByEntry(text16) {
   return text16.split("\n").map((line2) => {
     const heading2 = /^##\s+(\S+)\s*$/.exec(line2);
     if (heading2) current = group(heading2, 1);
-    else if (HEADING3.test(line2)) current = null;
+    else if (HEADING4.test(line2)) current = null;
     return { line: line2, entry: current };
   });
 }
@@ -55638,8 +55823,8 @@ var FIX_LIMIT_MS = 10 * 6e4;
 function isMet(state) {
   return state !== "waits";
 }
-var sleep = (ms) => new Promise((resolve23) => {
-  setTimeout(resolve23, ms).unref();
+var sleep = (ms) => new Promise((resolve24) => {
+  setTimeout(resolve24, ms).unref();
 });
 var message = (error62) => error62 instanceof Error ? error62.message : String(error62);
 async function within2(probe, ms, timer) {
@@ -55723,10 +55908,10 @@ import { hostname as hostname3 } from "node:os";
 import { join as join110 } from "node:path";
 var MAX_OUTPUT = 4 * 1024 * 1024;
 var ranAndFailed = (error62) => typeof error62.code === "number" || error62.killed === true || error62.signal != null;
-var liveShell = (file2, args, { cwd, timeoutMs }) => new Promise((resolve23, reject2) => {
+var liveShell = (file2, args, { cwd, timeoutMs }) => new Promise((resolve24, reject2) => {
   execFile(file2, [...args], { cwd, timeout: timeoutMs, maxBuffer: MAX_OUTPUT, encoding: "utf8" }, (error62, stdout, stderr) => {
-    if (error62 === null) resolve23({ code: 0, stdout, stderr });
-    else if (ranAndFailed(error62)) resolve23({ code: typeof error62.code === "number" ? error62.code : null, stdout, stderr });
+    if (error62 === null) resolve24({ code: 0, stdout, stderr });
+    else if (ranAndFailed(error62)) resolve24({ code: typeof error62.code === "number" ? error62.code : null, stdout, stderr });
     else reject2(new Error(error62.message, { cause: error62 }));
   });
 });
@@ -56412,7 +56597,7 @@ function replanLine(plan2) {
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync14 } from "node:child_process";
 import { readFileSync as readFileSync90, rmSync as rmSync15, statSync as statSync20, utimesSync, writeFileSync as writeFileSync42 } from "node:fs";
-import { resolve as resolve8 } from "node:path";
+import { resolve as resolve9 } from "node:path";
 function fieldOf2(error62, key2) {
   return typeof error62 === "object" && error62 !== null ? Reflect.get(error62, key2) : void 0;
 }
@@ -56457,7 +56642,7 @@ function retroAt(ctx, exec, ref, dir) {
 }
 function gitPath(ctx, exec, args) {
   try {
-    return resolve8(ctx.root, git5(ctx, exec, ["rev-parse", ...args]).trim());
+    return resolve9(ctx.root, git5(ctx, exec, ["rev-parse", ...args]).trim());
   } catch {
     return null;
   }
@@ -56474,7 +56659,7 @@ function fetchTime(path) {
 }
 function fetchedAt(ctx, exec) {
   const common = gitPath(ctx, exec, ["--git-common-dir"]);
-  const times = [fetchHeadPath(ctx, exec), common && resolve8(common, "FETCH_HEAD")].map(fetchTime).filter((time5) => time5 !== null);
+  const times = [fetchHeadPath(ctx, exec), common && resolve9(common, "FETCH_HEAD")].map(fetchTime).filter((time5) => time5 !== null);
   return times.length ? Math.max(...times) : null;
 }
 function snapshot(path) {
@@ -58979,7 +59164,7 @@ var prd = {
 
 // kit/bin/commands/pitch.ts
 init_define_OMNI_BUNDLE();
-import { isAbsolute as isAbsolute10, resolve as resolve11 } from "node:path";
+import { isAbsolute as isAbsolute10, resolve as resolve12 } from "node:path";
 
 // kit/lib/pitch/push.ts
 init_define_OMNI_BUNDLE();
@@ -59094,7 +59279,7 @@ function readPitchRun(dir, prd2) {
 // kit/bin/commands/pitch-make.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync84, mkdirSync as mkdirSync36, writeFileSync as writeFileSync51 } from "node:fs";
-import { isAbsolute as isAbsolute9, join as join135, resolve as resolve10 } from "node:path";
+import { isAbsolute as isAbsolute9, join as join135, resolve as resolve11 } from "node:path";
 
 // kit/lib/pitch/check.ts
 init_define_OMNI_BUNDLE();
@@ -60340,7 +60525,7 @@ function audioOf(music2, syncSeconds) {
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync83, readFileSync as readFileSync106, statSync as statSync24 } from "node:fs";
 import { createServer as createServer2 } from "node:http";
-import { extname as extname5, resolve as resolve9, sep as sep4 } from "node:path";
+import { extname as extname5, resolve as resolve10, sep as sep4 } from "node:path";
 var TYPES = Object.freeze({
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -60393,8 +60578,8 @@ var contactSize = (count8) => ({
   height: Math.max(1, Math.ceil(count8 / CONTACT.columns)) * CONTACT.height
 });
 function runFile(dir, path) {
-  const root = resolve9(dir);
-  const file2 = resolve9(root, path);
+  const root = resolve10(dir);
+  const file2 = resolve10(root, path);
   if (!file2.startsWith(`${root}${sep4}`) || !existsSync83(file2) || !statSync24(file2).isFile()) return null;
   return file2;
 }
@@ -60691,7 +60876,7 @@ function audienceOf(verb2, value) {
   if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE35[verb2]} \u2014 --for is customers or inside, not ${value}`);
   return value;
 }
-var folderOf2 = (cwd, dir) => isAbsolute9(dir) ? dir : resolve10(cwd, dir);
+var folderOf2 = (cwd, dir) => isAbsolute9(dir) ? dir : resolve11(cwd, dir);
 function runFolder(verb2, cwd, dir) {
   const folder = folderOf2(cwd, dir);
   if (!existsSync84(folder)) throw usageError(`omni pitch ${verb2}: ${dir} is not a run folder.`);
@@ -60885,7 +61070,7 @@ function argsOf(args) {
   return { prd: prdArg("pitch push", "<n>", first), dir: second };
 }
 function localRun(cwd, dir, prd2) {
-  const folder = isAbsolute10(dir) ? dir : resolve11(cwd, dir);
+  const folder = isAbsolute10(dir) ? dir : resolve12(cwd, dir);
   let run2;
   try {
     run2 = readPitchRun(folder, prd2);
@@ -60942,7 +61127,7 @@ var pitch = {
 // kit/bin/commands/proof.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync52 } from "node:fs";
-import { isAbsolute as isAbsolute11, resolve as resolve12 } from "node:path";
+import { isAbsolute as isAbsolute11, resolve as resolve13 } from "node:path";
 
 // kit/lib/proof/push.ts
 init_define_OMNI_BUNDLE();
@@ -61189,7 +61374,7 @@ function sessionFile(file2, extra, kind2) {
   return file2;
 }
 function localRun2(cwd, dir) {
-  const folder = isAbsolute11(dir) ? dir : resolve12(cwd, dir);
+  const folder = isAbsolute11(dir) ? dir : resolve13(cwd, dir);
   let run2;
   try {
     run2 = readRun(folder);
@@ -61257,7 +61442,7 @@ var proof = {
     if (parsed2.verb === "session") {
       const askUrl2 = ctx.config.ask.url;
       if (!askUrl2) throw usageError("omni proof session: no sign-in server here \u2014 set ask.url in the config.");
-      const file2 = isAbsolute11(parsed2.file) ? parsed2.file : resolve12(cwd, parsed2.file);
+      const file2 = isAbsolute11(parsed2.file) ? parsed2.file : resolve13(cwd, parsed2.file);
       return writeSession({ askUrl: askUrl2, file: file2, target: targetHost(vars.proof?.url) }, { stdout, stderr, tokens: tokens2, home, fetch, callMs });
     }
     const { prd: prd2, dir, kind: kind2 } = parsed2;
@@ -61922,7 +62107,7 @@ function probesFor(prerequisite, env) {
 
 // kit/bin/commands/roadmap.ts
 import { readFileSync as readFileSync111 } from "node:fs";
-import { resolve as resolve13 } from "node:path";
+import { resolve as resolve14 } from "node:path";
 function keepPage({ cwd, exec, now: now2 }, n, page2) {
   try {
     const main2 = mainCheckout(cwd, exec);
@@ -62218,7 +62403,7 @@ function productArgs2(verb2, rest) {
 }
 function readProductFile(io, file2) {
   try {
-    return readFileSync111(resolve13(io.cwd, file2), "utf8");
+    return readFileSync111(resolve14(io.cwd, file2), "utf8");
   } catch {
     return { line: `${file2} cannot be read` };
   }
@@ -62298,7 +62483,7 @@ var roadmap = {
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync122 } from "node:fs";
 import { homedir as homedir9 } from "node:os";
-import { join as join155, resolve as resolve19 } from "node:path";
+import { join as join155, resolve as resolve20 } from "node:path";
 import { setTimeout as delay3 } from "node:timers/promises";
 
 // kit/lib/runner/accounts.ts
@@ -62306,7 +62491,7 @@ init_define_OMNI_BUNDLE();
 var import_yaml10 = __toESM(require_dist(), 1);
 import { chmodSync as chmodSync7, mkdirSync as mkdirSync37, readFileSync as readFileSync112, writeFileSync as writeFileSync54 } from "node:fs";
 import { homedir as homedir4 } from "node:os";
-import { dirname as dirname27, join as join139, resolve as resolve14 } from "node:path";
+import { dirname as dirname27, join as join139, resolve as resolve15 } from "node:path";
 
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
@@ -62350,7 +62535,7 @@ var AccountsError = class extends Error {
 };
 var DEFAULT_HANDOFF = { usage: 90, context: 75 };
 var FALLBACK_ACCOUNT = { id: "claude", agent: "claude", instance: null, model: null, secret: null, budget: null, takes: null };
-var ID3 = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/;
+var ID4 = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/;
 var ACCOUNT_KEYS = /* @__PURE__ */ new Set(["id", "instance", "agent", "model", "secret", "budget", "takes", "contextWindow"]);
 var accountsFile = (home) => join139(home, ".config", "omni", "accounts.yml");
 var accountsStateFile = (home) => join139(home, ".config", "omni", "accounts-state.json");
@@ -62394,7 +62579,7 @@ function accountOf2(entry3, index2, seen) {
   const place = `account ${String(index2 + 1)}`;
   if (!isRecord11(entry3)) throw new AccountsError(`${place}: must be a mapping with an id`);
   const id = typeof entry3.id === "string" ? entry3.id : "";
-  if (!ID3.test(id)) throw new AccountsError(`${place}: id must be 1 to 40 letters, digits, dots, dashes or underscores`);
+  if (!ID4.test(id)) throw new AccountsError(`${place}: id must be 1 to 40 letters, digits, dots, dashes or underscores`);
   if (seen.has(id)) throw new AccountsError(`account ${id}: id is used twice`);
   seen.add(id);
   for (const key2 of Object.keys(entry3)) if (!ACCOUNT_KEYS.has(key2)) throw new AccountsError(`account ${id}: ${key2} is not a field of an account`);
@@ -62441,7 +62626,7 @@ function readAccounts2({ home, read: read3 = (path) => readFileSync112(path, "ut
   return parseAccounts(source2);
 }
 function readSecret(path, home) {
-  const full = path.startsWith("~/") ? join139(home, path.slice(2)) : resolve14(path);
+  const full = path.startsWith("~/") ? join139(home, path.slice(2)) : resolve15(path);
   try {
     return readFileSync112(full, "utf8").trim();
   } catch {
@@ -62606,7 +62791,7 @@ function use(block, opens) {
   if (block.name === "Bash" && OPENS_PR.test(text15(input2.command))) opens.add(text15(block.id));
   return toolCall(text15(block.name), input2);
 }
-function blocks(content, run2) {
+function blocks2(content, run2) {
   if (!Array.isArray(content)) return [];
   return content.filter(isObject2).flatMap((block) => {
     if (block.type === "tool_use") return [use(block, run2.opens)];
@@ -62630,7 +62815,7 @@ function result(event, seen) {
 }
 function eventLines(event, run2) {
   if (event.type === "result") return result(event, run2.seen);
-  if (event.type === "assistant" || event.type === "user") return blocks(isObject2(event.message) ? event.message.content : void 0, run2);
+  if (event.type === "assistant" || event.type === "user") return blocks2(isObject2(event.message) ? event.message.content : void 0, run2);
   return [];
 }
 function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__PURE__ */ new Set() } = {}) {
@@ -63095,7 +63280,7 @@ async function t3Interrupt({ origin, token, threadId, fetch }) {
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync115 } from "node:fs";
 import { homedir as homedir6 } from "node:os";
-import { join as join143, resolve as resolve15 } from "node:path";
+import { join as join143, resolve as resolve16 } from "node:path";
 var CLAUDE_DRIVER = "claudeAgent";
 var t3HomeOf = (home = homedir6()) => join143(home, ".t3");
 function jsonAt(path) {
@@ -63125,7 +63310,7 @@ function t3Origin(t3Home, alive = processAlive) {
 function claudeFolder(homePath, home) {
   if (homePath === "") return join143(home, ".claude");
   if (homePath === "~") return home;
-  return homePath.startsWith("~/") ? join143(home, homePath.slice(2)) : resolve15(home, homePath);
+  return homePath.startsWith("~/") ? join143(home, homePath.slice(2)) : resolve16(home, homePath);
 }
 function t3Instance(t3Home, home, id) {
   const instances = field(jsonAt(join143(t3Home, "userdata", "settings.json")), "providerInstances");
@@ -63348,14 +63533,14 @@ import { readdirSync as readdirSync39, readFileSync as readFileSync116, statSync
 import { join as join144 } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 function t3Cli(env) {
-  return (args, { cwd, stdin }) => new Promise((resolve23) => {
+  return (args, { cwd, stdin }) => new Promise((resolve24) => {
     let stdout = "";
     let stderr = "";
     let child;
     try {
       child = spawn2("t3", args, { cwd, stdio: ["pipe", "pipe", "pipe"], ...env === void 0 ? {} : { env } });
     } catch {
-      resolve23({ code: 127, stdout, stderr: "t3: could not be started" });
+      resolve24({ code: 127, stdout, stderr: "t3: could not be started" });
       return;
     }
     child.stdout.on("data", (chunk) => stdout += chunk.toString("utf8"));
@@ -63364,10 +63549,10 @@ function t3Cli(env) {
     });
     child.stdin.end(stdin ?? "");
     child.on("error", () => {
-      resolve23({ code: 127, stdout, stderr: "t3: could not be started" });
+      resolve24({ code: 127, stdout, stderr: "t3: could not be started" });
     });
     child.on("close", (code) => {
-      resolve23({ code: code ?? 1, stdout, stderr });
+      resolve24({ code: code ?? 1, stdout, stderr });
     });
   });
 }
@@ -63474,10 +63659,10 @@ function printEnd(options, ended2, started) {
 }
 var runArgs = ({ cwd, thread, instance, model }) => thread === null ? ["thread", "start", cwd, "-", "--provider", instance, "--model", model, "--wait", "--json"] : ["thread", "send", thread, "-", "--wait", "--json"];
 var NEVER2 = new Promise(() => void 0);
-var abortOf = (signal) => new Promise((resolve23) => {
-  if (signal.aborted) resolve23(false);
+var abortOf = (signal) => new Promise((resolve24) => {
+  if (signal.aborted) resolve24(false);
   signal.addEventListener("abort", () => {
-    resolve23(false);
+    resolve24(false);
   }, { once: true });
 });
 function threadWatcher(options) {
@@ -63716,8 +63901,8 @@ function memoryUsed(reads, memTotal) {
 }
 function disk(reads) {
   try {
-    const { bsize, blocks: blocks2, bavail } = reads.statfs();
-    return { diskFree: figure2(() => bavail * bsize), diskTotal: figure2(() => blocks2 * bsize) };
+    const { bsize, blocks: blocks3, bavail } = reads.statfs();
+    return { diskFree: figure2(() => bavail * bsize), diskTotal: figure2(() => blocks3 * bsize) };
   } catch {
     return { diskFree: null, diskTotal: null };
   }
@@ -63805,12 +63990,12 @@ import { StringDecoder } from "node:string_decoder";
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync119, writeFileSync as writeFileSync57 } from "node:fs";
 import { homedir as homedir8 } from "node:os";
-import { join as join148, resolve as resolve17 } from "node:path";
+import { join as join148, resolve as resolve18 } from "node:path";
 
 // kit/lib/runner/plugin.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync90, mkdirSync as mkdirSync39, readFileSync as readFileSync118, renameSync as renameSync7, rmSync as rmSync20, writeFileSync as writeFileSync56 } from "node:fs";
-import { dirname as dirname29, isAbsolute as isAbsolute13, join as join147, relative as relative5, resolve as resolve16 } from "node:path";
+import { dirname as dirname29, isAbsolute as isAbsolute13, join as join147, relative as relative5, resolve as resolve17 } from "node:path";
 
 // kit/lib/update/plugin.ts
 init_define_OMNI_BUNDLE();
@@ -63893,7 +64078,7 @@ function instanceSkillsDir({ agent, dir, home }) {
   return null;
 }
 function inside2(parent, path) {
-  const rel = relative5(resolve16(parent), resolve16(path));
+  const rel = relative5(resolve17(parent), resolve17(path));
   return rel === "" || !rel.startsWith("..") && !isAbsolute13(rel);
 }
 function renamedSkills(skills, version3) {
@@ -64100,7 +64285,7 @@ function instanceHome(t3Home, home, id) {
   if (typeof path !== "string" || path.trim() === "") return null;
   const named5 = path.trim();
   if (named5 === "~") return home;
-  return named5.startsWith("~/") ? join148(home, named5.slice(2)) : resolve17(home, named5);
+  return named5.startsWith("~/") ? join148(home, named5.slice(2)) : resolve18(home, named5);
 }
 function instanceSkills({ account, cwd, home, exec, skills }) {
   if (account.instance === null) return null;
@@ -64162,19 +64347,19 @@ function deadline(child, timeoutMs) {
   return timers;
 }
 function run(file2, args, { cwd, stdin, log, out, env, stdout, started, timeoutMs }) {
-  return new Promise((resolve23) => {
+  return new Promise((resolve24) => {
     let child;
     try {
       child = spawn3(file2, args, { cwd, stdio: [stdin === null ? "ignore" : "pipe", "pipe", "pipe"], ...env ? { env } : {} });
     } catch {
-      resolve23(127);
+      resolve24(127);
       return;
     }
     started?.(child);
     const timers = deadline(child, timeoutMs);
     const settle4 = (code) => {
       for (const timer of timers) clearTimeout(timer);
-      resolve23(code);
+      resolve24(code);
     };
     const write2 = (chunk) => {
       appendFileSync(log, chunk);
@@ -64787,7 +64972,7 @@ import { join as join153 } from "node:path";
 // kit/lib/runner/github-app.ts
 init_define_OMNI_BUNDLE();
 import { accessSync, chmodSync as chmodSync9, constants as constants2, mkdirSync as mkdirSync40, renameSync as renameSync8, statSync as statSync29, writeFileSync as writeFileSync59 } from "node:fs";
-import { delimiter, join as join151, resolve as resolve18 } from "node:path";
+import { delimiter, join as join151, resolve as resolve19 } from "node:path";
 function shellQuote(text16) {
   return `'${text16.replace(/'/g, `'\\''`)}'`;
 }
@@ -64796,7 +64981,7 @@ function ghShimDir(home) {
 }
 function findGh(path, skip) {
   for (const dir of (path ?? "").split(delimiter)) {
-    if (dir === "" || resolve18(dir) === resolve18(skip)) continue;
+    if (dir === "" || resolve19(dir) === resolve19(skip)) continue;
     const candidate = join151(dir, "gh");
     try {
       if (!statSync29(candidate).isFile()) continue;
@@ -64855,10 +65040,10 @@ import { lstatSync, readdirSync as readdirSync41, rmSync as rmSync22 } from "nod
 import { join as join152 } from "node:path";
 var DAY_MS3 = 24 * 60 * 60 * 1e3;
 var QUIET15 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
-var ID4 = "[A-Za-z0-9_-]+";
-var JOB_ID2 = new RegExp(`^${ID4}$`);
-var JOB_BRANCH = new RegExp(`^agent/job-(${ID4})$`);
-var JOB_LOG = new RegExp(`^job-(${ID4})(?:\\.[A-Za-z0-9]+)+$`);
+var ID5 = "[A-Za-z0-9_-]+";
+var JOB_ID2 = new RegExp(`^${ID5}$`);
+var JOB_BRANCH = new RegExp(`^agent/job-(${ID5})$`);
+var JOB_LOG = new RegExp(`^job-(${ID5})(?:\\.[A-Za-z0-9]+)+$`);
 function namesIn(dir) {
   try {
     return readdirSync41(dir);
@@ -65006,11 +65191,11 @@ var FINAL_TRIES = 8;
 var HEALTH_EVERY_MS = 15e3;
 var SWEEP_MS = 60 * 60 * 1e3;
 var KEEP_LOGS_DAYS = 14;
-var sleepFor = (ms, signal) => new Promise((resolve23) => {
+var sleepFor = (ms, signal) => new Promise((resolve24) => {
   const done = () => {
     clearTimeout(timer);
     signal?.removeEventListener("abort", done);
-    resolve23();
+    resolve24();
   };
   const timer = setTimeout(done, ms);
   signal?.addEventListener("abort", done, { once: true });
@@ -65077,8 +65262,8 @@ function wake(loop2) {
 }
 async function unpaused(loop2) {
   if ((loop2.pause.reason !== null || loop2.noTokens !== null) && !loop2.halt.aborted) {
-    await new Promise((resolve23) => {
-      loop2.waiting.add(resolve23);
+    await new Promise((resolve24) => {
+      loop2.waiting.add(resolve24);
     });
   }
   return !loop2.halt.aborted;
@@ -66008,7 +66193,7 @@ function readFlags(args, cwd) {
   const timeout = flags.timeout ?? DEFAULT_TIMEOUT;
   const timeoutMs = parseDuration(timeout);
   if (timeoutMs === null) throw usageError(`omni runner: --timeout must read like 90s, 45m or 3h, got "${timeout}".`);
-  return { name: name3, slots, timeoutMs, repos: resolve19(cwd, repos), keepLogsDays: keepLogsOf(flags["keep-logs"]), limits: limitsOf(flags) };
+  return { name: name3, slots, timeoutMs, repos: resolve20(cwd, repos), keepLogsDays: keepLogsOf(flags["keep-logs"]), limits: limitsOf(flags) };
 }
 function jobEnv({ env, vars }) {
   return {
@@ -66188,7 +66373,7 @@ function refused2(stderr, words4) {
 }
 function textOf13(cwd, path) {
   try {
-    return { text: readFileSync122(resolve19(cwd, path), "utf8") };
+    return { text: readFileSync122(resolve20(cwd, path), "utf8") };
   } catch {
     return { refusal: `cannot read ${path}.` };
   }
@@ -67578,7 +67763,7 @@ var VERBS4 = {
   use: ([key2, ...more], product2) => key2 !== void 0 && more.length === 0 && product2 === void 0 ? { verb: "use", key: key2 } : null,
   phase0: (rest, product2) => product2 === void 0 ? { verb: "phase0", repos: phase0Repos(rest) } : null
 };
-function verbOf(args) {
+function verbOf2(args) {
   const { positional, flags } = parseArgs("product", args, { values: ["product"] });
   const [verb2 = "", ...rest] = positional;
   const asked = Object.hasOwn(VERBS4, verb2) ? VERBS4[verb2]?.(rest, flags.product) : null;
@@ -67596,7 +67781,7 @@ async function said(call, verb2, ctx, io) {
 var product = {
   withoutContext: true,
   async run(args, io) {
-    const asked = verbOf(args);
+    const asked = verbOf2(args);
     const ctx = loadContext(io.cwd, { exec: io.exec });
     if (asked.verb === "use") return useProduct(asked.key, io);
     if (asked.verb === "phase0") return phase0Of2(asked.repos, ctx, io);
@@ -68039,7 +68224,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/sync/main.ts
 init_define_OMNI_BUNDLE();
-import { resolve as resolve20 } from "node:path";
+import { resolve as resolve21 } from "node:path";
 var FETCH_BUDGET_MS = 1e4;
 function gitOut(io, args, timeout) {
   const options = { cwd: io.cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], ...timeout ? { timeout } : {} };
@@ -68054,7 +68239,7 @@ function isLinked(io) {
   const out = gitOut(io, ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"]);
   const [gitDir, commonDir] = linesOf(out ?? "");
   if (gitDir === void 0 || commonDir === void 0) return null;
-  return resolve20(gitDir) !== resolve20(commonDir);
+  return resolve21(gitDir) !== resolve21(commonDir);
 }
 function fetched(io) {
   const { cwd, exec, remote, defaultBranch: defaultBranch2, fetchMs = FETCH_BUDGET_MS } = io;
@@ -68372,7 +68557,7 @@ var kitFacts = (io) => Promise.resolve(processUnderTest() ? { na: NOT_CHECKED_YE
 
 // kit/lib/sync/knowledge.ts
 init_define_OMNI_BUNDLE();
-import { resolve as resolve21 } from "node:path";
+import { resolve as resolve22 } from "node:path";
 var GH_BUDGET_MS2 = 1e4;
 var QUIET18 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function gitLines(exec, cwd, args) {
@@ -68403,7 +68588,7 @@ function targetsOf3(ctx, exec, read3) {
 }
 function changedOf2(root, config3, exec) {
   const [gitDir, commonDir] = gitLines(exec, root, ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"]) ?? [];
-  if (gitDir !== void 0 && commonDir !== void 0 && resolve21(gitDir) !== resolve21(commonDir)) return 0;
+  if (gitDir !== void 0 && commonDir !== void 0 && resolve22(gitDir) !== resolve22(commonDir)) return 0;
   const changed = gitLines(exec, root, ["status", "--porcelain", "--untracked-files=no", "--", config3.paths.knowledge]);
   return changed === null ? { notChecked: "git status failed" } : changed.length;
 }
@@ -68901,7 +69086,7 @@ import { join as join160 } from "node:path";
 
 // kit/lib/worktrees/engine.ts
 init_define_OMNI_BUNDLE();
-import { resolve as resolve22 } from "node:path";
+import { resolve as resolve23 } from "node:path";
 
 // kit/lib/worktrees/list.ts
 init_define_OMNI_BUNDLE();
@@ -68966,7 +69151,7 @@ function kindOf5(worktree, { folder, branches }) {
 var SEP = " \xB7 ";
 function folderOf3(seams, all) {
   const main2 = all[0];
-  return main2 === void 0 ? null : seams.host.realpath(resolve22(main2.path, seams.folder));
+  return main2 === void 0 ? null : seams.host.realpath(resolve23(main2.path, seams.folder));
 }
 function survey(seams) {
   const [main2, ...linked2] = parseWorktreeList(seams.host.list());
@@ -69088,7 +69273,7 @@ async function pruneWorktrees2(seams, { prd: prd2, dryRun }) {
 async function removeWorktree(seams, { path, cwd }) {
   seams.host.fetch();
   const all = survey(seams);
-  const wanted = seams.host.realpath(resolve22(cwd, path));
+  const wanted = seams.host.realpath(resolve23(cwd, path));
   const worktree = all.find((candidate) => candidate.real === wanted);
   if (worktree === void 0) return `no worktree at ${path}`;
   const folder = folderOf3(seams, all);
@@ -69180,10 +69365,10 @@ function gitHost({ root, remote, exec, cwds }) {
     },
     // Asynchronous, so that `hint` reads every worktree at once; `--no-optional-locks` never writes
     // the index of a worktree someone may be working in.
-    status: (path) => new Promise((resolve23, reject2) => {
+    status: (path) => new Promise((resolve24, reject2) => {
       execFile2("git", ["--no-optional-locks", "status", "--porcelain"], { cwd: path, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }, (error62, stdout, stderr) => {
         if (error62) reject2(new Error(gitLine(stderr === "" ? error62.message : stderr)));
-        else resolve23(stdout);
+        else resolve24(stdout);
       });
     }),
     remove: (path) => attempt12(["worktree", "remove", path]),
