@@ -10,5 +10,5 @@ import type { KnowledgeTab } from './product-knowledge.contract';
 
 export function KnowledgeNav({ tab, current }: { tab: KnowledgeTab; current: SectionKey | null }) {
   const { id, name } = tab.product;
-  return <SectionTabs label={`${name} knowledge`} tabs={knowledgeSectionTabs(id, countsOf(tab), tab.notOnList ?? null)} current={current === null ? '' : sectionHref(id, current)} />;
+  return <SectionTabs label={`${name} knowledge`} tabs={knowledgeSectionTabs(id, countsOf(tab), tab.notOnList ?? null, tab.businessLaws ?? null)} current={current === null ? '' : sectionHref(id, current)} />;
 }

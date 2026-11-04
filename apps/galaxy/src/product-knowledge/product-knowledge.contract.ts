@@ -110,6 +110,8 @@ export interface KnowledgeTab extends Omit<KnowledgeRead, 'domains'> {
   domains: DomainSection;
   members: KnowledgeMember[];
   notOnList?: number;
+  /** How many business laws the product's law home holds (PRD 2632 s6), put there by the page; absent when they could not be read. */
+  businessLaws?: number;
 }
 
 const text = (most: number) => z.string().trim().max(most);
