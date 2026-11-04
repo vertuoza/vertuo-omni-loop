@@ -153,6 +153,15 @@ describe('the Tech Approval on the page (PRD 2608)', () => {
     expect(page(asked, BOB.user_id)).toMatch(/<button[^>]*>Give Tech Approval<\/button>/);
   });
 
+  it('says the same in the Stage line while the Tech Approval is missing, and nothing once it is given', () => {
+    const asked = { ...techRead({ user: BOB.user_id, state: 'asked', approval: null }), stages: [] };
+    const stage = (html: string) => /dossier-fact-stage.*?<\/dd>/s.exec(html)?.[0] ?? '';
+    expect(stage(page(asked, ADA.user_id))).toContain('waiting for Bob&#x27;s tech approval');
+    const given = { ...techRead({ user: BOB.user_id, state: 'approved', approval: TECH_APPROVED }), stages: [] };
+    expect(stage(page(given, ADA.user_id))).not.toContain('tech approval');
+    expect(stage(page({ ...read(born('server'), null), stages: [] }, ADA.user_id))).not.toContain('tech approval');
+  });
+
   it('gives the product approver the Approve button once the Tech Approval is in force, and two seals, tech first', () => {
     const given = techRead({ user: BOB.user_id, state: 'approved', approval: TECH_APPROVED });
     expect(approvalView(given, ADA.user_id)?.canApprove).toBe(true);

@@ -264,6 +264,23 @@ function UnderHead({ approval, attestation }: { approval: ApprovalView | null; a
   );
 }
 
+/** The Stage cell: the track, the timeline line, and, while a Tech Approval is missing, who the PRD waits on (PRD 2608). */
+function StageFact({ view }: { view: DossierView }) {
+  const { stage, timelineLine } = view;
+  const techWaiting = view.approval?.tech?.waiting;
+  if (!stage) return null;
+  return (
+    <div className="dossier-fact dossier-fact-stage">
+      <dt>Stage</dt>
+      <dd>
+        <StageTrack stage={stage} />
+        {timelineLine && <p className="ask-hint prd-timeline-line">{timelineLine}</p>}
+        {techWaiting && <p className="ask-hint dossier-stage-tech">{techWaiting}</p>}
+      </dd>
+    </div>
+  );
+}
+
 /** A watched PRD's Main cell (PRD 2410, s3): Watching · n days left, Clean, Broke main or Could not check, linking its Main tab. */
 function MainFact({ view }: { view: DossierView }) {
   const main = view.mainWatch;
@@ -296,15 +313,7 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
           </div>
         </div>
         <dl className="dossier-facts">
-          {stage && (
-            <div className="dossier-fact dossier-fact-stage">
-              <dt>Stage</dt>
-              <dd>
-                <StageTrack stage={stage} />
-                {view.timelineLine && <p className="ask-hint prd-timeline-line">{view.timelineLine}</p>}
-              </dd>
-            </div>
-          )}
+          <StageFact view={view} />
           {approval && <ApprovalFact approval={approval} />}
           <MainFact view={view} />
           <ProductFact view={view} supabase={supabase} />
