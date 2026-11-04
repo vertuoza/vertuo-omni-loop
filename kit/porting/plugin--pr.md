@@ -160,6 +160,13 @@ Not a re-port: a kit-local addition. With `design.enabled` on, the feature PR's 
 **Pixel perfect** line right after the link line, naming the screens the before/after's Pixel
 perfect part lists, or `none`. Design off, no such line.
 
+### The external reference (PRD 2648)
+
+Not a re-port: a kit-local addition. At point `pr.open`, a feature, landing or standalone PR that has
+an issue is titled with what `omni ref` prints: passed to `gh pr create` with no `replace`, set with
+`gh pr edit --title` after a `replace` opened it; its link line joins Omni's lines. A sub-PR's claim
+never runs it, and an `omni ref` that exits 1 leaves the title unchanged.
+
 ### Tests
 
-`kit/test/design-skills.test.ts`.
+`kit/test/design-skills.test.ts`, `kit/test/pr-ref.test.ts`.
