@@ -26,6 +26,7 @@ describe('readEnv — the GitHub App', () => {
       stageEvents: null,
       constituentJudge: null,
       lawJudge: null,
+      businessLawsJudge: null,
       galaxyUrl: DEFAULT_GALAXY_URL,
     });
   });
@@ -43,6 +44,7 @@ describe('readEnv — the GitHub App', () => {
       STAGE_EVENT_SECRET: 'stage',
       CONSTITUENT_JUDGE_SECRET: 'judge',
       LAW_JUDGE_SECRET: 'laws',
+      BUSINESS_LAWS_JUDGE_SECRET: 'business',
       GALAXY_URL: 'https://galaxy.example/',
     });
     expect(env).toEqual({
@@ -54,6 +56,7 @@ describe('readEnv — the GitHub App', () => {
       stageEvents: { secret: 'stage' },
       constituentJudge: { secret: 'judge' },
       lawJudge: { secret: 'laws' },
+      businessLawsJudge: { secret: 'business' },
       galaxyUrl: 'https://galaxy.example',
     });
   });
