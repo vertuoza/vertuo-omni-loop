@@ -1069,7 +1069,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'about to open), else the open pull request of the current branch, read through gh, else it ' +
       'says how to proceed. Its ## Proof must hold an https:// image with a "- **Before the fix**" ' +
       'and a "- **After the fix**" line, or the line GIF not produced - <reason>; a not-produced ' +
-      'proof on an open pull request that is not a draft is refused. A record with a ## Fixes ' +
+      'proof on an open pull request that is not a draft is refused, and so is one whose level B ' +
+      'reason is not a line omni bug ci prints, or whose level C reason is not red not proven here, ' +
+      'an old pinned omni, or the line omni bug film or omni proof push exits 1 with. A record with a ## Fixes ' +
       'section is not checked for a proof. It runs no test. Prints ok, or not ok with one line per ' +
       'failed check; exit 2 when --body-file cannot be read. --base defaults to ' +
       '{remote}/{defaultBranch}. omni bug film makes the fix\'s ' +

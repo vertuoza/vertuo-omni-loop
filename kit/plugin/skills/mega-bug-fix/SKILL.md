@@ -377,8 +377,10 @@ fix PR of that target). It is `/omni:bug-fix` step 12.4's ladder, taken once:
    each target keeps **today's CI red** (step 7), and level B is
    `node .omni-loop/bin/omni.mjs bug ci <n> --pr <that target's PR> --reproduction <its reproduction sha> --fix <its fix head> --test <the reproduction's test name> --out <run folder>/ci/`
    as `/omni:bug-fix` step 12.4 runs it; then level C, the red and green outputs of that target's
-   preflight, and level D, `GIF not produced - A: <why>; B: <why>; C: <why>`, the record PR left a
-   **draft**.
+   preflight, reached whenever both exist, whatever the kind of bug; and level D,
+   `GIF not produced - A: <why>; B: <why>; C: <why>`, the record PR left a **draft**. B's and C's
+   reasons are `/omni:bug-fix` step 12.4's, the only ones `omni bug <n>` takes: C's
+   `reproduction test only` is the wording of its `Proved on` line, never its reason.
 3. **The `Proved on` line** is `/omni:bug-fix`'s: `a preview environment` at level A (with its
    `Preview` line), and at B and C `CI · reproduction test only, the screen was not filmed` or
    `the machine that made the fix · reproduction test only, the screen was not filmed`: with no hook
