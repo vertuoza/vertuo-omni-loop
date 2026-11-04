@@ -76,7 +76,7 @@ const PROOF = [
   '- **After the fix** (green, `a1b2c3d`): `✓ saves once`',
   '- **Proved on:** the machine that made the fix · reproduction test only, the screen was not filmed',
 ].join('\n');
-const NOT_FILMED_LEVELS = 'A: no hook; B: no CI; C: ffmpeg not found';
+const NOT_FILMED_LEVELS = 'A: no bug-fix.proof hook; B: job e2e skipped; C: red not proven here';
 
 /** A pull request body in the skill's shape, its `## Proof` section replaced (a string) or left out (`null`). */
 function prBody(proof: string | null = PROOF) {

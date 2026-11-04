@@ -316,7 +316,7 @@ describe('the help table in this repository', () => {
       return entry.detail;
     };
     const bug = detail('bug');
-    for (const words of [/--body-file/, /open pull request of the current branch/, /GIF not produced - <reason>/, /not a draft/, /## Fixes\s+section is not checked/, /with no ffmpeg/, /640×360/, /same bytes every run/, /could not write <path>/]) {
+    for (const words of [/--body-file/, /open pull request of the current branch/, /GIF not produced - <reason>/, /not a draft/, /## Fixes\s+section is not checked/, /with no ffmpeg/, /640×360/, /same bytes every run/, /could not write <path>/, /level C reason is not red not proven here/]) {
       expect(bug, String(words)).toMatch(words);
     }
     expect(detail('proof')).toMatch(/one stable link per clip, before first/);
