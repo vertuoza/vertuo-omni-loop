@@ -84,6 +84,7 @@ const STAGE_EVENT = oneSecret('the stage events', 'STAGE_EVENT_SECRET');
 const SECRETS_MASTER = oneSecret('Jev\'s master key', 'SECRETS_MASTER_KEY');
 const CONSTITUENT_JUDGE = oneSecret('the constituent judge', 'CONSTITUENT_JUDGE_SECRET');
 const LAW_JUDGE = oneSecret('the law judge', 'LAW_JUDGE_SECRET');
+const BUSINESS_LAWS_JUDGE = oneSecret('the business laws judge', 'BUSINESS_LAWS_JUDGE_SECRET');
 const BUSINESS_RECHECK = oneSecret('the business recheck', 'BUSINESS_RECHECK_SECRET');
 
 /**
@@ -155,7 +156,7 @@ const VERCEL = envGroup({
  */
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
-  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND,
+  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND,
   KIT_TOKENS, DEMO, GALAXY, VERCEL,
 ]);
 
@@ -195,6 +196,7 @@ export function readEnv(raw: EnvSource) {
     secretsMasterKey: secretOf(SECRETS_MASTER),
     constituentJudgeSecret: secretOf(CONSTITUENT_JUDGE),
     lawJudgeSecret: secretOf(LAW_JUDGE),
+    businessLawsJudgeSecret: secretOf(BUSINESS_LAWS_JUDGE),
     businessRecheckSecret: secretOf(BUSINESS_RECHECK),
     webPush: reader.group(WEB_PUSH),
     resend: reader.group(RESEND),

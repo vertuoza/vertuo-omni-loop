@@ -6,7 +6,9 @@
 //   step "evaluate"     snapshot the head's inbox, shipped folders and knowledge domains into /tmp, read
 //                       the compare and the PRD issue, and let `evaluateInbox` grade the five gates:
 //                       the four of the kit, and canon (PRD 839) through `canon`, the spec against the
-//                       business of the repository and its product's constituents (PRD 871)
+//                       business of the repository and its product's constituents (PRD 871); with `laws`
+//                       wired, a sixth, `business laws` (PRD 2632), the spec against its product's
+//                       business laws through galaxy's signed judge, neutral when it cannot judge
 //   step "publish"      complete the check run with the verdict; no comment
 //   step "actions"      on a red canon gate only, add its two buttons to the check run (PRD 839):
 //                       Rewrite for <persona> and Change the line, which ./canon-action.ts answers
@@ -30,7 +32,7 @@ import { notRetriedPastBound, onFailedRun } from '../outbox-check/outbox-check.t
 import { readBaseConfig, readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { publish } from '../publish/publish.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
-import { evaluateInbox, phase0Prds, phase0Topic, type CanonGrader, type InboxVerdict, type IssueFacts } from './evaluate-inbox.ts';
+import { evaluateInbox, phase0Prds, phase0Topic, type CanonGrader, type InboxVerdict, type IssueFacts, type LawsGrader } from './evaluate-inbox.ts';
 import { canonActions } from './canon-actions.ts';
 import { addCheckActions, compareFacts, completeInboxAsFailure, readIssue, startInboxCheck } from './github.ts';
 
@@ -48,7 +50,7 @@ export const INBOX_DEBOUNCE = Object.freeze({
   timeout: '1m',
 });
 
-export function createInboxCheck({ client, octokitFor, canon = null }: { client: Inngest; octokitFor: OctokitFor<GitHubClient>; canon?: CanonGrader | null }) {
+export function createInboxCheck({ client, octokitFor, canon = null, laws = null }: { client: Inngest; octokitFor: OctokitFor<GitHubClient>; canon?: CanonGrader | null; laws?: LawsGrader | null }) {
   return client.createFunction(
     {
       id: INBOX_FUNCTION_ID,
@@ -71,7 +73,7 @@ export function createInboxCheck({ client, octokitFor, canon = null }: { client:
       if (!started) return { ...SILENT };
 
       const verdict = await step.run('evaluate', () =>
-        notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha, canon })),
+        notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha, canon, laws })),
       );
       if (!verdict) throw new NonRetriableError('the pull request is no longer a phase-0 PR of this repository');
 
@@ -123,7 +125,7 @@ export async function phase0CheckName(
 /** The step "evaluate": the base config, the head's folders, the compare and the PRD issue, graded. */
 async function evaluateAt(
   octokit: GitHubClient,
-  { owner, repo, prNumber, headSha, canon }: { owner: string; repo: string; prNumber: PrNumber; headSha: string; canon: CanonGrader | null },
+  { owner, repo, prNumber, headSha, canon, laws }: { owner: string; repo: string; prNumber: PrNumber; headSha: string; canon: CanonGrader | null; laws: LawsGrader | null },
 ): Promise<InboxVerdict | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const base = mkdtempSync(join(tmpdir(), 'omni-inbox-base-'));
@@ -142,7 +144,7 @@ async function evaluateAt(
     const issue = (prd: PrdNumber): IssueFacts => issues.get(prd) ?? null;
     const { changes, commits } = await compareFacts(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
 
-    return await evaluateInbox({ base, head, pr: { headRef: pr.headRef }, repo: `${owner}/${repo}`, changes, commits, issue, canon });
+    return await evaluateInbox({ base, head, pr: { headRef: pr.headRef }, repo: `${owner}/${repo}`, changes, commits, issue, canon, laws });
   } finally {
     rmSync(base, { recursive: true, force: true });
     rmSync(head, { recursive: true, force: true });

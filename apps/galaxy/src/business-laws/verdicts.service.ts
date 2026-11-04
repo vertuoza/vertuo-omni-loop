@@ -38,7 +38,7 @@ export type LawsView =
 const NO_PACK = 'the law home has no knowledge pack yet';
 
 /** The knowledge root and the owners' logins a pack's config names; the defaults when it has none or it does not parse. */
-function configOf(files: readonly { path: string; content: string }[]): { root: string; owners: string[] } {
+export function configOf(files: readonly { path: string; content: string }[]): { root: string; owners: string[] } {
   const text = files.find((file) => file.path === CONFIG_PATH)?.content;
   if (text === undefined) return { root: '.omni-loop/knowledge', owners: [] };
   try {
