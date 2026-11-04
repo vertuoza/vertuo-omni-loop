@@ -156,12 +156,13 @@ var OPENROUTER = envGroup({ label: "OpenRouter", schema: z3.object({ key: z3.str
 var STAGE_EVENTS = secretGroup("the stage events", "STAGE_EVENT_SECRET");
 var CONSTITUENT_JUDGE = secretGroup("the constituent judge", "CONSTITUENT_JUDGE_SECRET");
 var LAW_JUDGE = secretGroup("the law judge", "LAW_JUDGE_SECRET");
+var BUSINESS_LAWS_JUDGE = secretGroup("the business laws judge", "BUSINESS_LAWS_JUDGE_SECRET");
 var GALAXY = envGroup({
   label: "galaxy",
   schema: z3.object({ url: z3.url().optional() }),
   variables: { url: "GALAXY_URL" }
 });
-var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, GALAXY]);
+var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, GALAXY]);
 var PLATFORM_VARIABLES = variablesOf([VERCEL]);
 function readEnv(source) {
   const production = envReader(source).group(VERCEL)?.name === "production";
@@ -175,6 +176,7 @@ function readEnv(source) {
     stageEvents: reader.group(STAGE_EVENTS),
     constituentJudge: reader.group(CONSTITUENT_JUDGE),
     lawJudge: reader.group(LAW_JUDGE),
+    businessLawsJudge: reader.group(BUSINESS_LAWS_JUDGE),
     galaxyUrl: (reader.group(GALAXY)?.url ?? DEFAULT_GALAXY_URL).replace(/\/+$/, "")
   };
   reader.done();
