@@ -5,7 +5,7 @@ import { at, parsed, text, UUID } from './answer';
 
 // A Tech Approval's storage (PRD 2608 s3): as the caller (a terminal's access token, or the page's
 // session), so the database checks who calls. dossier_request_tech_approval()
-// (supabase/migrations/20270110090000_tech_approval.sql) records the request; workspace_roster()
+// (supabase/migrations/20270110093000_tech_approval.sql) records the request; workspace_roster()
 // (supabase/migrations/20261013090000_roster_hero.sql) reads the members, for a member, never an email. It
 // holds no rule. A database refusal comes back as its code and message; an answer out of shape as `shape`.
 
