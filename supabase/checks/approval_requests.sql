@@ -216,8 +216,36 @@ declare
 begin
   if reached <> jsonb_build_array(
        jsonb_build_object('user', '00000000-0000-4000-8000-0000000c00a3', 'email', 'sam@ar.test', 'devices', '[]'::jsonb),
-       jsonb_build_object('user', '00000000-0000-4000-8000-0000000c00a1', 'email', null, 'devices', '[]'::jsonb)) then
-    raise exception 'FAIL: switches were not honoured: %', reached;
+       jsonb_build_object('user', '00000000-0000-4000-8000-0000000c00a1', 'email', 'owen@ar.test', 'devices', '[]'::jsonb)) then
+    raise exception 'FAIL: a person with no row was not emailed by default: %', reached;
+  end if;
+end $$;
+reset role;
+
+-- A new row that names no switch has Email on and Phone alerts off (PRD 2608 s2).
+insert into public.alert_channels (user_id) values ('00000000-0000-4000-8000-0000000c00a2');
+do $$
+declare chosen record;
+begin
+  select * into chosen from public.alert_channels where user_id = '00000000-0000-4000-8000-0000000c00a2';
+  if not chosen.email or chosen.push then raise exception 'FAIL: the default row was email % push %', chosen.email, chosen.push; end if;
+end $$;
+-- A row with email off gets no email; a row already there with email on keeps it.
+update public.alert_channels set email = false where user_id = '00000000-0000-4000-8000-0000000c00a2';
+insert into public.approval_requests (id, dossier_id, workspace_id, asked_by, asked, nobody_else, kind) values
+  ('00000000-0000-4000-8000-0000000c0f02', (select id from ids where name = 'loose'), '00000000-0000-4000-8000-0000000c0000',
+   '00000000-0000-4000-8000-0000000c00a3',
+   array['00000000-0000-4000-8000-0000000c00a1'::uuid, '00000000-0000-4000-8000-0000000c00a2'::uuid, '00000000-0000-4000-8000-0000000c00a3'::uuid], true, 're-asked');
+set local role service_role;
+do $$
+declare
+  reached jsonb := public.approval_recipients('00000000-0000-4000-8000-0000000c0f02');
+begin
+  if reached <> jsonb_build_array(
+       jsonb_build_object('user', '00000000-0000-4000-8000-0000000c00a1', 'email', 'owen@ar.test', 'devices', '[]'::jsonb),
+       jsonb_build_object('user', '00000000-0000-4000-8000-0000000c00a2', 'email', null, 'devices', '[]'::jsonb),
+       jsonb_build_object('user', '00000000-0000-4000-8000-0000000c00a3', 'email', 'sam@ar.test', 'devices', '[]'::jsonb)) then
+    raise exception 'FAIL: no row, email off and email on were not told apart: %', reached;
   end if;
 end $$;
 reset role;
