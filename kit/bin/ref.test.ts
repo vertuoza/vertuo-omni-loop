@@ -7,7 +7,9 @@ import { main } from './omni.ts';
 const FORMAT = 'pr:\n  ref:\n    title: "[{ref}]-{title}"\n    none: "[NoRef]-{title}"\n    link: "https://tracker.example/{ref}"\n';
 const TITLE = 'fix(planning): keep the day';
 
-async function omni(argv: readonly string[], { config = `kit: 1\nrepo:\n  slug: acme/widgets\n${FORMAT}`, body = '' }: { config?: string; body?: string | Error } = {}) {
+type Omni = { config?: string; body?: string | Error; target?: string | Error };
+
+async function omni(argv: readonly string[], { config = `kit: 1\nrepo:\n  slug: acme/widgets\n${FORMAT}`, body = '', target = new Error('gh: Not Found (HTTP 404)') }: Omni = {}) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
   const out: string[] = [];
   const err: string[] = [];
@@ -15,6 +17,11 @@ async function omni(argv: readonly string[], { config = `kit: 1\nrepo:\n  slug: 
   const exec = ((file: string, args: readonly string[], options?: unknown) => {
     if (file !== 'gh') return execFileSync(file, args, options as never);
     calls.push([...args]);
+    // `gh api …/contents/.omni-loop/config.yml`: the target's committed config, raw.
+    if (args[0] === 'api') {
+      if (target instanceof Error) throw target;
+      return target;
+    }
     if (body instanceof Error) throw body;
     return JSON.stringify({ body });
   }) as never;
@@ -62,6 +69,51 @@ describe('omni ref', () => {
     expect(result.code).toBe(1);
     expect(result.out).toBe('');
     expect(result.err).toBe('omni ref: issue #12 cannot be read through gh.\n');
+  });
+
+  describe('--repo <owner/name>: a pull request opened in another repository (#2658)', () => {
+    const TARGET = 'kit: 1\nrepo:\n  slug: acme/api\npr:\n  ref:\n    title: "[{ref}] {title}"\n    none: "[none] {title}"\n    link: "https://tickets.example/{ref}"\n';
+
+    it("reads the marker on this repository's issue and formats with the target's committed pr.ref", async () => {
+      const result = await omni(['ref', '12', '--title', TITLE, '--repo', 'acme/api'], { body: '<!-- omni-ref: ABC-123 -->', target: TARGET });
+      expect(result).toMatchObject({ code: 0, out: `title: [ABC-123] ${TITLE}\nlink: https://tickets.example/ABC-123\n`, err: '' });
+      expect(result.calls).toEqual([
+        ['issue', 'view', '12', '--repo', 'acme/widgets', '--json', 'body'],
+        ['api', '-H', 'Accept: application/vnd.github.raw', 'repos/acme/api/contents/.omni-loop/config.yml'],
+      ]);
+    });
+
+    it("uses the target's none with no marker, never this repository's", async () => {
+      const result = await omni(['ref', '12', '--title', TITLE, '--repo', 'acme/api'], { body: 'no marker', target: TARGET });
+      expect(result.out).toBe(`title: [none] ${TITLE}\nlink: none\n`);
+    });
+
+    it('leaves the title unchanged for a target with no committed config, or with pr.ref null', async () => {
+      const missing = await omni(['ref', '12', '--title', TITLE, '--repo', 'acme/api'], { body: '<!-- omni-ref: ABC-1 -->' });
+      expect(missing).toMatchObject({ code: 0, out: `title: ${TITLE}\nlink: none\n` });
+      const off = await omni(['ref', '12', '--title', TITLE, '--repo', 'acme/api'], { body: '<!-- omni-ref: ABC-1 -->', target: 'kit: 1\n' });
+      expect(off).toMatchObject({ code: 0, out: `title: ${TITLE}\nlink: none\n` });
+    });
+
+    it('reads a target config written for another kit, leaving out the keys this kit does not know', async () => {
+      const result = await omni(['ref', '12', '--title', 'x', '--repo', 'acme/api'], { body: '<!-- omni-ref: ABC-1 -->', target: `${TARGET}someFutureKey: true\n` });
+      expect(result).toMatchObject({ code: 0, out: 'title: [ABC-1] x\nlink: https://tickets.example/ABC-1\n' });
+    });
+
+    it("exits 1 with one line when gh cannot read the target's config, or it does not read", async () => {
+      const unreachable = await omni(['ref', '12', '--title', 'x', '--repo', 'acme/api'], { body: '<!-- omni-ref: ABC-1 -->', target: new Error('gh: HTTP 502') });
+      expect(unreachable).toMatchObject({ code: 1, out: '', err: "omni ref: acme/api's .omni-loop/config.yml cannot be read through gh.\n" });
+      const invalid = await omni(['ref', '12', '--title', 'x', '--repo', 'acme/api'], { body: '<!-- omni-ref: ABC-1 -->', target: 'kit: 1\npr:\n  ref:\n    title: "no placeholders"\n' });
+      expect(invalid.code).toBe(1);
+      expect(invalid.out).toBe('');
+      expect(invalid.err).toMatch(/^omni ref: acme\/api:\.omni-loop\/config\.yml is not a valid Omni Loop config: pr\.ref\.title/);
+    });
+
+    it('is a usage error when --repo is not owner/name', async () => {
+      const result = await omni(['ref', '12', '--title', 'x', '--repo', 'api']);
+      expect(result.code).toBe(2);
+      expect(result.err).toContain('--repo must be owner/name');
+    });
   });
 
   it('is a usage error without an issue or a title', async () => {
