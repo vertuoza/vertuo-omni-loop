@@ -4,7 +4,8 @@
 //
 // - A reply from before the page held either sends neither: both read as `[]`. The product's domains
 //   (PRD 2583) and each term's `domains` ride the same read; a reply or a copy without them is a product
-//   that lists none.
+//   that lists none. So does the product's law home (PRD 2632), the `owner/name` of the repository its
+//   business laws live in: a reply or a copy without the key is a product with none.
 // - Each read is kept in `.omni-loop/local/product-knowledge.json` (`{ product, readAt, legal,
 //   glossary, personas }`; `personas` is the name and stance of each, PRD 2299, and a copy without it still reads), the way `targets.ts` keeps `product-targets.json`. When the server cannot be reached
 //   (no answer within the client's 5 seconds, or a 5xx), the copy is read instead, said by
@@ -48,6 +49,8 @@ const ReplySchema = z.object({
   personas: z.array(z.unknown()).optional(),
   // Like a persona, a domain out of shape is left out, never a refusal.
   domains: z.array(z.unknown()).optional(),
+  // The law home (PRD 2632): a reply out of shape here reads as none, never a refusal.
+  lawHome: z.unknown().optional(),
 });
 
 const CopySchema = z.object({
@@ -59,10 +62,12 @@ const CopySchema = z.object({
   personas: z.array(PersonaSchema).default([]),
   // A copy from before PRD 2583 has none: it still reads, with no domains.
   domains: z.array(DomainSchema).optional(),
+  // A copy from before PRD 2632 has none: it reads as no law home.
+  lawHome: z.string().nullable().optional(),
 });
 
 /** What a read gives: the knowledge, and whether it came from the server or the last copy. */
-export type ProductKnowledge = { product: string; legal: LegalEntry[]; glossary: GlossaryTerm[]; personas?: KnowledgePersona[] | undefined; domains?: KnowledgeDomain[] | undefined };
+export type ProductKnowledge = { product: string; legal: LegalEntry[]; glossary: GlossaryTerm[]; personas?: KnowledgePersona[] | undefined; domains?: KnowledgeDomain[] | undefined; lawHome?: string | null | undefined };
 export type ProductKnowledgeRead = ({ from: 'server' } | { from: 'copy'; readAt: string }) & ProductKnowledge;
 
 /** The one line for a product an owner archived (PRD 2232): an answer, not an outage, so no copy is served for it. */
@@ -87,7 +92,7 @@ export function knowledgeOfReply(reply: unknown, repo: string): ProductKnowledge
     const issue = parsed.error.issues[0];
     throw new KnowledgeStop('refused', `the Omni page answered no product knowledge for ${repo}: ${issue ? `${issue.path.join('.')} ${issue.message}` : 'out of shape'}`);
   }
-  const { state, product, legal = [], glossary = [], personas = [], domains } = parsed.data;
+  const { state, product, legal = [], glossary = [], personas = [], domains, lawHome } = parsed.data;
   if (state === 'archived' && product) throw new KnowledgeStop('archived', archivedLine(product.name));
   if (!product) throw new KnowledgeStop('none', `no product knowledge: ${repo} belongs to no product on the Omni page`);
   const kept = personas.flatMap((one) => {
@@ -98,7 +103,14 @@ export function knowledgeOfReply(reply: unknown, repo: string): ProductKnowledge
     const domain = DomainSchema.safeParse(one);
     return domain.success ? [domain.data] : [];
   });
-  return { product: product.name, legal, glossary, personas: kept, ...(listed === undefined ? {} : { domains: listed }) };
+  return {
+    product: product.name,
+    legal,
+    glossary,
+    personas: kept,
+    ...(listed === undefined ? {} : { domains: listed }),
+    ...(typeof lawHome === 'string' && lawHome !== '' ? { lawHome: lawHome.toLowerCase() } : {}),
+  };
 }
 
 function readCopy(root: string): (ProductKnowledge & { readAt: string }) | null {

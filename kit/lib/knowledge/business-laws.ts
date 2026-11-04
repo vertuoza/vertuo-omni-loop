@@ -177,7 +177,7 @@ export type SelectedDomain = { key: string; reasons: string[] };
 export type BusinessLawSelection = { domains: SelectedDomain[]; laws: BusinessLaw[] };
 
 /** Whether `text` holds `word` as a whole word, whatever its case. */
-function usesWord(text: string, word: string): boolean {
+export function usesWord(text: string, word: string): boolean {
   const escaped = word.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
   if (escaped === '') return false;
   return new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, 'iu').test(text);

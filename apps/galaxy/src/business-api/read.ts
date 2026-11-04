@@ -84,6 +84,8 @@ const businessReadSchema = z.object({
   legal: z.array(businessLegalSchema).default([]),
   glossary: z.array(businessTermSchema).default([]),
   domains: z.array(businessDomainSchema).optional(),
+  // PRD 2632: the repository its product's business laws live in (`owner/name`), or null; a database from before sends none.
+  lawHome: z.string().nullable().optional(),
 }).strict().refine((read) => (read.state === 'ok') === (read.claims.length > 0), 'state is ok exactly when there are claims')
   .refine((read) => read.state !== 'archived' || read.product !== null, 'an archived read names its product');
 

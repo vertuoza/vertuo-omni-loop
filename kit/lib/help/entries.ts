@@ -228,7 +228,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       "The repository's guards, each printing its violations or one line saying it passed: config " +
       '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
-      '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers and the business laws), kb (the ' +
+      '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers and the business laws: with the Omni page it also refuses a law in a folder or an Also: key off the product domain list, one using a word the glossary says to avoid, and one outside the law home, each only a note while the page cannot be read), kb (the ' +
       "playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro " +
       'kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, ' +
       "the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch " +
@@ -303,8 +303,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain\'s, by its folder ' +
       'or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, ' +
       'the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why ' +
-      "it was taken, the glossary read from the local copy. A business law is never a locked law; laws --paths lists the " +
-      "ones of the files' domains. init lays down every missing form, blank, and " +
+      "it was taken, the glossary read from the local copy. A business law lives in the product's law home, its " +
+      'plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the ' +
+      'law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is ' +
+      "never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and " +
       'changes no file that exists.',
   },
   {
