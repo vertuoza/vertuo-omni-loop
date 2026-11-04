@@ -45,7 +45,7 @@ import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
 import { readProductOutbox } from './outbox-product.repository';
 import { productOutboxView } from './outbox-product';
-import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
+import { approvalView, readApproval, readApproveScreen, judgeApproval, readAskedApprovers, readTech, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
 import { liveSendSetup } from '../../runners/send/send.live';
 import { continuationsRepository, runnersRepository } from '../../runners/runners.repository';
@@ -132,11 +132,26 @@ async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<D
     readAskedApprovers(db, dossier).catch(logged<'unread'>('unread')),
   ]);
   const approval: ApprovalRead = voids === null ? 'unread' : row;
-  const facts: ApprovalFacts = { voids: voids ?? [], asked };
+  const tech = await readTech(db, dossier.id, read.versions, voids ?? []).catch(logged<'unread'>('unread'));
+  const facts: ApprovalFacts = { voids: voids ?? [], asked, tech };
+  return { approval, approvalFacts: { ...facts, ...await screensOf(db, read, approval, facts, me) } };
+}
+
+/** The screens `me` reads: the approve screen when they get Approve (PRD 1322 s7), the Tech Approval's when they give it (PRD 2608). */
+async function screensOf(db: Db, read: DossierRead, approval: ApprovalRead, facts: ApprovalFacts, me: string): Promise<Pick<ApprovalFacts, 'screen' | 'techScreen'>> {
   const view = approvalView({ ...read, approval, approvalFacts: facts }, me);
-  if (!view?.canApprove) return { approval, approvalFacts: facts };
-  const screen = await readApproveScreen((id) => readContent(db, id), read.versions, approval, view);
-  return { approval, approvalFacts: { ...facts, screen } };
+  const content = (id: string) => readContent(db, id);
+  const techScreen = view?.tech?.canGive ? await techScreenOf(content, read, facts) : undefined;
+  const screen = view?.canApprove ? await readApproveScreen(content, read.versions, approval, view) : undefined;
+  return { techScreen, screen };
+}
+
+/** The named person's screen (PRD 2608): what changed since their last tech approval, then the spec's Problem and Solution. */
+function techScreenOf(content: (id: string) => Promise<string | null>, read: DossierRead, facts: ApprovalFacts) {
+  const { tech } = facts;
+  const given = tech && tech !== 'unread' ? tech.approval : null;
+  const changed = given ? judgeApproval(given, facts.voids, read.versions).changed : [];
+  return readApproveScreen(content, read.versions, given, { changed });
 }
 
 /** The runner the PRD's fix job is queued or running on (PRD 2270); null when none is, or the jobs could not be read. */

@@ -33,6 +33,7 @@ const Answer = z.object({
     title: z.string(),
     repo: z.string().min(1),
     askedAt: z.number(),
+    approvalKind: z.enum(['product', 'tech']).optional(),
   })),
 });
 

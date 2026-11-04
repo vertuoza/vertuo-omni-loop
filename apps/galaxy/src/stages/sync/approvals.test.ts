@@ -28,6 +28,8 @@ describe('the PRDs born on the server, on Supabase', () => {
     expect(calls).toEqual([[
       'dossiers', ['select', 'prd, approvals(approved_at)'], ['eq', 'workspace_id', 'w1'], ['eq', 'kind', 'prd'],
       ['eq', 'birthplace', 'server'], ['eq', 'home_repo', 'acme/widgets'], ['not', 'prd', 'is', null],
+      // PRD 2608: a Tech Approval dates nothing: only the product approval is the PRD's approval.
+      ['eq', 'approvals.approval_kind', 'product'],
     ]]);
   });
 

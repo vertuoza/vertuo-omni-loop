@@ -233,6 +233,117 @@ describe('omni wait approval', () => {
   });
 });
 
+describe('omni wait approval, with a Tech Approval requested (PRD 2608)', () => {
+  const VOID = { pusher: 'ada', kind: 'spec', from: SHA_OLD, to: SHA_NEW };
+  /** The page, whose approval route answers each reply in turn, the last one again. */
+  function replies(page: ReturnType<typeof server>, ...bodies: unknown[]) {
+    const left = [...bodies];
+    return (url: string, init: RequestInit) => {
+      if (new URL(url).pathname !== '/api/dossiers/approval') return page.fetch(url, init);
+      page.calls.push({ method: init.method ?? 'GET', url, body: null, lastEventId: null });
+      return Promise.resolve(Response.json(left.length > 1 ? left.shift() : left[0]));
+    };
+  }
+  const reply = (state: string | null) => ({ url: LINK, approval: null, ...(state ? { tech: { login: 'irisa', state } } : {}) });
+  const posts = (page: ReturnType<typeof server>) => page.calls.filter((call) => call.method === 'POST');
+
+  it('names who it waits on and asks no approver while the tech approval is missing, then follows them once it is given', async () => {
+    const root = checkout();
+    const page = server({
+      streams: [sse(
+        event('tech-asked', { login: 'irisa' }, 1),
+        event('tech-approved', { login: 'irisa', approvedAt: '2026-10-09T09:00:00Z' }, 2),
+        event('asked', ASKING, 3),
+        event('approved', APPROVED, 4),
+      )],
+    });
+    const run = await waitOf(root, replies(page, reply('asked'), reply('approved')));
+    expect(run.code).toBe(0);
+    expect(run.out.split('\n')).toEqual([
+      "◌ PRD 1322 · waiting for irisa's tech approval",
+      '✓ PRD 1322 · tech approval given by irisa · 2026-10-09T09:00:00Z',
+      '◌ PRD 1322 · waiting for Irisa or Paul',
+      '✓ PRD 1322 approved by irisa · 2026-10-09T10:00:00Z · 3 files pinned',
+      '',
+    ]);
+    expect(posts(page)).toEqual([]);
+  });
+
+  it('keeps naming the tech approval when an early request to the product approvers is in the stream', async () => {
+    const page = server({ streams: [sse(event('asked', ASKING, 1), event('tech-asked', { login: 'irisa' }, 2)), 'open'] });
+    const clock = new AbortController();
+    const fetch = replies(page, reply('asked'));
+    const run = await waitOf(checkout(), (url: string, init: RequestInit) => {
+      if (page.streamCalls().length === 1) queueMicrotask(() => { clock.abort(); });
+      return fetch(url, init);
+    }, { args: ['--timeout', '5'], deadline: () => clock.signal });
+    expect(run).toMatchObject({ code: 1, out: "◌ PRD 1322 · waiting for irisa's tech approval\nheld: still waiting for irisa's tech approval after 5 min\n" });
+    expect(posts(page)).toEqual([]);
+  });
+
+  it('after a void of both, asks the named person first, never the product approvers', async () => {
+    const page = server({
+      streams: [sse(
+        event('asked', ASKING, 1),
+        event('voided', VOID, 2),
+        event('tech-voided', { login: 'irisa', ...VOID }, 3),
+        event('tech-approved', { login: 'irisa', approvedAt: '2026-10-09T09:00:00Z' }, 4),
+        event('re-asked', ASKING, 5),
+        event('approved', APPROVED, 6),
+      )],
+    });
+    const run = await waitOf(checkout(), replies(page, reply('approved'), reply('voided'), reply('approved')));
+    expect(run.code).toBe(0);
+    expect(run.out.split('\n')).toEqual([
+      '◌ PRD 1322 · waiting for Irisa or Paul',
+      "✗ approval voided by ada's push aaaaaaa→bbbbbbb · irisa approves first",
+      "◌ PRD 1322 · waiting for irisa's tech approval",
+      "✗ tech approval voided by ada's push aaaaaaa→bbbbbbb · irisa asked again",
+      '✓ PRD 1322 · tech approval given by irisa · 2026-10-09T09:00:00Z',
+      '◌ PRD 1322 · waiting for Irisa or Paul',
+      '✓ PRD 1322 approved by irisa · 2026-10-09T10:00:00Z · 3 files pinned',
+      '',
+    ]);
+    // Only the wait's own first ask: the void asked nobody but the named person.
+    expect(posts(page)).toHaveLength(1);
+  });
+
+  it('follows the approvers when the stream opens after the tech approval landed', async () => {
+    const page = server({ streams: [sse(event('re-asked', ASKING, 3), event('approved', APPROVED, 4))] });
+    const run = await waitOf(checkout(), replies(page, reply('asked'), reply('approved')));
+    expect(run.code).toBe(0);
+    expect(run.out.split('\n')).toEqual([
+      "◌ PRD 1322 · waiting for irisa's tech approval",
+      '◌ PRD 1322 · waiting for Irisa or Paul',
+      '✓ PRD 1322 approved by irisa · 2026-10-09T10:00:00Z · 3 files pinned',
+      '',
+    ]);
+  });
+
+  it('keeps holding when the state cannot be read again', async () => {
+    const page = server({ streams: [sse(event('asked', ASKING, 1), event('approved', APPROVED, 2))] });
+    const run = await waitOf(checkout(), replies(page, reply('asked'), { nope: true }));
+    expect(run.out.split('\n')[1]).toBe('✓ PRD 1322 approved by irisa · 2026-10-09T10:00:00Z · 3 files pinned');
+  });
+
+  it('writes the waiting line to the waiting file the HUD reads, as any waiting state', async () => {
+    const root = checkout();
+    const clock = new AbortController();
+    const page = server({});
+    const fetch = replies(page, reply('voided'));
+    await waitOf(root, (url: string, init: RequestInit) => {
+      if (url.includes('/stream')) queueMicrotask(() => { clock.abort(); });
+      return fetch(url, init);
+    }, { deadline: () => clock.signal });
+    expect(waitingFile(root)).toMatchObject({ waiting: "◌ PRD 1322 · waiting for irisa's tech approval" });
+  });
+
+  it('ignores a tech event out of its shape', async () => {
+    const page = server({ streams: [sse(event('tech-asked', { nope: true }, 1), event('approved', APPROVED, 2))] });
+    expect(await waitOf(checkout(), page.fetch)).toMatchObject({ code: 0 });
+  });
+});
+
 describe('omni help', () => {
   it('explains wait, and approval points to it', async () => {
     const s = io();

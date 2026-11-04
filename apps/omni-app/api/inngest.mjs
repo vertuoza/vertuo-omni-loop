@@ -7031,7 +7031,10 @@ var ApprovalSchema = z26.object({
   files: z26.array(PinnedFileSchema),
   voids: z26.array(VoidSchema).optional()
 });
-var ApprovalReplySchema = z26.object({ url: text5, approval: ApprovalSchema.nullable() });
+var TechSchema = z26.object({ login: text5, state: z26.enum(["asked", "approved", "voided"]) });
+var ApprovalReplySchema = z26.object({ url: text5, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(void 0) });
+var techWaitsOn = (tech) => tech && tech.state !== "approved" ? tech.login : null;
+var waitingForTech = (login) => `waiting for ${login}'s tech approval`;
 var UNREACHABLE_LINE = "server unreachable \xB7 held, not failed";
 function parseApprovalReply(body) {
   const parsed2 = ApprovalReplySchema.safeParse(body);
@@ -7053,9 +7056,11 @@ function driftOf2(ctx, prd, file) {
   return { kind: file.kind, file: tree, how: spacing ? "whitespace only" : "content" };
 }
 function judged2(reply, { named, fileOf, drift: driftIn }) {
-  const { url, approval } = reply;
-  const reading = (state, lines, drift2 = []) => ({ state, lines, url, approval, drift: drift2 });
-  if (!approval) return reading("pending", [`${named} waits for approval: ${url}`]);
+  const { url, approval, tech } = reply;
+  const reading = (state, lines, drift2 = []) => ({ state, lines, url, approval, drift: drift2, ...tech ? { tech } : {} });
+  const waitsOn = techWaitsOn(tech);
+  const techLine = waitsOn === null ? [] : [`${named} \xB7 ${waitingForTech(waitsOn)}: ${url}`];
+  if (!approval) return reading("pending", techLine.length > 0 ? techLine : [`${named} waits for approval: ${url}`]);
   const voids = approval.voids ?? [];
   if (voids.length > 0) {
     const fileOfKind = (kind) => {
@@ -7063,7 +7068,7 @@ function judged2(reply, { named, fileOf, drift: driftIn }) {
       return file ? fileOf(file) : kind;
     };
     const lines = voids.map((v) => `\u2260 ${basename6(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url}`);
-    return reading("drifted", lines, voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
+    return reading("drifted", [...lines, ...techLine], voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
   }
   const { login, member } = approval.approver;
   if (!member) return reading("refused", [`approver ${login} is not a workspace member`]);

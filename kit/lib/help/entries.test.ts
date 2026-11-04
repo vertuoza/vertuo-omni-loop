@@ -107,11 +107,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 66 commands and the 38 skills', () => {
+  it('holds the 66 commands and the 39 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(66);
-    expect(skillFolders()).toHaveLength(38);
+    expect(skillFolders()).toHaveLength(39);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(66);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(38);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(39);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -404,7 +404,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'validate-e2e'],
+      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'tech-review', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
@@ -420,7 +420,15 @@ describe('the help table in this repository', () => {
     expect(runner.detail.replace(/\s+/g, ' ')).toMatch(/prove, retro-apply, rewind, knowledge-add and rewind-apply run\./);
   });
 
-  it('explains /omni:rewind-apply, the runner job a knowledge finding\'s Approve queues (PRD 2498)', () => {
+  it('explains /omni:tech-review, which gives no approval and no runner runs (PRD 2608)', () => {
+    const review = ENTRIES.find((e) => e.name === 'tech-review' && e.kind === 'skill');
+    assertDefined(review, 'tech-review');
+    expect(review).toMatchObject({ who: 'you', usage: ['/omni:tech-review <n>'], group: 'everyday' });
+    const words = review.detail.replace(/\s+/g, ' ');
+    for (const phrase of [/OMNI_UNATTENDED/, /one question at a time/, /### Tech review/, /omni plan check/, /gives no approval/, /never merges/, /A runner never runs it/]) expect(words, String(phrase)).toMatch(phrase);
+  });
+
+  it('explains /omni:rewind-apply,the runner job a knowledge finding\'s Approve queues (PRD 2498)', () => {
     const apply = ENTRIES.find((e) => e.name === 'rewind-apply' && e.kind === 'skill');
     assertDefined(apply, 'rewind-apply');
     expect(apply).toMatchObject({ who: 'you', usage: ['/omni:rewind-apply <prd> <finding>'], group: 'everyday' });
