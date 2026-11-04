@@ -67,6 +67,9 @@ Bug section are PRD 556's spec, carried whole.
   merge, `Maybe: #<n>` lines otherwise, and the skill never closes the issue. `/omni:mega-bug-fix`
   writes the same comment in the plan repository.
 
+- **The external reference** (PRD 2648): when `pr.ref` is set, the triage comment gains
+  `- **Ref:** <ref | none | unreadable (gh)>` from `omni ref <n> --title … --json`; step 7 opens the
+  draft with `--issue <n>` so `/omni:pr`'s `pr.open` titles it. Its test is `kit/test/bug-fix-ref.test.ts`.
 - **Signing**, as every kit skill: the issue and the PR end with `omni sign footer`, every commit
   with `omni sign trailer`.
 - The hand-off: "Review the PR and merge it if it is right." **A person merges.**
