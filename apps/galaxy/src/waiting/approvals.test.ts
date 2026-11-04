@@ -18,6 +18,11 @@ describe('readApprovals', () => {
     expect(asked).toEqual([['/api/waiting/approvals', { cache: 'no-store' }]]);
   });
 
+  it('keeps the kind of approval a request asks, so a Tech Approval is not read as the product one', async () => {
+    const read = await readApprovals(answering(200, { items: [{ ...ITEM, approvalKind: 'tech' }] }));
+    expect(read).toEqual({ ok: true, items: [{ ...WAITING, approvalKind: 'tech' }] });
+  });
+
   it('names the kind of each failure: the network, a status, a body out of shape', async () => {
     expect(await readApprovals(() => Promise.reject(new Error('offline')))).toEqual({ ok: false, kind: 'network' });
     expect(await readApprovals(answering(401, { error: 'Sign in first' }))).toEqual({ ok: false, kind: 'status 401' });

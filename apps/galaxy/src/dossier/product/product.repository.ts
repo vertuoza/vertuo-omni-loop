@@ -53,10 +53,10 @@ export function dossierProductRepository(db: ProductDb) {
     products: (workspace: string) =>
       parsed(workspaceProducts(db).eq('workspace_id', workspace).order('name'), z.array(ProductRow), 'products', (rows) => rows),
 
-    /** The id of the dossier's latest approval, or null with none. */
+    /** The id of the dossier's latest product approval (never a tech one, PRD 2608), or null with none. */
     latestApproval: (dossier: string) =>
       parsed(
-        db.from('approvals').select('id').eq('dossier_id', dossier)
+        db.from('approvals').select('id').eq('dossier_id', dossier).eq('approval_kind', 'product')
           .order('approved_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle(),
         ApprovalRow.nullable(), 'approvals', (row) => row?.id ?? null,
       ),

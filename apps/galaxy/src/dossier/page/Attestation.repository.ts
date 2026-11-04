@@ -43,10 +43,10 @@ async function rows<T>(query: PromiseLike<Raw>, schema: z.ZodType<T>, what: stri
 /** The member's reads of one dossier's attestation. */
 export function attestationRepository(db: AttestationDb) {
   return {
-    /** The approval in force: the latest row, or null when nobody approved the PRD yet. */
+    /** The approval in force: the latest product row (a tech approval is not it, PRD 2608), or null when nobody approved the PRD yet. */
     async approval(dossier: string): Promise<ApprovalInForce | null> {
       const [row] = await rows(db.from('approvals').select('id, approved_by, approver_login, approved_at, files').eq('dossier_id', dossier)
-        .order('approved_at', { ascending: false }).order('id', { ascending: false }).limit(1), ApprovalSchema, 'the approval');
+        .eq('approval_kind', 'product').order('approved_at', { ascending: false }).order('id', { ascending: false }).limit(1), ApprovalSchema, 'the approval');
       return row ?? null;
     },
     /** The voids appended to approval `approval`, oldest first. */
