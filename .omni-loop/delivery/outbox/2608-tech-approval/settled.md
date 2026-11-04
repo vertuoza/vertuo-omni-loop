@@ -244,3 +244,313 @@ A constant to change in one function if an empty value is wanted instead; nothin
 ```
 
 <!-- /omni-outbox-settled: s1-03-the-tech-state-is-left-out-when-nobody-asked -->
+
+<!-- omni-outbox-settled: s2-01-a-person-with-no-row-is-also-emailed-when-their-approval-is-voided -->
+
+## s2-01-a-person-with-no-row-is-also-emailed-when-their-approval-is-voided — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-a-person-with-no-row-is-also-emailed-when-their-approval-is-voided
+prd: 2608
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 2
+---
+
+## The question, in plain words
+
+Should a person with no alert settings also get the email when a change voids their approval, or only the email for a new approval request?
+
+## The decision, in plain words
+
+The spec says email is on by default for everyone and a person with no row reads as on, but the plan only names the request email. I applied the same default to the voided-approval email, so both emails treat a person with no settings alike.
+
+## The intro, for fun
+
+One door now opens for everyone, so the side door should not stay locked.
+
+## The punchline, for fun
+
+Same default, same welcome.
+
+## The options, in plain words
+
+A. A. Both emails follow the default: a person with no row is emailed in both cases (as built).
+B. B. Only the request email follows the default; the voided-approval email keeps needing a row with email on.
+
+## What I had to decide
+
+Whether the voided-approval email follows the same on-by-default rule as the request email.
+
+## What I did meanwhile
+
+The migration redefines both reads with the on-by-default rule, and the database check holds the request case for no row, email off and email on.
+
+## What it costs to change later
+
+One follow-up migration restores the old read of the voided-approval email; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names the request email only; the spec's wording 'for everyone' is why I read it to cover the voided-approval email too.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-a-person-with-no-row-is-also-emailed-when-their-approval-is-voided -->
+
+<!-- omni-outbox-settled: s2-02-the-product-approvers-check-expects-email-on-by-default -->
+
+## s2-02-the-product-approvers-check-expects-email-on-by-default — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-the-product-approvers-check-expects-email-on-by-default
+prd: 2608
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 2
+---
+
+## The question, in plain words
+
+Is it fine that this slice also edited the older product approvers database check, which is outside its planned files?
+
+## The decision, in plain words
+
+Turning email on by default made one line of that older check wrong, because it still expected both alert switches off. I changed that one expectation to push off and email on, and nothing else in the file.
+
+## The intro, for fun
+
+A new default walked in and an old sign still said otherwise.
+
+## The punchline, for fun
+
+One line of the sign was repainted.
+
+## The options, in plain words
+
+A. A. Update the one expectation here (as built).
+B. B. Revert it and fix it in a separate pull request, leaving CI red meanwhile.
+
+## What I had to decide
+
+Whether to update the older check inside this slice or leave it red for another slice.
+
+## What I did meanwhile
+
+Only the expected row and its failure message changed; the check passes against a fresh local database.
+
+## What it costs to change later
+
+One line in one check file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for this slice does not list the older check; the change was needed to keep CI green.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-the-product-approvers-check-expects-email-on-by-default -->
+
+<!-- omni-outbox-settled: s3-01-the-plan-left-three-small-files-out -->
+
+## s3-01-the-plan-left-three-small-files-out — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-the-plan-left-three-small-files-out
+prd: 2608
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 2
+---
+
+## The question, in plain words
+
+The slice needed three small changes in files its plan did not list. Should they stay in this slice, or be moved out to a slice of their own?
+
+## The decision, in plain words
+
+They stay here: the two new calls the terminal makes, the help text for the new command, and the one read that would have dated a PRD's approval from its Tech Approval. Each is a few lines, and none of them could wait for another slice.
+
+## The intro, for fun
+
+The map showed the house, but the front door was just off the edge.
+
+## The punchline, for fun
+
+We stepped over the line for three small things and left a note on the mat.
+
+## The options, in plain words
+
+A. A. Keep the three small changes in this slice (what was built).
+B. B. Move them to a slice of their own, and hold the terminal's request and the correct date until it merges.
+
+## What I had to decide
+
+Keep the three small changes outside the plan's list in this slice: the kit's one client gains two calls, the help names the new command, and the stage sync reads the product approval only.
+
+## What I did meanwhile
+
+Each change has its test. Nothing else outside the list was touched, and the wave's check will report the three files as outside the list, as it should.
+
+## What it costs to change later
+
+A few lines in three files to move, nothing stored; another slice could carry them at the price of waiting for it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's list has no file that lets the terminal call a new page route, so the request could not be sent without one of them.
+- (author) A slice in the next wave owns the help file, so it merges this change in when it starts: a small overlap, not a conflict expected.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-the-plan-left-three-small-files-out -->
+
+<!-- omni-outbox-settled: s3-02-a-tech-approval-has-its-own-stream-events -->
+
+## s3-02-a-tech-approval-has-its-own-stream-events — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-a-tech-approval-has-its-own-stream-events
+prd: 2608
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 2
+---
+
+## The question, in plain words
+
+When a terminal follows a PRD's approval as it happens, how should it hear about a Tech Approval, so that a terminal with an older kit never takes one for the real approval?
+
+## The decision, in plain words
+
+A Tech Approval gets its own news with new names, which an older kit already ignores, so the news it knows stays about the product approval alone. A newer kit waits on the named person and asks no approver until they have given it.
+
+## The intro, for fun
+
+Two doors, two doorbells, and the old house only hears its own.
+
+## The punchline, for fun
+
+A stranger's bell can ring all day without opening your door.
+
+## The options, in plain words
+
+A. A. News of its own names, ignored by an older kit (what was built).
+B. B. Send no live news of it, and have a newer kit look again every few seconds while it waits.
+
+## What I had to decide
+
+Tell the Tech Approval with news of its own names, and leave the existing names for the product approval alone.
+
+## What I did meanwhile
+
+An older kit keeps waiting for the product approval and never ends on a Tech Approval; it may still ask early, which is recorded and waits, as already settled. A newer kit names the person it waits on, and reads the state again after a cancelled approval, so the named person is asked first.
+
+## What it costs to change later
+
+A change in two small modules if another way of telling is wanted; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the approval's reply gains a tech part but does not say how the live news carries it.
+- (author) The member list shows only people with a GitHub login, so no email is ever shown; a member with no login could not be picked from it, which should be rare as members sign in with GitHub.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-a-tech-approval-has-its-own-stream-events -->
