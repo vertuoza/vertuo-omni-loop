@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `kit/bin/ref.test.ts`, `kit/test/pr-ref-repo.test.ts`
+- **File:** `kit/bin/ref.test.ts`
 - **Level:** unit
 - **Red:** omni ref: unknown flag --repo.
 
@@ -18,7 +18,7 @@ A pull request `/omni:pr --repo` opens in another repository (a target of `/omni
 
 ## Guard
 
-The reproduction: `omni ref --repo` against a fake `gh` (a target with its own format, with none, unreadable, invalid, written by another kit), and the skills' text naming `--repo` and `--issue` at the steps that open a pull request in another repository. Both fail on the default branch and pass here.
+The reproduction: `omni ref --repo` against a fake `gh` (a target with its own format, with none, unreadable, invalid, written by another kit), and `kit/test/pr-ref-repo.test.ts`, the skills' text naming `--repo` and `--issue` at the steps that open a pull request in another repository. Both fail on the default branch and pass here.
 
 ## Mutation
 
