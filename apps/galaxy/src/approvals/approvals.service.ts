@@ -10,13 +10,17 @@ import type { Answer, ApprovalsRepository, ReachRepository, Refusal, Requested }
 // reaches each asked person by the channels they turned on: a push to each device, an email to their
 // address. Reaching people never fails a request: without the service role nobody is reached, said in
 // one log line, and the request still stands in their bell. The bell: the requests waiting on the
-// person looking, each with its PRD's page.
+// person looking, each with its PRD's page. A Tech Approval (PRD 2608) is reached from ./tech.service.ts
+// the same way; once it is given, askApproversAfterTech() asks the approvers with nothing else run.
 
 /** What asking needs: the caller's repository, the service role's (null when this deployment has no
  * service key), the channels built for a contact address (this app's origin, which push services may
  * write to) with a way to forget a device, and the log. */
-export type AskDeps = {
-  approvals: ApprovalsRepository;
+export type AskDeps = ReachDeps & { approvals: ApprovalsRepository };
+
+/** How asked people are reached: the service role's repository (null when this deployment has no service
+ * key), the channels built for a contact address, and the log. */
+export type ReachDeps = {
   reach: ReachRepository | null;
   channels: (contact: string, forget: Channels['forget']) => Channels;
   log: (line: string) => void;
@@ -25,8 +29,8 @@ export type AskDeps = {
 /** A request's outcome: the kit's reply, or the database's refusal. */
 export type Asked = { ok: true; reply: Asking } | { ok: false; refusal: Refusal };
 
-/** One approval request waiting on the person looking, for the bell. */
-type WaitingApproval = { id: string; dossierId: string; prd: PrdNumber; title: string; repo: string; askedAt: number };
+/** One approval request waiting on the person looking, for the bell: `approvalKind` says which approval (PRD 2608). */
+type WaitingApproval = { id: string; dossierId: string; prd: PrdNumber; title: string; repo: string; askedAt: number; approvalKind: 'product' | 'tech' };
 
 /** The first seven characters of a hash, as the kit and the page print it. */
 const short = (sha256: string) => sha256.slice(0, 7);
@@ -53,7 +57,8 @@ function firstSentence(markdown: string | null): string | null {
   return sentence.length > ONE_LINE_MAX ? `${sentence.slice(0, ONE_LINE_MAX - 1).trimEnd()}…` : sentence;
 }
 
-const escape = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+/** Text made safe for an email's HTML. */
+export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** What reaches each asked person: `PRD <n> waits for your approval`, the title, the one-line before →
  * after (the first sentence of the spec's Problem, then of its Solution), the repository and the short
@@ -73,10 +78,10 @@ function approvalMessage(request: Requested, origin: string): Message {
   const sections = [['Problem', problem], ['Solution', solution]].flatMap(([name, body]) => (name && body ? [{ name, body }] : []));
   const text = [heading, '', ...facts, ...sections.flatMap((s) => ['', s.name, '', s.body]), '', `Open it to approve: ${url}`].join('\n');
   const html = [
-    `<h1>${escape(heading)}</h1>`,
-    ...facts.map((fact) => `<p>${escape(fact)}</p>`),
-    ...sections.map((s) => `<h2>${escape(s.name)}</h2>\n${renderMarkdownBody(s.body)}`),
-    `<p><a href="${escape(url)}">Open PRD ${request.prd} to approve it</a></p>`,
+    `<h1>${escapeHtml(heading)}</h1>`,
+    ...facts.map((fact) => `<p>${escapeHtml(fact)}</p>`),
+    ...sections.map((s) => `<h2>${escapeHtml(s.name)}</h2>\n${renderMarkdownBody(s.body)}`),
+    `<p><a href="${escapeHtml(url)}">Open PRD ${request.prd} to approve it</a></p>`,
   ].join('\n');
   return {
     // The service worker reads exactly {title, body, url}, url a path on this site (settled with s9,
@@ -94,8 +99,8 @@ const replyOf = (request: Requested): Asking => ({
   product: request.product,
 });
 
-/** Reaches everyone `request` asked; logs what could not be read, never throws. */
-async function reachAll(deps: AskDeps, request: Requested, origin: string): Promise<void> {
+/** Reaches everyone `request` asked with `message`; logs what could not be read. */
+export async function reachAll(deps: ReachDeps, request: { id: string; prd: PrdNumber; repo: string }, message: Message, origin: string): Promise<void> {
   const { reach } = deps;
   if (!reach) {
     deps.log(`approvals: PRD #${request.prd} of ${request.repo} is asked, but nobody is reached: SUPABASE_SERVICE_ROLE_KEY is not set`);
@@ -107,7 +112,7 @@ async function reachAll(deps: AskDeps, request: Requested, origin: string): Prom
     return;
   }
   const channels = deps.channels(origin, (device) => reach.forget(device));
-  await notifyAll(recipients.value, approvalMessage(request, origin), channels, deps.log);
+  await notifyAll(recipients.value, message, channels, deps.log);
 }
 
 /** Asks PRD `prd` of `repo`'s approvers as the caller, reaches each one, and answers who was asked.
@@ -117,7 +122,7 @@ export async function askApprovers(deps: AskDeps, repo: string, prd: PrdNumber, 
   if (!recorded.ok) return recorded;
   const request = recorded.value;
   try {
-    await reachAll(deps, request, origin);
+    await reachAll(deps, request, approvalMessage(request, origin), origin);
   } catch (error) {
     deps.log(`approvals: reaching PRD #${request.prd}'s approvers failed: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -130,6 +135,18 @@ export async function waitingApprovals(approvals: ApprovalsRepository): Promise<
   if (!read.ok) return read;
   return {
     ok: true,
-    value: read.value.map((row) => ({ id: row.id, dossierId: row.dossier, prd: row.prd, title: row.title, repo: row.repo, askedAt: Date.parse(row.askedAt) })),
+    value: read.value.map((row) => ({ id: row.id, dossierId: row.dossier, prd: row.prd, title: row.title, repo: row.repo, askedAt: Date.parse(row.askedAt), approvalKind: row.approvalKind })),
   };
+}
+
+/** Asks the product's approvers once the Tech Approval is given (PRD 2608, spec §4), with nothing else run.
+ * The approval is the record: a request that cannot be made is one log line, and a person's next
+ * `omni wait approval` asks. Never throws. */
+export async function askApproversAfterTech(deps: AskDeps, repo: string, prd: PrdNumber, origin: string): Promise<void> {
+  try {
+    const asked = await askApprovers(deps, repo, prd, origin);
+    if (!asked.ok) deps.log(`approvals: PRD #${prd} of ${repo}'s tech approval is given, but its approvers are not asked: ${asked.refusal.message ?? asked.refusal.code ?? 'the database failed'}`);
+  } catch (error) {
+    deps.log(`approvals: PRD #${prd} of ${repo}'s tech approval is given, but its approvers are not asked: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }

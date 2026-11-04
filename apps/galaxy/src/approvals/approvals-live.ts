@@ -5,6 +5,7 @@ import { serverEnv } from '../env';
 import { liveChannels } from '../notify/notify-live';
 import { approvalsRepository, reachRepository } from './approvals.repository';
 import type { RequestDeps, WaitingDeps } from './approvals.controller';
+import type { ReachDeps } from './approvals.service';
 
 // The approvals routes' real dependencies (PRD 1322 s2). The request runs as the caller's access token,
 // never a service key, so approval_request() checks who asks. Reaching people reads their addresses and
@@ -15,19 +16,21 @@ import type { RequestDeps, WaitingDeps } from './approvals.controller';
 
 const log = (line: string) => { console.error(line); };
 
+/** How asked people are reached here: the service role's read, the channels and the log. */
+export function reachDeps(): ReachDeps {
+  const reach = supabaseEnv() !== null && serverEnv().serviceRole !== null ? reachRepository(serviceDb()) : null;
+  return { reach, channels: liveChannels, log };
+}
+
 export function requestDeps(): RequestDeps {
-  const hasDb = supabaseEnv() !== null;
-  const reach = hasDb && serverEnv().serviceRole !== null ? reachRepository(serviceDb()) : null;
   return {
-    connect: hasDb
+    connect: supabaseEnv() !== null
       ? (token) => {
           const client = supabaseAs(token);
           return { auth: client.auth, approvals: approvalsRepository(client) };
         }
       : null,
-    reach,
-    channels: liveChannels,
-    log,
+    ...reachDeps(),
   };
 }
 

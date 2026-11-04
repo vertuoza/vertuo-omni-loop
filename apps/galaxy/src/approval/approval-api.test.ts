@@ -21,12 +21,13 @@ const APPROVED = { dossier: DOSSIER, approval: { approver: { login: 'bob-gh', me
 
 type Answer = { data: unknown; error: { code?: string; message?: string } | null };
 
-type World = { database?: boolean; session?: boolean; answers?: Record<string, Answer>; label?: () => Promise<void> };
+type World = { database?: boolean; session?: boolean; answers?: Record<string, Answer>; label?: () => Promise<void>; askProduct?: () => Promise<void> };
 
-function world({ database = true, session = true, answers = {}, label = () => Promise.resolve() }: World = {}) {
+function world({ database = true, session = true, answers = {}, label = () => Promise.resolve(), askProduct = () => Promise.resolve() }: World = {}) {
   const calls: Array<{ fn: string; args: unknown; as: string }> = [];
   const labelled: Array<[string, number]> = [];
   const told: unknown[] = [];
+  const asked: Array<{ repo: string; prd: number; origin: string; as: unknown }> = [];
   const rpcAs = (as: string) => (fn: string, args: unknown) => {
     calls.push({ fn, args, as });
     const answer = answers[fn];
@@ -44,8 +45,9 @@ function world({ database = true, session = true, answers = {}, label = () => Pr
   });
   const deps: ApprovalDeps = {
     connect: database ? (client as unknown as NonNullable<ApprovalDeps['connect']>) : null,
-    session: () => Promise.resolve(session ? ({ rpc: rpcAs('session') } as unknown as Awaited<ReturnType<ApprovalDeps['session']>>) : null),
+    session: () => Promise.resolve(session ? ({ as: 'session', rpc: rpcAs('session') } as unknown as Awaited<ReturnType<ApprovalDeps['session']>>) : null),
     label: (repo, prd) => { labelled.push([repo, prd]); return label(); },
+    askProduct: (db, repo, prd, origin) => { asked.push({ repo, prd, origin, as: (db as unknown as { as: unknown }).as }); return askProduct(); },
     installLink: 'https://github.com/apps/omni/installations/new',
     tellApp: (event) => { told.push(event); return Promise.resolve(true); },
     now: () => new Date('2026-10-11T09:00:00.000Z'),
@@ -62,7 +64,7 @@ function world({ database = true, session = true, answers = {}, label = () => Pr
     }), deps);
     return { status: response.status, body: (await response.json()) as unknown };
   };
-  return { calls, labelled, told, get, post };
+  return { calls, labelled, told, asked, get, post };
 }
 
 const IN_FORCE = {
@@ -163,6 +165,81 @@ describe('GET /api/dossiers/approval — a product PRD (PRD 1548)', () => {
     }
     expect(await w.get('?repo=widgets&prd=mobile-12')).toMatchObject({ status: 400 });
     expect(w.calls).toHaveLength(1);
+  });
+});
+
+describe('GET /api/dossiers/approval — a Tech Approval (PRD 2608)', () => {
+  it('passes the tech part on when there is one, in the shape the kit reads', async () => {
+    for (const state of ['asked', 'approved', 'voided']) {
+      const w = world({ answers: { dossier_approval: { data: { dossier: DOSSIER, approval: null, tech: { login: 'irisa', state } }, error: null } } });
+      const { body } = await w.get('?repo=acme/widgets&prd=1299');
+      expect(body).toEqual({ url: `https://omni.example/prd/${DOSSIER}`, approval: null, tech: { login: 'irisa', state } });
+      expect(parseApprovalReply(body)?.tech).toEqual({ login: 'irisa', state });
+    }
+    const both = world({ answers: { dossier_approval: { data: { ...APPROVED, tech: { login: 'irisa', state: 'approved' } }, error: null } } });
+    expect((await both.get('?repo=acme/widgets&prd=1299')).body).toEqual({ ...IN_FORCE, tech: { login: 'irisa', state: 'approved' } });
+  });
+
+  it('leaves the tech part out when nobody asked: absent, not empty', async () => {
+    const w = world({ answers: { dossier_approval: { data: { dossier: DOSSIER, approval: null }, error: null } } });
+    expect((await w.get('?repo=acme/widgets&prd=1299')).body).not.toHaveProperty('tech');
+    expect((await world().get('?repo=acme/widgets&prd=1299')).body).not.toHaveProperty('tech');
+  });
+
+  it('answers 500 for a tech part out of shape', async () => {
+    const w = world({ answers: { dossier_approval: { data: { dossier: DOSSIER, approval: null, tech: { login: 'irisa', state: 'dreaming' } }, error: null } } });
+    expect((await w.get('?repo=acme/widgets&prd=1299')).status).toBe(500);
+  });
+});
+
+describe('POST /api/dossiers/approval — giving a Tech Approval (PRD 2608)', () => {
+  const given = { dossier_approve: { data: { id: 'a1', repo: 'acme/widgets', prd: 1299, kind: 'tech' }, error: null } };
+  const read = { dossier_approval: { data: { dossier: DOSSIER, approval: null, tech: { login: 'irisa', state: 'approved' } }, error: null } };
+
+  it('gives it by its kind, asks the product approvers with nothing else run, and adds no approved label', async () => {
+    const w = world({ answers: { ...given, ...read } });
+    expect(await w.post({ dossier: DOSSIER, kind: 'tech' })).toEqual({
+      status: 201, body: { url: `https://omni.example/prd/${DOSSIER}`, approval: null, tech: { login: 'irisa', state: 'approved' } },
+    });
+    expect(w.calls.map((c) => [c.fn, c.args])).toEqual([
+      ['dossier_approve', { p_dossier: DOSSIER, p_kind: 'tech' }],
+      ['dossier_approval', { p_repo: 'acme/widgets', p_prd: 1299 }],
+    ]);
+    expect(w.asked).toEqual([{ repo: 'acme/widgets', prd: 1299, origin: 'https://omni.example', as: 'session' }]);
+    expect(w.labelled).toEqual([]);
+    expect(w.told).toEqual([]);
+  });
+
+  it('keeps the tech approval when the approvers cannot be asked', async () => {
+    const w = world({ answers: { ...given, ...read }, askProduct: () => Promise.reject(new Error('boom')) });
+    expect((await w.post({ dossier: DOSSIER, kind: 'tech' })).status).toBe(201);
+    expect(w.labelled).toEqual([]);
+  });
+
+  it('asks nobody when the database refuses it, in its own words', async () => {
+    const w = world({ answers: { dossier_approve: { data: null, error: { code: '42501', message: "Only irisa gives this PRD's Tech Approval." } } } });
+    expect(await w.post({ dossier: DOSSIER, kind: 'tech' })).toEqual({ status: 403, body: { error: "Only irisa gives this PRD's Tech Approval." } });
+    expect(w.asked).toEqual([]);
+  });
+
+  it('labels as ever, and asks nobody, for a product approval named by its kind', async () => {
+    const w = world({ answers: { dossier_approve: { data: { id: 'a1', repo: 'acme/widgets', prd: 1299, kind: 'product' }, error: null } } });
+    expect((await w.post({ dossier: DOSSIER, kind: 'product' })).status).toBe(201);
+    expect(w.calls[0]?.args).toEqual({ p_dossier: DOSSIER });
+    expect(w.labelled).toEqual([['acme/widgets', 1299]]);
+    expect(w.asked).toEqual([]);
+  });
+
+  it('answers a product approval refused for want of the tech approval in the database\'s words, labelling nothing', async () => {
+    const w = world({ answers: { dossier_approve: { data: null, error: { code: '22023', message: "PRD #1299 waits for irisa's Tech Approval first." } } } });
+    expect(await w.post({ dossier: DOSSIER })).toEqual({ status: 400, body: { error: "PRD #1299 waits for irisa's Tech Approval first." } });
+    expect(w.labelled).toEqual([]);
+  });
+
+  it('refuses a kind it does not know, with no database call', async () => {
+    const w = world();
+    expect(await w.post({ dossier: DOSSIER, kind: 'other' })).toMatchObject({ status: 400 });
+    expect(w.calls).toEqual([]);
   });
 });
 

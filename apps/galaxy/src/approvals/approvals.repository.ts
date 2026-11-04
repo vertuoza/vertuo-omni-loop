@@ -43,7 +43,9 @@ const Requested = z.object({
 export type Requested = z.infer<typeof Requested>;
 
 /** One request waiting on the caller, as approval_requests_waiting() lists it. */
-const Waiting = z.array(z.object({ id: UUID, dossier: UUID, repo: text, prd: PrdNumberSchema, title: z.string(), askedAt: at }));
+const Waiting = z.array(z.object({
+  id: UUID, dossier: UUID, repo: text, prd: PrdNumberSchema, title: z.string(), askedAt: at, approvalKind: z.enum(['product', 'tech']).default('product'),
+}));
 
 /** How each asked person is reached, as approval_recipients() answers it. */
 const Recipients = z.array(z.object({
@@ -95,18 +97,23 @@ type StreamDb = Pick<SupabaseClient<Database>, 'from' | 'rpc' | 'channel' | 'rem
 export type ApprovalHistory = {
   dossier: string;
   author: string | null;
-  requests: Array<{ id: string; kind: 'asked' | 're-asked'; askedAt: string; askedBy: string; asked: string[]; nobodyElse: boolean; product: string | null }>;
-  approvals: Array<{ id: string; approver: string; approvedAt: string; pinned: number }>;
-  voids: Array<{ id: string; pusher: string; kind: string; from: string; to: string; voidedAt: string }>;
+  requests: Array<{ id: string; kind: 'asked' | 're-asked'; askedAt: string; askedBy: string; asked: string[]; nobodyElse: boolean; product: string | null; approvalKind: ApprovalKind }>;
+  approvals: Array<{ id: string; approver: string; approvedAt: string; pinned: number; kind: ApprovalKind }>;
+  voids: Array<{ id: string; approval: string; pusher: string; kind: string; from: string; to: string; voidedAt: string }>;
   people: Array<{ user: string; login: string | null; name: string | null }>;
 };
 
+/** Which approval a row is of (PRD 2608): the product's approvers', or the Tech Approval of the person named. */
+type ApprovalKind = 'product' | 'tech';
+
+const KIND = z.enum(['product', 'tech']);
+
 const DossierRows = z.array(z.object({ id: UUID, workspace_id: UUID, opened_by: UUID.nullable() }));
 const RequestRows = z.array(z.object({
-  id: UUID, kind: z.enum(['asked', 're-asked']), asked_at: at, asked_by: UUID, asked: z.array(UUID), nobody_else: z.boolean(), product_id: UUID.nullable(),
+  id: UUID, kind: z.enum(['asked', 're-asked']), asked_at: at, asked_by: UUID, asked: z.array(UUID), nobody_else: z.boolean(), product_id: UUID.nullable(), approval_kind: KIND,
 }));
-const ApprovalRows = z.array(z.object({ id: UUID, approver_login: text, approved_at: at, files: z.array(z.unknown()) }));
-const VoidRows = z.array(z.object({ id: UUID, pusher_login: text, kind: text, from_sha256: text, to_sha256: text, voided_at: at }));
+const ApprovalRows = z.array(z.object({ id: UUID, approver_login: text, approved_at: at, files: z.array(z.unknown()), approval_kind: KIND }));
+const VoidRows = z.array(z.object({ id: UUID, approval_id: UUID, pusher_login: text, kind: text, from_sha256: text, to_sha256: text, voided_at: at }));
 const PeopleRows = z.array(z.object({ user: UUID, login: z.string().nullable(), name: z.string().nullable() }));
 const ProductRows = z.array(z.object({ id: UUID, name: text }));
 
@@ -128,9 +135,9 @@ const dossierOf = (db: StreamDb, repo: string, prd: PrdNumber) => parsed(
 /** A dossier's requests, approvals and voids. */
 async function rowsOf(db: StreamDb, dossier: string): Promise<Answer<Rows>> {
   const [requests, approvals, voids] = await Promise.all([
-    parsed(db.from('approval_requests').select('id, kind, asked_at, asked_by, asked, nobody_else, product_id').eq('dossier_id', dossier), RequestRows, 'approval_requests'),
-    parsed(db.from('approvals').select('id, approver_login, approved_at, files').eq('dossier_id', dossier), ApprovalRows, 'approvals'),
-    parsed(db.from('approval_voids').select('id, pusher_login, kind, from_sha256, to_sha256, voided_at').eq('dossier_id', dossier), VoidRows, 'approval_voids'),
+    parsed(db.from('approval_requests').select('id, kind, asked_at, asked_by, asked, nobody_else, product_id, approval_kind').eq('dossier_id', dossier), RequestRows, 'approval_requests'),
+    parsed(db.from('approvals').select('id, approver_login, approved_at, files, approval_kind').eq('dossier_id', dossier), ApprovalRows, 'approvals'),
+    parsed(db.from('approval_voids').select('id, approval_id, pusher_login, kind, from_sha256, to_sha256, voided_at').eq('dossier_id', dossier), VoidRows, 'approval_voids'),
   ]);
   if (!requests.ok) return requests;
   if (!approvals.ok) return approvals;
@@ -162,10 +169,10 @@ function historyOf(dossier: Dossier, { requests, approvals, voids }: Rows, { peo
     author: dossier.opened_by,
     requests: requests.map((r) => ({
       id: r.id, kind: r.kind, askedAt: r.asked_at, askedBy: r.asked_by, asked: r.asked, nobodyElse: r.nobody_else,
-      product: productName.get(r.product_id ?? '') ?? null,
+      product: productName.get(r.product_id ?? '') ?? null, approvalKind: r.approval_kind,
     })),
-    approvals: approvals.map((a) => ({ id: a.id, approver: a.approver_login, approvedAt: a.approved_at, pinned: a.files.length })),
-    voids: voids.map((v) => ({ id: v.id, pusher: v.pusher_login, kind: v.kind, from: v.from_sha256, to: v.to_sha256, voidedAt: v.voided_at })),
+    approvals: approvals.map((a) => ({ id: a.id, approver: a.approver_login, approvedAt: a.approved_at, pinned: a.files.length, kind: a.approval_kind })),
+    voids: voids.map((v) => ({ id: v.id, approval: v.approval_id, pusher: v.pusher_login, kind: v.kind, from: v.from_sha256, to: v.to_sha256, voidedAt: v.voided_at })),
     people,
   };
 }

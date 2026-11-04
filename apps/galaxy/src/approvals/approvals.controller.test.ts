@@ -229,12 +229,18 @@ describe('GET /api/waiting/approvals', () => {
   });
 
   it("lists the requests waiting on the person, each with its PRD's dossier", async () => {
-    const row = { id: REQUEST, dossier: DOSSIER, repo: 'acme/mobile', prd: parsePrd(7), title: 'The approval handshake', askedAt: '2026-10-09T10:00:00.000Z' };
+    const row = { id: REQUEST, dossier: DOSSIER, repo: 'acme/mobile', prd: parsePrd(7), title: 'The approval handshake', askedAt: '2026-10-09T10:00:00.000Z', approvalKind: 'product' as const };
     const response = await approvalsWaiting({ session: () => Promise.resolve(approvals({ ok: true, value: [row] })) });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      items: [{ id: REQUEST, dossierId: DOSSIER, prd: 7, title: 'The approval handshake', repo: 'acme/mobile', askedAt: Date.parse('2026-10-09T10:00:00.000Z') }],
+      items: [{ id: REQUEST, dossierId: DOSSIER, prd: 7, title: 'The approval handshake', repo: 'acme/mobile', askedAt: Date.parse('2026-10-09T10:00:00.000Z'), approvalKind: 'product' }],
     });
+  });
+
+  it('says which approval each request waits for (PRD 2608)', async () => {
+    const row = { id: REQUEST, dossier: DOSSIER, repo: 'acme/mobile', prd: parsePrd(7), title: 'T', askedAt: '2026-10-09T10:00:00.000Z', approvalKind: 'tech' as const };
+    const response = await approvalsWaiting({ session: () => Promise.resolve(approvals({ ok: true, value: [row] })) });
+    expect(await response.json()).toMatchObject({ items: [{ approvalKind: 'tech' }] });
   });
 
   it('answers 401 signed out, 503 without a database, 500 when the read fails', async () => {
