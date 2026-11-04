@@ -331,8 +331,9 @@ differs:
   target PR's **Reproduction** or **Guard** section, and the fix goes on. A red preflight after a
   `bug-fix.review` hook counts as an attempt.
 - **Mutation:** the line is `Mutation: not run in a target`.
-- **The PR,** through `/omni:pr --repo <slug>`, a standalone PR into the target's default branch,
-  draft until its red and its fix are pushed. Its body starts with `Part of <plan slug>#<n>`
+- **The PR,** through `/omni:pr --repo <slug> --issue <n>`, a standalone PR into the target's default
+  branch, draft until its red and its fix are pushed. `--issue <n>` is the plan repository's issue: its
+  external reference is carried in the target's own `pr.ref` format (#2658). Its body starts with `Part of <plan slug>#<n>`
   (`<plan slug>` is the plan repository's `repo.slug`), **never a closing keyword**, so it never
   closes the plan repository's issue. A consumer's PR adds one `Merge after <slug>#<pr>` line per
   PR before it in the plan. Then `/omni:bug-fix`'s body from **What was wrong** on,
@@ -433,7 +434,7 @@ As `/omni:bug-fix` step 12, in the plan repository:
    marked ready before `ok`, and at level D it stays a draft.
 3. **Push** the fix branch.
 4. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`.
-5. **The record PR,** through `/omni:pr`, a standalone PR into `repo.defaultBranch`: its body
+5. **The record PR,** through `/omni:pr --issue <n>`, a standalone PR into `repo.defaultBranch`: its body
    starts with `Closes #<n>` and one `Merge after <slug>#<pr>` line per target PR, in the plan's
    order, then `/omni:bug-fix`'s body, with the `## Proof` of step 7b (a target PR carries none). **The record PR is the only one
    that closes the issue, and it merges last.**
