@@ -322,6 +322,22 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nacceptance:\n  enabled: true\n')).toThrow(/acceptance\.dir/);
   });
 
+  it('reads pr.ref (PRD 2648): null by default, none and link null unless set, each refusal naming its key', () => {
+    expect(parseConfig('kit: 1\n').pr.ref ?? null).toBeNull();
+    const ok = 'kit: 1\npr:\n  ref:\n    title: "[{ref}]-{title}"\n';
+    expect(parseConfig(ok).pr.ref).toEqual({ title: '[{ref}]-{title}', none: null, link: null });
+    expect(parseConfig(`${ok}    none: "[NoRef]-{title}"\n    link: "https://tracker.example/{ref}"\n`).pr.ref).toEqual({
+      title: '[{ref}]-{title}',
+      none: '[NoRef]-{title}',
+      link: 'https://tracker.example/{ref}',
+    });
+    expect(() => parseConfig('kit: 1\npr:\n  ref:\n    title: "[{ref}]"\n')).toThrow(/pr\.ref\.title/);
+    expect(() => parseConfig('kit: 1\npr:\n  ref:\n    title: "{title}"\n')).toThrow(/pr\.ref\.title/);
+    expect(() => parseConfig(`${ok}    none: "[NoRef]"\n`)).toThrow(/pr\.ref\.none/);
+    expect(() => parseConfig(`${ok}    link: "https://tracker.example/"\n`)).toThrow(/pr\.ref\.link/);
+    expect(() => parseConfig(`${ok}    link: "http://tracker.example/{ref}"\n`)).toThrow(/pr\.ref\.link/);
+  });
+
   it('reads pr.openWith as the name of a skill, null by default, and refuses one that is not text', () => {
     expect(parseConfig('kit: 1\n').pr).toEqual({ openWith: null });
     expect(parseConfig('kit: 1\npr:\n  openWith: /create-pr\n').pr.openWith).toBe('/create-pr');

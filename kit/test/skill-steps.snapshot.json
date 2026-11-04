@@ -44,6 +44,7 @@
       "kb",
       "knowledge",
       "proof",
+      "ref",
       "sign"
     ],
     "guards": [
@@ -321,6 +322,7 @@
       "flow",
       "kb",
       "plan",
+      "ref",
       "ship",
       "sign",
       "status"

@@ -385,7 +385,26 @@ export const ConfigSchema = z
     // How a pull request into the default branch or a landing branch is opened: `openWith` names a
     // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
     // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
-    pr: section({ openWith: nullableText.default(null) }),
+    // PRD 2648: `ref` is how a pull request carries its issue's external reference (`omni ref`): `title`
+    // holds `{ref}` and `{title}`, `none` (an issue with no marker) holds `{title}` or is null, `link`
+    // is an `https://` URL holding `{ref}` or null. `null` changes nothing.
+    pr: section({
+      openWith: nullableText.default(null),
+      ref: z
+        .object({
+          title: text.refine((value) => value.includes('{ref}') && value.includes('{title}'), 'a title with {ref} and {title}'),
+          none: text.refine((value) => value.includes('{title}'), 'a title with {title}').nullable().default(null),
+          link: text
+            .refine((value) => value.startsWith('https://') && !/\s/.test(value) && value.includes('{ref}'), 'an https:// URL with {ref}')
+            .nullable()
+            .default(null),
+        })
+        .strict()
+        .nullable()
+        // Optional, not defaulted: a reader takes a missing `ref` as null, and the code that builds a
+        // `pr` section by hand (`kit/lib/plan-repo/copy-flow.ts`) need not know the key.
+        .optional(),
+    }),
     board: section({ matchBy: z.enum(['base', 'label']).default('base') }),
     ci: section({
       outboxContext: text.default('outbox'),

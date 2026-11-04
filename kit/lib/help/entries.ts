@@ -1229,6 +1229,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the slice on what it prints. An unknown tier or agent exits 2, naming it.',
   },
   {
+    name: 'ref',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni ref <issue> --title "<title>" [--json]'],
+    summary: "the title and link a pull request carries for its issue's external reference",
+    detail:
+      "Reads the issue's body through gh and takes the first valid <!-- omni-ref: <ref> --> marker (1 to " +
+      '64 letters, digits, ., _ or -). Prints title: and link: lines, the title formatted by the config\'s ' +
+      'pr.ref (title, none, link) and link: none when there is no link; --json prints { ref, title, link }, ' +
+      'ref null with no marker. A title that already reads as the format is printed unchanged, so it ' +
+      'is safe to run twice. With pr.ref null (the default) the title is unchanged. An issue gh cannot ' +
+      'read exits 1 with one line naming it. /omni:pr runs it at point pr.open.',
+  },
+  {
     name: 'design',
     kind: 'command',
     who: 'skills',
