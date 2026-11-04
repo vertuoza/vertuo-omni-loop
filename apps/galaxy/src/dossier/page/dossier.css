@@ -205,6 +205,23 @@
 .dossier-diff-del { color: var(--ask-red); }
 .dossier-diff-same,
 .dossier-diff-gap { color: var(--ask-muted); }
+/* PRD 2632 s4: the business laws' verdict above Approve (and under the seal): red, green or not judged. */
+.dossier-laws {
+  display: grid; gap: 6px; min-width: 0; padding: 10px 12px;
+  background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 8px;
+}
+.dossier-laws-red { border-left: 3px solid var(--ask-red); }
+.dossier-laws-green { border-left: 3px solid var(--ask-green); }
+.dossier-laws p { margin: 0; overflow-wrap: anywhere; }
+.dossier-laws-lab { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+.dossier-laws-finding { display: grid; gap: 4px; min-width: 0; }
+.dossier-laws-finding + .dossier-laws-finding { border-top: 1px solid var(--ask-line); padding-top: 8px; }
+.dossier-laws-id { font: 600 12px/1.4 var(--ask-mono); color: var(--ask-plasma); }
+.dossier-laws-quote { font-style: italic; color: var(--ask-cyan); }
+.dossier-laws-amend { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dossier-laws-amend code { font: 12px/1.4 var(--ask-mono); overflow-wrap: anywhere; }
+.dossier-laws-domains summary { cursor: pointer; }
+.dossier-laws-domains ul { margin: 4px 0 0; padding-left: 18px; color: var(--ask-muted); }
 /* #1351, on a phone: Approve takes the card's width, larger, at the end of the Problem and the Solution.
    Only the page's header is ever pinned (PRD 476), so it is not pinned to the screen. */
 @media (max-width: 899px) {

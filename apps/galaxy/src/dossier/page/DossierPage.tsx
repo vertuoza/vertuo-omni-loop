@@ -5,8 +5,9 @@ import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import { PrdTimelinePane } from '../../timeline/TimelineView';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
-import type { ApprovalView, ApproveScreen } from './approval';
+import { approveOff, type ApprovalView, type ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
+import { BusinessLawsVerdict } from './BusinessLawsVerdict';
 import { SealCard } from './SealCard';
 import { Attestation } from './Attestation';
 import type { AttestationView } from './Attestation.service';
@@ -215,7 +216,8 @@ function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
 }
 
 /** The approve screen of a ◆ PRD (PRD 1322 s7), for a viewer who may approve it: after a void or a drift,
- * the diff of each changed file first; then the spec's Problem and Solution; then Approve. */
+ * the diff of each changed file first; then the spec's Problem and Solution; then its business laws' verdict
+ * (PRD 2632 s4), a red turning Approve off; then Approve. */
 function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
   const { screen } = approval;
   return (
@@ -233,7 +235,8 @@ function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
         </div>
       ))}
       {screen?.spec === 'unread' && <p className="ask-problem" role="alert">The spec could not be read. Reload the page in a moment.</p>}
-      <ApproveButton dossier={approval.dossier} />
+      <BusinessLawsVerdict laws={approval.laws} />
+      <ApproveButton dossier={approval.dossier} off={approveOff(approval)} />
     </section>
   );
 }
@@ -241,7 +244,13 @@ function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
 /** Under the head of a ◆ PRD: the approve screen for whoever may approve it, or the seal once approved. */
 function ApprovalArea({ approval }: { approval: ApprovalView }) {
   if (approval.canApprove) return <ApproveScreenSection approval={approval} />;
-  return approval.seal ? <SealCard seal={{ ...approval.seal, name: `PRD ${approval.seal.prd}`, mark: String(approval.seal.prd) }} dossier={approval.dossier} /> : null;
+  if (!approval.seal) return null;
+  return (
+    <>
+      <SealCard seal={{ ...approval.seal, name: `PRD ${approval.seal.prd}`, mark: String(approval.seal.prd) }} dossier={approval.dossier} />
+      <BusinessLawsVerdict laws={approval.laws} />
+    </>
+  );
 }
 
 /** Under the head: a ◆ PRD's approval area, then a product PRD's attestation (PRD 1548 s4); each only when it has one. */
