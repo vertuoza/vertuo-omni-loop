@@ -468,6 +468,47 @@ check stays red. Which pull request gets which check:
 | a fix (`/omni:bug-fix`, `/omni:visual-fix`) | `success` when it touches no law. One that does needs a small `outbox/` in the fix's folder, one `high` question per change: the fix skills raise them, and the check names the law and stays red until you answer |
 | a knowledge pull request, or one `/omni:enforce` opened | never blocked: merging it is your answer. The check lists the laws it touches |
 
+### Business laws
+
+A **business law** is a rule of the whole product, written with its reason, that holds in every
+repository: "A quote can be sent only when its total including tax is above zero." A law of one
+repository is locked there and proven by its test. A business law has no test and no paths.
+
+It lives in Git, in the product's **law home**: its plan repository, or its only repository. A product
+with several repositories and no plan repository has no law home, and nothing is judged until one is set.
+Its file says its domain: `domains/<key>/business-laws.md` for one domain, `product/business-laws.md` for
+the laws that apply everywhere. Copies of a target's laws under `repos/<target>/` never count.
+
+```markdown file=domains/quotes/business-laws.md
+## BL-QUOTES-1
+A quote can be sent only when its total including tax is above zero.
+Why: A customer who receives an empty quote stops trusting the contractor.
+Also: invoicing
+```
+
+The id is `BL-<CODE>-<n>`. `Why:` is required, because it is what a red shows. `Also:` names more
+domains. A business law works under any `laws.source`, and does not count toward `laws.max`.
+`omni check knowledge` grades the files, and refuses a law while `laws.owners` names nobody.
+
+**What reads them.** `omni kb business-laws` prints them, `--spec <file>` prints the ones a spec would
+be judged against and why, and `omni kb laws --paths` shows them for the files you change.
+`/omni:brainstorm` names each one in the spec's Risks, and `/omni:plan` and `/omni:do-work` read them.
+
+**What a red does.** A spec on a product PRD's page is judged against the merged laws only, and a
+phase-0 pull request gets a `business laws` check. A red shows the law, its **Why**, the spec's words
+and its owner. On the page, Approve is off and the database refuses the approval too. A model that
+cannot judge never makes a red: the page says `Business laws not judged`, and approval goes on. Out of a
+red: change the spec, or have the law amended.
+
+**Who amends one.** Only the law's CODEOWNER, the product's PM (`laws.owners`, which `omni kb owners`
+writes into `.github/CODEOWNERS`). A pull request that adds, changes or removes a business law keeps
+its outbox check red until a CODEOWNER of the file approves it on GitHub; no outbox answer or label
+clears it. Anyone asks for an amendment with **Ask to amend this law** or
+`/omni:knowledge-add amend <id>`: an agent opens a signed pull request, and never merges it.
+
+**A repository with a phase-0 pull request** must require the `business laws` check in its branch
+protection for a red to stop the merge: GitHub stops a merge only where the check is required.
+
 ## The knowledge map
 
 An agent about to change a file asks the knowledge base what applies. The answer is better when a

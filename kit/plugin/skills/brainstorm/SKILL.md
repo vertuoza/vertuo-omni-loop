@@ -377,6 +377,13 @@ spec: file
   as a red check at the end. No locked law printed: the one line `The locked laws: none touched.`
   A rule it prints is read like the rest of the knowledge, and named in Risks only when the design
   changes it.
+- **The business laws it touches**, in **Risks**: once the spec is drafted, write it to a scratch file
+  and run `node .omni-loop/bin/omni.mjs kb business-laws --spec <file>`. It prints the product's
+  business laws the spec would be judged against, and why each domain was taken. Each law it prints
+  gets one plain line in **Risks**: its id, its statement, and whether the design keeps it or
+  changes it. A design that breaks one is changed, or the amendment is asked for with
+  `/omni:knowledge-add amend <id>`: only the law's CODEOWNER approves it. None printed, or no law
+  home: the one line `The business laws: none touched.`
 - **`## Conventions`**, after `## Solution`: a table `| repo | layer | name | source |`, one row per name the
   design picks, the source a path and line (`<name> ← <file>:<line>`). A name no page settles reads
   `no written convention: follows <file>`, naming the neighbouring code it copies. When two conventions
