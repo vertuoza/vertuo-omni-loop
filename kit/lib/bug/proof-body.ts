@@ -11,7 +11,11 @@
  * - a markdown image whose link starts with `https://`, a line starting `- **Before the fix**` and a
  *   line starting `- **After the fix**`;
  * - the line `GIF not produced - A: <why>; B: <why>; C: <why>`, a reason for each level of the proof
- *   ladder (PRD 2578), none of them empty.
+ *   ladder (PRD 2578), none of them empty. Level B's is a line `omni bug ci` prints, and level C's one
+ *   of the few that stop it: red not seen in this session, a pinned omni too old, or the line
+ *   `omni bug film` or `omni proof push` exits 1 with. Level C is reached whenever the red and green
+ *   outputs exist, whatever the kind of bug, so any other reason (`reproduction test only`, which is
+ *   the wording of its `Proved on` line) is refused.
  *
  * A produced proof also carries the line `- **Proved on:** <where>` (PRD 2578): `a preview
  * environment` (level A) with a `- **Preview:** <url> · <lifetime>` line; `CI` (level B) or `the
@@ -45,6 +49,19 @@ const LEVEL_BC = /^(CI|the machine that made the fix)/;
 const NOT_FILMED = 'reproduction test only, the screen was not filmed';
 const STORYBOOK = 'the component filmed in Storybook';
 const LEVELS = ['A', 'B', 'C'] as const;
+type Level = (typeof LEVELS)[number];
+/** The reasons any level may give (`/omni:bug-fix` step 12's table): an old pinned omni, `omni bug film`'s or `omni proof push`'s line. */
+const ANY_LEVEL = [/^the pinned omni is too old\b/, /^could not write \S/, /^proof push: \S/];
+/** Level B's reasons: the lines `omni bug ci` exits 1 with. */
+const LEVEL_B = [
+  /^job .+ (skipped|did not run on \S+|did not pass on \S+)$/,
+  /^no failed log names \S/,
+  /^every check passed on \S/,
+  /^the runs did not finish within \d/,
+  /^gh failed: \S/,
+];
+/** Level C's reason of its own: red not seen in this session. */
+const LEVEL_C = [/^red not proven here\b/i];
 
 /** The text of the body's `## Proof` section (the first), up to the next `#` or `##` heading, or `undefined`. */
 export function proofSection(body: string): string | undefined {
@@ -61,10 +78,47 @@ function notProducedReasons(section: string): string[] {
   return [...section.matchAll(NOT_PRODUCED)].map((match) => (match[1] ?? '').trim()).filter((reason) => reason !== '');
 }
 
-/** The levels (A, B, C) a not-produced `reason` gives no reason for: each `X: <why>` is a `;`-separated part. */
+/**
+ * Each level's reason in a not-produced `reason`: a `;`-separated part starting `X:` opens level X,
+ * and a part naming no level belongs to the one before it (a reason may hold a `;`).
+ */
+function levelReasons(reason: string): Partial<Record<Level, string>> {
+  const found: Partial<Record<Level, string>> = {};
+  let current: Level | undefined;
+  for (const part of reason.split(';').map((piece) => piece.trim())) {
+    const level = LEVELS.find((name) => part.startsWith(`${name}:`));
+    if (level !== undefined) {
+      current = level;
+      found[level] = part.slice(2).trim();
+    } else if (current !== undefined) {
+      found[current] = `${found[current] ?? ''}; ${part}`;
+    }
+  }
+  return found;
+}
+
+/** The levels (A, B, C) a not-produced `reason` gives no reason for. */
 function levelsWithoutReason(reason: string): string[] {
-  const parts = reason.split(';').map((part) => part.trim());
-  return LEVELS.filter((level) => !parts.some((part) => part.startsWith(`${level}:`) && part.slice(2).trim() !== ''));
+  const found = levelReasons(reason);
+  return LEVELS.filter((level) => (found[level] ?? '') === '');
+}
+
+/** The faults of a not-produced `reason` that answers every level: a level B or C reason step 12's table does not give. */
+function reasonFaults(reason: string): string[] {
+  const { B = '', C = '' } = levelReasons(reason);
+  const allowed = (why: string, own: RegExp[]) => [...own, ...ANY_LEVEL].some((pattern) => pattern.test(why));
+  const faults: string[] = [];
+  if (!allowed(B, LEVEL_B)) {
+    faults.push(`## Proof's "GIF not produced" line gives level B a reason omni bug ci does not print ("${B}"): run omni bug ci on the draft and write its line`);
+  }
+  if (!allowed(C, LEVEL_C)) {
+    faults.push(
+      `## Proof's "GIF not produced" line gives level C a reason it does not have ("${C}"): ` +
+        'level C is reached whenever red.txt and green.txt exist, so film them with omni bug film; ' +
+        'its reasons are red not proven here, the pinned omni is too old: run omni update, or the line omni bug film or omni proof push exits 1 with',
+    );
+  }
+  return faults;
 }
 
 /** The faults of a level B or C `Proved on` value: the not-filmed mention, or Storybook beside its `Clips:` line. */
@@ -94,7 +148,8 @@ function bodyFaults(body: string): { faults: string[]; produced: boolean } {
   if (hasImage && imageLines) return { faults: provedOnFaults(section), produced: true };
   const reasons = notProducedReasons(section);
   if (reasons.length > 0) {
-    if (reasons.some((reason) => levelsWithoutReason(reason).length === 0)) return { faults: [], produced: false };
+    const whole = reasons.find((reason) => levelsWithoutReason(reason).length === 0);
+    if (whole !== undefined) return { faults: reasonFaults(whole), produced: false };
     const missing = levelsWithoutReason(reasons[0] ?? '');
     return { faults: missing.map((level) => `## Proof's "GIF not produced" line has no reason for level ${level}`), produced: false };
   }
