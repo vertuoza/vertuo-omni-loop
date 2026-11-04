@@ -111,6 +111,58 @@
         }
       ],
       "fit": "fits persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-04",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "The note says it plainly: I can ask one engineer, and the build then waits for both approvals. I choose when, and that wait is the price.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A named engineer approves the plan on the PRD's page, so I can push quick wins with less worry about the technical side.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "I'm asked by name and it shows in Waiting, which suits me. Email now being on by default means more mail unless I switch it off.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Two seals and a Stage line naming who it waits on are clear, and the page reads the product approval only. I'd still want to see it in a browser.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The database refuses the product approval without the tech one, which I trust. The review's who-are-you check runs only in the terminal, though giving the approval does not.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "fit": "fits persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ~ · persona:Lead Engineer ~ · persona:B-E DEv ~"
     }
   ]
 }
