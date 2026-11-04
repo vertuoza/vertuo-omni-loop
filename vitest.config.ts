@@ -13,7 +13,7 @@ export default {
     // The omni-hud mod's tests run under `claude plugin test kit/plugin-hud` alone (PRD 1208): they
     // import Claude Code's own test kit, which vitest cannot load.
     exclude: ['**/node_modules/**', 'kit/plugin-hud/**'],
-    setupFiles: ['./vitest.setup.ts'],
+    setupFiles: ['./kit/test/job-env.setup.ts'],
     testTimeout: TEST_TIMEOUT_MS,
     hookTimeout: TEST_TIMEOUT_MS,
   },
