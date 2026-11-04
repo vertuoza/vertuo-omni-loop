@@ -250,7 +250,7 @@ export function lockedLawChanges(
       for (const path of lawPaths(was.get(id), head.get(id), { compared: base !== null })) fire(id, path);
     }
   }
-  if (base !== null && businessLawFiles(changes, { ctx }).length > 0) {
+  if (base !== null) {
     for (const [id, path] of businessLawsChanged({ ctx, base })) fire(id, path);
   }
   return fired;
