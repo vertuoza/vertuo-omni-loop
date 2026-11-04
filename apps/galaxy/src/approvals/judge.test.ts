@@ -1,5 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import { judgeApproval, parseApprovalReply } from 'omni-loop/kit/lib/approval/approval.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { answerJudge, judgeSigningString, type JudgeDeps } from './judge.controller';
 import { judgeRepository } from './judge.repository';
 import { approvalInForce } from './judge.service';
@@ -165,6 +167,51 @@ describe('GET /api/approvals/judge', () => {
 
   it('signs over the path and the query exactly as sent', () => {
     expect(judgeSigningString(new Request('https://omni.example/api/approvals/judge?repo=acme%2Fmobile&prd=7'))).toBe('/api/approvals/judge?repo=acme%2Fmobile&prd=7');
+  });
+});
+
+describe('a Tech Approval alone (PRD 2608)', () => {
+  /** A service-role client that applies each `eq` to the rows it holds, as the database would. */
+  function filtering(approvals: Array<Record<string, unknown>>) {
+    const stub = record();
+    const base = stub.db as unknown as { from(table: string): Record<string, unknown> };
+    const db = {
+      from(table: string) {
+        const chain = base.from(table);
+        if (table !== 'approvals') return chain;
+        const equal: Array<[string, unknown]> = [];
+        const wrapped: Record<string, unknown> = {
+          then: (resolve: (raw: Raw) => unknown, reject: (e: unknown) => unknown) =>
+            Promise.resolve({ data: approvals.filter((row) => equal.every(([column, value]) => row[column] === value)), error: null }).then(resolve, reject),
+        };
+        for (const op of ['select', 'in', 'order', 'limit']) wrapped[op] = () => wrapped;
+        wrapped.eq = (column: string, value: unknown) => { equal.push([column, value]); return wrapped; };
+        return wrapped;
+      },
+    } as unknown as Parameters<typeof judgeRepository>[0];
+    return { db, calls: stub.calls };
+  }
+
+  const answer = async (rows: Array<Record<string, unknown>>) => {
+    const { db } = filtering(rows.map((row) => ({ ...row, dossier_id: DOSSIER })));
+    const res = await answerJudge(get('?repo=acme/mobile&prd=7'), { secret: SECRET, record: () => judgeRepository(db), log: () => undefined });
+    return parseApprovalReply(await res.json());
+  };
+
+  it('keeps omni/approved red: a tech approval alone reads as no approval, in the same judge the check reads', async () => {
+    const reply = await answer([{ ...APPROVED_ROW, approval_kind: 'tech' }]);
+    expect(reply?.approval).toBeNull();
+    if (!reply) throw new Error('the reply should parse');
+    // No approval is judged against no tree: the checkout is never read.
+    expect(judgeApproval({ root: '/nowhere', layout: {} as never }, parsePrd(7), reply).state).toBe('pending');
+  });
+
+  it('reads the product approval when both hold, whichever is newer', async () => {
+    const reply = await answer([
+      { ...APPROVED_ROW, id: V_PLAN, approval_kind: 'tech', approver_login: 'paul', approved_at: '2026-10-12 09:00:00+00' },
+      { ...APPROVED_ROW, approval_kind: 'product' },
+    ]);
+    expect(reply?.approval?.approver.login).toBe('irisa');
   });
 });
 

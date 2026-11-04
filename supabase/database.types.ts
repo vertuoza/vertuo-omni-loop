@@ -291,6 +291,7 @@ export type Database = {
       }
       approval_requests: {
         Row: {
+          approval_kind: string
           asked: string[]
           asked_at: string
           asked_by: string
@@ -302,6 +303,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          approval_kind?: string
           asked: string[]
           asked_at?: string
           asked_by: string
@@ -313,6 +315,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          approval_kind?: string
           asked?: string[]
           asked_at?: string
           asked_by?: string
@@ -403,6 +406,7 @@ export type Database = {
       }
       approvals: {
         Row: {
+          approval_kind: string
           approved_at: string
           approved_by: string
           approver_login: string
@@ -411,6 +415,7 @@ export type Database = {
           id: string
         }
         Insert: {
+          approval_kind?: string
           approved_at?: string
           approved_by: string
           approver_login: string
@@ -419,6 +424,7 @@ export type Database = {
           id?: string
         }
         Update: {
+          approval_kind?: string
           approved_at?: string
           approved_by?: string
           approver_login?: string
@@ -4874,6 +4880,24 @@ export type Database = {
         Returns: Json
       }
       api_keys_list: { Args: { p_workspace: string }; Returns: Json }
+      approval_in_force: {
+        Args: { p_dossier: string; p_kind: string }
+        Returns: {
+          approval_kind: string
+          approved_at: string
+          approved_by: string
+          approver_login: string
+          dossier_id: string
+          files: Json
+          id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "approvals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       approval_people: { Args: { p_dossier: string }; Returns: Json }
       approval_recipients: { Args: { p_request: string }; Returns: Json }
       approval_request: {
@@ -5551,7 +5575,10 @@ export type Database = {
         Args: { p_prd: number; p_product?: string; p_repo: string }
         Returns: Json
       }
-      dossier_approve: { Args: { p_dossier: string }; Returns: Json }
+      dossier_approve: {
+        Args: { p_dossier: string; p_kind?: string }
+        Returns: Json
+      }
       dossier_link_repositories: {
         Args: { p_dossier: string }
         Returns: undefined
@@ -5601,6 +5628,10 @@ export type Database = {
           latest: Json
           repos: string[]
         }[]
+      }
+      dossier_request_tech_approval: {
+        Args: { p_dossier: string; p_login: string }
+        Returns: Json
       }
       dossier_rounds: {
         Args: { p_dossier: string }
@@ -7627,6 +7658,7 @@ export type Database = {
         Args: { game: string; score: number; workspace: string }
         Returns: number
       }
+      tech_approval_state: { Args: { p_dossier: string }; Returns: Json }
       update_fleet: {
         Args: {
           p_color: string

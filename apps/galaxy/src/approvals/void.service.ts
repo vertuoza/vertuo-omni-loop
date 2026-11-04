@@ -10,7 +10,9 @@ import type { PushVoid, VoidReachRepository, VoidRepository } from './void.repos
 // message goes out, however many kinds it changed. Telling never fails a push: what could not be read
 // or sent is one log line. PRD 1612 s2: first, the PRD's issue loses its approved label (as the App's
 // installation), whether or not the approver can be told: the App's `issues.unlabeled` webhook then
-// reruns the omni/approved check on the PRD's open pull requests.
+// reruns the omni/approved check on the PRD's open pull requests. PRD 2608 s3: a push voids a PRD's two
+// approvals, each with its own rows, so each approver gets their own one message; only a product approval
+// holds the label.
 
 /** What telling needs: the pusher's read, the service role's (null when this deployment has no service
  * key), the channels built for a contact address (this app's origin) with a way to forget a device,
@@ -35,7 +37,7 @@ function voidMessage(voids: readonly [PushVoid, ...PushVoid[]], origin: string):
   const [first] = voids;
   const path = `/prd/${first.dossier}`;
   const url = `${origin}${path}`;
-  const heading = `approval voided by ${first.pusher}'s push`;
+  const heading = `${first.approvalKind === 'tech' ? 'tech approval' : 'approval'} voided by ${first.pusher}'s push`;
   const about = `PRD ${first.prd} · ${first.title}`;
   const changes = voids.map((v) => `${v.kind} ${short(v.from)}→${short(v.to)}`);
   const text = [heading, '', about, first.repo, ...changes, '', `Open it to approve again: ${url}`].join('\n');
@@ -62,15 +64,8 @@ async function unlabel(deps: TellDeps, voided: PushVoid): Promise<void> {
   }
 }
 
-async function tell(deps: TellDeps, dossier: string, origin: string): Promise<void> {
-  const read = await deps.voids.ofPush(dossier);
-  if (!read.ok) {
-    deps.log(`approvals: the voids of a push of dossier ${dossier} could not be read: ${read.message ?? read.code ?? 'the database failed'}`);
-    return;
-  }
-  const [first, ...rest] = read.value;
-  if (!first) return;
-  await unlabel(deps, first);
+/** Tells the approver of one approval the push voided: `voids` are that approval's. */
+async function tellApprover(deps: TellDeps, [first, ...rest]: readonly [PushVoid, ...PushVoid[]], origin: string): Promise<void> {
   if (!deps.reach) {
     deps.log(`approvals: PRD #${first.prd} of ${first.repo}'s approval is voided, but ${first.approver} is not told: SUPABASE_SERVICE_ROLE_KEY is not set`);
     return;
@@ -81,6 +76,21 @@ async function tell(deps: TellDeps, dossier: string, origin: string): Promise<vo
     return;
   }
   await notifyAll(recipients.value, voidMessage([first, ...rest], origin), deps.channels(origin), deps.log);
+}
+
+async function tell(deps: TellDeps, dossier: string, origin: string): Promise<void> {
+  const read = await deps.voids.ofPush(dossier);
+  if (!read.ok) {
+    deps.log(`approvals: the voids of a push of dossier ${dossier} could not be read: ${read.message ?? read.code ?? 'the database failed'}`);
+    return;
+  }
+  const [product, ...moreProduct] = read.value.filter((v) => v.approvalKind === 'product');
+  const [tech, ...moreTech] = read.value.filter((v) => v.approvalKind === 'tech');
+  if (product) {
+    await unlabel(deps, product);
+    await tellApprover(deps, [product, ...moreProduct], origin);
+  }
+  if (tech) await tellApprover(deps, [tech, ...moreTech], origin);
 }
 
 /** Tells the approver whose approval the caller's push of `dossier` voided, if it voided one. `origin`

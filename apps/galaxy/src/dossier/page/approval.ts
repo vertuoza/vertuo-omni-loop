@@ -78,8 +78,15 @@ export type ApproveScreen = {
   spec: 'read' | 'none' | 'unread';
 };
 
+/** A PRD's Tech Approval request as the page reads it (PRD 2608): the one member it names, and where it stands
+ * (asked: no tech approval since; approved: one is in force; voided: a push voided the last, or its files moved
+ * on), with the tech approval row the state came from. */
+export type TechFacts = { user: string; state: 'asked' | 'approved' | 'voided'; approval: ApprovalRow | null };
+
 /** What the page reads beside a ◆ PRD's approval in force (PRD 1322 s7). */
 export type ApprovalFacts = {
+  /** The PRD's Tech Approval request; left out (or null) when nobody asked for one (BR-PRODUCT-127), `unread` when it could not be read. */
+  tech?: TechFacts | null | 'unread' | undefined;
   /** The voids of the dossier's approvals, oldest first. */
   voids: readonly ApprovalVoid[];
   /** The members asked to approve the PRD's product (none: any member may), or `unread`. */
@@ -89,6 +96,8 @@ export type ApprovalFacts = {
   /** The business laws' verdict (PRD 2632 s4): the latest spec's for a viewer who gets the button, the approved
    * spec's once approved; left out, none is shown. */
   laws?: LawsView | undefined;
+  /** The Tech Approval's screen, read for the named person: the changes since their last approval, then the spec's Problem and Solution. */
+  techScreen?: ApproveScreen | undefined;
 };
 
 export type ApprovalState = 'waiting' | 'approved' | 'drifted' | 'voided' | 'unread';
@@ -112,6 +121,24 @@ export type ApprovalView = {
   seal: ApprovalSeal | null;
   /** The business laws' verdict shown above Approve, or under the seal (PRD 2632 s4); a red turns Approve off. */
   laws?: LawsView | null;
+  /** The Tech Approval part (PRD 2608); null when nobody asked for one, so a PRD with no request renders as before. */
+  tech: TechView | null;
+  /** Whether the viewer, the PRD's author, gets **Request a Tech Approval**: a ◆ PRD not yet approved, with no request. */
+  canRequestTech: boolean;
+};
+
+/** What the page shows of a Tech Approval (PRD 2608). */
+export type TechView = {
+  state: 'asked' | 'approved' | 'voided';
+  /** Who the request names, as the page names a member. */
+  name: string;
+  /** Whether the viewer is the named person and may give it, with the changes since their last approval in `screen`. */
+  canGive: boolean;
+  screen: ApproveScreen | null;
+  /** The tech seal, shown first, once both approvals hold. */
+  seal: ApprovalSeal | null;
+  /** The line a product approver reads in place of Approve while the Tech Approval is missing; null otherwise. */
+  waiting: string | null;
 };
 
 /** What the seal of an approval in force shows. */
@@ -125,10 +152,10 @@ const WORDS: Record<ApprovalState, string> = {
   unread: 'The approval could not be read. Reload the page in a moment.',
 };
 
-/** The latest approval of dossier `id` the caller reads, or null when nobody approved it yet; throws when
+/** The latest product approval of dossier `id` (a tech approval is never the product one, PRD 2608) the caller reads, or null when nobody approved it yet; throws when
  * the database fails or answers out of shape. */
 export async function readApproval(db: Pick<SupabaseClient, 'from'>, id: string): Promise<ApprovalRow | null> {
-  const { data, error } = await db.from('approvals').select('id, approver_login, approved_at, files').eq('dossier_id', id)
+  const { data, error } = await db.from('approvals').select('id, approver_login, approved_at, files').eq('dossier_id', id).eq('approval_kind', 'product')
     .order('approved_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(`read the approval: ${error.message}`);
   if (data === null) return null;
@@ -145,6 +172,28 @@ export async function readVoids(db: Pick<SupabaseClient, 'from'>, id: string): P
   const parsed = z.array(ApprovalVoidSchema).safeParse(data);
   if (!parsed.success) throw new Error(`read the approval's voids: answered out of shape for ${id}`);
   return parsed.data;
+}
+
+const TechRequestRow = z.object({ asked: z.array(z.string().min(1)).min(1), asked_at: z.string().refine((at) => !Number.isNaN(Date.parse(at))) });
+
+/** The dossier's Tech Approval request and where it stands (PRD 2608), as the member reads it: null when nobody
+ * requested one. A tech approval is read by kind `tech`, from the request on; a void after it, or a pinned file
+ * that moved on, reads `voided`. Throws when the database fails or answers out of shape. */
+export async function readTech(db: Pick<SupabaseClient, 'from'>, id: string, versions: readonly { id: string; kind: string }[], voids: readonly ApprovalVoid[]): Promise<TechFacts | null> {
+  const request = await db.from('approval_requests').select('asked, asked_at').eq('dossier_id', id).eq('approval_kind', 'tech')
+    .order('asked_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle();
+  if (request.error) throw new Error(`read the tech request: ${request.error.message}`);
+  if (request.data === null) return null;
+  const asked = TechRequestRow.safeParse(request.data);
+  if (!asked.success) throw new Error(`read the tech request: answered out of shape for ${id}`);
+  const user = asked.data.asked[0] ?? '';
+  const given = await db.from('approvals').select('id, approver_login, approved_at, files').eq('dossier_id', id).eq('approval_kind', 'tech')
+    .gte('approved_at', asked.data.asked_at).order('approved_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle();
+  if (given.error) throw new Error(`read the tech approval: ${given.error.message}`);
+  if (given.data === null) return { user, state: 'asked', approval: null };
+  const approval = ApprovalRowSchema.safeParse(given.data);
+  if (!approval.success) throw new Error(`read the tech approval: answered out of shape for ${id}`);
+  return { user, state: judgeApproval(approval.data, voids, versions).state === 'approved' ? 'approved' : 'voided', approval: approval.data };
 }
 
 const ProductOfDossier = z.object({ product_id: z.string().nullable() });
@@ -211,6 +260,96 @@ export function judgeApproval(approval: ApprovalRow, allVoids: readonly Approval
   return { state: 'drifted', detail: `${changed.join(', ')} changed since ${approval.approver_login} approved it · ${at}`, changed };
 }
 
+/** Who looks at a ◆ PRD's approval and what they may do: a member, asked or not by the product, and the Tech
+ * Approval request the page read (PRD 2608). */
+type Seat = { me: string | null; member: boolean; tech: TechFacts | null; techUnread: boolean; allowed: boolean };
+
+function seatOf(read: { members: readonly Member[]; approvalFacts?: ApprovalFacts | undefined }, me: string | null): Seat {
+  const member = me !== null && read.members.some((m) => m.user_id === me);
+  const found = read.approvalFacts?.tech;
+  const tech = techFound(found);
+  // While a requested Tech Approval is missing (asked, or voided), the database refuses the product approval,
+  // so a product approver reads who it waits on in place of Approve.
+  const allowed = member && askedAllows(read.approvalFacts?.asked ?? [], me) && (tech === null || tech.state === 'approved');
+  return { me, member, tech, techUnread: found === 'unread', allowed };
+}
+
+/** The Tech Approval request the page read, null with none or when it could not be read. */
+function techFound(found: ApprovalFacts['tech']): TechFacts | null {
+  return found && found !== 'unread' ? found : null;
+}
+
+/** Whether the product asks `me` to approve: nobody asked (any member may), the list unread (the database decides), or `me` asked. */
+function askedAllows(asked: ApprovalFacts['asked'], me: string | null): boolean {
+  return asked === 'unread' || !asked.length || (me !== null && asked.includes(me));
+}
+
+/** The Tech Approval part of the page for the request `tech`: who it names, whether `me` gives it, the waiting
+ * line a product approver reads, and the tech seal once the product approval holds too (`seal`). */
+function techViewOf(
+  tech: TechFacts,
+  at: { members: readonly Member[]; seat: Seat; screen: ApproveScreen | undefined; open: boolean; seal: ApprovalSeal | null },
+): TechView {
+  const name = nameOfMember(at.members, tech.user);
+  const missing = tech.state !== 'approved';
+  const canGive = missing && at.seat.member && tech.user === at.seat.me;
+  return {
+    state: tech.state, name, canGive, screen: canGive ? at.screen ?? null : null,
+    seal: !missing && at.seal ? techSeal(tech, at.seal) : null,
+    waiting: missing && at.open ? `waiting for ${name}'s tech approval` : null,
+  };
+}
+
+/** How the page names the member `user`, or that they left the workspace. */
+function nameOfMember(members: readonly Member[], user: string): string {
+  const named = members.find((m) => m.user_id === user);
+  return named ? (named.name ?? named.email) : 'someone who left the workspace';
+}
+
+/** The tech seal, beside the product one (`seal`): the tech approval's approver, time and pinned files. */
+function techSeal({ approval }: TechFacts, seal: ApprovalSeal): ApprovalSeal | null {
+  if (approval === null) return null;
+  return { prd: seal.prd, approver: approval.approver_login, at: stamp(approval.approved_at), files: approval.files.map((file) => ({ path: file.path, hash: file.sha256 ? short(file.sha256) : null })) };
+}
+
+/** An approval's view for the state it reads, to the viewer `seat`. */
+function viewOf(
+  read: { dossier: DossierRow; members: readonly Member[]; approvalFacts?: ApprovalFacts | undefined },
+  seat: Seat,
+  state: ApprovalState,
+  rest: { detail: string | null; changed: string[]; seal: ApprovalSeal | null },
+): ApprovalView {
+  const open = state === 'waiting' || state === 'drifted' || state === 'voided';
+  const tech = seat.tech && techViewOf(seat.tech, { members: read.members, seat, screen: read.approvalFacts?.techScreen, open, seal: rest.seal });
+  const canApprove = seat.allowed && open;
+  return {
+    state, words: wordsOf(state, tech), ...rest, canApprove,
+    dossier: read.dossier.id, screen: canApprove ? approveScreenOf(read.approvalFacts) : null, tech,
+    canRequestTech: open && isAuthor(seat, read.dossier),
+    ...lawsPartOf(read.approvalFacts),
+  };
+}
+
+/** The business laws' verdict the page read, left out with none (PRD 2632 s4). */
+function lawsPartOf(facts: ApprovalFacts | undefined): Pick<ApprovalView, 'laws'> {
+  return facts?.laws ? { laws: facts.laws } : {};
+}
+
+/** The approve screen the page read, null with none. */
+function approveScreenOf(facts: ApprovalFacts | undefined): ApproveScreen | null {
+  return facts?.screen ?? null;
+}
+
+/** Whether the viewer is the PRD's author, a member, with no Tech Approval requested or unread (PRD 2608). */
+function isAuthor(seat: Seat, dossier: Pick<DossierRow, 'opened_by'>): boolean {
+  return seat.member && seat.me === dossier.opened_by && !seat.tech && !seat.techUnread;
+}
+
+/** The words of an approval's state; while it waits on a Tech Approval someone else gives, they say who. */
+function wordsOf(state: ApprovalState, tech: TechView | null): string {
+  return tech?.waiting && !tech.canGive && state === 'waiting' ? tech.waiting : WORDS[state];
+}
+
 /** The approval of a ◆ PRD as its page shows it to `me`; null for any other dossier. */
 export function approvalView(
   read: {
@@ -219,22 +358,16 @@ export function approvalView(
   },
   me: string | null,
 ): ApprovalView | null {
-  const { dossier } = read;
+  const { dossier, approval } = read;
   if ((dossier.kind ?? 'prd') !== 'prd' || dossier.prd === null || dossier.birthplace !== 'server') return null;
-  const asked = read.approvalFacts?.asked ?? [];
-  const member = me !== null && read.members.some((m) => m.user_id === me);
-  const allowed = member && (asked === 'unread' || !asked.length || asked.includes(me));
-  const view = (state: ApprovalState, detail: string | null = null, changed: string[] = [], seal: ApprovalSeal | null = null): ApprovalView => {
-    const canApprove = allowed && (state === 'waiting' || state === 'drifted' || state === 'voided');
-    const laws = read.approvalFacts?.laws;
-    return { state, words: WORDS[state], detail, changed, canApprove, dossier: dossier.id, screen: canApprove ? read.approvalFacts?.screen ?? null : null, seal, ...(laws ? { laws } : {}) };
-  };
-  const { approval } = read;
-  if (approval === null) return view('waiting');
-  if (approval === undefined || approval === 'unread') return view('unread');
+  const seat = seatOf(read, me);
+  const plain = { detail: null, changed: [], seal: null };
+  if (approval === null) return viewOf(read, seat, 'waiting', plain);
+  if (approval === undefined || approval === 'unread') return viewOf(read, seat, 'unread', plain);
   const judged = judgeApproval(approval, read.approvalFacts?.voids ?? [], read.versions);
-  if (judged.state !== 'approved') return view(judged.state, judged.detail, judged.changed);
-  return view('approved', judged.detail, [], { prd: dossier.prd, approver: approval.approver_login, at: judged.at, files: judged.files });
+  if (judged.state !== 'approved') return viewOf(read, seat, judged.state, { detail: judged.detail, changed: judged.changed, seal: null });
+  const seal = { prd: dossier.prd, approver: approval.approver_login, at: judged.at, files: judged.files };
+  return viewOf(read, seat, 'approved', { detail: judged.detail, changed: [], seal });
 }
 
 const SECTIONS = ['Problem', 'Solution'] as const;

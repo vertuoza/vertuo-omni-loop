@@ -668,3 +668,43 @@ Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, 
 Enforced by: supabase/checks/api_key_jobs.sql
 Stated: 2026-10-23
 Decided: @nicojustdev, 2026-10-23
+
+## BR-PRODUCT-126
+
+Asking a PRD's product approvers before its Tech Approval is given is allowed: the request is recorded and shows in their bell, while their approval is refused, naming who it waits on, until the Tech Approval is given.
+
+Serves: P-PRODUCT-87
+Source: .omni-loop/delivery/shipped/2608-tech-approval/outbox/settled.md, entry s1-02-an-early-product-request-still-reaches-the-bell, PRD #2608
+Enforced by: supabase/checks/tech_approval.sql
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04
+
+## BR-PRODUCT-127
+
+A PRD with no Tech Approval request reads with no tech part at all in the approval the terminal reads, not an empty one; the part appears, with the named person and its state, only once a Tech Approval is requested.
+
+Serves: P-PRODUCT-87
+Source: .omni-loop/delivery/shipped/2608-tech-approval/outbox/settled.md, entry s1-03-the-tech-state-is-left-out-when-nobody-asked, PRD #2608
+Enforced by: supabase/checks/tech_approval.sql
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04
+
+## BR-PRODUCT-128
+
+Approval email is on by default: a person with no alert settings gets approval emails, and a person who switched email off gets none.
+
+Serves: P-PRODUCT-88
+Source: .omni-loop/delivery/shipped/2608-tech-approval/outbox/settled.md, entry s2-03-the-approval-requests-check-now-expects-no-row-to-be-emailed, PRD #2608
+Enforced by: supabase/checks/approval_requests.sql
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04
+
+## BR-PRODUCT-129
+
+A red business-law verdict holds a PRD's product approval only. The person named for its Tech Approval can still review and give it, and giving it does not lift the red.
+
+Serves: P-PRODUCT-87
+Source: pull request #2633, merging PRD 2632 with PRD 2608: the two specs do not settle it, so a person was asked in the terminal
+Enforced by: supabase/checks/business_law_verdicts.sql, apps/galaxy/src/approval/approval-api.business-laws.test.ts
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04

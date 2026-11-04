@@ -209,8 +209,8 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000b00a2', 'ada@pa.test');
 do $$
 begin
   insert into public.alert_channels (user_id) values ('00000000-0000-4000-8000-0000000b00a2');
-  if (select row(push, email) from public.alert_channels) is distinct from row(false, false) then
-    raise exception 'FAIL: the alert channels are not off by default';
+  if (select row(push, email) from public.alert_channels) is distinct from row(false, true) then
+    raise exception 'FAIL: the alert channels are not push off and email on by default';
   end if;
   update public.alert_channels set push = true, email = true where user_id = '00000000-0000-4000-8000-0000000b00a2';
   insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, device_label)

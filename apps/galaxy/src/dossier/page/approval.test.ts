@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import {
-  approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRow, type ApprovalVoid,
+  approvalView, readApproval, readApproveScreen, readAskedApprovers, readTech, readVoids, type ApprovalFacts, type ApprovalRow, type ApprovalVoid,
 } from './approval';
 import { DossierPage } from './DossierPage';
 import { dossierView, readPick, type DossierRead } from './view';
@@ -59,13 +59,13 @@ const page = (r: DossierRead, me: string | null = ADA.user_id) =>
 describe('approvalView', () => {
   it('waits for approval while none was given, with the button for a member', () => {
     expect(approvalView(read(born('server'), null), ADA.user_id)).toEqual({
-      state: 'waiting', words: 'waiting for approval', detail: null, changed: [], canApprove: true, dossier: ID, screen: null, seal: null,
+      state: 'waiting', words: 'waiting for approval', detail: null, changed: [], canApprove: true, dossier: ID, screen: null, seal: null, tech: null, canRequestTech: true,
     });
   });
 
   it('is approved, with who and when, while every pinned file is still the latest of its kind', () => {
     expect(approvalView(read(born('server'), APPROVED), ADA.user_id)).toEqual({
-      state: 'approved', words: 'approved', detail: 'by ada · 9 Oct 2026, 09:12 UTC', changed: [], canApprove: false, dossier: ID, screen: null,
+      state: 'approved', words: 'approved', detail: 'by ada · 9 Oct 2026, 09:12 UTC', changed: [], canApprove: false, dossier: ID, screen: null, tech: null, canRequestTech: false,
       seal: {
         prd: 1299, approver: 'ada', at: '9 Oct 2026, 09:12 UTC',
         files: [{ path: 'spec.md', hash: '9c41aa0' }, { path: 'plan.md', hash: '41b0bb0' }, { path: 'before-after.html', hash: null }],
@@ -85,7 +85,7 @@ describe('approvalView', () => {
   it('drifts once a version newer than a pinned one was pushed, naming the file, with the button back', () => {
     expect(approvalView(read(born('server'), APPROVED, [...VERSIONS, NEWER_PLAN]), ADA.user_id)).toEqual({
       state: 'drifted', words: 'drifted · approve again', detail: 'plan.md changed since ada approved it · 9 Oct 2026, 09:12 UTC',
-      changed: ['plan.md'], canApprove: true, dossier: ID, screen: null, seal: null,
+      changed: ['plan.md'], canApprove: true, dossier: ID, screen: null, seal: null, tech: null, canRequestTech: true,
     });
   });
 
@@ -125,6 +125,93 @@ describe('approvalView', () => {
   });
 });
 
+const BOB = { user_id: 'u-bob', email: 'bob@example.com', name: 'Bob' };
+const CAT = { user_id: 'u-cat', email: 'cat@example.com', name: 'Cat' };
+const TECH_APPROVED: ApprovalRow = { ...APPROVED, id: 't-1', approver_login: 'bob', approved_at: '2026-10-09T08:30:00Z' };
+
+/** A PRD ADA opened, with BOB named for its Tech Approval and CAT a member too. */
+const techRead = (tech: NonNullable<ApprovalFacts['tech']>, approval: DossierRead['approval'] = null): DossierRead =>
+  ({ ...read(born('server'), approval), members: [ADA, BOB, CAT], approvalFacts: { voids: [], asked: [], tech } });
+
+describe('the Tech Approval on the page (PRD 2608)', () => {
+  it('has no tech part, and offers the author the request, while nobody asked for one (BR-PRODUCT-127)', () => {
+    const view = approvalView(read(born('server'), null), ADA.user_id);
+    expect(view?.tech).toBeNull();
+    expect(view?.canRequestTech).toBe(true);
+    expect(approvalView({ ...read(born('server'), null), members: [ADA, BOB] }, BOB.user_id)?.canRequestTech).toBe(false);
+    expect(approvalView(read(born('server'), APPROVED), ADA.user_id)?.canRequestTech).toBe(false);
+  });
+
+  it('shows the author the request, and the named person Give Tech Approval, never the author Approve before it is given', () => {
+    const asked = techRead({ user: BOB.user_id, state: 'asked', approval: null });
+    expect(approvalView(asked, ADA.user_id)).toMatchObject({ canRequestTech: false, canApprove: false, tech: { state: 'asked', name: 'Bob', canGive: false, waiting: 'waiting for Bob\'s tech approval' } });
+    expect(approvalView(asked, BOB.user_id)).toMatchObject({ canApprove: false, tech: { canGive: true } });
+    expect(approvalView(asked, CAT.user_id)?.tech?.canGive).toBe(false);
+    const html = page(asked, ADA.user_id);
+    expect(html).toContain('waiting for Bob&#x27;s tech approval');
+    expect(html).not.toMatch(/<button[^>]*>Approve<\/button>/);
+    expect(page(asked, BOB.user_id)).toMatch(/<button[^>]*>Give Tech Approval<\/button>/);
+  });
+
+  it('says the same in the Stage line while the Tech Approval is missing, and nothing once it is given', () => {
+    const asked = { ...techRead({ user: BOB.user_id, state: 'asked', approval: null }), stages: [] };
+    const stage = (html: string) => /dossier-fact-stage.*?<\/dd>/s.exec(html)?.[0] ?? '';
+    expect(stage(page(asked, ADA.user_id))).toContain('waiting for Bob&#x27;s tech approval');
+    const given = { ...techRead({ user: BOB.user_id, state: 'approved', approval: TECH_APPROVED }), stages: [] };
+    expect(stage(page(given, ADA.user_id))).not.toContain('tech approval');
+    expect(stage(page({ ...read(born('server'), null), stages: [] }, ADA.user_id))).not.toContain('tech approval');
+  });
+
+  it('gives the product approver the Approve button once the Tech Approval is in force, and two seals, tech first', () => {
+    const given = techRead({ user: BOB.user_id, state: 'approved', approval: TECH_APPROVED });
+    expect(approvalView(given, ADA.user_id)?.canApprove).toBe(true);
+    const both = techRead({ user: BOB.user_id, state: 'approved', approval: TECH_APPROVED }, APPROVED);
+    const view = approvalView(both, ADA.user_id);
+    expect(view?.tech?.seal).toMatchObject({ approver: 'bob' });
+    const html = page(both);
+    expect(html.indexOf('Tech approval · PRD 1299')).toBeGreaterThan(-1);
+    expect(html.indexOf('Tech approval · PRD 1299')).toBeLessThan(html.indexOf('Approved by ada'));
+  });
+
+  it('asks again from the named person when a push voided the Tech Approval', () => {
+    const voided = techRead({ user: BOB.user_id, state: 'voided', approval: TECH_APPROVED });
+    expect(approvalView(voided, BOB.user_id)?.tech).toMatchObject({ state: 'voided', canGive: true });
+    expect(approvalView(voided, ADA.user_id)?.canApprove).toBe(false);
+  });
+});
+
+describe('readTech', () => {
+  const answers = (...queue: Array<{ data: unknown; error: { message: string } | null }>) => {
+    const calls: string[] = [];
+    const next = () => queue.shift() ?? { data: null, error: null };
+    const builder = new Proxy({}, {
+      get: (_, name: string) => name === 'maybeSingle' ? () => Promise.resolve(next()) : (...a: unknown[]) => (calls.push(`${name}(${a.join(',')})`), builder),
+    });
+    return { calls, client: { from: (t: string) => (calls.push(`from(${t})`), builder) } as unknown as Pick<SupabaseClient, 'from'> };
+  };
+  const ASKED = { data: { asked: ['u-bob'], asked_at: '2026-10-09T08:10:00Z' }, error: null };
+
+  it('reads nothing when nobody requested a tech approval, and asks the database for kind tech only', async () => {
+    const { client, calls } = answers({ data: null, error: null });
+    expect(await readTech(client, ID, VERSIONS, [])).toBeNull();
+    expect(calls).toContain('eq(approval_kind,tech)');
+  });
+
+  it('reads asked, approved and voided', async () => {
+    expect(await readTech(answers(ASKED, { data: null, error: null }).client, ID, VERSIONS, [])).toEqual({ user: 'u-bob', state: 'asked', approval: null });
+    expect(await readTech(answers(ASKED, { data: TECH_APPROVED, error: null }).client, ID, VERSIONS, [])).toMatchObject({ state: 'approved' });
+    const voids: ApprovalVoid[] = [{ approval_id: 't-1', kind: 'spec', from_sha256: 'aaaaaaaa', to_sha256: 'bbbbbbbb', pusher_login: 'ada', voided_at: '2026-10-09T09:00:00Z' }];
+    expect(await readTech(answers(ASKED, { data: TECH_APPROVED, error: null }).client, ID, VERSIONS, voids)).toMatchObject({ state: 'voided' });
+  });
+
+  it('throws when the database fails or answers out of shape', async () => {
+    await expect(readTech(answers({ data: null, error: { message: 'down' } }).client, ID, VERSIONS, [])).rejects.toThrow('read the tech request: down');
+    await expect(readTech(answers({ data: { asked: [] }, error: null }).client, ID, VERSIONS, [])).rejects.toThrow('out of shape');
+    await expect(readTech(answers(ASKED, { data: { id: 'x' }, error: null }).client, ID, VERSIONS, [])).rejects.toThrow('out of shape');
+    await expect(readTech(answers(ASKED, { data: null, error: { message: 'down' } }).client, ID, VERSIONS, [])).rejects.toThrow('read the tech approval: down');
+  });
+});
+
 describe('readApproval', () => {
   const db = (answer: { data: unknown; error: { message: string } | null }) => {
     const calls: unknown[][] = [];
@@ -144,7 +231,7 @@ describe('readApproval', () => {
     const stub = db({ data: { ...APPROVED, files: [...APPROVED.files.map((f) => ({ ...f, sha256: 'abc' }))] }, error: null });
     expect(await readApproval(stub.client, ID)).toEqual({ ...APPROVED, files: APPROVED.files.map((f) => ({ ...f, sha256: 'abc' })) });
     expect(stub.calls).toEqual([
-      ['from', 'approvals'], ['select', 'id, approver_login, approved_at, files'], ['eq', 'dossier_id', ID],
+      ['from', 'approvals'], ['select', 'id, approver_login, approved_at, files'], ['eq', 'dossier_id', ID], ['eq', 'approval_kind', 'product'],
       ['order', 'approved_at', { ascending: false }], ['order', 'id', { ascending: false }], ['limit', 1],
     ]);
   });
@@ -203,7 +290,6 @@ describe('the PRD page', () => {
 const VOID: ApprovalVoid = {
   approval_id: 'a-1', kind: 'plan', from_sha256: 'a'.repeat(64), to_sha256: 'b'.repeat(64), pusher_login: 'bob', voided_at: '2026-10-09T10:00:00Z',
 };
-const BOB = { user_id: 'u-bob', email: 'bob@example.com', name: 'Bob' };
 const withFacts = (r: DossierRead, facts: ApprovalFacts): DossierRead => ({ ...r, members: [ADA, BOB], approvalFacts: facts });
 
 describe('approvalView, with the product\'s approvers and the voids', () => {

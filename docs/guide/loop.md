@@ -131,7 +131,7 @@ approval, and waits for it, instead of stopping.
   leaves nobody, the author is asked.
 - **How each person is reached** is their own choice, on their profile page: **Phone alerts** (a
   notification on this device, once the Omni page is installed on it; on an iPhone, added to the home
-  screen first) and **Email**, both off by default. Each request also shows in the page's bell.
+  screen first) and **Email**; email is on by default, phone alerts are off. Each request also shows in the page's bell.
 - **The wait.** `/omni:yolo <n>` on a ◆ PRD waiting for approval runs `omni wait approval <n>`: it
   asks the approvers, prints `◌ PRD <n> · waiting for ana or ben`, and follows the approval as it
   happens. The moment someone approves, it prints `✓ PRD <n> approved by <login> · <time> · <k> files
@@ -148,6 +148,31 @@ approval, and waits for it, instead of stopping.
   waiting terminal prints `✗ approval voided by <pusher>'s push` and asks again.
 - **`/loop /omni:drive` never waits.** It parks a PRD waiting for approval, as it parks one whose
   phase-0 pull request is open, and a later tick builds it once it is approved.
+
+### The two approvals
+
+A ◆ PRD may carry a second approval, a **Tech Approval**, asked for one PRD at a time. At the end of
+`/omni:brainstorm` the author is asked **Request a Tech Approval?**; yes names one workspace member (the
+author may also press **Request a Tech Approval** on the PRD's page, before the PRD is approved, or run
+`omni approval tech request <n> --to <login>`). A PRD with no request runs exactly as above.
+
+- **Tech first, then product.** The named person sees the request in their **Waiting** section and by
+  email, runs `/omni:tech-review <n>`, and presses **Give Tech Approval** on the PRD's page. Only then are
+  the product's approvers asked. Until it is given the product approval is refused, so `/omni:yolo`,
+  `omni approval <n>` and the `omni/approved` check all read "not approved yet", and `omni wait approval <n>`
+  prints `waiting for <login>'s tech approval`.
+- **`/omni:tech-review <n>` covers coding only.** The agent shows the choices already made, then grills
+  the architecture and the harness one question at a time, each with a recommended answer. It changes
+  the spec's Conventions, Test seams and Risks, the technical side of Solution and Decisions, the
+  before/after page's Technical tab and the plan's slices, territories, blockers and waves; never the
+  Problem, User stories, Scope, Acceptance criteria, the proof or e2e choices. A question only the PM can
+  settle becomes a comment on the PRD's issue naming the author. Each settled question is recorded under
+  `### Tech review` in the spec's Decisions, and each change reaches the page as a new version.
+- **The skill never approves.** Only the named person presses the button. It refuses a PRD with no plan or
+  no open request, anyone but the named person, a PRD with a merged sub-PR, and any run under
+  `OMNI_UNATTENDED`: a grill needs a person.
+- **It cannot be skipped or withdrawn,** and a push that changes a pinned file voids both approvals, the
+  named person's first.
 
 ### The omni/approved check
 
@@ -344,6 +369,7 @@ omni board 7
 | `/omni:retro-apply --retro <n>` | never by hand unless no runner took it: the retro pull request's body carries the line when a kept lesson has no outcome | each kept lesson settled on the retro pull request's branch: a rule appended to its playbook slot and quoted in the body, or the reason it stays here, or one question; it never merges |
 | `/omni:rewind <n>` | never by hand unless no runner took it: a shipped PRD's page reads **Broke main**, and its Main tab carries the line until a rewind ran | the PRD's Main tab listing where the break started, each finding with its check, its evidence and its fix, for you to approve or reject; it writes nothing to the repository and never merges |
 | `/omni:rewind-apply <n> <finding>` | never by hand unless no runner took it: an approved knowledge finding's card reads **Proposing the rule…** | one docs-only pull request proposing the rule in your repository's knowledge, or the rule that already says it, or one question, shown on the finding's card; it never merges |
+| `/omni:tech-review <n>` | you were named for a PRD's Tech Approval ([the two approvals](#the-two-approvals)) | the coding parts of the spec and plan changed with you, each settled question recorded under `### Tech review`, and the PRD's page link; it gives no approval and never merges, and a runner never runs it |
 | `/omni:invade` | once, after the install; with `--refresh` when the repository has changed a lot | one docs pull request: the knowledge base |
 | `/omni:status` | you want to see where the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |

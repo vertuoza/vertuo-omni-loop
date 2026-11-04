@@ -646,6 +646,20 @@ say what the spec must answer (it has already asked on the issue). There is no p
 For a ◆ PRD, `/omni:plan` runs while the PRD waits for approval: the plan is part of what is
 approved, so its gate takes `state: prd` with `birthplace: server` here, as it says.
 
+**The Tech Approval question** (PRD 2608), asked last, once the plan is planned, graded and pushed
+above, after the proof and e2e questions of step 1, and only when step 0 read
+`phase 0: server` (a ◆ PRD of one repository). Under `phase 0: pr`, with a product PRD, or when
+`OMNI_UNATTENDED` is set, ask nothing and write nothing. Ask one question, yes or no:
+*"Request a Tech Approval?"*, meaning one technical person reads the plan before the build.
+
+- **No, or no answer,** changes nothing: ask nothing more, and the hand-off reads as it does today.
+- **Yes** needs one workspace member. Run `node .omni-loop/bin/omni.mjs approval tech request <n>`
+  with no `--to`: it prints the workspace's members, one per line. Offer them (never yourself, the
+  author), and send the pick with `node .omni-loop/bin/omni.mjs approval tech request <n> --to <login>`.
+  A refusal from the database reaches you in its own words: say it, and carry on to step 10 with no
+  request. The hand-off then names who the PRD waits on and the line `/omni:tech-review <n>`, which
+  the named person runs.
+
 ## 9. The phase-0 PR
 
 The design is approved, the spec written and the plan computed, and not one line of source exists
@@ -800,6 +814,11 @@ To build it on a runner instead: `/omni:yolo-runner <n>`.
 
 /omni:yolo <n>
 ```
+
+**With a Tech Approval requested** (step 8), step 2 of **What is next?** reads instead:
+"`<login>` gives a Tech Approval first: they run `/omni:tech-review <n>` and press **Give Tech
+Approval** on the page. The PRD waits for <login>'s tech approval. Then its approvers approve it
+there. → PRD <n> moves into the inbox."
 
 The command is the very last line of the reply, alone on it, and never a planning command: planning
 already ran in step 8. Everything the next session needs is in the repository and on GitHub, so

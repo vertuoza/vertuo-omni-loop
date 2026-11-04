@@ -16,6 +16,7 @@ begin;
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000026320a1', 'ada@blv.test'),
+  ('00000000-0000-4000-8000-0000026320a2', 'bea@blv.test'),
   ('00000000-0000-4000-8000-0000026320c1', 'carl@blv-other.test');
 insert into auth.identities (id, user_id, provider, provider_id, identity_data, created_at, updated_at) values
   (gen_random_uuid(), '00000000-0000-4000-8000-0000026320a1', 'github', '26321', '{"sub": "26321", "user_name": "ada-blv"}', now(), now());
@@ -25,6 +26,7 @@ insert into public.workspaces (id, slug, name, github_org) values
   ('00000000-0000-4000-8000-000002632100', 'blv-other', 'Other', 'blv-other');
 insert into public.workspace_members (workspace_id, user_id) values
   ('00000000-0000-4000-8000-000002632000', '00000000-0000-4000-8000-0000026320a1'),
+  ('00000000-0000-4000-8000-000002632000', '00000000-0000-4000-8000-0000026320a2'),
   ('00000000-0000-4000-8000-000002632100', '00000000-0000-4000-8000-0000026320c1');
 insert into public.businesses (workspace_id, name) values ('00000000-0000-4000-8000-000002632000', 'Blv');
 insert into public.products (workspace_id, business_id, name, key)
@@ -242,6 +244,22 @@ begin
   perform pg_temp.refused('delete from public.business_law_verdicts', '42501', 'a member deleted a verdict');
 end $$;
 reset role;
+
+-- ── A red holds the product approval, never a Tech Approval, and a Tech Approval does not lift it ──
+savepoint tech_approval_under_a_red;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000026320a1');
+select public.dossier_request_tech_approval(pg_temp.dossier(), 'bea@blv.test');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000026320a2');
+do $$
+begin
+  perform public.dossier_approve(pg_temp.dossier(), 'tech');
+  if (select count(*) from public.approvals where approval_kind = 'tech') <> 1 then raise exception 'FAIL: a red held the Tech Approval'; end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000026320a1');
+select pg_temp.refused(format('select public.dossier_approve(%L)', pg_temp.dossier()), '22023', 'a Tech Approval lifted the red', 'BL-QUOTES-1');
+reset role;
+rollback to savepoint tech_approval_under_a_red;
 
 -- ── Not even the owner of the table changes or deletes one ──
 do $$

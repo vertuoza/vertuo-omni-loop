@@ -19,14 +19,14 @@
 -- - business_law_verdict_of(): what a member reads on the PRD's page and the approval route reads before
 --   it approves: the latest spec version, the law home, its newest pack, and the verdict kept at those two;
 --   or, given a spec version (the approved one), that version's latest verdict. Null for anyone else.
--- - dossier_approve(): as 20261210100000_product_roadmaps.sql, and it refuses a PRD whose latest spec
---   version has a red verdict at its law home's newest pack, whoever calls. A red at an older pack, a green,
---   a neutral and no verdict at all approve as before.
+-- - dossier_approve(): as 20270110093000_tech_approval.sql, and it refuses the product approval of a PRD whose
+--   latest spec version has a red verdict at its law home's newest pack, whoever calls. A Tech Approval is not
+--   held by a red. A red at an older pack, a green, a neutral and no verdict at all approve as before.
 -- - Who reads: a member of the verdict's workspace, through row-level security. Nobody signed in writes.
 --
 -- Proven by supabase/checks/business_law_verdicts.sql.
 --
--- Rollback: a follow-up migration restores dossier_approve() from 20261210100000_product_roadmaps.sql, then
+-- Rollback: a follow-up migration restores dossier_approve() from 20270110093000_tech_approval.sql, then
 -- drops business_law_verdict_of(), business_law_judge_input(), business_law_verdict_put() and the
 -- business_law_verdicts table (its trigger and function with it). Nothing else reads them.
 
@@ -289,16 +289,18 @@ $$;
 
 -- ── Approving: a red holds it ────────────────────────────────────────────────────
 
--- As 20261210100000_product_roadmaps.sql, and a PRD whose latest spec version has a red verdict at its law
--- home's newest pack is refused, its laws named (22023, hint `business_laws`). A red at an older pack, a
--- green, a neutral and no verdict approve as before: the page and the approval route judge before Approve.
-create or replace function public.dossier_approve(p_dossier uuid) returns jsonb
+-- As 20270110093000_tech_approval.sql, and the product approval of a PRD whose latest spec version has a red
+-- verdict at its law home's newest pack is refused, its laws named (22023, hint `business_laws`). A Tech Approval
+-- is not held by a red. A red at an older pack, a green, a neutral and no verdict approve as before: the page and
+-- the approval route judge before Approve.
+create or replace function public.dossier_approve(p_dossier uuid, p_kind text default 'product') returns jsonb
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
   caller  uuid := (select auth.uid());
+  v_kind  text := coalesce(p_kind, 'product');
   target  public.dossiers%rowtype;
   product public.products%rowtype;
   missing text[];
@@ -306,11 +308,15 @@ declare
   login   text;
   made    uuid;
   label   text;
+  asked   public.approval_requests%rowtype;
   home    text;
   broken  text;
 begin
   if caller is null then
     raise exception 'Sign in first.' using errcode = '42501';
+  end if;
+  if v_kind not in ('product', 'tech') then
+    raise exception 'An approval is product or tech.' using errcode = '22023';
   end if;
   select d.* into target from public.dossiers d where d.id = p_dossier for share;
   if not found then
@@ -321,7 +327,20 @@ begin
     raise exception 'Only a member of the workspace that owns % approves its PRDs.', coalesce(target.home_repo, product.name, 'this PRD')
       using errcode = '42501';
   end if;
-  if product.id is not null
+
+  select r.* into asked from public.approval_requests r
+   where r.dossier_id = target.id and r.approval_kind = 'tech'
+   order by r.asked_at desc, r.id desc
+   limit 1;
+  if v_kind = 'tech' then
+    if asked.id is null then
+      raise exception 'Nobody requested a Tech Approval of this PRD.' using errcode = '22023';
+    end if;
+    if caller <> asked.asked[1] then
+      raise exception 'Only % gives this PRD''s Tech Approval.', public.member_login(target.workspace_id, asked.asked[1])
+        using errcode = '42501';
+    end if;
+  elsif product.id is not null
      and exists (select 1 from public.product_approvers a where a.product_id = product.id and a.state = 'asked')
      and not exists (select 1 from public.product_approvers a
                       where a.product_id = product.id and a.user_id = caller and a.state = 'asked') then
@@ -357,10 +376,15 @@ begin
     if missing is not null then
       raise exception 'PRD % has no % yet: push it first.', label, array_to_string(missing, ', ') using errcode = '22023';
     end if;
+    -- Tech first: a requested Tech Approval holds the product approval until it is in force.
+    if v_kind = 'product' and asked.id is not null and (public.approval_in_force(target.id, 'tech')).id is null then
+      raise exception 'PRD % waits for %''s Tech Approval first.', label, public.member_login(target.workspace_id, asked.asked[1])
+        using errcode = '22023';
+    end if;
 
-    -- PRD 2632: the latest spec's verdict at the law home's newest pack, when it is red, holds the approval.
+    -- PRD 2632: the latest spec's verdict at the law home's newest pack, when it is red, holds the product approval.
     home := public.product_law_home(target.product_id);
-    if home is not null then
+    if v_kind = 'product' and home is not null then
       select string_agg(distinct e.value ->> 'law', ', ' order by e.value ->> 'law') into broken
         from public.business_law_verdicts b
         cross join lateral jsonb_array_elements(b.findings) e
@@ -403,11 +427,11 @@ begin
     from (select 1) one
     left join public.players p on p.workspace_id = target.workspace_id and p.user_id = caller;
 
-  insert into public.approvals (dossier_id, approved_by, approver_login, files)
-  values (target.id, caller, left(login, 200), pinned)
+  insert into public.approvals (dossier_id, approved_by, approver_login, files, approval_kind)
+  values (target.id, caller, left(login, 200), pinned, v_kind)
   returning id into made;
 
-  return jsonb_build_object('id', made, 'repo', target.home_repo, 'prd', target.prd)
+  return jsonb_build_object('id', made, 'repo', target.home_repo, 'prd', target.prd, 'kind', v_kind)
     || case when target.kind = 'roadmap' then jsonb_build_object('roadmap', label)
             when target.product_seq is not null then jsonb_build_object('prdId', public.prd_id_of(target.product_id, target.product_seq))
             else '{}'::jsonb end;

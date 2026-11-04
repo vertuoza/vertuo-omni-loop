@@ -26,8 +26,17 @@
 // instead tells the GitHub App, with one signed server event (PRD 1548 s4, ../server-event/), which re-posts
 // `omni/approved` on its open target pull requests; telling never undoes the approval either.
 //
-// Since PRD 2632 (s4) a POST first has the dossier's latest spec judged against its business laws when it has
-// no verdict at the law home's newest pack (`judge`), and dossier_approve() refuses a red there, in its own words.
+// Since PRD 2608 a reply carries `tech`, {login, state}, state `asked`, `approved` or `voided`, only when the
+// PRD holds a Tech Approval request (BR-PRODUCT-127), which an older kit ignores. `approval` stays the product
+// approval: a tech approval alone reads as `approval: null`. A POST with `kind: 'tech'` gives the Tech
+// Approval, for the person it names: no label, for only the product approval adds one, and the product's
+// approvers are asked with nothing else run (`askProduct`), which never undoes it either. A POST with no
+// `kind` is a product approval, as for an older page, which the database refuses until the tech approval
+// is in force, in its own words, naming who it waits on.
+//
+// Since PRD 2632 (s4) a POST of a product approval first has the dossier's latest spec judged against its business
+// laws when it has no verdict at the law home's newest pack (`judge`), and dossier_approve() refuses a red there, in
+// its own words. A red holds the product approval only: a Tech Approval is neither judged first nor refused by it.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed query or body (or the
 // database's own: a ◇ dossier, a draft, a missing spec, plan or before/after, a red business law verdict), 401 no valid sign-in, 403
@@ -57,6 +66,9 @@ export type ApprovalDeps = {
   installLink?: string | null;
   /** Tells the GitHub App a product PRD was approved (PRD 1548 s4); never throws. Missing: the App is not told. */
   tellApp?: (event: ServerEvent) => Promise<unknown>;
+  /** Asks PRD `prd` of `repo`'s product approvers as the caller, once the Tech Approval is given (PRD 2608);
+   * `origin` is where the caller reached this app. Missing: nobody is asked. */
+  askProduct?: (db: ApprovalDb, repo: string, prd: PrdNumber, origin: string) => Promise<void>;
   /** The clock the server event is dated by. */
   now?: () => Date;
   /** Judges the dossier's latest spec against its business laws when it has no verdict yet (PRD 2632 s4), as
@@ -85,6 +97,7 @@ const InForce = z.object({
     files: z.array(z.object({ kind: text, path: text, sha256: text, versionId: text, content: z.string().nullable() })),
     voids: z.array(z.object({ pusher: text, kind: text, from: text, to: text, voidedAt: z.string().refine((at) => !Number.isNaN(Date.parse(at))) })).optional(),
   }).nullable(),
+  tech: z.object({ login: text, state: z.enum(['asked', 'approved', 'voided']) }).optional(),
 });
 
 /** A product PRD's id, `<key>-<n>`: the product's key (lowercase kebab-case, each part starting with a letter), then its number. */
@@ -108,7 +121,7 @@ function productPrdOf(id: string): { product: string; seq: number } | null {
 
 /** What dossier_approve() answers: the approval's id, and the PRD it approved, a product PRD by its id (settled item s1-05). */
 const Approved = z.union([
-  z.object({ id: text, repo: z.string().regex(REPO), prd: PrdNumberSchema }),
+  z.object({ id: text, repo: z.string().regex(REPO), prd: PrdNumberSchema, kind: z.enum(['product', 'tech']).optional() }),
   z.object({ id: text, repo: z.null(), prd: z.null(), prdId: z.string().refine((id) => productPrdOf(id) !== null) }),
   // A product roadmap (PRD 2011): approved by its dossier, answered by its id `<key>-R<n>`.
   z.object({ id: text, repo: z.null(), prd: z.null(), roadmap: z.string().regex(ROADMAP_ID) }),
@@ -118,7 +131,8 @@ const Approved = z.union([
  * file's approved text only when the database still holds it. */
 function answerOf(request: Request, read: z.infer<typeof InForce>) {
   const url = `${callerOrigin(request)}/prd/${read.dossier}`;
-  if (!read.approval) return { url, approval: null };
+  const tech = read.tech ? { tech: read.tech } : {};
+  if (!read.approval) return { url, approval: null, ...tech };
   const { approver, approvedAt, files, voids } = read.approval;
   return {
     url,
@@ -128,6 +142,7 @@ function answerOf(request: Request, read: z.infer<typeof InForce>) {
       files: files.map(({ content, ...file }) => (content === null ? file : { ...file, content })),
       ...(voids ? { voids: voids.map((v) => ({ ...v, voidedAt: new Date(v.voidedAt).toISOString() })) } : {}),
     },
+    ...tech,
   };
 }
 
@@ -205,8 +220,8 @@ async function callerOf(request: Request, deps: ApprovalDeps & { connect: NonNul
   return (await deps.session()) ?? refuse(401, 'Sign in first to approve a PRD.');
 }
 
-/** The dossier a POST names, or the Response that refuses the body. */
-async function dossierOf(request: Request): Promise<string | Response> {
+/** The dossier a POST names and the approval it gives, or the Response that refuses the body. */
+async function givenOf(request: Request): Promise<{ dossier: string; kind: 'product' | 'tech' } | Response> {
   const body = await request.text();
   const notObject = () => refuse(400, 'The body must be a JSON object.');
   if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) return notObject();
@@ -218,7 +233,9 @@ async function dossierOf(request: Request): Promise<string | Response> {
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return notObject();
   const parsed = z.object({ dossier: z.string().regex(UUID) }).safeParse(value);
-  return parsed.success ? parsed.data.dossier : refuse(400, "`dossier` is the id of the PRD's dossier.");
+  if (!parsed.success) return refuse(400, "`dossier` is the id of the PRD's dossier.");
+  const named = z.object({ kind: z.enum(['product', 'tech']).default('product') }).safeParse(value);
+  return named.success ? { dossier: parsed.data.dossier, kind: named.data.kind } : refuse(400, '`kind` is product or tech.');
 }
 
 /** The PRD dossier_approve() says it approved: a repository's, or a product's by its id (no repository hint). */
@@ -234,11 +251,12 @@ export async function approveDossier(request: Request, deps: ApprovalDeps): Prom
   if (!connect) return refuse(503, NO_DATABASE);
   const db = await callerOf(request, { ...deps, connect });
   if (db instanceof Response) return db;
-  const dossier = await dossierOf(request);
-  if (dossier instanceof Response) return dossier;
+  const given = await givenOf(request);
+  if (given instanceof Response) return given;
+  const { dossier, kind } = given;
   // PRD 2632: the spec is judged first, so dossier_approve() reads its verdict at the newest laws and refuses a red.
-  await deps.judge?.(db, dossier).catch((error: unknown) => { log.error({ event: 'business-laws', outcome: 'failed', error }); });
-  const answer = await db.rpc('dossier_approve', { p_dossier: dossier });
+  if (kind === 'product') await deps.judge?.(db, dossier).catch((error: unknown) => { log.error({ event: 'business-laws', outcome: 'failed', error }); });
+  const answer = await db.rpc('dossier_approve', kind === 'tech' ? { p_dossier: dossier, p_kind: 'tech' } : { p_dossier: dossier });
   if (answer.error) return refusalOf(answer.error, deps, NOT_WRITTEN);
   const approved = Approved.safeParse(answer.data);
   if (!approved.success) {
@@ -249,15 +267,25 @@ export async function approveDossier(request: Request, deps: ApprovalDeps): Prom
   // record, and the roadmap's page (dossier_approval() finds PRDs only) reads it from the approvals table.
   if ('roadmap' in approved.data) return reply(201, { url: `${callerOrigin(request)}/roadmaps/${dossier}`, roadmap: approved.data.roadmap, approval: { id: approved.data.id } });
   const key = keyOf(approved.data);
-  if (key.product === null) {
-    try {
-      await deps.label(key.repo, key.prd);
-    } catch (error) {
-      console.error(`approval: PRD #${key.prd} of ${key.repo} is approved, but its label was not added: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  } else {
-    await deps.tellApp?.({ event: 'approved', dossier, at: (deps.now?.() ?? new Date()).toISOString() });
-  }
+  await afterApproved(deps, { db, dossier, kind, key, origin: callerOrigin(request) });
   const read = await inForce(request, db, key, deps);
   return read.status === 200 ? reply(201, await read.json()) : read;
+}
+
+/** What an approval sets going, none of which undoes it: a Tech Approval asks the product's approvers; a
+ * product approval labels the PRD's issue, or, for a product PRD, tells the App. */
+async function afterApproved(deps: ApprovalDeps, { db, dossier, kind, key, origin }: { db: ApprovalDb; dossier: string; kind: 'product' | 'tech'; key: PrdKey; origin: string }): Promise<void> {
+  if (key.product !== null) {
+    await deps.tellApp?.({ event: 'approved', dossier, at: (deps.now?.() ?? new Date()).toISOString() });
+    return;
+  }
+  const { repo, prd } = key;
+  const act = kind === 'tech'
+    ? { run: () => deps.askProduct?.(db, repo, prd, origin), failed: `PRD #${prd} of ${repo}'s tech approval is given, but its approvers are not asked` }
+    : { run: () => deps.label(repo, prd), failed: `PRD #${prd} of ${repo} is approved, but its label was not added` };
+  try {
+    await act.run();
+  } catch (error) {
+    console.error(`approval: ${act.failed}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }

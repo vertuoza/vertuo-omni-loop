@@ -60,6 +60,8 @@ export type WaitingApproval = {
   repo: string;
   /** When it was asked, in ms. */
   askedAt: number;
+  /** Which approval it asks (PRD 2608): the product's, or the named person's Tech Approval; absent reads `product`. */
+  approvalKind?: 'product' | 'tech' | undefined;
 };
 
 /** One review, merge or law wait whose turn names the person (PRD 2377 s5), read from the stored waits: a

@@ -8,6 +8,8 @@ import type { RenderedMarkdown } from '../markdown';
 import { approveOff, type ApprovalView, type ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
 import { BusinessLawsVerdict } from './BusinessLawsVerdict';
+import { GiveTechApprovalButton } from './GiveTechApprovalButton';
+import { RequestTechApproval } from './RequestTechApproval';
 import { SealCard } from './SealCard';
 import { Attestation } from './Attestation';
 import type { AttestationView } from './Attestation.service';
@@ -217,9 +219,8 @@ function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
 
 /** The approve screen of a ◆ PRD (PRD 1322 s7), for a viewer who may approve it: after a void or a drift,
  * the diff of each changed file first; then the spec's Problem and Solution; then its business laws' verdict
- * (PRD 2632 s4), a red turning Approve off; then Approve. */
-function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
-  const { screen } = approval;
+ * (PRD 2632 s4); then Approve, which a red turns off, or Give Tech Approval, which a red does not. */
+function ApproveScreenSection({ screen, laws, button }: { screen: ApproveScreen | null; laws: ApprovalView['laws']; button: React.ReactNode }) {
   return (
     <section className="dossier-approve-screen" id="approve" aria-label="Approve">
       {screen && screen.diffs.length > 0 && (
@@ -235,22 +236,25 @@ function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
         </div>
       ))}
       {screen?.spec === 'unread' && <p className="ask-problem" role="alert">The spec could not be read. Reload the page in a moment.</p>}
-      <BusinessLawsVerdict laws={approval.laws} />
-      <ApproveButton dossier={approval.dossier} off={approveOff(approval)} />
+      <BusinessLawsVerdict laws={laws} />
+      {button}
     </section>
   );
 }
 
 /** Under the head of a ◆ PRD: the approve screen for whoever may approve it, or the seal once approved. */
 function ApprovalArea({ approval }: { approval: ApprovalView }) {
-  if (approval.canApprove) return <ApproveScreenSection approval={approval} />;
-  if (!approval.seal) return null;
-  return (
-    <>
-      <SealCard seal={{ ...approval.seal, name: `PRD ${approval.seal.prd}`, mark: String(approval.seal.prd) }} dossier={approval.dossier} />
-      <BusinessLawsVerdict laws={approval.laws} />
-    </>
-  );
+  const { tech } = approval;
+  const request = approval.canRequestTech && <RequestTechApproval dossier={approval.dossier} />;
+  if (tech?.canGive) return <>{request}<ApproveScreenSection screen={tech.screen} laws={approval.laws} button={<GiveTechApprovalButton dossier={approval.dossier} />} /></>;
+  if (approval.canApprove) return <>{request}<ApproveScreenSection screen={approval.screen} laws={approval.laws} button={<ApproveButton dossier={approval.dossier} off={approveOff(approval)} />} /></>;
+  return <>{request}{tech?.waiting && <p className="ask-hint dossier-tech-waiting">{tech.waiting}</p>}<Seals approval={approval} />{approval.seal && <BusinessLawsVerdict laws={approval.laws} />}</>;
+}
+
+/** The seals of an approval in force: the tech one first, then the product one. */
+function Seals({ approval }: { approval: ApprovalView }) {
+  const seals = [approval.tech?.seal ? { ...approval.tech.seal, name: `Tech approval · PRD ${approval.tech.seal.prd}` } : null, approval.seal ? { ...approval.seal, name: `PRD ${approval.seal.prd}` } : null];
+  return <>{seals.map((seal) => seal && <SealCard key={seal.name} seal={{ ...seal, mark: String(seal.prd) }} dossier={approval.dossier} />)}</>;
 }
 
 /** Under the head: a ◆ PRD's approval area, then a product PRD's attestation (PRD 1548 s4); each only when it has one. */
@@ -260,6 +264,23 @@ function UnderHead({ approval, attestation }: { approval: ApprovalView | null; a
       {approval && <ApprovalArea approval={approval} />}
       {attestation && <Attestation attestation={attestation} />}
     </>
+  );
+}
+
+/** The Stage cell: the track, the timeline line, and, while a Tech Approval is missing, who the PRD waits on (PRD 2608). */
+function StageFact({ view }: { view: DossierView }) {
+  const { stage, timelineLine } = view;
+  const techWaiting = view.approval?.tech?.waiting;
+  if (!stage) return null;
+  return (
+    <div className="dossier-fact dossier-fact-stage">
+      <dt>Stage</dt>
+      <dd>
+        <StageTrack stage={stage} />
+        {timelineLine && <p className="ask-hint prd-timeline-line">{timelineLine}</p>}
+        {techWaiting && <p className="ask-hint dossier-stage-tech">{techWaiting}</p>}
+      </dd>
+    </div>
   );
 }
 
@@ -295,15 +316,7 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
           </div>
         </div>
         <dl className="dossier-facts">
-          {stage && (
-            <div className="dossier-fact dossier-fact-stage">
-              <dt>Stage</dt>
-              <dd>
-                <StageTrack stage={stage} />
-                {view.timelineLine && <p className="ask-hint prd-timeline-line">{view.timelineLine}</p>}
-              </dd>
-            </div>
-          )}
+          <StageFact view={view} />
           {approval && <ApprovalFact approval={approval} />}
           <MainFact view={view} />
           <ProductFact view={view} supabase={supabase} />

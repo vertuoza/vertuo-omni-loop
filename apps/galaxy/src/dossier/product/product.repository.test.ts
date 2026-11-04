@@ -75,7 +75,7 @@ describe('the approval in force', () => {
     expect(await repo.voided(APPROVAL)).toEqual({ ok: true, value: true });
     expect(await repo.voided(APPROVAL)).toEqual({ ok: true, value: false });
     expect(lines).toEqual([
-      `from("approvals").select("id").eq("dossier_id","${DOSSIER}").order("approved_at",{"ascending":false}).order("id",{"ascending":false}).limit(1).maybeSingle()`,
+      `from("approvals").select("id").eq("dossier_id","${DOSSIER}").eq("approval_kind","product").order("approved_at",{"ascending":false}).order("id",{"ascending":false}).limit(1).maybeSingle()`,
       `from("approval_voids").select("id").eq("approval_id","${APPROVAL}").limit(1)`,
       `from("approval_voids").select("id").eq("approval_id","${APPROVAL}").limit(1)`,
     ]);

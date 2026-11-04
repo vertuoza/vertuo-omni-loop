@@ -49,6 +49,14 @@ describe('POST /api/dossiers/approval — the business laws (PRD 2632 s4)', () =
     expect(w.calls).toEqual(['business_law_verdict_of', 'dossier_approve', 'dossier_approval']);
   });
 
+  it('never judges a Tech Approval: a red holds the product approval only', async () => {
+    const judged: string[] = [];
+    const w = world({ judge: (_db, dossier) => { judged.push(dossier); return Promise.resolve(); } });
+    expect((await w.post({ dossier: DOSSIER, kind: 'tech' })).status).toBe(201);
+    expect(judged).toEqual([]);
+    expect(w.calls[0]).toBe('dossier_approve');
+  });
+
   it('approves when the judging fails: the database still decides', async () => {
     const w = world({ judge: () => Promise.reject(new Error('the model is down')) });
     expect((await w.post({ dossier: DOSSIER })).status).toBe(201);

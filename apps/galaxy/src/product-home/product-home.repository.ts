@@ -243,9 +243,9 @@ export const topicsOf = (db: From, scope?: { workspace: string; repos: readonly 
   return scope === undefined ? read : read.eq('workspace_id', scope.workspace).in('repository', [...scope.repos]);
 };
 
-/** The approvals of every dossier, or of `dossiers`. */
+/** The product approvals of every dossier, or of `dossiers`: a Tech Approval alone is no approval (PRD 2608). */
 export const approvalsOf = (db: From, dossiers?: readonly string[]) => {
-  const read = db.from('approvals').select(APPROVAL_COLUMNS);
+  const read = db.from('approvals').select(APPROVAL_COLUMNS).eq('approval_kind', 'product');
   return dossiers === undefined ? read : read.in('dossier_id', [...dossiers]);
 };
 
