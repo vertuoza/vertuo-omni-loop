@@ -108,7 +108,7 @@ export interface GithubDeps {
   /** The Omni App's id and private key (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY), or null on a deployment without them. */
   credentials: AppCredentials | null;
   /** The App's slug and its bot's id; throws naming GitHub's status. */
-  bot: (credentials: AppCredentials) => Promise<AppBot>;
+  bot: (credentials: AppCredentials, token: string) => Promise<AppBot>;
   /** The App's installation on the repository `owner/name`, or null when it is not installed there; throws naming GitHub's status. */
   installation: (credentials: AppCredentials, repo: string) => Promise<AppInstallation | null>;
   /** The first of contents, pull_requests and issues the installation does not hold at write, or null. */
@@ -678,8 +678,8 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
   }
 
   /** The Omni App's bot, read from GitHub once for this service; why not, when GitHub cannot name it. */
-  async function botOf(deps: GithubDeps, credentials: AppCredentials): Promise<AppBot | FailedMint> {
-    bot ??= deps.bot(credentials);
+  async function botOf(deps: GithubDeps, credentials: AppCredentials, token: string): Promise<AppBot | FailedMint> {
+    bot ??= deps.bot(credentials, token);
     try {
       return await bot;
     } catch (error) {
@@ -692,7 +692,7 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
   async function grantFor(job: JobRow): Promise<{ kind: 'grant'; grant: GithubGrant } | FailedMint> {
     const token = await tokenFor(job);
     if (token.kind === 'failed') return token;
-    const named = await botOf(token.deps, token.credentials);
+    const named = await botOf(token.deps, token.credentials, token.minted.token);
     return 'kind' in named ? named : { kind: 'grant', grant: grantOf(named, token.minted) };
   }
 

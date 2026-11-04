@@ -33,7 +33,9 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   GitHub was last read, Opened, with the opener's face); then the tabs. From 900 × 700 px the box
   is pinned while the page scrolls (`PinnedHead.tsx`).
 - **The approve screen,** under the head, for a viewer allowed to approve while the PRD waits or
-  drifted: each changed file's diff, the spec's Problem and Solution, then Approve.
+  drifted: each changed file's diff, the spec's Problem and Solution, then Approve. Above Approve, the
+  business laws' verdict (PRD 2632): on a red, each finding's law, its Why, the spec's words, its owner and
+  Ask to amend this law, with Approve off; on a green, what was judged; when it could not judge, why.
 - **The pane** of the tab shown (`?tab=`, its version by `?v=`): the before/after page framed on its
   sandboxed route; the spec and the plan rendered from Markdown with raw HTML off; Questions with the
   rounds that shaped it and an `N to answer` badge; Timeline (PRD 2370), the PRD's milestones, then one
@@ -66,7 +68,7 @@ Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbo
 Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Request a Tech Approval, Give Tech Approval (PRD 2608), Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval, Main,
 Repo, Repos, On GitHub, Opened. Main's words (PRD 2410): Watching · n days left, Clean, Broke main,
-Could not check; on a finding: Approve, Reject. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
+Could not check; on a finding: Approve, Reject. Business laws (PRD 2632): Business laws ✗ n, Business laws ✓ n judged, Business laws not judged, Why, Ask to amend this law. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
 
 ## Refusals
 
@@ -109,3 +111,4 @@ Could not check; on a finding: Approve, Reject. An approved missing-rule finding
 - /omni:brainstorm, PRD 2370: .omni-loop/delivery/shipped/2370-prd-timeline/before-after.html (the time line and the Timeline tab)
 - /omni:brainstorm, PRD 2410: .omni-loop/delivery/shipped/2410-broke-main/before-after.html
 - /omni:brainstorm, PRD 2498: .omni-loop/delivery/shipped/2498-rewind-apply/before-after.html
+- /omni:brainstorm, PRD 2632: .omni-loop/delivery/shipped/2632-business-laws/before-after.html

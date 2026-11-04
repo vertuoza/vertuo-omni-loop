@@ -1,6 +1,6 @@
 ---
 name: knowledge-add
-description: Adds or edits one item of a product's knowledge from the terminal, one item at a time — a Statement or Never line (constituent), a Legal entry or a Glossary term. Turns what the person said into exactly one item, asks for every field they did not give and never fills one, shows the item whole and asks Yes / Change / Cancel, writes only on Yes with omni constituents or omni kb legal and glossary --json, prints the line and link, and only then takes the next item. Never writes under OMNI_UNATTENDED, never removes or retires. Triggers on "add a legal entry", "add a never line", "add a glossary term", "change the statement", "edit L-GDPR-5", "/omni:knowledge-add".
+description: Adds or edits one item of a product's knowledge from the terminal, one item at a time — a Statement or Never line (constituent), a Legal entry, a Glossary term, or a business law (add it, or `amend <id>`, as a signed pull request that is never merged). Turns what the person said into exactly one item, asks for every field they did not give and never fills one, shows the item whole and asks Yes / Change / Cancel, writes only on Yes with omni constituents or omni kb legal and glossary --json, prints the line and link, and only then takes the next item. Never writes under OMNI_UNATTENDED, never removes or retires. Triggers on "add a legal entry", "add a never line", "add a glossary term", "change the statement", "edit L-GDPR-5", "/omni:knowledge-add".
 ---
 
 # Knowledge add: one item, shown whole, written on Yes
@@ -40,6 +40,24 @@ A Statement is one line of at most 400 characters.
 
 Said more than one thing ("add these three")? Keep the list, take the first item through steps 2 to 4,
 and the next only after the last one's line printed (step 5).
+
+### A business law: `amend <id>` and adding one
+
+A business law (`BL-<CODE>-<n>`, in `business-laws.md` of the law home) lives in Git, so adding or
+amending one is a pull request, never a command that writes it. `/omni:knowledge-add amend <id>`
+(also what **Ask to amend this law** copies) or "add a business law" is still exactly one item, shown
+whole (id or the next number, statement, `Why:`, `Also:`) and written only on Yes (steps 2 and 3;
+`Why:` is asked for, never filled). On Yes, in the law home (`omni config` and the product say which):
+
+1. Cut the knowledge branch (`omni config branches.knowledge`, the topic naming the law) from the
+   default branch, and edit only that file: `domains/<key>/business-laws.md` or `product/business-laws.md`.
+2. Run `omni check knowledge`; fix what it refuses.
+3. Commit with the signing lines (`omni sign trailer`), push, and open a pull request through
+   `/omni:pr` with the knowledge label, its body saying which law, the change and the finding or
+   person that asked, ending with `omni sign footer`.
+4. Print `proposed · waits for a CODEOWNER of the file · <pull request url>`. Never merge, never
+   approve, never answer the outbox for it: `law-locked` holds the pull request until a CODEOWNER
+   approves it on GitHub. Under `OMNI_UNATTENDED` nothing is written (Never, above).
 
 ## 2. Ask for what is missing
 

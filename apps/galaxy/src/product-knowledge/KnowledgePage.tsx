@@ -8,6 +8,7 @@ import type { SectionKey } from './knowledge-sections';
 import { LIVE_KNOWLEDGE_TAB, knowledgeTabViewOf } from './product-knowledge.controller';
 import { KnowledgeScreen, type KnowledgeTabView } from './KnowledgeTab';
 import type { TabSource } from './KnowledgeTabPage';
+import { loadLawCount } from './business-laws-load';
 import { loadNotOnList } from './found-domains-load';
 import type { KnowledgeTab } from './product-knowledge.contract';
 
@@ -38,5 +39,5 @@ export async function KnowledgePage({ id, section, found, children }: KnowledgeP
   const tabs = tabsOf(home);
   if (tabs === null) return <ProductHome tab="ledger" view={home} />;
   if (missing(view, found)) notFound();
-  return <KnowledgeScreen view={await loadNotOnList(view)} tabs={tabs} section={section}>{children}</KnowledgeScreen>;
+  return <KnowledgeScreen view={await loadLawCount(await loadNotOnList(view))} tabs={tabs} section={section}>{children}</KnowledgeScreen>;
 }

@@ -337,6 +337,14 @@ The skills and checks read an imported target's knowledge from its pack, which t
 rather than from a copy under `.omni-loop/knowledge/repos/`; `omni kb pack get <repo>` fetches it.
 The [knowledge packs](/docs/products#knowledge-packs) section says how a pack is fetched and refused.
 
+### Business laws
+
+A product's [business laws](/docs/knowledge#business-laws) live in the plan repository, which is the
+product's law home: set `products.plan_repository`, and put the PM in `laws.owners`. Without a plan
+repository, a product with several repositories has no law home and nothing is judged. A target's
+imported copy of its laws under `repos/<target>/` never counts. A target repository with a phase-0
+pull request must require the `business laws` check for a red to stop its merge.
+
 ## A product PRD
 
 A feature that lands in several of a [product](/docs/products)'s repositories can live on the

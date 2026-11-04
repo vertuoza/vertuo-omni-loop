@@ -19,6 +19,7 @@ import type { DecisionRecord } from '../playbook/decisions.ts';
 import type { LegalEntry } from '../product/knowledge.ts';
 import { governsPath, headline, lawLine, lawSentence } from './disclose.ts';
 import { isLaw, type KnowledgeEntry } from './registers.ts';
+import { businessLawDomains, type BusinessLaw } from './business-laws.ts';
 import type { Thesis } from './thesis.ts';
 import type { LawOwner } from '../config.ts';
 
@@ -37,8 +38,8 @@ export type KnowledgeMap = {
 /** Where a file sits on the map: its domain (`null` with none) and its layers. */
 export type FilePlace = { domain: string | null; layers: string[] };
 
-/** What an entry of the lookup is. */
-export type LookupKind = 'law' | 'rule' | 'invariant' | 'adr' | 'legal';
+/** What an entry of the lookup is: a `business-law` is the product's (PRD 2632), never a locked law. */
+export type LookupKind = 'law' | 'rule' | 'invariant' | 'adr' | 'legal' | 'business-law';
 
 /** One entry of the lookup: what it is, its id and file, its text, and why it applies (empty for a global one). */
 export type LookupEntry = { kind: LookupKind; id: string; file: string | null; text: string; why: string[]; proposed: boolean };
@@ -57,6 +58,8 @@ export type LookupSources = {
   records: readonly DecisionRecord[];
   legal: readonly LegalEntry[];
   thesis: Thesis | null;
+  /** The business laws (PRD 2632): a domain's applies by its folder or `Also:`, a `product/` one is global. None when left out. */
+  businessLaws?: readonly BusinessLaw[];
 };
 
 /** The repository's map, from its config. */
@@ -132,6 +135,19 @@ function placeRecord(record: DecisionRecord, places: readonly FilePlace[], files
   return { group: why.length > 0 ? 'applies' : 'hidden', line };
 }
 
+/**
+ * A business law, placed for the files at `places` (PRD 2632): it applies when a file's domain is its
+ * folder or one of its `Also:` keys; a `product/` law, or one whose domains no area maps, is global, as
+ * is every one in a repository that maps nothing; otherwise it belongs to other areas and is hidden.
+ */
+function placeBusinessLaw(law: BusinessLaw, map: KnowledgeMap, places: readonly FilePlace[], files: readonly string[]): Placed {
+  const domains = businessLawDomains(law);
+  const why = reasons(places, files, { governs: null, domains, layers: [] });
+  const line: LookupEntry = { kind: 'business-law', id: law.id, file: law.file, text: law.statement, why, proposed: false };
+  if (why.length > 0) return { group: 'applies', line };
+  return { group: !map.mapped || !reachable(map, null, domains, []) ? 'global' : 'hidden', line };
+}
+
 /** What applies to `files`, what is global, and how many entries of other areas are left out. */
 export function lookup(sources: LookupSources, map: KnowledgeMap, files: readonly string[]): Lookup {
   const places = files.map((file) => placeOf(map, file));
@@ -139,6 +155,7 @@ export function lookup(sources: LookupSources, map: KnowledgeMap, files: readonl
   const placed = [
     ...[...ruleLike.filter(isLaw), ...ruleLike.filter((entry) => !isLaw(entry))].map((entry) => placeEntry(entry, sources.thesis, map, places, files)),
     ...sources.records.flatMap((record) => placeRecord(record, places, files) ?? []),
+    ...(sources.businessLaws ?? []).map((law) => placeBusinessLaw(law, map, places, files)),
     ...sources.legal.map((legal): Placed => ({
       group: 'global',
       line: { kind: 'legal', id: legal.id, file: null, text: headline(legal.statement), why: [], proposed: false },
@@ -165,5 +182,5 @@ export function lookupLine(entry: LookupEntry, owners: readonly LawOwner[]): str
     return `${lawLine({ id: entry.id, file: entry.file ?? '', sentence: entry.text, lockedBy: null, lockedOn: null, governs: [] }, owners)}${because}`;
   }
   const proposed = entry.proposed ? ' (proposed, not yet confirmed by a person)' : '';
-  return `${entry.kind} ${entry.id} — ${entry.text}${proposed}${because}`;
+  return `${entry.kind === 'business-law' ? 'business law' : entry.kind} ${entry.id} — ${entry.text}${proposed}${because}`;
 }

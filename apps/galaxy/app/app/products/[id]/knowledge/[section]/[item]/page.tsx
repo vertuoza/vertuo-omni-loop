@@ -4,7 +4,8 @@ import '../../../../../../../src/products/products.css';
 import '../../../../../../../src/product-home/product-home.css';
 import '../../../../../../../src/product-knowledge/knowledge.css';
 import { KnowledgePage } from '../../../../../../../src/product-knowledge/KnowledgePage';
-import { KnowledgeEntry, entryExists } from '../../../../../../../src/product-knowledge/KnowledgeItem';
+import { EntryRegion } from '../../../../../../../src/product-knowledge/BusinessLawsRegion';
+import { entryExists } from '../../../../../../../src/product-knowledge/KnowledgeItem';
 import { listSectionOf, segmentOf } from '../../../../../../../src/product-knowledge/knowledge-sections';
 
 // /app/products/<id>/knowledge/legal/<code>, /glossary/<entry> (PRD 2240 s3) and /domains/<key> (PRD 2583
@@ -27,7 +28,7 @@ export default async function ProductKnowledgeItemRoute({ params, searchParams }
   const item = segmentOf(raw);
   return (
     <KnowledgePage id={id} section={section} found={(tab) => entryExists(tab, section, item)}>
-      {(tab, source) => <KnowledgeEntry section={section} item={item} tab={tab} source={source} query={query} />}
+      {(tab, source) => <EntryRegion section={section} item={item} tab={tab} source={source} query={query} />}
     </KnowledgePage>
   );
 }

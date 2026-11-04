@@ -4,6 +4,7 @@ import '../../../../../../src/products/products.css';
 import '../../../../../../src/product-home/product-home.css';
 import '../../../../../../src/product-knowledge/knowledge.css';
 import { KnowledgePage } from '../../../../../../src/product-knowledge/KnowledgePage';
+import { BusinessLawsRegion } from '../../../../../../src/product-knowledge/BusinessLawsRegion';
 import { DomainsSection } from '../../../../../../src/product-knowledge/DomainsSection';
 import { KnowledgeList } from '../../../../../../src/product-knowledge/KnowledgeLists';
 import { listSectionOf } from '../../../../../../src/product-knowledge/knowledge-sections';
@@ -20,6 +21,9 @@ type Props = { params: Promise<{ id: string; section: string }>; searchParams: P
 
 export default async function ProductKnowledgeSectionRoute({ params, searchParams }: Props) {
   const [{ id, section: segment }, query] = await Promise.all([params, searchParams]);
+  if (segment === 'business-laws') {
+    return <KnowledgePage id={id} section="business-laws">{(tab) => <BusinessLawsRegion tab={tab} query={query} />}</KnowledgePage>;
+  }
   const section = listSectionOf(segment);
   if (section === null) notFound();
   return (

@@ -44,6 +44,9 @@ const given = vi.hoisted(() => ({
   // Where the viewer may send a line (PRD 1830 s4), and who asked: no runner by default.
   send: null as import('../../runners/send/targets').SendSetup | null,
   sendAsked: [] as unknown[][],
+  // The business laws' verdict (PRD 2632 s4): none to show by default; the spec version each read asked for.
+  laws: null as unknown as import('../../business-laws/verdicts.service').LawsView,
+  lawsAsked: [] as (string | null)[],
 }));
 
 vi.mock('server-only', () => ({}));
@@ -79,6 +82,10 @@ vi.mock('./approval', async (original) => ({
   readApproval: (db: unknown, id: string) => given.approval(db, id),
   readVoids: () => given.voids(),
   readAskedApprovers: () => given.asked(),
+}));
+vi.mock('../../business-laws/verdicts.live', () => ({
+  lawsForPage: () => { given.lawsAsked.push(null); return Promise.resolve(given.laws); },
+  lawsOfApproved: (_db: unknown, _dossier: string, version: string) => { given.lawsAsked.push(version); return Promise.resolve(given.laws); },
 }));
 vi.mock('../../runners/send/send.live', () => ({
   liveSendSetup: (...args: unknown[]) => {
@@ -139,6 +146,8 @@ beforeEach(async () => {
   given.asked = vi.fn(() => Promise.resolve([]));
   given.send = null;
   given.sendAsked = [];
+  given.laws = { show: 'nothing' };
+  given.lawsAsked = [];
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -521,6 +530,50 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     expect(page).toContain('<strong>approved</strong>');
     expect(page).toContain('by ada · 9 Oct 2026, 09:12 UTC');
     expect(page).not.toMatch(APPROVE);
+  });
+
+  // PRD 2632 s4: the business laws' verdict above Approve.
+  const RED = {
+    specVersion: 'v-1', lawHome: 'acme/plan', packSha: 'c'.repeat(40), state: 'red' as const, reason: '1 law broken', laws: ['BL-QUOTES-1'],
+    domains: [{ key: 'quotes', name: 'Quotes', reasons: ['"Quote"'] }], judgedAt: '2026-12-01T09:00:00Z',
+    findings: [{ law: 'BL-QUOTES-1', statement: 'A quote is sent only with a total above zero.', why: 'An empty quote loses the customer.', quote: 'zero total', domain: 'quotes', file: 'k/domains/quotes/business-laws.md', owners: ['ana'] }],
+  };
+
+  it('shows a red business law verdict above Approve, turned off and saying why', async () => {
+    bornOnServer();
+    given.laws = { show: 'verdict', verdict: RED };
+    given.token = 'bob';
+    const page = await html(numbered);
+    const screen = /<section class="dossier-approve-screen"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
+    expect(given.lawsAsked).toEqual([null]);
+    expect(textOf(screen)).toContain('Business laws ✗ 1');
+    expect(screen).toContain('BL-QUOTES-1');
+    expect(screen).toContain('Ask to amend this law');
+    expect(screen).toMatch(/<button[^>]*disabled=""[^>]*>Approve<\/button>/);
+    expect(screen).toContain('Change the spec, or amend the law.');
+    expect(screen.indexOf('Business laws')).toBeLessThan(screen.search(APPROVE));
+  });
+
+  it('keeps Approve on beside a business law verdict that is not red', async () => {
+    bornOnServer();
+    given.laws = { show: 'not-judged', why: 'the law home has no knowledge pack yet' };
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('Business laws not judged');
+    expect(page).toMatch(/<button type="button" class="ask-button dossier-approve-button">Approve<\/button>/);
+  });
+
+  it('shows the approved spec\'s business law verdict under the seal', async () => {
+    bornOnServer();
+    const spec = given.fake.tables.dossier_versions.find((v) => v.dossier_id === numbered && v.kind === 'spec');
+    assertDefined(spec, 'its spec');
+    given.approval.mockResolvedValue({ id: 'a-1', approver_login: 'ada', approved_at: '2026-10-09T09:12:00Z', files: [{ kind: 'spec', path: 'spec.md', version_id: spec.id }] });
+    given.laws = { show: 'verdict', verdict: { ...RED, state: 'neutral', reason: 'no model key on this deployment', findings: [] } };
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.lawsAsked).toEqual([spec.id]);
+    expect(page).toContain('<strong>approved</strong>');
+    expect(textOf(page)).toContain('Business laws not judgedNo model key on this deployment.');
   });
 
   it('says the approval could not be read, and still shows the dossier', async () => {

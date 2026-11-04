@@ -219,6 +219,14 @@ The glossary feeds the words check. `omni design words` adds the avoided words o
 glossary, read from the local copy only, so a screen that says *refund* is reported as
 `"refund": avoid, the product says "Credit note"`. With no copy, the check uses its usual word lists.
 
+### Business laws
+
+A product's **business laws** are rules of the whole product, kept in Git in its **law home**: its
+plan repository when one is set (`products.plan_repository`), else its only repository. A product with
+several repositories and no plan repository has no law home, and its Knowledge tab says to set one.
+The tab lists them read-only, with each one's Why, domains and owner; nothing is edited there. See
+[Business laws](/docs/knowledge#business-laws) for the file, the red on a spec and who amends a law.
+
 ### Knowledge graph
 
 A repository's knowledge graph (its rules, invariants, decisions and the code they cite) reaches the

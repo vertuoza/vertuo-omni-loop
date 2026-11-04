@@ -77,6 +77,14 @@ export type CanonGrader = {
   grade: (input: { repo: string; spec: string; ref?: string | null }) => Promise<Gate & { canon: CanonGateFacts }>;
 };
 
+/**
+ * The business laws gate (PRD 2632): grades a spec against its product's business laws, through galaxy's
+ * signed judge (./business-laws-judge.ts). Neutral, never red, when it cannot judge.
+ */
+export type LawsGrader = {
+  grade: (input: { repo: string; spec: string }) => Promise<Gate>;
+};
+
 export type InboxVerdict = {
   name: string;
   prd: PrdNumber | null;
@@ -164,6 +172,7 @@ export async function evaluateInbox({
   commits,
   issue,
   canon,
+  laws,
 }: {
   base: string;
   head: string;
@@ -173,6 +182,7 @@ export async function evaluateInbox({
   commits: Commit[];
   issue: IssuesOf;
   canon?: CanonGrader | null | undefined;
+  laws?: LawsGrader | null | undefined;
 }): Promise<InboxVerdict | null> {
   const config = readConfigAt(base);
   if (!config) return null;
@@ -183,7 +193,7 @@ export async function evaluateInbox({
   const ctx = createContext(head, config);
   const issueOf = (prd: PrdNumber): IssueFacts => (typeof issue === 'function' ? issue(prd) : issue);
   const roadmap = inboxRoadmap({ head, config, topic });
-  if (roadmap) return evaluateRoadmap({ name, ctx, roadmap, changes, commits, issueOf, canon, head, repo });
+  if (roadmap) return evaluateRoadmap({ name, ctx, roadmap, changes, commits, issueOf, canon, laws, head, repo });
 
   const prd = inboxPrd({ head, config, topic });
   if (prd === null) {
@@ -209,6 +219,7 @@ export async function evaluateInbox({
   ];
   const { canon: facts, ...canonGate } = await canonGateOf({ canon, ctx, prd, head, repo });
   gates.push(canonGate);
+  if (laws) gates.push(await lawsGateOf({ laws, ctx, prd, head, repo }));
   return {
     name,
     prd,
@@ -235,6 +246,7 @@ async function evaluateRoadmap({
   commits,
   issueOf,
   canon,
+  laws,
   head,
   repo,
 }: {
@@ -245,6 +257,7 @@ async function evaluateRoadmap({
   commits: Commit[];
   issueOf: (prd: PrdNumber) => IssueFacts;
   canon: CanonGrader | null | undefined;
+  laws: LawsGrader | null | undefined;
   head: string;
   repo: string | undefined;
 }): Promise<InboxVerdict> {
@@ -258,6 +271,7 @@ async function evaluateRoadmap({
     waves.flatMap((wave) => wave.rows).map(async (row): Promise<GradedRow> => {
       const { canon: facts, ...canonGate } = await rowCanonGate({ canon, ctx, prd: row.prd, head, repo });
       const gates = [...rowGates({ ctx, prd: row.prd, changes, commits, issue: issueOf(row.prd) }), canonGate];
+      if (laws && ctx.layout.whereIs(row.prd) !== null) gates.push(await lawsGateOf({ laws, ctx, prd: row.prd, head, repo }));
       return { row, gates: gates.map((gate) => ({ ...gate, prd: row.prd })), facts };
     }),
   );
@@ -365,6 +379,18 @@ async function canonGateOf({
   if (!existsSync(file)) return neutral(`no spec.md in ${placeOf(ctx, prd).dir}`);
   return canon.grade({ repo, spec: readFileSync(file, 'utf8'), ref: `PRD ${prd}` });
 }
+
+/** The business laws gate on the PRD's `spec.md`; neutral when there is no spec or no repository to judge for. */
+async function lawsGateOf({ laws, ctx, prd, head, repo }: { laws: LawsGrader; ctx: Context; prd: PrdNumber; head: string; repo: string | undefined }): Promise<Gate> {
+  const neutralGate = (reason: string): Gate => ({ name: LAWS_GATE, ok: true, neutral: true, reason });
+  if (!repo) return neutralGate('not judged: the business laws judge is not wired here');
+  const file = join(head, inFolder(ctx.layout.specPath(prd), prd));
+  if (!existsSync(file)) return neutralGate(`not judged: no spec.md in ${placeOf(ctx, prd).dir}`);
+  return laws.grade({ repo, spec: readFileSync(file, 'utf8') });
+}
+
+/** The business laws gate's name, as the check shows it. */
+const LAWS_GATE = 'business laws';
 
 /** Where the PRD's folder is; it is there, since its number was read from it. */
 function placeOf(ctx: Context, prd: PrdNumber): { name: string; dir: string } {

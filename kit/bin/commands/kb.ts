@@ -15,14 +15,16 @@
 // a change touches: every locked law, one plain line each, then with `--area` that domain folder's
 // rules; with `--paths` or `--slice` (PRD 2346) what applies to those files or that slice's territory,
 // by `Governs:`, domain or layer, then what is global, the Legal entries included, then the count of the
-// locked laws of other areas (`../../lib/knowledge/disclose-lookup.ts`); `show briefing`
+// locked laws of other areas (`../../lib/knowledge/disclose-lookup.ts`), the business laws of those
+// files' domains among them (PRD 2632); `business-laws` prints the business laws, or with `--spec` what
+// a spec is judged against (`../../lib/knowledge/business-laws.ts`); `show briefing`
 // ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
 // (PRD 1726) writes the CODEOWNERS block that makes `laws.owners` the owners of the thesis, the
 // registers and each locked law's test, and changes no line outside its markers. None of them
 // fails on what a form holds: a dead pointer or a kit default naming an unset config key is a
 // warning, and `omni check kb` grades.
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
@@ -32,6 +34,9 @@ import { readScreens } from '../../lib/design/screens.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
+import { readBusinessLaws, selectBusinessLaws, type BusinessLaw } from '../../lib/knowledge/business-laws.ts';
+import { businessLawsAt } from '../../lib/knowledge/business-laws-home.ts';
+import { businessLawsText, lawsOfDomain, selectionText } from '../../lib/knowledge/business-laws-text.ts';
 import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
 import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
 import { LEVELS } from '../../lib/knowledge-tree/levels.ts';
@@ -85,7 +90,7 @@ const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
 const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
 const GRAPH_PRODUCT_USAGE = 'usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]';
 const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb domains [add|edit …] | omni kb index [--json]`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb business-laws [--domain <key> | --spec <file>] [--json] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb domains [add|edit …] | omni kb index [--json]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -407,7 +412,13 @@ function laws(args: string[], io: CommandIo): number {
     return 0;
   }
   const cache = readCachedKnowledge(ctx.root);
-  const sources = { entries: knowledge.entries, records: readDecisions({ ctx }).records, legal: cache.state === 'cached' ? cache.legal : [], thesis };
+  const sources = {
+    entries: knowledge.entries,
+    records: readDecisions({ ctx }).records,
+    legal: cache.state === 'cached' ? cache.legal : [],
+    thesis,
+    businessLaws: readBusinessLaws({ ctx }),
+  };
   const found = lookup(sources, knowledgeMap(ctx.config), what.paths);
   println(stdout, flags.json ? JSON.stringify({ ...disclosure, ...found }, null, 2) : lookupText(found, disclosure.ungoverned, owners));
   return 0;
@@ -664,16 +675,100 @@ function pageClient(askUrl: string | null, io: PackOptions) {
   return askUrl ? signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
 }
 
+const BUSINESS_LAWS_USAGE = 'usage: omni kb business-laws [--domain <key> | --spec <file>] [--json]';
+
+/**
+ * `omni kb business-laws` (PRD 2632): the business laws of the product, every one or, with `--domain`, one
+ * domain's; with `--spec <file>`, the laws that spec is judged against and why each domain was taken, the
+ * glossary read from the local copy and never the network. In the product's law home they are this
+ * checkout's files; elsewhere they are the newest pack of the law home (`omni kb pack get`), and the
+ * lines beside them say so, and say when the pack is the last one fetched.
+ */
+async function businessLaws(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const want = businessLawsArgs(args);
+  const { ctx, stdout, stderr } = io;
+  const placed = await businessLawsAt({ ctx, repo: ctx.config.repo.slug, home: await lawHomeOf(io), getPack: (home) => lawHomePack(home, io) });
+  if (placed.laws === null) {
+    for (const line of placed.errors) println(stderr, `omni kb business-laws: ${line}`);
+    return 1;
+  }
+  println(stdout, want.spec === null ? lawsOf(placed.laws, want.domain, want.json, ctx) : specLaws(placed.laws, want.spec, want.json, io));
+  for (const note of placed.notes) println(want.json ? stderr : stdout, note);
+  return 0;
+}
+
+/** The `--domain`, `--spec` and `--json` of `omni kb business-laws`; anything else, or both a domain and a spec, is a usage error. */
+function businessLawsArgs(args: string[]): { domain: string | null; spec: string | null; json: boolean } {
+  const { positional, flags } = parseArgs('kb business-laws', args, { values: ['domain', 'spec'], booleans: ['json'] });
+  if (positional.length > 0 || (flags.domain !== undefined && flags.spec !== undefined)) throw usageError(BUSINESS_LAWS_USAGE);
+  return { domain: flags.domain ?? null, spec: flags.spec ?? null, json: flags.json === true };
+}
+
+/** The law home of this repository's product, from the Omni page or its last copy; `null` when there is none or it cannot be read. */
+async function lawHomeOf(io: CommandIo & PackOptions): Promise<string | null> {
+  const reach = reachOf(io.ctx, io);
+  if (typeof reach === 'string') return null;
+  try {
+    const read = await productKnowledge({ repo: reach.repo, root: mainCheckout(io.ctx.root, io.exec) ?? io.ctx.root, now: io.now ?? (() => new Date()), fetchBusiness: () => reach.client.readBusiness(reach.repo) });
+    return read.lawHome ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The newest pack of the law home `home`, fetched as `omni kb pack get <home>` does. */
+function lawHomePack(home: string, io: CommandIo & PackOptions) {
+  const { ctx, exec } = io;
+  const askUrl = ctx.config.ask.url;
+  const client = askUrl ? signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
+  return packGet({
+    root: mainCheckout(ctx.root, exec) ?? ctx.root,
+    repo: home,
+    readAt: null,
+    now: io.now ?? (() => new Date()),
+    fetchPack: async () => {
+      if (client === null) throw new Error('no sign-in for the Omni page (omni signin)');
+      return client.readKnowledgePack({ repo: home });
+    },
+    order: () => 'unknown',
+  });
+}
+
+/** `omni kb business-laws [--domain <key>]`: every law, or one domain's, as text or JSON. */
+function lawsOf(all: BusinessLaw[], domain: string | null, json: boolean, ctx: Context): string {
+  const shown = domain === null ? all : lawsOfDomain(all, domain);
+  return json ? JSON.stringify({ laws: shown }, null, 2) : businessLawsText(shown, { domain, knowledgeRoot: ctx.layout.knowledgeRoot });
+}
+
+/** `omni kb business-laws --spec <file>`: the laws that spec is judged against, the glossary read from the local copy. */
+function specLaws(all: BusinessLaw[], spec: string, json: boolean, { ctx, exec }: Pick<CommandIo, 'ctx' | 'exec'>): string {
+  const path = resolve(ctx.root, spec);
+  if (!existsSync(path)) throw usageError(`omni kb business-laws: no spec at ${spec}. ${BUSINESS_LAWS_USAGE}`);
+  const cache = readCachedKnowledge(mainCheckout(ctx.root, exec) ?? ctx.root);
+  const glossary = cache.state === 'cached' ? cache.glossary : [];
+  const selection = selectBusinessLaws({ spec: readFileSync(path, 'utf8'), laws: all, glossary });
+  return json ? JSON.stringify(selection, null, 2) : selectionText(selection, { spec, glossaryRead: cache.state === 'cached' });
+}
+
+/** The verbs that read their own flags, each handed the arguments after its name. */
+const OWN_FLAGS: Readonly<Record<string, (args: string[], io: CommandIo) => number>> = { laws, graph };
+
+/** The verbs that take only `--json` (and `show`'s `--all`), each handed what follows its name. */
+const PLAIN: Readonly<Record<string, (positional: string[], flags: KbFlags, io: CommandIo) => number>> = { init, show, status, owners };
+
+/** The verb `table` holds under `name`, or `undefined`. */
+function verbOf<T>(table: Readonly<Record<string, T>>, name: string | undefined): T | undefined {
+  return name !== undefined && Object.hasOwn(table, name) ? table[name] : undefined;
+}
+
 const basic = synchronous((args: string[], io: CommandIo): number => {
-  if (args[0] === 'laws') return laws(args.slice(1), io);
-  if (args[0] === 'graph') return graph(args.slice(1), io);
+  const ownFlags = verbOf(OWN_FLAGS, args[0]);
+  if (ownFlags) return ownFlags(args.slice(1), io);
   const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
   const [sub, ...rest] = positional;
   if (flags.all && sub !== 'show') throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE}`);
-  if (sub === 'init') return init(rest, flags, io);
-  if (sub === 'show') return show(rest, flags, io);
-  if (sub === 'status') return status(rest, flags, io);
-  if (sub === 'owners') return owners(rest, flags, io);
+  const plain = verbOf(PLAIN, sub);
+  if (plain) return plain(rest, flags, io);
   throw usageError(USAGE);
 });
 
@@ -684,6 +779,7 @@ export const kb: FreeCommand = {
     if (sub === 'index') return index(rest, io);
     const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
     if (sub === 'pack') return pack(rest, full);
+    if (sub === 'business-laws') return businessLaws(rest, full);
     if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
     if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
     if (isProductVerb(sub)) return productCommand(sub, rest, { ...full, vars: io.vars }, io);

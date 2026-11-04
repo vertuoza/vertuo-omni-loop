@@ -453,3 +453,73 @@ describe('end to end — a signed webhook to a completed check', () => {
     expect(run.logged).toEqual([expect.stringContaining(`GitHub paused until ${new Date(until).toISOString()}`)]);
   });
 });
+
+describe('16. a change to a business law waits for its CODEOWNER’s approval, under laws.source none (PRD 2632)', () => {
+  const QUOTES = '.omni-loop/knowledge/domains/quotes/business-laws.md';
+  const LAW_TITLE = "Locked law changed without its CODEOWNER's approval — BL-QUOTES-1";
+  const law = (statement: string) => `## BL-QUOTES-1\n${statement}\nWhy: A customer who receives an empty quote stops trusting the contractor.\n`;
+  const SENT = 'A quote can be sent only when its total including tax is above zero.';
+  const review = (login: string, state = 'APPROVED', commit = 'head1') => ({ user: { login }, state, commit_id: commit });
+  const knowledgePull = () => ({ ...featurePull(), head: { ref: 'docs/knowledge-quotes', sha: 'head1' } });
+
+  /** A commit made at run time from `dirs`, the base's `laws.owners` set to the PM, and `files` written over them. */
+  function commitWith(dirs: readonly string[], files: Record<string, string>) {
+    const root = commitOf(dirs, (yaml) => (yaml.includes('laws:') ? yaml : `${yaml}laws:\n  owners: [pm-login]\n`));
+    heads.push(root);
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    return root;
+  }
+
+  /** A pull request rewording BL-QUOTES-1, on a base whose CODEOWNERS is `codeowners` (none when null). */
+  function lawGitHub({ pull = knowledgePull(), codeowners = null, reviews = [], head = [] as string[] }: { pull?: Pull; codeowners?: string | null; reviews?: ReturnType<typeof review>[]; head?: string[] } = {}) {
+    const base = commitWith([fixture('base-active')], { [QUOTES]: law(SENT), ...(codeowners === null ? {} : { '.github/CODEOWNERS': codeowners }) });
+    const headCommit = commitWith([...head, base], { [QUOTES]: law('A quote can be sent once its total is above zero.') });
+    return fakeGitHub({ commits: { base1: base, head1: headCommit }, pull, files: [{ filename: QUOTES, status: 'modified' }], reviews });
+  }
+
+  it('a knowledge PR, never graded under laws.source none, is red, naming the law and the PM laws.owners names', async () => {
+    const github = lawGitHub();
+    await deliver(github, pullRequestDelivery(knowledgePull(), 'opened'));
+    expect(latest(github)).toMatchObject({ name: 'outbox', head_sha: 'head1', status: 'completed', conclusion: 'failure', output: { title: LAW_TITLE } });
+    expect(outputOf(latest(github)).summary).toContain(`BL-QUOTES-1: waiting for an approving review of the head commit from @pm-login, who own \`${QUOTES}\`.`);
+  });
+
+  it('a non-owner’s approval leaves it red; its CODEOWNER’s approval, read from the base, clears it', async () => {
+    const github = lawGitHub({ codeowners: `/${QUOTES} @pm-login\n`, reviews: [review('dev')] });
+    await deliver(github, pullRequestDelivery(knowledgePull(), 'opened'));
+    expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: LAW_TITLE } });
+
+    github.state.reviews.push(review('pm-login'));
+    await deliver(github, reviewDelivery(knowledgePull()));
+    expect(latest(github)).toMatchObject({ head_sha: 'head1', conclusion: 'skipped' });
+    expect(outputOf(latest(github)).summary).toContain('Locked laws changed (BL-QUOTES-1): approved by their CODEOWNERS, @pm-login.');
+  });
+
+  it('a feature PR whose outbox is answered, even labelled omni:outbox-go, stays red until the PM approves', async () => {
+    const pull = { ...featurePull(), labels: ['omni:outbox-go'] };
+    const github = lawGitHub({ pull, head: [fixture('head-clear')] });
+    await deliver(github, pullRequestDelivery(pull, 'labeled'));
+    expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: LAW_TITLE } });
+    expect(outputOf(latest(github)).summary).toContain('no outbox item, label or trailer does');
+
+    github.state.reviews.push(review('pm-login'));
+    await deliver(github, reviewDelivery(pull));
+    expect(latest(github)).toMatchObject({ conclusion: 'success', output: { title: 'Outbox clear' } });
+  });
+
+  it('a knowledge PR changing no business law is skipped as before, reading no review; another branch is skipped before any read', async () => {
+    const github = fakeGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-open') }, pull: knowledgePull(), files: [{ filename: 'docs/guide.md', status: 'modified' }] });
+    await deliver(github, pullRequestDelivery(knowledgePull(), 'opened'));
+    expect(latest(github)).toMatchObject({ conclusion: 'skipped', output: { title: 'omni-loop is not active on this PR' } });
+    expect(github.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews');
+
+    const chore = { ...featurePull(), head: { ref: 'chore/tidy', sha: 'head1' } };
+    const other = lawGitHub({ pull: chore });
+    await deliver(other, pullRequestDelivery(chore, 'opened'));
+    expect(latest(other)).toMatchObject({ conclusion: 'skipped' });
+    expect(other.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
+  });
+});

@@ -8,23 +8,24 @@ import type { AppBot, GithubDeps } from './runners.service';
 // GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY, read through the env module by the live wiring (./runners.live.ts);
 // a deployment without them holds no App, and every job fails saying so.
 //
-// The App's bot is named by its slug (`GET /app`, then `GET /users/<slug>[bot]`, asked with no token, #2528).
-// The live wiring keeps one of these for the server's process, and it reads the bot once: GitHub limits the
-// route asked with no token by address, and the bot of an App never changes.
+// The App's bot is named by its slug (`GET /app`, then `GET /users/<slug>[bot]`, never with the App's JWT, #2528),
+// asked with the token just minted for the job: GitHub limits the route asked with no token by address, which a
+// serverless host shares and whose processes come and go (#2656). The live wiring keeps one of these for the server's
+// process, and it reads the bot once, as the bot of an App never changes.
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export function githubDeps(credentials: AppCredentials | null, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubDeps {
   let named: Promise<AppBot> | null = null;
-  const readBot = async (app: AppCredentials): Promise<AppBot> => {
-    const checked = await checkApp(app, fetchImpl, clock);
+  const readBot = async (app: AppCredentials, token: string): Promise<AppBot> => {
+    const checked = await checkApp(app, fetchImpl, clock, token);
     if (!checked.ok) throw new Error(checked.detail);
     return { slug: checked.slug, botId: checked.botId };
   };
   return {
     credentials,
-    bot: (app) => {
-      named ??= readBot(app).catch((error: unknown) => {
+    bot: (app, token) => {
+      named ??= readBot(app, token).catch((error: unknown) => {
         // A read that failed is asked again the next time.
         named = null;
         throw error;

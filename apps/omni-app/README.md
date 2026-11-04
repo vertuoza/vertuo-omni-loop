@@ -451,6 +451,9 @@ None of these is taken by the code; a person does each once.
    - `LAW_JUDGE_SECRET` — the secret the knowledge harvest signs its call to galaxy's law judge with
      (PRD 1342), the same value as in galaxy's project. Unset, the classifier's own answer says
      whether a rule or an invariant with no test is worth a law.
+   - `BUSINESS_LAWS_JUDGE_SECRET` — the secret the inbox check signs its call to galaxy's business laws
+     judge with (PRD 2632), the same value as in galaxy's project. Unset, the `business laws` gate is
+     neutral, "judge not configured".
    - `OPENROUTER_MODEL`, optional — another model than the default for the retro and the harvest
      (below).
    - `STAGE_EVENT_SECRET` — the secret stage events are signed with on their way to galaxy

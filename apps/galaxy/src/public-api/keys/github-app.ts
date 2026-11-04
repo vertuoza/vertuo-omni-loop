@@ -89,18 +89,31 @@ function asApp(fetchImpl: Fetch, jwt: string, path: string, body?: unknown): Pro
 const publicly = (fetchImpl: Fetch, path: string): Promise<Response> =>
   fetchImpl(`${GITHUB}${path}`, { method: 'GET', headers: { ...ACCEPT }, cache: 'no-store' });
 
+/**
+ * The public route `path`, asked with `token` when a caller holds one: an installation's token has its own, far larger
+ * limit (#2656). A token refused, or none, is asked with no token, as anyone may.
+ */
+async function publiclyOr(fetchImpl: Fetch, path: string, token: string | undefined): Promise<Response> {
+  if (token !== undefined) {
+    const res = await fetchImpl(`${GITHUB}${path}`, { method: 'GET', headers: headers(token), cache: 'no-store' });
+    if (res.ok) return res;
+  }
+  return publicly(fetchImpl, path);
+}
+
 /** The body of a GitHub answer, or undefined when it is no JSON. */
 const bodyOf = (res: Response): Promise<unknown> => res.json().then((json: unknown) => json, () => undefined);
 
 /**
  * Checks an App ID and private key against GitHub before anything is stored (spec §2): the App's JWT
- * reads `GET /app` for the slug, then `GET /users/<slug>[bot]`, asked with no token since GitHub refuses
- * the App's JWT there (#2528), names the bot's id, which the commits' email needs. A pair GitHub refuses
+ * reads `GET /app` for the slug, then `GET /users/<slug>[bot]`, never with that JWT since GitHub refuses it
+ * there (#2528), names the bot's id, which the commits' email needs: with `token`, an installation's, when the
+ * caller holds one (#2656), else with no token, within GitHub's limit per address. A pair GitHub refuses
  * (401 or 404 on `/app`), or a key that signs nothing, is `refused`; anything else GitHub fails at, a rate
  * limit on the bot's route among them, is `unavailable`, so the owner is told to try again, not that the
  * pair is wrong.
  */
-export async function checkApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): Promise<AppChecked> {
+export async function checkApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now, token?: string): Promise<AppChecked> {
   const jwt = signed(creds, clock());
   if (jwt === null) return failure('refused', 'the private key signs nothing');
   try {
@@ -110,7 +123,7 @@ export async function checkApp(creds: AppCredentials, fetchImpl: Fetch = fetch, 
     const named = AppAnswer.safeParse(await bodyOf(app));
     if (!named.success) return failure('unavailable', odd('GET /app'));
     const bot = `/users/${named.data.slug}[bot]`;
-    const botRes = await publicly(fetchImpl, bot);
+    const botRes = await publiclyOr(fetchImpl, bot, token);
     if (!botRes.ok) return failure('unavailable', status(botRes, `GET ${bot}`));
     const botId = BotAnswer.safeParse(await bodyOf(botRes));
     if (!botId.success) return failure('unavailable', odd(`GET ${bot}`));
