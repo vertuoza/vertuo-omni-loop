@@ -7,7 +7,7 @@ import { main } from './omni.ts';
 const FORMAT = 'pr:\n  ref:\n    title: "[{ref}]-{title}"\n    none: "[NoRef]-{title}"\n    link: "https://tracker.example/{ref}"\n';
 const TITLE = 'fix(planning): keep the day';
 
-async function omni(argv: readonly string[], { config = `kit: 1\nrepo:\n  slug: acme/widgets\n${FORMAT}`, body = '' as string | Error } = {}) {
+async function omni(argv: readonly string[], { config = `kit: 1\nrepo:\n  slug: acme/widgets\n${FORMAT}`, body = '' }: { config?: string; body?: string | Error } = {}) {
   const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config } });
   const out: string[] = [];
   const err: string[] = [];
