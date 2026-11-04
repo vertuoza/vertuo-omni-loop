@@ -239,3 +239,157 @@ B costs one more GitHub read (the compare) for every pull request into the main 
 ```
 
 <!-- /omni-outbox-settled: s3-01-business-law-held-on-knowledge-and-feature-prs -->
+
+<!-- omni-outbox-settled: s4-01-verdicts-check-runs-from-approvals -->
+
+## s4-01-verdicts-check-runs-from-approvals — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-verdicts-check-runs-from-approvals
+prd: 2632
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 3
+---
+
+## The question, in plain words
+
+The new database check for the business laws' verdicts should run as its own named step in the database workflow, but an agent may not change a workflow file. How should it run until a person adds that step?
+
+## The decision, in plain words
+
+The approvals check now runs the verdicts check right after its own, so the database workflow proves it on every pull request today. A person can later give it its own step and remove that one line.
+
+## The intro, for fun
+
+The robot wrote a new test, then found the door to the test room was locked.
+
+## The punchline, for fun
+
+So it slipped the test into a friend's backpack, and left a note on the door.
+
+## The options, in plain words
+
+A. A. Keep the verdicts check running from the approvals check, as built.
+B. B. A person adds the verdicts check as its own workflow step and removes the include line.
+
+## What I had to decide
+
+Whether the verdicts check keeps running from the approvals check, or a person adds the step `The business laws' verdicts, and the approval a red holds` to the supabase workflow's check job, running `supabase/checks/business_law_verdicts.sql`, and drops the `\ir business_law_verdicts.sql` line at the end of `supabase/checks/approvals.sql`.
+
+## What I did meanwhile
+
+`supabase/checks/approvals.sql` ends with `\ir business_law_verdicts.sql`, so the supabase workflow's approvals step runs both, each in its own transaction; the push refused a workflow change (`refusing to allow a GitHub App to create or update workflow ... without workflows permission`), so `.github/workflows/supabase.yml` is unchanged.
+
+## What it costs to change later
+
+One workflow step added and one line removed from `supabase/checks/approvals.sql`; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The conventions form asks each check to be its own named step; this departs from it until a person with the workflows permission adds the step (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-verdicts-check-runs-from-approvals -->
+
+<!-- omni-outbox-settled: s4-02-no-law-applies-reads-green -->
+
+## s4-02-no-law-applies-reads-green — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-04
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-04
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-no-law-applies-reads-green
+prd: 2632
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-04
+wave: 3
+---
+
+## The question, in plain words
+
+When the product has business laws but none of them applies to a spec (its words point to no domain, and the product has no law that applies everywhere), should the PRD page call that a pass or say it was not judged?
+
+## The decision, in plain words
+
+It is a pass: the page says the business laws passed with none judged, adds that no business law applies to this spec, and Approve stays on. The model is not asked, and the verdict is kept like any other.
+
+## The intro, for fun
+
+The referee arrived, looked at the field, and found nobody had brought a ball.
+
+## The punchline, for fun
+
+So the match ended with no fouls, which is technically a clean game.
+
+## The options, in plain words
+
+A. A. A spec no law applies to is green, with none judged, as built.
+B. B. It is neutral: the page says the business laws were not judged, and why.
+
+## What I had to decide
+
+Whether a spec no business law applies to is a green verdict (`Business laws ✓ 0 judged`, "No business law applies to this spec.") or a neutral one (`Business laws not judged: no business law applies to this spec`).
+
+## What I did meanwhile
+
+`judgeSpec` (apps/galaxy/src/business-laws/judge.service.ts) answers `green` with the reason `no business law applies to this spec` and no law judged; the verdict is kept per spec version and pack like any other, and Approve stays on either way.
+
+## What it costs to change later
+
+One branch of `judgeSpec` and one line of `BusinessLawsVerdict.tsx`; verdicts already kept as green stay green, being never rewritten.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says a product with no law is neutral and shows nothing, and that a green says what it judged; it does not say which a spec with laws but none selected is (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-no-law-applies-reads-green -->
