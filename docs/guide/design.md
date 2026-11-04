@@ -395,13 +395,13 @@ you see what was left out. Set `design.words.content` when your mockups mark con
   text around them: `<span>ask.client.ts</span><span>POST</span>` reads `ask.client.ts` and
   `POST`, never glued together.
 - **A control's parts are words apart.** Inside a control, two neighbouring elements are joined
-  with a space: `<b>CREW TOP 5</b><span>NO SCORES YET</span>` reads `CREW TOP 5 NO SCORES YET`.
+  with a space: `<b>TEAM TOP 5</b><span>NO SCORES YET</span>` reads `TEAM TOP 5 NO SCORES YET`.
 
 ```text terminal
-dossier.html
-  screen prd-dossier · 10 words
+quote.html
+  screen quote-page · 10 words
     Shipped on main (2026-10-11) (4)
-    [control] CREW TOP 5 NO SCORES YET (6)
+    [control] TEAM TOP 5 NO SCORES YET (6)
     content · 412 words
     findings: none
 ```
@@ -439,7 +439,7 @@ The feature pull request says where to look, right after its link line:
 
 It names the screens of the before/after's `screens:` line, or `none` when the page says
 `Pixel perfect: no screen changes`. `/omni:visual-fix`'s page is all screens: it is the Pixel
-perfect part alone. With design craft off, the before/after is written in one part, as before,
+perfect part alone. With design craft off, the before/after is written in one part,
 and the pull request has no such line.
 
 ## Use it on a screen

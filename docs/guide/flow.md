@@ -6,8 +6,8 @@ description: Rules, areas, hooks and landings that tailor the loop to one reposi
 Out of the box the loop works the same way in every repository: `/omni:do-work` runs your preflight,
 `/omni:wave` squash-merges every sub-PR, `/omni:pr` opens every pull request with `gh pr create`. A
 team with its own habits (a database migration is one file in one pull request, the kernel lands
-first, a person approves every kernel change, the tests run through its own script) used to have
-only the playbook forms to say so, and a form is prose nothing checks.
+first, a person approves every kernel change, the tests run through its own script) could say so in the playbook forms, but a form is prose
+nothing checks.
 
 The **flow** is where a repository says how the loop differs here, in the `flow` section of
 `.omni-loop/config.yml`. It has three parts, and none of them is code:
@@ -22,7 +22,7 @@ The **flow** is where a repository says how the loop differs here, in the `flow`
 A PRD can also reach the default branch in several ordered pull requests, its **landings**, so a
 database migration ships alone, before the code that reads it ([Landings](#landings)).
 
-A repository with no `flow` key works exactly as before. Nothing on this page applies to it.
+A repository with no `flow` key works the default way. Nothing on this page applies to it.
 
 ## The worked example: a kernel and its migrations
 
@@ -414,9 +414,9 @@ the order written), and an area's own `replace` wins over the default area's.
 
 ### Replace the act, never the guard
 
-**Extend is the default; replace is the exception.** A playbook form only adds to a skill
-(ADR-0025), and so do `before` and `after` hooks. A `replace` hook takes the kit's act at the four
-points the catalog allows, and nothing more (ADR-0069). These run whatever the hooks say: signing,
+**Extend is the default; replace is the exception.** A playbook form only adds to a skill,
+and so do `before` and `after` hooks. A `replace` hook takes the kit's act at the four
+points the catalog allows, and nothing more. These run whatever the hooks say: signing,
 labels, the PR links, the base check (never into the default branch), the territory check,
 `omni plan check`, the slice's preflight before it ships, and the merge gate.
 
@@ -553,7 +553,7 @@ drops. It never applies a flow, and never writes a hook.
 | `flow.rules` | none | the default area's `plan` and `subPr` rules |
 | `flow.hooks` | none | the default area's hooks, by point |
 | `flow.areas.<name>` | none | an area: `paths`, `rules`, `hooks`, `knowledge`, `inherit` |
-| `flow.on` | refused | reserved for events, which a later PRD defines |
+| `flow.on` | refused | reserved for events, in a later version of the kit |
 | `contracts.declare` | `false` | every slice landing here declares its contract ([Contracts](#contracts)) |
 | `contracts.kinds` | `[api, db]` | the kinds a slice may declare here, besides `none` |
 | `limits.hookMaxBytes` | `20480` | the largest a hook file may be |

@@ -95,10 +95,6 @@ each target pull request on a `Merge after` line. A person merges every one, the
 - The body takes `repo`, `description`, `runner`, `fleet`, `acting_for` and `notify_url`, and nothing
   else: any other field answers 422, naming it.
 
-This route is newer than the others. A deployment without it answers `404` with an HTML page, not
-the error shape; the route itself never answers 404, so a program may read a 404 as "not deployed
-here yet".
-
 ## Run as your own GitHub App
 
 A job a key starts writes on GitHub as the Omni App's bot, `<slug>[bot]`: the bug's issue, its comments
@@ -190,9 +186,6 @@ Which jobs a key reaches:
   answers 403.
 - **Never a person's job, never another workspace's.** A job a person sent from the Runners page,
   and a job of another workspace, answer 404.
-
-What follows is additive: every field, route and refusal that was here keeps its meaning, so a
-client built before it keeps working unchanged.
 
 ## Read what a job did
 
