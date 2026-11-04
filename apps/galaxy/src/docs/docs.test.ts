@@ -87,7 +87,7 @@ function render(slug: string[]) {
 }
 
 describe('the sidebar', () => {
-  it('lists the twenty-two pages, in order, at /docs and under it', () => {
+  it('lists the twenty-one pages, in order, at /docs and under it', () => {
     expect(items).toEqual([
       { name: 'Getting started', url: '/docs' },
       { name: 'Install', url: '/docs/install' },
@@ -104,8 +104,7 @@ describe('the sidebar', () => {
       { name: 'Roadmaps', url: '/docs/roadmaps' },
       { name: 'Ideas board', url: '/docs/ideas' },
       { name: 'Repository flow', url: '/docs/flow' },
-      { name: 'Playbook', url: '/docs/playbook' },
-      { name: 'Knowledge map', url: '/docs/knowledge-map' },
+      { name: 'Knowledge', url: '/docs/knowledge' },
       { name: 'Design craft (opt-in)', url: '/docs/design' },
       { name: 'Validate with e2e (beta)', url: '/docs/validate-e2e' },
       { name: 'Use cases', url: '/docs/use-cases' },
@@ -133,8 +132,7 @@ describe('the sidebar', () => {
       '<a href="/docs/roadmaps">Roadmaps</a>',
       '<a href="/docs/ideas">Ideas board</a>',
       '<a href="/docs/flow">Repository flow</a>',
-      '<a href="/docs/playbook">Playbook</a>',
-      '<a href="/docs/knowledge-map">Knowledge map</a>',
+      '<a href="/docs/knowledge">Knowledge</a>',
       '<a href="/docs/design">Design craft (opt-in)</a>',
       '<a href="/docs/validate-e2e">Validate with e2e (beta)</a>',
       '<a href="/docs/use-cases">Use cases</a>',
@@ -147,7 +145,7 @@ describe('the sidebar', () => {
 describe('the pages', () => {
   it('serves Getting started at /docs, and each other page at /docs/<page>', () => {
     expect(guide.generateParams().map((p) => p.slug.join('/')).sort())
-      .toEqual(['', 'any-agent', 'api', 'cloud', 'design', 'drive', 'first-prd', 'flow', 'ideas', 'install', 'invade', 'join', 'knowledge-map', 'loop', 'playbook', 'products', 'roadmaps', 'runners', 'several-repositories', 'troubleshooting', 'use-cases', 'validate-e2e']);
+      .toEqual(['', 'any-agent', 'api', 'cloud', 'design', 'drive', 'first-prd', 'flow', 'ideas', 'install', 'invade', 'join', 'knowledge', 'loop', 'products', 'roadmaps', 'runners', 'several-repositories', 'troubleshooting', 'use-cases', 'validate-e2e']);
     expect(guide.getPage([])?.data.title).toBe('Getting started');
     expect(guide.getPage(['nope'])).toBeUndefined();
   });
@@ -168,8 +166,7 @@ describe('the pages', () => {
     [['roadmaps'], 'Roadmaps', '/docs/flow'],
     [['ideas'], 'Ideas board', '/docs/flow'],
     [['flow'], 'Repository flow', '/docs/design'],
-    [['playbook'], 'Playbook', '/docs/knowledge-map'],
-    [['knowledge-map'], 'Knowledge map', '/docs/design'],
+    [['knowledge'], 'Knowledge', '/docs/design'],
     [['design'], 'Design craft (opt-in)', '/docs/validate-e2e'],
     [['validate-e2e'], 'Validate with e2e (beta)', '/docs/use-cases'],
     [['use-cases'], 'Use cases', '/docs/troubleshooting'],
@@ -230,9 +227,9 @@ describe('the skills pages (PRD 580)', () => {
   };
   const navLinks = (html: string, label: string) => (new RegExp(`<nav class="docs-nav" aria-label="${label}">[\\s\\S]*?</nav>`).exec(html)?.[0] ?? '').match(/<a [^>]*>[^<]*<\/a>/g);
 
-  it('shows the guide\'s twenty-two pages, then Skills › All skills, on a guide page', () => {
+  it('shows the guide\'s twenty-one pages, then Skills › All skills, on a guide page', () => {
     const html = render(['install']);
-    expect(navLinks(html, 'Guide')).toHaveLength(22);
+    expect(navLinks(html, 'Guide')).toHaveLength(21);
     expect(html).toMatch(/<\/nav><nav class="docs-nav" aria-label="Skills"><p class="docs-nav-head">Skills<\/p><ol><li><a href="\/docs\/skills">All skills<\/a><\/li><\/ol><\/nav>/);
   });
 
@@ -243,7 +240,7 @@ describe('the skills pages (PRD 580)', () => {
     const wave = navLinks(skills('wave'), 'Skills');
     expect(wave?.[0]).toBe('<a href="/docs/skills">All skills</a>');
     expect(wave?.filter((link) => link.includes('aria-current'))).toEqual(['<a href="/docs/skills/wave" aria-current="page">/omni:wave</a>']);
-    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(22);
+    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(21);
   });
 
   it('draws the overview: one section per group, a card per skill linking its page', () => {

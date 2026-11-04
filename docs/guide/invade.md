@@ -75,7 +75,7 @@ person deletes its `Proposed:` line. Merging the pull request confirms nothing.
   words, with a `TODO(human):` question wherever your repository does not show the answer.
 - **Candidate laws:** at most `laws.max` of the rules that cost the most when broken, each with a
   `Proposed law:` sentence (what breaks, and who gets hurt) and the `Governs:` line of the files it
-  rules over. It locks none: [Lock a law](/docs/loop#lock-a-law) says how a CODEOWNER does.
+  rules over. It locks none: [Lock a law](/docs/knowledge#lock-a-law) says how a CODEOWNER does.
 
 ## The pull request it opens
 

@@ -54,7 +54,7 @@ way (PRD 2011). The plan repository is the one `POST /api/v1/mega-bug-fixes` acc
 
 - The words of the list when nothing is left in the plan repository.
 
-- Whether the nine roles show their one-line definitions (from `docs/guide/knowledge-map.md`) as
+- Whether the nine roles show their one-line definitions (from `docs/guide/knowledge.md`) as
   tooltips on the select.
 
 ## Source

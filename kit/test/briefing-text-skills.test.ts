@@ -34,7 +34,7 @@ describe('briefing-text in the skills and the guide', () => {
   });
 
   it('the guide names it in "A person answers every change to a rule"', () => {
-    const text = section('docs/guide/loop.md', '### A person answers every change to a rule');
+    const text = section('docs/guide/knowledge.md', '### A person answers every change to a rule');
     expect(text).toMatch(/^- \*\*`briefing-text`\*\*: /m);
     expect(text).toMatch(/Five changes count/);
     expect(text).toMatch(/the five changes answered only by `high` questions/);
