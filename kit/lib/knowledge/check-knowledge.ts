@@ -76,6 +76,7 @@ import {
 } from './registers.ts';
 import { isLayer, LAYER_ALIASES, layerList } from '../layers/layers.ts';
 import { readDecisions } from '../playbook/decisions.ts';
+import { BUSINESS_LAWS_FILE, businessLawProblems, readBusinessLaws } from './business-laws.ts';
 import { invalidGoverns } from './disclose.ts';
 import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
 import { ownersBlockProblems } from '../codeowners-laws.ts';
@@ -166,7 +167,8 @@ export function findLayoutViolations(
       violations.push(violation(`${productDir(ctx)}/${name}`, 'product', 'is missing.'));
     }
   }
-  for (const domain of knowledge.domains) {
+  // A folder holding business laws alone (PRD 2632) is a domain's law file, and no register: its laws depend on the file alone.
+  for (const domain of knowledge.domains.filter((one) => !isLawsOnly(one.files))) {
     const dir = `${domainsDir(ctx)}/${domain.name}`;
     for (const name of ['README.md', ...REQUIRED_LAYER_FILES]) {
       if (!domain.files.includes(name)) {
@@ -193,6 +195,9 @@ export function findLayoutViolations(
   }
   return violations;
 }
+
+/** Whether a domain folder's files are its business laws and nothing else. */
+const isLawsOnly = (files: readonly string[]): boolean => files.length === 1 && files[0] === BUSINESS_LAWS_FILE;
 
 function glossaryHolds(glossaryText: string, term: string): boolean {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -697,6 +702,16 @@ function findLevelContradictions(ctx: CheckCtx): Violation[] {
   });
 }
 
+/**
+ * The business laws' shape (PRD 2632), under any `laws.source`: each law's id, code, statement and
+ * `Why:`, a number used once, and none while `laws.owners` names nobody. An imported copy's owners are
+ * its target's, so they are not asked of it.
+ */
+function findBusinessLawViolations(ctx: CheckCtx): Violation[] {
+  const owners = ctx.copyOf ? null : (ctx.config.laws?.owners ?? []);
+  return businessLawProblems(readBusinessLaws({ ctx }), { owners, where: ctx.layout.knowledgeRoot }).map((text) => ({ text }));
+}
+
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
@@ -762,6 +777,7 @@ export function gradeKnowledge({
     ...findThesisViolations(ctx, knowledge.entries),
     ...findOwnersBlockViolations(ctx, knowledge),
     ...findLevelContradictions(ctx),
+    ...findBusinessLawViolations(ctx),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve)),
   ];
 

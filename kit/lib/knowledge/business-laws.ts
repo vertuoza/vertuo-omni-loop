@@ -29,7 +29,7 @@ import { codeOf, diskSource, domainsDir, PRODUCT_CODE, productDir, type Knowledg
 import type { LawOwner } from '../config.ts';
 
 /** The file a folder's business laws live in. */
-const BUSINESS_LAWS_FILE = 'business-laws.md';
+export const BUSINESS_LAWS_FILE = 'business-laws.md';
 
 /** One business law, as {@link parseBusinessLaws} reads it. `domain` is the folder's key, `product` for `product/`. */
 export type BusinessLaw = {
@@ -133,8 +133,9 @@ export function businessLawDomains(law: Pick<BusinessLaw, 'scope' | 'domain' | '
 /**
  * What `omni check knowledge` refuses of the business laws: each law's own problems, a number used
  * twice, and any law while `laws.owners` names nobody, since only an owner approves a change to one.
+ * `owners` is `null` where they are not asked: an imported copy's are its target's.
  */
-export function businessLawProblems(laws: readonly BusinessLaw[], { owners, where }: { owners: readonly LawOwner[]; where: string }): string[] {
+export function businessLawProblems(laws: readonly BusinessLaw[], { owners, where }: { owners: readonly LawOwner[] | null; where: string }): string[] {
   const seen = new Map<string, string>();
   const problems = laws.flatMap((law) => {
     const first = seen.get(law.id);
@@ -142,7 +143,7 @@ export function businessLawProblems(laws: readonly BusinessLaw[], { owners, wher
     const reused = first === undefined ? [] : [`${law.file}: ${law.id} — already used in ${first}: a business law's number is used once.`];
     return [...law.problems, ...reused];
   });
-  if (laws.length > 0 && owners.length === 0) {
+  if (laws.length > 0 && owners?.length === 0) {
     const counted = `${laws.length} business ${laws.length === 1 ? 'law' : 'laws'}`;
     problems.push(`${where}: ${counted}, and laws.owners is empty — name the product's PM in laws.owners: only they approve a change to one.`);
   }
