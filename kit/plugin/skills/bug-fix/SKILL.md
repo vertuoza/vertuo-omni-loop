@@ -145,6 +145,13 @@ Jev's level counts, even against yours: it is the level of the Risk line and of 
 and the Risk line ends with ` (Jev, <confidence>)`. Jev answers the level only: Kind, Domain,
 Regression and the Risk line's sentence stay yours.
 
+**The Ref line** (PRD 2648) is there only when `pr.ref` is set: `node .omni-loop/bin/omni.mjs config
+pr.ref` prints `null` otherwise, and then the triage has no Ref line. When it is set, run
+`node .omni-loop/bin/omni.mjs ref <n> --title "<the issue's title>" --json` (a read: nothing is
+posted or changed). Its `ref` is the Ref line's value, or `none` when `ref` is null. Exit 1 (the
+issue cannot be read through `gh`) gives `unreadable (gh)`. Only the marker counts: never a key
+read from the issue's prose.
+
 The triage is posted in this step, at once, with `- **Reproduction:** pending` and
 `- **Branch:** pending`: neither exists yet, and every stop after this step leaves a triage on the
 issue. Steps 5 and 7 fill those two lines, edited in place by its marker.
@@ -166,6 +173,7 @@ gh api -X PATCH repos/<repo.slug>/issues/comments/<id> -F body=@<file>          
 
 - **Kind:** behaviour bug
 - **Domain:** <the knowledge area or code area that owns the behaviour>
+- **Ref:** <ref | none | unreadable (gh)>
 - **Risk:** <critical | high | medium | low> — <who is hurt, how, workaround or not>[ (Jev, <confidence>)]
 - **Regression:** yes — <culprit PR or commit | green run → red run | the report's "last worked">
   | <previous tag>..<tag> (first seen <time> UTC, none before) | new bug — no evidence this ever worked
@@ -330,7 +338,8 @@ never level B's reason, and `omni bug <n>` refuses it as one.
    `## What was wrong` as the triage tells it, then `## Proof` holding the one line
    `Pending: the fix is not pushed yet.`, then the `omni sign footer` line (**Signing**). Open it
    through `/omni:pr`, as a standalone PR and as a **draft**, at point `pr.open` as `/omni:pr` says
-   (its hooks see the reproduction alone): base `repo.defaultBranch`, label `labels.bug` (subject to
+   (its hooks see the reproduction alone) with `--issue <n>`, so its `pr.open` step can title it
+   from the issue's marker (PRD 2648): base `repo.defaultBranch`, label `labels.bug` (subject to
    its **Labels** rules), title the fix's commit subject to come,
    `gh pr create --draft --body-file <file>`. Keep its number, `<pr>`. `/omni:pr`'s watch does not
    start here: it starts at step 12, once the fix is pushed.
