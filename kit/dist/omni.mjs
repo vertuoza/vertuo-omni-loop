@@ -29620,7 +29620,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     readPitchSettings: (repo) => call("GET", `/api/pitch-settings?${new URLSearchParams({ repo })}`),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
-     *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
+     *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }>,
+     *   lawHome?: string | null }>} PRD 2632: `lawHome` is the repository (owner/name) the product's business laws live in;
+     * a reply without it (an older server) reads as none. */
     readBusiness: (repo) => call("GET", `/api/business?${new URLSearchParams({ repo })}`),
     /** PRD 871: the live Statement and Never lines of the product agents in `repo` (owner/name) work on.
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
@@ -32520,6 +32522,119 @@ function briefingFiles({ ctx }) {
 }
 function isBriefingFile(path, files) {
   return files.some((file2) => path === file2 || path.startsWith(`${file2}/`));
+}
+
+// kit/lib/knowledge/business-laws.ts
+init_define_OMNI_BUNDLE();
+var BUSINESS_LAWS_FILE = "business-laws.md";
+var HEADING2 = /^##\s+(.*?)\s*$/;
+var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
+var FIELD = /^(Why|Also):\s*(.*)$/;
+var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+function blocks(text16) {
+  const found2 = [];
+  for (const line2 of text16.split("\n")) {
+    const match = line2.match(HEADING2);
+    if (match) found2.push({ heading: match[1] ?? "", lines: [] });
+    else found2.at(-1)?.lines.push(line2);
+  }
+  return found2;
+}
+function readBody2(raw) {
+  const lines4 = raw.map((line2) => line2.trim());
+  const fieldAt = lines4.findIndex((line2) => FIELD.test(line2));
+  const statement2 = (fieldAt === -1 ? lines4 : lines4.slice(0, fieldAt)).filter(Boolean).join(" ");
+  return { statement: statement2, why: fieldValue(lines4, "Why") || null, also: fieldValue(lines4, "Also") };
+}
+function fieldValue(lines4, name3) {
+  const at2 = lines4.findIndex((line2) => line2.match(FIELD)?.[1] === name3);
+  if (at2 === -1) return null;
+  const rest = lines4.slice(at2 + 1);
+  const end3 = rest.findIndex((line2) => line2 === "" || FIELD.test(line2));
+  const continued = end3 === -1 ? rest : rest.slice(0, end3);
+  return [lines4[at2]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
+}
+function idProblem(file2, id, place) {
+  const code = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
+  const match = id.match(ID);
+  if (!match) return `${file2}: ${id} \u2014 is not a business law id: write BL-${code}-<n>.`;
+  if (match[1] !== code) return `${file2}: ${id} \u2014 names ${match[1] ?? ""}, but it sits in the ${place.domain} folder: write BL-${code}-<n>.`;
+  return null;
+}
+function parseBusinessLaws(file2, text16, place) {
+  return blocks(text16).map(({ heading: heading2, lines: lines4 }) => {
+    const { statement: statement2, why: why3, also } = readBody2(lines4);
+    const problems = [
+      idProblem(file2, heading2, place),
+      statement2 === "" ? `${file2}: ${heading2} \u2014 has no statement.` : null,
+      why3 === null ? `${file2}: ${heading2} \u2014 is missing a "Why:" line: a business law says why it exists, and a red shows it.` : null
+    ].filter((problem) => problem !== null);
+    return { id: heading2, statement: statement2, why: why3, also: also === null ? [] : keysOf2(also), scope: place.scope, domain: place.domain, file: file2, problems };
+  });
+}
+function readBusinessLaws({ ctx, source: source2 = diskSource(ctx.root) }) {
+  const product2 = productDir(ctx);
+  const domains = domainsDir(ctx);
+  const laws2 = [];
+  if (source2.files(product2).includes(BUSINESS_LAWS_FILE)) {
+    const file2 = `${product2}/${BUSINESS_LAWS_FILE}`;
+    laws2.push(...parseBusinessLaws(file2, source2.read(file2), { scope: "product", domain: "product" }));
+  }
+  for (const name3 of source2.dirs(domains)) {
+    if (!source2.files(`${domains}/${name3}`).includes(BUSINESS_LAWS_FILE)) continue;
+    const file2 = `${domains}/${name3}/${BUSINESS_LAWS_FILE}`;
+    laws2.push(...parseBusinessLaws(file2, source2.read(file2), { scope: "domain", domain: name3 }));
+  }
+  return laws2;
+}
+function businessLawDomains(law) {
+  return law.scope === "product" ? [] : [.../* @__PURE__ */ new Set([law.domain, ...law.also])];
+}
+function businessLawProblems(laws2, { owners: owners2, where }) {
+  const seen = /* @__PURE__ */ new Map();
+  const problems = laws2.flatMap((law) => {
+    const first = seen.get(law.id);
+    if (first === void 0) seen.set(law.id, law.file);
+    const reused = first === void 0 ? [] : [`${law.file}: ${law.id} \u2014 already used in ${first}: a business law's number is used once.`];
+    return [...law.problems, ...reused];
+  });
+  if (laws2.length > 0 && owners2?.length === 0) {
+    const counted5 = `${laws2.length} business ${laws2.length === 1 ? "law" : "laws"}`;
+    problems.push(`${where}: ${counted5}, and laws.owners is empty \u2014 name the product's PM in laws.owners: only they approve a change to one.`);
+  }
+  return problems;
+}
+var FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+function splitSpec(spec) {
+  const match = spec.match(FRONT_MATTER);
+  return match ? { front: match[1] ?? "", body: match[2] ?? "" } : { front: "", body: spec };
+}
+function specAreas(spec) {
+  const line2 = splitSpec(spec).front.split("\n").map((one) => one.match(/^areas:\s*\[(.*)\]\s*$/)).find((match) => match !== null);
+  return line2 ? keysOf2(line2[1] ?? "") : [];
+}
+function usesWord(text16, word2) {
+  const escaped2 = word2.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  if (escaped2 === "") return false;
+  return new RegExp(`(?<![\\p{L}\\p{N}_])${escaped2}(?![\\p{L}\\p{N}_])`, "iu").test(text16);
+}
+function selectBusinessLaws({ spec, laws: laws2, glossary }) {
+  const taken = /* @__PURE__ */ new Map();
+  const take = (key2, reason2) => {
+    const reasons2 = taken.get(key2) ?? [];
+    if (!reasons2.includes(reason2)) reasons2.push(reason2);
+    taken.set(key2, reasons2);
+  };
+  for (const key2 of specAreas(spec)) take(key2, "areas");
+  const { body } = splitSpec(spec);
+  for (const { term, avoid, domains = [] } of glossary) {
+    if (domains.length === 0) continue;
+    const word2 = usesWord(body, term) ? `"${term}"` : avoid.filter((one) => usesWord(body, one)).map((one) => `"${one}" (for "${term}")`)[0];
+    if (word2 === void 0) continue;
+    for (const key2 of domains) take(key2, word2);
+  }
+  const selected = laws2.filter((law) => law.scope === "product" || businessLawDomains(law).some((key2) => taken.has(key2)));
+  return { domains: [...taken].map(([key2, reasons2]) => ({ key: key2, reasons: reasons2 })), laws: selected };
 }
 
 // kit/lib/outbox/decision-coverage.ts
@@ -35447,9 +35562,9 @@ var ARTIFACT_KINDS = Object.freeze([
   // A PRD with no folder throws here, as it always has; `readDossierFolder` asks only once it has one.
   { kind: "voice", pathOf: (layout, prd2) => `${defined(layout.whereIs(prd2), `the folder of PRD ${Number(prd2)}`).dir}/${VOICE_FILE}` }
 ]);
-var FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+var FRONT_MATTER2 = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 function frontMatterTitle(text16) {
-  const block = FRONT_MATTER.exec(text16);
+  const block = FRONT_MATTER2.exec(text16);
   if (!block) return null;
   const title = parseFrontMatterLines(block[1] ?? "").data.title?.trim();
   return title || null;
@@ -35644,11 +35759,11 @@ function readProductApproval(prdId, call) {
 }
 
 // kit/lib/approval/prd-state.ts
-var FRONT_MATTER2 = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+var FRONT_MATTER3 = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 function birthplaceOf(ctx, prd2) {
   const spec = ctx.layout.specPath(prd2);
   if (!spec || !existsSync29(join36(ctx.root, spec))) return "repo";
-  const block = FRONT_MATTER2.exec(readFileSync28(join36(ctx.root, spec), "utf8"));
+  const block = FRONT_MATTER3.exec(readFileSync28(join36(ctx.root, spec), "utf8"));
   if (!block) return "repo";
   return parseFrontMatterLines(block[1] ?? "").data.phase0 === "server" ? "server" : "repo";
 }
@@ -40573,7 +40688,9 @@ var ReplySchema = external_exports.object({
   // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
   personas: external_exports.array(external_exports.unknown()).optional(),
   // Like a persona, a domain out of shape is left out, never a refusal.
-  domains: external_exports.array(external_exports.unknown()).optional()
+  domains: external_exports.array(external_exports.unknown()).optional(),
+  // The law home (PRD 2632): a reply out of shape here reads as none, never a refusal.
+  lawHome: external_exports.unknown().optional()
 });
 var CopySchema2 = external_exports.object({
   product: external_exports.string(),
@@ -40583,7 +40700,9 @@ var CopySchema2 = external_exports.object({
   // A copy from before PRD 2299 has none: it still reads, with no persona.
   personas: external_exports.array(PersonaSchema).default([]),
   // A copy from before PRD 2583 has none: it still reads, with no domains.
-  domains: external_exports.array(DomainSchema).optional()
+  domains: external_exports.array(DomainSchema).optional(),
+  // A copy from before PRD 2632 has none: it reads as no law home.
+  lawHome: external_exports.string().nullable().optional()
 });
 var archivedLine = (name3) => `product ${name3} is archived: an owner restores it on its page`;
 var KnowledgeStop = class extends Error {
@@ -40601,7 +40720,7 @@ function knowledgeOfReply(reply, repo) {
     const issue2 = parsed2.error.issues[0];
     throw new KnowledgeStop("refused", `the Omni page answered no product knowledge for ${repo}: ${issue2 ? `${issue2.path.join(".")} ${issue2.message}` : "out of shape"}`);
   }
-  const { state, product: product2, legal = [], glossary = [], personas = [], domains } = parsed2.data;
+  const { state, product: product2, legal = [], glossary = [], personas = [], domains, lawHome } = parsed2.data;
   if (state === "archived" && product2) throw new KnowledgeStop("archived", archivedLine(product2.name));
   if (!product2) throw new KnowledgeStop("none", `no product knowledge: ${repo} belongs to no product on the Omni page`);
   const kept2 = personas.flatMap((one) => {
@@ -40612,7 +40731,14 @@ function knowledgeOfReply(reply, repo) {
     const domain2 = DomainSchema.safeParse(one);
     return domain2.success ? [domain2.data] : [];
   });
-  return { product: product2.name, legal, glossary, personas: kept2, ...listed2 === void 0 ? {} : { domains: listed2 } };
+  return {
+    product: product2.name,
+    legal,
+    glossary,
+    personas: kept2,
+    ...listed2 === void 0 ? {} : { domains: listed2 },
+    ...typeof lawHome === "string" && lawHome !== "" ? { lawHome: lawHome.toLowerCase() } : {}
+  };
 }
 function readCopy2(root) {
   let value;
@@ -43651,119 +43777,6 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync43, readFileSync as readFileSync50, statSync as statSync13 } from "node:fs";
 import { join as join62 } from "node:path";
 
-// kit/lib/knowledge/business-laws.ts
-init_define_OMNI_BUNDLE();
-var BUSINESS_LAWS_FILE = "business-laws.md";
-var HEADING2 = /^##\s+(.*?)\s*$/;
-var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
-var FIELD = /^(Why|Also):\s*(.*)$/;
-var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
-function blocks(text16) {
-  const found2 = [];
-  for (const line2 of text16.split("\n")) {
-    const match = line2.match(HEADING2);
-    if (match) found2.push({ heading: match[1] ?? "", lines: [] });
-    else found2.at(-1)?.lines.push(line2);
-  }
-  return found2;
-}
-function readBody2(raw) {
-  const lines4 = raw.map((line2) => line2.trim());
-  const fieldAt = lines4.findIndex((line2) => FIELD.test(line2));
-  const statement2 = (fieldAt === -1 ? lines4 : lines4.slice(0, fieldAt)).filter(Boolean).join(" ");
-  return { statement: statement2, why: fieldValue(lines4, "Why") || null, also: fieldValue(lines4, "Also") };
-}
-function fieldValue(lines4, name3) {
-  const at2 = lines4.findIndex((line2) => line2.match(FIELD)?.[1] === name3);
-  if (at2 === -1) return null;
-  const rest = lines4.slice(at2 + 1);
-  const end3 = rest.findIndex((line2) => line2 === "" || FIELD.test(line2));
-  const continued = end3 === -1 ? rest : rest.slice(0, end3);
-  return [lines4[at2]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
-}
-function idProblem(file2, id, place) {
-  const code = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
-  const match = id.match(ID);
-  if (!match) return `${file2}: ${id} \u2014 is not a business law id: write BL-${code}-<n>.`;
-  if (match[1] !== code) return `${file2}: ${id} \u2014 names ${match[1] ?? ""}, but it sits in the ${place.domain} folder: write BL-${code}-<n>.`;
-  return null;
-}
-function parseBusinessLaws(file2, text16, place) {
-  return blocks(text16).map(({ heading: heading2, lines: lines4 }) => {
-    const { statement: statement2, why: why3, also } = readBody2(lines4);
-    const problems = [
-      idProblem(file2, heading2, place),
-      statement2 === "" ? `${file2}: ${heading2} \u2014 has no statement.` : null,
-      why3 === null ? `${file2}: ${heading2} \u2014 is missing a "Why:" line: a business law says why it exists, and a red shows it.` : null
-    ].filter((problem) => problem !== null);
-    return { id: heading2, statement: statement2, why: why3, also: also === null ? [] : keysOf2(also), scope: place.scope, domain: place.domain, file: file2, problems };
-  });
-}
-function readBusinessLaws({ ctx, source: source2 = diskSource(ctx.root) }) {
-  const product2 = productDir(ctx);
-  const domains = domainsDir(ctx);
-  const laws2 = [];
-  if (source2.files(product2).includes(BUSINESS_LAWS_FILE)) {
-    const file2 = `${product2}/${BUSINESS_LAWS_FILE}`;
-    laws2.push(...parseBusinessLaws(file2, source2.read(file2), { scope: "product", domain: "product" }));
-  }
-  for (const name3 of source2.dirs(domains)) {
-    if (!source2.files(`${domains}/${name3}`).includes(BUSINESS_LAWS_FILE)) continue;
-    const file2 = `${domains}/${name3}/${BUSINESS_LAWS_FILE}`;
-    laws2.push(...parseBusinessLaws(file2, source2.read(file2), { scope: "domain", domain: name3 }));
-  }
-  return laws2;
-}
-function businessLawDomains(law) {
-  return law.scope === "product" ? [] : [.../* @__PURE__ */ new Set([law.domain, ...law.also])];
-}
-function businessLawProblems(laws2, { owners: owners2, where }) {
-  const seen = /* @__PURE__ */ new Map();
-  const problems = laws2.flatMap((law) => {
-    const first = seen.get(law.id);
-    if (first === void 0) seen.set(law.id, law.file);
-    const reused = first === void 0 ? [] : [`${law.file}: ${law.id} \u2014 already used in ${first}: a business law's number is used once.`];
-    return [...law.problems, ...reused];
-  });
-  if (laws2.length > 0 && owners2?.length === 0) {
-    const counted5 = `${laws2.length} business ${laws2.length === 1 ? "law" : "laws"}`;
-    problems.push(`${where}: ${counted5}, and laws.owners is empty \u2014 name the product's PM in laws.owners: only they approve a change to one.`);
-  }
-  return problems;
-}
-var FRONT_MATTER3 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-function splitSpec(spec) {
-  const match = spec.match(FRONT_MATTER3);
-  return match ? { front: match[1] ?? "", body: match[2] ?? "" } : { front: "", body: spec };
-}
-function specAreas(spec) {
-  const line2 = splitSpec(spec).front.split("\n").map((one) => one.match(/^areas:\s*\[(.*)\]\s*$/)).find((match) => match !== null);
-  return line2 ? keysOf2(line2[1] ?? "") : [];
-}
-function usesWord(text16, word2) {
-  const escaped2 = word2.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  if (escaped2 === "") return false;
-  return new RegExp(`(?<![\\p{L}\\p{N}_])${escaped2}(?![\\p{L}\\p{N}_])`, "iu").test(text16);
-}
-function selectBusinessLaws({ spec, laws: laws2, glossary }) {
-  const taken = /* @__PURE__ */ new Map();
-  const take = (key2, reason2) => {
-    const reasons2 = taken.get(key2) ?? [];
-    if (!reasons2.includes(reason2)) reasons2.push(reason2);
-    taken.set(key2, reasons2);
-  };
-  for (const key2 of specAreas(spec)) take(key2, "areas");
-  const { body } = splitSpec(spec);
-  for (const { term, avoid, domains = [] } of glossary) {
-    if (domains.length === 0) continue;
-    const word2 = usesWord(body, term) ? `"${term}"` : avoid.filter((one) => usesWord(body, one)).map((one) => `"${one}" (for "${term}")`)[0];
-    if (word2 === void 0) continue;
-    for (const key2 of domains) take(key2, word2);
-  }
-  const selected = laws2.filter((law) => law.scope === "product" || businessLawDomains(law).some((key2) => taken.has(key2)));
-  return { domains: [...taken].map(([key2, reasons2]) => ({ key: key2, reasons: reasons2 })), laws: selected };
-}
-
 // kit/lib/codeowners-laws.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync42, mkdirSync as mkdirSync19, readFileSync as readFileSync49, writeFileSync as writeFileSync27 } from "node:fs";
@@ -43772,8 +43785,14 @@ var DEFAULT_CODEOWNERS = ".github/CODEOWNERS";
 function testPaths(enforcedBy2) {
   return enforcedBy2.split(",").map((part) => (part.replace(/`/g, "").trim().split("#")[0] ?? "").trim()).filter(Boolean);
 }
+function businessLawPaths(ctx, knowledge2) {
+  const product2 = knowledge2.productFiles.includes(BUSINESS_LAWS_FILE) ? [`${productDir(ctx)}/${BUSINESS_LAWS_FILE}`] : [];
+  const domains = knowledge2.domains.filter((domain2) => domain2.files.includes(BUSINESS_LAWS_FILE));
+  return [...product2, ...domains.map((domain2) => `${domainsDir(ctx)}/${domain2.name}/${BUSINESS_LAWS_FILE}`)];
+}
 function lawOwnedPaths(ctx, knowledge2 = readKnowledge({ ctx })) {
   const registers = "The thesis and the registers: what the product promises, and its laws.";
+  const business2 = "The business laws: the product's rules, changed only with their owner's approval.";
   const briefing = "The briefing: the rules every agent follows.";
   const layers = (dir, files2) => REQUIRED_LAYER_FILES.filter((name3) => files2.includes(name3)).map((name3) => `${dir}/${name3}`);
   const files = [
@@ -43783,7 +43802,12 @@ function lawOwnedPaths(ctx, knowledge2 = readKnowledge({ ctx })) {
     ...knowledge2.crossDomainFiles.map(({ file: file2 }) => file2)
   ];
   const tests = knowledge2.entries.filter((entry3) => isLaw(entry3) && entry3.enforced && entry3.enforcedBy !== null).flatMap((entry3) => testPaths(entry3.enforcedBy ?? "").map((path) => ({ path, why: `law ${entry3.id}: its test.` })));
-  return [...files.map((path) => ({ path, why: registers })), ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })), ...tests];
+  return [
+    ...files.map((path) => ({ path, why: registers })),
+    ...businessLawPaths(ctx, knowledge2).map((path) => ({ path, why: business2 })),
+    ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })),
+    ...tests
+  ];
 }
 function expectedOwnersBlock(ctx, knowledge2 = readKnowledge({ ctx })) {
   return ownersBlock(lawOwnedPaths(ctx, knowledge2), ctx.config.laws?.owners ?? []);
@@ -44369,15 +44393,52 @@ function servedLegalIds(entries4) {
 
 // kit/lib/knowledge/check-knowledge-legal.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/knowledge/check-knowledge-business.ts
+init_define_OMNI_BUNDLE();
+function offList(law, listed2) {
+  return businessLawDomains(law).filter((key2) => !listed2.has(key2));
+}
+function avoided(law, glossary) {
+  return glossary.flatMap(({ term, avoid }) => avoid.filter((word2) => usesWord(law.statement, word2)).map((word2) => [word2, term]));
+}
+function verifyBusinessLaws(laws2, { repo, domains, glossary, lawHome }) {
+  if (laws2.length === 0) return { violations: [], notes: [] };
+  const violations = [];
+  const notes = [];
+  const listed2 = domains === void 0 ? null : new Set(domains.map(({ key: key2 }) => key2));
+  if (listed2 === null) notes.push("Business law domains not verified: the page sent no domain list");
+  const home = lawHome ?? null;
+  if (home === null) notes.push("Business laws not placed: the product has no law home \u2014 set its plan repository on the Omni page");
+  for (const law of laws2) {
+    for (const key2 of listed2 === null ? [] : offList(law, listed2)) {
+      violations.push(`${law.file}: ${law.id} \u2014 names the domain ${key2}, which is not on the product's domain list: use one of its domains, or ask a PM to add it.`);
+    }
+    for (const [word2, term] of avoided(law, glossary)) {
+      violations.push(`${law.file}: ${law.id} \u2014 uses "${word2}", which the glossary says to avoid: write "${term}".`);
+    }
+    if (home !== null && home !== repo.toLowerCase()) {
+      violations.push(`${law.file}: ${law.id} \u2014 sits in ${repo}, but the product's law home is ${home}: move it there.`);
+    }
+  }
+  return { violations, notes };
+}
+
+// kit/lib/knowledge/check-knowledge-legal.ts
 var NONE2 = { violations: [], notes: [] };
+function unverified(reason2, { legal, laws: laws2 }) {
+  return [...legal ? [`Legal not verified: ${reason2}`] : [], ...laws2 ? [`Business laws not verified: ${reason2}`] : []];
+}
 async function verifyServedLegal({ ctx, entries: entries4, cwd, exec, reach: reach7 }) {
   const served = servedLegalIds(entries4);
-  if (served.length === 0) return NONE2;
+  const laws2 = readBusinessLaws({ ctx });
+  if (served.length === 0 && laws2.length === 0) return NONE2;
+  const asked = { legal: served.length > 0, laws: laws2.length > 0 };
   const askUrl2 = ctx.config.ask.url;
   const repo = ctx.config.repo.slug;
-  if (!askUrl2 || !repo) return { violations: [], notes: ["Legal not verified: not signed in"] };
+  if (!askUrl2 || !repo) return { violations: [], notes: unverified("not signed in", asked) };
   const client = signedInClient({ askUrl: askUrl2, tokens: reach7.tokens, home: reach7.home, fetch: reach7.fetch ?? globalThis.fetch, callMs: reach7.callMs });
-  if (client === null) return { violations: [], notes: ["Legal not verified: not signed in"] };
+  if (client === null) return { violations: [], notes: unverified("not signed in", asked) };
   try {
     const read3 = await productKnowledge({
       repo,
@@ -44385,21 +44446,26 @@ async function verifyServedLegal({ ctx, entries: entries4, cwd, exec, reach: rea
       now: reach7.now ?? (() => /* @__PURE__ */ new Date()),
       fetchBusiness: () => client.readBusiness(repo)
     });
-    if (read3.from === "copy") return { violations: [], notes: ["Legal not verified: page unreachable"] };
-    const held2 = new Set(read3.legal.map(({ id }) => id));
-    const violations = served.filter(({ id }) => !held2.has(id)).map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, which product ${read3.product} does not hold.`);
-    return { violations, notes: [] };
+    if (read3.from === "copy") return { violations: [], notes: unverified("page unreachable", asked) };
+    return judged2(read3, { served, laws: laws2, repo });
   } catch (error62) {
-    const reason2 = messageOf(error62);
-    if (reason2 === NOTHING_READ2) return { violations: [], notes: ["Legal not verified: page unreachable"] };
-    if (/belongs to no product/.test(reason2)) {
-      return {
-        violations: served.map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, but this repository belongs to no product.`),
-        notes: []
-      };
-    }
-    return { violations: [], notes: [`Legal not verified: ${reason2}`] };
+    return stopped2(messageOf(error62), { served, laws: laws2 });
   }
+}
+function judged2(read3, { served, laws: laws2, repo }) {
+  const held2 = new Set(read3.legal.map(({ id }) => id));
+  const legal = served.filter(({ id }) => !held2.has(id)).map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, which product ${read3.product} does not hold.`);
+  const business2 = verifyBusinessLaws(laws2, { repo, domains: read3.domains, glossary: read3.glossary, lawHome: read3.lawHome });
+  return { violations: [...legal, ...business2.violations], notes: business2.notes };
+}
+function stopped2(reason2, { served, laws: laws2 }) {
+  const asked = { legal: served.length > 0, laws: laws2.length > 0 };
+  if (reason2 === NOTHING_READ2) return { violations: [], notes: unverified("page unreachable", asked) };
+  if (!/belongs to no product/.test(reason2)) return { violations: [], notes: unverified(reason2, asked) };
+  return {
+    violations: served.map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, but this repository belongs to no product.`),
+    notes: asked.laws ? ["Business laws not verified: this repository belongs to no product"] : []
+  };
 }
 
 // kit/lib/knowledge/copies.ts
@@ -46103,7 +46169,7 @@ var bodyOf2 = (state, read3 = null, syncedAt = null) => ({
   never: read3?.never ?? [],
   syncedAt: syncedAt ?? null
 });
-function stopped2(error62) {
+function stopped3(error62) {
   if (!(error62 instanceof AskCallError)) return { state: "unreachable", why: "offline" };
   if (error62.status === null) return { state: "unreachable", why: "offline" };
   if (error62.status === 401) return { state: "no-sign-in", why: "the sign-in was refused (omni signin)" };
@@ -46157,7 +46223,7 @@ async function sync(env) {
   try {
     reply = await readWithin(client, repo, controller, env.budgetMs);
   } catch (error62) {
-    return fallback2({ repo, root, ...stopped2(error62) }, env.now());
+    return fallback2({ repo, root, ...stopped3(error62) }, env.now());
   }
   const read3 = constituentsOf(reply);
   if (!read3) return fallback2({ repo, root, state: "refused", why: "refused (the reply is not constituents)" }, env.now());
@@ -50253,11 +50319,11 @@ var harvest = {
     for (const question of lawQuestions({ ctx, prepared, classified, prdTitle: prdTitle(ctx, prd2) })) {
       worth[question.id] = await askLawWorth(question, { ctx, exec, env, vars, ref: `PRD ${prd2} ${question.id}` });
     }
-    const judged4 = classified.map((entry3) => ({ ...entry3, worth: worth[entry3.id] ?? null }));
+    const judged5 = classified.map((entry3) => ({ ...entry3, worth: worth[entry3.id] ?? null }));
     const date6 = today();
-    const first = finishHarvest({ ctx, prepared, classified: judged4, merge: merge2, date: date6 });
+    const first = finishHarvest({ ctx, prepared, classified: judged5, merge: merge2, date: date6 });
     const opened = Object.fromEntries(first.lawIssues.map((issue2) => [issue2.id, openLawIssue(issue2, { ctx, exec, env })]));
-    const result2 = first.lawIssues.length === 0 ? first : finishHarvest({ ctx, prepared, classified: judged4, merge: merge2, date: date6, lawIssues: opened });
+    const result2 = first.lawIssues.length === 0 ? first : finishHarvest({ ctx, prepared, classified: judged5, merge: merge2, date: date6, lawIssues: opened });
     applyHarvestEdits({ root: ctx.root, edits: result2.edits });
     const lines4 = [`omni harvest \u2014 PRD ${prd2}, pull request #${merge2.pr} merged by @${merge2.by} on ${merge2.at.slice(0, 10)}${pr.mergeSha ? ` (${pr.mergeSha.slice(0, 7)})` : ""}:`];
     if (prepared.settled.length > 0) {
@@ -50405,7 +50471,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni check [config|inbox|outbox|knowledge|kb|releases|design|", "  coverage|context|all] [--base <ref>] [--prd <n>] [--retro <prd>]"],
     label: "omni check [all]",
     summary: "the repository's guards",
-    detail: "The repository's guards, each printing its violations or one line saying it passed: config (the config file, its flow and every hook file the flow names, each refusal naming its key), inbox (the PRDs waiting to be built, a spec's front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers and the business laws), kb (the playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch accounted for, against --base) and context (what every agent session reads, held to the ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit 0, when a target cannot be measured). all, the default, runs every one, skips coverage when {remote}/{defaultBranch} has not been fetched, and runs context only while budgets.context.enabled is true. Exit 1 on any violation."
+    detail: "The repository's guards, each printing its violations or one line saying it passed: config (the config file, its flow and every hook file the flow names, each refusal naming its key), inbox (the PRDs waiting to be built, a spec's front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers and the business laws: with the Omni page it also refuses a law in a folder or an Also: key off the product domain list, one using a word the glossary says to avoid, and one outside the law home, each only a note while the page cannot be read), kb (the playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch accounted for, against --base) and context (what every agent session reads, held to the ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit 0, when a target cannot be measured). all, the default, runs every one, skips coverage when {remote}/{defaultBranch} has not been fetched, and runs context only while budgets.context.enabled is true. Exit 1 on any violation."
   },
   {
     name: "flow",
@@ -50428,7 +50494,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb business-laws [--domain <key> | --spec <file>] [--json]", "omni kb init"],
     label: "omni kb show <form>",
     summary: "one form of the playbook",
-    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. business-laws prints the product's business laws (PRD 2632), the rules written in product/business-laws.md and domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain's, by its folder or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why it was taken, the glossary read from the local copy. A business law is never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and changes no file that exists.`
+    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. business-laws prints the product's business laws (PRD 2632), the rules written in product/business-laws.md and domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain's, by its folder or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why it was taken, the glossary read from the local copy. A business law lives in the product's law home, its plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and changes no file that exists.`
   },
   {
     name: "knowledge",
@@ -53237,14 +53303,14 @@ async function adoptNew(text16, id, decision, { store, asJson, stdout, stderr })
 async function writeNew(item2, decision, { store, out, asJson, stdout, stderr }) {
   const { id } = item2;
   const file2 = await store.writeItem(item2, out);
-  const stopped5 = decision.outcome !== "record";
+  const stopped6 = decision.outcome !== "record";
   if (asJson) {
-    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file: file2, ...stopped5 ? { reason: decision.reason } : {} }));
+    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file: file2, ...stopped6 ? { reason: decision.reason } : {} }));
   } else {
     println(stdout, file2);
-    if (stopped5) println(stderr, `omni item new \u2014 the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
+    if (stopped6) println(stderr, `omni item new \u2014 the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
   }
-  return stopped5 ? 1 : 0;
+  return stopped6 ? 1 : 0;
 }
 function serverFailed(error62, { asJson, stdout, stderr }) {
   if (asJson && error62 instanceof OutboxServerError) println(stdout, jsonOutcome({ outcome: null, reason: error62.message }));
@@ -53318,6 +53384,23 @@ var item = {
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync71, readFileSync as readFileSync83 } from "node:fs";
 import { join as join104, resolve as resolve8 } from "node:path";
+
+// kit/lib/knowledge/business-laws-home.ts
+init_define_OMNI_BUNDLE();
+import { basename as basename12 } from "node:path";
+var isHome = (home, repo) => repo !== null && repo.toLowerCase() === home.toLowerCase();
+var shaOf = (folder) => basename12(folder).split("@")[1]?.slice(0, 7) ?? "";
+async function businessLawsAt({ ctx, repo, home, getPack }) {
+  if (home === null || isHome(home, repo)) return { laws: readBusinessLaws({ ctx }), notes: [] };
+  const pack2 = await getPack(home);
+  const folder = pack2.out[0];
+  if (pack2.code !== 0 || folder === void 0) return { laws: null, errors: pack2.err.length > 0 ? pack2.err : [`no pack of ${home}`] };
+  const held2 = pack2.out.slice(1);
+  return {
+    laws: readBusinessLaws({ ctx: { root: folder, layout: ctx.layout } }),
+    notes: [`law home: ${home} \u2014 read from its pack ${shaOf(folder)}`, ...held2, ...pack2.err]
+  };
+}
 
 // kit/lib/knowledge/business-laws-text.ts
 init_define_OMNI_BUNDLE();
@@ -54071,7 +54154,7 @@ function fallback3({ root, now: now2 }, state, why3) {
   if (copy.state !== "cached") return oneLine2(state, why3);
   return printed2(copy, "cached", copy.readAt, `synced ${ageOf2(copy.readAt, now2().getTime())}, ${why3}`);
 }
-function stopped3(error62) {
+function stopped4(error62) {
   if (error62 instanceof KnowledgeStop && error62.state === "refused") return { state: "refused", why: error62.message };
   if (error62 instanceof AskCallError && error62.status === 401) return { state: "no-sign-in", why: "the sign-in was refused (omni signin)" };
   return { state: "unreachable", why: "offline" };
@@ -54097,7 +54180,7 @@ async function readIndex2(io) {
     return printed2(read3, read3.from === "copy" ? "cached" : "ok", read3.from === "copy" ? read3.readAt : syncedAt, read3.from === "copy" ? `synced ${ageOf2(read3.readAt, now2().getTime())}, offline` : "synced just now");
   } catch (error62) {
     if (error62 instanceof KnowledgeStop && (error62.state === "archived" || error62.state === "none")) return oneLine2(error62.state, error62.message);
-    const { state, why: why3 } = stopped3(error62);
+    const { state, why: why3 } = stopped4(error62);
     return fallback3(io, state, why3);
   } finally {
     clearTimeout(timer);
@@ -54274,7 +54357,7 @@ function commitsFlow(repo, config3) {
   const target3 = targetFlow(repo, config3);
   return !("error" in target3) && hasFlow(target3);
 }
-function judged2(gh2, target3, facts2, read3) {
+function judged3(gh2, target3, facts2, read3) {
   const { knowledge: knowledge2 } = target3;
   const drifted = knowledge2 === "own" ? ownJudged(facts2) : facts2.installed && facts2.filled ? ["drifted", `the config says ${knowledge2}, but it has the loop and a filled form`] : ["ok", null];
   if (drifted[0] !== "ok") return drifted;
@@ -54294,7 +54377,7 @@ function readTarget2(target3, {
     const branch = gh2.repository(repo).default_branch;
     const config3 = gh2.file(repo, CONFIG_PATH, branch);
     const facts2 = loopFacts(gh2, repo, branch, config3);
-    const [state, detail] = judged2(gh2, target3, facts2, { branch, config: config3, evidence, copyFlow });
+    const [state, detail] = judged3(gh2, target3, facts2, { branch, config: config3, evidence, copyFlow });
     return row(facts2.loop, state, detail);
   } catch (error62) {
     if (error62 instanceof Unreachable) return row("\u2014", "unreachable", error62.message);
@@ -54876,13 +54959,48 @@ function pageClient(askUrl2, io) {
   return askUrl2 ? signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
 }
 var BUSINESS_LAWS_USAGE = "usage: omni kb business-laws [--domain <key> | --spec <file>] [--json]";
-function businessLaws(args, io) {
+async function businessLaws(args, io) {
+  const want = businessLawsArgs(args);
+  const { ctx, stdout, stderr } = io;
+  const placed = await businessLawsAt({ ctx, repo: ctx.config.repo.slug, home: await lawHomeOf(io), getPack: (home) => lawHomePack(home, io) });
+  if (placed.laws === null) {
+    for (const line2 of placed.errors) println(stderr, `omni kb business-laws: ${line2}`);
+    return 1;
+  }
+  println(stdout, want.spec === null ? lawsOf(placed.laws, want.domain, want.json, ctx) : specLaws(placed.laws, want.spec, want.json, io));
+  for (const note of placed.notes) println(want.json ? stderr : stdout, note);
+  return 0;
+}
+function businessLawsArgs(args) {
   const { positional, flags } = parseArgs("kb business-laws", args, { values: ["domain", "spec"], booleans: ["json"] });
   if (positional.length > 0 || flags.domain !== void 0 && flags.spec !== void 0) throw usageError(BUSINESS_LAWS_USAGE);
-  const all = readBusinessLaws({ ctx: io.ctx });
-  const text16 = flags.spec === void 0 ? lawsOf(all, flags.domain ?? null, flags.json === true, io.ctx) : specLaws(all, flags.spec, flags.json === true, io);
-  println(io.stdout, text16);
-  return 0;
+  return { domain: flags.domain ?? null, spec: flags.spec ?? null, json: flags.json === true };
+}
+async function lawHomeOf(io) {
+  const reach7 = reachOf(io.ctx, io);
+  if (typeof reach7 === "string") return null;
+  try {
+    const read3 = await productKnowledge({ repo: reach7.repo, root: mainCheckout(io.ctx.root, io.exec) ?? io.ctx.root, now: io.now ?? (() => /* @__PURE__ */ new Date()), fetchBusiness: () => reach7.client.readBusiness(reach7.repo) });
+    return read3.lawHome ?? null;
+  } catch {
+    return null;
+  }
+}
+function lawHomePack(home, io) {
+  const { ctx, exec } = io;
+  const askUrl2 = ctx.config.ask.url;
+  const client = askUrl2 ? signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
+  return packGet({
+    root: mainCheckout(ctx.root, exec) ?? ctx.root,
+    repo: home,
+    readAt: null,
+    now: io.now ?? (() => /* @__PURE__ */ new Date()),
+    fetchPack: async () => {
+      if (client === null) throw new Error("no sign-in for the Omni page (omni signin)");
+      return client.readKnowledgePack({ repo: home });
+    },
+    order: () => "unknown"
+  });
 }
 function lawsOf(all, domain2, json3, ctx) {
   const shown6 = domain2 === null ? all : lawsOfDomain(all, domain2);
@@ -54896,7 +55014,7 @@ function specLaws(all, spec, json3, { ctx, exec }) {
   const selection = selectBusinessLaws({ spec: readFileSync83(path, "utf8"), laws: all, glossary });
   return json3 ? JSON.stringify(selection, null, 2) : selectionText(selection, { spec, glossaryRead: cache.state === "cached" });
 }
-var OWN_FLAGS = { laws, graph, "business-laws": businessLaws };
+var OWN_FLAGS = { laws, graph };
 var PLAIN = { init: init2, show: show3, status: status2, owners };
 function verbOf(table, name3) {
   return name3 !== void 0 && Object.hasOwn(table, name3) ? table[name3] : void 0;
@@ -54918,6 +55036,7 @@ var kb2 = {
     if (sub === "index") return index(rest, io);
     const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
     if (sub === "pack") return pack(rest, full);
+    if (sub === "business-laws") return businessLaws(rest, full);
     if (sub === "graph" && rest[0] === "push") return graphPush(rest.slice(1), full);
     if (sub === "graph" && rest.includes("--product")) return graphProduct(rest, full);
     if (isProductVerb(sub)) return productCommand(sub, rest, { ...full, vars: io.vars }, io);
@@ -55240,18 +55359,18 @@ async function judgeLaw(entry3, entries4, { ctx, exec, env, vars }) {
     return { notJudged: `not judged: its law issue could not be opened (${why3})` };
   }
 }
-function lawLine2(entry3, judged4, result2) {
-  if (judged4 === void 0 || "notJudged" in judged4) return `  ${entry3.id} \u2192 ${judged4?.notJudged ?? "not judged"}`;
-  const { worth, issue: issue2 } = judged4.verdict;
+function lawLine2(entry3, judged5, result2) {
+  if (judged5 === void 0 || "notJudged" in judged5) return `  ${entry3.id} \u2192 ${judged5?.notJudged ?? "not judged"}`;
+  const { worth, issue: issue2 } = judged5.verdict;
   if (issue2 !== null) return `  ${entry3.id} \u2192 pending #${issue2}, ${worthText(worth)}`;
   const removed = result2.removed.find((gone) => gone.id === entry3.id);
   return `  ${entry3.id} \u2192 ${worthText(worth)}, recorded in ${removed?.ledger ?? "no ledger: its source names no entry there"}`;
 }
-function report5({ ctx, laws: laws2, judged: judged4, result: result2, undecided }) {
-  const outcomes = [...judged4.values()];
+function report5({ ctx, laws: laws2, judged: judged5, result: result2, undecided }) {
+  const outcomes = [...judged5.values()];
   return [
     `omni knowledge judge \u2014 ${laws2.length} unenforced law(s):`,
-    ...laws2.map((entry3) => lawLine2(entry3, judged4.get(entry3.id), result2)),
+    ...laws2.map((entry3) => lawLine2(entry3, judged5.get(entry3.id), result2)),
     ...outcomes.flatMap((one) => "opened" in one && one.opened !== null ? [one.opened] : []),
     ...result2.citations.map(({ id, citedBy: citedBy2, file: file2 }) => `  ${id} is still cited by ${citedBy2 === null ? file2 : `${citedBy2} (${file2})`}`),
     ...result2.writes.map(({ path }) => `  wrote ${path}`),
@@ -55282,9 +55401,9 @@ async function sweep(id, io) {
     println(stderr, laws2);
     return 1;
   }
-  const judged4 = /* @__PURE__ */ new Map();
-  for (const entry3 of laws2) judged4.set(entry3.id, await judgeLaw(entry3, entries4, io));
-  const verdicts = Object.fromEntries([...judged4].flatMap(([id2, one]) => "verdict" in one ? [[id2, one.verdict]] : []));
+  const judged5 = /* @__PURE__ */ new Map();
+  for (const entry3 of laws2) judged5.set(entry3.id, await judgeLaw(entry3, entries4, io));
+  const verdicts = Object.fromEntries([...judged5].flatMap(([id2, one]) => "verdict" in one ? [[id2, one.verdict]] : []));
   const configText = readOrNull(ctx.root, CONFIG_FILE);
   const result2 = sweepEdits({
     entries: entries4,
@@ -55296,7 +55415,7 @@ async function sweep(id, io) {
   });
   applyKnowledgeWrites({ ctx, writes: result2.writes });
   const undecided = unenforcedLaws(entries4).length - Object.keys(verdicts).length;
-  println(stdout, report5({ ctx, laws: laws2, judged: judged4, result: result2, undecided }));
+  println(stdout, report5({ ctx, laws: laws2, judged: judged5, result: result2, undecided }));
   return 0;
 }
 var knowledge = {
@@ -56106,7 +56225,7 @@ function building(prd2, board2, link3) {
   if (board2.unreadable.length > 0) return wait5(prd2, `cannot read ${ids(board2.unreadable)}`, WAKE_HINTS.unreadable, link3);
   return wait5(prd2, "nothing can move yet", WAKE_HINTS.claim, link3);
 }
-function stopped4(facts2) {
+function stopped5(facts2) {
   const { prd: prd2, feature } = facts2;
   if (feature !== null && feature !== "unreadable" && feature.state !== "OPEN") {
     return { prd: prd2, verdict: "done", why: `the feature PR is ${feature.state.toLowerCase()}`, link: feature.url };
@@ -56118,7 +56237,7 @@ function stopped4(facts2) {
 function decideNext(facts2) {
   if (facts2.across !== void 0) return decideAcross(facts2, facts2.across);
   const { prd: prd2, feature, board: board2, outbox } = facts2;
-  const stop = stopped4(facts2);
+  const stop = stopped5(facts2);
   if (stop !== null) return stop;
   if (feature === "unreadable" || outbox === "unreadable") return wait5(prd2, "github unreachable", WAKE_HINTS.unreadable);
   if (board2 === "unreadable") return wait5(prd2, "the board cannot be read", WAKE_HINTS.unreadable, feature?.url);
@@ -56193,8 +56312,8 @@ function decideAcross(facts2, across) {
   const prs = [{ repo: across.repo, pr: feature }, ...across.targets];
   const planPr = known({ repo: across.repo, pr: feature });
   const link3 = planPr?.url;
-  const stopped5 = stoppedAcross(facts2, prs, planPr);
-  if (stopped5 !== null) return stopped5;
+  const stopped6 = stoppedAcross(facts2, prs, planPr);
+  if (stopped6 !== null) return stopped6;
   if (outbox === "unreadable") return wait5(prd2, "github unreachable", WAKE_HINTS.unreadable);
   if (board2 === "unreadable") return wait5(prd2, "the board cannot be read", WAKE_HINTS.unreadable, link3);
   return board2 === null ? act(prd2, "ultra-yolo", "the PRD has no plan yet", link3) : plannedAcross(prd2, board2, { prs, outbox }, link3);
@@ -63668,14 +63787,14 @@ var abortOf = (signal) => new Promise((resolve24) => {
 function threadWatcher(options) {
   const follow3 = follower(options);
   let thread = options.thread;
-  let stopped5 = false;
+  let stopped6 = false;
   const named5 = (id) => {
     options.print(JSON.stringify({ type: "t3.thread", threadId: id, instance: options.instance, model: options.model }));
   };
   if (thread !== null) named5(thread);
   return {
     /** Whether the stop was made: none is waited for after it. */
-    stopped: () => stopped5,
+    stopped: () => stopped6,
     /** One tick: the thread found, followed, and stopped when asked. */
     async tick() {
       if (thread === null) {
@@ -63684,8 +63803,8 @@ function threadWatcher(options) {
         named5(thread);
       }
       await follow3(thread);
-      if (options.stop?.signal.aborted !== true || stopped5) return;
-      stopped5 = true;
+      if (options.stop?.signal.aborted !== true || stopped6) return;
+      stopped6 = true;
       options.print(JSON.stringify({ type: "t3.interrupt", threadId: thread, ...await options.stop.interrupt(thread) }));
     }
   };
@@ -66937,17 +67056,17 @@ function pageFindings(facts2, now2) {
   if (!answering || now2 - syncedAt > PAGE_STALE_AFTER_MS) return [orange(`the page last synced ${age} ago`, SYNC_FIX, "page")];
   return [green(`signed in \xB7 synced ${age} ago`)];
 }
-function judged3(of, rules) {
+function judged4(of, rules) {
   if (of === null) return null;
   if (isNotApplicable(of)) return [na(of)];
   if (isUnchecked(of)) return [notChecked(of)];
   return rules(of);
 }
 function checkFindings2(check5, facts2, sync3, setupDone) {
-  if (check5 === "main") return judged3(facts2.main, (main2) => mainFindings(main2, facts2.now, redAfterMs(sync3.mainRedAfter)));
-  if (check5 === "kit") return judged3(facts2.kit, (kit) => kitFindings(kit, setupDone));
-  if (check5 === "knowledge") return judged3(facts2.knowledge, knowledgeFindings);
-  return judged3(facts2.page, (page2) => pageFindings(page2, facts2.now));
+  if (check5 === "main") return judged4(facts2.main, (main2) => mainFindings(main2, facts2.now, redAfterMs(sync3.mainRedAfter)));
+  if (check5 === "kit") return judged4(facts2.kit, (kit) => kitFindings(kit, setupDone));
+  if (check5 === "knowledge") return judged4(facts2.knowledge, knowledgeFindings);
+  return judged4(facts2.page, (page2) => pageFindings(page2, facts2.now));
 }
 var IN_SYNC = "in sync";
 function capped3(severity, level) {

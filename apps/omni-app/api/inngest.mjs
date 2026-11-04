@@ -4026,6 +4026,83 @@ function isBriefingFile(path, files) {
   return files.some((file) => path === file || path.startsWith(`${file}/`));
 }
 
+// kit/lib/knowledge/business-laws.ts
+var BUSINESS_LAWS_FILE = "business-laws.md";
+var HEADING2 = /^##\s+(.*?)\s*$/;
+var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
+var FIELD = /^(Why|Also):\s*(.*)$/;
+var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+function blocks(text16) {
+  const found = [];
+  for (const line of text16.split("\n")) {
+    const match = line.match(HEADING2);
+    if (match) found.push({ heading: match[1] ?? "", lines: [] });
+    else found.at(-1)?.lines.push(line);
+  }
+  return found;
+}
+function readBody2(raw) {
+  const lines = raw.map((line) => line.trim());
+  const fieldAt = lines.findIndex((line) => FIELD.test(line));
+  const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter(Boolean).join(" ");
+  return { statement: statement2, why: fieldValue(lines, "Why") || null, also: fieldValue(lines, "Also") };
+}
+function fieldValue(lines, name) {
+  const at4 = lines.findIndex((line) => line.match(FIELD)?.[1] === name);
+  if (at4 === -1) return null;
+  const rest = lines.slice(at4 + 1);
+  const end = rest.findIndex((line) => line === "" || FIELD.test(line));
+  const continued = end === -1 ? rest : rest.slice(0, end);
+  return [lines[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
+}
+function idProblem(file, id, place) {
+  const code2 = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
+  const match = id.match(ID);
+  if (!match) return `${file}: ${id} \u2014 is not a business law id: write BL-${code2}-<n>.`;
+  if (match[1] !== code2) return `${file}: ${id} \u2014 names ${match[1] ?? ""}, but it sits in the ${place.domain} folder: write BL-${code2}-<n>.`;
+  return null;
+}
+function parseBusinessLaws(file, text16, place) {
+  return blocks(text16).map(({ heading, lines }) => {
+    const { statement: statement2, why, also } = readBody2(lines);
+    const problems = [
+      idProblem(file, heading, place),
+      statement2 === "" ? `${file}: ${heading} \u2014 has no statement.` : null,
+      why === null ? `${file}: ${heading} \u2014 is missing a "Why:" line: a business law says why it exists, and a red shows it.` : null
+    ].filter((problem) => problem !== null);
+    return { id: heading, statement: statement2, why, also: also === null ? [] : keysOf2(also), scope: place.scope, domain: place.domain, file, problems };
+  });
+}
+function readBusinessLaws({ ctx, source = diskSource(ctx.root) }) {
+  const product = productDir(ctx);
+  const domains = domainsDir(ctx);
+  const laws = [];
+  if (source.files(product).includes(BUSINESS_LAWS_FILE)) {
+    const file = `${product}/${BUSINESS_LAWS_FILE}`;
+    laws.push(...parseBusinessLaws(file, source.read(file), { scope: "product", domain: "product" }));
+  }
+  for (const name of source.dirs(domains)) {
+    if (!source.files(`${domains}/${name}`).includes(BUSINESS_LAWS_FILE)) continue;
+    const file = `${domains}/${name}/${BUSINESS_LAWS_FILE}`;
+    laws.push(...parseBusinessLaws(file, source.read(file), { scope: "domain", domain: name }));
+  }
+  return laws;
+}
+function businessLawProblems(laws, { owners, where }) {
+  const seen = /* @__PURE__ */ new Map();
+  const problems = laws.flatMap((law) => {
+    const first = seen.get(law.id);
+    if (first === void 0) seen.set(law.id, law.file);
+    const reused = first === void 0 ? [] : [`${law.file}: ${law.id} \u2014 already used in ${first}: a business law's number is used once.`];
+    return [...law.problems, ...reused];
+  });
+  if (laws.length > 0 && owners?.length === 0) {
+    const counted3 = `${laws.length} business ${laws.length === 1 ? "law" : "laws"}`;
+    problems.push(`${where}: ${counted3}, and laws.owners is empty \u2014 name the product's PM in laws.owners: only they approve a change to one.`);
+  }
+  return problems;
+}
+
 // kit/lib/outbox/decision-coverage.ts
 var TEST_OR_FEATURE_PATH = /\.test\.[^/]+$|\.feature$/;
 function escapeRegExp2(source) {
@@ -4103,20 +4180,46 @@ function entryText(entry) {
   return JSON.stringify(entry);
 }
 function lockedLawChanges(changes, { ctx, base = null }) {
-  if (ctx.config.laws.source !== "knowledge") return [];
   const statuses = new Map(changes.map((change2) => [change2.path, change2.status]));
-  const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
-  const was = new Map((base === null ? [] : readKnowledge({ ctx, source: base }).entries).map((entry) => [entry.id, entry]));
   const fired = [];
   const fire = (law, path) => {
     const status = statuses.get(path);
     if (status === void 0 || fired.some((one) => one.law === law && one.path === path)) return;
     fired.push({ path, status, rule: LAW_LOCKED, law });
   };
-  for (const id of /* @__PURE__ */ new Set([...was.keys(), ...head.keys()])) {
-    for (const path of lawPaths(was.get(id), head.get(id), { compared: base !== null })) fire(id, path);
+  if (ctx.config.laws.source === "knowledge") {
+    const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
+    const was = new Map((base === null ? [] : readKnowledge({ ctx, source: base }).entries).map((entry) => [entry.id, entry]));
+    for (const id of /* @__PURE__ */ new Set([...was.keys(), ...head.keys()])) {
+      for (const path of lawPaths(was.get(id), head.get(id), { compared: base !== null })) fire(id, path);
+    }
+  }
+  if (base !== null) {
+    for (const [id, path] of businessLawsChanged({ ctx, base })) fire(id, path);
   }
   return fired;
+}
+function businessLawFiles(changes, { ctx }) {
+  const root = escapeRegExp2(ctx.layout.knowledgeRoot);
+  const pattern = new RegExp(`^${root}/(?:product|domains/[^/]+)/${escapeRegExp2(BUSINESS_LAWS_FILE)}$`);
+  return changes.map((change2) => change2.path).filter((path) => pattern.test(path));
+}
+function businessLawsById(laws) {
+  const byId = /* @__PURE__ */ new Map();
+  for (const law of laws) byId.set(law.id, [...byId.get(law.id) ?? [], law]);
+  return byId;
+}
+function businessLawsChanged({ ctx, base }) {
+  const was = businessLawsById(readBusinessLaws({ ctx, source: base }));
+  const now = businessLawsById(readBusinessLaws({ ctx, source: diskSource(ctx.root) }));
+  const changed = [];
+  for (const id of /* @__PURE__ */ new Set([...was.keys(), ...now.keys()])) {
+    const before2 = was.get(id) ?? [];
+    const after = now.get(id) ?? [];
+    if (JSON.stringify(before2) === JSON.stringify(after)) continue;
+    for (const law of [...before2, ...after]) changed.push([id, law.file]);
+  }
+  return changed;
 }
 function lawPaths(before2, after, { compared }) {
   const laws = [before2, after].filter((entry) => entry !== void 0).filter(isLaw);
@@ -5129,7 +5232,9 @@ var ReplySchema = z19.object({
   // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
   personas: z19.array(z19.unknown()).optional(),
   // Like a persona, a domain out of shape is left out, never a refusal.
-  domains: z19.array(z19.unknown()).optional()
+  domains: z19.array(z19.unknown()).optional(),
+  // The law home (PRD 2632): a reply out of shape here reads as none, never a refusal.
+  lawHome: z19.unknown().optional()
 });
 var CopySchema = z19.object({
   product: z19.string(),
@@ -5139,7 +5244,9 @@ var CopySchema = z19.object({
   // A copy from before PRD 2299 has none: it still reads, with no persona.
   personas: z19.array(PersonaSchema2).default([]),
   // A copy from before PRD 2583 has none: it still reads, with no domains.
-  domains: z19.array(DomainSchema).optional()
+  domains: z19.array(DomainSchema).optional(),
+  // A copy from before PRD 2632 has none: it reads as no law home.
+  lawHome: z19.string().nullable().optional()
 });
 
 // kit/lib/design/words/product.ts
@@ -6740,7 +6847,7 @@ async function checkTarget(octokit, { owner, repo, prNumber, headSha }) {
   if (product) return { active: true, name, gated: false, reason: null, deferTo: null, product };
   const deferTo = pr.baseRef === config.repo.defaultBranch ? planPrdOf(pr.body, `${owner}/${repo}`) : null;
   const feature = pullKind(pr, config);
-  if ("skip" in feature) return { active: true, name, gated: false, reason: feature.skip, deferTo };
+  if ("skip" in feature) return skippedUnlessKnowledge(pr, config, { name, reason: feature.skip, deferTo });
   if (feature.kind !== "feature") {
     return deferTo ? { active: true, name, gated: false, reason: null, deferTo } : { active: true, name, gated: true, reason: null };
   }
@@ -6749,6 +6856,14 @@ async function checkTarget(octokit, { owner, repo, prNumber, headSha }) {
   for (const dir of prdDirs(config)) names.push(...await folderNamesAt(octokit, { owner, repo, ref, dir }));
   const prd = prdOfTopic(feature.topic, names, config);
   return "skip" in prd ? { active: true, name, gated: false, reason: prd.skip, deferTo } : { active: true, name, gated: true, reason: null };
+}
+function isKnowledgePull(pr, config) {
+  const kind = pullKind(pr, { ...config, laws: { ...config.laws, source: "knowledge" } });
+  return !("skip" in kind) && kind.kind === "knowledge";
+}
+function skippedUnlessKnowledge(pr, config, { name, reason: reason2, deferTo }) {
+  if (deferTo === null && isKnowledgePull(pr, config)) return { active: true, name, gated: true, reason: null };
+  return { active: true, name, gated: false, reason: reason2, deferTo };
 }
 async function planPrOf(octokit, plan) {
   const [owner = "", repo = ""] = plan.repo.split("/");
@@ -7546,7 +7661,13 @@ async function lawGateAt(octokit, {
   head,
   changes
 }) {
-  const fired = lockedLawChanges(changes, { ctx: createContext(head, config), base: diskSource(base) });
+  const ctx = createContext(head, config);
+  const businessLaws = businessLawFiles(changes, { ctx });
+  if (config.laws.source !== "knowledge" && businessLaws.length > 0) {
+    await snapshot(octokit, { owner, repo, ref: baseSha, paths: businessLaws, dest: base });
+    await snapshot(octokit, { owner, repo, ref: headSha, paths: businessLaws, dest: head });
+  }
+  const fired = lockedLawChanges(changes, { ctx, base: diskSource(base) });
   if (fired.length === 0) return null;
   await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
   const codeowners = readCodeowners((file) => existsSync22(join30(base, file)) ? readFileSync21(join30(base, file), "utf8") : null);
@@ -7988,7 +8109,8 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
       changes,
       comments
     });
-    if (!config || changes === null || verdict.conclusion === "skipped") return verdict;
+    if (!config || changes === null) return verdict;
+    if (verdict.conclusion === "skipped" && businessLawFiles(changes, { ctx: createContext(head, config) }).length === 0) return verdict;
     const gate = await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes });
     const held = heldAt({ config, head, pr, gate });
     return held === null ? withLawGate(verdict, gate) : { ...withLawGate(verdict, gate), held };
@@ -11831,7 +11953,7 @@ var KIT_FOLDER = `${dirname10(CONFIG_FILE)}/`;
 var FRONT_MATTER_BLOCK5 = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
 var FIELD_LINE2 = /^([A-Za-z][\w-]*):(?:[ \t]+(.*))?$/;
 var PRD_NUMBER = /^[1-9]\d*$/;
-var HEADING2 = /^#{1,6}(?:\s|$)/;
+var HEADING3 = /^#{1,6}(?:\s|$)/;
 var LIST_ITEM = /^(?:[-*+]|\d+[.)])\s/;
 var PRD_REFERENCE = /\bPRD\s*\d+/i;
 var FORBIDDEN = [
@@ -11923,7 +12045,7 @@ function descriptionViolations(lines, description) {
   const out = [];
   if (characters(description) > DESCRIPTION_MAX) out.push(`description is ${characters(description)} characters \u2014 ${DESCRIPTION_MAX} at most`);
   if (lines.includes("")) out.push("description holds a blank line \u2014 one paragraph");
-  const heading = lines.find((line) => HEADING2.test(line));
+  const heading = lines.find((line) => HEADING3.test(line));
   if (heading) out.push(`description holds a heading ("${heading}") \u2014 one paragraph of prose`);
   const item = lines.find((line) => LIST_ITEM.test(line));
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
@@ -12105,83 +12227,6 @@ function settleAtMerge({
 import { existsSync as existsSync44, readFileSync as readFileSync42, statSync as statSync13 } from "node:fs";
 import { join as join59 } from "node:path";
 
-// kit/lib/knowledge/business-laws.ts
-var BUSINESS_LAWS_FILE = "business-laws.md";
-var HEADING3 = /^##\s+(.*?)\s*$/;
-var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
-var FIELD = /^(Why|Also):\s*(.*)$/;
-var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
-function blocks(text16) {
-  const found = [];
-  for (const line of text16.split("\n")) {
-    const match = line.match(HEADING3);
-    if (match) found.push({ heading: match[1] ?? "", lines: [] });
-    else found.at(-1)?.lines.push(line);
-  }
-  return found;
-}
-function readBody2(raw) {
-  const lines = raw.map((line) => line.trim());
-  const fieldAt = lines.findIndex((line) => FIELD.test(line));
-  const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter(Boolean).join(" ");
-  return { statement: statement2, why: fieldValue(lines, "Why") || null, also: fieldValue(lines, "Also") };
-}
-function fieldValue(lines, name) {
-  const at4 = lines.findIndex((line) => line.match(FIELD)?.[1] === name);
-  if (at4 === -1) return null;
-  const rest = lines.slice(at4 + 1);
-  const end = rest.findIndex((line) => line === "" || FIELD.test(line));
-  const continued = end === -1 ? rest : rest.slice(0, end);
-  return [lines[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
-}
-function idProblem(file, id, place) {
-  const code2 = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
-  const match = id.match(ID);
-  if (!match) return `${file}: ${id} \u2014 is not a business law id: write BL-${code2}-<n>.`;
-  if (match[1] !== code2) return `${file}: ${id} \u2014 names ${match[1] ?? ""}, but it sits in the ${place.domain} folder: write BL-${code2}-<n>.`;
-  return null;
-}
-function parseBusinessLaws(file, text16, place) {
-  return blocks(text16).map(({ heading, lines }) => {
-    const { statement: statement2, why, also } = readBody2(lines);
-    const problems = [
-      idProblem(file, heading, place),
-      statement2 === "" ? `${file}: ${heading} \u2014 has no statement.` : null,
-      why === null ? `${file}: ${heading} \u2014 is missing a "Why:" line: a business law says why it exists, and a red shows it.` : null
-    ].filter((problem) => problem !== null);
-    return { id: heading, statement: statement2, why, also: also === null ? [] : keysOf2(also), scope: place.scope, domain: place.domain, file, problems };
-  });
-}
-function readBusinessLaws({ ctx, source = diskSource(ctx.root) }) {
-  const product = productDir(ctx);
-  const domains = domainsDir(ctx);
-  const laws = [];
-  if (source.files(product).includes(BUSINESS_LAWS_FILE)) {
-    const file = `${product}/${BUSINESS_LAWS_FILE}`;
-    laws.push(...parseBusinessLaws(file, source.read(file), { scope: "product", domain: "product" }));
-  }
-  for (const name of source.dirs(domains)) {
-    if (!source.files(`${domains}/${name}`).includes(BUSINESS_LAWS_FILE)) continue;
-    const file = `${domains}/${name}/${BUSINESS_LAWS_FILE}`;
-    laws.push(...parseBusinessLaws(file, source.read(file), { scope: "domain", domain: name }));
-  }
-  return laws;
-}
-function businessLawProblems(laws, { owners, where }) {
-  const seen = /* @__PURE__ */ new Map();
-  const problems = laws.flatMap((law) => {
-    const first = seen.get(law.id);
-    if (first === void 0) seen.set(law.id, law.file);
-    const reused = first === void 0 ? [] : [`${law.file}: ${law.id} \u2014 already used in ${first}: a business law's number is used once.`];
-    return [...law.problems, ...reused];
-  });
-  if (laws.length > 0 && owners?.length === 0) {
-    const counted3 = `${laws.length} business ${laws.length === 1 ? "law" : "laws"}`;
-    problems.push(`${where}: ${counted3}, and laws.owners is empty \u2014 name the product's PM in laws.owners: only they approve a change to one.`);
-  }
-  return problems;
-}
-
 // kit/lib/codeowners-laws.ts
 import { existsSync as existsSync43, mkdirSync as mkdirSync10, readFileSync as readFileSync41, writeFileSync as writeFileSync15 } from "node:fs";
 import { dirname as dirname12, join as join58 } from "node:path";
@@ -12189,8 +12234,14 @@ var DEFAULT_CODEOWNERS = ".github/CODEOWNERS";
 function testPaths(enforcedBy2) {
   return enforcedBy2.split(",").map((part) => (part.replace(/`/g, "").trim().split("#")[0] ?? "").trim()).filter(Boolean);
 }
+function businessLawPaths(ctx, knowledge) {
+  const product = knowledge.productFiles.includes(BUSINESS_LAWS_FILE) ? [`${productDir(ctx)}/${BUSINESS_LAWS_FILE}`] : [];
+  const domains = knowledge.domains.filter((domain) => domain.files.includes(BUSINESS_LAWS_FILE));
+  return [...product, ...domains.map((domain) => `${domainsDir(ctx)}/${domain.name}/${BUSINESS_LAWS_FILE}`)];
+}
 function lawOwnedPaths(ctx, knowledge = readKnowledge({ ctx })) {
   const registers = "The thesis and the registers: what the product promises, and its laws.";
+  const business = "The business laws: the product's rules, changed only with their owner's approval.";
   const briefing = "The briefing: the rules every agent follows.";
   const layers = (dir, files2) => REQUIRED_LAYER_FILES.filter((name) => files2.includes(name)).map((name) => `${dir}/${name}`);
   const files = [
@@ -12200,7 +12251,12 @@ function lawOwnedPaths(ctx, knowledge = readKnowledge({ ctx })) {
     ...knowledge.crossDomainFiles.map(({ file }) => file)
   ];
   const tests = knowledge.entries.filter((entry) => isLaw(entry) && entry.enforced && entry.enforcedBy !== null).flatMap((entry) => testPaths(entry.enforcedBy ?? "").map((path) => ({ path, why: `law ${entry.id}: its test.` })));
-  return [...files.map((path) => ({ path, why: registers })), ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })), ...tests];
+  return [
+    ...files.map((path) => ({ path, why: registers })),
+    ...businessLawPaths(ctx, knowledge).map((path) => ({ path, why: business })),
+    ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })),
+    ...tests
+  ];
 }
 function expectedOwnersBlock(ctx, knowledge = readKnowledge({ ctx })) {
   return ownersBlock(lawOwnedPaths(ctx, knowledge), ctx.config.laws?.owners ?? []);
