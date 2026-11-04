@@ -19,7 +19,8 @@ function jsonOf(content: unknown): unknown {
   if (typeof content !== 'string') return undefined;
   const bare = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
-    return JSON.parse(bare) as unknown;
+    const value: unknown = JSON.parse(bare);
+    return value;
   } catch {
     return undefined;
   }

@@ -9,7 +9,6 @@
 // A refusal, or an answer out of shape, throws, naming the function: the callers never turn it red.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import type { LawVerdict } from './judge.service';
 
 /** What the functions need: the database's functions. */
 export type VerdictsDb = Pick<SupabaseClient, 'rpc'>;
@@ -87,7 +86,7 @@ export function verdictsRepository(db: VerdictsDb) {
     },
 
     /** Keeps `verdict` on spec version `version` at pack commit `sha`, unless one is kept there: the one kept. The service role's. */
-    put(version: string, sha: string, verdict: LawVerdict): Promise<KeptVerdict> {
+    put(version: string, sha: string, verdict: Pick<KeptVerdict, 'state' | 'reason' | 'laws' | 'domains' | 'findings'>): Promise<KeptVerdict> {
       return answered(db.rpc('business_law_verdict_put', {
         p_version: version,
         p_pack_sha: sha,
