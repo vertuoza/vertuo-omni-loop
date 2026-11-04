@@ -459,11 +459,8 @@ requests, in its clone.
 
 Teams that track work elsewhere name each pull request after its ticket, and a check may refuse a
 title with no key. An issue carries its ticket's key in one line of its body, which GitHub does not
-render (`<!-- omni-ref: <ref> -->`), written by whoever files the issue (a tool or a person; the kit never writes one):
-
-```markdown
-<!-- omni-ref: ABC-123 -->
-```
+render (`<!-- omni-ref: <ref> -->`, as in `<!-- omni-ref: ABC-123 -->`), written by whoever files
+the issue (a tool or a person; the kit never writes one).
 
 `<ref>` is 1 to 64 letters, digits, `.`, `_` or `-`; the first valid marker counts, and a line of
 another shape is skipped. The repository says how the key reads in its config, under `pr.ref`
