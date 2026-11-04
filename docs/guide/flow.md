@@ -455,6 +455,39 @@ as its last line; the loop then adds its own lines (the link line, the slices, t
 overview) above what the skill wrote. In a plan repository, each target's own key opens its pull
 requests, in its clone.
 
+## The external reference of a pull request
+
+Teams that track work elsewhere name each pull request after its ticket, and a check may refuse a
+title with no key. An issue carries its ticket's key in one line of its body, which GitHub does not
+render (`<!-- omni-ref: <ref> -->`), written by whoever files the issue (a tool or a person; the kit never writes one):
+
+```markdown
+<!-- omni-ref: ABC-123 -->
+```
+
+`<ref>` is 1 to 64 letters, digits, `.`, `_` or `-`; the first valid marker counts, and a line of
+another shape is skipped. The repository says how the key reads in its config, under `pr.ref`
+(`null` by default, and then nothing changes):
+
+```yaml file=.omni-loop/config.yml
+pr:
+  ref:
+    title: "[{ref}]-{title}"                 # must hold {ref} and {title}
+    none: "[NoRef]-{title}"                  # with no marker; null: the title is left as it is
+    link: "https://tracker.example/{ref}"    # null: no link line; must hold {ref}, https://
+```
+
+`omni ref <issue> --title "<title>"` reads the issue through `gh` and prints `title:` (formatted, and
+unchanged when it already reads as the format) and `link:` (or `none`); `--json` prints
+`{ ref, title, link }`. An issue it cannot read exits 1 with one line, and the pull request then opens
+with its title unchanged.
+
+`/omni:pr` runs it at point `pr.open` for a feature, landing or standalone pull request that has an
+issue, never for a sub-PR. With no `replace`, the printed title goes to `gh pr create`. With a
+`replace` (or `pr.openWith`), the skill opens the pull request as usual, then `/omni:pr` sets the
+title with `gh pr edit <n> --title` when it differs, the skill's own title being the `{title}`. The
+`link` joins Omni's lines at the top of the body.
+
 ## Contracts
 
 A plan commits a repository to a contract before a line of code exists: a GraphQL field, a REST

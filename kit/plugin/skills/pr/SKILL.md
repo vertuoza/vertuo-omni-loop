@@ -303,6 +303,21 @@ whose base is the default branch or a landing branch. A **sub-PR never is**: the
 `after` hooks. `pr.openWith` reads as the `replace` of `pr.open`, marked `alias claude` by
 `flow show`: a Claude-only alias naming a skill. With no `replace`, nothing below applies.
 
+**The external reference.** For a feature, landing or standalone PR that has an issue (`--issue` for
+a bug fix or a visual update, the PRD's issue for a feature or landing PR), run
+`node .omni-loop/bin/omni.mjs ref <issue> --title "<title>"` once, with the title you would
+open it with. It prints `title:` and `link:` lines: the title formatted by `pr.ref`, and the link
+(`none` when there is none). With `pr.ref` null it prints the title unchanged and no link. A sub-PR's
+claim never runs `omni ref`: a sub-PR's title is never formatted. `omni ref` exiting 1 (an issue it
+cannot read) opens the PR with its title unchanged: say so in one line, and carry on.
+
+- **With no `replace`:** the printed title is the one passed to `gh pr create`, and a `link:` that is
+  not `none` is one of Omni's lines at the top of the body, right after the link line.
+- **With a `replace`:** after the hook printed the PR's URL (step 2), run `omni ref` on the
+  title the skill gave it, and when the printed title differs from the PR's, set it with
+  `gh pr edit <n> --title "<printed title>"`; a `link:` that is not `none` joins Omni's lines when
+  step 3 completes the body. The skill's title is formatted, never replaced.
+
 1. Push the head branch first, as always. Then follow the `replace` hook, from the checkout the PR's
    head lives in, handing it the inputs above and nothing else. For the `pr.openWith` alias, run the
    skill it names with these arguments and nothing else:
@@ -320,11 +335,11 @@ whose base is the default branch or a landing branch. A **sub-PR never is**: the
    failed, and open nothing yourself, with `gh` or otherwise.
 3. Complete the body: read it with `gh pr view <n> --json body --jq .body`, then write it back with
    `gh pr edit <n> --body-file <file>`, **Omni's lines above the skill's**: the link line, the
-   merge-after line for a landing PR, the **Slices** checklist, the `## Landings` overview when there
+   external reference's link line when `omni ref` printed one, the merge-after line for a landing PR, the **Slices** checklist, the `## Landings` overview when there
    is one, and the **Acceptance** checklist when `acceptance.enabled` is true; then everything the
    skill wrote, unchanged; then the `omni sign footer` line, last. A later rewrite of the body
    keeps the skill's part as it is.
-4. The title is the skill's. The labels, the status comment and the lifecycle below are this
+4. The title is the skill's, formatted by `omni ref` when it ran. The labels, the status comment and the lifecycle below are this
    skill's, as for any PR.
 
 ## The status comment
