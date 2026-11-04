@@ -668,3 +668,23 @@ Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, 
 Enforced by: supabase/checks/api_key_jobs.sql
 Stated: 2026-10-23
 Decided: @nicojustdev, 2026-10-23
+
+## BR-PRODUCT-126
+
+Asking a PRD's product approvers before its Tech Approval is given is allowed: the request is recorded and shows in their bell, while their approval is refused, naming who it waits on, until the Tech Approval is given.
+
+Serves: P-PRODUCT-87
+Source: .omni-loop/delivery/outbox/2608-tech-approval/settled.md, entry s1-02-an-early-product-request-still-reaches-the-bell, PRD #2608
+Enforced by: supabase/checks/tech_approval.sql
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04
+
+## BR-PRODUCT-127
+
+A PRD with no Tech Approval request reads with no tech part at all in the approval the terminal reads, not an empty one; the part appears, with the named person and its state, only once a Tech Approval is requested.
+
+Serves: P-PRODUCT-87
+Source: .omni-loop/delivery/outbox/2608-tech-approval/settled.md, entry s1-03-the-tech-state-is-left-out-when-nobody-asked, PRD #2608
+Enforced by: supabase/checks/tech_approval.sql
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04
