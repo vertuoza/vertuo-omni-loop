@@ -18,6 +18,7 @@ import { gradeKnowledge } from '../../lib/knowledge/check-knowledge.ts';
 import { verifyServedLegal, type LegalReach } from '../../lib/knowledge/check-knowledge-legal.ts';
 import { COPIES_DIR, gradeCopies } from '../../lib/knowledge/copies.ts';
 import { readKnowledge } from '../../lib/knowledge/registers.ts';
+import { readBusinessLaws } from '../../lib/knowledge/business-laws.ts';
 import { findOutboxViolations } from '../../lib/outbox/check-outbox.ts';
 import {
   describeUnaccounted,
@@ -110,12 +111,15 @@ async function checkKnowledge({ ctx, stdout, stderr, exec }: CommandIo, { cwd, r
   const legal = await verifyServedLegal({ ctx, entries: knowledge.entries, cwd, exec, reach });
   for (const note of legal.notes) println(stdout, note);
   const count = (kind: string) => knowledge.entries.filter((entry) => entry.kind === kind).length;
+  // PRD 2632: the business laws, graded with the rest, are counted only where there are some.
+  const lawCount = readBusinessLaws({ ctx }).length;
+  const business = lawCount === 0 ? '' : `; ${lawCount} business law(s)`;
   return report(
     stdout,
     title,
     [...violations, ...legal.violations],
     `check knowledge — ${count('principle')} principle(s), ${count('rule')} rule(s), ${count('invariant')} invariant(s), ${count('contract')} contract(s) ` +
-      `across ${knowledge.domains.length} domain(s) and ${knowledge.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`,
+      `across ${knowledge.domains.length} domain(s) and ${knowledge.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed${business}.`,
   );
 }
 
