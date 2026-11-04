@@ -522,7 +522,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     readPitchSettings: (repo: string) => call('GET', `/api/pitch-settings?${new URLSearchParams({ repo })}`),
     /** PRD 748: the confirmed claims of the business agents in `repo` (owner/name) read.
      * @returns {Promise<{ state: 'ok' | 'none', business: { name: string } | null, product: { name: string } | null,
-     *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }> }>} */
+     *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }>,
+     *   lawHome?: string | null }>} PRD 2632: `lawHome` is the repository (owner/name) the product's business laws live in;
+     * a reply without it (an older server) reads as none. */
     readBusiness: (repo: string) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
     /** PRD 871: the live Statement and Never lines of the product agents in `repo` (owner/name) work on.
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,

@@ -1795,7 +1795,8 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
      `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`
    - OpenRouter: `OPENROUTER_API_KEY`
    - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
-     `CONSTITUENT_JUDGE_SECRET`, `LAW_JUDGE_SECRET`, `BUSINESS_RECHECK_SECRET`
+     `CONSTITUENT_JUDGE_SECRET`, `LAW_JUDGE_SECRET`, `BUSINESS_LAWS_JUDGE_SECRET` (PRD 2632: signs
+     omni-app's call to `POST /api/business-laws/judge`), `BUSINESS_RECHECK_SECRET`
    - the approval alerts: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push), `RESEND_API_KEY`,
      `RESEND_FROM` (email)
    - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each

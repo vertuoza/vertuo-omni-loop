@@ -6,6 +6,7 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { lineDiff, type DiffLine } from './approval-diff';
 import { stamp } from './dates';
+import type { LawsView } from '../../business-laws/verdicts.service';
 
 // The approval of a PRD born on the server (◆, PRD 1299 s3), on its page, as pure functions of what the
 // viewer reads: its latest row of `approvals` (supabase/migrations/20261123090000_approvals.sql), which a
@@ -27,6 +28,18 @@ import { stamp } from './dates';
 // supabase/migrations/20261125090000_approval_requests.sql) reads a fourth state, voided · approve again,
 // naming who pushed and the hashes. Whoever gets the button reads, above it, the diff of each changed
 // file first (./approval-diff.ts), then the spec's Problem and Solution.
+//
+// PRD 2632 s4: above Approve, the latest spec's business laws verdict (../../business-laws/): a red names each
+// law broken and turns Approve off, saying why; a green says what was judged; a spec not judged says why. Once
+// approved, the approved spec's verdict stays under the seal.
+
+/** Why Approve is off while the latest spec breaks a business law. */
+export const LAWS_HOLD = 'Change the spec, or amend the law.';
+
+/** Why Approve is off for `view`: a red business law verdict; null when it is on. */
+export function approveOff(view: Pick<ApprovalView, 'laws'>): string | null {
+  return view.laws?.show === 'verdict' && view.laws.verdict.state === 'red' ? LAWS_HOLD : null;
+}
 
 /** Where the page approves, as the signed-in person. */
 export const APPROVAL_ROUTE = '/api/dossiers/approval';
@@ -80,6 +93,9 @@ export type ApprovalFacts = {
   asked: readonly string[] | 'unread';
   /** The approve screen, read for a viewer who gets the button; left out, the button alone. */
   screen?: ApproveScreen | undefined;
+  /** The business laws' verdict (PRD 2632 s4): the latest spec's for a viewer who gets the button, the approved
+   * spec's once approved; left out, none is shown. */
+  laws?: LawsView | undefined;
   /** The Tech Approval's screen, read for the named person: the changes since their last approval, then the spec's Problem and Solution. */
   techScreen?: ApproveScreen | undefined;
 };
@@ -103,6 +119,8 @@ export type ApprovalView = {
   /** The seal an approval in force shows on the page (#1351): the PRD, who approved it and when, and each
    * pinned file with its short hash (null when the row kept none); null unless approved. */
   seal: ApprovalSeal | null;
+  /** The business laws' verdict shown above Approve, or under the seal (PRD 2632 s4); a red turns Approve off. */
+  laws?: LawsView | null;
   /** The Tech Approval part (PRD 2608); null when nobody asked for one, so a PRD with no request renders as before. */
   tech: TechView | null;
   /** Whether the viewer, the PRD's author, gets **Request a Tech Approval**: a ◆ PRD not yet approved, with no request. */
@@ -308,7 +326,13 @@ function viewOf(
     state, words: wordsOf(state, tech), ...rest, canApprove,
     dossier: read.dossier.id, screen: canApprove ? approveScreenOf(read.approvalFacts) : null, tech,
     canRequestTech: open && isAuthor(seat, read.dossier),
+    ...lawsPartOf(read.approvalFacts),
   };
+}
+
+/** The business laws' verdict the page read, left out with none (PRD 2632 s4). */
+function lawsPartOf(facts: ApprovalFacts | undefined): Pick<ApprovalView, 'laws'> {
+  return facts?.laws ? { laws: facts.laws } : {};
 }
 
 /** The approve screen the page read, null with none. */

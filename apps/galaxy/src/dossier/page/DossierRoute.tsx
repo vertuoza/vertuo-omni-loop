@@ -45,8 +45,10 @@ import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
 import { readProductOutbox } from './outbox-product.repository';
 import { productOutboxView } from './outbox-product';
-import { approvalView, readApproval, readApproveScreen, judgeApproval, readAskedApprovers, readTech, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
+import { approvalView, readApproval, readApproveScreen, judgeApproval, readAskedApprovers, readTech, readVoids, type ApprovalFacts, type ApprovalView, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
+import { lawsForPage, lawsOfApproved } from '../../business-laws/verdicts.live';
+import type { LawsView } from '../../business-laws/verdicts.service';
 import { liveSendSetup } from '../../runners/send/send.live';
 import { continuationsRepository, runnersRepository } from '../../runners/runners.repository';
 import { fixingOf, type Fixing } from './stage';
@@ -100,6 +102,9 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 // who gets Approve, the approve screen too: the changed files' diffs and the spec's Problem and Solution.
 // Voids that cannot be read leave the approval unread; approvers that cannot be read leave the button to
 // any member, and dossier_approve() decides.
+// PRD 2632 s4: for that viewer, the latest spec's business laws verdict too, judged then when it has none at
+// the law home's newest pack; once approved, the approved spec's verdict. A read that fails says so, never
+// hides the page.
 // PRD 1548 s4: a product PRD's attestation is read as the member beside it (./Attestation.service.ts); one
 // that cannot be read is left out, never the page.
 // PRD 1830 s4: a numbered PRD's page reads, beside its approval, the workspace's runners the viewer may
@@ -137,13 +142,29 @@ async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<D
   return { approval, approvalFacts: { ...facts, ...await screensOf(db, read, approval, facts, me) } };
 }
 
-/** The screens `me` reads: the approve screen when they get Approve (PRD 1322 s7), the Tech Approval's when they give it (PRD 2608). */
-async function screensOf(db: Db, read: DossierRead, approval: ApprovalRead, facts: ApprovalFacts, me: string): Promise<Pick<ApprovalFacts, 'screen' | 'techScreen'>> {
+/** What `me` reads beside the approval: the approve screen when they get Approve (PRD 1322 s7), the Tech Approval's when they give it (PRD 2608), and the business laws' verdict (PRD 2632 s4). */
+async function screensOf(db: Db, read: DossierRead, approval: ApprovalRead, facts: ApprovalFacts, me: string): Promise<Pick<ApprovalFacts, 'screen' | 'techScreen' | 'laws'>> {
   const view = approvalView({ ...read, approval, approvalFacts: facts }, me);
   const content = (id: string) => readContent(db, id);
-  const techScreen = view?.tech?.canGive ? await techScreenOf(content, read, facts) : undefined;
-  const screen = view?.canApprove ? await readApproveScreen(content, read.versions, approval, view) : undefined;
-  return { techScreen, screen };
+  const [techScreen, screen, laws] = await Promise.all([
+    view?.tech?.canGive ? techScreenOf(content, read, facts) : undefined,
+    view?.canApprove ? readApproveScreen(content, read.versions, approval, view) : undefined,
+    lawsOfView(db, read.dossier.id, view, approval),
+  ]);
+  return { techScreen, screen, laws };
+}
+
+/** The business laws' verdict `view` shows (PRD 2632 s4): the latest spec's for whoever gets a button, the approved spec's under the seal. */
+function lawsOfView(db: Db, dossier: string, view: ApprovalView | null, approval: ApprovalRead): Promise<LawsView> | undefined {
+  if (!view) return undefined;
+  if (view.canApprove || view.tech?.canGive) return lawsForPage(db, dossier);
+  const spec = view.seal ? pinnedSpecOf(approval) : undefined;
+  return spec && lawsOfApproved(db, dossier, spec.version_id);
+}
+
+/** The spec an approval pinned, when it holds one. */
+function pinnedSpecOf(approval: ApprovalRead) {
+  return approval === null || approval === 'unread' ? undefined : approval.files.find((file) => file.kind === 'spec');
 }
 
 /** The named person's screen (PRD 2608): what changed since their last tech approval, then the spec's Problem and Solution. */

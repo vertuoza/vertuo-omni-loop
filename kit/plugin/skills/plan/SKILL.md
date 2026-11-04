@@ -238,6 +238,11 @@ A slice no glob meets is not marked. With the flag off, or `design.paths` empty,
 `/omni:do-work` then reads `omni design touched` on the built diff and judges for itself. The mark
 never changes a slice's territory, blockers or wave, and `omni plan check` does not read it.
 
+**Business laws.** Under any `laws.source`, `omni kb laws --slice <n> <id>` also prints the product's
+business laws of the slice's domains under **Applies here** and the `product/` ones under **Global**.
+They are read like the rest of what it prints, and a slice's done-when serves them; they are never a
+`law:` mark, and no slice changes one.
+
 **Law slices.** Only when `laws.source` is `knowledge`. Once the table is written, run
 `node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>` for each slice: it prints what applies to
 the slice's territory under **Applies here**, each line saying why, then what is global under

@@ -117,7 +117,9 @@ export type CheckTarget = {
  * `active`: the base branch has the loop installed (PRD 359: the app posts nothing anywhere else).
  * `name`: `ci.outboxContext`, or the kit's default when the config is broken (the check still has to
  * appear, to say so). `gated`: an Omni Loop feature pull request (issue 876), or, with `laws.source:
- * knowledge`, a fix, knowledge or enforce PR (PRD 1342, `pullKind`); `reason` says why another is not. A broken config is gated, so its check says what is
+ * knowledge`, a fix, knowledge or enforce PR (PRD 1342, `pullKind`), and a knowledge PR under any
+ * `laws.source`, where a business law is amended (PRD 2632, `isKnowledgePull`); `reason` says why
+ * another is not. A broken config is gated, so its check says what is
  * wrong. `deferTo`: on a pull request into the default branch that is not gated here, the plan
  * repository's PRD its body says it is part of (`planPrdOf`, issue 1202): a target feature PR, whose
  * check passes and points to the plan PR. `product`: on a pull request into the default branch, the
@@ -145,7 +147,7 @@ export async function checkTarget(
   if (product) return { active: true, name, gated: false, reason: null, deferTo: null, product };
   const deferTo = pr.baseRef === config.repo.defaultBranch ? planPrdOf(pr.body, `${owner}/${repo}`) : null;
   const feature = pullKind(pr, config);
-  if ('skip' in feature) return { active: true, name, gated: false, reason: feature.skip, deferTo };
+  if ('skip' in feature) return skippedUnlessKnowledge(pr, config, { name, reason: feature.skip, deferTo });
   // A fix, knowledge or enforce PR (PRD 1342) is graded on the laws it touches: its branch says so.
   // A target's fix PR keeps its record in the plan repository, so it defers there instead.
   if (feature.kind !== 'feature') {
@@ -156,6 +158,23 @@ export async function checkTarget(
   for (const dir of prdDirs(config)) names.push(...(await folderNamesAt(octokit, { owner, repo, ref, dir })));
   const prd = prdOfTopic(feature.topic, names, config);
   return 'skip' in prd ? { active: true, name, gated: false, reason: prd.skip, deferTo } : { active: true, name, gated: true, reason: null };
+}
+
+/**
+ * Whether the pull request is a knowledge PR into the default branch (`branches.knowledge`), whatever
+ * `laws.source` says: the branch a business law is amended on (PRD 2632), read from its refs alone, so
+ * a pull request the gate skips still reads nothing more. `evaluate` skips it under another source, and
+ * `law-locked` alone grades it then.
+ */
+function isKnowledgePull(pr: PullFacts, config: Config): boolean {
+  const kind = pullKind(pr, { ...config, laws: { ...config.laws, source: 'knowledge' } });
+  return !('skip' in kind) && kind.kind === 'knowledge';
+}
+
+/** A pull request `pullKind` skips: skipped for `reason`, unless it is a knowledge PR no plan repository grades, which is gated. */
+function skippedUnlessKnowledge(pr: PullFacts, config: Config, { name, reason, deferTo }: { name: string; reason: string; deferTo: PlanPrd | null }): CheckTarget {
+  if (deferTo === null && isKnowledgePull(pr, config)) return { active: true, name, gated: true, reason: null };
+  return { active: true, name, gated: false, reason, deferTo };
 }
 
 /**

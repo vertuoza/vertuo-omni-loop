@@ -698,3 +698,13 @@ Source: .omni-loop/delivery/shipped/2608-tech-approval/outbox/settled.md, entry 
 Enforced by: supabase/checks/approval_requests.sql
 Stated: 2026-11-04
 Decided: @pierrederval, 2026-11-04
+
+## BR-PRODUCT-129
+
+A red business-law verdict holds a PRD's product approval only. The person named for its Tech Approval can still review and give it, and giving it does not lift the red.
+
+Serves: P-PRODUCT-87
+Source: pull request #2633, merging PRD 2632 with PRD 2608: the two specs do not settle it, so a person was asked in the terminal
+Enforced by: supabase/checks/business_law_verdicts.sql, apps/galaxy/src/approval/approval-api.business-laws.test.ts
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04

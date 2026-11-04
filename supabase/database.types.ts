@@ -744,6 +744,73 @@ export type Database = {
           },
         ]
       }
+      business_law_verdicts: {
+        Row: {
+          domains: Json
+          dossier_id: string
+          dossier_version_id: string
+          findings: Json
+          id: string
+          judged_at: string
+          law_home: string
+          laws: Json
+          pack_sha: string
+          reason: string
+          state: string
+          workspace_id: string
+        }
+        Insert: {
+          domains: Json
+          dossier_id: string
+          dossier_version_id: string
+          findings: Json
+          id?: string
+          judged_at?: string
+          law_home: string
+          laws: Json
+          pack_sha: string
+          reason: string
+          state: string
+          workspace_id: string
+        }
+        Update: {
+          domains?: Json
+          dossier_id?: string
+          dossier_version_id?: string
+          findings?: Json
+          id?: string
+          judged_at?: string
+          law_home?: string
+          laws?: Json
+          pack_sha?: string
+          reason?: string
+          state?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_law_verdicts_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_law_verdicts_dossier_version_id_fkey"
+            columns: ["dossier_version_id"]
+            isOneToOne: false
+            referencedRelation: "dossier_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_law_verdicts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_sources: {
         Row: {
           added_at: string
@@ -5081,6 +5148,29 @@ export type Database = {
         Args: { p_hash: string; p_prd?: number; p_repo?: string }
         Returns: Json
       }
+      business_law_judge_input: { Args: { p_dossier: string }; Returns: Json }
+      business_law_verdict_json: {
+        Args: {
+          v: Database["public"]["Tables"]["business_law_verdicts"]["Row"]
+        }
+        Returns: Json
+      }
+      business_law_verdict_of: {
+        Args: { p_dossier: string; p_version?: string }
+        Returns: Json
+      }
+      business_law_verdict_put: {
+        Args: {
+          p_domains: Json
+          p_findings: Json
+          p_laws: Json
+          p_pack_sha: string
+          p_reason: string
+          p_state: string
+          p_version: string
+        }
+        Returns: Json
+      }
       business_member_only: {
         Args: { p_workspace: string }
         Returns: undefined
@@ -6591,6 +6681,7 @@ export type Database = {
         }
         Returns: string
       }
+      product_law_home: { Args: { p_product: string }; Returns: string }
       product_legal_add: {
         Args: {
           p_code: string

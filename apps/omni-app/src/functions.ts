@@ -27,6 +27,7 @@ import { githubClient } from '@omni/github';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from './env.ts';
 import { liveCanon } from './canon/live.ts';
+import { businessLawsJudge, businessLawsJudgeUrl } from './inbox-check/business-laws-judge.ts';
 import { createApprovedCheck, createApprovedRerun } from './approved-check/approved-check.ts';
 import { askJudge } from './approved-check/judge-client.ts';
 import { createBudgetsCheck } from './budgets-check/budgets-check.ts';
@@ -70,7 +71,7 @@ export function appFunctions(
   const inngest = loggedClient(appInngest, logger);
   return {
     outboxCheck: createOutboxCheck({ client: inngest, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
-    inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env) }),
+    inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env), laws: businessLawsJudge({ url: businessLawsJudgeUrl(env.galaxyUrl), secret: env.businessLawsJudge?.secret }) }),
     approvedCheck: createApprovedCheck({
       client: inngest,
       octokitFor,

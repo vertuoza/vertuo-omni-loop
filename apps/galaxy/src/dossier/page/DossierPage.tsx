@@ -5,8 +5,9 @@ import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import { PrdTimelinePane } from '../../timeline/TimelineView';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
-import type { ApprovalView, ApproveScreen } from './approval';
+import { approveOff, type ApprovalView, type ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
+import { BusinessLawsVerdict } from './BusinessLawsVerdict';
 import { GiveTechApprovalButton } from './GiveTechApprovalButton';
 import { RequestTechApproval } from './RequestTechApproval';
 import { SealCard } from './SealCard';
@@ -217,8 +218,9 @@ function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
 }
 
 /** The approve screen of a ◆ PRD (PRD 1322 s7), for a viewer who may approve it: after a void or a drift,
- * the diff of each changed file first; then the spec's Problem and Solution; then Approve. */
-function ApproveScreenSection({ screen, button }: { screen: ApproveScreen | null; button: React.ReactNode }) {
+ * the diff of each changed file first; then the spec's Problem and Solution; then its business laws' verdict
+ * (PRD 2632 s4); then Approve, which a red turns off, or Give Tech Approval, which a red does not. */
+function ApproveScreenSection({ screen, laws, button }: { screen: ApproveScreen | null; laws: ApprovalView['laws']; button: React.ReactNode }) {
   return (
     <section className="dossier-approve-screen" id="approve" aria-label="Approve">
       {screen && screen.diffs.length > 0 && (
@@ -234,6 +236,7 @@ function ApproveScreenSection({ screen, button }: { screen: ApproveScreen | null
         </div>
       ))}
       {screen?.spec === 'unread' && <p className="ask-problem" role="alert">The spec could not be read. Reload the page in a moment.</p>}
+      <BusinessLawsVerdict laws={laws} />
       {button}
     </section>
   );
@@ -243,9 +246,9 @@ function ApproveScreenSection({ screen, button }: { screen: ApproveScreen | null
 function ApprovalArea({ approval }: { approval: ApprovalView }) {
   const { tech } = approval;
   const request = approval.canRequestTech && <RequestTechApproval dossier={approval.dossier} />;
-  if (tech?.canGive) return <>{request}<ApproveScreenSection screen={tech.screen} button={<GiveTechApprovalButton dossier={approval.dossier} />} /></>;
-  if (approval.canApprove) return <>{request}<ApproveScreenSection screen={approval.screen} button={<ApproveButton dossier={approval.dossier} />} /></>;
-  return <>{request}{tech?.waiting && <p className="ask-hint dossier-tech-waiting">{tech.waiting}</p>}<Seals approval={approval} /></>;
+  if (tech?.canGive) return <>{request}<ApproveScreenSection screen={tech.screen} laws={approval.laws} button={<GiveTechApprovalButton dossier={approval.dossier} />} /></>;
+  if (approval.canApprove) return <>{request}<ApproveScreenSection screen={approval.screen} laws={approval.laws} button={<ApproveButton dossier={approval.dossier} off={approveOff(approval)} />} /></>;
+  return <>{request}{tech?.waiting && <p className="ask-hint dossier-tech-waiting">{tech.waiting}</p>}<Seals approval={approval} />{approval.seal && <BusinessLawsVerdict laws={approval.laws} />}</>;
 }
 
 /** The seals of an approval in force: the tech one first, then the product one. */

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2632: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+</style>
+<style>
+.mock { --g:#07061c; --s:#120f3a; --k:#0e0d33; --l:#1a2170; --ls:#5a60c4; --i:#f2f4ff; --m:#8a90d6; --p:#ffd84a; --op:#07061c; --y:#ff3ea5; --c:#6ff0ff; --gr:#4ee08a;
+  background: var(--g); color: var(--i); font: 14px/1.5 "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif; border: 1px solid var(--ls); border-radius: 8px; padding: 14px; display: grid; gap: 10px; align-content: start; }
+.mock h5 { margin: 0; font-size: 17px; line-height: 1.3; }
+.mock p { margin: 0; }
+.mock .hint { color: var(--m); font-size: 13px; }
+.mock .btn { display: inline-block; padding: 6px 12px; border-radius: 8px; border: 1.5px solid var(--ls); background: var(--k); color: var(--i); font-weight: 700; font-size: 13px; }
+.mock .btn.main { background: var(--p); border-color: var(--p); color: var(--op); }
+.mock .btn.off { opacity: .45; }
+.mock .card { background: var(--s); border: 1px solid var(--l); border-radius: 8px; padding: 10px; display: grid; gap: 6px; }
+.mock .bad { border-left: 3px solid var(--y); }
+.mock .good { border-left: 3px solid var(--gr); }
+.mock .id { font: 600 12px/1.4 "JetBrains Mono", ui-monospace, Menlo, monospace; color: var(--p); }
+.mock .quote { font-style: italic; color: var(--c); }
+.mock .lab { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--m); }
+.mock .tabs-m { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 13px; color: var(--m); border-bottom: 1px solid var(--ls); padding-bottom: 8px; }
+.mock .tabs-m b { color: var(--i); }
+.mock table { margin: 0; font-size: 13px; }
+.mock th { color: var(--m); }
+.mock th, .mock td { border-color: var(--l); padding: 5px 8px; }
+.caption { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<h1>PRD 2632: Business laws above the repositories, before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">Today</div><p>A PRD's approver reads the spec and approves. Nothing checks the spec against the product's business rules, and on the PRD page no canon check runs at all.</p><p>Knowledge lists Legal entries, the glossary and domains. The product's business rules are nowhere on the page.</p></div><div><div class="label">After</div><p>The PRD's spec is judged against the laws its domains and glossary words point to. A break turns the approval off, and shows the law, why it exists, the spec's words and who owns it.</p><p>Knowledge gains a read-only Business laws section. A domain's page lists its laws. Changing a law stays a pull request the PM approves.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: prd-dossier · product-domains · product-business-laws</p>
+<p class="caption">The PRD page's approve screen, when the spec breaks a law. The colours and type are the app pages' reading tokens (Ask, theme Omni).</p>
+<div class="compare"><div><div class="label">Today</div><div class="mock" data-screen="prd-dossier">
+<h5>PRD 700: Quote templates</h5>
+<p class="hint">Waiting for approval</p>
+<div class="card"><span class="lab">Spec</span><p>Problem and Solution, then each changed file.</p></div>
+<div><span class="btn main" data-primary>Approve</span></div>
+</div></div><div><div class="label">After</div><div class="mock" data-screen="prd-dossier">
+<h5>PRD 700: Quote templates</h5>
+<p class="hint">Waiting for approval</p>
+<div class="card bad">
+<span class="lab">Business laws ✗ 1</span>
+<span class="id">BL-QUOTES-1</span>
+<p data-content>A quote can be sent only when its total including tax is above zero.</p>
+<p><b>Why:</b> <span data-content>A customer who receives an empty quote stops trusting the contractor.</span></p>
+<p>The spec says: <span class="quote" data-content>“a template can be sent with a zero total”.</span></p>
+<p class="hint">Owner: @ana · Quotes ← “quote”</p>
+<div><span class="btn main" data-primary>Ask to amend this law</span></div>
+</div>
+<div><span class="btn off">Approve</span> <span class="hint">Change the spec, or amend the law.</span></div>
+</div></div></div>
+<p class="caption">When nothing breaks, and when the model cannot judge.</p>
+<div class="compare"><div><div class="label">After, nothing breaks</div><div class="mock" data-screen="prd-dossier">
+<h5>PRD 701: Quote numbering</h5>
+<div class="card good"><span class="lab">Business laws ✓ 12 judged</span><p>Quotes, Invoicing</p></div>
+<div><span class="btn main" data-primary>Approve</span></div>
+</div></div><div><div class="label">After, not judged</div><div class="mock" data-screen="prd-dossier">
+<h5>PRD 702: Quote footer</h5>
+<div class="card"><span class="lab">Business laws not judged</span><p>The model did not answer.</p></div>
+<div><span class="btn main" data-primary>Approve</span></div>
+</div></div></div>
+<p class="caption">Knowledge, with the new section after Domains.</p>
+<div class="compare"><div><div class="label">Today</div><div class="mock" data-screen="product-domains">
+<div class="tabs-m"><span>Legal</span><span>Glossary</span><b>Domains 6</b><span>Pitch</span></div>
+<table><tr><th>Key</th><th>Name</th><th>Terms</th></tr><tr><td>quotes</td><td>Quotes</td><td>15</td></tr><tr><td>invoicing</td><td>Invoicing</td><td>22</td></tr></table>
+<div><span class="btn main" data-primary>Add a domain</span></div>
+</div></div><div><div class="label">After</div><div class="mock" data-screen="product-business-laws">
+<div class="tabs-m"><span>Legal</span><span>Glossary</span><span>Domains 6</span><b>Business laws 12</b><span>Pitch</span></div>
+<p class="hint">Kept in acme/plan. Owner: @ana.</p>
+<table>
+<tr><th>Law</th><th>Why</th><th>Domains</th></tr>
+<tr><td><span class="id">BL-QUOTES-1</span><br><span data-content>A quote can be sent only when its total including tax is above zero.</span></td><td data-content>A customer who receives an empty quote stops trusting the contractor.</td><td>Quotes, Invoicing</td></tr>
+<tr><td><span class="id">BL-PRODUCT-2</span><br><span data-content>A sent invoice is never edited.</span></td><td data-content>The accountant must find the same document later.</td><td>All</td></tr>
+</table>
+<div><span class="btn main" data-primary>Open the laws on GitHub</span></div>
+</div></div></div>
+</div>
+</div>
+<div data-service="omni-app">
+<h3>omni-app</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">Today</div><p>A phase-0 pull request's inbox check has five gates. The canon gate reads the claims, the constituents and the Legal entries.</p></div><div><div class="label">After</div><p>It has six. The new <code>business laws</code> gate says which law the spec breaks, why that law exists and the spec's words. With no law home, the gate says so and never goes red.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>Pixel perfect: no screen changes</p>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">Today</div><p>An agent reads a repository's rules, and its locked laws, for the files it changes. A rule the whole product shares has no home.</p><p>Changing a repository's locked law needs its CODEOWNER.</p></div><div><div class="label">After</div><p>An agent also reads the business laws of the domains it touches. A PM can run <code>omni kb business-laws --spec</code> to see what a spec will be judged against. The brainstorm names those laws in the spec.</p><p>Changing a business law needs the PM, as a CODEOWNER of its file. An agent can draft the change and never merges it.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>Pixel perfect: no screen changes</p>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">Today</div><p>A member approves a PRD once its spec, plan and before/after are pushed.</p></div><div><div class="label">After</div><p>The same, unless the latest spec has a red verdict at the newest laws: then the database refuses it, whoever calls. Every verdict is kept for good.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>Pixel perfect: no screen changes</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<figure class="mermaid-diagram" data-source="flowchart TD
+  A[Spec pushed to the PRD page] --&gt; B[galaxy: law home of the product]
+  C[Phase-0 pull request] --&gt; D[omni-app: inbox check]
+  D --&gt;|signed route| B
+  B --&gt; E[(knowledge_packs: newest pack of the law home)]
+  B --&gt; F[(product_glossary and product_domains)]
+  E --&gt; G[Select the laws, no model]
+  F --&gt; G
+  G --&gt; H[OpenRouter: batches of 40 laws]
+  H --&gt; I[(business_law_verdicts)]
+  I --&gt; J[PRD page: red, green or not judged]
+  I --&gt; K[dossier_approve: refuses a red]
+  I --&gt; L[Inbox check: business laws gate]"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="0 0 896 1002.9501342773438" style="max-width: 896px;" class="flowchart" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#mermaid-0 .cluster-label text{fill:#333;}#mermaid-0 .cluster-label span{color:#333;}#mermaid-0 .cluster-label span p{background-color:transparent;}#mermaid-0 .label text,#mermaid-0 span{fill:#333;color:#333;}#mermaid-0 .node rect,#mermaid-0 .node circle,#mermaid-0 .node ellipse,#mermaid-0 .node polygon,#mermaid-0 .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#mermaid-0 .rough-node .label text,#mermaid-0 .node .label text,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-anchor:middle;}#mermaid-0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-0 .rough-node .label,#mermaid-0 .node .label,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-align:center;}#mermaid-0 .node.clickable{cursor:pointer;}#mermaid-0 .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#mermaid-0 .arrowheadPath{fill:#333333;}#mermaid-0 .edgePath .path{stroke:#333333;stroke-width:2.0px;}#mermaid-0 .flowchart-link{stroke:#333333;fill:none;}#mermaid-0 .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#mermaid-0 .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#mermaid-0 .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#mermaid-0 .cluster text{fill:#333;}#mermaid-0 .cluster span{color:#333;}#mermaid-0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-0 rect.text{fill:none;stroke-width:0;}#mermaid-0 .icon-shape,#mermaid-0 .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .icon-shape p,#mermaid-0 .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#mermaid-0 .icon-shape rect,#mermaid-0 .image-shape rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A_B_0" d="M302.25,190L302.25,196.167C302.25,202.333,302.25,214.667,313.485,226.692C324.72,238.717,347.19,250.434,358.425,256.292L369.66,262.151"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_C_D_1" d="M593.75,62L593.75,66.167C593.75,70.333,593.75,78.667,593.75,88.333C593.75,98,593.75,109,593.75,114.5L593.75,120"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_D_B_2" d="M593.75,178L593.75,186.167C593.75,194.333,593.75,210.667,582.515,224.692C571.28,238.717,548.81,250.434,537.575,256.292L526.34,262.151"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_B_E_3" d="M367.258,342L358.632,346.167C350.005,350.333,332.753,358.667,324.126,366.333C315.5,374,315.5,381,315.5,384.5L315.5,388"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_B_F_4" d="M528.742,342L537.368,346.167C545.995,350.333,563.247,358.667,571.874,366.333C580.5,374,580.5,381,580.5,384.5L580.5,388"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_E_G_5" d="M315.5,502.426L315.5,506.593C315.5,510.76,315.5,519.093,325.496,527.183C335.493,535.273,355.486,543.119,365.482,547.042L375.478,550.965"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_F_G_6" d="M580.5,502.426L580.5,506.593C580.5,510.76,580.5,519.093,570.504,527.183C560.507,535.273,540.514,543.119,530.518,547.042L520.522,550.965"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_G_H_7" d="M448,606.426L448,610.593C448,614.76,448,623.093,448,630.76C448,638.426,448,645.426,448,648.926L448,652.426"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_H_I_8" d="M448,734.426L448,738.593C448,742.76,448,751.093,448,758.76C448,766.426,448,773.426,448,776.926L448,780.426"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_I_J_9" d="M361.531,844.171L324.276,852.134C287.021,860.097,212.51,876.024,175.255,887.487C138,898.95,138,905.95,138,909.45L138,912.95"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_I_K_10" d="M448,866.95L448,871.117C448,875.283,448,883.617,448,891.283C448,898.95,448,905.95,448,909.45L448,912.95"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_I_L_11" d="M534.469,844.171L571.724,852.134C608.979,860.097,683.49,876.024,720.745,887.487C758,898.95,758,905.95,758,909.45L758,912.95"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(593.75, 227)" class="edgeLabel"><g transform="translate(-44.4453125, -12)" class="label"><foreignObject height="24" width="88.890625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>signed route</p></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(302.25, 151)" id="flowchart-A-0" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Spec pushed to the PRD page</p></span></div></foreignObject></g></g><g transform="translate(448, 303)" id="flowchart-B-1" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>galaxy: law home of the product</p></span></div></foreignObject></g></g><g transform="translate(593.75, 35)" id="flowchart-C-2" class="node default"><rect height="54" width="205.671875" y="-27" x="-102.8359375" style="" class="basic label-container"></rect><g transform="translate(-72.8359375, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="145.671875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Phase-0 pull request</p></span></div></foreignObject></g></g><g transform="translate(593.75, 151)" id="flowchart-D-3" class="node default"><rect height="54" width="223" y="-27" x="-111.5" style="" class="basic label-container"></rect><g transform="translate(-81.5, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="163"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>omni-app: inbox check</p></span></div></foreignObject></g></g><g transform="translate(315.5, 447.2132377624512)" id="flowchart-E-7" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>knowledge_packs: newest pack of the law home</p></span></div></foreignObject></g></g><g transform="translate(580.5, 447.2132377624512)" id="flowchart-F-9" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>product_glossary and product_domains</p></span></div></foreignObject></g></g><g transform="translate(448, 579.4264755249023)" id="flowchart-G-11" class="node default"><rect height="54" width="246.171875" y="-27" x="-123.0859375" style="" class="basic label-container"></rect><g transform="translate(-93.0859375, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="186.171875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Select the laws, no model</p></span></div></foreignObject></g></g><g transform="translate(448, 695.4264755249023)" id="flowchart-H-15" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>OpenRouter: batches of 40 laws</p></span></div></foreignObject></g></g><g transform="translate(448, 825.6882972717285)" id="flowchart-I-17" class="node default"><path transform="translate(-86.46875, -41.266834487098805)" style="" class="basic label-container" d="M0,14.511222991399203 a86.46875,14.511222991399203 0,0,0 172.9375,0 a86.46875,14.511222991399203 0,0,0 -172.9375,0 l0,53.5112229913992 a86.46875,14.511222991399203 0,0,0 172.9375,0 l0,-53.5112229913992"></path><g transform="translate(-78.96875, -2)" style="" class="label"><rect></rect><foreignObject height="24" width="157.9375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>business_law_verdicts</p></span></div></foreignObject></g></g><g transform="translate(138, 955.9501190185547)" id="flowchart-J-19" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>PRD page: red, green or not judged</p></span></div></foreignObject></g></g><g transform="translate(448, 955.9501190185547)" id="flowchart-K-21" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>dossier_approve: refuses a red</p></span></div></foreignObject></g></g><g transform="translate(758, 955.9501190185547)" id="flowchart-L-23" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Inbox check: business laws gate</p></span></div></foreignObject></g></g></g></g></g></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ol><li>The migration: <code>business_law_verdicts</code> and its writer, with <code>dossier_approve</code> refusing a red. No verdict exists yet, so nothing changes.</li><li><code>apps/galaxy</code>: the judge, the route, the page.</li><li><code>apps/omni-app</code>: the sixth gate and <code>law-locked</code> on the files. It calls the route, and reads a refusal as neutral.</li><li>The kit release: the check, the commands and the skills.</li></ol>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END, BACK-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the tables are under supabase below.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>POST /api/business-laws/judge</code></td><td>added</td><td>none</td><td><code>{repo, prd, spec, ref?}</code> signed, to <code>{state, reason, laws, domains, findings}</code></td><td>galaxy</td></tr>
+<tr><td>approval route's refusal</td><td>changed</td><td>not a member, or files missing</td><td>also a red verdict, in plain words</td><td>galaxy</td></tr>
+<tr><td><code>/app/products/&lt;id&gt;/knowledge/business-laws</code></td><td>added</td><td>none</td><td>read-only list, <code>?domain=&lt;key&gt;</code></td><td>galaxy</td></tr>
+</table>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare"><div><div class="label">Today</div><p>The dossier push stores the versions.</p></div><div><div class="label">After</div><p>The dossier push stores the versions, then judges the spec after it answers. A slow model never slows a push.</p></div></div>
+</div>
+</div>
+<div data-service="omni-app">
+<h3>omni-app <span class="badge" data-role>BACK-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — no table changes here.</p>
+</div>
+<div data-section="api" data-state="na">
+<h4>API / schema</h4>
+<p>N/A — it calls the judge; it serves nothing new.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare"><div><div class="label">Today</div><p><code>law-locked</code> reads locked rules and invariants, under <code>laws.source: knowledge</code>.</p></div><div><div class="label">After</div><p>It also reads every <code>business-laws.md</code>, under any <code>laws.source</code>: adding, changing or removing a law holds the outbox check until a CODEOWNER approves.</p></div></div>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the kit stores nothing but its local copy.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>omni kb business-laws</code></td><td>added</td><td>none</td><td><code>[--domain &lt;key&gt;] [--spec &lt;file&gt;] [--json]</code></td><td>kit</td></tr>
+<tr><td><code>omni kb laws</code></td><td>changed</td><td>rules, laws, decisions, Legal</td><td>also business laws</td><td>kit</td></tr>
+<tr><td><code>business-laws.md</code></td><td>added</td><td>none</td><td><code>## BL-&lt;CODE&gt;-&lt;n&gt;</code>, statement, <code>Why:</code>, optional <code>Also:</code></td><td>kit</td></tr>
+</table>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare"><div><div class="label">Today</div><p><code>omni check knowledge</code> grades the registers. <code>omni kb owners</code> writes the laws' files.</p></div><div><div class="label">After</div><p>It grades <code>business-laws.md</code> too, verifying domains, avoid words and the law home against the product's read, a note when unreachable. <code>omni kb owners</code> writes those files too.</p></div></div>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase <span class="badge" data-role>DATABASE</span></h3>
+<div data-section="db" data-state="filled">
+<h4>Database</h4>
+<figure class="mermaid-diagram" data-source="erDiagram
+  dossier_versions ||--o{ business_law_verdicts : &quot;+ judged in&quot;
+  business_law_verdicts {
+    uuid dossier_version_id &quot;+ added&quot;
+    text pack_sha &quot;+ added&quot;
+    text state &quot;+ added&quot;
+    jsonb laws &quot;+ added&quot;
+    jsonb domains &quot;+ added&quot;
+    jsonb findings &quot;+ added&quot;
+    text reason &quot;+ added&quot;
+  }"><svg aria-roledescription="er" role="graphics-document document" viewBox="0 0 214.765625 393.3671875" style="max-width: 214.765625px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-1"><style>#mermaid-1{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-1 .error-icon{fill:#552222;}#mermaid-1 .error-text{fill:#552222;stroke:#552222;}#mermaid-1 .edge-thickness-normal{stroke-width:1px;}#mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1 .marker{fill:#333333;stroke:#333333;}#mermaid-1 .marker.cross{stroke:#333333;}#mermaid-1 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1 p{margin:0;}#mermaid-1 .entityBox{fill:#ECECFF;stroke:#9370DB;}#mermaid-1 .attributeBoxOdd{fill:#ffffff;stroke:#9370DB;}#mermaid-1 .attributeBoxEven{fill:#f2f2f2;stroke:#9370DB;}#mermaid-1 .relationshipLabelBox{fill:hsl(80, 100%, 96.2745098039%);opacity:0.7;background-color:hsl(80, 100%, 96.2745098039%);}#mermaid-1 .relationshipLabelBox rect{opacity:0.5;}#mermaid-1 .relationshipLine{stroke:#333333;}#mermaid-1 .entityTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-1 #MD_PARENT_START{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 #MD_PARENT_END{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><marker orient="auto" markerHeight="240" markerWidth="190" refY="7" refX="0" id="MD_PARENT_START"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="19" id="MD_PARENT_END"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="0" id="ONLY_ONE_START"><path d="M9,0 L9,18 M15,0 L15,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="18" id="ONLY_ONE_END"><path d="M3,0 L3,18 M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="0" id="ZERO_OR_ONE_START"><circle r="6" cy="9" cx="21" fill="white" stroke="gray"></circle><path d="M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="30" id="ZERO_OR_ONE_END"><circle r="6" cy="9" cx="9" fill="white" stroke="gray"></circle><path d="M21,0 L21,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="18" id="ONE_OR_MORE_START"><path d="M0,18 Q 18,0 36,18 Q 18,36 0,18 M42,9 L42,27" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="27" id="ONE_OR_MORE_END"><path d="M3,9 L3,27 M9,18 Q27,0 45,18 Q27,36 9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="18" id="ZERO_OR_MORE_START"><circle r="6" cy="18" cx="48" fill="white" stroke="gray"></circle><path d="M0,18 Q18,0 36,18 Q18,36 0,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="39" id="ZERO_OR_MORE_END"><circle r="6" cy="18" cx="9" fill="white" stroke="gray"></circle><path d="M21,18 Q39,0 57,18 Q39,36 21,18" fill="none" stroke="gray"></path></marker></defs><path style="stroke: gray; fill: none;" marker-start="url(#ONLY_ONE_START)" marker-end="url(#ZERO_OR_MORE_END)" d="M107.383,95L107.383,103.333C107.383,111.667,107.383,128.333,107.383,145C107.383,161.667,107.383,178.333,107.383,186.667L107.383,195" class="er relationshipLine"></path><g transform="translate(48.890625,20 )" id="entity-dossierversions-ae9f5d90-0b3f-5a49-9985-0b3cdfe61133"><rect height="75" width="116.984375" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(58.4921875,37.5)" y="0" x="0" id="text-entity-dossierversions-ae9f5d90-0b3f-5a49-9985-0b3cdfe61133" class="er entityLabel">dossier_versions</text></g><g transform="translate(20,195 )" id="entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f"><rect height="178.3671875" width="174.765625" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(87.3828125,12)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f" class="er entityLabel">business_law_verdicts</text><rect height="22" width="34.609375" y="24" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,35)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-1-type" class="er entityLabel">uuid</text><rect height="22" width="93.75" y="24" x="34.609375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(39.609375,35)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-1-name" class="er entityLabel">dossier_version_id</text><rect height="22" width="46.40625" y="24" x="128.359375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(133.359375,35)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-1-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="34.609375" y="46" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,57.0458984375)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-2-type" class="er entityLabel">text</text><rect height="22.091796875" width="93.75" y="46" x="34.609375" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(39.609375,57.0458984375)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-2-name" class="er entityLabel">pack_sha</text><rect height="22.091796875" width="46.40625" y="46" x="128.359375" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(133.359375,57.0458984375)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-2-comment" class="er entityLabel">+ added</text><rect height="22" width="34.609375" y="68.091796875" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,79.091796875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-3-type" class="er entityLabel">text</text><rect height="22" width="93.75" y="68.091796875" x="34.609375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(39.609375,79.091796875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-3-name" class="er entityLabel">state</text><rect height="22" width="46.40625" y="68.091796875" x="128.359375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(133.359375,79.091796875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-3-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="34.609375" y="90.091796875" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,101.1376953125)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-4-type" class="er entityLabel">jsonb</text><rect height="22.091796875" width="93.75" y="90.091796875" x="34.609375" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(39.609375,101.1376953125)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-4-name" class="er entityLabel">laws</text><rect height="22.091796875" width="46.40625" y="90.091796875" x="128.359375" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(133.359375,101.1376953125)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-4-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="34.609375" y="112.18359375" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,123.2294921875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-5-type" class="er entityLabel">jsonb</text><rect height="22.091796875" width="93.75" y="112.18359375" x="34.609375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(39.609375,123.2294921875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-5-name" class="er entityLabel">domains</text><rect height="22.091796875" width="46.40625" y="112.18359375" x="128.359375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(133.359375,123.2294921875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-5-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="34.609375" y="134.275390625" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,145.3212890625)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-6-type" class="er entityLabel">jsonb</text><rect height="22.091796875" width="93.75" y="134.275390625" x="34.609375" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(39.609375,145.3212890625)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-6-name" class="er entityLabel">findings</text><rect height="22.091796875" width="46.40625" y="134.275390625" x="128.359375" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(133.359375,145.3212890625)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-6-comment" class="er entityLabel">+ added</text><rect height="22" width="34.609375" y="156.3671875" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,167.3671875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-7-type" class="er entityLabel">text</text><rect height="22" width="93.75" y="156.3671875" x="34.609375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(39.609375,167.3671875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-7-name" class="er entityLabel">reason</text><rect height="22" width="46.40625" y="156.3671875" x="128.359375" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(133.359375,167.3671875)" y="0" x="0" id="text-entity-businesslawverdicts-9c270c0d-a4ae-5e3f-854d-42c1f5acc71f-attr-7-comment" class="er entityLabel">+ added</text></g><rect height="14" width="60.40625" y="138" x="77.17987823486328" class="er relationshipLabelBox"></rect><text style="text-anchor: middle; dominant-baseline: middle; font-size: 12px;" y="145" x="107.38300323486328" id="rel1" class="er relationshipLabel">+ judged in</text></svg></figure>
+<div class="compare"><div><div class="label">Today</div><pre><span class="line ctx"># no table</span></pre></div><div><div class="label">After</div><pre><span class="line add">business_law_verdicts (workspace_id, dossier_id,</span><span class="line add">  dossier_version_id, pack_sha, state, laws, domains,</span><span class="line add">  findings, reason, judged_at)</span><span class="line add">  unique (dossier_version_id, pack_sha)</span></pre></div></div>
+<table><tr><th>table</th><th>change</th><th>detail</th></tr>
+<tr><td><code>business_law_verdicts</code></td><td>added</td><td>one verdict per spec version and pack commit, never changed; a member reads, nobody signed in writes</td></tr></table>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>dossier_approve(uuid)</code></td><td>changed</td><td>refuses a stranger and missing files</td><td>also refuses a red verdict at the newest pack</td><td>supabase</td></tr>
+<tr><td><code>business_law_verdict_put()</code></td><td>added</td><td>none</td><td>the service role's only writer</td><td>supabase</td></tr>
+<tr><td><code>business_for_product()</code></td><td>changed</td><td>claims, personas, Legal, glossary, domains</td><td>also <code>lawHome</code></td><td>supabase</td></tr>
+</table>
+</div>
+<div data-section="behaviour" data-state="na">
+<h4>Behaviour</h4>
+<p>N/A — every other reader and writer keeps its result.</p>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>

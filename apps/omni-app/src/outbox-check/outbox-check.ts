@@ -40,7 +40,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NonRetriableError, RetryAfterError, type Inngest } from 'inngest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { businessLawFiles } from 'omni-loop/kit/lib/outbox/decision-coverage.ts';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
 import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
@@ -293,7 +295,9 @@ async function evaluateAt(
       comments,
     });
     // A change to a locked law (PRD 1726) is cleared by its CODEOWNERS' review alone, whatever `evaluate` said.
-    if (!config || changes === null || verdict.conclusion === 'skipped') return verdict;
+    // A pull request `evaluate` skips is still held when it changes a business law (PRD 2632): `checkTarget` gated it for that.
+    if (!config || changes === null) return verdict;
+    if (verdict.conclusion === 'skipped' && businessLawFiles(changes, { ctx: createContext(head, config) }).length === 0) return verdict;
     const gate = await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes });
     const held = heldAt({ config, head, pr, gate });
     return held === null ? withLawGate(verdict, gate) : { ...withLawGate(verdict, gate), held };

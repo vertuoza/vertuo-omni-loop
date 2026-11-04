@@ -4,6 +4,8 @@ import type { Query } from '../nav/query';
 import {
   NONE, SECTIONS, activeDomains, backHref, dayOf, domainOf, itemHref, legalEntryOf, retiredAmong, sectionHref, termOf, termsNaming, whoOf, type ListSection, type SectionKey,
 } from './knowledge-sections';
+import { DomainLaws } from './BusinessLawsSection';
+import type { LawsRead } from './business-laws-section';
 import { DomainItemControls, LegalItemControls, TermItemControls, type TabSource } from './KnowledgeTabPage';
 import type { DomainEntry, GlossaryEntry, KnowledgeTab, LegalEntry, Person } from './product-knowledge.contract';
 
@@ -94,7 +96,7 @@ export function TermItem({ tab, source, entry, query }: ItemProps<GlossaryEntry>
 }
 
 /** A domain read whole (PRD 2583 s1): /knowledge/domains/<key>. Its key heads the page and never changes; a retired one reads as text. */
-export function DomainItem({ tab, source, entry, query }: ItemProps<DomainEntry>) {
+export function DomainItem({ tab, source, entry, query, laws }: ItemProps<DomainEntry> & { laws?: LawsRead }) {
   const retired = entry.retiredAt !== null;
   const terms = termsNaming(tab, entry.key);
   return (
@@ -113,20 +115,21 @@ export function DomainItem({ tab, source, entry, query }: ItemProps<DomainEntry>
           </span>
         ))}
       </Field>
+      {laws !== undefined && <Field term="Business laws"><DomainLaws product={tab.product.id} domain={entry.key} read={laws} /></Field>}
       <Authored entry={entry} />
     </Frame>
   );
 }
 
-/** The page of a section's entry, by its code, id or key. */
-export function KnowledgeEntry({ section, item, tab, source, query }: { section: ListSection; item: string; tab: KnowledgeTab; source: TabSource; query: Query }) {
+/** The page of a section's entry, by its code, id or key; a domain's page lists its business laws when they were read (PRD 2632 s6). */
+export function KnowledgeEntry({ section, item, tab, source, query, laws }: { section: ListSection; item: string; tab: KnowledgeTab; source: TabSource; query: Query; laws?: LawsRead }) {
   if (section === 'legal') {
     const legal = legalEntryOf(tab, item);
     return legal ? <LegalItem tab={tab} source={source} entry={legal} query={query} /> : null;
   }
   if (section === 'domains') {
     const domain = domainOf(tab, item);
-    return domain ? <DomainItem tab={tab} source={source} entry={domain} query={query} /> : null;
+    return domain ? <DomainItem tab={tab} source={source} entry={domain} query={query} {...(laws === undefined ? {} : { laws })} /> : null;
   }
   const term = termOf(tab, item);
   return term ? <TermItem tab={tab} source={source} entry={term} query={query} /> : null;
