@@ -466,6 +466,15 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      *   author: string, product: string | null }>} */
     requestApproval: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
       call('POST', '/api/dossiers/approval/request', { body: { repo, prd: Number(prd) } }),
+    /** PRD 2608: the members of the workspace that holds PRD `prd` of `repo` (owner/name) who can be named
+     * for its Tech Approval; `../approval/tech.ts` reads the reply. @returns {Promise<{ members:
+     * Array<{ login: string, name: string | null }> }>} */
+    readTechMembers: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
+      call('GET', `/api/dossiers/approval/tech?${new URLSearchParams({ repo, prd: String(prd) })}`),
+    /** PRD 2608: names `login` for PRD `prd`'s Tech Approval, reached by each channel they have on;
+     * `../approval/tech.ts` reads the reply. @returns {Promise<{ login: string, state: 'asked', url: string }>} */
+    requestTechApproval: ({ repo, prd, login }: { repo: string; prd: PrdNumber; login: string }) =>
+      call('POST', '/api/dossiers/approval/tech', { body: { repo, prd: Number(prd), login } }),
     /** PRD 1322: PRD `prd`'s approval events for `repo` (owner/name), as Server-Sent Events, after
      * `lastEventId` when given; `../approval/stream.ts` reads them. */
     streamApproval: ({ repo, prd, lastEventId, signal }: { repo: string; prd: PrdNumber; lastEventId: string | null; signal: AbortSignal }) =>

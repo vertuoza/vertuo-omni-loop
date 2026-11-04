@@ -999,7 +999,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'approval',
     kind: 'command',
     who: 'you',
-    usage: ['omni approval <n> [--json]', 'omni approval restore <n>', 'omni approval flag [--json]'],
+    usage: ['omni approval <n> [--json]', 'omni approval restore <n>', 'omni approval flag [--json]', 'omni approval tech request <n> [--to <login>]'],
     summary: "whether a PRD born on the server is approved, and still what was approved",
     detail:
       "Reads PRD n's approval in force on the Omni page, with your sign-in, and compares each file " +
@@ -1016,7 +1016,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni approval flag reads where this ' +
       "repository's new PRDs are born instead: phase 0: server (approved on the PRD's page) or " +
       'phase 0: pr (a phase-0 PR), as an owner set it on the Omni page; when it cannot be read it ' +
-      'says pr, with why, and exits 1. To wait until someone approves rather than read it once, ' +
+      'says pr, with why, and exits 1. omni approval tech request <n> --to <login> names one member ' +
+      "for the PRD's Tech Approval, which comes before its approvers; without --to it prints the " +
+      "workspace's members, one per line. While it is missing, omni approval <n> names who it waits " +
+      'on. To wait until someone approves rather than read it once, ' +
       'use omni wait approval <n> (omni help wait).',
   },
   {
@@ -1030,7 +1033,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "product's members asked to approve, except the author, or the author when nobody else is. It " +
       'prints one waiting line naming them, then follows the approval as it streams and prints the ' +
       'approved line, who and when and how many files are pinned, and exits 0. An approval already in ' +
-      'force answers at once and asks nobody. A change pushed after approval voids it: the voided line ' +
+      'force answers at once and asks nobody. While a requested Tech Approval is missing it asks nobody ' +
+      "and names who it waits on, then follows the approvers the server asks once it is given. A change " +
+      'pushed after approval voids it: the voided line ' +
       'prints, the approvers are asked again, and it keeps waiting. A cut stream resumes where it left ' +
       'off; after three failed tries in a row it prints server unreachable · held, not failed, and keeps ' +
       'trying. With no sign-in it exits 1 (no sign-in (omni signin) · held), and so it does past ' +
