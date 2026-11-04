@@ -5,13 +5,16 @@ import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { readEnv } from '../env.ts';
 import { businessLawsJudge, businessLawsJudgeUrl } from './business-laws-judge.ts';
 
+/** Any value, as `String` prints it: a request body is whatever the port sent. */
+const printed = (value: unknown) => String(value);
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 function recordingFetch(answer: () => Response) {
   const requests: { url: string; body: string; headers: Headers }[] = [];
   const fetch = (url: string, init: RequestInit = {}) =>
     new Promise<Response>((resolve) => {
-      requests.push({ url, body: String(init.body), headers: new Headers(init.headers) });
+      requests.push({ url, body: printed(init.body), headers: new Headers(init.headers) });
       resolve(answer());
     });
   return { fetch, requests };
@@ -69,7 +72,8 @@ describe('businessLawsJudge', () => {
   it('without a secret it calls nothing and is neutral', async () => {
     const galaxy = recordingFetch(() => json(RED));
     const gate = await businessLawsJudge({ url: 'u', secret: undefined, fetch: galaxy.fetch }).grade(ASKED);
-    expect(gate).toMatchObject({ ok: true, neutral: true, reason: expect.stringContaining('BUSINESS_LAWS_JUDGE_SECRET') });
+    expect(gate).toMatchObject({ ok: true, neutral: true });
+    expect(gate.reason).toContain('BUSINESS_LAWS_JUDGE_SECRET');
     expect(galaxy.requests).toEqual([]);
   });
 

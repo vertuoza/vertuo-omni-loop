@@ -46,7 +46,9 @@ describe('evaluateInbox — the business laws gate, sixth', () => {
     const laws = grader({ name: 'business laws', ok: true, reason: '3 judged · Quotes' });
     await evaluateInbox(args(laws));
     expect(laws.grade).toHaveBeenCalledOnce();
-    expect(laws.grade).toHaveBeenCalledWith({ repo: 'acme/widgets', spec: expect.stringContaining('A phase-0 fixture') });
+    const [asked] = laws.grade.mock.calls[0] ?? [];
+    expect(asked?.repo).toBe('acme/widgets');
+    expect(asked?.spec).toContain('A phase-0 fixture');
   });
 
   it('green: counted among the judged gates', async () => {

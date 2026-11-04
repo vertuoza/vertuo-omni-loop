@@ -18,9 +18,9 @@ export type ProductRead = Pick<RepoLaws, 'home' | 'glossary' | 'domains'>;
 
 /** The product of `repo` as the service role `db` reads it; a repository of no product has no home. */
 export async function businessOf(db: Pick<SupabaseClient, 'rpc'>, repo: string): Promise<ProductRead> {
-  const { data, error } = await db.rpc('business_for_repo_app', { p_repo: repo });
-  if (error) throw new Error(`the database refused: ${error.message}`);
-  const read = ReadSchema.safeParse(data ?? {});
+  const answer: { data: unknown; error: { message: string } | null } = await db.rpc('business_for_repo_app', { p_repo: repo });
+  if (answer.error) throw new Error(`the database refused: ${answer.error.message}`);
+  const read = ReadSchema.safeParse(answer.data ?? {});
   if (!read.success) throw new Error('business_for_repo_app answered out of shape');
   return { home: lawHomeOf(read.data), glossary: read.data.glossary ?? [], domains: read.data.domains ?? [] };
 }
