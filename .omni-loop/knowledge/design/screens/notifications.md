@@ -69,7 +69,7 @@ browser.
 
 ## Source
 
-- /omni:brainstorm, PRD 2608: .omni-loop/delivery/inbox/2608-tech-approval/before-after.html
+- /omni:brainstorm, PRD 2608: .omni-loop/delivery/shipped/2608-tech-approval/before-after.html
 - apps/galaxy/src/nav/Bell.tsx
 - apps/galaxy/src/nav/bell.ts
 - apps/galaxy/src/nav/bell.css

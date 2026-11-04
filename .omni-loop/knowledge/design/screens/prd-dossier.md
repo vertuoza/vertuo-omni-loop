@@ -91,7 +91,7 @@ Could not check; on a finding: Approve, Reject. An approved missing-rule finding
 
 ## Source
 
-- /omni:brainstorm, PRD 2608: .omni-loop/delivery/inbox/2608-tech-approval/before-after.html
+- /omni:brainstorm, PRD 2608: .omni-loop/delivery/shipped/2608-tech-approval/before-after.html
 - apps/galaxy/app/prd/[id]/page.tsx@b884e26
 - apps/galaxy/app/prd/[id]/not-found.tsx@f848a24
 - apps/galaxy/app/prd/[id]/loading.tsx@4e5224b

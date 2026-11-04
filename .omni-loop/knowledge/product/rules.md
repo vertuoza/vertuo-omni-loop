@@ -674,7 +674,7 @@ Decided: @nicojustdev, 2026-10-23
 Asking a PRD's product approvers before its Tech Approval is given is allowed: the request is recorded and shows in their bell, while their approval is refused, naming who it waits on, until the Tech Approval is given.
 
 Serves: P-PRODUCT-87
-Source: .omni-loop/delivery/outbox/2608-tech-approval/settled.md, entry s1-02-an-early-product-request-still-reaches-the-bell, PRD #2608
+Source: .omni-loop/delivery/shipped/2608-tech-approval/outbox/settled.md, entry s1-02-an-early-product-request-still-reaches-the-bell, PRD #2608
 Enforced by: supabase/checks/tech_approval.sql
 Stated: 2026-11-04
 Decided: @pierrederval, 2026-11-04
@@ -684,7 +684,7 @@ Decided: @pierrederval, 2026-11-04
 A PRD with no Tech Approval request reads with no tech part at all in the approval the terminal reads, not an empty one; the part appears, with the named person and its state, only once a Tech Approval is requested.
 
 Serves: P-PRODUCT-87
-Source: .omni-loop/delivery/outbox/2608-tech-approval/settled.md, entry s1-03-the-tech-state-is-left-out-when-nobody-asked, PRD #2608
+Source: .omni-loop/delivery/shipped/2608-tech-approval/outbox/settled.md, entry s1-03-the-tech-state-is-left-out-when-nobody-asked, PRD #2608
 Enforced by: supabase/checks/tech_approval.sql
 Stated: 2026-11-04
 Decided: @pierrederval, 2026-11-04
@@ -694,7 +694,7 @@ Decided: @pierrederval, 2026-11-04
 Approval email is on by default: a person with no alert settings gets approval emails, and a person who switched email off gets none.
 
 Serves: P-PRODUCT-88
-Source: .omni-loop/delivery/outbox/2608-tech-approval/settled.md, entry s2-03-the-approval-requests-check-now-expects-no-row-to-be-emailed, PRD #2608
+Source: .omni-loop/delivery/shipped/2608-tech-approval/outbox/settled.md, entry s2-03-the-approval-requests-check-now-expects-no-row-to-be-emailed, PRD #2608
 Enforced by: supabase/checks/approval_requests.sql
 Stated: 2026-11-04
 Decided: @pierrederval, 2026-11-04
