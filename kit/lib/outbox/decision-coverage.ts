@@ -50,7 +50,8 @@ export type CoverageContext = Pick<Context, 'root' | 'config'> & {
 import type { NameStatus } from '../git.ts';
 import { isOwnedBy, isPersonOwner } from '../codeowners.ts';
 import { briefingFiles, isBriefingFile } from '../playbook/briefing-files.ts';
-import { isConfirmedRule, isLaw, readKnowledge, readRegisters } from '../knowledge/registers.ts';
+import { BUSINESS_LAWS_FILE, readBusinessLaws, type BusinessLaw } from '../knowledge/business-laws.ts';
+import { diskSource, isConfirmedRule, isLaw, readKnowledge, readRegisters } from '../knowledge/registers.ts';
 import type { KnowledgeEntry, KnowledgeSource } from '../knowledge/registers.ts';
 
 /** One change a rule fired on, and which rule. */
@@ -224,26 +225,70 @@ function entryText(entry: KnowledgeEntry): string {
  * A rule or invariant no one locked never fires it: the rule-level gate (`law-proof`, `law-text`,
  * `law-demoted`, {@link riskyChanges}) is unchanged. It is not one of `RULE_IDS`: no account clears
  * it, only an approving review on GitHub ({@link lawsAwaitingOwners}). Without a `base`, only the
- * proofs of the head's laws are read. Never fires when `ctx.config.laws.source` is not `'knowledge'`.
+ * proofs of the head's laws are read. The registers are read only when `ctx.config.laws.source` is
+ * `'knowledge'`.
+ *
+ * A **business law** (PRD 2632) fires it too, under any `laws.source`: one added, changed or removed
+ * between the base and the head, on its `business-laws.md` file ({@link businessLawFiles}) among
+ * `changes`. Without a `base` there is nothing to compare one with, and none fires.
  */
 export function lockedLawChanges(
   changes: readonly NameStatus[],
   { ctx, base = null }: { ctx: CoverageContext; base?: KnowledgeSource | null },
 ): LockedLawChange[] {
-  if (ctx.config.laws.source !== 'knowledge') return [];
   const statuses = new Map(changes.map((change) => [change.path, change.status]));
-  const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
-  const was = new Map((base === null ? [] : readKnowledge({ ctx, source: base }).entries).map((entry) => [entry.id, entry]));
   const fired: LockedLawChange[] = [];
   const fire = (law: string, path: string) => {
     const status = statuses.get(path);
     if (status === undefined || fired.some((one) => one.law === law && one.path === path)) return;
     fired.push({ path, status, rule: LAW_LOCKED, law });
   };
-  for (const id of new Set([...was.keys(), ...head.keys()])) {
-    for (const path of lawPaths(was.get(id), head.get(id), { compared: base !== null })) fire(id, path);
+  if (ctx.config.laws.source === 'knowledge') {
+    const head = new Map(readRegisters({ ctx }).entries.map((entry) => [entry.id, entry]));
+    const was = new Map((base === null ? [] : readKnowledge({ ctx, source: base }).entries).map((entry) => [entry.id, entry]));
+    for (const id of new Set([...was.keys(), ...head.keys()])) {
+      for (const path of lawPaths(was.get(id), head.get(id), { compared: base !== null })) fire(id, path);
+    }
+  }
+  if (base !== null && businessLawFiles(changes, { ctx }).length > 0) {
+    for (const [id, path] of businessLawsChanged({ ctx, base })) fire(id, path);
   }
   return fired;
+}
+
+/**
+ * The business-law files among `changes` (PRD 2632): `<knowledgeRoot>/product/business-laws.md` and
+ * each `<knowledgeRoot>/domains/<key>/business-laws.md`, in the order changed. A plan repository's
+ * imported copies under `repos/<target>/` never count, nor a file of that name anywhere else.
+ */
+export function businessLawFiles(changes: readonly NameStatus[], { ctx }: { ctx: Pick<CoverageContext, 'layout'> }): string[] {
+  const root = escapeRegExp(ctx.layout.knowledgeRoot);
+  const pattern = new RegExp(`^${root}/(?:product|domains/[^/]+)/${escapeRegExp(BUSINESS_LAWS_FILE)}$`);
+  return changes.map((change) => change.path).filter((path) => pattern.test(path));
+}
+
+/** The business laws of one side, grouped by id: an id written twice keeps both, so a change to either is seen. */
+function businessLawsById(laws: readonly BusinessLaw[]): Map<string, BusinessLaw[]> {
+  const byId = new Map<string, BusinessLaw[]>();
+  for (const law of laws) byId.set(law.id, [...(byId.get(law.id) ?? []), law]);
+  return byId;
+}
+
+/**
+ * Each `[law, file]` of a business law the base and the head (`ctx.root`) do not hold alike: added,
+ * removed, or any of its words or its file changed — the file at the base, then at the head.
+ */
+function businessLawsChanged({ ctx, base }: { ctx: CoverageContext; base: KnowledgeSource }): [string, string][] {
+  const was = businessLawsById(readBusinessLaws({ ctx, source: base }));
+  const now = businessLawsById(readBusinessLaws({ ctx, source: diskSource(ctx.root) }));
+  const changed: [string, string][] = [];
+  for (const id of new Set([...was.keys(), ...now.keys()])) {
+    const before = was.get(id) ?? [];
+    const after = now.get(id) ?? [];
+    if (JSON.stringify(before) === JSON.stringify(after)) continue;
+    for (const law of [...before, ...after]) changed.push([id, law.file]);
+  }
+  return changed;
 }
 
 /**
