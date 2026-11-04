@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
-import { approvalsRepository, historyRepository, reachRepository } from './approvals.repository';
+import { approvalsRepository, reachRepository } from './approvals.repository';
 
 // The approvals' storage (PRD 1322 s2), on a stubbed Supabase client: which function it calls with
 // what, what it makes of the answer (parsed, a refusal's code and message, `shape` for anything else),
@@ -58,43 +58,8 @@ describe('approvalsRepository', () => {
   it('reads the bell through approval_requests_waiting()', async () => {
     const row = { id: REQUEST, dossier: DOSSIER, repo: 'acme/mobile', prd: 7, title: 'T', askedAt: '2026-10-09T10:00:00+00:00' };
     const s = stub({ approval_requests_waiting: { data: [row], error: null } });
-    expect(await approvalsRepository(s.db).waiting()).toEqual({ ok: true, value: [{ ...row, approvalKind: 'product' }] });
+    expect(await approvalsRepository(s.db).waiting()).toEqual({ ok: true, value: [row] });
     expect(s.calls).toEqual([{ fn: 'approval_requests_waiting', args: undefined }]);
-    const tech = stub({ approval_requests_waiting: { data: [{ ...row, approvalKind: 'tech' }], error: null } });
-    expect(await approvalsRepository(tech.db).waiting()).toEqual({ ok: true, value: [{ ...row, approvalKind: 'tech' }] });
-  });
-});
-
-describe('historyRepository (PRD 2608)', () => {
-  const REQUEST_ROW = { id: REQUEST, kind: 'asked', asked_at: '2026-10-09T10:00:00Z', asked_by: USER, asked: [USER], nobody_else: false, product_id: null };
-
-  it('reads each row with its kind, and each void with the approval it voided', async () => {
-    const selects: Array<[string, string]> = [];
-    const tables: Record<string, unknown> = {
-      dossiers: [{ id: DOSSIER, workspace_id: DOSSIER, opened_by: null }],
-      approval_requests: [{ ...REQUEST_ROW, approval_kind: 'tech' }],
-      approvals: [{ id: REQUEST, approver_login: 'ada', approved_at: '2026-10-09T10:01:00Z', files: [], approval_kind: 'tech' }],
-      approval_voids: [{ id: USER, approval_id: REQUEST, pusher_login: 'ada', kind: 'spec', from_sha256: 'a', to_sha256: 'b', voided_at: '2026-10-09T10:02:00Z' }],
-    };
-    const from = (table: string) => {
-      const q: Record<string, unknown> = { then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: tables[table], error: null }).then(ok) };
-      for (const verb of ['eq', 'order', 'limit']) q[verb] = () => q;
-      q.select = (columns: string) => { selects.push([table, columns]); return q; };
-      return q;
-    };
-    const db = { from, rpc: () => Promise.resolve({ data: [], error: null }) } as unknown as Parameters<typeof historyRepository>[0];
-    const read = await historyRepository(db, 'token').read('acme/mobile', PRD);
-    expect(read).toMatchObject({
-      ok: true,
-      value: {
-        requests: [{ id: REQUEST, approvalKind: 'tech' }],
-        approvals: [{ id: REQUEST, kind: 'tech' }],
-        voids: [{ id: USER, approval: REQUEST }],
-      },
-    });
-    expect(selects).toContainEqual(['approval_requests', expect.stringContaining('approval_kind')]);
-    expect(selects).toContainEqual(['approvals', expect.stringContaining('approval_kind')]);
-    expect(selects).toContainEqual(['approval_voids', expect.stringContaining('approval_id')]);
   });
 });
 

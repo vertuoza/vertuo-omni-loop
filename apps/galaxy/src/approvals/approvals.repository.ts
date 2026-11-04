@@ -44,7 +44,7 @@ export type Requested = z.infer<typeof Requested>;
 
 /** One request waiting on the caller, as approval_requests_waiting() lists it. */
 const Waiting = z.array(z.object({
-  id: UUID, dossier: UUID, repo: text, prd: PrdNumberSchema, title: z.string(), askedAt: at, approvalKind: z.enum(['product', 'tech']).default('product'),
+  id: UUID, dossier: UUID, repo: text, prd: PrdNumberSchema, title: z.string(), askedAt: at, approvalKind: z.enum(['product', 'tech']).optional(),
 }));
 
 /** How each asked person is reached, as approval_recipients() answers it. */
@@ -97,13 +97,14 @@ type StreamDb = Pick<SupabaseClient<Database>, 'from' | 'rpc' | 'channel' | 'rem
 export type ApprovalHistory = {
   dossier: string;
   author: string | null;
-  requests: Array<{ id: string; kind: 'asked' | 're-asked'; askedAt: string; askedBy: string; asked: string[]; nobodyElse: boolean; product: string | null; approvalKind: ApprovalKind }>;
-  approvals: Array<{ id: string; approver: string; approvedAt: string; pinned: number; kind: ApprovalKind }>;
-  voids: Array<{ id: string; approval: string; pusher: string; kind: string; from: string; to: string; voidedAt: string }>;
+  requests: Array<{ id: string; kind: 'asked' | 're-asked'; askedAt: string; askedBy: string; asked: string[]; nobodyElse: boolean; product: string | null; approvalKind?: ApprovalKind }>;
+  approvals: Array<{ id: string; approver: string; approvedAt: string; pinned: number; kind?: ApprovalKind }>;
+  voids: Array<{ id: string; approval?: string; pusher: string; kind: string; from: string; to: string; voidedAt: string }>;
   people: Array<{ user: string; login: string | null; name: string | null }>;
 };
 
-/** Which approval a row is of (PRD 2608): the product's approvers', or the Tech Approval of the person named. */
+/** Which approval a row is of (PRD 2608): the product's approvers', or the Tech Approval of the person named.
+ * A row that names none is a product one. */
 type ApprovalKind = 'product' | 'tech';
 
 const KIND = z.enum(['product', 'tech']);

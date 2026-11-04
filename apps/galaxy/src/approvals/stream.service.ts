@@ -80,7 +80,7 @@ export function eventsOf(history: ApprovalHistory): StreamEvent[] {
     ...history.voids.map((voided): Timed => {
       const change = { pusher: voided.pusher, kind: voided.kind, from: voided.from, to: voided.to };
       const at = micros(voided.voidedAt);
-      return kindOf.get(voided.approval) === 'tech'
+      return kindOf.get(voided.approval ?? '') === 'tech'
         ? { at, rank: 2, key: voided.id, event: 'tech-voided', data: { login: namedLogin ?? voided.pusher, ...change } }
         : { at, rank: 2, key: voided.id, event: 'voided', data: change };
     }),

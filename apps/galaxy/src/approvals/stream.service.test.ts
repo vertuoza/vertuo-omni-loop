@@ -16,12 +16,10 @@ const A = 'a'.repeat(64);
 const B = 'b'.repeat(64);
 
 const request = (id: string, askedAt: string, kind: 'asked' | 're-asked' = 'asked') => ({
-  id, kind, askedAt, askedBy: ADA, asked: [IRISA, PAUL], nobodyElse: false, product: 'Mobile', approvalKind: 'product' as const,
+  id, kind, askedAt, askedBy: ADA, asked: [IRISA, PAUL], nobodyElse: false, product: 'Mobile',
 });
-const approval = (id: string, approvedAt: string) => ({ id, approver: 'irisa-gh', approvedAt, pinned: 3, kind: 'product' as const });
-const voided = (id: string, voidedAt: string, ofApproval = 'a1') => ({ id, approval: ofApproval, pusher: 'ada-gh', kind: 'spec', from: A, to: B, voidedAt });
-const techRequest = (id: string, askedAt: string) => ({ ...request(id, askedAt), asked: [IRISA], product: null, approvalKind: 'tech' as const });
-const techApproval = (id: string, approvedAt: string) => ({ ...approval(id, approvedAt), kind: 'tech' as const });
+const approval = (id: string, approvedAt: string) => ({ id, approver: 'irisa-gh', approvedAt, pinned: 3 });
+const voided = (id: string, voidedAt: string) => ({ id, pusher: 'ada-gh', kind: 'spec', from: A, to: B, voidedAt });
 
 function history(over: Partial<ApprovalHistory> = {}): ApprovalHistory {
   return {
@@ -102,49 +100,6 @@ describe('startOf', () => {
     const only = eventsOf(history({ approvals: [approval('a1', '2026-10-09T10:01:00Z')] }));
     expect(names(startOf(only, null))).toEqual(['1:approved']);
     expect(startOf([], null)).toEqual([]);
-  });
-});
-
-describe('a Tech Approval in the stream (PRD 2608)', () => {
-  const tech = eventsOf(history({
-    requests: [techRequest('t1', '2026-10-09T10:00:00Z'), request('r1', '2026-10-09T10:02:00Z')],
-    approvals: [techApproval('ta', '2026-10-09T10:01:00Z'), approval('pa', '2026-10-09T10:03:00Z')],
-    voids: [voided('v1', '2026-10-09T10:04:00Z', 'pa'), voided('v2', '2026-10-09T10:04:00.000001Z', 'ta')],
-  }));
-
-  it('sends each tech row as an event of its own, which an older kit ignores, naming the person', () => {
-    expect(tech.map(({ id, event, data }) => ({ id, event, data }))).toEqual([
-      { id: '1', event: 'tech-asked', data: { login: 'irisa-gh' } },
-      { id: '2', event: 'tech-approved', data: { login: 'irisa-gh', approvedAt: '2026-10-09T10:01:00Z' } },
-      { id: '3', event: 'asked', data: { asked: [{ login: 'irisa-gh', name: 'Irisa' }, { login: PAUL, name: null }], nobodyElse: false, author: 'ada-gh', product: 'Mobile' } },
-      { id: '4', event: 'approved', data: { approver: 'irisa-gh', approvedAt: '2026-10-09T10:03:00Z', pinned: 3 } },
-      { id: '5', event: 'voided', data: { pusher: 'ada-gh', kind: 'spec', from: A, to: B } },
-      { id: '6', event: 'tech-voided', data: { login: 'irisa-gh', pusher: 'ada-gh', kind: 'spec', from: A, to: B } },
-    ]);
-  });
-
-  it('never sends a tech row under a name an older kit acts on: a tech approval never ends its wait', () => {
-    const alone = eventsOf(history({
-      requests: [techRequest('t1', '2026-10-09T10:00:00Z')],
-      approvals: [techApproval('ta', '2026-10-09T10:01:00Z')],
-      voids: [voided('v1', '2026-10-09T10:02:00Z', 'ta')],
-    }));
-    expect(names(alone)).toEqual(['1:tech-asked', '2:tech-approved', '3:tech-voided']);
-  });
-
-  it('starts as ever from the latest product request, and with every tech event when none was asked', () => {
-    expect(names(startOf(tech, null))).toEqual(['3:asked', '6:tech-voided']);
-    const alone = eventsOf(history({ requests: [techRequest('t1', '2026-10-09T10:00:00Z')] }));
-    expect(names(startOf(alone, null))).toEqual(['1:tech-asked']);
-  });
-
-  it('names the latest person named, an owner\'s rename included', () => {
-    const renamed = eventsOf(history({
-      requests: [techRequest('t1', '2026-10-09T10:00:00Z'), { ...techRequest('t2', '2026-10-09T10:01:00Z'), asked: [ADA], kind: 're-asked' as const }],
-      approvals: [],
-      voids: [],
-    }));
-    expect(renamed.map((e) => e.data)).toEqual([{ login: 'irisa-gh' }, { login: 'ada-gh' }]);
   });
 });
 

@@ -14,9 +14,9 @@ const IRISA = '00000000-0000-4000-8000-0000000000a4';
 const URL_OF = 'https://galaxy.test/api/dossiers/approval/stream?repo=Acme/Mobile&prd=7';
 const TOKEN = 'token-ada';
 
-const ASKED: ApprovalHistory['requests'][number] = { id: 'r1', kind: 'asked', askedAt: '2026-10-09T10:00:00Z', askedBy: ADA, asked: [IRISA], nobodyElse: false, product: 'Mobile', approvalKind: 'product' };
-const APPROVED = { id: 'a1', approver: 'irisa-gh', approvedAt: '2026-10-09T10:01:00Z', pinned: 3, kind: 'product' as const };
-const VOIDED = { id: 'v1', approval: 'a1', pusher: 'ada-gh', kind: 'plan', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-09T10:02:00Z' };
+const ASKED: ApprovalHistory['requests'][number] = { id: 'r1', kind: 'asked', askedAt: '2026-10-09T10:00:00Z', askedBy: ADA, asked: [IRISA], nobodyElse: false, product: 'Mobile' };
+const APPROVED = { id: 'a1', approver: 'irisa-gh', approvedAt: '2026-10-09T10:01:00Z', pinned: 3 };
+const VOIDED = { id: 'v1', pusher: 'ada-gh', kind: 'plan', from: 'a'.repeat(64), to: 'b'.repeat(64), voidedAt: '2026-10-09T10:02:00Z' };
 
 const history = (over: Partial<ApprovalHistory> = {}): ApprovalHistory => ({
   dossier: DOSSIER, author: null, requests: [ASKED], approvals: [], voids: [],

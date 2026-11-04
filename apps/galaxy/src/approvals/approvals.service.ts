@@ -135,7 +135,7 @@ export async function waitingApprovals(approvals: ApprovalsRepository): Promise<
   if (!read.ok) return read;
   return {
     ok: true,
-    value: read.value.map((row) => ({ id: row.id, dossierId: row.dossier, prd: row.prd, title: row.title, repo: row.repo, askedAt: Date.parse(row.askedAt), approvalKind: row.approvalKind })),
+    value: read.value.map((row) => ({ id: row.id, dossierId: row.dossier, prd: row.prd, title: row.title, repo: row.repo, askedAt: Date.parse(row.askedAt), approvalKind: row.approvalKind ?? 'product' })),
   };
 }
 

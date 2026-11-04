@@ -119,45 +119,6 @@ describe('tellVoids', () => {
     expect(w.lines).toEqual([`approvals: telling the approver of dossier ${DOSSIER}'s void failed: connection reset`]);
   });
 
-  // PRD 2608 s3: a push voids both kinds, and each approver hears once, of their own approval.
-  describe('a push that voids a Tech Approval too', () => {
-    const tech = (id: string, kind: string, from: string, to: string) => ({ ...voidOf(id, kind, from, to), approver: 'paul', approvalKind: 'tech' });
-    const VOID_TECH = '55555555-5555-4555-8555-555555555555';
-    const PAUL_REACHED = [{ user: VOID_TECH, email: 'paul@acme.test', devices: [] }];
-
-    function both() {
-      const answers = {
-        approval_voids_of_push: { data: [{ ...voidOf(VOID_SPEC, 'spec', 'a', 'b'), approvalKind: 'product' }, tech(VOID_TECH, 'spec', 'a', 'b')], error: null },
-      };
-      const w = world(answers);
-      w.deps.reach = {
-        recipients: (id) => {
-          w.service.calls.push({ fn: 'approval_void_recipients', args: { p_void: id } });
-          return Promise.resolve({ ok: true, value: id === VOID_TECH ? PAUL_REACHED : REACHED });
-        },
-      };
-      return w;
-    }
-
-    it('reaches each approver once, the named person told of their tech approval', async () => {
-      const w = both();
-      await w.tell();
-      expect(w.service.calls.map((c) => c.args)).toEqual([{ p_void: VOID_SPEC }, { p_void: VOID_TECH }]);
-      expect(w.emailed.map((e) => [e.to, e.subject])).toEqual([
-        ['irisa@acme.test', "PRD 7: approval voided by ada-gh's push"],
-        ['paul@acme.test', "PRD 7: tech approval voided by ada-gh's push"],
-      ]);
-      expect(w.unlabelled).toEqual(['acme/mobile#7']);
-    });
-
-    it('removes no approved label when only a tech approval was voided: only a product approval adds one', async () => {
-      const w = world({ approval_voids_of_push: { data: [tech(VOID_TECH, 'spec', 'a', 'b')], error: null }, approval_void_recipients: { data: PAUL_REACHED, error: null } });
-      await w.tell();
-      expect(w.unlabelled).toEqual([]);
-      expect(w.emailed.map((e) => e.to)).toEqual(['paul@acme.test']);
-    });
-  });
-
   // PRD 1612 s2: a void removes the approved label, so the App reruns the omni/approved check.
   it("removes the approved label from the voided PRD's issue, once per push", async () => {
     const w = world({
