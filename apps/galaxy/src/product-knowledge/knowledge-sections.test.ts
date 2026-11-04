@@ -23,8 +23,8 @@ describe('a save', () => {
 });
 
 describe('the sections', () => {
-  it('are eight, in the sub-menu\'s order, Domains after Glossary, Knowledge opening on the first', () => {
-    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'domains', 'pitch', 'repositories', 'settings']);
+  it('are nine, in the sub-menu\'s order, Domains after Glossary, Knowledge opening on the first', () => {
+    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'domains', 'business-laws', 'pitch', 'repositories', 'settings']);
     expect(FIRST_SECTION).toBe('constituents');
   });
 
@@ -47,11 +47,17 @@ describe('the sections', () => {
 
   it('give a count only to the sections whose items are read, and none at 0 once drawn', () => {
     const tabs = knowledgeSectionTabs('p', { legal: 3, glossary: 0, domains: 6 });
-    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Pitch', 'Repositories', 'Settings']);
-    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, 6, undefined, undefined, undefined]);
+    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Business laws', 'Pitch', 'Repositories', 'Settings']);
+    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, 6, undefined, undefined, undefined, undefined]);
     expect(tabs[4]?.href).toBe('/app/products/p/knowledge/domains');
-    expect(tabs[6]?.href).toBe('/app/products/p/knowledge/repositories');
+    expect(tabs[7]?.href).toBe('/app/products/p/knowledge/repositories');
     expect(tabs[0]?.href).toBe('/app/products/p/knowledge/constituents');
+  });
+
+  it('count the business laws on their sub-menu entry once they were read, and show none before', () => {
+    const counts = { legal: 3, glossary: 0, domains: 6 };
+    expect(knowledgeSectionTabs('p', counts, null, 12)[5]).toEqual({ href: '/app/products/p/knowledge/business-laws', label: 'Business laws', count: 12 });
+    expect(knowledgeSectionTabs('p', counts)[5]?.count).toBeUndefined();
   });
 
   it('count active items only', () => {

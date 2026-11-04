@@ -5,12 +5,12 @@ import { newestFirst, sortOf, type Sort } from '../nav/sortable-list';
 import { notOnListLabel } from './found-domains';
 import { knowledgeTabHref, type DomainEntry, type GlossaryEntry, type KnowledgeTab, type LegalEntry, type Person } from './product-knowledge.contract';
 
-// The Knowledge home's sections (PRD 2240 s3; Repositories, PRD 2419 s1; Domains, PRD 2583 s1): the eight
+// The Knowledge home's sections (PRD 2240 s3; Repositories, PRD 2419 s1; Domains, PRD 2583 s1): the nine
 // entries of the sub-menu in their order, their addresses under /app/products/<id>/knowledge, the count
 // each list section shows, and the rows and columns of the Legal, Glossary and Domains lists. Pure: the
 // pages and the sub-menu draw from it.
 
-export const SECTION_KEYS = ['constituents', 'personas', 'legal', 'glossary', 'domains', 'pitch', 'repositories', 'settings'] as const;
+export const SECTION_KEYS = ['constituents', 'personas', 'legal', 'glossary', 'domains', 'business-laws', 'pitch', 'repositories', 'settings'] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 
 interface SectionDef {
@@ -25,6 +25,7 @@ export const SECTIONS: Readonly<Record<SectionKey, SectionDef>> = {
   legal: { label: 'Legal', list: true },
   glossary: { label: 'Glossary', list: true },
   domains: { label: 'Domains', list: true },
+  'business-laws': { label: 'Business laws', list: false },
   pitch: { label: 'Pitch', list: false },
   repositories: { label: 'Repositories', list: false },
   settings: { label: 'Settings', list: false },
@@ -126,10 +127,10 @@ export const countsOf = (tab: Pick<KnowledgeTab, 'legal' | 'glossary' | 'domains
 /**
  * The sub-menu's tabs, in order; a count only on a section whose items are read here. With folders off the
  * list (`notOnList` above 0, PRD 2583 s3) the Domains entry says so in its text, `Domains 6 · 2 not on the
- * list`, in place of its badge.
+ * list`, in place of its badge. Business laws (PRD 2632 s6) counts the laws of the law home's newest pack, when they were read.
  */
-export function knowledgeSectionTabs(product: string, counts: Counts, notOnList: number | null = null): SectionTab[] {
-  const count: Partial<Record<SectionKey, number>> = counts;
+export function knowledgeSectionTabs(product: string, counts: Counts, notOnList: number | null = null, businessLaws: number | null = null): SectionTab[] {
+  const count: Partial<Record<SectionKey, number>> = businessLaws === null ? counts : { ...counts, 'business-laws': businessLaws };
   return SECTION_KEYS.map((key) => {
     const n = count[key];
     const off = key === 'domains' && n !== undefined ? notOnListLabel(n, notOnList) : null;

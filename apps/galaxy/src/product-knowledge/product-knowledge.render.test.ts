@@ -61,8 +61,8 @@ describe('the frame', () => {
 
   it('draws the sub-menu in order, the counts on Legal and Glossary, the section showing marked', () => {
     const nav = html.slice(html.indexOf('aria-label="Widgets knowledge"'));
-    const labels = [...nav.matchAll(/class="section-tab"[^>]*>([A-Za-z]+)/g)].map((m) => m[1]);
-    expect(labels.slice(0, 8)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Pitch', 'Repositories', 'Settings']);
+    const labels = [...nav.matchAll(/class="section-tab"[^>]*>([A-Za-z]+(?: laws)?)/g)].map((m) => m[1]);
+    expect(labels.slice(0, 9)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Business laws', 'Pitch', 'Repositories', 'Settings']);
     expect(nav).toContain(`href="/app/products/${PRODUCT}/knowledge/legal"`);
     expect(nav).toContain(`href="/app/products/${PRODUCT}/knowledge/repositories"`);
     expect(/<a [^>]*aria-current="page"[^>]*>([^<]*)</.exec(nav)?.[1]).toBe('Legal');
@@ -326,8 +326,8 @@ describe('the Domains list (PRD 2583)', () => {
   it('is in the sub-menu after Glossary, with its active count, and marked when it shows', () => {
     const html = domainsPage(withDomains(true));
     const nav = html.slice(html.indexOf('aria-label="Widgets knowledge"'));
-    const labels = [...nav.matchAll(/class="section-tab"[^>]*>([A-Za-z]+)/g)].map((m) => m[1]);
-    expect(labels.slice(0, 8)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Pitch', 'Repositories', 'Settings']);
+    const labels = [...nav.matchAll(/class="section-tab"[^>]*>([A-Za-z]+(?: laws)?)/g)].map((m) => m[1]);
+    expect(labels.slice(0, 9)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Business laws', 'Pitch', 'Repositories', 'Settings']);
     expect(nav).toContain(`href="/app/products/${PRODUCT}/knowledge/domains"`);
     expect(/<a [^>]*aria-current="page"[^>]*>([^<]*)</.exec(nav)?.[1]).toBe('Domains');
     expect(nav).toContain('Domains: 1 waiting');
