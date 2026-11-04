@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-04",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "My pull requests finally carry the ticket I plan with, without anyone renaming them.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One format per repository in its config is easier to review than a lookup copied into every skill.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing changes until a repository sets it, so it cannot break my pull requests today.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A key hidden in an HTML comment is one more thing nobody sees until the title is wrong.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I can find a pull request from the ticket a customer talks about.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A marker in an HTML comment does not show in the issue. If the tool writes the wrong key, nobody sees it before the pull request is open with a wrong title.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-04",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The acceptance criteria read like the pull requests I want to see.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The kit formats once and the skills stay as they are; the rollback is one config line.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Idempotent and off by default: it will not prefix my titles twice.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The triage line shows the key before the pull request, which answers my worry.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The link in the body takes me straight to the ticket.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓"
+    }
+  ]
+}
