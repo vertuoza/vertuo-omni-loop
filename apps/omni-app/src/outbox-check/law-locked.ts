@@ -11,13 +11,17 @@
 //
 // Fail closed: a file no person owns holds its law red, naming it; a team or an e-mail owner is no
 // person, since the App cannot read a team's members.
+//
+// A business law (PRD 2632) is held the same way under any `laws.source`, `none` included: its
+// `business-laws.md` is read at both ends, and a file CODEOWNERS gives no person falls back to
+// `laws.owners`, the product's PM.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CODEOWNERS_FILES, ownersOf, readCodeowners } from 'omni-loop/kit/lib/codeowners.ts';
 import { createContext } from 'omni-loop/kit/lib/context.ts';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { diskSource } from 'omni-loop/kit/lib/knowledge/registers.ts';
-import { lawsAwaitingOwners, lockedLawChanges, type LawAwaiting, type LockedLawChange } from 'omni-loop/kit/lib/outbox/decision-coverage.ts';
+import { businessLawFiles, lawsAwaitingOwners, lockedLawChanges, type LawAwaiting, type LockedLawChange } from 'omni-loop/kit/lib/outbox/decision-coverage.ts';
 import { lawOwnerParts } from 'omni-loop/kit/lib/config.ts';
 import type { Config } from 'omni-loop/kit/lib/types.ts';
 import type { Verdict } from '../evaluate/evaluate.ts';
@@ -82,7 +86,15 @@ export async function lawGateAt(
     changes,
   }: Repo & { prNumber: PrNumber; baseSha: string; headSha: string; config: Config; base: string; head: string; changes: readonly { path: string; status: string }[] },
 ): Promise<LawGate | null> {
-  const fired = lockedLawChanges(changes, { ctx: createContext(head, config), base: diskSource(base) });
+  const ctx = createContext(head, config);
+  // The knowledge folder is snapshotted at both ends only under `laws.source: knowledge`; a business law
+  // (PRD 2632) is held under any source, so its changed files are read at both ends here.
+  const businessLaws = businessLawFiles(changes, { ctx });
+  if (config.laws.source !== 'knowledge' && businessLaws.length > 0) {
+    await snapshot(octokit, { owner, repo, ref: baseSha, paths: businessLaws, dest: base });
+    await snapshot(octokit, { owner, repo, ref: headSha, paths: businessLaws, dest: head });
+  }
+  const fired = lockedLawChanges(changes, { ctx, base: diskSource(base) });
   if (fired.length === 0) return null;
   await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
   const codeowners = readCodeowners((file) => (existsSync(join(base, file)) ? readFileSync(join(base, file), 'utf8') : null));

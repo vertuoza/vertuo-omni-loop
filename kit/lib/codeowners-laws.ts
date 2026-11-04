@@ -8,6 +8,8 @@
  * - the thesis, `<knowledge>/product/thesis.md`, which names every law;
  * - every register file: each folder's `principles.md`, `rules.md` and `invariants.md`, and each
  *   cross-domain file — never a `contracts.md` (PRD 1796): a contract is never a law;
+ * - each `business-laws.md` (PRD 2632): `product/`'s and each domain's, never an imported copy's,
+ *   whatever `laws.source` says, so only the product's PM changes a business law;
  * - the briefing's files (PRD 1793, s2): the briefing form at its own path, and each file it points
  *   to (`playbook/briefing-files.ts`), so a change to the rules every agent follows asks the owner too;
  * - each locked law's test, every path its `Enforced by:` line names;
@@ -22,6 +24,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { LawOwner } from './config.ts';
 import { CODEOWNERS_FILES, OWNERS_BEGIN, ownersBlock, ownersBlockIn, withOwnersBlock, type OwnedPath } from './codeowners.ts';
+import { BUSINESS_LAWS_FILE } from './knowledge/business-laws.ts';
 import { domainsDir, isLaw, productDir, REQUIRED_LAYER_FILES, readKnowledge, type Knowledge, type KnowledgeCtx } from './knowledge/registers.ts';
 import { thesisPath } from './knowledge/thesis.ts';
 import { messageOf } from './narrow.ts';
@@ -41,9 +44,17 @@ function testPaths(enforcedBy: string): string[] {
     .filter(Boolean);
 }
 
-/** Every path the block owns, in the block's order: the thesis, the register files, the briefing's files, then each law's test. */
+/** Each business-law file of the knowledge folder (PRD 2632): `product/`'s, then each domain's, in the folders' order. */
+function businessLawPaths(ctx: OwnersCtx, knowledge: Knowledge): string[] {
+  const product = knowledge.productFiles.includes(BUSINESS_LAWS_FILE) ? [`${productDir(ctx)}/${BUSINESS_LAWS_FILE}`] : [];
+  const domains = knowledge.domains.filter((domain) => domain.files.includes(BUSINESS_LAWS_FILE));
+  return [...product, ...domains.map((domain) => `${domainsDir(ctx)}/${domain.name}/${BUSINESS_LAWS_FILE}`)];
+}
+
+/** Every path the block owns, in the block's order: the thesis, the register files, the business laws, the briefing's files, then each law's test. */
 function lawOwnedPaths(ctx: OwnersCtx, knowledge: Knowledge = readKnowledge({ ctx })): OwnedPath[] {
   const registers = 'The thesis and the registers: what the product promises, and its laws.';
+  const business = "The business laws: the product's rules, changed only with their owner's approval.";
   const briefing = 'The briefing: the rules every agent follows.';
   const layers = (dir: string, files: readonly string[]) => REQUIRED_LAYER_FILES.filter((name) => files.includes(name)).map((name) => `${dir}/${name}`);
   const files = [
@@ -55,7 +66,12 @@ function lawOwnedPaths(ctx: OwnersCtx, knowledge: Knowledge = readKnowledge({ ct
   const tests = knowledge.entries
     .filter((entry) => isLaw(entry) && entry.enforced && entry.enforcedBy !== null)
     .flatMap((entry) => testPaths(entry.enforcedBy ?? '').map((path) => ({ path, why: `law ${entry.id}: its test.` })));
-  return [...files.map((path) => ({ path, why: registers })), ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })), ...tests];
+  return [
+    ...files.map((path) => ({ path, why: registers })),
+    ...businessLawPaths(ctx, knowledge).map((path) => ({ path, why: business })),
+    ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })),
+    ...tests,
+  ];
 }
 
 /** The block `omni kb owners` would write now. */
