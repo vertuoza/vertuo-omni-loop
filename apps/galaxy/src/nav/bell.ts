@@ -74,8 +74,8 @@ const questionLine = (q: WaitingQuestion, now: number): BellLine => ({
 const approvalLine = (item: WaitingApproval, now: number): BellLine => ({
   id: item.id,
   href: `/prd/${encodeURIComponent(item.dossierId)}`,
-  head: `PRD ${item.prd} · ${item.title}`,
-  text: 'Waits for your approval',
+  head: item.approvalKind === 'tech' ? `Tech approval · PRD #${item.prd}` : `PRD ${item.prd} · ${item.title}`,
+  text: item.approvalKind === 'tech' ? item.title : 'Waits for your approval',
   meta: waitedFor(now - item.askedAt),
 });
 

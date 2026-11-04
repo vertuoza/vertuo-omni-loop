@@ -83,22 +83,23 @@ describe('attestationView', () => {
 /** A member's client answering each table's reads from `tables`, in order; `null` is a refusal. */
 function fakeDb(tables: Record<string, (unknown[] | null)[]>) {
   const asked: string[] = [];
+  const filters: string[] = [];
   const from = (table: string) => {
     asked.push(table);
     const queue = tables[table] ?? [];
     const answer = queue.length > 0 ? queue.shift() : [];
     const raw = answer === null ? { data: null, error: { message: 'permission denied' } } : { data: answer, error: null };
-    type Query = { select: () => Query; eq: () => Query; order: () => Query; limit: () => Query; then: PromiseLike<typeof raw>['then'] };
+    type Query = { select: () => Query; eq: (column: string, value: unknown) => Query; order: () => Query; limit: () => Query; then: PromiseLike<typeof raw>['then'] };
     const query: Query = {
       select: () => query,
-      eq: () => query,
+      eq: (column: string, value: unknown) => (filters.push(`${table}.${column}=${String(value)}`), query),
       order: () => query,
       limit: () => query,
       then: (resolve, reject) => Promise.resolve(raw).then(resolve, reject),
     };
     return query;
   };
-  return { db: { from } as unknown as AttestationDb, asked };
+  return { db: { from } as unknown as AttestationDb, asked, filters };
 }
 
 const TABLES = () => ({
@@ -114,6 +115,12 @@ describe('readAttestation and attestationOf — read as the member', () => {
   it('reads the approval in force, its voids, the hashes and both ticks into the view', async () => {
     const { db } = fakeDb(TABLES());
     expect(await readAttestation(attestationRepository(db), 'd-1', PAGE)).toEqual(attestationView(READ, PAGE));
+  });
+
+  it('reads the product approval only: a tech approval is never the approval in force', async () => {
+    const { db, filters } = fakeDb(TABLES());
+    await attestationRepository(db).approval('d-1');
+    expect(filters).toContain('approvals.approval_kind=product');
   });
 
   it('reads null, and nothing more, while nobody approved the PRD', async () => {

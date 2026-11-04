@@ -129,6 +129,12 @@ describe('the Approvals group (PRD 1322)', () => {
     });
   });
 
+  it('lists a Tech Approval as `Tech approval · PRD #<n>`, the PRD\'s title under it', () => {
+    const tech: WaitingApproval = { ...a('r2', 2608, MIN), approvalKind: 'tech' };
+    const panel = bellPanel(EMPTY_WAITING, {}, NOW, [], 0, [tech]);
+    expect(panel.groups[0]?.lines).toEqual([{ id: 'r2', href: '/prd/d-2608', head: 'Tech approval · PRD #2608', text: 'PRD title 2608', meta: '1 min' }]);
+  });
+
   it('says when the part could not be read', () => {
     expect(bellPanel(EMPTY_WAITING, { approvals: true }, NOW)).toEqual({
       groups: [{ label: 'Approvals', problem: 'Approvals couldn\'t be read — retrying.', lines: [] }], empty: false,
