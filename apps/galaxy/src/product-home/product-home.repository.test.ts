@@ -121,7 +121,7 @@ describe('the product home\'s storage', () => {
     expect(await repo.voids(['d-1'])).toEqual([{ approval_id: 'a-1', dossier_id: 'd-1' }]);
     expect(await repo.waitingOnMe()).toEqual(['d-1']);
     expect(calls).toEqual([
-      ['approvals', 'select', 'id, dossier_id, approved_at'], ['approvals', 'in', 'dossier_id', ['d-1']],
+      ['approvals', 'select', 'id, dossier_id, approved_at'], ['approvals', 'eq', 'approval_kind', 'product'], ['approvals', 'in', 'dossier_id', ['d-1']],
       ['approval_voids', 'select', 'approval_id, dossier_id'], ['approval_voids', 'in', 'dossier_id', ['d-1']],
       ['approval_requests_waiting', 'rpc'],
     ]);

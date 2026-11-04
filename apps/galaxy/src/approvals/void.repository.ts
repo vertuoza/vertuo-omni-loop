@@ -36,10 +36,11 @@ const Voids = z.array(z.object({
   to: SHA256,
   pusher: text,
   approver: text,
+  approvalKind: z.enum(['product', 'tech']).default('product'),
 }));
 
-/** One void a push left: the dossier's PRD, the kind, the pinned and the new hash, who pushed and
- * whose approval it voided. */
+/** One void a push left: the dossier's PRD, the kind, the pinned and the new hash, who pushed, whose
+ * approval it voided and which approval that was (PRD 2608). */
 export type PushVoid = z.infer<typeof Voids>[number];
 
 /** How the voided approval's approver is reached, as approval_void_recipients() answers it. */

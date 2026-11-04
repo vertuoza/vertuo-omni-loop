@@ -203,6 +203,8 @@ describe('desktop alerts', () => {
     expect(alertOf(o('i1', 459))).toEqual({ title: 'PRD 459 outbox: Keep i1?', body: 'Gate 459', tag: 'i1', href: '/prd/d-459?tab=outbox' });
     expect(alertOf({ kind: 'approval', id: 'req 1', prd: parsePrd(1322), dossierId: 'd 1322', title: 'The approval handshake', repo: 'acme/mobile', askedAt: 0 }))
       .toEqual({ title: 'PRD 1322 waits for your approval', body: 'The approval handshake', tag: 'req 1', href: '/prd/d%201322' });
+    expect(alertOf({ kind: 'approval', id: 'req 2', prd: parsePrd(2608), dossierId: 'd 2608', title: 'Tech', repo: 'acme/mobile', askedAt: 0, approvalKind: 'tech' }).title)
+      .toBe('Tech approval · PRD #2608 waits for you');
   });
 });
 

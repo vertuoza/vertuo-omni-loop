@@ -47,6 +47,8 @@ It has no route of its own: it appears on each page the app shell wraps.
 
 ## Words
 
+`Tech approval · PRD #<n>` (PRD 2608), a request waiting on the one person it names.
+
 Waiting for you · Nothing waiting for you. · Questions · Approvals · Reviews · Review · Merge · Law · Outbox · New documents ·
 Business · Waits for your approval · New spec, plan, before/after · to check · Proposed, disputed or
 fading claims · couldn't be read — retrying. · shared by · Desktop alerts · Chime · Blocked by the
@@ -67,6 +69,7 @@ browser.
 
 ## Source
 
+- /omni:brainstorm, PRD 2608: .omni-loop/delivery/shipped/2608-tech-approval/before-after.html
 - apps/galaxy/src/nav/Bell.tsx
 - apps/galaxy/src/nav/bell.ts
 - apps/galaxy/src/nav/bell.css

@@ -341,3 +341,10 @@ Not a re-port: kit-local prose. The words of step 4 and step 6 (**Words first**)
 glossary`, the page winning over `paths.glossary` on a shared term. **Risks** names each Legal entry
 the design touches, from `omni kb legal`, as it names locked laws. Tested in
 `kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".
+
+## PRD 2608, slice s6 — the Tech Approval question
+
+Not a re-port: kit-local prose. Step 8 gains **The Tech Approval question**, asked last, after the plan
+is pushed, only under `phase 0: server`; step 10's ◆ hand-off names who the PRD waits on and
+`/omni:tech-review <n>` when it was requested. The proof and e2e questions stay in step 1. Tested in
+`kit/test/brainstorm-tech-approval.test.ts`.

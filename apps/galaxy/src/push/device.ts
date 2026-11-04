@@ -14,8 +14,8 @@ export type AlertChannels = z.infer<typeof AlertChannels>;
 export const WORKER_PATH = '/api/push/sw.js';
 export const WORKER_SCOPE = '/';
 
-/** Both switches off: a person who never turned one on. */
-export const CHANNELS_OFF: AlertChannels = Object.freeze({ push: false, email: false });
+/** A person with no row: Email on (the database's default, PRD 2608), Phone alerts off. */
+export const CHANNELS_DEFAULT: AlertChannels = Object.freeze({ push: false, email: true });
 
 /** The bounds `push_subscriptions` checks. */
 const ENDPOINT_MAX = 2000;

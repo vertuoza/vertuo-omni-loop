@@ -9,7 +9,7 @@ import { askApprovers, waitingApprovals, type AskDeps } from './approvals.servic
 // repositories and each route stays one line:
 //
 //   POST /api/dossiers/approval/request {repo, prd}  → 200 {asked: [{login, name}], nobodyElse, author, product}
-//   GET  /api/waiting/approvals                       → 200 {items: [{id, dossierId, prd, title, repo, askedAt}]}
+//   GET  /api/waiting/approvals                       → 200 {items: [{id, dossierId, prd, title, repo, askedAt, approvalKind}]}
 //
 // The request is the kit's (`omni wait approval`), with the terminal's sign-in (a bearer token); its
 // reply is the shape settled item s4-01-approval-stream-contract records, checked against the kit's own
@@ -39,10 +39,10 @@ const MAX_BODY_BYTES = 4 * 1024;
 
 const Body = z.object({ repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/), prd: PrdNumberSchema });
 
-/** The body of a request, or the Response that refuses it. */
-async function bodyOf(request: Request): Promise<z.infer<typeof Body> | Response> {
+/** The JSON body of a request as `schema` reads it, or the Response that refuses it, showing `shape`. */
+export async function bodyOf<T>(request: Request, schema: z.ZodType<T>, shape: string): Promise<T | Response> {
   const text = await request.text();
-  const malformed = () => refuse(400, 'The body must be a JSON object: {"repo": "owner/name", "prd": <number>}.');
+  const malformed = () => refuse(400, `The body must be a JSON object: ${shape}.`);
   if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return malformed();
   let value: unknown;
   try {
@@ -50,7 +50,7 @@ async function bodyOf(request: Request): Promise<z.infer<typeof Body> | Response
   } catch {
     return malformed();
   }
-  const parsed = Body.safeParse(value);
+  const parsed = schema.safeParse(value);
   return parsed.success ? parsed.data : malformed();
 }
 
@@ -77,7 +77,7 @@ export async function requestApproval(request: Request, deps: RequestDeps): Prom
   const { connect, ...ask } = deps;
   const client = await callerOf(request, connect);
   if (client instanceof Response) return client;
-  const body = await bodyOf(request);
+  const body = await bodyOf(request, Body, '{"repo": "owner/name", "prd": <number>}');
   if (body instanceof Response) return body;
   const asked = await askApprovers({ ...ask, approvals: client.approvals }, body.repo.toLowerCase(), body.prd, callerOrigin(request));
   if (!asked.ok) return refusalOf(asked.refusal, NOT_ASKED, deps.log);

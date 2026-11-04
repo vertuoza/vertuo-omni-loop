@@ -141,7 +141,7 @@ export function alertOf(item: WaitingItem): Alert {
     case 'outbox':
       return { title: `PRD ${item.prd} outbox: ${item.question}`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}?tab=outbox` };
     case 'approval':
-      return { title: `PRD ${item.prd} waits for your approval`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}` };
+      return { title: item.approvalKind === 'tech' ? `Tech approval · PRD #${item.prd} waits for you` : `PRD ${item.prd} waits for your approval`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}` };
   }
 }
 

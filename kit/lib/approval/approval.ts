@@ -19,6 +19,12 @@
 // Since PRD 1322 an approval carries the voids `omni dossier push` left on it (`voids`, oldest first;
 // a server before it sends none): an approval with a void is no longer in force, so it reads
 // `drifted`, one line per void naming the push, whatever the tree holds.
+//
+// Since PRD 2608 a reply carries `tech`, `{ login, state }`, only when the PRD holds a Tech Approval
+// request (BR-PRODUCT-127); an older server sends none, and none reads as today. It changes one thing:
+// while it is `asked` or `voided`, the lines name who the PRD waits on. The state itself stays the product
+// approval's, since the database refuses that one until the tech approval is in force. `tech` is read
+// only here and in `./wait.ts`; a part this kit cannot read counts as no part, and never refuses a reply.
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -42,7 +48,20 @@ const ApprovalSchema = z.object({
   voids: z.array(VoidSchema).optional(),
 });
 
-const ApprovalReplySchema = z.object({ url: text, approval: ApprovalSchema.nullable() });
+/** A PRD's Tech Approval, as the approval route says it: the person named, and where it stands. */
+const TechSchema = z.object({ login: text, state: z.enum(['asked', 'approved', 'voided']) });
+
+const ApprovalReplySchema = z.object({ url: text, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(undefined) });
+
+/** A PRD's Tech Approval: who it names, and whether it is asked, approved or voided. */
+export type Tech = z.infer<typeof TechSchema>;
+
+/** Who a PRD waits on before its product approval: the person named while the tech approval is not in
+ * force; null when it is, or when nobody asked for one. */
+export const techWaitsOn = (tech: Tech | undefined): string | null => (tech && tech.state !== 'approved' ? tech.login : null);
+
+/** The words that say who a PRD waits on, the same in each line that says it. */
+export const waitingForTech = (login: string): string => `waiting for ${login}'s tech approval`;
 
 /** One approved file: its kind, its path when approved, its hash and its dossier version. */
 export type PinnedFile = z.infer<typeof PinnedFileSchema>;
@@ -55,8 +74,9 @@ export type ApprovalReply = z.infer<typeof ApprovalReplySchema>;
  * when a push changed it on the server. */
 export type Drift = { kind: string; file: string; how: 'content' | 'whitespace only' | 'missing' | 'voided' };
 
-/** The approval read against the tree: its state, the lines that say it, and what they rest on. */
-export type ApprovalReading = { state: ApprovalState; lines: string[]; url: string | null; approval: Approval | null; drift: Drift[] };
+/** The approval read against the tree: its state, the lines that say it, and what they rest on; `tech`
+ * only when the PRD holds a Tech Approval request. */
+export type ApprovalReading = { state: ApprovalState; lines: string[]; url: string | null; approval: Approval | null; drift: Drift[]; tech?: Tech };
 
 /** The line of a state the server never got to judge. */
 export const UNREACHABLE_LINE = 'server unreachable · held, not failed';
@@ -94,9 +114,12 @@ type Judge = { named: string; fileOf: (file: Pick<PinnedFile, 'kind' | 'path'>) 
 
 /** The approval in force judged by `judge`: pending, voided, its approver gone, a file differing, or approved. */
 function judged(reply: ApprovalReply, { named, fileOf, drift: driftIn }: Judge): ApprovalReading {
-  const { url, approval } = reply;
-  const reading = (state: ApprovalState, lines: string[], drift: Drift[] = []): ApprovalReading => ({ state, lines, url, approval, drift });
-  if (!approval) return reading('pending', [`${named} waits for approval: ${url}`]);
+  const { url, approval, tech } = reply;
+  const reading = (state: ApprovalState, lines: string[], drift: Drift[] = []): ApprovalReading =>
+    ({ state, lines, url, approval, drift, ...(tech ? { tech } : {}) });
+  const waitsOn = techWaitsOn(tech);
+  const techLine = waitsOn === null ? [] : [`${named} · ${waitingForTech(waitsOn)}: ${url}`];
+  if (!approval) return reading('pending', techLine.length > 0 ? techLine : [`${named} waits for approval: ${url}`]);
   const voids = approval.voids ?? [];
   if (voids.length > 0) {
     const fileOfKind = (kind: string) => {
@@ -105,7 +128,7 @@ function judged(reply: ApprovalReply, { named, fileOf, drift: driftIn }: Judge):
     };
     const lines = voids.map((v) =>
       `≠ ${basename(fileOfKind(v.kind))} · voided by ${v.pusher}'s push ${v.from.slice(0, 7)}→${v.to.slice(0, 7)} · ✗ refuse · approve again: ${url}`);
-    return reading('drifted', lines, voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: 'voided' })));
+    return reading('drifted', [...lines, ...techLine], voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: 'voided' })));
   }
   const { login, member } = approval.approver;
   if (!member) return reading('refused', [`approver ${login} is not a workspace member`]);
