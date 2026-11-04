@@ -2,7 +2,7 @@
 -- "The judge" and "On a PRD approved on its page").
 --
 -- A ◆ PRD's spec is judged against the business laws of its product's law home (product_law_home(),
--- 20270110090000_business_law_home.sql), read from the newest knowledge pack of that repository: merged laws
+-- 20270111090000_business_law_home.sql), read from the newest knowledge pack of that repository: merged laws
 -- only, so a pull request's unmerged change to a law changes no verdict. Galaxy's judge does the judging; the
 -- database keeps what it said and holds Approve on a red.
 --

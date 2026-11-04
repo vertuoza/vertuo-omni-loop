@@ -32,7 +32,7 @@
 -- lines included) and personas, never a proposed or rejected claim, and nothing for a repository no
 -- workspace tracks.
 --
--- PRD 2632 (20270110090000_business_law_home.sql): both also answer `lawHome`, the product's plan repository when set, else its
+-- PRD 2632 (20270111090000_business_law_home.sql): both also answer `lawHome`, the product's plan repository when set, else its
 -- only repository, else null.
 --
 -- PRD 1795 (20261212110000_product_knowledge.sql): business_for_repo() (hence business_for_token()) and

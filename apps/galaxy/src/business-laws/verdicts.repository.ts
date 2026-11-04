@@ -1,5 +1,5 @@
 // The business laws' verdicts in the database (PRD 2632 s4; ADR-0095), on the client it is given, every answer
-// parsed where it comes in (supabase/migrations/20270111090000_business_law_verdicts.sql):
+// parsed where it comes in (supabase/migrations/20270112090000_business_law_verdicts.sql):
 //
 // - `judgeInput` and `put`, on the service role's client: what the judge reads of a dossier, and the verdict it
 //   keeps, once per spec version and pack commit (the first one stands);

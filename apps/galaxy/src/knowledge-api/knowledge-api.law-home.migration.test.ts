@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20270110090000_business_law_home.sql', import.meta.url)), 'utf8');
+const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20270111090000_business_law_home.sql', import.meta.url)), 'utf8');
 const oneLine = MIGRATION.replace(/\s+/g, ' ');
 
 describe('the business_law_home migration', () => {
