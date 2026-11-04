@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { readRepoLaws, type LawsReadDb } from './repo-laws.repository';
+import { describe, expect, it, vi } from 'vitest';
+import { readRepoLaws, type LawsReadDb } from './judge-route-live';
 
+
+vi.mock('server-only', () => ({}));
 
 // The judge route's reads on a fake service role: the product's business, then the newest pack of its law home.
 // Nothing here calls a database; every repository is fictional.
