@@ -121,6 +121,13 @@ begin
   end if;
   begin perform 1 from public.idea_votes; raise exception 'FAIL: anon read public.idea_votes';
   exception when insufficient_privilege then null; end;
+  -- Who added an idea, and which workspace or product holds it, stay inside the workspace (bug 2634).
+  begin perform added_by from public.ideas; raise exception 'FAIL: anyone signed out reads who added an idea';
+  exception when insufficient_privilege then null; end;
+  begin perform workspace_id from public.ideas; raise exception 'FAIL: anyone signed out reads an idea''s workspace';
+  exception when insufficient_privilege then null; end;
+  begin perform product_id from public.ideas; raise exception 'FAIL: anyone signed out reads an idea''s product';
+  exception when insufficient_privilege then null; end;
   board := public.ideas_board('Initech/Nimbus-Plan');
   if board is null or board ->> 'repo' <> 'initech/nimbus-plan' or not (board ->> 'public')::boolean or (board ->> 'member')::boolean then
     raise exception 'FAIL: ideas_board() does not answer a public board signed out: %', board;
@@ -164,6 +171,11 @@ begin
   exception when insufficient_privilege then null; end;
   if exists (select 1 from public.ideas where repo = 'initech/nimbus-apps') then
     raise exception 'FAIL: a non-member reads the ideas of a private board';
+  end if;
+  -- Signed in, someone outside the workspace reads a public board through ideas_board() alone: the
+  -- table holds who added each idea (bug 2634).
+  if exists (select 1 from public.ideas where repo = 'initech/nimbus-plan') then
+    raise exception 'FAIL: a non-member reads a public board''s rows, with who added each idea';
   end if;
   board := public.ideas_board('initech/nimbus-plan');
   if (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A better HUD') <> 1
