@@ -28,15 +28,18 @@ const WRITE = { contents: 'write', pull_requests: 'write', issues: 'write', meta
 
 type Call = { method: string; path: string; headers: Record<string, string>; body: unknown };
 
+/** What a stubbed GitHub answers each `METHOD /path` with, reading the call when it needs to. */
+type Answers = Record<string, (init: RequestInit) => Response | Promise<Response>>;
+
 /** A stubbed GitHub: `METHOD /path` to the answer it gives; any other call is a 404. */
-function github(answers: Record<string, () => Response | Promise<Response>>) {
+function github(answers: Answers) {
   const calls: Call[] = [];
   const fetchImpl = (url: string, init: RequestInit): Promise<Response> => {
     const method = init.method ?? 'GET';
     const path = url.replace('https://api.github.com', '');
     calls.push({ method, path, headers: init.headers as Record<string, string>, body: typeof init.body === 'string' ? JSON.parse(init.body) as unknown : init.body });
     const answer = answers[`${method} ${path}`];
-    return Promise.resolve(answer ? answer() : new Response('{}', { status: 404 }));
+    return Promise.resolve(answer ? answer(init) : new Response('{}', { status: 404 }));
   };
   return { fetchImpl, calls };
 }
@@ -53,7 +56,7 @@ const BOT = { login: 'omni-demo[bot]', email: '4242+omni-demo[bot]@users.noreply
 
 /** The real service, wired over `githubDeps(credentials)` on a stubbed GitHub, with `jobs` waiting for Olga's runner. */
 function world({ credentials = OMNI, answers = HAPPY, jobs = [], slots = 1 }: {
-  credentials?: AppCredentials | null; answers?: Record<string, () => Response | Promise<Response>>; jobs?: JobRow[]; slots?: number;
+  credentials?: AppCredentials | null; answers?: Answers; jobs?: JobRow[]; slots?: number;
 } = {}) {
   let now = T0;
   const { store, state } = fakeStore({ jobs, runners: [runnerRow({ id: SHARED, name: 'shared', slots, github_app: true })], keys: [KEY], now: () => now });
@@ -96,6 +99,15 @@ describe('a job claimed over the Omni App\'s own calls', () => {
     const w = world({ jobs: [pageJob()] });
     value(await w.service.next(OLGA, SHARED));
     expect(w.calls.find((call) => call.path === '/users/omni-demo[bot]')?.headers.authorization).toBeUndefined();
+  });
+
+  it('runs a job while GitHub refuses the bot\'s route to a call with no token (#2656)', async () => {
+    const limited = ({ headers }: RequestInit) => {
+      const { authorization } = headers as Record<string, string>;
+      return authorization === `Bearer ${TOKEN}` ? json(200, { id: 4242 })() : new Response('{"message":"API rate limit exceeded"}', { status: 403 });
+    };
+    const w = world({ jobs: [pageJob()], answers: { ...HAPPY, 'GET /users/omni-demo[bot]': limited } });
+    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ github: { token: TOKEN, ...BOT } });
   });
 
   it('names the bot once for the wiring, across services and jobs', async () => {
