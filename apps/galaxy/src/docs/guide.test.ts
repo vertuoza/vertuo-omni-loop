@@ -34,7 +34,7 @@ const TITLES = [
 describe('docs/guide', () => {
   it.each(ORDER)('%s: its frontmatter is YAML the build can read (#2639)', (slug) => {
     const front = sure(/^---\r?\n([\s\S]*?)\r?\n---/.exec(readFileSync(join(GUIDE, `${slug}.md`), 'utf8')), slug);
-    expect(() => parse(sure(front[1], slug))).not.toThrow();
+    expect(() => { parse(sure(front[1], slug)); }).not.toThrow();
   });
 
   it('passes the guard', () => {
