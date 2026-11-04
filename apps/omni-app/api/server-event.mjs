@@ -1003,7 +1003,17 @@ var ConfigSchema = z7.object({
   // How a pull request into the default branch or a landing branch is opened: `openWith` names a
   // slash skill of this repository (`/create-pr`, say) that `/omni:pr` runs with `--base`,
   // `--draft` and `--non-interactive`; `null` keeps the kit's own `gh pr create`. Sub-PRs never use it.
-  pr: section({ openWith: nullableText.default(null) }),
+  // PRD 2648: `ref` is how a pull request carries its issue's external reference (`omni ref`): `title`
+  // holds `{ref}` and `{title}`, `none` (an issue with no marker) holds `{title}` or is null, `link`
+  // is an `https://` URL holding `{ref}` or null. `null` changes nothing.
+  pr: section({
+    openWith: nullableText.default(null),
+    ref: z7.object({
+      title: text2.refine((value) => value.includes("{ref}") && value.includes("{title}"), "a title with {ref} and {title}"),
+      none: text2.refine((value) => value.includes("{title}"), "a title with {title}").nullable().default(null),
+      link: text2.refine((value) => value.startsWith("https://") && !/\s/.test(value) && value.includes("{ref}"), "an https:// URL with {ref}").nullable().default(null)
+    }).strict().nullable().optional()
+  }),
   board: section({ matchBy: z7.enum(["base", "label"]).default("base") }),
   ci: section({
     outboxContext: text2.default("outbox"),
