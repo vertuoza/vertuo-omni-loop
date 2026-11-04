@@ -26,12 +26,16 @@
 // instead tells the GitHub App, with one signed server event (PRD 1548 s4, ../server-event/), which re-posts
 // `omni/approved` on its open target pull requests; telling never undoes the approval either.
 //
+// Since PRD 2632 (s4) a POST first has the dossier's latest spec judged against its business laws when it has
+// no verdict at the law home's newest pack (`judge`), and dossier_approve() refuses a red there, in its own words.
+//
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed query or body (or the
-// database's own: a ◇ dossier, a draft, a missing spec, plan or before/after), 401 no valid sign-in, 403
+// database's own: a ◇ dossier, a draft, a missing spec, plan or before/after, a red business law verdict), 401 no valid sign-in, 403
 // not a member of the dossier's workspace, 404 no such dossier, 503 no database here, 500 the database
 // failed or answered out of shape.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { authenticate, callerOrigin, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
@@ -55,6 +59,9 @@ export type ApprovalDeps = {
   tellApp?: (event: ServerEvent) => Promise<unknown>;
   /** The clock the server event is dated by. */
   now?: () => Date;
+  /** Judges the dossier's latest spec against its business laws when it has no verdict yet (PRD 2632 s4), as
+   * the caller reads it; never throws. Missing: nothing is judged first, and the database still refuses a red. */
+  judge?: (db: ApprovalDb, dossier: string) => Promise<void>;
 };
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
@@ -229,6 +236,8 @@ export async function approveDossier(request: Request, deps: ApprovalDeps): Prom
   if (db instanceof Response) return db;
   const dossier = await dossierOf(request);
   if (dossier instanceof Response) return dossier;
+  // PRD 2632: the spec is judged first, so dossier_approve() reads its verdict at the newest laws and refuses a red.
+  await deps.judge?.(db, dossier).catch((error: unknown) => { log.error({ event: 'business-laws', outcome: 'failed', error }); });
   const answer = await db.rpc('dossier_approve', { p_dossier: dossier });
   if (answer.error) return refusalOf(answer.error, deps, NOT_WRITTEN);
   const approved = Approved.safeParse(answer.data);

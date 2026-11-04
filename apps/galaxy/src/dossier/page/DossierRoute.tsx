@@ -47,6 +47,7 @@ import { readProductOutbox } from './outbox-product.repository';
 import { productOutboxView } from './outbox-product';
 import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
+import { lawsForPage, lawsOfApproved } from '../../business-laws/verdicts.live';
 import { liveSendSetup } from '../../runners/send/send.live';
 import { continuationsRepository, runnersRepository } from '../../runners/runners.repository';
 import { fixingOf, type Fixing } from './stage';
@@ -100,6 +101,9 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 // who gets Approve, the approve screen too: the changed files' diffs and the spec's Problem and Solution.
 // Voids that cannot be read leave the approval unread; approvers that cannot be read leave the button to
 // any member, and dossier_approve() decides.
+// PRD 2632 s4: for that viewer, the latest spec's business laws verdict too, judged then when it has none at
+// the law home's newest pack; once approved, the approved spec's verdict. A read that fails says so, never
+// hides the page.
 // PRD 1548 s4: a product PRD's attestation is read as the member beside it (./Attestation.service.ts); one
 // that cannot be read is left out, never the page.
 // PRD 1830 s4: a numbered PRD's page reads, beside its approval, the workspace's runners the viewer may
@@ -120,6 +124,12 @@ const logged = <T,>(fallback: T) => (error: unknown): T => {
   return fallback;
 };
 
+/** `facts` with the business laws' verdict of the spec `approval` pinned, kept under the seal once approved (PRD 2632 s4). */
+async function withApprovedLaws(db: Db, dossier: string, approval: ApprovalRead | null, facts: ApprovalFacts): Promise<ApprovalFacts> {
+  const spec = approval === null || approval === 'unread' ? undefined : approval.files.find((file) => file.kind === 'spec');
+  return spec ? { ...facts, laws: await lawsOfApproved(db, dossier, spec.version_id) } : facts;
+}
+
 /** A ◆ PRD's approval in force, `unread` when it or its voids could not be read, with its voids, who the
  * product asks to approve (`unread` when that could not be read), and, for `me` when they get the
  * button, the approve screen (PRD 1322 s7); nothing for any other dossier. */
@@ -134,9 +144,12 @@ async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<D
   const approval: ApprovalRead = voids === null ? 'unread' : row;
   const facts: ApprovalFacts = { voids: voids ?? [], asked };
   const view = approvalView({ ...read, approval, approvalFacts: facts }, me);
-  if (!view?.canApprove) return { approval, approvalFacts: facts };
-  const screen = await readApproveScreen((id) => readContent(db, id), read.versions, approval, view);
-  return { approval, approvalFacts: { ...facts, screen } };
+  if (!view?.canApprove) return { approval, approvalFacts: await withApprovedLaws(db, dossier.id, view?.seal ? approval : null, facts) };
+  const [screen, laws] = await Promise.all([
+    readApproveScreen((id) => readContent(db, id), read.versions, approval, view),
+    lawsForPage(db, dossier.id),
+  ]);
+  return { approval, approvalFacts: { ...facts, screen, laws } };
 }
 
 /** The runner the PRD's fix job is queued or running on (PRD 2270); null when none is, or the jobs could not be read. */

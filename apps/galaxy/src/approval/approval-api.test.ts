@@ -21,9 +21,9 @@ const APPROVED = { dossier: DOSSIER, approval: { approver: { login: 'bob-gh', me
 
 type Answer = { data: unknown; error: { code?: string; message?: string } | null };
 
-type World = { database?: boolean; session?: boolean; answers?: Record<string, Answer>; label?: () => Promise<void> };
+type World = { database?: boolean; session?: boolean; answers?: Record<string, Answer>; label?: () => Promise<void>; judge?: ApprovalDeps['judge'] };
 
-function world({ database = true, session = true, answers = {}, label = () => Promise.resolve() }: World = {}) {
+function world({ database = true, session = true, answers = {}, label = () => Promise.resolve(), judge }: World = {}) {
   const calls: Array<{ fn: string; args: unknown; as: string }> = [];
   const labelled: Array<[string, number]> = [];
   const told: unknown[] = [];
@@ -49,6 +49,7 @@ function world({ database = true, session = true, answers = {}, label = () => Pr
     installLink: 'https://github.com/apps/omni/installations/new',
     tellApp: (event) => { told.push(event); return Promise.resolve(true); },
     now: () => new Date('2026-10-11T09:00:00.000Z'),
+    ...(judge ? { judge } : {}),
   };
   const get = async (query: string, token: string | null = 'ada-token') => {
     const response = await answerApproval(new Request(`https://omni.example/api/dossiers/approval${query}`, {
@@ -274,5 +275,41 @@ describe('POST /api/dossiers/approval', () => {
 
   it('answers 503 where there is no database', async () => {
     expect((await world({ database: false }).post({ dossier: DOSSIER })).status).toBe(503);
+  });
+});
+
+describe('POST /api/dossiers/approval — the business laws (PRD 2632 s4)', () => {
+  it('has the spec judged first, as the caller, then approves', async () => {
+    const order: string[] = [];
+    const w = world({
+      judge: async (db, dossier) => {
+        order.push(`judge ${dossier}`);
+        await db.rpc('business_law_verdict_of', { p_dossier: dossier });
+      },
+    });
+    expect((await w.post({ dossier: DOSSIER })).status).toBe(201);
+    expect(order).toEqual([`judge ${DOSSIER}`]);
+    expect(w.calls.map((c) => [c.fn, c.as])).toEqual([
+      ['business_law_verdict_of', 'session'], ['dossier_approve', 'session'], ['dossier_approval', 'session'],
+    ]);
+  });
+
+  it('approves when the judging fails: the database still decides', async () => {
+    const w = world({ judge: () => Promise.reject(new Error('the model is down')) });
+    expect((await w.post({ dossier: DOSSIER })).status).toBe(201);
+  });
+
+  it('answers a red verdict\'s refusal in the database\'s words, and labels nothing', async () => {
+    const said = 'Business laws: PRD #7\'s spec breaks BL-QUOTES-1. Change the spec, or ask the law\'s owner to amend it.';
+    const w = world({ answers: { dossier_approve: { data: null, error: { code: '22023', message: said } } }, judge: () => Promise.resolve() });
+    expect(await w.post({ dossier: DOSSIER })).toEqual({ status: 400, body: { error: said } });
+    expect(w.labelled).toEqual([]);
+  });
+
+  it('judges nothing for a body that names no dossier', async () => {
+    const judged: string[] = [];
+    const w = world({ judge: (_db, dossier) => { judged.push(dossier); return Promise.resolve(); } });
+    expect((await w.post({ dossier: 'nope' })).status).toBe(400);
+    expect(judged).toEqual([]);
   });
 });
