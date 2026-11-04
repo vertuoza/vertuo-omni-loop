@@ -315,7 +315,12 @@ render) is no stop: keep the reason for step 12 and go on with the outputs alone
 
 **The draft pull request, on the reproduction alone.** Once the reproduction failed (or smoke did), or
 cannot run in this session, and before any fix, the pull request opens: a preview environment is
-built from it and CI runs on it, which levels A and B of step 12's proof read.
+built from it and CI runs on it, which levels A and B of step 12's proof read. **The fix is never
+committed before this draft exists.** Until `gh pr create --draft` has printed `<pr>`, the fix branch
+holds the reproduction commit alone on top of the base: no fix commit, and no fix in the reproduction
+commit. A fix written while red was being proven stays uncommitted until then. Pushing the
+reproduction with the fix, or opening the pull request once the fix is in, is this step skipped: it is
+never level B's reason, and `omni bug <n>` refuses it as one.
 
 1. Commit the reproduction alone, with the glossary terms step 6 added, as
    `test(<scope>): reproduce <the line> (#<n>)`, signed (**Signing**). Keep its sha: it is the
@@ -377,6 +382,9 @@ merged pull request fixed it since it was first seen. Look before commenting.
 - **The skill never closes the issue.** A person decides, and the skill stops there.
 
 ## 8. Fix
+
+**The draft comes first.** Step 7's draft pull request `<pr>` is open on the reproduction commit
+before this step commits anything: no `<pr>` yet, back to step 7's **The draft pull request**.
 
 Before changing a line, when `laws.source` is `knowledge`, read the knowledge the fix touches, never
 the whole folder: run `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on the files the fix
@@ -576,7 +584,8 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 ## 12. Ship
 
 The draft pull request `<pr>` holds the reproduction (step 7). It now gets the fix on top, its
-proof and its body, and is marked ready only once `omni bug <n>` has checked that body.
+proof and its body, and is marked ready only once `omni bug <n>` has checked that body. No `<pr>` yet:
+open step 7's draft on the reproduction alone first, and only then commit the fix.
 
 1. **Commit** on the fix branch as `fix(<scope>): <what the user gets back> (#<n>)`, with the
    session's co-author trailer, then the `omni sign trailer` line (**Signing**). The scope follows
@@ -625,11 +634,17 @@ proof and its body, and is marked ready only once `omni bug <n>` has checked tha
    `the runs did not finish within <wait> minutes` or `gh failed: <its last line>`. The skill never
    edits CI and never marks the pull request ready to get a run.
 
-   **Level C, the machine that made the fix.** Film `red.txt` and `green.txt` from steps 7 and 8, or,
-   for a component bug, the two clips, `before.webm` and `after.webm`. A component bug's push prints
+   **Level C, the machine that made the fix.** Level C is reached whenever `red.txt` and `green.txt`
+   exist from steps 7 and 8, whatever the kind of bug: a back-end, a command-line or a library bug is
+   filmed from its two outputs as surely as a component bug. Film `red.txt` and `green.txt`, or, for a
+   component bug, the two clips, `before.webm` and `after.webm`. A component bug's push prints
    two more lines, the `before.webm` link then the `after.webm` link: keep both for the `Clips:` line
    (a pinned omni that prints none leaves that line out). Red not seen in this session
-   (`Red not proven here`) is level C's reason.
+   (`Red not proven here`) is level C's only reason of its own; beside it, only the table's
+   `the pinned omni is too old: run omni update` (`omni bug film` exits 2) and the line `omni bug film`
+   or `omni proof push` exits 1 with. `reproduction test only, the screen was not filmed` is the
+   wording of level C's `Proved on` line, what a produced level C says of itself: never a reason for
+   level C to fail, and never a way to level D.
 
    **Clips that fail make the GIF of the two outputs.** A story that could not be filmed (step 7 kept
    the reason), or two clips that `omni bug film` exits 1 on (`ffmpeg not found`, or
@@ -641,7 +656,9 @@ proof and its body, and is marked ready only once `omni bug <n>` has checked tha
    **Level D, nowhere.** `## Proof` holds the one line
    `GIF not produced - A: <why>; B: <why>; C: <why>`, each level's reason, and the pull request stays a
    **draft**. When B's reason is `job <name> skipped`, the line names the job. Level D never stops the
-   skill. A reason at any level, beside the ones above:
+   skill. B's reason is the line `omni bug ci` printed, and C's one of the table's below: `omni bug <n>`
+   refuses any other, so a level D line with `red.txt` and `green.txt` on the machine is refused. A
+   reason at any level, beside the ones above:
 
    | cause | reason |
    |---|---|
@@ -672,7 +689,7 @@ proof and its body, and is marked ready only once `omni bug <n>` has checked tha
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check. A proof line (`no ## Proof section`, `## Proof has no image and no "GIF not produced - <reason>" line`, `## Proof's image has no "Before the fix" or "After the fix" line`, `## Proof has no "Proved on" line`, a `Proved on` line missing its `Preview` line, its mention or its `Clips:` line, a `GIF not produced` line missing a level's reason, `the proof was not produced but #<pr> is not a draft: gh pr ready <pr> --undo`) is mended in the body file and put on the pull request again: no commit. `no pull request body to check` means `gh` could not read it: sign in and rerun. Any other (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit) is fixed on the branch: commit, push again, and send the record again when it changed. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. Then rerun. |
+   | `1` | `not ok`, one line per failed check. A proof line (`no ## Proof section`, `## Proof has no image and no "GIF not produced - <reason>" line`, `## Proof's image has no "Before the fix" or "After the fix" line`, `## Proof has no "Proved on" line`, a `Proved on` line missing its `Preview` line, its mention or its `Clips:` line, a `GIF not produced` line missing a level's reason, or giving level B a reason `omni bug ci` does not print, or level C a reason it does not have (film `red.txt` and `green.txt` at level C instead), `the proof was not produced but #<pr> is not a draft: gh pr ready <pr> --undo`) is mended in the body file and put on the pull request again: no commit. `no pull request body to check` means `gh` could not read it: sign in and rerun. Any other (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit) is fixed on the branch: commit, push again, and send the record again when it changed. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. Then rerun. |
    | `2` | The kit is not installed here, its config does not read, or `--base` does not resolve: say so and stop. |
 
 8. **Watch it through `/omni:pr`** as a standalone PR: its watch starts now, once the fix is pushed,

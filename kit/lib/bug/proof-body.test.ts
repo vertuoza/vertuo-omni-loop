@@ -9,7 +9,7 @@ const PR = parsePr(34);
 const IMAGE = '![Before and after the fix](https://omni.example/api/proofs/9f0c1d2e/preview.gif)';
 const LINES = ['- **Before the fix** (red): `AssertionError`', '- **After the fix** (green, `a1b2c3d`): `✓ saves once`'];
 const PROVED = '- **Proved on:** the machine that made the fix · reproduction test only, the screen was not filmed';
-const D = 'GIF not produced - A: no hook; B: job story skipped on a draft; C: the story needs CI';
+const D = 'GIF not produced - A: no bug-fix.proof hook; B: job story skipped; C: red not proven here';
 const file = (...lines: string[]): ProofSource => ({ kind: 'file', body: lines.join('\n') });
 const faults = (...lines: string[]) => proofFaults(file(...lines), ISSUE);
 
@@ -93,8 +93,8 @@ describe('proofFaults', () => {
 
   describe('GIF not produced at level D', () => {
     it('refuses a level with no reason, each on its own line', () => {
-      expect(faults('## Proof', 'GIF not produced - A: no hook; B: skipped')).toEqual(['## Proof\'s "GIF not produced" line has no reason for level C']);
-      expect(faults('## Proof', 'GIF not produced - A: ; B: ; C: x')).toEqual([
+      expect(faults('## Proof', 'GIF not produced - A: no hook; B: job story skipped')).toEqual(['## Proof\'s "GIF not produced" line has no reason for level C']);
+      expect(faults('## Proof', 'GIF not produced - A: ; B: ; C: red not proven here')).toEqual([
         '## Proof\'s "GIF not produced" line has no reason for level A',
         '## Proof\'s "GIF not produced" line has no reason for level B',
       ]);
@@ -109,7 +109,65 @@ describe('proofFaults', () => {
     });
 
     it('allows a semicolon inside a reason', () => {
-      expect(faults('## Proof', 'GIF not produced - A: none; still none; B: x; C: y')).toEqual([]);
+      expect(faults('## Proof', 'GIF not produced - A: none; still none; B: gh failed: x; y; C: red not proven here')).toEqual([]);
+    });
+
+    const B_FAULT = (why: string) =>
+      `## Proof's "GIF not produced" line gives level B a reason omni bug ci does not print ("${why}"): run omni bug ci on the draft and write its line`;
+    const C_FAULT = (why: string) =>
+      `## Proof's "GIF not produced" line gives level C a reason it does not have ("${why}"): ` +
+      'level C is reached whenever red.txt and green.txt exist, so film them with omni bug film; ' +
+      'its reasons are red not proven here, the pinned omni is too old: run omni update, or the line omni bug film or omni proof push exits 1 with';
+
+    it('takes every line omni bug ci exits 1 with as level B\'s reason', () => {
+      for (const why of [
+        'job e2e skipped',
+        'job unit tests did not run on a1b2c3d',
+        'job unit did not pass on a1b2c3d',
+        'no failed log names saves once',
+        'every check passed on a1b2c3d',
+        'the runs did not finish within 30 minutes',
+        'gh failed: HTTP 502',
+      ]) {
+        expect(faults('## Proof', `GIF not produced - A: no bug-fix.proof hook; B: ${why}; C: red not proven here`), why).toEqual([]);
+      }
+    });
+
+    it('takes red not proven here, an old omni, a film or a proof push line as level C\'s reason', () => {
+      for (const why of [
+        'red not proven here',
+        'Red not proven here — the harness needs a database',
+        'the pinned omni is too old: run omni update',
+        'could not write /tmp/proof-bug-12/run',
+        'proof push: no sign-in (omni signin)',
+      ]) {
+        expect(faults('## Proof', `GIF not produced - A: no bug-fix.proof hook; B: job e2e skipped; C: ${why}`), why).toEqual([]);
+      }
+    });
+
+    it('refuses a level C reason that is the wording of its own Proved on line: C is reached whenever red and green exist', () => {
+      const why = 'reproduction test only, nothing to film';
+      expect(faults('## Proof', `GIF not produced - A: no bug-fix.proof hook; B: job e2e skipped; C: ${why}`)).toEqual([C_FAULT(why)]);
+      expect(faults('## Proof', 'GIF not produced - A: no hook; B: job e2e skipped; C: not a component bug')).toEqual([C_FAULT('not a component bug')]);
+      expect(faults('## Proof', 'GIF not produced - A: no hook; B: job e2e skipped; C: ffmpeg not found')).toEqual([C_FAULT('ffmpeg not found')]);
+    });
+
+    it('refuses a level B reason omni bug ci never prints, such as a reproduction pushed with the fix', () => {
+      const why = 'the reproduction was pushed together with the fix, not alone on a draft';
+      expect(faults('## Proof', `GIF not produced - A: no bug-fix.proof hook; B: ${why}; C: red not proven here`)).toEqual([B_FAULT(why)]);
+      expect(faults('## Proof', `GIF not produced - A: no hook; B: ${why}; C: reproduction test only`)).toEqual([
+        B_FAULT(why),
+        C_FAULT('reproduction test only'),
+      ]);
+    });
+
+    it('leaves level A\'s reason to its hook', () => {
+      expect(faults('## Proof', 'GIF not produced - A: the hook timed out on a cold start; B: job e2e skipped; C: red not proven here')).toEqual([]);
+    });
+
+    it('asks no draft of a pull request whose level D line is refused: the line is mended first', () => {
+      const body = { kind: 'pull-request' as const, body: '## Proof\nGIF not produced - A: no hook; B: job e2e skipped; C: nothing to film', pr: PR, isDraft: false };
+      expect(proofFaults(body, ISSUE)).toEqual([C_FAULT('nothing to film')]);
     });
   });
 
