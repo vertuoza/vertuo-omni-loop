@@ -33,8 +33,6 @@ run `pnpm kit:build` and commit the bundle with it.
 
 ## Before every push
 <!-- slot: before-push · optional -->
-The loop has two speeds (PRD 1042).
-
 **While iterating**, after each change and before a work-in-progress push, run
 `pnpm check:changed --base origin/<feature branch>` from a slice's worktree
 (`pnpm check:changed` alone measures from `origin/main`). It takes the files changed since the
@@ -58,25 +56,24 @@ into `main`), run the full `pnpm test` (the preflight, unchanged) and the full `
 misses a break in a file the change did not touch.
 
 **Mutation, when the change touches the delivery core** (PRD 1072, ADR-0059): after writing its
-tests, and in a bug fix, run `pnpm mutation:changed --base origin/<feature branch>` (a few minutes per
+tests, and in a bug fix, run `pnpm mutation:changed --base origin/<feature branch>` (minutes per
 file) and add or tighten a test for each survivor in the code you changed. A pull request never lowers a
 floor in `mutation/floor.json`; the `mutation` workflow runs the whole core every night at 02:00 UTC and on
 demand, outside the required checks, and shows a module below its floor in its job summary. A red
 night on `main` opens or comments one issue for the laws' owners, closed once green
 (`scripts/mutation-alert.ts`).
 
-`pnpm install` turns on two git hooks (`.githooks/`): **pre-commit**
-runs `fallow audit` of the work tree committed (~1 s), **pre-push** the open-source guard, then `check:changed`'s typecheck and
-lint from the upstream, else `origin/main` (~10 s), plus, when the push touches a migration or
-`supabase/database.types.ts`, the types drift check against the local database (refused on drift,
-only warned when no local database answers). Both fail closed. Tests are left to CI, so the
-hooks stay fast. A third, **post-checkout**, installs a worktree just made and never fails. A green commit is not a green branch. Never skip
-a hook.
+`pnpm install` turns on three git hooks (`.githooks/`). **pre-commit** runs `fallow audit` of the work
+tree committed (~1 s). **pre-push** runs the open-source guard, then `check:changed`'s typecheck and lint
+from the upstream, else `origin/main` (~10 s), plus, when the push touches a migration or
+`supabase/database.types.ts`, the types drift check against the local database (refused on drift, only
+warned when no local database answers). Both fail closed; tests are left to CI. **post-checkout**
+installs a worktree just made and never fails. A green commit is not a green branch. Never skip a hook.
 
 ## Checks
 <!-- slot: checks · optional -->
 Beside the preflight, the `checks` workflow runs three more on a ready pull request into `main`,
-each its own job, and each must be green before a hand-off:
+each its own job, each green before a hand-off:
 
 - `pnpm typecheck`: `tsgo` (`@typescript/native-preview`) over the root project, then the arcade's own `typecheck` script (`fumadocs-mdx`, then `tsgo --noEmit`).
   `pnpm typecheck:tsc` runs the same pair with `tsc`: the fallback when `tsgo` reports something

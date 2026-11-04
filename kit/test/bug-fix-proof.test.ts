@@ -122,6 +122,19 @@ describe('the draft pull request opens on the reproduction alone', () => {
     expect(text.indexOf('**The draft pull request, on the reproduction alone.**')).toBeLessThan(text.indexOf('## 8. Fix'));
     expect(skillSection(text, '12.')).not.toContain('gh pr create');
   });
+
+  it('never commits the fix before the draft exists, and steps 8 and 12 send a missing draft back to step 7', () => {
+    const text = read('bug-fix');
+    expect(gaps(skillSection(text, '7.'), [
+      '**The fix is never committed before this draft exists.**',
+      'the reproduction commit alone on top of the base',
+      'stays uncommitted until then',
+      'Pushing the reproduction with the fix, or opening the pull request once the fix is in, is this step skipped',
+      "never level B's reason, and `omni bug <n>` refuses it as one",
+    ])).toEqual([]);
+    expect(gaps(skillSection(text, '8.'), ['**The draft comes first.**', 'before this step commits anything', 'back to step 7'])).toEqual([]);
+    expect(gaps(skillSection(text, '12.'), ['No `<pr>` yet', "open step 7's draft on the reproduction alone first", 'only then commit the fix'])).toEqual([]);
+  });
 });
 
 describe('a check failing on the reproduction commit counts no attempt; a red on the fix commit counts one', () => {
@@ -222,6 +235,32 @@ describe('step 12 takes the proof from the first level of the ladder that works'
       '`Storybook not filmed - <reason>`',
       '`ffmpeg not found` included',
     ])).toEqual([]);
+  });
+
+  it('level C is reached whenever red.txt and green.txt exist, whatever the kind of bug, its Proved on wording never its reason', () => {
+    expect(gaps(skillSection(read('bug-fix'), '12.'), [
+      '**Level C, the machine that made the fix.**',
+      'Level C is reached whenever `red.txt` and `green.txt` exist from steps 7 and 8, whatever the kind of bug',
+      "level C's only reason of its own",
+      '`the pinned omni is too old: run omni update`',
+      '`reproduction test only, the screen was not filmed` is the wording of level C\'s `Proved on` line',
+      'never a reason for level C to fail, and never a way to level D',
+    ])).toEqual([]);
+  });
+
+  it('level D names the reasons omni bug <n> takes, and its check names the two refusals', () => {
+    const step = skillSection(read('bug-fix'), '12.');
+    expect(gaps(step, [
+      '**Level D, nowhere.**',
+      "B's reason is the line `omni bug ci` printed",
+      '`omni bug <n>` refuses any other',
+    ])).toEqual([]);
+    expect(flat(step)).toContain("giving level B a reason `omni bug ci` does not print, or level C a reason it does not have");
+  });
+
+  it('/omni:mega-bug-fix reaches level C whenever its outputs exist, with /omni:bug-fix\'s reasons', () => {
+    expect(flat(read('mega-bug-fix'))).toContain('reached whenever both exist, whatever the kind of bug');
+    expect(flat(read('mega-bug-fix'))).toContain('`reproduction test only` is the wording of its `Proved on` line, never its reason');
   });
 
   it('the reason table has no ffmpeg not found row, and names the old omni, the proof push and the red not seen', () => {

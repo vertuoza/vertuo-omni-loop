@@ -1,6 +1,6 @@
 ---
 title: Knowledge
-description: What every agent reads before it works — the playbook and its four levels, the laws and their tests, and the words a product's repositories share: layers, roles and domains.
+description: "What every agent reads before it works — the playbook and its four levels, the laws and their tests, and the words a product's repositories share: layers, roles and domains."
 ---
 
 Before an agent changes anything, it reads what your repository knows. That knowledge lives in the

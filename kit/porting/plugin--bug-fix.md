@@ -87,3 +87,11 @@ Bug section are PRD 556's spec, carried whole.
 - **The product's glossary for the reproduction's words** (PRD 2299, slice s3): step 6 reads
   `omni kb glossary` for the nouns and verbs; the page wins over `paths.glossary` on a shared term.
   Tested in `kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".
+- **Level C is not skipped** (after PRD 2578): step 7 never commits the fix before the draft pull
+  request exists on the reproduction alone, and step 8 opens on that gate; step 12's level C is
+  reached whenever `red.txt` and `green.txt` exist, whatever the kind of bug, its `Proved on` wording
+  (`reproduction test only`) never being its reason. `omni bug <n>` refuses a `GIF not produced`
+  line whose B reason is not a line `omni bug ci` prints, or whose C reason is not `red not proven
+  here`, an old pinned omni, or the line `omni bug film` or `omni proof push` exits 1 with
+  (`kit/lib/bug/proof-body.ts`). Its tests are `kit/lib/bug/proof-body.test.ts` and
+  `kit/test/bug-fix-proof.test.ts`.
