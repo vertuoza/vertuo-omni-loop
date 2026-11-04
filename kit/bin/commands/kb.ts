@@ -35,6 +35,7 @@ import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { readBusinessLaws, selectBusinessLaws, type BusinessLaw } from '../../lib/knowledge/business-laws.ts';
+import { businessLawsAt } from '../../lib/knowledge/business-laws-home.ts';
 import { businessLawsText, lawsOfDomain, selectionText } from '../../lib/knowledge/business-laws-text.ts';
 import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
 import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
@@ -677,17 +678,60 @@ function pageClient(askUrl: string | null, io: PackOptions) {
 const BUSINESS_LAWS_USAGE = 'usage: omni kb business-laws [--domain <key> | --spec <file>] [--json]';
 
 /**
- * `omni kb business-laws` (PRD 2632): the business laws of this repository's files, every one or, with
- * `--domain`, one domain's; with `--spec <file>`, the laws that spec is judged against and why each
- * domain was taken, the glossary read from the local copy and never the network.
+ * `omni kb business-laws` (PRD 2632): the business laws of the product, every one or, with `--domain`, one
+ * domain's; with `--spec <file>`, the laws that spec is judged against and why each domain was taken, the
+ * glossary read from the local copy and never the network. In the product's law home they are this
+ * checkout's files; elsewhere they are the newest pack of the law home (`omni kb pack get`), and the
+ * lines beside them say so, and say when the pack is the last one fetched.
  */
-function businessLaws(args: string[], io: CommandIo): number {
+async function businessLaws(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const want = businessLawsArgs(args);
+  const { ctx, stdout, stderr } = io;
+  const placed = await businessLawsAt({ ctx, repo: ctx.config.repo.slug, home: await lawHomeOf(io), getPack: (home) => lawHomePack(home, io) });
+  if (placed.laws === null) {
+    for (const line of placed.errors) println(stderr, `omni kb business-laws: ${line}`);
+    return 1;
+  }
+  println(stdout, want.spec === null ? lawsOf(placed.laws, want.domain, want.json, ctx) : specLaws(placed.laws, want.spec, want.json, io));
+  for (const note of placed.notes) println(want.json ? stderr : stdout, note);
+  return 0;
+}
+
+/** The `--domain`, `--spec` and `--json` of `omni kb business-laws`; anything else, or both a domain and a spec, is a usage error. */
+function businessLawsArgs(args: string[]): { domain: string | null; spec: string | null; json: boolean } {
   const { positional, flags } = parseArgs('kb business-laws', args, { values: ['domain', 'spec'], booleans: ['json'] });
   if (positional.length > 0 || (flags.domain !== undefined && flags.spec !== undefined)) throw usageError(BUSINESS_LAWS_USAGE);
-  const all = readBusinessLaws({ ctx: io.ctx });
-  const text = flags.spec === undefined ? lawsOf(all, flags.domain ?? null, flags.json === true, io.ctx) : specLaws(all, flags.spec, flags.json === true, io);
-  println(io.stdout, text);
-  return 0;
+  return { domain: flags.domain ?? null, spec: flags.spec ?? null, json: flags.json === true };
+}
+
+/** The law home of this repository's product, from the Omni page or its last copy; `null` when there is none or it cannot be read. */
+async function lawHomeOf(io: CommandIo & PackOptions): Promise<string | null> {
+  const reach = reachOf(io.ctx, io);
+  if (typeof reach === 'string') return null;
+  try {
+    const read = await productKnowledge({ repo: reach.repo, root: mainCheckout(io.ctx.root, io.exec) ?? io.ctx.root, now: io.now ?? (() => new Date()), fetchBusiness: () => reach.client.readBusiness(reach.repo) });
+    return read.lawHome ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The newest pack of the law home `home`, fetched as `omni kb pack get <home>` does. */
+function lawHomePack(home: string, io: CommandIo & PackOptions) {
+  const { ctx, exec } = io;
+  const askUrl = ctx.config.ask.url;
+  const client = askUrl ? signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
+  return packGet({
+    root: mainCheckout(ctx.root, exec) ?? ctx.root,
+    repo: home,
+    readAt: null,
+    now: io.now ?? (() => new Date()),
+    fetchPack: async () => {
+      if (client === null) throw new Error('no sign-in for the Omni page (omni signin)');
+      return client.readKnowledgePack({ repo: home });
+    },
+    order: () => 'unknown',
+  });
 }
 
 /** `omni kb business-laws [--domain <key>]`: every law, or one domain's, as text or JSON. */
@@ -697,7 +741,7 @@ function lawsOf(all: BusinessLaw[], domain: string | null, json: boolean, ctx: C
 }
 
 /** `omni kb business-laws --spec <file>`: the laws that spec is judged against, the glossary read from the local copy. */
-function specLaws(all: BusinessLaw[], spec: string, json: boolean, { ctx, exec }: CommandIo): string {
+function specLaws(all: BusinessLaw[], spec: string, json: boolean, { ctx, exec }: Pick<CommandIo, 'ctx' | 'exec'>): string {
   const path = resolve(ctx.root, spec);
   if (!existsSync(path)) throw usageError(`omni kb business-laws: no spec at ${spec}. ${BUSINESS_LAWS_USAGE}`);
   const cache = readCachedKnowledge(mainCheckout(ctx.root, exec) ?? ctx.root);
@@ -707,7 +751,7 @@ function specLaws(all: BusinessLaw[], spec: string, json: boolean, { ctx, exec }
 }
 
 /** The verbs that read their own flags, each handed the arguments after its name. */
-const OWN_FLAGS: Readonly<Record<string, (args: string[], io: CommandIo) => number>> = { laws, graph, 'business-laws': businessLaws };
+const OWN_FLAGS: Readonly<Record<string, (args: string[], io: CommandIo) => number>> = { laws, graph };
 
 /** The verbs that take only `--json` (and `show`'s `--all`), each handed what follows its name. */
 const PLAIN: Readonly<Record<string, (positional: string[], flags: KbFlags, io: CommandIo) => number>> = { init, show, status, owners };
@@ -735,6 +779,7 @@ export const kb: FreeCommand = {
     if (sub === 'index') return index(rest, io);
     const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
     if (sub === 'pack') return pack(rest, full);
+    if (sub === 'business-laws') return businessLaws(rest, full);
     if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
     if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
     if (isProductVerb(sub)) return productCommand(sub, rest, { ...full, vars: io.vars }, io);

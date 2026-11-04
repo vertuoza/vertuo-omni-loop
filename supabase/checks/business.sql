@@ -32,6 +32,9 @@
 -- lines included) and personas, never a proposed or rejected claim, and nothing for a repository no
 -- workspace tracks.
 --
+-- PRD 2632 (20270110090000_business_law_home.sql): both also answer `lawHome`, the product's plan repository when set, else its
+-- only repository, else null.
+--
 -- PRD 1795 (20261212110000_product_knowledge.sql): business_for_repo() (hence business_for_token()) and
 -- business_for_repo_app() answer `legal`, the repository's product's active Legal entries
 -- `{id: "L-<CODE>-<n>", statement, source, owner}` (the owner's login) by code then number, and `glossary`,
@@ -443,6 +446,46 @@ begin
   got := public.business_for_repo('initech/pdf-builder');
   if got->'domains' is not null and got->'domains' <> '[]'::jsonb then
     raise exception 'FAIL: a repository in no product reads domains: %', got->'domains';
+  end if;
+end $$;
+
+-- ── PRD 2632 s2: a product's law home, as agents read it ──
+-- Its plan repository when set, else its only repository, else none. Still Olga, an owner. erp holds four repositories
+-- and omni one (nimbus-plan); the plan repository is set and cleared again, so the rest of this file reads what it did.
+do $$
+declare
+  erp uuid := pg_temp.made('erp');
+  got jsonb;
+begin
+  got := public.business_for_repo('initech/nimbus-apps');
+  if got->'lawHome' is distinct from 'null'::jsonb then
+    raise exception 'FAIL: several repositories and no plan repository leave no law home: %', got->'lawHome';
+  end if;
+  if public.business_for_repo('initech/nimbus-plan')->'lawHome' <> '"initech/nimbus-plan"'::jsonb then
+    raise exception 'FAIL: the only repository of a product is its law home: %', public.business_for_repo('initech/nimbus-plan')->'lawHome';
+  end if;
+
+  perform public.product_plan_repository_set(erp, 'initech/nimbus-backend-php');
+  got := public.business_for_repo('initech/nimbus-apps');
+  if got->'lawHome' <> '"initech/nimbus-backend-php"'::jsonb then
+    raise exception 'FAIL: the plan repository is the law home: %', got->'lawHome';
+  end if;
+  if public.business_for_repo('initech/nimbus-backend-php')->'lawHome' <> '"initech/nimbus-backend-php"'::jsonb then
+    raise exception 'FAIL: the plan repository reads the same law home from itself';
+  end if;
+  -- Another product reads its own home, never erp's.
+  if public.business_for_repo('initech/nimbus-plan')->'lawHome' <> '"initech/nimbus-plan"'::jsonb then
+    raise exception 'FAIL: nimbus-plan reads another product''s law home: %', public.business_for_repo('initech/nimbus-plan')->'lawHome';
+  end if;
+  -- Without a product there is no home.
+  if public.business_for_repo('initech/pdf-builder')->'lawHome' is not null
+     and public.business_for_repo('initech/pdf-builder')->'lawHome' <> 'null'::jsonb then
+    raise exception 'FAIL: a repository in no product reads a law home';
+  end if;
+
+  perform public.product_plan_repository_set(erp, null);
+  if public.business_for_repo('initech/nimbus-apps')->'lawHome' is distinct from 'null'::jsonb then
+    raise exception 'FAIL: clearing the plan repository leaves no law home again';
   end if;
 end $$;
 
@@ -1014,6 +1057,10 @@ begin
                                                     where e.product_id = (select l.product_id from public.product_repositories l
                                                                            where l.repository = 'initech/nimbus-apps')) then
     raise exception 'FAIL: the App does not read the product''s knowledge: % % %', got->'legal', got->'glossary', got->>'knowledgeEventId';
+  end if;
+  -- PRD 2632 s2: and its law home: erp holds several repositories and no plan repository, so none.
+  if got->'lawHome' is distinct from 'null'::jsonb then
+    raise exception 'FAIL: the App does not read the product''s law home: %', got->'lawHome';
   end if;
 
   foreach repo in array array['initech/nowhere', 'initech/later-one', 'acme-biz/web'] loop
