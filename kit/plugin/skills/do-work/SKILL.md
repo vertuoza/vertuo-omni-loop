@@ -85,7 +85,11 @@ never overrides this skill's rules.
    the product's Legal entries included. Its last line counts the locked laws of other areas it
    leaves out. A repository that maps no `layers` and no flow area to a `knowledge` folder narrows
    nothing: every locked law prints. `node .omni-loop/bin/omni.mjs knowledge <id>` prints one of
-   them in full when its line is not enough. A **proposed** entry
+   them in full when its line is not enough. Under any `laws.source` the same command also prints
+   the product's **business laws** of the slice's domains (`BL-<CODE>-<n>`, each with its Why) and
+   the `product/` ones under **Global**: read them, and build to them. They are never `isLaw`, and
+   a slice never edits one: a business law changes only through `/omni:knowledge-add amend <id>`,
+   which a CODEOWNER approves. A proposed entry
    (one carrying a `Proposed:` line; `omni knowledge <id>` prints who proposed it and when) is read
    like any other: it describes the product. It is not a law until a person confirms it, so it
    never stops a slice (see **Exactly two ways a slice ends early**). When the slice changes a
