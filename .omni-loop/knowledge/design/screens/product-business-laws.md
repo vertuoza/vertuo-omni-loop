@@ -40,4 +40,4 @@ Business laws · Law · Why · Domains · All · Open the laws on GitHub.
 
 ## Source
 
-- /omni:brainstorm, PRD 2632: .omni-loop/delivery/inbox/2632-business-laws/before-after.html
+- /omni:brainstorm, PRD 2632: .omni-loop/delivery/shipped/2632-business-laws/before-after.html
