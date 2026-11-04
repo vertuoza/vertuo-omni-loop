@@ -191,8 +191,7 @@ describe('the law home (PRD 2632, s2)', () => {
     ...extra,
   });
   const olderBusiness = (): Record<string, unknown> => {
-    const { lawHome: _home, domains: _domains, ...older } = business();
-    return older;
+    return Object.fromEntries(Object.entries(business()).filter(([key]) => key !== 'lawHome' && key !== 'domains'));
   };
   const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
   const PACK_FILES = { [`${K}/domains/quotes/business-laws.md`]: QUOTES_LAWS, [`${K}/product/business-laws.md`]: PRODUCT_LAWS };
@@ -219,7 +218,7 @@ describe('the law home (PRD 2632, s2)', () => {
   async function run(root: string, argv: readonly string[], server: { fetch: (url: string) => Promise<Response> }, tokens: unknown = signedIn) {
     const out: string[] = [];
     const err: string[] = [];
-    const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) }, tokens, fetch: server.fetch, now: () => NOW } as Parameters<typeof main>[1]);
+    const code = await main(argv, { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) }, tokens, fetch: server.fetch, now: () => NOW });
     return { code, out: out.join(''), err: err.join('') };
   }
 
