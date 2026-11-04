@@ -14,6 +14,7 @@ export function ApproveButton({ dossier, noun = 'PRD', off = null }: { dossier: 
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const offId = `dossier-approve-off-${dossier}`;
 
   async function approve() {
     if (busy) return;
@@ -39,8 +40,8 @@ export function ApproveButton({ dossier, noun = 'PRD', off = null }: { dossier: 
 
   return (
     <span className="dossier-approve">
-      <button type="button" className="ask-button dossier-approve-button" disabled={busy || off !== null} onClick={() => void approve()}>{busy ? 'Approving…' : 'Approve'}</button>
-      {off !== null && <span className="ask-hint">{off}</span>}
+      <button type="button" className="ask-button dossier-approve-button" disabled={busy || off !== null} aria-describedby={off === null ? undefined : offId} onClick={() => void approve()}>{busy ? 'Approving…' : 'Approve'}</button>
+      {off !== null && <span id={offId} className="ask-hint">{off}</span>}
       {problem && <span className="ask-problem" role="alert">{problem}</span>}
     </span>
   );
