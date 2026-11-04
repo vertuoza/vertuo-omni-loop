@@ -8,6 +8,9 @@ import type { TechRepository, TechRequested } from './tech.repository';
 // to say. This reaches the one person named by the channels they have on, with the PRD's page and the line
 // that starts the review; reaching them never fails the request, which stands in their Waiting section.
 
+/** What a request needs: the caller's repository, and how the person named is reached. */
+export type TechDeps = ReachDeps & { tech: TechRepository };
+
 /** The PRD a call names: a repository's by its number (the kit), or its dossier (the page). */
 export type TechPrd = { repo: string; prd: PrdNumber } | { dossier: string };
 
@@ -47,7 +50,7 @@ async function dossierIdOf(tech: TechRepository, prd: TechPrd): Promise<Answer<s
 
 /** Requests the Tech Approval of `login` as the caller, and reaches them. `origin` is where the caller
  * reached this app: the PRD's page is under it. */
-export async function requestTech(deps: ReachDeps & { tech: TechRepository }, prd: TechPrd, login: string, origin: string): Promise<Requested> {
+export async function requestTech(deps: TechDeps, prd: TechPrd, login: string, origin: string): Promise<Requested> {
   const id = await dossierIdOf(deps.tech, prd);
   if (!id.ok) return id;
   if (id.value === null) return { ok: false, missing: true };

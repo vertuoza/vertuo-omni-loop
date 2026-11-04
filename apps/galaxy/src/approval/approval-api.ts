@@ -226,8 +226,8 @@ async function givenOf(request: Request): Promise<{ dossier: string; kind: 'prod
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return notObject();
   const parsed = z.object({ dossier: z.string().regex(UUID) }).safeParse(value);
   if (!parsed.success) return refuse(400, "`dossier` is the id of the PRD's dossier.");
-  const kind = z.enum(['product', 'tech']).default('product').safeParse((value as { kind?: unknown }).kind);
-  return kind.success ? { dossier: parsed.data.dossier, kind: kind.data } : refuse(400, '`kind` is product or tech.');
+  const named = z.object({ kind: z.enum(['product', 'tech']).default('product') }).safeParse(value);
+  return named.success ? { dossier: parsed.data.dossier, kind: named.data.kind } : refuse(400, '`kind` is product or tech.');
 }
 
 /** The PRD dossier_approve() says it approved: a repository's, or a product's by its id (no repository hint). */

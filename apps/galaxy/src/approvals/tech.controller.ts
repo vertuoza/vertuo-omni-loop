@@ -5,8 +5,7 @@ import { callerOrigin, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import { bodyOf, callerOf, refusalOf } from './approvals.controller';
 import type { ReachDeps } from './approvals.service';
-import type { TechRepository } from './tech.repository';
-import { requestTech, techMembersOf, type TechPrd } from './tech.service';
+import { requestTech, techMembersOf, type TechDeps, type TechPrd } from './tech.service';
 
 // A Tech Approval's HTTP edge (PRD 2608 s3), as plain functions of a Request, so they are tested with fake
 // repositories and the route stays one line each:
@@ -19,6 +18,9 @@ import { requestTech, techMembersOf, type TechPrd } from './tech.service';
 // before they leave. Refusals follow ADR-0029, each `{error}` in plain words, the database's own when it
 // has some: 400 a malformed query or body, or who may not be named; 401 no valid sign-in; 403 who may not
 // request it; 404 no such PRD the caller reads; 503 no database here; 500 the database failed.
+
+/** The caller's reads and request. */
+type TechRepository = TechDeps['tech'];
 
 /** A client acting as one access token: the Auth server's check and the caller's reads and request. */
 type CallerClient = TokenCheck & { tech: TechRepository };
