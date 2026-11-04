@@ -54,7 +54,7 @@ Check each of these before anything is read or written. The first that holds pri
 | `OMNI_UNATTENDED` is set | a grill needs a person: it asks nothing on a runner, and a runner never runs it |
 | the PRD has no `plan.md` (`omni prd <n>` lists its files) | there is no plan to review: run `/omni:plan <n>` first |
 | `omni approval <n> --json` has no `tech` field, or its `state` is `approved` | there is no open tech request to answer |
-| the person signed in (`omni whoami`) is not the member `tech` names | only the named person reviews it; when the email does not settle it, the agent asks the person whether they are that login, and refuses on no |
+| the login `gh api user --jq .login` prints is not the login `tech` names, or no login can be read | only the named person reviews it; the login is read from GitHub before anything is asked, a mismatch refuses with no question asked, and no readable login refuses too: the agent never takes the person's word for who they are |
 | a sub-PR of the PRD is already merged (`omni board <n>`) | the build has started; a tech review comes before it |
 
 Check the refusals in this order: the runner first, so that nothing is read on one. A `voided` state

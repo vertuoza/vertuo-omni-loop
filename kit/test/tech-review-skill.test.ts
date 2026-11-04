@@ -29,8 +29,16 @@ describe('the tech-review skill', () => {
 
   it('refuses, in one line, a PRD with no plan, no open request, a merged sub-PR, anyone but the named person and a runner', () => {
     expect(FLAT).toContain('`tech-review: <why>`');
-    for (const why of ['`OMNI_UNATTENDED` is set', 'has no `plan.md`', 'no open tech request', 'is not the member `tech` names', 'a sub-PR of the PRD is already merged']) expect(FLAT, why).toContain(why);
+    for (const why of ['`OMNI_UNATTENDED` is set', 'has no `plan.md`', 'no open tech request', 'is not the login `tech` names','a sub-PR of the PRD is already merged']) expect(FLAT, why).toContain(why);
     expect(at('## 1. Refuse')).toBeLessThan(at('## 2. Read before you ask'));
+  });
+
+  it('reads the person\'s GitHub login and compares it with the named one, asking nothing and never taking their word', () => {
+    expect(FLAT).toContain('`gh api user --jq .login`');
+    expect(FLAT).toContain('is not the login `tech` names, or no login can be read');
+    expect(FLAT).toContain('a mismatch refuses with no question asked');
+    expect(FLAT).toContain('never takes the person\'s word for who they are');
+    expect(FLAT).not.toContain('asks the person whether they are that login');
   });
 
   it('reads the spec, the plan, the Technical tab, the four forms and the laws before it asks', () => {
@@ -85,6 +93,6 @@ describe('the tech-review skill', () => {
   });
 
   it('names only commands the CLI has', () => {
-    for (const command of ['config', 'session', 'prd', 'kb', 'plan', 'check', 'dossier', 'board', 'approval', 'whoami']) expect(COMMAND_TABLE, command).toHaveProperty(command);
+    for (const command of ['config', 'session', 'prd', 'kb', 'plan', 'check', 'dossier', 'board', 'approval']) expect(COMMAND_TABLE, command).toHaveProperty(command);
   });
 });
