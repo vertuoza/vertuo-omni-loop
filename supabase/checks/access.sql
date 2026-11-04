@@ -879,27 +879,5 @@ begin
   end if;
 end $$;
 
--- ── The ideas table, outside the workspace (bug 2634) ──
--- Signed out, an idea's own words and state only, as ideas_board() answers them: never who added it,
--- and never a column added later without a decision. Signed in, someone outside the workspace reads
--- ideas_board(), not the table.
-do $$
-declare
-  readable text;
-begin
-  select string_agg(a.attname, ', ' order by a.attname) into readable
-    from pg_attribute a
-   where a.attrelid = 'public.ideas'::regclass and a.attnum > 0 and not a.attisdropped
-     and has_column_privilege('anon', 'public.ideas', a.attnum, 'select');
-  if readable is distinct from 'archived, created_at, id, lane, pitch, prd, repo, title' then
-    raise exception 'FAIL: anyone signed out reads these columns of public.ideas: %', readable;
-  end if;
-  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'ideas' and cmd = 'SELECT'
-              and qual ~ 'ideas_public_board' and roles <> array['anon']::name[]) then
-    raise exception 'FAIL: the public board''s policy on public.ideas lets a signed-in non-member read the table';
-  end if;
-end $$;
-
 select 'access checks passed' as result;
-
 rollback;

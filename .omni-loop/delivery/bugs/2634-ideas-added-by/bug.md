@@ -18,7 +18,7 @@ The table's read grant and its public-board policy gave anyone every column of a
 
 ## Guard
 
-A block in `supabase/checks/access.sql`, which CI runs on every pull request: it lists the exact columns of `public.ideas` anyone signed out can read, so a column added later fails until someone decides, and it refuses a public-board policy open to signed-in non-members. It failed on the code before the fix (`FAIL: anyone signed out reads these columns of public.ideas: added_by, archived, ...`) and passes after it. `supabase/checks/ideas.sql` itself is not run by CI.
+A block in `supabase/checks/repositories.sql`, which CI runs on every pull request: it lists the exact columns of `public.ideas` anyone signed out can read, so a column added later fails until someone decides, and it refuses a public-board policy open to signed-in non-members. It failed on the code before the fix (`FAIL: anyone signed out reads these columns of public.ideas: added_by, archived, ...`) and passes after it. `supabase/checks/ideas.sql` itself is not run by CI.
 
 ## Mutation
 

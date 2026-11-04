@@ -9,7 +9,7 @@
 --   column grant cannot tell them from a member, who still reads the whole row.
 --
 -- ideas_board() and ideas_public_board() stay callable signed out: the board's page and this policy
--- need them. Proven by supabase/checks/ideas.sql and supabase/checks/access.sql.
+-- need them. Proven by supabase/checks/ideas.sql and supabase/checks/repositories.sql.
 --
 -- Rollback: `grant select on public.ideas to anon` and set the policy's roles back to
 -- anon, authenticated.
