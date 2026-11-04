@@ -22,4 +22,4 @@ The reproduction: a job claimed while the bot's route refuses a call with no tok
 
 ## Mutation
 
-mutation: the changed files are outside the delivery core, see the pull request.
+mutation: no changed core file against origin/main (07ed9924): nothing to mutate
