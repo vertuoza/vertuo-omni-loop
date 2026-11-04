@@ -688,3 +688,13 @@ Source: .omni-loop/delivery/outbox/2608-tech-approval/settled.md, entry s1-03-th
 Enforced by: supabase/checks/tech_approval.sql
 Stated: 2026-11-04
 Decided: @pierrederval, 2026-11-04
+
+## BR-PRODUCT-128
+
+Approval email is on by default: a person with no alert settings gets approval emails, and a person who switched email off gets none.
+
+Serves: P-PRODUCT-88
+Source: .omni-loop/delivery/outbox/2608-tech-approval/settled.md, entry s2-03-the-approval-requests-check-now-expects-no-row-to-be-emailed, PRD #2608
+Enforced by: supabase/checks/approval_requests.sql
+Stated: 2026-11-04
+Decided: @pierrederval, 2026-11-04
