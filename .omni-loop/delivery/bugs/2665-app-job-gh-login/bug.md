@@ -33,4 +33,4 @@ request body without the line `omni runner sender` prints.
 
 ## Mutation
 
-mutation: no delivery-core file changed against origin/main
+mutation: no changed core file against origin/main (ebc7042f): nothing to mutate
