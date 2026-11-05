@@ -22,11 +22,11 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'cloud', 'runners', 'any-agent', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'flow', 'knowledge', 'design', 'validate-e2e',
+  'index', 'install', 'join', 'cloud', 'runners', 'any-agent', 'invade', 'loop', 'approvals', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'flow', 'knowledge', 'design', 'validate-e2e',
   'use-cases', 'troubleshooting', 'api',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Runners', 'Any coding agent', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
+  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Runners', 'Any coding agent', 'Invade', 'How the loop works', 'Approvals', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
   'Roadmaps', 'Ideas board', 'Repository flow', 'Knowledge', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
   'API',
 ];
@@ -41,7 +41,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its twenty-one pages, in order, each with its title', () => {
+  it('holds its twenty-two pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -50,7 +50,7 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/runners', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/runners', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
       '/docs/roadmaps', '/docs/flow', '/docs/flow', '/docs/design', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs',
     ]);
   });
@@ -178,6 +178,17 @@ describe('docs/guide', () => {
     }
     const cloud = body('cloud');
     for (const phrase of ['`OMNI_TOKEN=omk_…`', '`OMNI_ASK=on`', 'allow the host', '](/docs/any-agent)']) expect(cloud, phrase).toContain(phrase);
+  });
+
+  it('gives approvals a page of their own, the product approval and the Tech Approval, and links it from the loop (PRD 2608)', () => {
+    const body = (slug: string) => readGuide(GUIDE).pages.find((p) => p.slug === slug)?.body ?? '';
+    const page = body('approvals');
+    for (const heading of ['## Phase 0 approved on the server', '## The approval handshake', '## Tech Approval', '## The omni/approved check']) {
+      expect(page, heading).toContain(heading);
+    }
+    expect(page).toContain('/omni:tech-review <n>');
+    expect(body('loop')).toContain('](/docs/approvals)');
+    expect(body('loop')).toContain('](/docs/approvals#tech-approval)');
   });
 
   it('says why the phase-0 pull request goes into the default branch, and links it where a PRD is approved', () => {

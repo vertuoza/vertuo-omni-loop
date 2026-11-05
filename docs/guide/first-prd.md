@@ -114,7 +114,7 @@ request. Review the same three files on the PRD's page, then press **Approve** t
 records who approved and when, and pins the files you approved. If one changes on the feature branch
 afterwards, the build refuses until you restore it (`omni approval restore <n>`) or approve again,
 and the feature pull request's `omni/approved` check says so.
-[Phase 0 approved on the server](/docs/loop#phase-0-approved-on-the-server) says more.
+[Phase 0 approved on the server](/docs/approvals#phase-0-approved-on-the-server) says more.
 
 ## 3. Build it: `/clear`, then `/omni:yolo <n>`
 
