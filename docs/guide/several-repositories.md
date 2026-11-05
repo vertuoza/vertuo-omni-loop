@@ -418,7 +418,7 @@ marked `as of` that time; no gate ever trusts it.
 ### Approve it
 
 An approver of the product approves it on its page, as for any PRD born on the server
-([The approval handshake](/docs/loop#the-approval-handshake)). The approval pins every file by its
+([The approval handshake](/docs/approvals#the-approval-handshake)). The approval pins every file by its
 hash. A later change to a pinned file voids it, and the PRD must be approved again.
 
 ### Build it
