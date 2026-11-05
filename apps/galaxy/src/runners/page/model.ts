@@ -8,7 +8,7 @@ type Ended = StoredOutcome | null | undefined;
 // The Runners page's words (PRD 1830 s3), from the board the service reads: pure, so each runner state
 // and each job status is tested without a page. A runner reads Online, Busy, or Offline with when it
 // was last seen; a job reads Queued, Running with its time, Done, Failed with its reason (Runner lost,
-// Timeout, its exit code), or Cancelled. Cancel shows on a queued or running job, Send again on a
+// Timeout, its exit code, or its runner's words under it), or Cancelled. Cancel shows on a queued or running job, Send again on a
 // failed or cancelled one, sent again to where it first went.
 
 /** A fleet a runner may be given to: its key (`teams.name`) and the label the app shows. */
@@ -100,6 +100,15 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
       if (job.exitCode !== null) return `Failed, exit ${String(job.exitCode)}`;
       return 'Failed';
   }
+}
+
+/** The reasons a failed job's status already says in its own words. */
+const REASONS_IN_THE_STATUS: readonly string[] = ['runner lost', 'timeout'];
+
+/** Why a job failed, in its runner's words, to read under its status; null when it did not fail, gave no reason, or its status already says it. */
+export function failedWhy(job: Pick<Job, 'status' | 'reason'>): string | null {
+  if (job.status !== 'failed' || job.reason === null || REASONS_IN_THE_STATUS.includes(job.reason)) return null;
+  return job.reason;
 }
 
 /** The tone a status is drawn in; a queued job that cannot run is drawn as a failed one. */
