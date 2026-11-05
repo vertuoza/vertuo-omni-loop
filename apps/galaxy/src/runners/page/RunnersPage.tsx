@@ -4,7 +4,7 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton } from './actions';
 import {
-  afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
 import { accountChips, asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
@@ -213,6 +213,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
       <span>
         <StatusWords job={job} now={now} answered={answered} cannotRun={cannotRun !== null} />
         <CannotRunWhy reason={cannotRun} />
+        {failedWhy(job) !== null && <span className="runners-why" data-content>{failedWhy(job)}</span>}
         <CancelledBy job={job} />
         {after !== null && job.continues && <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span>}
         {slicesWords(job) !== null && <span className="runners-why" data-content>{slicesWords(job)}</span>}

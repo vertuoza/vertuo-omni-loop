@@ -244,6 +244,12 @@ describe('the board', () => {
     expect(text(failed)).toContain('Failed, exit 3');
   });
 
+  it('says why a job failed, in its runner\'s words, under its status', () => {
+    const reason = 'omni plugin v0.0.1 is older than acme/widgets\'s omni v0.0.2';
+    const failed = render(withBoard((board) => ({ ...board, jobs: [{ ...board.jobs[3] as Job, line: '/omni:wave 1', reason }] })));
+    expect(text(jobRow(failed, '/omni:wave 1'))).toContain(`Failed ${reason}`);
+  });
+
   it('says so when no job was sent yet', () => {
     expect(text(render(withBoard((board) => ({ ...board, jobs: [] }))))).toContain('No job yet.');
   });

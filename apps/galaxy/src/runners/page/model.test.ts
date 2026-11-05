@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { afterAnswersWords, answeredOf, cannotRunReason, cancelledByWords, canAnswer, canCancel, canResume, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, retroLineOf, senderWords, slicesWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { afterAnswersWords, answeredOf, cannotRunReason, cancelledByWords, canAnswer, canCancel, canResume, fixLineOf, canSendAgain, failedWhy, madeByWords, prdLineOf, prdPageLink, prWords, retroLineOf, senderWords, slicesWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -29,6 +29,22 @@ describe('statusWords', () => {
 
   it('says a failure without a reason or an exit code as Failed', () => {
     expect(statusWords({ ...job, status: 'failed' }, NOW)).toBe('Failed');
+  });
+});
+
+describe('failedWhy', () => {
+  it('is the runner\'s words for a failed job', () => {
+    expect(failedWhy({ status: 'failed', reason: 'the worktree could not be made' })).toBe('the worktree could not be made');
+  });
+
+  it('is nothing when the status already says the reason, or the job has none', () => {
+    expect(failedWhy({ status: 'failed', reason: 'runner lost' })).toBeNull();
+    expect(failedWhy({ status: 'failed', reason: 'timeout' })).toBeNull();
+    expect(failedWhy({ status: 'failed', reason: null })).toBeNull();
+  });
+
+  it('is nothing for a job that did not fail, whatever its reason', () => {
+    for (const status of ['queued', 'claimed', 'running', 'done', 'cancelled'] as const) expect(failedWhy({ status, reason: 'a reason' })).toBeNull();
   });
 });
 
