@@ -80,7 +80,7 @@ import type { AccountReport, HealthLimits, HealthReport, JobUpdate, RunnerApi, R
 import { accountsReport, DEFAULT_LIMITS, machineReads, nextPause, noTokensPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
-import { githubJobEnv, installGhShim } from './github-app.ts';
+import { emptyJobGhConfig, forgetJobGhConfig, githubJobEnv, installGhShim } from './github-app.ts';
 import { keepGithubToken } from './github-refresh.ts';
 import type { RefreshOptions } from './github-refresh.ts';
 import { accountBook, accountsStateFile, agentAccountOf, chooseAccount, FALLBACK_ACCOUNT, DEFAULT_HANDOFF, readSecret } from './accounts.ts';
@@ -547,6 +547,7 @@ function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
   }
   pruneWorktrees(loop.exec, place.checkout);
   dropJobBranch(loop.exec, place.checkout, `agent/job-${job.id}`);
+  forgetJobGhConfig(loop.home, job.id);
 }
 
 /** `claude -p` stops the background agents a wave starts 10 minutes after its last turn, then exits 0;
@@ -565,7 +566,8 @@ function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { 
   try {
     saveGithubToken(file, loop.name, job.github, loop.askUrl);
     const shimDir = installGhShim({ home: loop.home, tokenCommand: loop.githubToken, path: loop.env.PATH });
-    return { env: githubJobEnv({ bot: job.github, tokenCommand: loop.githubToken, shimDir, path: loop.env.PATH }) };
+    const ghConfigDir = emptyJobGhConfig(loop.home, job.id);
+    return { env: githubJobEnv({ bot: job.github, tokenCommand: loop.githubToken, shimDir, path: loop.env.PATH, ghConfigDir }) };
   } catch (error) {
     // The detail names a folder of this machine: it stays here, and the report carries the reason alone.
     loop.print(`job ${job.id}: its GitHub App token could not be kept (${error instanceof Error ? error.message : String(error)})`);

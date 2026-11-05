@@ -33,7 +33,18 @@ opens ends its body with the line `omni sign footer` prints, as a paragraph of i
 your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
 signed. A command that prints nothing means signing is off here: add nothing.
 
-**Under `OMNI_GITHUB_APP`.** While `OMNI_GITHUB_APP` is set (a runner job that runs as an API key's own
+**Who sent the job.** Run `node .omni-loop/bin/omni.mjs runner sender` once. In a runner's job it
+prints one line (`Sent from the Omni app by @<login> on runner <name>`, or `Sent through the Omni API by
+API key <name> on runner <name>`): every pull request body this skill writes, the draft's and step 12's,
+carries it as a paragraph of its own just above the `omni sign footer` line. Step 12 writes the body
+whole and puts it on the pull request with `gh pr edit --body-file`, which replaces what `/omni:pr`
+wrote: the line is in the file, or it is gone, and `omni bug <n>` refuses a body without it (bug 2665).
+It prints nothing: add nothing.
+
+**Under `OMNI_GITHUB_APP`.** Every `gh` call goes through the `gh` the runner put first on `PATH`; a
+`gh` reached another way (a shell profile that puts the machine's own first, or a full path) is signed
+in as nobody and fails. Never sign it in (`gh auth login`, a token of your own) to get past that: the
+hand-off says which `gh` call failed. While `OMNI_GITHUB_APP` is set (a runner job that runs as an API key's own
 GitHub App, PRD 2433), everything this skill writes on GitHub is that app's, and no person is named in
 it: request no reviewer on any pull request, even one the `pull-requests` form names; add no assignee to
 the issue or the pull request; and mention no `@login` in anything written on GitHub (an issue, a comment,
@@ -336,7 +347,8 @@ never level B's reason, and `omni bug <n>` refuses it as one.
 2. Push the fix branch: `git push -u <remote> <fix branch>`.
 3. Write the draft's body to a file outside the repository (`mktemp`): `Closes #<n>`, then
    `## What was wrong` as the triage tells it, then `## Proof` holding the one line
-   `Pending: the fix is not pushed yet.`, then the `omni sign footer` line (**Signing**). Open it
+   `Pending: the fix is not pushed yet.`, then the `omni runner sender` line (**Who sent the job**),
+   then the `omni sign footer` line (**Signing**). Open it
    through `/omni:pr`, as a standalone PR and as a **draft**, at point `pr.open` as `/omni:pr` says
    (its hooks see the reproduction alone) with `--issue <n>`, so its `pr.open` step can title it
    from the issue's marker (PRD 2648): base `repo.defaultBranch`, label `labels.bug` (subject to
@@ -748,6 +760,8 @@ open step 7's draft on the reproduction alone first, and only then commit the fi
    ## Risk and rollback
 
    <what else shares the changed code>; roll back by reverting this PR.
+
+   <the line `omni runner sender` prints, in a runner's job>
 
    <the line `omni sign footer` prints>
    ```

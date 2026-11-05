@@ -975,3 +975,42 @@ describe('omni bug ci — level B reads the red and the green from CI (PRD 2578)
     expect(calls).toEqual([]);
   });
 });
+
+describe('omni bug — a runner job’s pull request says who sent it (bug 2665)', () => {
+  const KEY_LINE = 'Sent through the Omni API by API key deploy bot on runner box-1';
+
+  /** `omni bug 12 --body-file` for `body`, in a session whose environment is `env`. */
+  async function inJob(body: string, env: Record<string, string>) {
+    const { root, base } = fixBranch();
+    const s = io();
+    const code = await main(['bug', String(ISSUE), '--base', base, '--body-file', bodyFile(body)], { cwd: root, env, ...s });
+    return { code, out: s.out.join('') };
+  }
+  const withLine = (line: string) => prBody().replace('## Bug', `${line}\n\n## Bug`);
+  const KEY_JOB = { OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' };
+
+  it('is not ok, naming the line, when a job an API key sent writes a body without its sender line', async () => {
+    const { code, out } = await inJob(prBody(), KEY_JOB);
+    expect(out).toBe(`not ok\n- the body lacks the line omni runner sender prints, as a paragraph of its own: ${KEY_LINE}\n`);
+    expect(code).toBe(1);
+  });
+
+  it('is not ok when a job the Omni app sent writes a body without its sender line', async () => {
+    const { code, out } = await inJob(prBody(), { OMNI_SENT_BY: 'ada', OMNI_RUNNER: 'box-1' });
+    expect(failures(out)).toEqual(['- the body lacks the line omni runner sender prints, as a paragraph of its own: Sent from the Omni app by @ada on runner box-1']);
+    expect(code).toBe(1);
+  });
+
+  it('is ok once the body carries the line on a line of its own', async () => {
+    expect(await inJob(withLine(KEY_LINE), KEY_JOB)).toEqual({ code: 0, out: 'ok\n' });
+  });
+
+  it('is not ok for the line only quoted inside another line', async () => {
+    const { code } = await inJob(withLine(`The runner said: ${KEY_LINE}.`), KEY_JOB);
+    expect(code).toBe(1);
+  });
+
+  it('asks for no line outside a runner job', async () => {
+    expect(await inJob(prBody(), {})).toEqual({ code: 0, out: 'ok\n' });
+  });
+});

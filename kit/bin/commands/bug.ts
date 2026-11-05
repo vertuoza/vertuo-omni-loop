@@ -3,7 +3,8 @@
 // holding a complete bug.md whose reproduction file the range `<base>..HEAD` changes, and every commit
 // of that range signed, and (PRD 1342) every change to a law the range makes answered in the folder's
 // outbox, and (PRD 2100) the pull request's body carrying its `## Proof` (`kit/lib/bug/proof-body.ts`):
-// the body in `--body-file`, else the open pull request of the current branch, read through `gh`.
+// the body in `--body-file`, else the open pull request of the current branch, read through `gh`; in a
+// runner's job, that body also carries the line `omni runner sender` prints (bug 2665).
 // Prints `ok`, or `not ok` then one `- ` line per failed check (`kit/lib/bug/verdict.ts`). It runs no
 // test. `--base` defaults to `<repo.remote>/<repo.defaultBranch>`; a bad ref, or a `--body-file` that
 // cannot be read, is a usage error, exit 2.
@@ -26,12 +27,13 @@ import { resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { gradeBugFile, bugSeqArg, bugPushedLines, pushProductBug } from '../../lib/bug/product.ts';
-import { openPullRequest, proofFaults } from '../../lib/bug/proof-body.ts';
+import { openPullRequest, proofFaults, senderFaults } from '../../lib/bug/proof-body.ts';
 import type { ProofSource } from '../../lib/bug/proof-body.ts';
 import { bugVerdict } from '../../lib/bug/verdict.ts';
 import { formatFailure, formatPass } from '../../lib/check-report.ts';
 import { parseIssue } from '../../lib/ids.ts';
 import { isProductKey } from '../../lib/product/checkout.ts';
+import { senderLine } from '../../lib/runner/sender.ts';
 import { issueArg, parseArgs, println, readUserFile, usageError } from '../args.ts';
 import { fixLaws, loggedPaths, rangeBase, rangeCommits } from '../branch-range.ts';
 import { synchronous } from '../synchronous.ts';
@@ -50,7 +52,7 @@ const USAGE = [
 ].join('\n');
 
 /** Grades the fix of issue `<n>` on the current branch; the exit code. */
-function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
+function grade(args: string[], { ctx, stdout, exec, vars }: CommandIo): number {
   const { positional, flags } = parseArgs('bug', args, { values: ['base', 'body-file'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const issue = issueArg('bug', '<n>', positional[0]);
@@ -63,7 +65,10 @@ function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
     changed: loggedPaths(ctx.root, base, exec),
     commits: ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec),
     laws: fixLaws(ctx, issue, base, exec),
-    proof: () => proofFaults(written ?? openPullRequest({ root: ctx.root, exec }), issue),
+    proof: () => {
+      const source = written ?? openPullRequest({ root: ctx.root, exec });
+      return [...proofFaults(source, issue), ...senderFaults(source, senderLine(vars.runnerSender))];
+    },
   });
   println(stdout, verdict.ok ? 'ok' : 'not ok');
   for (const failure of verdict.failures) println(stdout, `- ${failure}`);

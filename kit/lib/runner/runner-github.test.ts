@@ -6,13 +6,13 @@
 // Kept current (s3): a token with less than 5 minutes left is asked for again, on a fake clock; a refusal is
 // tried again every minute; a token that expired with no fresh one ends the job `failed`, `github app: <why>`;
 // the claims of a job that ran as an app are released with its token, never the machine's.
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RunnerRefused } from './api.ts';
 import type { JobUpdate, Registration, RunnerApi, RunnerJob } from './api.ts';
-import { ghShimDir } from './github-app.ts';
+import { ghShimDir, jobGhConfigDir } from './github-app.ts';
 import { githubTokenFile, saveGithubToken } from './github-token.ts';
 import type { GithubToken } from './github-token.ts';
 import type { EndedJob } from './release.ts';
@@ -200,10 +200,25 @@ describe('a job with an app (the claim’s github)', () => {
       GIT_COMMITTER_EMAIL: '42+omni-acme[bot]@users.noreply.github.com',
       GIT_CONFIG_COUNT: '4',
       PATH: `${ghShimDir(home)}:/usr/bin`,
+      GH_CONFIG_DIR: jobGhConfigDir(home, '7'),
     });
     expect(env?.GIT_CONFIG_VALUE_1).toBe("!'/usr/bin/node' '/opt/omni.mjs' 'runner' 'github-token' '--git'");
     expect(JSON.stringify(seen[0]?.session)).not.toContain(TOKEN);
     expect(statSync(join(ghShimDir(home), 'gh')).mode & 0o111).not.toBe(0);
+  });
+
+  it('gives the session an empty gh folder of its own, so a gh reached without the shim is signed in as nobody, and removes it after (bug 2665)', async () => {
+    const left: string[][] = [];
+    const { seen, home } = await runOne(asApp, {
+      githubToken: TOKEN_COMMAND,
+      during: (_home, session) => {
+        left.push(readdirSync(session.env.GH_CONFIG_DIR ?? ''));
+      },
+    });
+    const dir = jobGhConfigDir(home, '7');
+    expect(seen[0]?.session.env.GH_CONFIG_DIR).toBe(dir);
+    expect(left).toEqual([[]]);
+    expect(dir === null || existsSync(dir)).toBe(false);
   });
 
   it('keeps the token in a file of its own, for the runner only, before the session starts, and forgets it once the job is reported', async () => {

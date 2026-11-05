@@ -4,8 +4,13 @@
 // `gh` read the token through `omni runner github-token`, whose command the runner is given: the token is
 // never in a job's environment, a file git reads or a command line.
 //
+// The shim is only first on the `PATH` the job starts with: a shell profile may put the machine's own `gh`
+// back ahead of it, or the job may run it by its full path (bug 2665). So the job's `gh` also reads its
+// sign-in from a folder of its own, made empty for it (`GH_CONFIG_DIR`): a `gh` reached without the shim is
+// signed in as nobody and fails, never acting as the person signed in on the machine.
+//
 // A job with no app gets none of it: its environment is the runner's, as it always was.
-import { accessSync, chmodSync, constants, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, chmodSync, constants, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { delimiter, join, resolve } from 'node:path';
 import { gitConfigVariables, githubAppVariables } from '../env/read.ts';
 
@@ -17,6 +22,33 @@ export function shellQuote(text: string): string {
 /** Where the runner keeps the `gh` it puts first on a job's `PATH`: beside the sign-in the kit keeps, not in a folder a person owns. */
 export function ghShimDir(home: string): string {
   return join(home, '.config', 'omni', 'runner', 'bin');
+}
+
+/** A job id as the runner names its files: letters, digits, dashes and underscores (the token file's). */
+const JOB_ID = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * The folder a job's `gh` reads its sign-in from (bug 2665): its own, beside the shim's, never the machine's
+ * `~/.config/gh`; `null` for an id that is no job's, which names no folder.
+ */
+export function jobGhConfigDir(home: string, job: string): string | null {
+  return JOB_ID.test(job) ? join(home, '.config', 'omni', 'runner', 'gh', `job-${job}`) : null;
+}
+
+/** Makes the job's `gh` folder empty, readable by the runner's user alone: nobody is signed in there. */
+export function emptyJobGhConfig(home: string, job: string): string {
+  const dir = jobGhConfigDir(home, job);
+  if (dir === null) throw new Error(`no gh folder for job ${job}`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
+  return dir;
+}
+
+/** Removes the job's `gh` folder once the job has ended: whatever its `gh` wrote there goes with it. */
+export function forgetJobGhConfig(home: string, job: string): void {
+  const dir = jobGhConfigDir(home, job);
+  if (dir !== null) rmSync(dir, { recursive: true, force: true });
 }
 
 /** The first executable `gh` on `path` outside `skip` (the shim's own folder), or `null`. */
@@ -81,12 +113,26 @@ function gitConfigOf(tokenCommand: readonly string[]): Record<string, string> {
 
 /**
  * The variables a job running as the app `bot` starts with, on top of the runner's own: the app as its
- * identity, git over HTTPS with the token, and the shim's folder first on `path`.
+ * identity, git over HTTPS with the token, the shim's folder first on `path`, and `ghConfigDir`, the job's
+ * empty `gh` folder, as the only sign-in any `gh` it runs reads.
  */
-export function githubJobEnv({ bot, tokenCommand, shimDir, path }: { bot: { login: string; email: string }; tokenCommand: readonly string[]; shimDir: string; path: string | undefined }): Record<string, string> {
+export function githubJobEnv({
+  bot,
+  tokenCommand,
+  shimDir,
+  path,
+  ghConfigDir,
+}: {
+  bot: { login: string; email: string };
+  tokenCommand: readonly string[];
+  shimDir: string;
+  path: string | undefined;
+  ghConfigDir: string;
+}): Record<string, string> {
   return {
     ...githubAppVariables(bot),
     ...gitConfigOf(tokenCommand),
     PATH: path === undefined || path === '' ? shimDir : `${shimDir}${delimiter}${path}`,
+    GH_CONFIG_DIR: ghConfigDir,
   };
 }

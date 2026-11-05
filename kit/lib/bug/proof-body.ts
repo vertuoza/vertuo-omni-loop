@@ -24,6 +24,11 @@
  *
  * A proof that was not produced belongs to a draft: read from an open pull request that is not one,
  * it is one more fault. A record with a `## Fixes` section is never checked here (the caller skips it).
+ *
+ * In a runner's job, the body also carries the line `omni runner sender` prints (`Sent from the Omni app
+ * by @<login> on runner <name>`, or `Sent through the Omni API by API key <name> on runner <name>`) on a
+ * line of its own (bug 2665): a body the skill writes whole, and puts on the pull request with
+ * `gh pr edit --body-file`, would otherwise drop it.
  */
 import { z } from 'zod';
 import type { ExecText } from '../context.ts';
@@ -155,6 +160,13 @@ function bodyFaults(body: string): { faults: string[]; produced: boolean } {
   }
   if (!hasImage) return { faults: ['## Proof has no image and no "GIF not produced - <reason>" line'], produced: false };
   return { faults: ['## Proof\'s image has no "Before the fix" or "After the fix" line'], produced: false };
+}
+
+/** The verdict's line when a job's body lacks `sender`, the line `omni runner sender` prints; none outside a job, or with no body. */
+export function senderFaults(source: ProofSource, sender: string | null): string[] {
+  if (sender === null || source.kind === 'none') return [];
+  if (source.body.split('\n').some((line) => line.trim() === sender)) return [];
+  return [`the body lacks the line omni runner sender prints, as a paragraph of its own: ${sender}`];
 }
 
 /** What `omni bug <n>` says when it has no body to check, and how to get one. */

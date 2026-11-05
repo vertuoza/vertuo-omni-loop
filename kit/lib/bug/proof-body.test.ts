@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ExecText } from '../context.ts';
 import { parseIssue, parsePr } from '../ids.ts';
-import { openPullRequest, proofFaults, proofSection } from './proof-body.ts';
+import { openPullRequest, proofFaults, proofSection, senderFaults } from './proof-body.ts';
 import type { ProofSource } from './proof-body.ts';
 
 const ISSUE = parseIssue(12);
@@ -279,5 +279,26 @@ describe('openPullRequest', () => {
     ['gh failing', new Error('no pull requests found for branch')],
   ])('is none for %s', (_name: string, answer: string | Error) => {
     expect(read(answer)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('senderFaults (bug 2665)', () => {
+  const LINE = 'Sent through the Omni API by API key deploy bot on runner box-1';
+  const file = (body: string): ProofSource => ({ kind: 'file', body });
+
+  it('asks for nothing outside a runner job, or with no body to read', () => {
+    expect(senderFaults(file('Closes #12'), null)).toEqual([]);
+    expect(senderFaults({ kind: 'none' }, LINE)).toEqual([]);
+  });
+
+  it('passes the line on a line of its own, blanks around it kept, in a body read from the pull request too', () => {
+    expect(senderFaults(file(`Closes #12\n\n  ${LINE}  \n\nfooter`), LINE)).toEqual([]);
+    expect(senderFaults({ kind: 'pull-request', body: `${LINE}\n`, pr: parsePr(34), isDraft: true }, LINE)).toEqual([]);
+  });
+
+  it('names the line it lacks, and refuses it inside another line', () => {
+    const fault = [`the body lacks the line omni runner sender prints, as a paragraph of its own: ${LINE}`];
+    expect(senderFaults(file('Closes #12'), LINE)).toEqual(fault);
+    expect(senderFaults(file(`Said: ${LINE}.`), LINE)).toEqual(fault);
   });
 });
