@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-04",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "My pull requests keep the title my skill wrote unless it said it found no reference; that is a correction, not a rewrite.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "My pull requests are renamed after the fact by a gh pr edit I do not see; if my skill already put a reference from my branch, I want no title with two.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A fix the runner opens lands in the tracker by itself, ticket linked, without anyone renaming it.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One pure function changes and one skill step is made explicit; the proof guard keeps its draft rule.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A fix with no ticket still opens with the no-reference title, so nothing changes for runs outside the tracker flow.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "My pull requests are renamed after the fact by a gh pr edit I do not see. If my skill already put a reference from my branch, I want no title with two.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "persona:F-E Developer ✓ · persona:B-E DEv ✗ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-04",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "My pull requests keep the title my skill wrote unless it said it found no reference; that is a correction, not a rewrite.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A title that already carries a reference is kept, mine or the issue's: no title with two, and my skill's own pick wins.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A fix the runner opens lands in the tracker by itself, ticket linked, without anyone renaming it.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One pure function changes and one skill step is made explicit; the proof guard keeps its draft rule.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A fix with no ticket still opens with the no-reference title, so nothing changes for runs outside the tracker flow.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    }
+  ]
+}
