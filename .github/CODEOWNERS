@@ -36,6 +36,11 @@
 /.omni-loop/knowledge/domains/push/principles.md @pierrederval @dervalp
 /.omni-loop/knowledge/domains/push/rules.md @pierrederval @dervalp
 /.omni-loop/knowledge/domains/push/invariants.md @pierrederval @dervalp
+# The business laws: the product's rules, changed only with their owner's approval.
+/.omni-loop/knowledge/domains/access/business-laws.md @pierrederval @dervalp
+/.omni-loop/knowledge/domains/approvals/business-laws.md @pierrederval @dervalp
+/.omni-loop/knowledge/domains/ask/business-laws.md @pierrederval @dervalp
+/.omni-loop/knowledge/domains/gate/business-laws.md @pierrederval @dervalp
 # The briefing: the rules every agent follows.
 /.omni-loop/knowledge/playbook/briefing.md @pierrederval @dervalp
 # law BR-PRODUCT-28: its test.
