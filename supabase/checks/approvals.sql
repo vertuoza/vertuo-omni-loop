@@ -213,7 +213,3 @@ reset role;
 
 select 'approval checks passed' as result;
 rollback;
-
--- PRD 2632 s4: the business laws' verdicts and the approval a red holds, in their own transaction. They run
--- from here until the supabase workflow has a step of their own (an agent's token may not edit a workflow).
-\ir business_law_verdicts.sql

@@ -367,6 +367,11 @@ jobs:
         # Only the named person gives it, the product approval waits for it, and a tech approval alone
         # reads as no approval (PRD 2608).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/tech_approval.sql
+      - name: The business laws' verdicts, and the approval a red holds
+        # One verdict per spec version and pack, never rewritten; only the service role writes one and reads
+        # the judge's input. A red at the law home's newest pack refuses the product approval only: a Tech
+        # Approval still goes through and does not lift it (PRD 2632).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/business_law_verdicts.sql
       - name: Who may race on a workspace's kart grid
         # Only a player of the workspace with OMNI KART unlocked receives or sends Broadcast and
         # Presence on kart:<workspace id>; another workspace, no kart unlocked, no player row, anon,
