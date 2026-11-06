@@ -43,6 +43,9 @@ A merge to `main` ships:
   Deploy Hook.
   `VERCEL_FORCE_BUILD=1` on a project makes it build every deployment
   ([apps/galaxy/README.md › When Vercel builds](../../../apps/galaxy/README.md#8-when-vercel-builds)).
+- **omni-app's jobs** run as Inngest last registered them. After a deploy, run
+  `curl -X PUT https://omni-loop.vercel.app/api/inngest`: `"modified":true` means Inngest was out of
+  date and no merge job ran (#2669).
 
 ## How a release happens
 <!-- slot: how · optional · by: invade -->
