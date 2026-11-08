@@ -1081,6 +1081,163 @@
           "became": "playbook/testing#never"
         }
       }
+    },
+    {
+      "run": "day-14",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 2433,
+        "title": "An API key's job runs on GitHub as the calling app's own GitHub App, never as a person",
+        "topic": "api-key-github-app",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/2433-api-key-github-app"
+      },
+      "featurePr": {
+        "number": 2434,
+        "title": "feat(api): an API key's job runs on GitHub as the calling app's own GitHub App (PRD 2433)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2434",
+        "openedAt": "2026-10-22T16:30:35Z",
+        "mergedAt": "2026-10-23T07:01:02Z",
+        "mergeSha": "dd149cc07ea3fd09f37a5faf498e6227cd0d4b89"
+      },
+      "kinds": {
+        "after-merge": {
+          "bugs": [],
+          "checks": {
+            "commit": "dd149cc",
+            "green": 5,
+            "jobs": [
+              {
+                "conclusion": "success",
+                "name": "sync",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39915124633/job/120286860451",
+                "workflow": "releases"
+              },
+              {
+                "conclusion": "success",
+                "name": "deploy",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39915079078/job/120286714550",
+                "workflow": "supabase"
+              },
+              {
+                "conclusion": "skipped",
+                "name": "check",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39915079078/job/120286716186",
+                "workflow": "supabase"
+              },
+              {
+                "conclusion": "success",
+                "name": "push",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39915079077/job/120286714733",
+                "workflow": "knowledge-graph"
+              },
+              {
+                "conclusion": "success",
+                "name": "release",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39915079050/job/120286714709",
+                "workflow": "release"
+              },
+              {
+                "conclusion": "success",
+                "name": "sync",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39915079185/job/120286715047",
+                "workflow": "releases"
+              }
+            ],
+            "other": 1,
+            "read": true,
+            "red": 0,
+            "status": null,
+            "total": 6
+          },
+          "days": 14,
+          "fixed": 0,
+          "fixes": [],
+          "from": "2026-10-23T07:01:02.000Z",
+          "linked": 0,
+          "prd": 2433,
+          "to": "2026-11-06T07:01:02.000Z",
+          "total": 0,
+          "unread": []
+        }
+      },
+      "findings": [],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "The repeated gitleaks red teaches something not yet recorded: the scan covers the whole commit range, so a leaked fixture must be kept out or rewritten, not fixed forward."
+      },
+      "lessons": [
+        {
+          "text": "The leak scan reads every commit since the base, so a credential-shaped value removed in a later commit stays red. A slice whose tests need fake keys or tokens builds them so the scan does not match, or runs the scan locally before the first push. If one slips through, it rewrites the slice's commits instead of adding a fix on top.",
+          "findings": [
+            "repeated-red:gitleaks"
+          ]
+        }
+      ],
+      "issues": {}
     }
   ]
 }

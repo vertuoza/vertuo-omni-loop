@@ -2,7 +2,7 @@
 prd: 2433
 feature-pr: 2434
 merge-sha: dd149cc
-runs: [merge]
+runs: [merge, day-14]
 model: anthropic/claude-opus-5.5
 rules: 1
 judge: 1
@@ -10,46 +10,46 @@ judge: 1
 
 # Retro — PRD 2433, An API key's job runs on GitHub as the calling app's own GitHub App, never as a person
 
-The delivery made jobs sent with an API key run on GitHub as the calling app's own GitHub App, with no person named on the work. One decision drifted: the build did not match the settled answer on which repositories the job's token covers, and a rework pull request brought it back in line. The secret scan `gitleaks` stayed red on several commits of one slice, reporting the same leaks each time, so the pushes in between did not address what it found. Three slices changed files outside their declared territory: a migration test, a GitHub call-site test, and the database migration, check and generated types.
+The delivery moved every job sent with an API key onto the calling app's own GitHub App, so that no person is named on the work. Most slices landed cleanly. One decision about how far the job's token reaches drifted from what was built, and a later rework brought the build back in line. The leak scan `gitleaks` stayed red on several pushes of one slice, with the same set of leaks found each time even as new commits were added. Three slices also touched files outside their declared territory: tests, a migration, generated database types and a database check.
 
 ## Findings
 
-### F1 · The token's reach drifted from its decision and was reworked — `drift:s7-01-token-covers-the-jobs-own-repository-only`
+### F1 · Token reach drifted from its settled decision, then reworked — `drift:s7-01-token-covers-the-jobs-own-repository-only`
 
 - **What happened:** The answer to decision `s7-01-token-covers-the-jobs-own-repository-only` (rank high, slice s7) disagreed with what was built; rework #2456 brought the build back in line.
-- **Why it matters:** How far a job's token reaches decides which repositories an outside app can write to. A build that disagrees with the settled answer could hand a job more access than the key allows. The rework closed that gap before the feature shipped.
+- **Why it matters:** The settled answer limits a key job's token to the repositories the key and the App installation both hold. A build that reached further would grant access beyond what the key allows. The rework closed the gap before the feature shipped.
 - **Evidence:** [settled.md](https://github.com/vertuoza/vertuo-omni-loop/blob/dd149cc07ea3fd09f37a5faf498e6227cd0d4b89/.omni-loop/delivery/shipped/2433-api-key-github-app/outbox/settled.md), [#2456](https://github.com/vertuoza/vertuo-omni-loop/pull/2456)
 
-### F2 · The secret scan stayed red across several pushes of one slice — `repeated-red:gitleaks` · [#2469](https://github.com/vertuoza/vertuo-omni-loop/issues/2469)
+### F2 · Leak scan stayed red across pushes with the same leaks found — `repeated-red:gitleaks` · [#2469](https://github.com/vertuoza/vertuo-omni-loop/issues/2469)
 
 - **What happened:** The check `gitleaks` was red on 3 commits in 1 slice (s2): 4 of its 35 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.
-- **Why it matters:** `gitleaks` reported the same leaks on each commit it scanned, so each push left the finding as it was and the check stayed red for the whole slice. A slice that handles GitHub App credentials is exactly where a real secret could slip into history, so a red scan there needs to be cleared at its cause, not pushed past.
-- **Proposed lesson:** A slice that handles credentials runs the secret scan over its own commits before every push. Any test credential it adds is built so it cannot be read as a real secret, so the scan is clear on the first push.
-- **Kept:** Neither the knowledge nor the earlier lessons say to scan for secrets before pushing a credential-handling change, and the scan was red on 3 commits.
-- **Evidence:** [gitleaks on 12fb34c in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39822198961/job/119976085280), [gitleaks on c027fd0 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39823933564/job/119982097274), [gitleaks on fadec56 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826216013/job/119990070469), [gitleaks on fadec56 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826293330/job/119990341725)
+- **Why it matters:** The scan reads every commit between the base and the head. It found the same leaks on each run while the number of scanned commits grew. Later commits therefore did not clear what earlier commits had added. A feature about GitHub App credentials naturally produces credential-shaped test values, and those trip the scan.
+- **Proposed lesson:** The leak scan reads every commit since the base, so a credential-shaped value removed in a later commit stays red. A slice whose tests need fake keys or tokens builds them so the scan does not match, or runs the scan locally before the first push. If one slips through, it rewrites the slice's commits instead of adding a fix on top.
+- **Kept:** Neither the knowledge nor the earlier lessons say that the leak scan reads the whole commit range, or that fixing a leak forward leaves the check red.
 - **Became:** `playbook/testing#never`
+- **Evidence:** [gitleaks on 12fb34c in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39822198961/job/119976085280), [gitleaks on c027fd0 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39823933564/job/119982097274), [gitleaks on fadec56 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826216013/job/119990070469), [gitleaks on fadec56 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826293330/job/119990341725)
 
 ### F3 · A slice edited a migration test outside its territory — `territory:s1`
 
 - **What happened:** Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/runners/runners.migration.test.ts`.
-- **Why it matters:** _Dropped: it holds a word the rules refuse._
+- **Why it matters:** A test file outside the declared territory can collide with another slice working on the same file.
 - **Evidence:** [#2435](https://github.com/vertuoza/vertuo-omni-loop/pull/2435/files)
 
-### F4 · A slice edited the GitHub call-site test outside its territory — `territory:s4`
+### F4 · A slice edited a call-sites test outside its territory — `territory:s4`
 
 - **What happened:** Slice s4 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/github-call-sites.test.ts`.
-- **Why it matters:** _Dropped: it holds a word the rules refuse._
+- **Why it matters:** A guard test that every GitHub call site must satisfy is edited by any slice that adds a call site, so it is likely to collide.
 - **Evidence:** [#2445](https://github.com/vertuoza/vertuo-omni-loop/pull/2445/files)
 
-### F5 · A slice added database files outside its territory — `territory:s6`
+### F5 · A slice added a migration, types and a check outside its territory — `territory:s6`
 
 - **What happened:** Slice s6 changed 3 paths outside its territory and off the plan’s shared ground: `supabase/checks/api_key_github_apps.sql`, `supabase/database.types.ts`, `supabase/migrations/20261228090000_api_key_github_apps.sql`.
-- **Why it matters:** _Dropped: it holds a digit._
+- **Why it matters:** The plan did not give this slice the database files its own new table required. The slice therefore changed paths the plan never assigned to it.
 - **Evidence:** [#2451](https://github.com/vertuoza/vertuo-omni-loop/pull/2451/files)
 
 ## Proposed lessons
 
-- A slice that handles credentials runs the secret scan over its own commits before every push. Any test credential it adds is built so it cannot be read as a real secret, so the scan is clear on the first push. (F2)
+- The leak scan reads every commit since the base, so a credential-shaped value removed in a later commit stays red. A slice whose tests need fake keys or tokens builds them so the scan does not match, or runs the scan locally before the first push. If one slips through, it rewrites the slice's commits instead of adding a fix on top. (F2)
 
 ## Timeline
 
@@ -76,7 +76,7 @@ The delivery made jobs sent with an API key run on GitHub as the calling app's o
 - Friction: 0 slices stuck, 0 labelled `omni:needs-fix`, 0 claimed more than once.
 - Review: 10 pull requests — 0 reviews, 0 review threads, 0 red-circle bot findings, 0 threads unresolved at the merge.
 
-Findings: F1 · The token's reach drifted from its decision and was reworked; F3 · A slice edited a migration test outside its territory; F4 · A slice edited the GitHub call-site test outside its territory; F5 · A slice added database files outside its territory
+Findings: F1 · Token reach drifted from its settled decision, then reworked; F3 · A slice edited a migration test outside its territory; F4 · A slice edited a call-sites test outside its territory; F5 · A slice added a migration, types and a check outside its territory
 
 ## Checks
 
@@ -99,7 +99,7 @@ Red runs:
 | [gitleaks](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826216013/job/119990070469) | s2 | `fadec56` | no test named: its last lines are kept as an excerpt |
 | [gitleaks](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39826293330/job/119990341725) | s2 | `fadec56` | no test named: its last lines are kept as an excerpt |
 
-Findings: F2 · The secret scan stayed red across several pushes of one slice · [#2469](https://github.com/vertuoza/vertuo-omni-loop/issues/2469)
+Findings: F2 · Leak scan stayed red across pushes with the same leaks found · [#2469](https://github.com/vertuoza/vertuo-omni-loop/issues/2469)
 
 ## Churn
 
@@ -116,3 +116,8 @@ Rules version 1; the thresholds this run used:
 - Churn: a line range rewritten in 3 or more commits; a file whose churn is at least 50% of its final added lines and at least 40 lines.
 - After merge: the `bug` issues naming the PRD within 14 days of the merge.
 - At most 5 issues per run, most severe first: bug, override, drift, repeated-red or flaky, failing-test, review, friction, territory, churn, slow-slice.
+
+## After merge
+
+- No `bug` issue naming #2433 was opened within 14 days of the merge.
+- 6 GitHub Actions jobs ran on the merge commit `dd149cc`: 5 green, 0 red, 1 neither.
