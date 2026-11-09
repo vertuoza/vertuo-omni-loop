@@ -208,7 +208,8 @@ $$;
 --   waiting   queued again at p_retry_at (required), its try given back: GitHub's budget was low
 --   failed    failed, p_reason the error (required)
 -- Answers the job's state. 22023 a malformed value, P0002 no such job, 55000 a claim that is no longer the job's.
-create function public.background_job_finish(p_id uuid, p_claim uuid, p_outcome text, p_reason text, p_retry_at timestamptz)
+create function public.background_job_finish(p_id uuid, p_claim uuid, p_outcome text, p_reason text default null,
+                                              p_retry_at timestamptz default null)
 returns text
 language plpgsql
 security definer

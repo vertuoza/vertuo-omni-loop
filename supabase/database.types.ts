@@ -5146,8 +5146,8 @@ export type Database = {
           p_claim: string
           p_id: string
           p_outcome: string
-          p_reason: string
-          p_retry_at: string
+          p_reason?: string
+          p_retry_at?: string
         }
         Returns: string
       }
