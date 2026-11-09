@@ -1,0 +1,116 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-09",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A ledger I can read, with every try written down, helps me keep the teams on one way of running jobs.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Writing our own queue sounds like more fluff unless a jam is impossible to miss.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "I want my laws working across repositories, though this first step only brings back the knowledge part.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "I don't master the harness, so I only care that it works without me touching it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It stays out of my code, and fewer silent failures means less slop reaching production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "I already see this tool as a gimmick, and now you're writing your own queue. When it jams at 3am, how would I even know?",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "Fits the lead engineer best and the skeptical back-end developer worst, until a jam opened an issue by itself."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-09",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Five tries, a claim that runs out and a replay give me what I need when a job fails.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "An issue opening by itself answers my worry, and two tables is less fluff than I feared.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "My specs get judged again, but the outbox check staying off still holds some of my repositories back.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing changes on my screen, and my PRDs get judged again, which is what I need.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It never touches the front end, so I have no reason to object.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "fit": "Fits the lead engineer best; the outbox check staying off is what the product manager feels most."
+    }
+  ]
+}
