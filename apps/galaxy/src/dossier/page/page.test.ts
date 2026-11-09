@@ -971,8 +971,10 @@ describe('the page of a product PRD', () => {
   it('seals an approval under the product PRD\'s id', async () => {
     const id = await productPrd();
     given.token = 'bob';
-    given.approval = vi.fn(() => Promise.resolve({ id: 'a-1', approver_login: 'ada', approved_at: '2026-11-09T09:12:00Z', files: [] }));
-    expect(textOf(await html(id))).toContain('PRD mobile-1');
+    const versions = await given.fake.client('bob').from('dossier_versions').select('id, kind').eq('dossier_id', id);
+    const files = (versions.data as { id: string; kind: string }[]).map((version) => ({ kind: version.kind, path: `${version.kind}.md`, version_id: version.id, sha256: '9c41aa00e07b' }));
+    given.approval = vi.fn(() => Promise.resolve({ id: 'a-1', approver_login: 'ada', approved_at: '2026-11-09T09:12:00Z', files }));
+    expect(await html(id)).toContain('Seal of PRD mobile-1');
   });
 
   it('offers no Approve on a draft', async () => {
