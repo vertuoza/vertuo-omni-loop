@@ -12,6 +12,7 @@
     "@octokit/webhooks": "^14.2.0",
     "@omni/github": "workspace:*",
     "@supabase/supabase-js": "^2.117.1",
+    "@vercel/functions": "^3.11.0",
     "inngest": "^4.21.0",
     "omni-loop": "workspace:*",
     "yaml": "^2.5.0",
