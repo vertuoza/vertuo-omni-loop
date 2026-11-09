@@ -602,8 +602,8 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
     const known = await stored((s) => s.budget(installation, resource));
-    const refused6 = refusal(known, priority, clock());
-    if (refused6) throw refused6;
+    const refused5 = refusal(known, priority, clock());
+    if (refused5) throw refused5;
     const etag = await conditionalOf(installation, url, resource, rest.method);
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
@@ -4490,16 +4490,16 @@ function compare(risky, accounts) {
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
   const accepted = /* @__PURE__ */ new Set();
-  const refused6 = /* @__PURE__ */ new Map();
+  const refused5 = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     const why = refusal2(entry);
     if (why === null) accepted.add(entryKey(entry));
-    else refused6.set(entryKey(entry), why);
+    else refused5.set(entryKey(entry), why);
   }
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change2) => accepted.has(entryKey(change2)));
   const unaccounted = risky.filter((change2) => !accepted.has(entryKey(change2))).map((change2) => {
-    const why = refused6.get(entryKey(change2));
+    const why = refused5.get(entryKey(change2));
     return why === void 0 ? change2 : { ...change2, refused: why };
   });
   const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
@@ -7644,10 +7644,10 @@ async function onBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
-    const refused6 = refusalIn(error);
-    if (!refused6) throw error;
-    log2(`approved check of ${where} waits for the GitHub budget: ${refused6.message}`);
-    throw new RetryAfterError(refused6.message, new Date(refused6.until), { cause: refused6 });
+    const refused5 = refusalIn(error);
+    if (!refused5) throw error;
+    log2(`approved check of ${where} waits for the GitHub budget: ${refused5.message}`);
+    throw new RetryAfterError(refused5.message, new Date(refused5.until), { cause: refused5 });
   }
 }
 
@@ -8170,10 +8170,10 @@ async function waitingOnBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
-    const refused6 = budgetRefusal(error);
-    if (!refused6) throw error;
-    log2(`outbox check of ${where} waits for the GitHub budget: ${refused6.message}`);
-    throw new RetryAfterError2(refused6.message, new Date(refused6.until), { cause: refused6 });
+    const refused5 = budgetRefusal(error);
+    if (!refused5) throw error;
+    log2(`outbox check of ${where} waits for the GitHub budget: ${refused5.message}`);
+    throw new RetryAfterError2(refused5.message, new Date(refused5.until), { cause: refused5 });
   }
 }
 async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
@@ -9393,14 +9393,14 @@ function relayFolder({
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   const moved = [];
-  const refused6 = [];
+  const refused5 = [];
   const taken = settledIds(ctx, outboxDir);
   for (const name of markdownFiles(join45(ctx.root, outboxDir))) taken.add(basename9(name, ".md"));
   for (const name of markdownFiles(dir)) {
     const from = join45(dir, name);
     const reason2 = itemRefusal({ laws, prd, file: `${outboxDir}/${name}`, name, text: readFileSync30(from, "utf8"), taken });
     if (reason2 !== null) {
-      refused6.push({ file: from, reason: reason2 });
+      refused5.push({ file: from, reason: reason2 });
       continue;
     }
     const to = `${outboxDir}/${name}`;
@@ -9415,14 +9415,14 @@ function relayFolder({
     const to = `${outboxDir}/${ACCOUNTS_DIR}/${name}`;
     const reason2 = accountRefusal({ prd, destination: join45(ctx.root, to), name: from, text: readFileSync30(from, "utf8") });
     if (reason2 !== null) {
-      refused6.push({ file: from, reason: reason2 });
+      refused5.push({ file: from, reason: reason2 });
       continue;
     }
     mkdirSync7(join45(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
     move(from, join45(ctx.root, to));
     moved.push({ from, to });
   }
-  return { moved, refused: refused6 };
+  return { moved, refused: refused5 };
 }
 
 // kit/lib/outbox/replies.ts
@@ -9956,14 +9956,14 @@ function serverOutboxStore({ ctx, connect, now }) {
       if (!isFolder(dir)) return null;
       const taken = new Set((await rows(product)).map((row) => row.item));
       const moved = [];
-      const refused6 = [];
+      const refused5 = [];
       for (const name of markdownFiles(dir)) {
         const from = join48(dir, name);
         const text16 = readFileSync33(from, "utf8");
         const id = name.slice(0, -".md".length);
         const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text16, taken });
         if (reason2 !== null) {
-          refused6.push({ file: from, reason: reason2 });
+          refused5.push({ file: from, reason: reason2 });
           continue;
         }
         await put2(product, text16, false);
@@ -9972,9 +9972,9 @@ function serverOutboxStore({ ctx, connect, now }) {
         moved.push({ from, to: refOf(product, id) });
       }
       for (const name of markdownFiles(join48(dir, ACCOUNTS_DIR))) {
-        refused6.push({ file: join48(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
+        refused5.push({ file: join48(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
       }
-      return { moved, refused: refused6 };
+      return { moved, refused: refused5 };
     },
     async gate(prd, { labels = [] }) {
       const product = productPrd(prd);
@@ -10264,10 +10264,10 @@ async function onBudget2(where, log2, work) {
   try {
     return await work();
   } catch (error) {
-    const refused6 = refusalOf2(error);
-    if (!refused6) throw error;
-    log2(`budgets check of ${where} waits for the GitHub budget: ${refused6.message}`);
-    throw new RetryAfterError3(refused6.message, new Date(refused6.until), { cause: refused6 });
+    const refused5 = refusalOf2(error);
+    if (!refused5) throw error;
+    log2(`budgets check of ${where} waits for the GitHub budget: ${refused5.message}`);
+    throw new RetryAfterError3(refused5.message, new Date(refused5.until), { cause: refused5 });
   }
 }
 
@@ -10861,8 +10861,8 @@ function localPacks(root, repo) {
   return found.sort((a, b) => Date.parse(b.committedAt) - Date.parse(a.committedAt));
 }
 var newestPack = (root, repo) => localPacks(root, repo)[0] ?? null;
-function packFile(root, pack2, path) {
-  const file = join51(root, pack2.folder, path);
+function packFile(root, pack, path) {
+  const file = join51(root, pack.folder, path);
   return existsSync37(file) && statSync11(file).isFile() ? readFileSync36(file, "utf8") : null;
 }
 
@@ -10904,13 +10904,13 @@ function packRoots(root) {
 }
 function readPackFlow(repo, root) {
   for (const where of packRoots(root)) {
-    const pack2 = newestPack(where, repo);
-    const source = pack2 === null ? null : packFile(where, pack2, PACK_CONFIG);
-    if (pack2 === null || source === null) continue;
+    const pack = newestPack(where, repo);
+    const source = pack === null ? null : packFile(where, pack, PACK_CONFIG);
+    if (pack === null || source === null) continue;
     return {
-      folder: pack2.folder,
-      config: parseFlowConfig(source, join52(pack2.folder, PACK_CONFIG)),
-      readHook: (path) => packFile(where, pack2, path)
+      folder: pack.folder,
+      config: parseFlowConfig(source, join52(pack.folder, PACK_CONFIG)),
+      readHook: (path) => packFile(where, pack, path)
     };
   }
   return null;
@@ -13033,8 +13033,8 @@ function classificationSchema(summary2) {
       issue(["place"], `place "${reply.place}" is not "${PRODUCT_PLACE}" nor an existing domain \u2014 one of: ${places.join(", ")}`);
     }
     if (reply.kind === "rule") {
-      const refused6 = servesRefusal(reply, principles);
-      if (refused6) issue(["serves"], refused6);
+      const refused5 = servesRefusal(reply, principles);
+      if (refused5) issue(["serves"], refused5);
     }
     if (reply.kind === "covered") {
       const record = reply.covers.match(RECORD_ID);
@@ -14602,273 +14602,16 @@ function createHarvestFailureHandler({ octokitFor }) {
   };
 }
 
-// apps/omni-app/src/knowledge-pack/knowledge-pack.ts
-import { NonRetriableError as NonRetriableError4 } from "inngest";
-import { z as z53 } from "zod";
-
-// apps/omni-app/src/knowledge-pack/files.ts
-import { createHash as createHash4 } from "node:crypto";
-var MAX_FILE_BYTES = 1024 * 1024;
-function sha256Of(bytes) {
-  return createHash4("sha256").update(bytes).digest("hex");
-}
-var utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-function textOf(bytes) {
-  if (bytes.length > MAX_FILE_BYTES) return { why: "over 1 MiB" };
-  let text16;
-  try {
-    text16 = utf8.decode(bytes);
-  } catch {
-    return { why: "not UTF-8 text" };
-  }
-  return text16.includes("\0") ? { why: "holds a NUL character" } : { text: text16 };
-}
-function packFiles(read) {
-  const files = [];
-  const left = [];
-  for (const path of [...read.keys()].sort()) {
-    const bytes = read.get(path) ?? new Uint8Array();
-    const kept3 = textOf(bytes);
-    if ("why" in kept3) left.push({ path, why: kept3.why });
-    else files.push({ path, content: kept3.text, sha256: sha256Of(bytes) });
-  }
-  return { files, left };
-}
-
-// apps/omni-app/src/knowledge-pack/github.ts
-import { mkdtempSync as mkdtempSync12, readdirSync as readdirSync21, readFileSync as readFileSync47, rmSync as rmSync16, statSync as statSync16 } from "node:fs";
-import { tmpdir as tmpdir12 } from "node:os";
-import { join as join66 } from "node:path";
-import { z as z52 } from "zod";
-var PullFileSchema = z52.looseObject({ filename: z52.string().min(1), previous_filename: z52.string().nullish() });
-async function changedPaths(octokit, { owner, repo, prNumber }) {
-  const files = await paginate(async (page) => {
-    const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z52.array(PullFileSchema).parse(data);
-  });
-  return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
-}
-function filesIn2(root, dir = "") {
-  return readdirSync21(join66(root, dir)).flatMap((name) => {
-    const rel = dir ? `${dir}/${name}` : name;
-    return statSync16(join66(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
-  });
-}
-async function withPathsAt(octokit, { owner, repo, sha, paths }, fn) {
-  const root = mkdtempSync12(join66(tmpdir12(), "omni-knowledge-pack-"));
-  try {
-    await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
-    return fn(root);
-  } finally {
-    rmSync16(root, { recursive: true, force: true });
-  }
-}
-async function configAt3(octokit, where) {
-  return withPathsAt(octokit, { ...where, paths: [CONFIG_FILE] }, (root) => {
-    const files = filesIn2(root);
-    if (!files.includes(CONFIG_FILE)) return { none: `it has no ${CONFIG_FILE}` };
-    try {
-      return { config: parseConfig(readFileSync47(join66(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
-    } catch (error) {
-      return { none: `its config does not parse: ${(error instanceof Error ? error.message : String(error)).split("\n")[0] ?? ""}` };
-    }
-  });
-}
-async function packBytesAt(octokit, { owner, repo, sha, paths }) {
-  return withPathsAt(
-    octokit,
-    { owner, repo, sha, paths: [...paths.folders, ...paths.files] },
-    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync47(join66(root, path))]))
-  );
-}
-
-// apps/omni-app/src/knowledge-pack/paths.ts
-function repositoryPath3(path) {
-  if (path.startsWith("/") || path.includes("\\")) return null;
-  const segments = path.split("/").filter((segment) => segment !== "" && segment !== ".");
-  if (segments.length === 0 || segments.includes("..")) return null;
-  return segments.join("/");
-}
-var within2 = (path, folder) => path === folder || path.startsWith(`${folder}/`);
-function knowledgeFolders(config) {
-  const { knowledge, adr, playbook, glossary } = config.paths;
-  const named = [knowledge, adr, playbook, glossary].map((path) => typeof path === "string" ? repositoryPath3(path) : null).filter((path) => path !== null);
-  const unique6 = [...new Set(named)];
-  return unique6.filter((folder) => !unique6.some((other) => other !== folder && within2(folder, other))).sort();
-}
-function hookFiles(hooks) {
-  return Object.values(hooks ?? {}).flatMap((value) => {
-    const { before: before2, after, replace } = hooksByMode(value);
-    return [...before2, ...replace === null ? [] : [replace], ...after].flatMap((ref) => {
-      const path = typeof ref === "string" ? ref : ref.path;
-      if (typeof ref !== "string" && path.startsWith("/")) return [];
-      const file = repositoryPath3(path);
-      return file === null ? [] : [file];
-    });
-  });
-}
-function flowFiles(config) {
-  const { flow } = config;
-  const hooks = flow ? [...hookFiles(flow.hooks), ...Object.values(flow.areas ?? {}).flatMap((area2) => hookFiles(area2.hooks))] : [];
-  return [.../* @__PURE__ */ new Set([CONFIG_FILE, ...hooks])].sort();
-}
-function packPaths(config) {
-  const folders = knowledgeFolders(config);
-  const files = flowFiles(config).filter((file) => !folders.some((folder) => within2(file, folder)));
-  return { folders, files };
-}
-function touchesPack(changed, { folders, files }) {
-  const held = (path) => files.includes(path) || folders.some((folder) => within2(path, folder));
-  return changed.some(({ path, previous: previous2 }) => held(path) || typeof previous2 === "string" && held(previous2));
-}
-
-// apps/omni-app/src/knowledge-pack/knowledge-pack.ts
-var KNOWLEDGE_PACK_FUNCTION_ID = "knowledge-pack";
-var CONCURRENCY2 = Object.freeze({ key: "event.data.repository", limit: 1 });
-var PRIORITY = Object.freeze({ run: "-600" });
-var PackEventSchema = z53.looseObject({
-  installationId: z53.number(),
-  owner: z53.string().min(1),
-  repo: z53.string().min(1),
-  repository: z53.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  prNumber: PrNumberSchema
-});
-var PathsSchema = z53.object({ folders: z53.array(z53.string()), files: z53.array(z53.string()) });
-var QualifiedSchema2 = z53.union([
-  z53.object({ skip: z53.string() }),
-  z53.object({ skip: z53.null(), sha: z53.string().regex(/^[0-9a-f]{40}$/), committedAt: z53.string(), paths: PathsSchema })
-]);
-var PackedSchema = z53.union([
-  z53.object({ bound: z53.string() }),
-  z53.object({
-    files: z53.number().int().nonnegative(),
-    left: z53.array(z53.string()),
-    packs: z53.array(z53.object({ workspace: z53.string(), created: z53.boolean(), newest: z53.boolean() }))
-  })
-]);
-function createKnowledgePack({
-  client,
-  octokitFor,
-  store,
-  log: log2 = noteTo("knowledge-pack")
-}) {
-  return client.createFunction(
-    {
-      id: KNOWLEDGE_PACK_FUNCTION_ID,
-      name: "omni-loop \xB7 knowledge pack",
-      triggers: [{ event: HARVEST_EVENT }],
-      concurrency: CONCURRENCY2,
-      priority: PRIORITY,
-      retries: 3
-    },
-    async ({ event, step }) => {
-      const { installationId, owner, repo, repository, prNumber } = eventOf(event.data);
-      const pull = `${repository}#${String(prNumber)}`;
-      const skipped2 = (why) => {
-        log2(`knowledge pack: ${pull} makes no pack: ${why}`);
-        return { pull, skipped: why };
-      };
-      if (!store) return skipped2("the App cannot reach the server here");
-      const held = await savedStep(step, "held", z53.boolean(), () => store.held(repository));
-      if (!held) return skipped2(`no product holds ${repository}`);
-      const qualified = await savedStep(step, "qualify", QualifiedSchema2, async () => qualify2(await octokitFor(installationId), { owner, repo, prNumber }));
-      if (qualified.skip !== null) return skipped2(qualified.skip);
-      const { sha, committedAt, paths } = qualified;
-      const packed = await savedStep(step, "pack", PackedSchema, async () => pack(await octokitFor(installationId), store, { owner, repo, repository, sha, committedAt, paths }));
-      if ("bound" in packed) return skipped2(`its knowledge is too large to pack: ${packed.bound}`);
-      for (const line of packLines(pull, sha, packed)) log2(line);
-      return { pull, sha, committedAt, files: packed.files, left: packed.left, packs: packed.packs };
-    }
-  );
-}
-function eventOf(data) {
-  const parsed2 = PackEventSchema.safeParse(data);
-  if (parsed2.success) return parsed2.data;
-  const [issue] = parsed2.error.issues;
-  throw new NonRetriableError4(`The merge event is malformed: ${issue?.path.join(".") || "(event)"}: ${issue?.message ?? parsed2.error.message}`);
-}
-async function qualify2(octokit, { owner, repo, prNumber }) {
-  const merge = await readMerge(octokit, { owner, repo, prNumber });
-  if (!merge.merged || !merge.sha || !merge.at) return { skip: "it was closed, not merged" };
-  const read = await configAt3(octokit, { owner, repo, sha: merge.sha });
-  if ("none" in read) return { skip: read.none };
-  const paths = packPaths(read.config);
-  if (!touchesPack(await changedPaths(octokit, { owner, repo, prNumber }), paths)) {
-    return { skip: "it touches neither the knowledge folder nor the flow config" };
-  }
-  return { skip: null, sha: merge.sha, committedAt: merge.at, paths };
-}
-async function pack(octokit, store, { owner, repo, repository, sha, committedAt, paths }) {
-  let bytes;
-  try {
-    bytes = await packBytesAt(octokit, { owner, repo, sha, paths });
-  } catch (error) {
-    if (error instanceof SnapshotBoundError) return { bound: error.message };
-    throw error;
-  }
-  const { files, left } = packFiles(bytes);
-  const answer = await store.put({ repository, sha, committedAt, files });
-  return {
-    files: files.length,
-    left: left.map((file) => `${file.path}: ${file.why}`),
-    packs: answer.packs.map(({ workspace, created, newest }) => ({ workspace, created, newest }))
-  };
-}
-function packLines(pull, sha, packed) {
-  const short2 = sha.slice(0, 7);
-  const kept3 = packed.packs.filter((one) => one.created).length;
-  return [
-    ...packed.left.map((line) => `knowledge pack: ${pull} left out of pack ${short2}: ${line}`),
-    `knowledge pack: ${pull} pack ${short2} of ${String(packed.files)} files, new in ${String(kept3)} of ${String(packed.packs.length)} workspaces`
-  ];
-}
-
-// apps/omni-app/src/knowledge-pack/store.ts
-import { z as z54 } from "zod";
-var KeptSchema = z54.object({
-  workspace: z54.string().min(1),
-  packId: z54.string().min(1),
-  created: z54.boolean(),
-  newest: z54.boolean(),
-  files: z54.number().int().nonnegative()
-});
-var PutAnswerSchema = z54.object({
-  repository: z54.string().min(1),
-  sha: z54.string().regex(/^[0-9a-f]{40}$/),
-  packs: z54.array(KeptSchema)
-});
-var HolderSchema = z54.object({ product_id: z54.string().min(1) });
-var refused5 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
-function knowledgePackStore(connection) {
-  const db = serviceDb(connection);
-  return {
-    held: async (repository) => {
-      const answer = await db.from("product_repositories").select("product_id").eq("repository", repository.toLowerCase()).limit(1);
-      return rowsOf(HolderSchema, answer).length > 0;
-    },
-    put: async ({ repository, sha, committedAt, files }) => {
-      const { data, error } = await db.rpc("knowledge_pack_put", {
-        p_repo: repository,
-        p_sha: sha,
-        p_committed_at: committedAt,
-        p_files: files.map(({ path, content, sha256: sha2562 }) => ({ path, content, sha256: sha2562 }))
-      });
-      if (error) throw refused5(error);
-      return PutAnswerSchema.parse(data);
-    }
-  };
-}
-
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z55 } from "zod";
+import { z as z52 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS3 = 55e3;
-var VerdictSchema3 = z55.looseObject({
-  answer: z55.enum(["true", "false"]),
-  confidence: z55.number().nullable().catch(null),
-  decidedBy: z55.string().nullable().catch(null)
+var VerdictSchema3 = z52.looseObject({
+  answer: z52.enum(["true", "false"]),
+  confidence: z52.number().nullable().catch(null),
+  decidedBy: z52.string().nullable().catch(null)
 });
-var RefusalSchema3 = z55.looseObject({ error: z55.string().optional().catch(void 0) });
+var RefusalSchema3 = z52.looseObject({ error: z52.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
@@ -14936,17 +14679,17 @@ function githubStoreOf(supabase) {
 }
 
 // apps/omni-app/src/escalation/sweep.ts
-import { mkdtempSync as mkdtempSync13, rmSync as rmSync17 } from "node:fs";
-import { tmpdir as tmpdir13 } from "node:os";
-import { join as join67 } from "node:path";
-import { z as z56 } from "zod";
+import { mkdtempSync as mkdtempSync12, rmSync as rmSync16 } from "node:fs";
+import { tmpdir as tmpdir12 } from "node:os";
+import { join as join66 } from "node:path";
+import { z as z53 } from "zod";
 var ESCALATION_FUNCTION_ID = "escalation";
 var EVERY_HOUR = "0 * * * *";
-var InstallationsSchema = z56.array(z56.looseObject({ id: z56.number() }));
-var RepositoriesSchema = z56.looseObject({
-  repositories: z56.array(z56.looseObject({ name: z56.string(), owner: z56.looseObject({ login: z56.string() }) }))
+var InstallationsSchema = z53.array(z53.looseObject({ id: z53.number() }));
+var RepositoriesSchema = z53.looseObject({
+  repositories: z53.array(z53.looseObject({ name: z53.string(), owner: z53.looseObject({ login: z53.string() }) }))
 });
-var OpenPullsSchema = z56.array(z56.looseObject({ number: z56.number(), base: z56.looseObject({ sha: z56.string() }) }));
+var OpenPullsSchema = z53.array(z53.looseObject({ number: z53.number(), base: z53.looseObject({ sha: z53.string() }) }));
 var lower = (login) => login.toLowerCase();
 function moveDue(lines, settings, now, posted) {
   const decisions = decide(lines.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
@@ -14964,12 +14707,12 @@ function moveDue(lines, settings, now, posted) {
   return { lines: moved, due };
 }
 async function settingsAt(octokit, { owner, repo, baseSha }) {
-  const dest = mkdtempSync13(join67(tmpdir13(), "omni-escalation-"));
+  const dest = mkdtempSync12(join66(tmpdir12(), "omni-escalation-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha, dest });
     return config === null ? null : settingsOf(config);
   } finally {
-    rmSync17(dest, { recursive: true, force: true });
+    rmSync16(dest, { recursive: true, force: true });
   }
 }
 function recordIn(comments) {
@@ -15068,20 +14811,20 @@ function createEscalation({ client, octokitFor, appOctokit, log: log2 = noteTo("
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-import { z as z58 } from "zod";
+import { z as z55 } from "zod";
 
 // kit/lib/plan-repo/gh-schema.ts
-import { z as z57 } from "zod";
-var GhRepositorySchema = z57.looseObject({ default_branch: z57.string() });
-var GhContentEntrySchema = z57.looseObject({ type: z57.string(), name: z57.string(), path: z57.string() });
-var GhCompareFileSchema = z57.looseObject({
-  filename: z57.string(),
-  previous_filename: z57.string().optional()
+import { z as z54 } from "zod";
+var GhRepositorySchema = z54.looseObject({ default_branch: z54.string() });
+var GhContentEntrySchema = z54.looseObject({ type: z54.string(), name: z54.string(), path: z54.string() });
+var GhCompareFileSchema = z54.looseObject({
+  filename: z54.string(),
+  previous_filename: z54.string().optional()
 });
-var GhCompareSchema = z57.looseObject({
-  ahead_by: z57.number().optional(),
-  status: z57.string().optional(),
-  files: z57.array(GhCompareFileSchema).optional()
+var GhCompareSchema = z54.looseObject({
+  ahead_by: z54.number().optional(),
+  status: z54.string().optional(),
+  files: z54.array(GhCompareFileSchema).optional()
 });
 function firstIssue(error) {
   const [issue] = error.issues;
@@ -15091,64 +14834,64 @@ function firstIssue(error) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z58.looseObject({
-  limit: z58.number(),
-  remaining: z58.number(),
-  resetAt: z58.string().nullish()
+var RateLimitSchema = z55.looseObject({
+  limit: z55.number(),
+  remaining: z55.number(),
+  resetAt: z55.string().nullish()
 });
-var RateLimited = z58.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z58.looseObject({
-  repository: z58.looseObject({
-    pullRequests: z58.looseObject({
-      pageInfo: z58.looseObject({ hasNextPage: z58.boolean(), endCursor: z58.string().nullish() }),
-      nodes: z58.array(z58.looseObject({ number: PrNumberSchema, updatedAt: z58.string() }))
+var RateLimited = z55.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z55.looseObject({
+  repository: z55.looseObject({
+    pullRequests: z55.looseObject({
+      pageInfo: z55.looseObject({ hasNextPage: z55.boolean(), endCursor: z55.string().nullish() }),
+      nodes: z55.array(z55.looseObject({ number: PrNumberSchema, updatedAt: z55.string() }))
     })
   })
 });
-var ActorSchema = z58.looseObject({ login: z58.string().nullish(), __typename: z58.string().nullish() }).nullish();
-var PullDetailSchema = z58.looseObject({
+var ActorSchema = z55.looseObject({ login: z55.string().nullish(), __typename: z55.string().nullish() }).nullish();
+var PullDetailSchema = z55.looseObject({
   number: PrNumberSchema,
   author: ActorSchema,
-  createdAt: z58.string(),
-  mergedAt: z58.string().nullish(),
-  closedAt: z58.string().nullish(),
+  createdAt: z55.string(),
+  mergedAt: z55.string().nullish(),
+  closedAt: z55.string().nullish(),
   mergedBy: ActorSchema,
-  baseRefName: z58.string().nullish(),
-  headRefName: z58.string().nullish(),
-  isDraft: z58.boolean().nullish(),
-  body: z58.string().nullish(),
-  additions: z58.number().nullish(),
-  deletions: z58.number().nullish(),
-  labels: z58.looseObject({ nodes: z58.array(z58.looseObject({ name: z58.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z58.looseObject({
-    totalCount: z58.number(),
-    nodes: z58.array(
-      z58.looseObject({
-        commit: z58.looseObject({ message: z58.string().nullish(), committedDate: z58.string().nullish() }).nullish()
+  baseRefName: z55.string().nullish(),
+  headRefName: z55.string().nullish(),
+  isDraft: z55.boolean().nullish(),
+  body: z55.string().nullish(),
+  additions: z55.number().nullish(),
+  deletions: z55.number().nullish(),
+  labels: z55.looseObject({ nodes: z55.array(z55.looseObject({ name: z55.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z55.looseObject({
+    totalCount: z55.number(),
+    nodes: z55.array(
+      z55.looseObject({
+        commit: z55.looseObject({ message: z55.string().nullish(), committedDate: z55.string().nullish() }).nullish()
       })
     )
   }).nullish(),
-  reviews: z58.looseObject({ nodes: z58.array(z58.looseObject({ author: ActorSchema, submittedAt: z58.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z58.looseObject({
-    nodes: z58.array(
-      z58.looseObject({ createdAt: z58.string().nullish(), label: z58.looseObject({ name: z58.string().nullish() }).nullish() }).nullish()
+  reviews: z55.looseObject({ nodes: z55.array(z55.looseObject({ author: ActorSchema, submittedAt: z55.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z55.looseObject({
+    nodes: z55.array(
+      z55.looseObject({ createdAt: z55.string().nullish(), label: z55.looseObject({ name: z55.string().nullish() }).nullish() }).nullish()
     ).nullish()
   }).nullish()
 });
-var PullDetailsSchema = z58.looseObject({ repository: z58.record(z58.string(), z58.unknown()) });
-var PullCommentsSchema = z58.looseObject({
-  comments: z58.looseObject({ nodes: z58.array(z58.looseObject({ body: z58.string().nullish() }).nullish()).nullish() }).nullish()
+var PullDetailsSchema = z55.looseObject({ repository: z55.record(z55.string(), z55.unknown()) });
+var PullCommentsSchema = z55.looseObject({
+  comments: z55.looseObject({ nodes: z55.array(z55.looseObject({ body: z55.string().nullish() }).nullish()).nullish() }).nullish()
 }).nullish();
-var TrackedRowSchema2 = z58.looseObject({
-  workspace_id: z58.string(),
-  full_name: z58.string(),
-  collected_until: z58.string().nullish(),
-  workspaces: z58.looseObject({ github_installation_id: z58.union([z58.number(), z58.string()]) })
+var TrackedRowSchema2 = z55.looseObject({
+  workspace_id: z55.string(),
+  full_name: z55.string(),
+  collected_until: z55.string().nullish(),
+  workspaces: z55.looseObject({ github_installation_id: z55.union([z55.number(), z55.string()]) })
 });
-var FailureSchema2 = z58.looseObject({
-  errors: z58.array(z58.looseObject({ type: z58.unknown().optional(), message: z58.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z58.unknown().optional(),
-  status: z58.unknown().optional()
+var FailureSchema2 = z55.looseObject({
+  errors: z55.array(z55.looseObject({ type: z55.unknown().optional(), message: z55.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z55.unknown().optional(),
+  status: z55.unknown().optional()
 });
 function parseAnswer(schema, value, what) {
   return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
@@ -15158,24 +14901,24 @@ function parsedOr2(schema, value, context) {
   if (parsed2.success) return parsed2.data;
   throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
 }
-var BudgetSchema = z58.object({
-  limit: z58.number().exactOptional(),
-  remaining: z58.number().exactOptional(),
-  resetAt: z58.string().nullable().exactOptional()
+var BudgetSchema = z55.object({
+  limit: z55.number().exactOptional(),
+  remaining: z55.number().exactOptional(),
+  resetAt: z55.string().nullable().exactOptional()
 });
-var TrackedRepositorySchema = z58.object({
-  workspaceId: z58.string(),
-  installationId: z58.number(),
-  fullName: z58.string(),
-  collectedUntil: z58.string().nullable()
+var TrackedRepositorySchema = z55.object({
+  workspaceId: z55.string(),
+  installationId: z55.number(),
+  fullName: z55.string(),
+  collectedUntil: z55.string().nullable()
 });
-var TrackedRepositoriesSchema = z58.array(TrackedRepositorySchema);
-var BatchOutSchema = z58.object({
-  saved: z58.number(),
-  cursor: z58.string(),
-  more: z58.boolean(),
-  paused: z58.literal(true).exactOptional(),
-  error: z58.string().exactOptional(),
+var TrackedRepositoriesSchema = z55.array(TrackedRepositorySchema);
+var BatchOutSchema = z55.object({
+  saved: z55.number(),
+  cursor: z55.string(),
+  more: z55.boolean(),
+  paused: z55.literal(true).exactOptional(),
+  error: z55.string().exactOptional(),
   budget: BudgetSchema
 });
 
@@ -15530,7 +15273,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
 
 // apps/omni-app/src/retro/retro.ts
 import { internalEvents } from "inngest";
-import { z as z67 } from "zod";
+import { z as z64 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -15747,100 +15490,100 @@ function rulesSheet() {
 }
 
 // apps/omni-app/src/retro/kinds/schema.ts
-import { z as z59 } from "zod";
-var IssueEventSchema = z59.looseObject({
-  event: z59.string(),
-  created_at: z59.string(),
-  label: z59.looseObject({ name: z59.string().nullish() }).nullish()
+import { z as z56 } from "zod";
+var IssueEventSchema = z56.looseObject({
+  event: z56.string(),
+  created_at: z56.string(),
+  label: z56.looseObject({ name: z56.string().nullish() }).nullish()
 });
-var WorkflowRunSchema = z59.looseObject({
-  id: z59.number(),
-  name: z59.string().nullish(),
-  head_sha: z59.string().nullish()
+var WorkflowRunSchema = z56.looseObject({
+  id: z56.number(),
+  name: z56.string().nullish(),
+  head_sha: z56.string().nullish()
 });
-var WorkflowRunsPageSchema = z59.looseObject({ workflow_runs: z59.array(WorkflowRunSchema).nullish() });
-var JobSchema = z59.looseObject({
-  id: z59.number(),
-  run_id: z59.number().nullish(),
-  workflow_name: z59.string().nullish(),
-  name: z59.string(),
-  head_sha: z59.string().nullish(),
-  run_attempt: z59.number().nullish(),
-  status: z59.string().nullish(),
-  conclusion: z59.string().nullish(),
-  html_url: z59.string().nullish(),
-  completed_at: z59.string().nullish()
+var WorkflowRunsPageSchema = z56.looseObject({ workflow_runs: z56.array(WorkflowRunSchema).nullish() });
+var JobSchema = z56.looseObject({
+  id: z56.number(),
+  run_id: z56.number().nullish(),
+  workflow_name: z56.string().nullish(),
+  name: z56.string(),
+  head_sha: z56.string().nullish(),
+  run_attempt: z56.number().nullish(),
+  status: z56.string().nullish(),
+  conclusion: z56.string().nullish(),
+  html_url: z56.string().nullish(),
+  completed_at: z56.string().nullish()
 });
-var JobsPageSchema = z59.looseObject({ jobs: z59.array(JobSchema).nullish() });
-var IssueSchema2 = z59.looseObject({
+var JobsPageSchema = z56.looseObject({ jobs: z56.array(JobSchema).nullish() });
+var IssueSchema2 = z56.looseObject({
   number: IssueNumberSchema,
-  title: z59.string().nullish(),
-  body: z59.string().nullish(),
-  html_url: z59.string(),
-  created_at: z59.string(),
-  closed_at: z59.string().nullish(),
-  pull_request: z59.unknown().optional()
+  title: z56.string().nullish(),
+  body: z56.string().nullish(),
+  html_url: z56.string(),
+  created_at: z56.string(),
+  closed_at: z56.string().nullish(),
+  pull_request: z56.unknown().optional()
 });
-var ClosedPullSchema = z59.looseObject({
+var ClosedPullSchema = z56.looseObject({
   number: PrNumberSchema,
-  title: z59.string().nullish(),
-  body: z59.string().nullish(),
-  html_url: z59.string(),
-  merged_at: z59.string().nullish(),
-  updated_at: z59.string().nullish(),
-  closed_at: z59.string().nullish()
+  title: z56.string().nullish(),
+  body: z56.string().nullish(),
+  html_url: z56.string(),
+  merged_at: z56.string().nullish(),
+  updated_at: z56.string().nullish(),
+  closed_at: z56.string().nullish()
 });
-var ChangedFileSchema = z59.looseObject({
-  filename: z59.string(),
-  previous_filename: z59.string().nullish(),
-  status: z59.string().nullish(),
-  additions: z59.number().nullish(),
-  deletions: z59.number().nullish(),
-  patch: z59.string().nullish()
+var ChangedFileSchema = z56.looseObject({
+  filename: z56.string(),
+  previous_filename: z56.string().nullish(),
+  status: z56.string().nullish(),
+  additions: z56.number().nullish(),
+  deletions: z56.number().nullish(),
+  patch: z56.string().nullish()
 });
-var PullCommitSchema = z59.looseObject({
-  sha: z59.string(),
-  parents: z59.array(z59.unknown()).nullish()
+var PullCommitSchema = z56.looseObject({
+  sha: z56.string(),
+  parents: z56.array(z56.unknown()).nullish()
 });
-var CommitPageSchema = z59.looseObject({
-  html_url: z59.string().nullish(),
-  files: z59.array(ChangedFileSchema).nullish()
+var CommitPageSchema = z56.looseObject({
+  html_url: z56.string().nullish(),
+  files: z56.array(ChangedFileSchema).nullish()
 });
-var IssueCommentSchema = z59.looseObject({
-  body: z59.string().nullish(),
-  html_url: z59.string().nullish(),
-  created_at: z59.string().nullish()
+var IssueCommentSchema = z56.looseObject({
+  body: z56.string().nullish(),
+  html_url: z56.string().nullish(),
+  created_at: z56.string().nullish()
 });
-var UserSchema = z59.looseObject({ login: z59.string().nullish(), type: z59.string().nullish() });
-var ReviewSchema = z59.looseObject({
-  html_url: z59.string().nullish(),
+var UserSchema = z56.looseObject({ login: z56.string().nullish(), type: z56.string().nullish() });
+var ReviewSchema = z56.looseObject({
+  html_url: z56.string().nullish(),
   user: UserSchema.nullish(),
-  state: z59.string().nullish(),
-  body: z59.string().nullish()
+  state: z56.string().nullish(),
+  body: z56.string().nullish()
 });
-var ThreadCommentSchema = z59.looseObject({
-  url: z59.string().nullish(),
-  body: z59.string().nullish(),
-  author: z59.looseObject({ login: z59.string().nullish(), __typename: z59.string().nullish() }).nullish()
+var ThreadCommentSchema = z56.looseObject({
+  url: z56.string().nullish(),
+  body: z56.string().nullish(),
+  author: z56.looseObject({ login: z56.string().nullish(), __typename: z56.string().nullish() }).nullish()
 });
-var ReviewThreadSchema = z59.looseObject({
-  isResolved: z59.boolean().nullish(),
-  isOutdated: z59.boolean().nullish(),
-  path: z59.string().nullish(),
-  comments: z59.looseObject({ nodes: z59.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
+var ReviewThreadSchema = z56.looseObject({
+  isResolved: z56.boolean().nullish(),
+  isOutdated: z56.boolean().nullish(),
+  path: z56.string().nullish(),
+  comments: z56.looseObject({ nodes: z56.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
 });
-var ReviewThreadsAnswerSchema = z59.looseObject({
-  data: z59.looseObject({
-    repository: z59.looseObject({
-      pullRequest: z59.looseObject({
-        reviewThreads: z59.looseObject({
-          pageInfo: z59.looseObject({ hasNextPage: z59.boolean().nullish(), endCursor: z59.string().nullish() }).nullish(),
-          nodes: z59.array(ReviewThreadSchema).nullish()
+var ReviewThreadsAnswerSchema = z56.looseObject({
+  data: z56.looseObject({
+    repository: z56.looseObject({
+      pullRequest: z56.looseObject({
+        reviewThreads: z56.looseObject({
+          pageInfo: z56.looseObject({ hasNextPage: z56.boolean().nullish(), endCursor: z56.string().nullish() }).nullish(),
+          nodes: z56.array(ReviewThreadSchema).nullish()
         }).nullish()
       }).nullish()
     }).nullish()
   }).nullish(),
-  errors: z59.array(z59.looseObject({ type: z59.string().nullish(), message: z59.string().nullish() })).nullish()
+  errors: z56.array(z56.looseObject({ type: z56.string().nullish(), message: z56.string().nullish() })).nullish()
 }).nullish();
 
 // apps/omni-app/src/retro/kinds/jobs.ts
@@ -15943,7 +15686,7 @@ function unique3(values) {
 // apps/omni-app/src/retro/kinds/after-merge.reads.ts
 var FILES = "GET /repos/{owner}/{repo}/pulls/{pull_number}/files";
 var UNREADABLE = /* @__PURE__ */ new Set([403, 404, 410]);
-function within3(window, at4) {
+function within2(window, at4) {
   if (!at4) return false;
   const time2 = Date.parse(at4);
   return time2 >= Date.parse(window.from) && time2 <= Date.parse(window.to);
@@ -15972,104 +15715,104 @@ function statusOf4(error) {
 }
 
 // apps/omni-app/src/retro/kinds/records.ts
-import { z as z60 } from "zod";
-var text11 = z60.string();
-var maybeText = z60.string().nullable();
-var BlockSchema = z60.tuple([z60.number(), z60.number(), z60.number(), z60.number()]);
-var TimelineRecordsSchema = z60.object({ readyAt: maybeText });
-var StuckCommentSchema = z60.object({ url: maybeText, at: maybeText, attempts: z60.number(), text: z60.string().nullish() });
-var ReviewRecordSchema = z60.object({
+import { z as z57 } from "zod";
+var text11 = z57.string();
+var maybeText = z57.string().nullable();
+var BlockSchema = z57.tuple([z57.number(), z57.number(), z57.number(), z57.number()]);
+var TimelineRecordsSchema = z57.object({ readyAt: maybeText });
+var StuckCommentSchema = z57.object({ url: maybeText, at: maybeText, attempts: z57.number(), text: z57.string().nullish() });
+var ReviewRecordSchema = z57.object({
   url: maybeText,
   author: maybeText,
-  bot: z60.boolean(),
+  bot: z57.boolean(),
   state: maybeText,
-  red: z60.boolean(),
-  text: z60.string().nullish()
+  red: z57.boolean(),
+  text: z57.string().nullish()
 });
-var ThreadRecordSchema = z60.object({
+var ThreadRecordSchema = z57.object({
   url: maybeText,
   author: maybeText,
-  bot: z60.boolean(),
+  bot: z57.boolean(),
   path: maybeText,
-  resolved: z60.boolean(),
-  outdated: z60.boolean(),
-  red: z60.boolean(),
+  resolved: z57.boolean(),
+  outdated: z57.boolean(),
+  red: z57.boolean(),
   text: maybeText
 });
-var PullReadsSchema = z60.object({
-  files: z60.array(text11).nullable().exactOptional(),
-  stuck: z60.array(StuckCommentSchema).nullable().exactOptional(),
-  needsFix: z60.array(text11).nullable().exactOptional(),
-  reviews: z60.array(ReviewRecordSchema).nullable().exactOptional(),
-  threads: z60.array(ThreadRecordSchema).nullable().exactOptional()
+var PullReadsSchema = z57.object({
+  files: z57.array(text11).nullable().exactOptional(),
+  stuck: z57.array(StuckCommentSchema).nullable().exactOptional(),
+  needsFix: z57.array(text11).nullable().exactOptional(),
+  reviews: z57.array(ReviewRecordSchema).nullable().exactOptional(),
+  threads: z57.array(ThreadRecordSchema).nullable().exactOptional()
 });
-var DeliveryRecordsSchema = z60.object({ pulls: z60.record(z60.string(), PullReadsSchema.optional()) });
-var JobRecordSchema = z60.object({
-  id: z60.number(),
-  run: z60.number(),
+var DeliveryRecordsSchema = z57.object({ pulls: z57.record(z57.string(), PullReadsSchema.optional()) });
+var JobRecordSchema = z57.object({
+  id: z57.number(),
+  run: z57.number(),
   workflow: maybeText,
   check: text11,
   slice: SliceIdSchema,
-  sha: z60.string().nullish(),
-  attempt: z60.number(),
-  status: z60.string().nullish(),
+  sha: z57.string().nullish(),
+  attempt: z57.number(),
+  status: z57.string().nullish(),
   conclusion: maybeText,
   url: maybeText,
   completedAt: maybeText
 });
-var CiRecordsSchema = z60.object({
-  slices: z60.array(SliceIdSchema),
-  unread: z60.array(z60.object({ slice: SliceIdSchema, run: z60.number().exactOptional(), status: z60.number() })),
-  jobs: z60.array(JobRecordSchema),
-  logs: z60.record(z60.string(), z60.object({ tail: maybeText, status: z60.number().exactOptional() }).optional())
+var CiRecordsSchema = z57.object({
+  slices: z57.array(SliceIdSchema),
+  unread: z57.array(z57.object({ slice: SliceIdSchema, run: z57.number().exactOptional(), status: z57.number() })),
+  jobs: z57.array(JobRecordSchema),
+  logs: z57.record(z57.string(), z57.object({ tail: maybeText, status: z57.number().exactOptional() }).optional())
 });
-var CommitFileSchema = z60.object({
+var CommitFileSchema = z57.object({
   path: text11,
   previous: maybeText,
-  status: z60.string().nullish(),
-  additions: z60.number(),
-  deletions: z60.number(),
-  blocks: z60.array(BlockSchema).nullable()
+  status: z57.string().nullish(),
+  additions: z57.number(),
+  deletions: z57.number(),
+  blocks: z57.array(BlockSchema).nullable()
 });
-var PullRecordSchema = z60.object({
+var PullRecordSchema = z57.object({
   number: PrNumberSchema,
   url: maybeText,
   headRef: text11,
   mergedAt: maybeText,
-  commits: z60.array(z60.object({ sha: text11, url: maybeText, files: z60.array(CommitFileSchema).nullable() })).nullable()
+  commits: z57.array(z57.object({ sha: text11, url: maybeText, files: z57.array(CommitFileSchema).nullable() })).nullable()
 });
-var ChurnRecordsSchema = z60.object({
+var ChurnRecordsSchema = z57.object({
   gitattributes: maybeText,
-  final: z60.array(z60.object({ path: text11, additions: z60.number().nullish(), deletions: z60.number().nullish() })).nullable(),
-  pulls: z60.array(PullRecordSchema)
+  final: z57.array(z57.object({ path: text11, additions: z57.number().nullish(), deletions: z57.number().nullish() })).nullable(),
+  pulls: z57.array(PullRecordSchema)
 });
-var RangeSchema = z60.object({ path: text11, from: z60.number(), to: z60.number() });
-var AfterMergeRecordsSchema = z60.object({
-  window: z60.object({ from: text11, to: text11 }),
-  bugs: z60.array(z60.object({ number: IssueNumberSchema, url: text11, createdAt: text11, closedAt: maybeText })),
-  fixes: z60.array(
-    z60.object({
+var RangeSchema = z57.object({ path: text11, from: z57.number(), to: z57.number() });
+var AfterMergeRecordsSchema = z57.object({
+  window: z57.object({ from: text11, to: text11 }),
+  bugs: z57.array(z57.object({ number: IssueNumberSchema, url: text11, createdAt: text11, closedAt: maybeText })),
+  fixes: z57.array(
+    z57.object({
       number: PrNumberSchema,
       url: text11,
       mergedAt: text11,
-      closes: z60.array(IssueNumberSchema),
-      files: z60.array(z60.object({ path: text11, previous: maybeText, blocks: z60.array(BlockSchema).nullable() })).nullable()
+      closes: z57.array(IssueNumberSchema),
+      files: z57.array(z57.object({ path: text11, previous: maybeText, blocks: z57.array(BlockSchema).nullable() })).nullable()
     })
   ),
-  checks: z60.object({
+  checks: z57.object({
     commit: text11,
-    status: z60.number().nullable(),
-    jobs: z60.array(z60.object({ name: text11, workflow: maybeText, conclusion: maybeText, url: maybeText }))
+    status: z57.number().nullable(),
+    jobs: z57.array(z57.object({ name: text11, workflow: maybeText, conclusion: maybeText, url: maybeText }))
   }),
-  ranges: z60.array(RangeSchema),
-  unread: z60.array(
-    z60.object({ read: z60.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z60.number().exactOptional(), status: z60.number() })
+  ranges: z57.array(RangeSchema),
+  unread: z57.array(
+    z57.object({ read: z57.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z57.number().exactOptional(), status: z57.number() })
   )
 });
-var ChurnAtMergeSchema = z60.object({ ranges: z60.array(RangeSchema).exactOptional() }).nullish();
+var ChurnAtMergeSchema = z57.object({ ranges: z57.array(RangeSchema).exactOptional() }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-import { z as z61 } from "zod";
+import { z as z58 } from "zod";
 
 // kit/lib/care/list.ts
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
@@ -16183,29 +15926,29 @@ function slicesOf(plan) {
 }
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-var text12 = z61.string();
-var BlockSchema2 = z61.tuple([z61.number(), z61.number(), z61.number(), z61.number()]);
-var RangeSchema2 = z61.object({ path: text12, from: z61.number(), to: z61.number() });
-var PlannedSchema = z61.object({
+var text12 = z58.string();
+var BlockSchema2 = z58.tuple([z58.number(), z58.number(), z58.number(), z58.number()]);
+var RangeSchema2 = z58.object({ path: text12, from: z58.number(), to: z58.number() });
+var PlannedSchema = z58.object({
   bug: IssueNumberSchema,
   repo: text12,
   number: PrNumberSchema,
   url: text12,
-  mergedAt: z61.string().nullable(),
-  files: z61.array(z61.object({ path: text12, previous: z61.string().nullable(), blocks: z61.array(BlockSchema2).nullable() })).nullable()
+  mergedAt: z58.string().nullable(),
+  files: z58.array(z58.object({ path: text12, previous: z58.string().nullable(), blocks: z58.array(BlockSchema2).nullable() })).nullable()
 });
-var MegaUnreadSchema = z61.object({
-  read: z61.enum(["bugs", "fix-plan", "fix", "files"]),
+var MegaUnreadSchema = z58.object({
+  read: z58.enum(["bugs", "fix-plan", "fix", "files"]),
   repo: text12,
-  number: z61.number().exactOptional(),
-  status: z61.number()
+  number: z58.number().exactOptional(),
+  status: z58.number()
 });
-var MegaRecordsSchema = z61.object({
+var MegaRecordsSchema = z58.object({
   plan: text12,
-  bugs: z61.array(IssueNumberSchema),
-  planned: z61.array(PlannedSchema),
-  targets: z61.array(z61.object({ repo: text12, name: text12, ranges: z61.array(RangeSchema2) })),
-  unread: z61.array(MegaUnreadSchema)
+  bugs: z58.array(IssueNumberSchema),
+  planned: z58.array(PlannedSchema),
+  targets: z58.array(z58.object({ repo: text12, name: text12, ranges: z58.array(RangeSchema2) })),
+  unread: z58.array(MegaUnreadSchema)
 });
 var ISSUES = "GET /repos/{owner}/{repo}/issues";
 var COMMENTS = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
@@ -16233,7 +15976,7 @@ async function megaIssues(octokit, scope, unread) {
     if (more.status) unread.push({ read: "bugs", repo: `${owner}/${repo}`, status: more.status });
     for (const issue of more.value ?? []) found.set(issue.number, issue);
   }
-  return [...found.values()].filter((issue) => !issue.pull_request && within3(window, issue.created_at) && linksPrd(issue.body, prd)).sort((a, b) => a.number - b.number);
+  return [...found.values()].filter((issue) => !issue.pull_request && within2(window, issue.created_at) && linksPrd(issue.body, prd)).sort((a, b) => a.number - b.number);
 }
 async function plannedFixes(octokit, { plan, bug }, unread) {
   const [owner, repo] = plan.split("/");
@@ -16276,7 +16019,7 @@ function targetRanges(atMerge, repo) {
   return (churn2.success ? churn2.data?.ranges ?? [] : []).map(({ path, from, to }) => ({ path, from, to }));
 }
 function plannedFor(mega, { bug, window, counted: counted3 }) {
-  return mega.planned.filter((fix) => fix.bug === bug && within3(window, fix.mergedAt) && !(fix.repo === mega.plan && counted3.includes(fix.number)));
+  return mega.planned.filter((fix) => fix.bug === bug && within2(window, fix.mergedAt) && !(fix.repo === mega.plan && counted3.includes(fix.number)));
 }
 function placeOf4(mega, repo, planRanges) {
   if (repo === mega.plan) return { ranges: planRanges, prefix: "" };
@@ -16337,8 +16080,8 @@ var afterMerge = Object.freeze({
   detect(records, { prd } = {}) {
     if (!records) return { facts: null, findings: [] };
     const { window } = records;
-    const fixes = records.fixes.filter((fix) => within3(window, fix.mergedAt));
-    const bugs = records.bugs.filter((bug) => within3(window, bug.createdAt)).map((bug) => bugFacts(bug, { records, fixes }));
+    const fixes = records.fixes.filter((fix) => within2(window, fix.mergedAt));
+    const bugs = records.bugs.filter((bug) => within2(window, bug.createdAt)).map((bug) => bugFacts(bug, { records, fixes }));
     const facts = {
       prd: prd?.number ?? null,
       days: THRESHOLDS.afterMergeDays,
@@ -16369,11 +16112,11 @@ var afterMerge = Object.freeze({
   },
   describe(facts) {
     if (!facts) return null;
-    const refused6 = (read) => facts.unread.find((entry) => entry.read === read);
-    const lines = [...bugLines(facts, refused6("bugs")), ...megaLine(facts)];
+    const refused5 = (read) => facts.unread.find((entry) => entry.read === read);
+    const lines = [...bugLines(facts, refused5("bugs")), ...megaLine(facts)];
     const fixUrl = new Map(facts.fixes.map((fix) => [fix.number, fix.url]));
     for (const bug of facts.bugs) lines.push(bugLine(bug, fixUrl));
-    const fixesUnread = refused6("fixes");
+    const fixesUnread = refused5("fixes");
     if (fixesUnread) lines.push(`- The pull requests merged after the merge were not read (GitHub answered ${fixesUnread.status}), so no fix is counted.`);
     lines.push(...checkLines(facts.checks));
     for (const entry of facts.unread.filter((item) => item.read === "jobs")) {
@@ -16387,7 +16130,7 @@ var afterMerge = Object.freeze({
   }
 });
 function bugsNaming(listed, { window, names }) {
-  return listed.filter((issue) => !issue.pull_request && within3(window, issue.created_at) && names(`${issue.title ?? ""}
+  return listed.filter((issue) => !issue.pull_request && within2(window, issue.created_at) && names(`${issue.title ?? ""}
 ${issue.body ?? ""}`)).map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null })).sort((a, b) => a.number - b.number);
 }
 function withMegaBugs(bugs, mega) {
@@ -16400,7 +16143,7 @@ async function closingFixes(octokit, { owner, repo, base, window, featurePr, bug
   const wanted = new Set(bugs.map((bug) => bug.number));
   const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base, since: window.from }));
   if (merged.status) unread.push({ read: "fixes", status: merged.status });
-  const found = (merged.value ?? []).filter((pull) => pull.number !== featurePr && within3(window, pull.merged_at)).map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ""}
+  const found = (merged.value ?? []).filter((pull) => pull.number !== featurePr && within2(window, pull.merged_at)).map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ""}
 ${pull.body ?? ""}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) })).filter(({ closes: closes2 }) => closes2.length > 0).sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
   for (const { pull, closes: closes2 } of found) {
     const files = await readOrRefused(() => listFiles(octokit, { owner, repo, number: pull.number }));
@@ -16416,7 +16159,7 @@ function bugFacts(bug, { records, fixes }) {
     number: bug.number,
     url: bug.url,
     daysAfterMerge: Math.floor((Date.parse(bug.createdAt) - Date.parse(window.from)) / DAY_MS3),
-    closed: within3(window, bug.closedAt),
+    closed: within2(window, bug.closedAt),
     fixes: own.map((fix) => fix.number),
     linked: own.flatMap((fix) => linksOf(fix, ranges))
   };
@@ -18078,31 +17821,31 @@ function playbookLines({ ctx }) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z64 } from "zod";
+import { z as z61 } from "zod";
 
 // kit/lib/retro/outcome.ts
-import { z as z62 } from "zod";
-var LessonOutcomeSchema = z62.union([z62.object({ became: z62.string() }).strict(), z62.object({ staysHere: z62.string() }).strict()]);
-var LessonOutcomesSchema = z62.record(z62.string(), LessonOutcomeSchema);
+import { z as z59 } from "zod";
+var LessonOutcomeSchema = z59.union([z59.object({ became: z59.string() }).strict(), z59.object({ staysHere: z59.string() }).strict()]);
+var LessonOutcomesSchema = z59.record(z59.string(), LessonOutcomeSchema);
 function outcomeLine(outcome2) {
   if ("became" in outcome2) return `- **Became:** \`${outcome2.became}\``;
   return `- **Stays here:** ${outcome2.staysHere.trim().split(/\s+/).join(" ")}`;
 }
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z63 } from "zod";
-var ReplyFindingSchema = z63.object({
-  title: z63.string().exactOptional(),
-  whyItMatters: z63.string().exactOptional(),
-  lesson: z63.string().exactOptional(),
-  keep: z63.boolean().exactOptional(),
-  why: z63.string().exactOptional()
+import { z as z60 } from "zod";
+var ReplyFindingSchema = z60.object({
+  title: z60.string().exactOptional(),
+  whyItMatters: z60.string().exactOptional(),
+  lesson: z60.string().exactOptional(),
+  keep: z60.boolean().exactOptional(),
+  why: z60.string().exactOptional()
 });
-var ModelReplySchema = z63.object({
-  summary: z63.string(),
-  findings: z63.record(z63.string(), ReplyFindingSchema),
-  lessons: z63.array(z63.object({ text: z63.string(), findings: z63.array(z63.string()) })),
-  verdict: z63.object({ worthIt: z63.boolean(), reason: z63.string() }).nullable()
+var ModelReplySchema = z60.object({
+  summary: z60.string(),
+  findings: z60.record(z60.string(), ReplyFindingSchema),
+  lessons: z60.array(z60.object({ text: z60.string(), findings: z60.array(z60.string()) })),
+  verdict: z60.object({ worthIt: z60.boolean(), reason: z60.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -18303,161 +18046,161 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text13 = z64.string();
-var maybeText2 = z64.string().nullable();
-var RunSchema = z64.enum(["merge", "day-14"]);
+var text13 = z61.string();
+var maybeText2 = z61.string().nullable();
+var RunSchema = z61.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
   title: text13,
   url: maybeText2,
-  merged: z64.boolean(),
+  merged: z61.boolean(),
   baseRef: text13,
   headRef: text13,
   headSha: text13,
   openedAt: maybeText2,
   mergedAt: maybeText2,
   mergeSha: maybeText2,
-  labels: z64.array(text13)
+  labels: z61.array(text13)
 };
-var PullSchema3 = z64.object(pullFields);
-var FeaturePullSchema = z64.object({ ...pullFields, mergeSha: text13 });
-var PullIntoSchema = z64.object({
+var PullSchema3 = z61.object(pullFields);
+var FeaturePullSchema = z61.object({ ...pullFields, mergeSha: text13 });
+var PullIntoSchema = z61.object({
   number: PrNumberSchema,
   title: text13,
   url: maybeText2,
   state: text13,
-  draft: z64.boolean(),
+  draft: z61.boolean(),
   headRef: text13,
   headSha: text13,
   openedAt: text13,
   closedAt: maybeText2,
   mergedAt: maybeText2,
-  labels: z64.array(text13)
+  labels: z61.array(text13)
 });
-var PrdFactsSchema = z64.object({
+var PrdFactsSchema = z61.object({
   number: PrdNumberSchema,
   topic: text13,
   title: text13,
   problem: text13,
-  state: z64.enum(["shipped", "inbox"]),
+  state: z61.enum(["shipped", "inbox"]),
   folder: text13,
   plan: maybeText2,
   settled: maybeText2
 });
-var QualifiedSchema3 = z64.union([
-  z64.object({ skip: z64.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z64.object({ skip: text13, pr: PullSchema3.exactOptional() })
+var QualifiedSchema2 = z61.union([
+  z61.object({ skip: z61.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z61.object({ skip: text13, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z64.array(PullIntoSchema);
-var EvidenceSchema = z64.object({ label: text13, url: maybeText2, excerpt: text13.exactOptional() });
-var FindingSchema3 = z64.object({ id: text13, kind: text13, title: text13, happened: text13, evidence: z64.array(EvidenceSchema) });
-var SheetFindingSchema = z64.object({ ...FindingSchema3.shape, source: text13, ref: text13, repo: text13.exactOptional() });
-var TargetReadSchema = z64.discriminatedUnion("read", [
-  z64.object({
+var PullsIntoSchema = z61.array(PullIntoSchema);
+var EvidenceSchema = z61.object({ label: text13, url: maybeText2, excerpt: text13.exactOptional() });
+var FindingSchema3 = z61.object({ id: text13, kind: text13, title: text13, happened: text13, evidence: z61.array(EvidenceSchema) });
+var SheetFindingSchema = z61.object({ ...FindingSchema3.shape, source: text13, ref: text13, repo: text13.exactOptional() });
+var TargetReadSchema = z61.discriminatedUnion("read", [
+  z61.object({
     name: text13,
     repo: text13,
-    read: z64.literal(true),
-    installationId: z64.number(),
-    featurePrs: z64.array(FeaturePullSchema).min(1),
-    pulls: z64.array(PullIntoSchema)
+    read: z61.literal(true),
+    installationId: z61.number(),
+    featurePrs: z61.array(FeaturePullSchema).min(1),
+    pulls: z61.array(PullIntoSchema)
   }),
-  z64.object({ name: text13, repo: text13, read: z64.literal(false), reason: text13 })
+  z61.object({ name: text13, repo: text13, read: z61.literal(false), reason: text13 })
 ]);
-var RepositoryFactsSchema = z64.object({
+var RepositoryFactsSchema = z61.object({
   repo: text13,
   name: text13,
-  plan: z64.boolean(),
-  read: z64.boolean(),
+  plan: z61.boolean(),
+  read: z61.boolean(),
   reason: text13.exactOptional(),
-  featurePrs: z64.array(z64.object({ number: PrNumberSchema, url: maybeText2 })),
-  kinds: z64.record(z64.string(), z64.unknown()).exactOptional()
+  featurePrs: z61.array(z61.object({ number: PrNumberSchema, url: maybeText2 })),
+  kinds: z61.record(z61.string(), z61.unknown()).exactOptional()
 });
-var RulesSheetSchema = z64.object({
-  version: z64.number(),
-  findingOrder: z64.array(z64.array(text13)),
-  issuesPerRun: z64.number(),
-  thresholds: z64.object({
-    slowSliceFactor: z64.number(),
-    repeatedRedCommits: z64.number(),
-    repeatedRedSlices: z64.number(),
-    failingTestRuns: z64.number(),
-    churnRangeCommits: z64.number(),
-    churnFilePercent: z64.number(),
-    churnFileLines: z64.number(),
-    afterMergeDays: z64.number()
+var RulesSheetSchema = z61.object({
+  version: z61.number(),
+  findingOrder: z61.array(z61.array(text13)),
+  issuesPerRun: z61.number(),
+  thresholds: z61.object({
+    slowSliceFactor: z61.number(),
+    repeatedRedCommits: z61.number(),
+    repeatedRedSlices: z61.number(),
+    failingTestRuns: z61.number(),
+    churnRangeCommits: z61.number(),
+    churnFilePercent: z61.number(),
+    churnFileLines: z61.number(),
+    afterMergeDays: z61.number()
   }),
-  limits: z64.object({ logTailLines: z64.number(), modelInputTokens: z64.number() }),
-  fieldCaps: z64.object({
-    summary: z64.number(),
-    title: z64.number(),
-    whyItMatters: z64.number(),
-    lesson: z64.number(),
-    reason: z64.number(),
-    why: z64.number()
+  limits: z61.object({ logTailLines: z61.number(), modelInputTokens: z61.number() }),
+  fieldCaps: z61.object({
+    summary: z61.number(),
+    title: z61.number(),
+    whyItMatters: z61.number(),
+    lesson: z61.number(),
+    reason: z61.number(),
+    why: z61.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z64.object({ number: PrdNumberSchema, title: text13, topic: text13, state: text13, folder: text13 }),
-  featurePr: z64.object({ number: PrNumberSchema, title: text13, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text13 }),
+  prd: z61.object({ number: PrdNumberSchema, title: text13, topic: text13, state: text13, folder: text13 }),
+  featurePr: z61.object({ number: PrNumberSchema, title: text13, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text13 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z64.record(z64.string(), z64.unknown()),
-  findings: z64.array(SheetFindingSchema),
+  kinds: z61.record(z61.string(), z61.unknown()),
+  findings: z61.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z64.array(RepositoryFactsSchema).exactOptional()
+  repositories: z61.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z64.object(factSheetFields);
-var DroppedSchema = z64.object({ dropped: text13 });
-var ProseFieldSchema = z64.union([text13, DroppedSchema]);
-var ProseFindingSchema = z64.object({
+var FactSheetSchema = z61.object(factSheetFields);
+var DroppedSchema = z61.object({ dropped: text13 });
+var ProseFieldSchema = z61.union([text13, DroppedSchema]);
+var ProseFindingSchema = z61.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z64.boolean().exactOptional(),
+  keep: z61.boolean().exactOptional(),
   why: text13.exactOptional()
 });
-var LessonSchema = z64.object({ text: text13, findings: z64.array(text13) });
-var VerdictSchema4 = z64.union([z64.object({ worthIt: z64.boolean(), reason: text13 }), DroppedSchema]);
-var ProseSchema = z64.object({
+var LessonSchema = z61.object({ text: text13, findings: z61.array(text13) });
+var VerdictSchema4 = z61.union([z61.object({ worthIt: z61.boolean(), reason: text13 }), DroppedSchema]);
+var ProseSchema = z61.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z64.record(z64.string(), ProseFindingSchema),
-  lessons: z64.array(LessonSchema),
+  findings: z61.record(z61.string(), ProseFindingSchema),
+  lessons: z61.array(LessonSchema),
   verdict: VerdictSchema4.optional()
 });
-var DroppedFieldSchema = z64.object({ field: text13, reason: text13 });
-var GuardedSchema = z64.object({ prose: ProseSchema.nullable(), dropped: z64.array(DroppedFieldSchema) });
-var NarratedSchema = z64.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
-var NarrationSchema = z64.object({ model: maybeText2, reason: maybeText2, dropped: z64.array(DroppedFieldSchema) });
-var IssueLinkSchema = z64.object({ number: IssueNumberSchema, url: text13, state: z64.enum(["open", "closed"]) });
-var IssueLinksSchema = z64.record(z64.string(), IssueLinkSchema);
-var RunRecordSchema = z64.object({
+var DroppedFieldSchema = z61.object({ field: text13, reason: text13 });
+var GuardedSchema = z61.object({ prose: ProseSchema.nullable(), dropped: z61.array(DroppedFieldSchema) });
+var NarratedSchema = z61.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
+var NarrationSchema = z61.object({ model: maybeText2, reason: maybeText2, dropped: z61.array(DroppedFieldSchema) });
+var IssueLinkSchema = z61.object({ number: IssueNumberSchema, url: text13, state: z61.enum(["open", "closed"]) });
+var IssueLinksSchema = z61.record(z61.string(), IssueLinkSchema);
+var RunRecordSchema = z61.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema4.nullable().exactOptional(),
-  lessons: z64.array(LessonSchema).exactOptional(),
+  lessons: z61.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional(),
   outcomes: LessonOutcomesSchema.exactOptional()
 });
-var KnownSchema = z64.object({
-  knowledge: z64.object({
-    principles: z64.array(z64.unknown()),
-    laws: z64.array(z64.unknown()),
-    decisions: z64.array(z64.unknown()),
-    playbook: z64.array(z64.object({ id: text13, line: text13 })).exactOptional()
+var KnownSchema = z61.object({
+  knowledge: z61.object({
+    principles: z61.array(z61.unknown()),
+    laws: z61.array(z61.unknown()),
+    decisions: z61.array(z61.unknown()),
+    playbook: z61.array(z61.object({ id: text13, line: text13 })).exactOptional()
   }),
-  lessons: z64.array(text13)
+  lessons: z61.array(text13)
 });
-var PublishedSchema2 = z64.object({
+var PublishedSchema2 = z61.object({
   branch: text13,
-  committed: z64.boolean(),
+  committed: z61.boolean(),
   commit: text13,
-  pr: z64.object({ number: PrNumberSchema, url: text13, created: z64.boolean() }).nullable(),
+  pr: z61.object({ number: PrNumberSchema, url: text13, created: z61.boolean() }).nullable(),
   apply: text13.nullable().exactOptional()
 });
-var QueuedSchema = z64.object({ job: text13.nullable(), created: z64.boolean(), reason: maybeText2 });
-var CommentedSchema2 = z64.object({ commentId: CommentIdSchema, created: z64.boolean() });
-var ClockSchema = z64.number();
+var QueuedSchema = z61.object({ job: text13.nullable(), created: z61.boolean(), reason: maybeText2 });
+var CommentedSchema2 = z61.object({ commentId: CommentIdSchema, created: z61.boolean() });
+var ClockSchema = z61.number();
 
 // apps/omni-app/src/retro/guard.ts
 var DROPPED = Object.freeze({
@@ -18766,12 +18509,12 @@ function unsettledLessons(runs) {
 }
 
 // apps/omni-app/src/retro/render.ts
-import { z as z65 } from "zod";
+import { z as z62 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z65.object({
-  featurePr: z65.object({ minutes: z65.number().nullish() }).nullish(),
-  sliceCount: z65.number().exactOptional(),
-  waves: z65.object({ merged: z65.number(), planned: z65.number().nullable() })
+var TimelineFactsSchema = z62.object({
+  featurePr: z62.object({ minutes: z62.number().nullish() }).nullish(),
+  sliceCount: z62.number().exactOptional(),
+  waves: z62.object({ merged: z62.number(), planned: z62.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -18780,7 +18523,7 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z65.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z62.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? withOutcomes(record, run) : run);
@@ -19218,11 +18961,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z66 } from "zod";
+import { z as z63 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z66.union([
-  z66.object({ comments: z66.array(z66.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z66.boolean() })) }),
-  z66.object({ refused: z66.number() })
+var TargetCommentedSchema = z63.union([
+  z63.object({ comments: z63.array(z63.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z63.boolean() })) }),
+  z63.object({ refused: z63.number() })
 ]);
 function targetComment({
   prd,
@@ -19293,35 +19036,35 @@ var DAY_WAIT = 2 * DAY_MS4;
 var FOLLOW_UP_STEP = "wait-day-14";
 var CLOCK_STEP = "clock-day-14";
 var SCHEDULED = internalEvents.ScheduledTimer;
-var CONCURRENCY3 = Object.freeze({ key: "event.data.repository", limit: 1 });
+var CONCURRENCY2 = Object.freeze({ key: "event.data.repository", limit: 1 });
 var MARKER_PREFIX2 = parseConfig("kit: 1\n").markers.prefix;
 var FAILURE_MARKER2 = `<!-- ${MARKER_PREFIX2}-retro-failed -->`;
 var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroEventSchema = z67.object({
-  installationId: z67.number(),
-  owner: z67.string(),
-  repo: z67.string(),
+var RetroEventSchema = z64.object({
+  installationId: z64.number(),
+  owner: z64.string(),
+  repo: z64.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z67.string(),
-  mergedAt: z67.string().nullish()
+  mergeSha: z64.string(),
+  mergedAt: z64.string().nullish()
 });
-var FailedEventSchema = z67.object({
-  installationId: z67.number().optional().catch(void 0),
-  owner: z67.string().optional().catch(void 0),
-  repo: z67.string().optional().catch(void 0),
+var FailedEventSchema = z64.object({
+  installationId: z64.number().optional().catch(void 0),
+  owner: z64.string().optional().catch(void 0),
+  repo: z64.string().optional().catch(void 0),
   prNumber: PrNumberSchema.optional().catch(void 0)
 }).catch({});
-var TickSchema = z67.looseObject({ ts: z67.number().exactOptional() }).nullable();
+var TickSchema = z64.looseObject({ ts: z64.number().exactOptional() }).nullable();
 function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false, queue = null }) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
       name: "omni-loop \xB7 retro",
       triggers: followUp ? [{ event: RETRO_EVENT }, { cron: DAILY }] : [{ event: RETRO_EVENT }],
-      concurrency: CONCURRENCY3,
+      concurrency: CONCURRENCY2,
       retries: 3,
       onFailure: createRetroFailureHandler({ octokitFor })
     },
@@ -19332,7 +19075,7 @@ function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch:
       }
       const { installationId, owner, repo, prNumber, mergeSha, mergedAt } = parseEvent(event.data);
       const github = async () => octokitFor(installationId);
-      const qualified = await savedStep(step, "qualify", QualifiedSchema3, async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
+      const qualified = await savedStep(step, "qualify", QualifiedSchema2, async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
       if (qualified.skip !== null) return { skipped: qualified.skip };
       const { pr, prd, config } = qualified;
       const pulls = await savedStep(step, "gather-pulls", PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
@@ -19575,9 +19318,9 @@ The retro could not run: ${reason2}
 }
 
 // apps/omni-app/src/retro/runner-queue.ts
-import { z as z68 } from "zod";
+import { z as z65 } from "zod";
 var APP_SENDER = "omni-app";
-var IdRowSchema = z68.object({ id: z68.string().min(1) });
+var IdRowSchema = z65.object({ id: z65.string().min(1) });
 function runnerQueue(connection) {
   const db = serviceDb(connection);
   return async ({ installationId, repository, line }) => {
@@ -19596,39 +19339,39 @@ function runnerQueue(connection) {
 }
 
 // apps/omni-app/src/main-watch/events.ts
-import { z as z69 } from "zod";
+import { z as z66 } from "zod";
 var MAIN_WATCH_EVENT = "omni-loop/main-watch.requested";
 var MAIN_WATCH_CI_EVENT = "omni-loop/main-watch.ci-red";
-var slug = z69.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
-var MainWatchDataSchema = z69.looseObject({
-  installationId: z69.number(),
-  owner: z69.string().min(1),
-  repo: z69.string().min(1),
+var slug = z66.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
+var MainWatchDataSchema = z66.looseObject({
+  installationId: z66.number(),
+  owner: z66.string().min(1),
+  repo: z66.string().min(1),
   repository: slug,
   prNumber: PrNumberSchema,
-  mergeSha: z69.string().min(1),
-  mergedAt: z69.string().nullish()
+  mergeSha: z66.string().min(1),
+  mergedAt: z66.string().nullish()
 });
 
 // apps/omni-app/src/main-watch/main-watch.schema.ts
-import { z as z70 } from "zod";
-var text14 = z70.string().min(1);
-var BreakSchema = z70.object({
-  kind: z70.enum(["ci-red", "revert", "regression"]),
+import { z as z67 } from "zod";
+var text14 = z67.string().min(1);
+var BreakSchema = z67.object({
+  kind: z67.enum(["ci-red", "revert", "regression"]),
   source: text14,
   url: text14,
   title: text14,
-  parent: z70.enum(["green", "red", "unknown"]).nullable(),
+  parent: z67.enum(["green", "red", "unknown"]).nullable(),
   at: text14
 });
-var ReadSchema = z70.object({ breaks: z70.array(BreakSchema), unread: z70.array(z70.enum(["ci", "reverts", "regressions"])) });
-var OpenedSchema = z70.object({ workspace: text14.nullable(), reason: text14.nullable(), opened: z70.number().int().min(0) });
-var RecordedSchema = z70.object({ added: z70.number().int().min(0) });
-var ClosedSchema = z70.object({ closed: z70.boolean() });
-var TickSchema2 = z70.looseObject({ ts: z70.number().exactOptional() }).nullable();
+var ReadSchema = z67.object({ breaks: z67.array(BreakSchema), unread: z67.array(z67.enum(["ci", "reverts", "regressions"])) });
+var OpenedSchema = z67.object({ workspace: text14.nullable(), reason: text14.nullable(), opened: z67.number().int().min(0) });
+var RecordedSchema = z67.object({ added: z67.number().int().min(0) });
+var ClosedSchema = z67.object({ closed: z67.boolean() });
+var TickSchema2 = z67.looseObject({ ts: z67.number().exactOptional() }).nullable();
 
 // apps/omni-app/src/main-watch/signals.ts
-import { z as z71 } from "zod";
+import { z as z68 } from "zod";
 var RUNS3 = "GET /repos/{owner}/{repo}/actions/runs";
 var COMMIT2 = "GET /repos/{owner}/{repo}/commits/{ref}";
 var COMMITS = "GET /repos/{owner}/{repo}/commits";
@@ -19637,36 +19380,36 @@ var COMMENTS2 = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
 var GREEN3 = /* @__PURE__ */ new Set(["success"]);
 var RED3 = /* @__PURE__ */ new Set(["failure", "timed_out", "startup_failure"]);
 var TRIAGE_MARKER = "<!-- omni-bug:triage -->";
-var RunSchema2 = z71.looseObject({
-  id: z71.number(),
-  name: z71.string().nullish(),
-  html_url: z71.string().nullish(),
-  created_at: z71.string().nullish(),
-  updated_at: z71.string().nullish()
+var RunSchema2 = z68.looseObject({
+  id: z68.number(),
+  name: z68.string().nullish(),
+  html_url: z68.string().nullish(),
+  created_at: z68.string().nullish(),
+  updated_at: z68.string().nullish()
 });
-var RunsPageSchema = z71.looseObject({ workflow_runs: z71.array(RunSchema2).nullish() });
-var ParentsSchema = z71.looseObject({ parents: z71.array(z71.looseObject({ sha: z71.string() })).nullish() });
-var CommitSchema2 = z71.looseObject({
-  sha: z71.string(),
-  html_url: z71.string(),
-  commit: z71.looseObject({
-    message: z71.string(),
-    committer: z71.looseObject({ date: z71.string().nullish() }).nullish(),
-    author: z71.looseObject({ date: z71.string().nullish() }).nullish()
+var RunsPageSchema = z68.looseObject({ workflow_runs: z68.array(RunSchema2).nullish() });
+var ParentsSchema = z68.looseObject({ parents: z68.array(z68.looseObject({ sha: z68.string() })).nullish() });
+var CommitSchema2 = z68.looseObject({
+  sha: z68.string(),
+  html_url: z68.string(),
+  commit: z68.looseObject({
+    message: z68.string(),
+    committer: z68.looseObject({ date: z68.string().nullish() }).nullish(),
+    author: z68.looseObject({ date: z68.string().nullish() }).nullish()
   })
 });
-var LabelSchema = z71.union([z71.string(), z71.looseObject({ name: z71.string() })]);
-var IssueSchema3 = z71.looseObject({
-  number: z71.number(),
-  title: z71.string().nullish(),
-  body: z71.string().nullish(),
-  html_url: z71.string(),
-  created_at: z71.string(),
-  pull_request: z71.unknown().optional(),
-  user: z71.looseObject({ type: z71.string().nullish() }).nullish(),
-  labels: z71.array(LabelSchema).nullish()
+var LabelSchema = z68.union([z68.string(), z68.looseObject({ name: z68.string() })]);
+var IssueSchema3 = z68.looseObject({
+  number: z68.number(),
+  title: z68.string().nullish(),
+  body: z68.string().nullish(),
+  html_url: z68.string(),
+  created_at: z68.string(),
+  pull_request: z68.unknown().optional(),
+  user: z68.looseObject({ type: z68.string().nullish() }).nullish(),
+  labels: z68.array(LabelSchema).nullish()
 });
-var CommentSchema = z71.looseObject({ body: z71.string().nullish() });
+var CommentSchema = z68.looseObject({ body: z68.string().nullish() });
 async function readSignals(octokit, lane2, scope) {
   const unread = [];
   const breaks = [...await ciBreaks(octokit, lane2, unread), ...await revertBreaks(octokit, lane2, unread), ...await regressionBreaks(octokit, lane2, scope, unread)];
@@ -19735,7 +19478,7 @@ async function revertBreaks(octokit, lane2, unread) {
   const { owner, repo, base, mergedAt, watchUntil } = lane2;
   const commits = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z71.array(CommitSchema2), data, COMMITS))
+      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z68.array(CommitSchema2), data, COMMITS))
     )
   );
   if (commits.status !== null) {
@@ -19775,7 +19518,7 @@ async function regressionBreaks(octokit, lane2, scope, unread) {
   const { owner, repo, mergedAt, watchUntil } = lane2;
   const issues = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(ISSUES4, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z71.array(IssueSchema3), data, ISSUES4))
+      (page) => octokit.request(ISSUES4, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z68.array(IssueSchema3), data, ISSUES4))
     )
   );
   if (issues.status !== null) {
@@ -19792,7 +19535,7 @@ async function regressionBreaks(octokit, lane2, scope, unread) {
   return breaks;
 }
 function isReport(issue, window, scope) {
-  return issue.pull_request === void 0 && within3(window, issue.created_at) && issue.user?.type !== "Bot" && !labelled(issue, scope.retroLabel);
+  return issue.pull_request === void 0 && within2(window, issue.created_at) && issue.user?.type !== "Bot" && !labelled(issue, scope.retroLabel);
 }
 function tracer(octokit, lane2, scope, unread) {
   const namesThePrd = namesPrd2(scope.prd, scope.planSlug, { bare: lane2.lane === scope.planSlug.toLowerCase() });
@@ -19817,7 +19560,7 @@ function labelled(issue, label2) {
 async function triageOf(octokit, { owner, repo }, issue) {
   const comments = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMENTS2, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z71.array(CommentSchema), data, COMMENTS2))
+      (page) => octokit.request(COMMENTS2, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z68.array(CommentSchema), data, COMMENTS2))
     )
   );
   if (comments.status !== null) return void 0;
@@ -19865,7 +19608,7 @@ function createMainWatch({ client, octokitFor, appOctokit = null, store, queue }
       const data = parseOrThrow(MainWatchDataSchema, event.data, `The ${MAIN_WATCH_EVENT} event carries an unexpected shape`);
       if (!store) return { skipped: "no database to keep the watch in" };
       const github = async () => octokitFor(data.installationId);
-      const qualified = await savedStep(step, "qualify", QualifiedSchema3, async () => qualify(await github(), data));
+      const qualified = await savedStep(step, "qualify", QualifiedSchema2, async () => qualify(await github(), data));
       if (qualified.skip !== null) return { skipped: qualified.skip };
       const { pr, prd, config } = qualified;
       if (!config.mainWatch.enabled) return { prd: prd.number, skipped: "mainWatch.enabled is false at the merge" };
@@ -19981,9 +19724,9 @@ async function finish(watch, found, one, read) {
 }
 
 // apps/omni-app/src/main-watch/store.ts
-import { z as z72 } from "zod";
-var LaneRowSchema = z72.object({ lane: z72.string().min(1) });
-var SourceRowSchema = z72.object({ source: z72.string().min(1) });
+import { z as z69 } from "zod";
+var LaneRowSchema = z69.object({ lane: z69.string().min(1) });
+var SourceRowSchema = z69.object({ source: z69.string().min(1) });
 function mainWatchStore(connection) {
   const db = serviceDb(connection);
   const watchOf = ({ workspace, repository, prd, lane: lane2 }) => ({ workspace_id: workspace, repository: repository.toLowerCase(), prd, lane: lane2.toLowerCase() });
@@ -20030,14 +19773,14 @@ import { RetryAfterError as RetryAfterError4 } from "inngest";
 
 // apps/omni-app/src/server-event/server-event.ts
 import { createHmac as createHmac3, timingSafeEqual } from "node:crypto";
-import { z as z73 } from "zod";
+import { z as z70 } from "zod";
 var SERVER_EVENT = "omni-loop/server.event.received";
 var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var ServerEventSchema = z73.object({
-  event: z73.enum(SERVER_EVENT_KINDS),
-  dossier: z73.string().regex(UUID2),
-  at: z73.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
+var ServerEventSchema = z70.object({
+  event: z70.enum(SERVER_EVENT_KINDS),
+  dossier: z70.string().regex(UUID2),
+  at: z70.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 
 // apps/omni-app/src/server-event/recheck.ts
@@ -20077,10 +19820,10 @@ function createServerEventRecheck({
           try {
             return await keptOf(await octokitFor(targets.installationId), pull, targets.prdId);
           } catch (error) {
-            const refused6 = refusalIn2(error);
-            if (!refused6) throw error;
-            log2(`server event: ${where} waits for the GitHub budget: ${refused6.message}`);
-            throw new RetryAfterError4(refused6.message, new Date(refused6.until), { cause: refused6 });
+            const refused5 = refusalIn2(error);
+            if (!refused5) throw error;
+            log2(`server event: ${where} waits for the GitHub budget: ${refused5.message}`);
+            throw new RetryAfterError4(refused5.message, new Date(refused5.until), { cause: refused5 });
           }
         });
         if (found) kept3.push(found);
@@ -20100,13 +19843,13 @@ function createServerEventRecheck({
 }
 
 // apps/omni-app/src/server-event/targets.ts
-import { z as z74 } from "zod";
-var text15 = z74.string().min(1);
-var DossierRowSchema4 = z74.object({ workspace_id: text15, product_id: text15.nullable(), product_seq: z74.number().int().positive().nullable() });
-var ProductRowSchema = z74.object({ key: text15.nullable() });
-var WorkspaceRowSchema = z74.object({ github_installation_id: z74.number().int().positive().nullable() });
-var LinkRowSchema = z74.object({ repository: text15 });
-var PullRowSchema = z74.object({ repo: text15, number: z74.number().int().positive() });
+import { z as z71 } from "zod";
+var text15 = z71.string().min(1);
+var DossierRowSchema4 = z71.object({ workspace_id: text15, product_id: text15.nullable(), product_seq: z71.number().int().positive().nullable() });
+var ProductRowSchema = z71.object({ key: text15.nullable() });
+var WorkspaceRowSchema = z71.object({ github_installation_id: z71.number().int().positive().nullable() });
+var LinkRowSchema = z71.object({ repository: text15 });
+var PullRowSchema = z71.object({ repo: text15, number: z71.number().int().positive() });
 function targetsReader(connection) {
   const db = serviceDb(connection);
   return async (dossier) => {
@@ -20163,7 +19906,6 @@ function appFunctions(env, {
     serverEvent: createServerEventRecheck({ client: inngest2, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null }),
     escalation: createEscalation({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
     fixRowStamp: createFixRowStamp({ client: inngest2, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
-    knowledgePack: createKnowledgePack({ client: inngest2, octokitFor, store: env.supabase ? knowledgePackStore(env.supabase) : null }),
     mainWatch: createMainWatch({
       client: inngest2,
       octokitFor,
