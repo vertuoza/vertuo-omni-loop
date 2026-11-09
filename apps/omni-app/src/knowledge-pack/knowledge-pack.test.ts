@@ -6,11 +6,11 @@ import { createHash, createHmac } from 'node:crypto';
 import { GithubDeferred } from '@omni/github';
 import { describe, expect, it } from 'vitest';
 import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
-import type { PackPut, PackStore, PutAnswer } from '../knowledge-pack/store.ts';
+import type { ClaimedJob, NewJob } from '../jobs/ledger.ts';
+import { PACK_KIND, packHandler, packJob } from '../jobs/pack.ts';
 import { MAX_FILES } from '../snapshot/snapshot.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
-import type { ClaimedJob, NewJob } from './ledger.ts';
-import { PACK_KIND, packHandler, packJob } from './pack.ts';
+import type { PackPut, PackStore, PutAnswer } from './store.ts';
 
 const SECRET = 'shh-test-secret';
 const MERGE_SHA = 'c'.repeat(40);
