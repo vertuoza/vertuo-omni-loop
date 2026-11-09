@@ -52,6 +52,10 @@
 // the `approved-rerun` function runs the `omni/approved` check again on every open pull request of that
 // PRD. Every handled pull request action also runs that check, on the outbox check's own event.
 //
+// The knowledge pack (PRD 2676 s2): the same merged pull request also becomes one job of the ledger, `toPackJobs`,
+// handed to `addJobs` before anything is sent to Inngest, so Inngest refusing an event never loses it. A job
+// that cannot be added is logged and the delivery goes on: the hourly comparison repairs it.
+//
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
 import { Webhooks } from '@octokit/webhooks';
@@ -83,6 +87,8 @@ import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type MainWatchRequest } from '../main-watch/events.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
+import { packJob } from '../jobs/pack.ts';
+import type { NewJob } from '../jobs/ledger.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
 import { TOUCH_EVENTS, toTouches, type Touch } from '../stage-forward/touch.ts';
@@ -222,6 +228,7 @@ export async function receiveWebhook({
   sendStamps = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
   sendBoard = () => Promise.resolve(),
+  addJobs = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log = noteTo('webhook'),
@@ -238,6 +245,8 @@ export async function receiveWebhook({
   sendWatch?: (events: MainWatchRequest[]) => Promise<unknown>;
   /** Sends the fleet board's events (PRD 2530); none given, they go nowhere. */
   sendBoard?: (events: FleetBoardRequest[]) => Promise<unknown>;
+  /** Adds the ledger's jobs (PRD 2676 s2), before any event is sent; none given, they go nowhere. */
+  addJobs?: (jobs: NewJob[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -281,6 +290,8 @@ export async function receiveWebhook({
   const total = events.length + approved.length + stamps.length + watch.length + board.length;
   if (total === 0) return reply(200, 'ignored');
 
+  await addPackJobs(addJobs, toPackJobs(event, payload), log);
+
   try {
     if (events.length > 0) await send(events);
     if (approved.length > 0) await sendApproved(approved);
@@ -291,6 +302,15 @@ export async function receiveWebhook({
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
   return reply(200, `sent ${total}`);
+}
+
+/** Adds the jobs, if any; a failure is logged and the delivery goes on. */
+async function addPackJobs(addJobs: (jobs: NewJob[]) => Promise<unknown>, jobs: NewJob[], log: (line: string) => void): Promise<void> {
+  try {
+    if (jobs.length > 0) await addJobs(jobs);
+  } catch (error) {
+    log(`jobs: could not add — ${String(messageOf(error))}`);
+  }
 }
 
 /**
@@ -388,6 +408,17 @@ export function toHarvestRequests(event: string, payload: unknown): HarvestReque
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber },
   }));
+}
+
+/**
+ * The knowledge pack's filter, pure (PRD 2676 s2): the merged pull requests the retro gets, one pack job each,
+ * keyed by repository and merge commit, so a delivery sent twice is one job. Whether a product holds the
+ * repository is not decided here: the route's `addJobs` asks the database before it adds.
+ */
+function toPackJobs(event: string, delivery: unknown): NewJob[] {
+  return toRetroRequests(event, delivery).map(({ data: { installationId, owner, repo, prNumber, mergeSha, mergedAt } }) =>
+    packJob({ installationId, owner, repo, prNumber, sha: mergeSha, committedAt: mergedAt }),
+  );
 }
 
 /**
