@@ -929,3 +929,54 @@ describe('the stylesheet', () => {
     }
   });
 });
+
+// #2673: a PRD numbered on its product has no repository number, and its page still loads its approval.
+describe('the page of a product PRD', () => {
+  const RED: import('../../business-laws/verdicts.repository').KeptVerdict = {
+    specVersion: 'v-1', lawHome: 'acme/widgets', packSha: 'c'.repeat(40), state: 'red', reason: '1 law broken', laws: ['BL-QUOTES-1'],
+    domains: [{ key: 'quotes', name: 'Quotes', reasons: ['areas'] }],
+    findings: [{
+      law: 'BL-QUOTES-1', statement: 'A quote is sent once.', why: 'A customer billed twice stops trusting the contractor.', quote: 'a quote can be sent twice',
+      domain: 'quotes', file: '.omni-loop/knowledge/domains/quotes/business-laws.md', owners: ['ana'],
+    }],
+    judgedAt: '2026-11-09T09:00:00Z',
+  };
+
+  /** A product PRD, `mobile-1`, with its three files; its dossier's id. */
+  async function productPrd(): Promise<string> {
+    given.fake.seedProduct('Mobile', ['acme/widgets'], { key: 'mobile' });
+    const pushed = await given.fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: null, p_product_key: 'mobile', p_title: 'Quotes sent twice', p_draft: null,
+      p_artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'plan', content: '# Plan\n' }, { kind: 'before-after', content: PAGE }],
+    });
+    return (pushed.data as { id: string }).id;
+  }
+
+  it('offers Approve to a member', async () => {
+    const id = await productPrd();
+    given.token = 'bob';
+    const page = await html(id);
+    expect(page).toContain('dossier-approve-button');
+  });
+
+  it('shows a red business laws verdict above Approve, and turns Approve off', async () => {
+    const id = await productPrd();
+    given.token = 'bob';
+    given.laws = { show: 'verdict', verdict: RED };
+    const page = await html(id);
+    expect(textOf(page)).toContain('Business laws ✗ 1');
+    expect(page).toMatch(/<button[^>]*dossier-approve-button[^>]*disabled/);
+  });
+
+  it('seals an approval under the product PRD\'s id', async () => {
+    const id = await productPrd();
+    given.token = 'bob';
+    given.approval = vi.fn(() => Promise.resolve({ id: 'a-1', approver_login: 'ada', approved_at: '2026-11-09T09:12:00Z', files: [] }));
+    expect(textOf(await html(id))).toContain('PRD mobile-1');
+  });
+
+  it('offers no Approve on a draft', async () => {
+    given.token = 'ada';
+    expect(await html(draft)).not.toContain('dossier-approve-button');
+  });
+});
