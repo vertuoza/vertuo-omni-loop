@@ -111,6 +111,58 @@
         }
       ],
       "fit": "Fits the lead engineer best; the outbox check staying off is what the product manager feels most."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-09",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every try is written down and a failed job can be replayed, which is what I want from a job runner.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A jam opens an issue by itself, so I would hear about it; I will trust it once it has survived a real one.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "My specs can be judged against laws again, but the outbox check is still off, so this is half of what I need.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing changes on my screen, and my PRDs get judged again without me doing anything.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It never reaches the front end, and fewer silent failures is welcome.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "fit": "Fits the lead engineer best; the outbox check still being off is what the product manager feels most."
     }
   ]
 }
