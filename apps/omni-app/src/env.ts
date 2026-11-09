@@ -74,6 +74,9 @@ const LAW_JUDGE = secretGroup('the law judge', 'LAW_JUDGE_SECRET');
 /** The secret the inbox check signs its call to galaxy's business laws judge with (PRD 2632). */
 const BUSINESS_LAWS_JUDGE = secretGroup('the business laws judge', 'BUSINESS_LAWS_JUDGE_SECRET');
 
+/** The secret Vercel's cron sends as `Authorization: Bearer` to `/api/jobs-sweep` (PRD 2676); unset, the sweep refuses every call. */
+const CRON = secretGroup('the cron secret', 'CRON_SECRET');
+
 /** Galaxy's host, for the stage events and the judges. */
 const GALAXY = envGroup({
   label: 'galaxy',
@@ -82,7 +85,7 @@ const GALAXY = envGroup({
 });
 
 /** The variables a person sets for the app and `readEnv` reads: the README's list names these (`src/env-docs.test.ts`). */
-export const VARIABLES: readonly string[] = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, GALAXY]);
+export const VARIABLES: readonly string[] = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, CRON, GALAXY]);
 
 /** The variables the Inngest SDK reads itself (above): set by a person, so the README's list names them too. */
 export const SDK_VARIABLES: readonly string[] = ['INNGEST_EVENT_KEY', 'INNGEST_SIGNING_KEY', 'INNGEST_DEV'];
@@ -104,6 +107,7 @@ export function readEnv(source: EnvSource) {
     constituentJudge: reader.group(CONSTITUENT_JUDGE),
     lawJudge: reader.group(LAW_JUDGE),
     businessLawsJudge: reader.group(BUSINESS_LAWS_JUDGE),
+    cron: reader.group(CRON),
     galaxyUrl: (reader.group(GALAXY)?.url ?? DEFAULT_GALAXY_URL).replace(/\/+$/, ''),
   };
   reader.done();

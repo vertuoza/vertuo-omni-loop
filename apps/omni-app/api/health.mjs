@@ -157,12 +157,13 @@ var STAGE_EVENTS = secretGroup("the stage events", "STAGE_EVENT_SECRET");
 var CONSTITUENT_JUDGE = secretGroup("the constituent judge", "CONSTITUENT_JUDGE_SECRET");
 var LAW_JUDGE = secretGroup("the law judge", "LAW_JUDGE_SECRET");
 var BUSINESS_LAWS_JUDGE = secretGroup("the business laws judge", "BUSINESS_LAWS_JUDGE_SECRET");
+var CRON = secretGroup("the cron secret", "CRON_SECRET");
 var GALAXY = envGroup({
   label: "galaxy",
   schema: z3.object({ url: z3.url().optional() }),
   variables: { url: "GALAXY_URL" }
 });
-var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, GALAXY]);
+var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, CRON, GALAXY]);
 var PLATFORM_VARIABLES = variablesOf([VERCEL]);
 function readEnv(source) {
   const production = envReader(source).group(VERCEL)?.name === "production";
@@ -177,6 +178,7 @@ function readEnv(source) {
     constituentJudge: reader.group(CONSTITUENT_JUDGE),
     lawJudge: reader.group(LAW_JUDGE),
     businessLawsJudge: reader.group(BUSINESS_LAWS_JUDGE),
+    cron: reader.group(CRON),
     galaxyUrl: (reader.group(GALAXY)?.url ?? DEFAULT_GALAXY_URL).replace(/\/+$/, "")
   };
   reader.done();
@@ -189,23 +191,122 @@ function processEnv() {
   return process.env;
 }
 
+// apps/omni-app/src/jobs/ledger.ts
+import { z as z5 } from "zod";
+
+// apps/omni-app/src/server-event/service-db.ts
+import { createClient } from "@supabase/supabase-js";
+import { z as z4 } from "zod";
+function serviceDb({ url, key, fetch }) {
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...fetch ? { global: { fetch } } : {}
+  });
+}
+
+// apps/omni-app/src/jobs/ledger.ts
+var PayloadSchema = z5.record(z5.string(), z5.unknown());
+var ClaimedRowSchema = z5.object({
+  id: z5.string().min(1),
+  kind: z5.string().min(1),
+  key: z5.string().min(1),
+  subject: z5.string().min(1),
+  payload: PayloadSchema,
+  tries: z5.number().int().min(1).max(5),
+  claim: z5.string().min(1),
+  claimed_until: z5.string().min(1)
+});
+var JobStateSchema = z5.enum(["queued", "done", "skipped", "failed"]);
+var ReplayedRowSchema = z5.object({
+  id: z5.string().min(1),
+  kind: z5.string().min(1),
+  key: z5.string().min(1),
+  state: z5.literal("queued"),
+  tries: z5.literal(0)
+});
+var HealthSchema = z5.object({
+  state: z5.enum(["ok", "late"]),
+  late: z5.number().int().nonnegative(),
+  failed: z5.number().int().nonnegative()
+});
+var refused = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+function dataOf({ data, error }) {
+  if (error) throw refused(error);
+  return data;
+}
+function jobLedger(connection) {
+  const db = serviceDb(connection);
+  return {
+    add: async ({ kind, key, subject, payload }) => z5.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
+    claim: async ({ limit, leaseSeconds }) => {
+      const rows = z5.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
+      return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));
+    },
+    finish: async ({ id, claim, outcome, reason, retryAt }) => {
+      const answer = await db.rpc("background_job_finish", {
+        p_id: id,
+        p_claim: claim,
+        p_outcome: outcome,
+        ...reason === null ? {} : { p_reason: reason },
+        ...retryAt === null ? {} : { p_retry_at: retryAt }
+      });
+      if (answer.error?.code === "55000") return "stale";
+      return JobStateSchema.parse(dataOf(answer));
+    },
+    replay: async (id) => {
+      const answer = await db.rpc("background_job_replay", { p_id: id });
+      if (answer.error?.code === "P0002" || answer.error?.code === "55000") return { replayed: false, reason: answer.error.message };
+      const job = ReplayedRowSchema.parse(dataOf(answer));
+      return { replayed: true, ...job };
+    },
+    health: async () => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", void 0, { get: true }))),
+    forget: async () => z5.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
+  };
+}
+
 // apps/omni-app/src/health/health.ts
-function healthOf(source) {
+var JOBS_TIMEOUT_MS = 5e3;
+var readJobs = (connection) => jobLedger(connection).health();
+async function jobsCheck(source, read = readJobs) {
+  let supabase;
+  try {
+    supabase = readEnv(source).supabase;
+  } catch {
+    return "unknown";
+  }
+  if (!supabase) return "off";
+  let timer;
+  try {
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error("timed out"));
+      }, JOBS_TIMEOUT_MS);
+    });
+    const { state } = await Promise.race([read(supabase), timeout]);
+    return state;
+  } catch {
+    return "unknown";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function healthOf(source, jobs = "off") {
   let env = "ok";
   try {
     readEnv(source);
   } catch {
     env = "failed";
   }
-  const ok = env === "ok";
-  return { status: ok ? 200 : 503, body: { ok, app: "omni-app", commit: readCommit(source), checks: { env } } };
+  const ok = env === "ok" && jobs !== "late";
+  return { status: ok ? 200 : 503, body: { ok, app: "omni-app", commit: readCommit(source), checks: { env, jobs: env === "ok" ? jobs : "unknown" } } };
 }
 var NO_STORE = { "cache-control": "no-store" };
 var notAllowed = () => new Response("method not allowed", { status: 405, headers: { ...NO_STORE, allow: "GET", "content-type": "text/plain; charset=utf-8" } });
-function healthRoute(source) {
+function healthRoute(source, read = readJobs) {
   return {
-    GET: () => {
-      const { status, body } = healthOf(source());
+    GET: async () => {
+      const env = source();
+      const { status, body } = healthOf(env, await jobsCheck(env, read));
       return Response.json(body, { status, headers: NO_STORE });
     },
     POST: notAllowed,

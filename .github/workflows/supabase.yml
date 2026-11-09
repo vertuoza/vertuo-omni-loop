@@ -196,6 +196,14 @@ jobs:
         # workspace's packs, nobody signed in writes them, and an agent link of another workspace reads
         # none (law BR-PRODUCT-63, PRD 2011).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_packs.sql
+      - name: The job ledger holds jobs and survives failure
+        # One job per key; a claim that ran out is due again and writes `lost`, the 5th lost claim is
+        # `failed`; a stale claim cannot finish; `waiting` gives its try back and a 5th `retry` fails; a
+        # replay keeps the attempts; the health is `late` for a job due over an hour or a failure with no
+        # later done job, with counts and no name; forgetting keeps what is under 90 days; two workers at
+        # once, through dblink, never hold one job; nobody but the service role reads or calls any of it
+        # (PRD 2676).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/background_jobs.sql
       - name: Who may push and read a repository's knowledge graph
         # knowledge_graph_push() keeps one row per repository and commit for a member of a workspace that
         # lists the repository, with their login, and answers their own workspaces' serving products; the

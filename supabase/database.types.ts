@@ -687,6 +687,95 @@ export type Database = {
           },
         ]
       }
+      background_job_attempts: {
+        Row: {
+          ended_at: string
+          error: string | null
+          id: number
+          job_id: string
+          outcome: string
+          started_at: string
+          try: number
+        }
+        Insert: {
+          ended_at: string
+          error?: string | null
+          id?: never
+          job_id: string
+          outcome: string
+          started_at: string
+          try: number
+        }
+        Update: {
+          ended_at?: string
+          error?: string | null
+          id?: never
+          job_id?: string
+          outcome?: string
+          started_at?: string
+          try?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_job_attempts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "background_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      background_jobs: {
+        Row: {
+          claim: string | null
+          claimed_at: string | null
+          claimed_until: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          key: string
+          kind: string
+          payload: Json
+          reason: string | null
+          run_after: string
+          state: string
+          subject: string
+          tries: number
+        }
+        Insert: {
+          claim?: string | null
+          claimed_at?: string | null
+          claimed_until?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          key: string
+          kind: string
+          payload?: Json
+          reason?: string | null
+          run_after?: string
+          state?: string
+          subject: string
+          tries?: number
+        }
+        Update: {
+          claim?: string | null
+          claimed_at?: string | null
+          claimed_until?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          key?: string
+          kind?: string
+          payload?: Json
+          reason?: string | null
+          run_after?: string
+          state?: string
+          subject?: string
+          tries?: number
+        }
+        Relationships: []
+      }
       business_drafts: {
         Row: {
           business_id: string
@@ -5018,6 +5107,78 @@ export type Database = {
       ask_shared_with_me: { Args: { round: string }; Returns: boolean }
       ask_sweep: { Args: never; Returns: number }
       ask_tokens_valid: { Args: { t: Json }; Returns: boolean }
+      background_job_add: {
+        Args: {
+          p_key: string
+          p_kind: string
+          p_payload: Json
+          p_subject: string
+        }
+        Returns: boolean
+      }
+      background_job_claim: {
+        Args: { p_lease_seconds: number; p_limit: number }
+        Returns: {
+          claim: string | null
+          claimed_at: string | null
+          claimed_until: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          key: string
+          kind: string
+          payload: Json
+          reason: string | null
+          run_after: string
+          state: string
+          subject: string
+          tries: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "background_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      background_job_finish: {
+        Args: {
+          p_claim: string
+          p_id: string
+          p_outcome: string
+          p_reason?: string
+          p_retry_at?: string
+        }
+        Returns: string
+      }
+      background_job_line: { Args: { p_text: string }; Returns: string }
+      background_job_replay: {
+        Args: { p_id: string }
+        Returns: {
+          claim: string | null
+          claimed_at: string | null
+          claimed_until: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          key: string
+          kind: string
+          payload: Json
+          reason: string | null
+          run_after: string
+          state: string
+          subject: string
+          tries: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "background_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      background_jobs_forget: { Args: never; Returns: number }
+      background_jobs_health: { Args: never; Returns: Json }
       bug_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
       business_archived: {
         Args: {

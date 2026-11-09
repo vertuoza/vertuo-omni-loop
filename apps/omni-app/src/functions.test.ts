@@ -23,7 +23,6 @@ const ids = {
   budgetsCheck: 'budgets-check',
   escalation: 'escalation',
   fixRowStamp: 'fix-row-stamp',
-  knowledgePack: 'knowledge-pack',
   mainWatch: 'main-watch',
   fleetBoard: 'fleet-board',
 };
@@ -38,9 +37,10 @@ function startOf(fn: Fn) {
 }
 
 describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
-  it('serves the fifteen functions by these ids', () => {
+  it('serves the fourteen functions by these ids', () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     expect(Object.fromEntries(Object.entries(functions).map(([name, fn]) => [name, fn.opts.id]))).toEqual(ids);
+    expect(Object.values(functions).map((fn) => fn.opts.id)).not.toContain('knowledge-pack');
   });
 
   for (const [name, id] of Object.entries(ids)) {
