@@ -96,6 +96,8 @@ export type ApprovalFacts = {
   /** The business laws' verdict (PRD 2632 s4): the latest spec's for a viewer who gets the button, the approved
    * spec's once approved; left out, none is shown. */
   laws?: LawsView | undefined;
+  /** A product PRD's id, `mobile-12` (#2671): what it goes by with no repository number; null or left out for any other dossier. */
+  productPrd?: string | null | undefined;
   /** The Tech Approval's screen, read for the named person: the changes since their last approval, then the spec's Problem and Solution. */
   techScreen?: ApproveScreen | undefined;
 };
@@ -142,7 +144,7 @@ export type TechView = {
 };
 
 /** What the seal of an approval in force shows. */
-export type ApprovalSeal = { prd: PrdNumber; approver: string; at: string; files: Array<{ path: string; hash: string | null }> };
+export type ApprovalSeal = { prd: PrdNumber | string; approver: string; at: string; files: Array<{ path: string; hash: string | null }> };
 
 const WORDS: Record<ApprovalState, string> = {
   waiting: 'waiting for approval',
@@ -194,6 +196,23 @@ export async function readTech(db: Pick<SupabaseClient, 'from'>, id: string, ver
   const approval = ApprovalRowSchema.safeParse(given.data);
   if (!approval.success) throw new Error(`read the tech approval: answered out of shape for ${id}`);
   return { user, state: judgeApproval(approval.data, voids, versions).state === 'approved' ? 'approved' : 'voided', approval: approval.data };
+}
+
+const ProductNumberOfDossier = z.object({ product_seq: z.number().int().positive().nullable(), product_id: z.string().nullable() });
+const KeyOfProduct = z.object({ key: z.string().min(1) });
+
+/** A dossier with no repository number's id on its product, `mobile-12` (#2671): null for a draft or a dossier
+ * numbered in its repository, which reads nothing; throws when the database fails. */
+export async function readProductPrd(db: Pick<SupabaseClient, 'from'>, dossier: Pick<DossierRow, 'id' | 'prd'>): Promise<string | null> {
+  if (dossier.prd !== null) return null;
+  const row = await db.from('dossiers').select('product_seq, product_id').eq('id', dossier.id).maybeSingle();
+  if (row.error) throw new Error(`read the PRD's number on its product: ${row.error.message}`);
+  const numbered = ProductNumberOfDossier.safeParse(row.data);
+  if (!numbered.success || numbered.data.product_seq === null || numbered.data.product_id === null) return null;
+  const product = await db.from('products').select('key').eq('id', numbered.data.product_id).maybeSingle();
+  if (product.error) throw new Error(`read the PRD's product key: ${product.error.message}`);
+  const keyed = KeyOfProduct.safeParse(product.data);
+  return keyed.success ? `${keyed.data.key}-${String(numbered.data.product_seq)}` : null;
 }
 
 const ProductOfDossier = z.object({ product_id: z.string().nullable() });
@@ -359,14 +378,16 @@ export function approvalView(
   me: string | null,
 ): ApprovalView | null {
   const { dossier, approval } = read;
-  if ((dossier.kind ?? 'prd') !== 'prd' || dossier.prd === null || dossier.birthplace !== 'server') return null;
+  // A PRD is numbered in its repository or on its product (#2671); with neither it is a draft, and has no approval.
+  const prd = dossier.prd ?? read.approvalFacts?.productPrd ?? null;
+  if ((dossier.kind ?? 'prd') !== 'prd' || prd === null || dossier.birthplace !== 'server') return null;
   const seat = seatOf(read, me);
   const plain = { detail: null, changed: [], seal: null };
   if (approval === null) return viewOf(read, seat, 'waiting', plain);
   if (approval === undefined || approval === 'unread') return viewOf(read, seat, 'unread', plain);
   const judged = judgeApproval(approval, read.approvalFacts?.voids ?? [], read.versions);
   if (judged.state !== 'approved') return viewOf(read, seat, judged.state, { detail: judged.detail, changed: judged.changed, seal: null });
-  const seal = { prd: dossier.prd, approver: approval.approver_login, at: judged.at, files: judged.files };
+  const seal = { prd, approver: approval.approver_login, at: judged.at, files: judged.files };
   return viewOf(read, seat, 'approved', { detail: judged.detail, changed: [], seal });
 }
 

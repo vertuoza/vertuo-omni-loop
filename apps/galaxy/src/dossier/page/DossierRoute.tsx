@@ -45,7 +45,7 @@ import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
 import { readProductOutbox } from './outbox-product.repository';
 import { productOutboxView } from './outbox-product';
-import { approvalView, readApproval, readApproveScreen, judgeApproval, readAskedApprovers, readTech, readVoids, type ApprovalFacts, type ApprovalView, type ApprovalRead } from './approval';
+import { approvalView, readApproval, readApproveScreen, judgeApproval, readAskedApprovers, readProductPrd, readTech, readVoids, type ApprovalFacts, type ApprovalView, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
 import { lawsForPage, lawsOfApproved } from '../../business-laws/verdicts.live';
 import type { LawsView } from '../../business-laws/verdicts.service';
@@ -131,14 +131,15 @@ const logged = <T,>(fallback: T) => (error: unknown): T => {
 async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<DossierRead, 'approval' | 'approvalFacts'>> {
   const { dossier } = read;
   if (dossier.birthplace !== 'server') return {};
-  const [row, voids, asked] = await Promise.all([
+  const [row, voids, asked, productPrd] = await Promise.all([
     readApproval(db, dossier.id).catch(logged<ApprovalRead>('unread')),
     readVoids(db, dossier.id).catch(logged(null)),
     readAskedApprovers(db, dossier).catch(logged<'unread'>('unread')),
+    readProductPrd(db, dossier).catch(logged<string | null>(null)),
   ]);
   const approval: ApprovalRead = voids === null ? 'unread' : row;
   const tech = await readTech(db, dossier.id, read.versions, voids ?? []).catch(logged<'unread'>('unread'));
-  const facts: ApprovalFacts = { voids: voids ?? [], asked, tech };
+  const facts: ApprovalFacts = { voids: voids ?? [], asked, tech, productPrd };
   return { approval, approvalFacts: { ...facts, ...await screensOf(db, read, approval, facts, me) } };
 }
 
