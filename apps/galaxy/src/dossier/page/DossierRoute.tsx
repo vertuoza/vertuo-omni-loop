@@ -410,7 +410,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
       </WithLateParts>
     );
   }
-  const withFix = { ...read, ...(await fixOf(db, read)) };
+  // A product PRD has no repository number, and its approval is read all the same (#2673); approvalOf reads nothing for a dossier not born on the server.
+  const withFix = { ...read, ...(await timings.time('approval', approvalOf(db, read, user.id))), ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
   const [markdown, attestation, productOutbox] = await Promise.all([
     shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier), productOutboxOf(db, read.dossier, view.tab),
