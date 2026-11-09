@@ -28,13 +28,21 @@ describe('the Vercel functions', () => {
 
   it('are plain JavaScript, never TypeScript Vercel would compile file by file', () => {
     expect(files.filter((name) => /\.[cm]?tsx?$/.test(name))).toEqual([]);
-    expect(files).toEqual(expect.arrayContaining(['github.mjs', 'inngest.mjs', 'server-event.mjs', 'health.mjs']));
+    expect(files).toEqual(expect.arrayContaining(['github.mjs', 'inngest.mjs', 'server-event.mjs', 'health.mjs', 'jobs-sweep.mjs']));
   });
 
   it('builds every function vercel.json configures, and configures every function it builds', () => {
     const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as { functions: Record<string, { maxDuration: number }> };
     expect(Object.keys(config.functions).sort()).toEqual(FUNCTIONS.map((name) => `api/${name}.mjs`).sort());
     expect(config.functions['api/health.mjs']).toEqual({ maxDuration: 10 });
+  });
+
+  it('holds both crons of the job sweep: the jobs due every 15 minutes, the comparison hourly', () => {
+    const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as { crons: { path: string; schedule: string }[] };
+    expect(config.crons).toEqual([
+      { path: '/api/jobs-sweep', schedule: '*/15 * * * *' },
+      { path: '/api/jobs-sweep?gaps=1', schedule: '7 * * * *' },
+    ]);
   });
 
   it('are the bundles a fresh build makes: run `node apps/omni-app/build.ts` after changing the app', async () => {
@@ -49,7 +57,7 @@ describe('the Vercel functions', () => {
     }
   });
 
-  it.each(['github.mjs', 'inngest.mjs', 'health.mjs'])('%s loads in plain Node, every import found', (name) => {
+  it.each(['github.mjs', 'inngest.mjs', 'health.mjs', 'jobs-sweep.mjs'])('%s loads in plain Node, every import found', (name) => {
     expect(load(`${api}${name}`)).toBe('loaded');
   });
 });

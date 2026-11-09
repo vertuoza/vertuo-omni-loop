@@ -454,6 +454,8 @@ None of these is taken by the code; a person does each once.
    - `BUSINESS_LAWS_JUDGE_SECRET` — the secret the inbox check signs its call to galaxy's business laws
      judge with (PRD 2632), the same value as in galaxy's project. Unset, the `business laws` gate is
      neutral, "judge not configured".
+   - `CRON_SECRET` — the secret Vercel's cron sends as `Authorization: Bearer` to `/api/jobs-sweep`
+     (PRD 2676, [below](#the-job-ledger--the-sweep-human-steps-prd-2676)). Unset, the sweep refuses every call.
    - `OPENROUTER_MODEL`, optional — another model than the default for the retro and the harvest
      (below).
    - `STAGE_EVENT_SECRET` — the secret stage events are signed with on their way to galaxy
@@ -538,6 +540,29 @@ None of these is taken by the code. Until they are done, stages come from galaxy
    `https://www.omni-loop.xyz`.
 2. **Redeploy this project.** A merge is not live here until it redeploys, and a new variable is read
    only by a new deployment. No Inngest Resync is needed.
+
+### The job ledger — the sweep, human steps (PRD 2676)
+
+The knowledge pack is the one job of the ledger (`background_jobs`, `background_job_attempts`; the worker is
+`src/jobs/worker.ts`). A merge adds its job and runs the jobs due after the webhook answers; the sweep
+finishes what that left. `GET /api/jobs-sweep` answers only `Authorization: Bearer <CRON_SECRET>` (anything
+else is 401, and with no `CRON_SECRET` set every call is) and has two crons in `vercel.json`:
+
+| cron | call | what it does |
+|---|---|---|
+| every 15 minutes | `/api/jobs-sweep` | runs the jobs due: retries, claims that ran out, whatever the webhook did not finish |
+| hourly, at minute 7 | `/api/jobs-sweep?gaps=1` | first the comparison: each repository a product holds and the App is installed on, with no pack or an older one than its latest commit on the knowledge folder or the config, gets a job (it stops when GitHub's budget is low); then the jobs due; and at 03:00 UTC it forgets the jobs finished over 90 days ago, with their attempts |
+
+1. **Set `CRON_SECRET`** in this app's Vercel project, to any long random value, and redeploy: a new
+   variable is read only by a new deployment. Vercel's cron then sends it by itself.
+2. **Read a job.** The tables are the service role's alone: in the Supabase SQL editor,
+   `select kind, state, tries, run_after, reason from background_jobs order by created_at desc limit 20`
+   lists the jobs, and `select outcome, error, started_at from background_job_attempts where job_id = '<id>'`
+   lists a job's tries. `/api/health` says `checks.jobs` `late` when one is jammed.
+3. **Replay a failed job:**
+   `curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "content-type: application/json" -d '{"replay": "<job id>"}' https://<this app>/api/jobs-sweep`.
+   It puts the `failed` job back to `queued` with its tries at zero, keeps its attempts, and runs the jobs
+   due at once. A job that is not `failed`, or that does not exist, answers 409.
 
 ### The knowledge harvest — human steps (PRD 82)
 
