@@ -1,0 +1,162 @@
+# Settled outbox items — PRD 2676
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-claim-start-time -->
+
+## s1-01-claim-start-time — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-09
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-01-claim-start-time
+prd: 2676
+slice: s1
+rank: medium
+bears-on: none
+raised: 2026-11-09
+wave: 1
+---
+
+## The question, in plain words
+
+The design lists what each job keeps, but not when its current try began, so a try lost to a worker that died could not say when it started. Should each job keep that time?
+
+## The decision, in plain words
+
+Each job keeps when its current claim was taken, beside when the claim runs out. A lost try is then written with its real start, like any other try.
+
+## The intro, for fun
+
+Every try has a story, and every story needs a first line.
+
+## The punchline, for fun
+
+So the ledger now writes down when the clock started, not only when it ran out.
+
+## The options, in plain words
+
+A. A. Keep when the claim was taken on the job, and write each try's start from it.
+B. B. Drop it and derive the start from when the claim runs out minus the lease, which breaks if the lease ever changes.
+C. C. Write the try's line when it starts and fill in its end later, giving up the rule that a try's line is never changed.
+
+## What I had to decide
+
+Whether background_jobs keeps a claimed_at column (when the current claim was taken), set and cleared with the claim. It is the started_at of the attempt line the try writes, for a lost try as for any other: attempts are written once, when the try ends, and never changed.
+
+## What I did meanwhile
+
+Built A: background_jobs.claimed_at, held exactly while the job is running (a check constraint ties it to the claim), written by background_job_claim() and cleared by every finish and by a lost claim. supabase/checks/background_jobs.sql reads it through the claim's answer.
+
+## What it costs to change later
+
+Low before production: dropping the column is one migration and two lines in the claim and finish functions. B would write the attempt at claim time and change it at the end, which breaks the rule that an attempt line never changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's column table does not name it; whether a reader (s3, s4, a person reading a job) wants it shown is not settled. (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-01-claim-start-time -->
+
+<!-- omni-outbox-settled: s1-02-claim-lease -->
+
+## s1-02-claim-lease — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-09
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-09
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-claim-lease
+prd: 2676
+slice: s1
+rank: medium
+bears-on: none
+raised: 2026-11-09
+wave: 1
+---
+
+## The question, in plain words
+
+The design says a worker holds a job under a claim that runs out, and that the sweep picks a dropped job up within 15 minutes, but not how long a claim lasts. How long should a worker hold a job before another may take it?
+
+## The decision, in plain words
+
+A worker holds one job at a time, for five minutes: a little longer than the four minutes a run may spend claiming, and well inside the quarter hour between two sweeps.
+
+## The intro, for fun
+
+Every borrowed job comes with a due date stamped inside the cover.
+
+## The punchline, for fun
+
+Five minutes, then the library sends someone round to collect it.
+
+## The options, in plain words
+
+A. A. Hold one job at a time for five minutes.
+B. B. Hold one job at a time for fifteen minutes, the gap between two sweeps.
+C. C. Claim several jobs at once under one longer claim, fewer database calls but jobs held while others run.
+
+## What I had to decide
+
+The worker's lease (LEASE_SECONDS, 300) and its batch (one job per background_job_claim() call). A shorter lease reclaims a dropped job sooner but risks a slow job being run twice; a longer one, past 15 minutes, would let a dropped job wait for a second sweep.
+
+## What I did meanwhile
+
+Built A: runDue claims with a limit of 1 and a lease of 300 seconds, so it never holds a job it has no time left to run. A job that runs past its lease is claimed again by the next worker and run twice, which the knowledge pack makes harmless; the first worker's finish is then refused as stale.
+
+## What it costs to change later
+
+A constant in the worker; the database takes any lease from 10 seconds to an hour.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How long a knowledge pack takes on a large repository is not measured; a job that often runs past five minutes would run twice each time. (author)
+- The webhook's function may run for 60 seconds today, shorter than the 240-second budget; the slices that call the worker from the webhook and the sweep set their own budget and duration. (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-02-claim-lease -->
