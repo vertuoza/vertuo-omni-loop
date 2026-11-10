@@ -20,7 +20,8 @@ export async function mcpProductOf(db: Pick<SupabaseClient, 'from'>, product: st
 /** The caller's role in the workspace; null when it cannot be read. */
 export async function roleIn(db: Pick<SupabaseClient, 'from'>, workspace: string, user: string): Promise<unknown> {
   const { data, error } = await db.from('workspace_members').select('role').eq('workspace_id', workspace).eq('user_id', user).maybeSingle();
-  return error ? null : (data as { role?: unknown } | null)?.role;
+  const row: { role?: unknown } | null = data;
+  return error ? null : row?.role;
 }
 
 /** Turns the product's server on or off as the caller; whether the database accepted it. */
