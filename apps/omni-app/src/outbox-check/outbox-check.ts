@@ -46,7 +46,7 @@ import { businessLawFiles } from 'omni-loop/kit/lib/outbox/decision-coverage.ts'
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
 import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { DEFAULT_CHECK_NAME, publish, startCheck } from '../publish/publish.ts';
+import { DEFAULT_CHECK_NAME, publish, startCheck, type Published } from '../publish/publish.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
 import {
@@ -107,7 +107,21 @@ export type OutboxDeps = {
 };
 
 /** The body's steps, by name: Inngest runs each as a step of the function, the job ledger just runs it. */
-export type RunStep = <T>(id: 'in-progress' | 'evaluate' | 'publish' | 'escalation', work: () => Promise<T>) => Promise<T>;
+export type RunStep = {
+  start: (work: () => Promise<Started>) => Promise<Started>;
+  evaluate: (work: () => Promise<Evaluated>) => Promise<Evaluated>;
+  publish: (work: () => Promise<Published>) => Promise<Published>;
+  escalation: (work: () => Promise<string>) => Promise<string>;
+};
+
+/** What the step "in-progress" leaves: nothing when the repository has not installed the loop; else the check run, already completed when the gate does not run on the pull request. */
+type Started =
+  | null
+  | { skipped: true; checkRunId?: number | undefined; name: string; conclusion: string }
+  | { skipped: false; checkRunId: number; name: string };
+
+/** What the step "evaluate" leaves: the verdict, and what still waits on a person. */
+type Evaluated = Verdict & { held?: HeldNow };
 
 /** What the body returns: the posted check, or `SILENT` when the repository has not installed the loop. */
 export type OutboxOutcome = { posted: false; reason: string } | { checkRunId: number | undefined; name: string; conclusion: string; comment?: string; escalation?: string };
@@ -123,7 +137,7 @@ export async function runOutboxCheck(
 ): Promise<OutboxOutcome> {
   const { installationId, owner, repo, prNumber, headSha } = request;
 
-  const started = await runStep('in-progress', async () => {
+  const started = await runStep.start(async (): Promise<Started> => {
     const octokit = await octokitFor(installationId);
     const { active, name, gated, reason, deferTo, product } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
     if (!active) return null;
@@ -131,32 +145,32 @@ export async function runOutboxCheck(
       const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log);
       const verdict = productOutboxVerdict(product, reading, galaxyUrl);
       const [checkRunId] = await completeAsProduct(octokit, { owner, repo, headSha, name, verdict });
-      return { checkRunId, name, skipped: true as const, conclusion: verdict.conclusion };
+      return { checkRunId, name, skipped: true, conclusion: verdict.conclusion };
     }
     if (!gated && deferTo) {
       const planPr = await planPrOf(octokit, deferTo);
       const [checkRunId] = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr });
-      return { checkRunId, name, skipped: true as const, conclusion: 'success' as const };
+      return { checkRunId, name, skipped: true, conclusion: 'success' };
     }
     if (!gated) {
       const [checkRunId] = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason });
-      return { checkRunId, name, skipped: true as const, conclusion: 'skipped' as const };
+      return { checkRunId, name, skipped: true, conclusion: 'skipped' };
     }
     const checkRunId = await startCheck(octokit, { owner, repo, headSha, name });
-    return { checkRunId, name, skipped: false as const };
+    return { checkRunId, name, skipped: false };
   });
   if (!started) return { ...SILENT };
   if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: started.conclusion };
 
-  const verdict = await runStep('evaluate', async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha }));
+  const verdict = await runStep.evaluate(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha }));
 
-  const published = await runStep('publish', async () => {
+  const published = await runStep.publish(async () => {
     const octokit = await octokitFor(installationId);
     return publish(octokit, { owner, repo, checkRunId: started.checkRunId, pullNumber: prNumber, headSha, verdict });
   });
 
   const holding = verdict.held;
-  const escalation = holding ? await runStep('escalation', () => recordSafely(holding, { octokitFor, installationId, owner, repo, prNumber, now, log })) : 'none';
+  const escalation = holding ? await runStep.escalation(() => recordSafely(holding, { octokitFor, installationId, owner, repo, prNumber, now, log })) : 'none';
 
   return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment, escalation };
 }
@@ -176,9 +190,12 @@ export function createOutboxCheck({ client, ...deps }: OutboxDeps & { client: In
       const request = CheckRequestDataSchema.parse(event.data);
       const where = `${request.owner}/${request.repo}#${String(request.prNumber)}`;
       // Each step is retried by Inngest: a budget refusal waits for the budget, a snapshot over its bound is not retried.
-      const runStep: RunStep = async <T>(id: Parameters<RunStep>[0], work: () => Promise<T>) => {
-        const guarded = id === 'escalation' ? work : () => waitingOnBudget(where, log, id === 'evaluate' ? () => notRetriedPastBound(work) : work);
-        return (await step.run(id, guarded)) as T;
+      const budgeted = <T>(work: () => Promise<T>) => waitingOnBudget(where, log, work);
+      const runStep: RunStep = {
+        start: (work) => step.run('in-progress', () => budgeted(work)),
+        evaluate: (work) => step.run('evaluate', () => budgeted(() => notRetriedPastBound(work))),
+        publish: (work) => step.run('publish', () => budgeted(work)),
+        escalation: (work) => step.run('escalation', work),
       };
       return runOutboxCheck({ ...deps, log }, request, runStep);
     },

@@ -126,9 +126,8 @@ describe('pr-outbox — failure, never stuck', () => {
     const { summary, finished } = work(5, octokit);
     expect(await summary).toMatchObject({ failed: 1 });
     expect(finished[0]).toMatchObject({ outcome: 'failed', reason: 'GitHub is down' });
-    expect(github.state.checkRuns).toEqual([
-      expect.objectContaining({ status: 'completed', conclusion: 'failure', output: expect.objectContaining({ title: 'omni-loop could not evaluate: GitHub is down' }) }),
-    ]);
+    expect(github.state.checkRuns).toHaveLength(1);
+    expect(github.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure', output: { title: 'omni-loop could not evaluate: GitHub is down' } });
   });
 
   it('the failure hook posts nothing on a repository without the loop\'s config', async () => {

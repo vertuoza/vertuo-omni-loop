@@ -31,7 +31,7 @@ function requestOf(raw: unknown) {
 /** The handler of the `pr-outbox` kind. */
 export function outboxHandler(deps: OutboxDeps): JobHandler {
   return async (job): Promise<JobResult> => {
-    const outcome = await runOutboxCheck(deps, requestOf(job.payload), (_id, work) => work());
+    const outcome = await runOutboxCheck(deps, requestOf(job.payload), { start: (work) => work(), evaluate: (work) => work(), publish: (work) => work(), escalation: (work) => work() });
     return 'posted' in outcome ? { outcome: 'skipped', reason: NOT_ACTIVE_ON_REPO } : { outcome: 'done' };
   };
 }
