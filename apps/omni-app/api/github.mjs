@@ -707,6 +707,7 @@ function rowsOf(schema, answer) {
 }
 
 // apps/omni-app/src/jobs/ledger.ts
+var RefreshedSchema = z8.enum(["added", "updated", "again", "requeued"]);
 var PayloadSchema = z8.record(z8.string(), z8.unknown());
 var ClaimedRowSchema = z8.object({
   id: z8.string().min(1),
@@ -740,6 +741,13 @@ function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
     add: async ({ kind, key, subject, payload }) => z8.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
+    refresh: async ({ kind, key, subject, payload, delaySeconds }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
+      p_kind: kind,
+      p_key: key,
+      p_subject: subject,
+      p_payload: payload,
+      p_delay_seconds: delaySeconds
+    }))),
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z8.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
       return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));
@@ -3268,6 +3276,7 @@ var MAX_REASON = 500;
 async function runDue({
   ledger,
   handlers,
+  failures = {},
   clock = Date.now,
   budgetMs = TIME_BUDGET_MS,
   leaseSeconds = LEASE_SECONDS,
@@ -3283,8 +3292,17 @@ async function runDue({
     const kept = await keep(ledger, job, settled, log2);
     if (kept === "stale") summary.stale += 1;
     else if (kept !== null) summary[settled.outcome] += 1;
+    if (kept === "failed") await failed(job, settled.reason, failures[job.kind], log2);
   }
   return summary;
+}
+async function failed(job, reason2, hook, log2) {
+  if (!hook) return;
+  try {
+    await hook(job, reason2 ?? "it failed on its last try");
+  } catch (error) {
+    log2(`job ${job.kind} ${job.key}: its failure hook threw: ${firstLine2(error instanceof Error ? error.message : String(error))}`);
+  }
 }
 async function settle(job, handler, clock) {
   try {
