@@ -22,6 +22,9 @@
 //     step "find"   the PRD's open feature PRs and its target PRs (./github.ts), each with its head
 //     step "rerun"  one APPROVED_CHECK_EVENT each
 //
+// The body is `checkApproved`, run in the steps of Inngest's function and, as the kind `pr-approved` of the job
+// ledger (PRD 2688 s4), in one try by ./approved-job.ts.
+//
 // It listens to the outbox check's event, so every pull request action that re-evaluates the outbox
 // check re-evaluates this one, and to its own, which the webhook sends for a re-run of an approved check
 // run (its `external_id` is APPROVED_EXTERNAL_ID) and the rerun sends. Debounced per repository and pull
@@ -42,6 +45,7 @@ import {
   CheckRequestDataSchema,
   OUTBOX_CHECK_EVENT,
   type CheckRequest,
+  type CheckRequestData,
 } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
@@ -85,7 +89,7 @@ type Target =
   | { kind: 'repo'; name: string; prd: PrdNumber; held: string; head: string };
 
 /** The galaxy that holds no judge here: every ◆ PRD's check is held. */
-const NO_JUDGE: AskJudge = () => Promise.resolve({ held: 'the App cannot ask galaxy\'s judge here' });
+export const NO_JUDGE: AskJudge = () => Promise.resolve({ held: 'the App cannot ask galaxy\'s judge here' });
 
 export function createApprovedCheck({
   client,
@@ -115,32 +119,83 @@ export function createApprovedCheck({
       retries: 3,
     },
     async ({ event, step }) => {
-      const { installationId, owner, repo, repository, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
-      const budgeted = <T>(work: () => Promise<T>) => onBudget(`${owner}/${repo}#${prNumber}`, log, work);
-
-      const target = await step.run('target', () => budgeted(async () => targetOf(await octokitFor(installationId), { owner, repo, prNumber })));
-      if (!target) return { ...SILENT };
-
-      let verdict: ApprovedVerdict;
-      let named: string;
-      if (target.kind === 'product') {
-        const reading = await step.run('record', () => readingOf(readRecord, repository, target.prd, now, log));
-        verdict = approvedVerdict(target.prd, reading);
-        named = target.prd.id;
-      } else {
-        const judged = await step.run('record', () => budgeted(async () => judgedAt(await octokitFor(installationId), target, ask)));
-        if (!judged) return { posted: false, reason: `PRD ${Number(target.prd)} was born in its repository (◇): its phase-0 PR approved it.` };
-        verdict = repoApprovedVerdict(target.prd, judged.reading, judged.head);
-        named = `${Number(target.prd)}`;
-      }
-
-      const anchor = target.kind === 'product' ? 'attestation' : 'approval';
-      const checkRunId = await step.run('publish', () => budgeted(async () =>
-        postApproved(await octokitFor(installationId), { owner, repo, headSha, name: target.name, verdict, galaxyUrl, anchor })));
-
-      return { checkRunId, name: target.name, prd: named, state: verdict.state, conclusion: verdict.conclusion };
+      const request = CheckRequestDataSchema.parse(event.data);
+      const where = `${request.owner}/${request.repo}#${request.prNumber}`;
+      // The steps are Inngest's: each is retried and replayed on its own, the budget's refusal retried at its end.
+      return checkApproved({ octokitFor, readRecord, galaxyUrl, ask, now, log }, request, {
+        target: (work) => step.run('target', work),
+        product: (work) => step.run('record', work),
+        repo: (work) => step.run('record', work),
+        publish: (work) => step.run('publish', work),
+        budgeted: (work) => onBudget(where, log, work),
+      });
     },
   );
+}
+
+/** What the check needs of the world: GitHub, the record's reader, galaxy's address and judge, the clock, the log. */
+export type ApprovedDeps = {
+  octokitFor: OctokitFor<GitHubClient>;
+  /** The record's reader; null when the App cannot read the server here, which holds every product PRD's check. */
+  readRecord: RecordReader | null;
+  galaxyUrl: string;
+  ask: AskJudge;
+  now: () => Date;
+  log: (line: string) => void;
+};
+
+/**
+ * How the body's steps run: Inngest's `step.run` for the function, a plain call in one try for the job of the
+ * ledger (`./approved-job.ts`). `budgeted` wraps a step's GitHub work: Inngest turns the budget's refusal into
+ * a retry after it, the job lets it through for the worker to read as `waiting`.
+ */
+export type ApprovedSteps = {
+  /** Step "target". */
+  target: (work: () => Promise<Target | null>) => Promise<Target | null>;
+  /** Step "record" of a product PRD. */
+  product: (work: () => Promise<RecordReading>) => Promise<RecordReading>;
+  /** Step "record" of a ◆ PRD. */
+  repo: (work: () => Promise<Judged>) => Promise<Judged>;
+  /** Step "publish": the check run's id. */
+  publish: (work: () => Promise<number>) => Promise<number>;
+  budgeted: <T>(work: () => Promise<T>) => Promise<T>;
+};
+
+type Judged = Awaited<ReturnType<typeof judgedAt>>;
+
+/** What a run returns: nothing posted and why, or the check run it posted. */
+export type ApprovedRun =
+  | { posted: false; reason: string }
+  | { checkRunId: number; name: string; prd: ProductPrdRef['id']; state: ApprovedVerdict['state']; conclusion: ApprovedVerdict['conclusion'] };
+
+/** The body of the check, one run: the same for the Inngest function and for the job of the ledger. */
+export async function checkApproved(
+  { octokitFor, readRecord, galaxyUrl, ask, now, log }: ApprovedDeps,
+  { installationId, owner, repo, repository, prNumber, headSha }: Pick<CheckRequestData, 'installationId' | 'owner' | 'repo' | 'repository' | 'prNumber' | 'headSha'>,
+  steps: ApprovedSteps,
+): Promise<ApprovedRun> {
+  const { budgeted } = steps;
+  const target = await steps.target(() => budgeted(async () => targetOf(await octokitFor(installationId), { owner, repo, prNumber })));
+  if (!target) return { ...SILENT };
+
+  let verdict: ApprovedVerdict;
+  let named: string;
+  if (target.kind === 'product') {
+    const reading = await steps.product(() => readingOf(readRecord, repository, target.prd, now, log));
+    verdict = approvedVerdict(target.prd, reading);
+    named = target.prd.id;
+  } else {
+    const judged = await steps.repo(() => budgeted(async () => judgedAt(await octokitFor(installationId), target, ask)));
+    if (!judged) return { posted: false, reason: `PRD ${Number(target.prd)} was born in its repository (◇): its phase-0 PR approved it.` };
+    verdict = repoApprovedVerdict(target.prd, judged.reading, judged.head);
+    named = `${Number(target.prd)}`;
+  }
+
+  const anchor = target.kind === 'product' ? 'attestation' : 'approval';
+  const checkRunId = await steps.publish(() => budgeted(async () =>
+    postApproved(await octokitFor(installationId), { owner, repo, headSha, name: target.name, verdict, galaxyUrl, anchor })));
+
+  return { checkRunId, name: target.name, prd: named, state: verdict.state, conclusion: verdict.conclusion };
 }
 
 export function createApprovedRerun({
@@ -185,7 +240,7 @@ function rerunOf(installationId: number, pull: PullRef & { headSha: string }, tr
  * loop config, or `ci.approvedContext` is null there, or it names no PRD approved on the server. A broken
  * config posts no check either: the outbox check says what is wrong with it.
  */
-async function targetOf(octokit: GitHubClient, { owner, repo, prNumber }: { owner: string; repo: string; prNumber: PrNumber }): Promise<Target | null> {
+export async function targetOf(octokit: GitHubClient, { owner, repo, prNumber }: { owner: string; repo: string; prNumber: PrNumber }): Promise<Target | null> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const product = productPrdOf(pr.body);
   const config = await configAt(octokit, { owner, repo, ref: pr.baseSha });
@@ -211,6 +266,12 @@ async function targetOf(octokit: GitHubClient, { owner, repo, prNumber }: { owne
   if (!folder) return null;
   const source = { owner: at.owner, repo: at.repo, ref: at.ref, paths: at.config.paths };
   return { kind: 'repo', name, prd: folder.prd, source, dir: folder.dir };
+}
+
+/** The name the check posts under on this pull request, or null when its base has no loop config or turns the check off. */
+export async function checkNameOf(octokit: GitHubClient, { owner, repo, prNumber }: { owner: string; repo: string; prNumber: PrNumber }): Promise<string | null> {
+  const pr = await readPull(octokit, { owner, repo, prNumber });
+  return (await configAt(octokit, { owner, repo, ref: pr.baseSha }))?.ci.approvedContext ?? null;
 }
 
 /** A ◆ PRD's reading and the head it was read at, or null for a ◇ PRD. */
@@ -263,7 +324,7 @@ async function postApproved(
 }
 
 /** The budget's refusal behind `error`, however deep Octokit wrapped it; null when there is none. */
-function refusalIn(error: unknown): GithubPaused | GithubDeferred | null {
+export function refusalIn(error: unknown): GithubPaused | GithubDeferred | null {
   for (let cause = error, depth = 0; cause instanceof Error && depth < 4; cause = cause.cause, depth += 1) {
     if (cause instanceof GithubPaused || cause instanceof GithubDeferred) return cause;
   }
