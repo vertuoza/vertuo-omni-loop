@@ -48,4 +48,4 @@ Settings › API keys · No knowledge yet from.
 
 ## Source
 
-/omni:brainstorm, PRD 2707: .omni-loop/delivery/inbox/2707-product-mcp/before-after.html
+/omni:brainstorm, PRD 2707: .omni-loop/delivery/shipped/2707-product-mcp/before-after.html
