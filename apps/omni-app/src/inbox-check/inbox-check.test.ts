@@ -16,8 +16,12 @@ import type { CanonGrader } from './evaluate-inbox.ts';
 import {
   INBOX_DEBOUNCE,
   INBOX_FUNCTION_ID,
+  PR_INBOX_KIND,
   createInboxCheck,
   createInboxFailureHandler,
+  inboxFailureHook,
+  inboxHandler,
+  inboxJob,
 } from './inbox-check.ts';
 import { appFunctions } from '../functions.ts';
 import { readEnv } from '../env.ts';
@@ -352,5 +356,100 @@ describe('inbox-check — from a signed webhook', () => {
       ['inbox', 'success'],
       ['inbox', 'success'],
     ]);
+  });
+});
+
+describe('inbox-check — the pr-inbox job (PRD 2688 s3)', () => {
+  const job = (payload: Record<string, unknown> = { installationId: 7, owner: 'acme', repo: 'widgets', prNumber: 12, headSha: 'head1' }) => ({
+    id: 'job-1',
+    kind: PR_INBOX_KIND,
+    key: 'acme/widgets#12',
+    subject: 'acme/widgets',
+    payload,
+    tries: 1,
+    claim: 'claim-1',
+    claimedUntil: '2027-01-01T00:00:00Z',
+  });
+
+  it('keys a pull request\'s job by its lower-case repository and number', () => {
+    expect(inboxJob({ installationId: 7, owner: 'Acme', repo: 'Widgets', prNumber: parsePr(12), headSha: 'head1' })).toMatchObject({
+      kind: 'pr-inbox',
+      key: 'acme/widgets#12',
+      subject: 'acme/widgets',
+    });
+  });
+
+  it('a complete phase-0 PR ends done with the check run the function posts: same verdict, same name', async () => {
+    const github = inboxGitHub();
+    const result = await inboxHandler({ octokitFor: () => github.octokit })(job());
+    expect(result).toEqual({ outcome: 'done' });
+    expect(github.state.checkRuns).toHaveLength(1);
+    expect(github.state.checkRuns[0]).toMatchObject({ name: 'inbox', head_sha: 'head1', external_id: INBOX_EXTERNAL_ID, status: 'completed', conclusion: 'success' });
+    expect(github.state.comments).toEqual([]);
+  });
+
+  it('an incomplete phase-0 PR completes failure, naming the gate', async () => {
+    const github = inboxGitHub({ head: 'inbox-head-no-plan', files: COMPLETE_FILES.filter((f) => !f.filename.endsWith('plan.md')) });
+    expect(await inboxHandler({ octokitFor: () => github.octokit })(job())).toEqual({ outcome: 'done' });
+    expect(github.state.checkRuns[0]).toMatchObject({ conclusion: 'failure', output: { title: 'Not ok: phase-0 verdict, plan' } });
+  });
+
+  it('a red canon check run carries its buttons', async () => {
+    const github = inboxGitHub();
+    const grade: CanonGrader['grade'] = () => Promise.resolve({
+      name: 'canon',
+      ok: false,
+      neutral: false,
+      title: 'canon ✗ 1',
+      reason: 'canon ✗ 1',
+      details: [],
+      canon: { state: 'red', reason: 'canon ✗ 1', claimsRead: 1, findings: [], persona: null },
+    });
+    await inboxHandler({ octokitFor: () => github.octokit, canon: { grade } })(job());
+    expect(actionsOf(github, 0).length).toBeGreaterThan(0);
+  });
+
+  it.each([['a feature PR', 'feat/widget'], ['any other branch', 'fix/widget']])('%s ends skipped and posts nothing', async (_, headRef) => {
+    const github = inboxGitHub({ headRef });
+    const result = await inboxHandler({ octokitFor: () => github.octokit })(job());
+    expect(result).toMatchObject({ outcome: 'skipped' });
+    expect(github.state.checkRuns).toEqual([]);
+  });
+
+  it('a repository without the loop\'s config ends skipped and writes nothing', async () => {
+    const github = inboxGitHub({ base: 'base-inactive' });
+    expect(await inboxHandler({ octokitFor: () => github.octokit })(job())).toMatchObject({ outcome: 'skipped' });
+    expect(github.state.requests.filter((r) => r.route.startsWith('POST ') || r.route.startsWith('PATCH '))).toEqual([]);
+  });
+
+  it('a malformed payload throws, naming the field', async () => {
+    const github = inboxGitHub();
+    await expect(inboxHandler({ octokitFor: () => github.octokit })(job({ owner: 'acme' }))).rejects.toThrow(/pr-inbox job is malformed: installationId/);
+  });
+
+  it('GitHub failing mid-run throws, so the worker retries, and the hook then completes the running check as failure', async () => {
+    const github = inboxGitHub();
+    const broken = {
+      request: (route: string, params?: Params) => {
+        if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') return Promise.reject(new Error('GitHub is down'));
+        return github.octokit.request(route, params);
+      },
+    };
+    await expect(inboxHandler({ octokitFor: () => broken })(job())).rejects.toThrow('GitHub is down');
+    expect(checkRunAt(github.state, 0).status).toBe('in_progress');
+
+    await inboxFailureHook({ octokitFor: () => github.octokit })(job(), 'GitHub is down');
+    expect(github.state.checkRuns).toHaveLength(1);
+    expect(github.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure', output: { title: 'omni-loop could not evaluate: GitHub is down' } });
+  });
+
+  it('the failure hook creates the check already failed when no run was started, and posts nothing on a PR that is not phase-0', async () => {
+    const github = inboxGitHub();
+    await inboxFailureHook({ octokitFor: () => github.octokit })(job(), 'boom');
+    expect(checkRunAt(github.state, 0)).toMatchObject({ name: 'inbox', conclusion: 'failure', output: { title: 'omni-loop could not evaluate: boom' } });
+
+    const other = inboxGitHub({ headRef: 'feat/widget' });
+    await inboxFailureHook({ octokitFor: () => other.octokit })(job(), 'boom');
+    expect(other.state.checkRuns).toEqual([]);
   });
 });
