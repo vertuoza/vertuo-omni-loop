@@ -6,7 +6,10 @@
 //   (`../../lib/dossier/product-prd.ts`, `readFilesFolder`), titled after the spec there, or `--title`.
 // - `push <key>-<n> [--from <dir>] [--title "<title>"]` saves the edited files of `<dir>` as new versions
 //   of that PRD, printing the same three lines. With no title to give it, the PRD keeps the one its page
-//   has, read first.
+//   has, read first. Since bug #2696 it then prints the spec's business laws verdict, as `omni prd <id>`
+//   does (`../../lib/approval/laws.ts`), once the spec is judged: it reads the approval route every 3
+//   seconds while the verdict is not there yet, a minute at most, then says how to read it later. A red
+//   never fails the push, nor does a verdict that cannot be read: then nothing more is printed.
 // - `get <key>-<n> <kind>` writes the latest version of one of a PRD's kinds (spec, plan, before-after,
 //   voice) to a new scratch folder, outside every repository, under its file name, and prints its path
 //   then `sha256 <hash>`. The hash is the kit's own of the content, and a content that does not hash as
@@ -19,7 +22,9 @@
 import { AskCallError } from '../../lib/ask/client.ts';
 import type { askClient } from '../../lib/ask/client.ts';
 import { field } from '../../lib/ask/schema.ts';
-import { UNREACHABLE_LINE } from '../../lib/approval/approval.ts';
+import { parseApprovalReply, UNREACHABLE_LINE } from '../../lib/approval/approval.ts';
+import { lawsLines, parseLaws } from '../../lib/approval/laws.ts';
+import type { Laws } from '../../lib/approval/laws.ts';
 import type { ArtifactKind } from '../../lib/dossier/folder.ts';
 import { sha256 } from '../../lib/dossier/folder.ts';
 import { isPrdKind, parseLatest, PRD_KINDS, readFilesFolder, rememberLatest, writeScratch } from '../../lib/dossier/product-prd.ts';
@@ -45,7 +50,13 @@ export type ProductIo = {
   stdout: Out;
   stderr: Out;
   now: () => number;
+  /** Waits `ms` between two reads of a verdict; a test gives its own. */
+  pause: (ms: number) => Promise<void>;
 };
+
+/** How long a push waits between two reads of the verdict, and how many times it waits. */
+const VERDICT_EVERY_MS = 3000;
+const VERDICT_WAITS = 20;
 
 export const PRODUCT_USAGE =
   'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"] | omni dossier push <key>-<n> [--from <dir>] [--title "<title>"] | omni dossier get <key>-<n> <kind>';
@@ -157,7 +168,30 @@ async function push(call: PushCall, io: ProductIo, addedLine: AddedLine): Promis
     println(io.stderr, failure(error));
     return 1;
   }
-  return reportPush(result, folder, io, addedLine);
+  const code = reportPush(result, folder, io, addedLine);
+  if (seq !== null && isText(field(result, 'prdId'))) await reportLaws(parseProductPrdId(`${key}-${seq}`), io);
+  return code;
+}
+
+/** Where product PRD `id`'s spec stands with its business laws, or null when the page does not say. */
+async function lawsOf(id: ProductPrdId, { client, repo }: ProductIo): Promise<Laws | null> {
+  try {
+    return parseLaws(parseApprovalReply(await client.readProductApproval({ id, repo }))?.laws);
+  } catch (error) {
+    if (!(error instanceof AskCallError)) throw error;
+    return null;
+  }
+}
+
+/** Prints product PRD `id`'s business laws verdict once its spec is judged, waiting a minute at most. */
+async function reportLaws(id: ProductPrdId, io: ProductIo): Promise<void> {
+  let laws = await lawsOf(id, io);
+  for (let waits = 0; laws?.state === 'pending' && waits < VERDICT_WAITS; waits += 1) {
+    await io.pause(VERDICT_EVERY_MS);
+    laws = await lawsOf(id, io);
+  }
+  if (laws === null) return;
+  println(io.stdout, laws.state === 'pending' ? `laws: not judged yet · read it with omni prd ${id}` : lawsLines(laws).join('\n'));
 }
 
 async function get(call: Extract<ProductCall, { verb: 'get' }>, { client, repo, home, scratch, stdout, stderr, now }: ProductIo): Promise<number> {

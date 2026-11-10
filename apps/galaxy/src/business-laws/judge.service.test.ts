@@ -62,7 +62,7 @@ describe('the laws a spec is judged against', () => {
 
 describe('a finding', () => {
   it('quoting the spec, whitespace and case aside, and citing a law of its batch makes the verdict red', async () => {
-    const { ask } = fakeModel([{ findings: [{ law: 'BL-QUOTES-1', quote: 'can be sent with a ZERO total', why: 'zero total' }] }]);
+    const { ask } = fakeModel([{ findings: [{ law: 'BL-QUOTES-1', quote: 'can be sent with a ZERO total', why: 'The design sends a quote whose total is zero.' }] }]);
     const verdict = await judgeSpec({ spec: SPEC, laws: LAWS, glossary: GLOSSARY, owners: ['ana'], ask });
     expect(verdict.state).toBe('red');
     expect(verdict.reason).toBe('1 law broken');
@@ -71,6 +71,7 @@ describe('a finding', () => {
       statement: 'A quote can be sent only when its total including tax is above zero.',
       why: 'A customer who receives an empty quote stops trusting the contractor.',
       quote: 'can be sent with a ZERO total',
+      broken: 'The design sends a quote whose total is zero.',
       domain: 'quotes',
       file: 'k/domains/quotes/business-laws.md',
       owners: ['ana'],
@@ -79,23 +80,23 @@ describe('a finding', () => {
 
   it('whose quote is not in the spec, or too long, is dropped', async () => {
     const long = 'x'.repeat(301);
-    const { ask } = fakeModel([{ findings: [{ law: 'BL-QUOTES-1', quote: 'can be sent for free' }, { law: 'BL-QUOTES-1', quote: long }, { law: 'BL-QUOTES-1', quote: '   ' }] }]);
+    const { ask } = fakeModel([{ findings: [{ law: 'BL-QUOTES-1', quote: 'can be sent for free', why: 'It breaks the law.' }, { law: 'BL-QUOTES-1', quote: long, why: 'It breaks the law.' }, { law: 'BL-QUOTES-1', quote: '   ', why: 'It breaks the law.' }] }]);
     expect(await judgeSpec({ spec: `${SPEC}${long}`, laws: LAWS, glossary: GLOSSARY, owners: [], ask })).toMatchObject({ state: 'green', findings: [] });
   });
 
   it('citing a law outside its batch, or no law at all, is dropped', async () => {
-    const { ask } = fakeModel([{ findings: [{ law: 'BL-STOCK-1', quote: 'zero total' }, { law: 'BL-QUOTES-9', quote: 'zero total' }] }]);
+    const { ask } = fakeModel([{ findings: [{ law: 'BL-STOCK-1', quote: 'zero total', why: 'It breaks the law.' }, { law: 'BL-QUOTES-9', quote: 'zero total', why: 'It breaks the law.' }] }]);
     expect(await judgeSpec({ spec: SPEC, laws: LAWS, glossary: GLOSSARY, owners: [], ask })).toMatchObject({ state: 'green', findings: [] });
     // The 41st law is judged in the second batch: the first batch's reply cannot cite it.
     const many = Array.from({ length: 41 }, (_, n) => `## BL-PRODUCT-${n + 1}\nRule ${n + 1}.\nWhy: Reason.\n`).join('\n');
     const laws = parseBusinessLaws('k/product/business-laws.md', many, { scope: 'product', domain: 'product' });
-    const second = fakeModel([{ findings: [{ law: 'BL-PRODUCT-41', quote: 'zero total' }] }, { findings: [] }]);
+    const second = fakeModel([{ findings: [{ law: 'BL-PRODUCT-41', quote: 'zero total', why: 'It breaks the law.' }] }, { findings: [] }]);
     expect(await judgeSpec({ spec: SPEC, laws, glossary: [], owners: [], ask: second.ask })).toMatchObject({ state: 'green', findings: [] });
   });
 
   it('counts once for the same law and words', async () => {
-    const twice = { law: 'BL-QUOTES-1', quote: 'zero total' };
-    const { ask } = fakeModel([{ findings: [twice, { ...twice, quote: 'ZERO   total' }, { law: 'BL-PRODUCT-1', quote: 'for any Item' }] }]);
+    const twice = { law: 'BL-QUOTES-1', quote: 'zero total', why: 'It breaks the law.' };
+    const { ask } = fakeModel([{ findings: [twice, { ...twice, quote: 'ZERO   total' }, { law: 'BL-PRODUCT-1', quote: 'for any Item', why: 'It breaks the law.' }] }]);
     const verdict = await judgeSpec({ spec: SPEC, laws: LAWS, glossary: GLOSSARY, owners: [], ask });
     expect(verdict.findings.map((f) => f.law)).toEqual(['BL-QUOTES-1', 'BL-PRODUCT-1']);
     expect(verdict.reason).toBe('2 laws broken');
@@ -112,7 +113,7 @@ describe('a spec that cannot be judged', () => {
   it('is neutral on a model error, even after a batch found a break', async () => {
     const many = Array.from({ length: 41 }, (_, n) => `## BL-PRODUCT-${n + 1}\nRule ${n + 1}.\nWhy: Reason.\n`).join('\n');
     const laws = parseBusinessLaws('k/product/business-laws.md', many, { scope: 'product', domain: 'product' });
-    const { ask } = fakeModel([{ findings: [{ law: 'BL-PRODUCT-1', quote: 'zero total' }] }, new Error('timeout')]);
+    const { ask } = fakeModel([{ findings: [{ law: 'BL-PRODUCT-1', quote: 'zero total', why: 'It breaks the law.' }] }, new Error('timeout')]);
     expect(await judgeSpec({ spec: SPEC, laws, glossary: [], owners: [], ask })).toMatchObject({ state: 'neutral', reason: 'the model did not answer: timeout', findings: [] });
   });
 
