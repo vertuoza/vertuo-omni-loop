@@ -30,11 +30,11 @@ const JOB = { installationId: 7, repository: 'Acme/Widgets', line: '/omni:retro-
 
 describe('runnerQueue — the retro’s job for a runner, never calling Supabase (PRD 2338)', () => {
   it('queues the line for the installation’s workspace and the repository, sent by the app and by no person', async () => {
-    const db = recordingFetch([[{ id: 'ws-1' }], [], [{ id: 'job-1' }]]);
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [], [{ id: 'job-1' }]]);
     const queued = await queueOn(db.fetch)(JOB);
 
     expect(queued).toEqual({ job: 'job-1', created: true, reason: null });
-    const [workspace, lookup, insert] = [nth(db.requests, 0), nth(db.requests, 1), nth(db.requests, 2)];
+    const [workspace, lookup, insert] = [nth(db.requests, 0), nth(db.requests, 2), nth(db.requests, 3)];
     expect([workspace.method, workspace.path, workspace.query.get('github_installation_id')]).toEqual(['GET', '/rest/v1/workspaces', 'eq.7']);
     expect([lookup.method, lookup.path]).toEqual(['GET', '/rest/v1/runner_jobs']);
     expect([lookup.query.get('workspace_id'), lookup.query.get('repo'), lookup.query.get('line')]).toEqual(['eq.ws-1', 'eq.acme/widgets', 'eq./omni:retro-apply --retro 21']);
@@ -46,7 +46,7 @@ describe('runnerQueue — the retro’s job for a runner, never calling Supabase
   });
 
   it('finds the job already queued with the line, and queues no second one', async () => {
-    const db = recordingFetch([[{ id: 'ws-1' }], [{ id: 'job-1' }]]);
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [{ id: 'job-1' }]]);
     expect(await queueOn(db.fetch)(JOB)).toEqual({ job: 'job-1', created: false, reason: null });
     expect(db.requests.filter((request) => request.method === 'POST')).toEqual([]);
   });
@@ -62,12 +62,12 @@ describe('runnerQueue — the retro’s job for a runner, never calling Supabase
       status: 400,
       headers: { 'content-type': 'application/json' },
     });
-    const db = recordingFetch([[{ id: 'ws-1' }], [], refusal]);
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [], refusal]);
     await expect(queueOn(db.fetch)(JOB)).rejects.toThrow('the database refused: new row violates check constraint "runner_jobs_one_sender" (23514)');
   });
 
   it('throws when the database answers a job of another shape', async () => {
-    const db = recordingFetch([[{ id: 'ws-1' }], [{ id: 7 }]]);
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [{ id: 7 }]]);
     await expect(queueOn(db.fetch)(JOB)).rejects.toThrow();
   });
 });
