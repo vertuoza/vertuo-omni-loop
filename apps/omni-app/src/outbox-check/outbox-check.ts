@@ -95,15 +95,8 @@ export const DEBOUNCE = Object.freeze({
   timeout: '1m',
 });
 
-export function createOutboxCheck({
-  client,
-  octokitFor,
-  readProductOutbox = null,
-  galaxyUrl = '',
-  now = () => new Date(),
-  log = noteTo('outbox-check'),
-}: {
-  client: Inngest;
+/** What the check's body needs besides the pull request: GitHub, the product's outbox, the galaxy, the clock. */
+export type OutboxDeps = {
   octokitFor: OctokitFor<GitHubClient>;
   /** A product PRD's outbox rows' reader; null when the App cannot read the server here, which holds every such check. */
   readProductOutbox?: ProductOutboxReader | null;
@@ -111,7 +104,65 @@ export function createOutboxCheck({
   galaxyUrl?: string;
   now?: () => Date;
   log?: (line: string) => void;
-}) {
+};
+
+/** The body's steps, by name: Inngest runs each as a step of the function, the job ledger just runs it. */
+export type RunStep = <T>(id: 'in-progress' | 'evaluate' | 'publish' | 'escalation', work: () => Promise<T>) => Promise<T>;
+
+/** What the body returns: the posted check, or `SILENT` when the repository has not installed the loop. */
+export type OutboxOutcome = { posted: false; reason: string } | { checkRunId: number | undefined; name: string; conclusion: string; comment?: string; escalation?: string };
+
+/**
+ * The check's body, shared by the Inngest function and the `pr-outbox` job (./job.ts): its steps in order,
+ * each through `runStep`. The body is the same whoever runs it, so the verdicts are too.
+ */
+export async function runOutboxCheck(
+  { octokitFor, readProductOutbox = null, galaxyUrl = '', now = () => new Date(), log = noteTo('outbox-check') }: OutboxDeps,
+  request: CheckRequestData,
+  runStep: RunStep,
+): Promise<OutboxOutcome> {
+  const { installationId, owner, repo, prNumber, headSha } = request;
+
+  const started = await runStep('in-progress', async () => {
+    const octokit = await octokitFor(installationId);
+    const { active, name, gated, reason, deferTo, product } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
+    if (!active) return null;
+    if (!gated && product) {
+      const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log);
+      const verdict = productOutboxVerdict(product, reading, galaxyUrl);
+      const [checkRunId] = await completeAsProduct(octokit, { owner, repo, headSha, name, verdict });
+      return { checkRunId, name, skipped: true as const, conclusion: verdict.conclusion };
+    }
+    if (!gated && deferTo) {
+      const planPr = await planPrOf(octokit, deferTo);
+      const [checkRunId] = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr });
+      return { checkRunId, name, skipped: true as const, conclusion: 'success' as const };
+    }
+    if (!gated) {
+      const [checkRunId] = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason });
+      return { checkRunId, name, skipped: true as const, conclusion: 'skipped' as const };
+    }
+    const checkRunId = await startCheck(octokit, { owner, repo, headSha, name });
+    return { checkRunId, name, skipped: false as const };
+  });
+  if (!started) return { ...SILENT };
+  if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: started.conclusion };
+
+  const verdict = await runStep('evaluate', async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha }));
+
+  const published = await runStep('publish', async () => {
+    const octokit = await octokitFor(installationId);
+    return publish(octokit, { owner, repo, checkRunId: started.checkRunId, pullNumber: prNumber, headSha, verdict });
+  });
+
+  const holding = verdict.held;
+  const escalation = holding ? await runStep('escalation', () => recordSafely(holding, { octokitFor, installationId, owner, repo, prNumber, now, log })) : 'none';
+
+  return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment, escalation };
+}
+
+export function createOutboxCheck({ client, ...deps }: OutboxDeps & { client: Inngest }) {
+  const log = deps.log ?? noteTo('outbox-check');
   return client.createFunction(
     {
       id: FUNCTION_ID,
@@ -119,58 +170,17 @@ export function createOutboxCheck({
       triggers: [{ event: OUTBOX_CHECK_EVENT }],
       debounce: DEBOUNCE,
       retries: 3,
-      onFailure: createFailureHandler({ octokitFor }),
+      onFailure: createFailureHandler({ octokitFor: deps.octokitFor }),
     },
     async ({ event, step }) => {
       const request = CheckRequestDataSchema.parse(event.data);
-      const { installationId, owner, repo, prNumber, headSha } = request;
-      const budgeted = <T>(work: () => Promise<T>) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, work);
-
-      const started = await step.run('in-progress', () => budgeted(async () => {
-        const octokit = await octokitFor(installationId);
-        const { active, name, gated, reason, deferTo, product } = await checkTarget(octokit, { owner, repo, prNumber, headSha });
-        if (!active) return null;
-        if (!gated && product) {
-          const reading = await outboxReadingOf(readProductOutbox, request.repository, product, now, log);
-          const verdict = productOutboxVerdict(product, reading, galaxyUrl);
-          const [checkRunId] = await completeAsProduct(octokit, { owner, repo, headSha, name, verdict });
-          return { checkRunId, name, skipped: true as const, conclusion: verdict.conclusion };
-        }
-        if (!gated && deferTo) {
-          const planPr = await planPrOf(octokit, deferTo);
-          const [checkRunId] = await completeAsDeferred(octokit, { owner, repo, headSha, name, plan: deferTo, planPr });
-          return { checkRunId, name, skipped: true as const, conclusion: 'success' as const };
-        }
-        if (!gated) {
-          const [checkRunId] = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason });
-          return { checkRunId, name, skipped: true as const, conclusion: 'skipped' as const };
-        }
-        const checkRunId = await startCheck(octokit, { owner, repo, headSha, name });
-        return { checkRunId, name, skipped: false as const };
-      }));
-      if (!started) return { ...SILENT };
-      if (started.skipped) return { checkRunId: started.checkRunId, name: started.name, conclusion: started.conclusion };
-
-      const verdict = await step.run('evaluate', () =>
-        budgeted(() => notRetriedPastBound(async () => evaluateAt(await octokitFor(installationId), { owner, repo, prNumber, headSha }))),
-      );
-
-      const published = await step.run('publish', () => budgeted(async () => {
-        const octokit = await octokitFor(installationId);
-        return publish(octokit, {
-          owner,
-          repo,
-          checkRunId: started.checkRunId,
-          pullNumber: prNumber,
-          headSha,
-          verdict,
-        });
-      }));
-
-      const holding = verdict.held;
-      const escalation = holding ? await step.run('escalation', () => recordSafely(holding, { octokitFor, installationId, owner, repo, prNumber, now, log })) : 'none';
-
-      return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment, escalation };
+      const where = `${request.owner}/${request.repo}#${String(request.prNumber)}`;
+      // Each step is retried by Inngest: a budget refusal waits for the budget, a snapshot over its bound is not retried.
+      const runStep: RunStep = async <T>(id: Parameters<RunStep>[0], work: () => Promise<T>) => {
+        const guarded = id === 'escalation' ? work : () => waitingOnBudget(where, log, id === 'evaluate' ? () => notRetriedPastBound(work) : work);
+        return (await step.run(id, guarded)) as T;
+      };
+      return runOutboxCheck({ ...deps, log }, request, runStep);
     },
   );
 }
@@ -319,7 +329,12 @@ async function evaluateAt(
  * "in-progress" opened is completed then, never left `in_progress` (issue 1970).
  */
 export function createFailureHandler({ octokitFor, log = noteTo('outbox-check') }: { octokitFor: OctokitFor<GitHubClient>; log?: (line: string) => void }) {
-  return onFailedRun(octokitFor, ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, async () => {
+  return onFailedRun(octokitFor, ({ octokit, request, reason }) => failOutboxCheck(octokit, request, reason, log));
+}
+
+/** The failure handler's work, shared with the `pr-outbox` job's failure hook (./job.ts): complete the check as `failure`, or as it must be on a pull request the gate does not run on. */
+export function failOutboxCheck(octokit: GitHubClient, { owner, repo, prNumber, headSha }: CheckRequestData, reason: unknown, log: (line: string) => void) {
+  return waitingOnBudget(`${owner}/${repo}#${String(prNumber)}`, log, async () => {
     const target = await targetOrUnknown(octokit, { owner, repo, prNumber, headSha });
     if (target && !target.active) return { ...SILENT };
     if (target && !target.gated) return completeUngated(octokit, { owner, repo, headSha, target, reason });
@@ -334,7 +349,7 @@ export function createFailureHandler({ octokitFor, log = noteTo('outbox-check') 
     const checkRunIds = await openRunsFailed(octokit, { owner, repo, headSha, name, reason });
     if (checkRunIds.length === 0) return { posted: false, reason: UNKNOWN_PR };
     return { checkRunIds, name, reason };
-  }));
+  });
 }
 
 /** What the pull request is to the check, or null when GitHub cannot say; a budget's refusal is thrown, never swallowed. */
