@@ -133,7 +133,7 @@ describe('pr-approved — the failure hook (acceptance 7)', () => {
     const octokit = {
       request: (route: string, params: unknown) => {
         if (route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}' && (pulls += 1) > 1) return Promise.reject(new Error('GitHub is down'));
-        return github.octokit.request(route as never, params as never);
+        return github.octokit.request(route, params as never);
       },
     } as unknown as typeof github.octokit;
     await approvedFailure({ octokitFor: () => octokit })(jobOf(payload, 5), 'GitHub is down');
@@ -155,7 +155,7 @@ describe('pr-approved — on the worker', () => {
         throws += 1;
         return Promise.reject(new Error('GitHub answered 502'));
       }
-      return github.octokit.request(route as never, params as never);
+      return github.octokit.request(route, params as never);
     } } as unknown as typeof github.octokit;
     const finished: { outcome: string }[] = [];
     const ledger = {
@@ -164,7 +164,7 @@ describe('pr-approved — on the worker', () => {
     };
     const lines: string[] = [];
     const summary = await runDue({
-      ledger: ledger as never,
+      ledger,
       handlers: { [APPROVED_KIND]: approvedHandler({ octokitFor: () => throwing, readRecord: null, galaxyUrl: GALAXY, log: () => undefined }) },
       failures: { [APPROVED_KIND]: approvedFailure({ octokitFor: () => github.octokit }) },
       log: (line) => lines.push(line),

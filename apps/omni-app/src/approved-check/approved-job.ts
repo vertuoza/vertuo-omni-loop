@@ -35,7 +35,7 @@ type Needs = {
 export function approvedHandler({ octokitFor, readRecord, galaxyUrl, ask = NO_JUDGE, now = () => new Date(), log = noteTo('approved-check') }: Needs): JobHandler {
   const deps: ApprovedDeps = { octokitFor, readRecord, galaxyUrl, ask, now, log };
   return async (job): Promise<JobResult> => {
-    const run = await checkApproved(deps, requestOf(job.payload), { run: (_id, work) => work(), budgeted: (work) => work() });
+    const run = await checkApproved(deps, requestOf(job.payload), { target: (work) => work(), product: (work) => work(), repo: (work) => work(), publish: (work) => work(), budgeted: (work) => work() });
     return 'posted' in run ? { outcome: 'skipped', reason: run.reason } : { outcome: 'done' };
   };
 }

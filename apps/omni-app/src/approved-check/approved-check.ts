@@ -123,7 +123,10 @@ export function createApprovedCheck({
       const where = `${request.owner}/${request.repo}#${request.prNumber}`;
       // The steps are Inngest's: each is retried and replayed on its own, the budget's refusal retried at its end.
       return checkApproved({ octokitFor, readRecord, galaxyUrl, ask, now, log }, request, {
-        run: <T>(id: string, work: () => Promise<T>) => step.run(id, work) as Promise<T>,
+        target: (work) => step.run('target', work),
+        product: (work) => step.run('record', work),
+        repo: (work) => step.run('record', work),
+        publish: (work) => step.run('publish', work),
         budgeted: (work) => onBudget(where, log, work),
       });
     },
@@ -147,39 +150,49 @@ export type ApprovedDeps = {
  * a retry after it, the job lets it through for the worker to read as `waiting`.
  */
 export type ApprovedSteps = {
-  run: <T>(id: string, work: () => Promise<T>) => Promise<T>;
+  /** Step "target". */
+  target: (work: () => Promise<Target | null>) => Promise<Target | null>;
+  /** Step "record" of a product PRD. */
+  product: (work: () => Promise<RecordReading>) => Promise<RecordReading>;
+  /** Step "record" of a ◆ PRD. */
+  repo: (work: () => Promise<Judged>) => Promise<Judged>;
+  /** Step "publish": the check run's id. */
+  publish: (work: () => Promise<number>) => Promise<number>;
   budgeted: <T>(work: () => Promise<T>) => Promise<T>;
 };
+
+type Judged = Awaited<ReturnType<typeof judgedAt>>;
 
 /** What a run returns: nothing posted and why, or the check run it posted. */
 export type ApprovedRun =
   | { posted: false; reason: string }
-  | { checkRunId: number; name: string; prd: string; state: ApprovedVerdict['state']; conclusion: ApprovedVerdict['conclusion'] };
+  | { checkRunId: number; name: string; prd: ProductPrdRef['id']; state: ApprovedVerdict['state']; conclusion: ApprovedVerdict['conclusion'] };
 
 /** The body of the check, one run: the same for the Inngest function and for the job of the ledger. */
 export async function checkApproved(
   { octokitFor, readRecord, galaxyUrl, ask, now, log }: ApprovedDeps,
   { installationId, owner, repo, repository, prNumber, headSha }: Pick<CheckRequestData, 'installationId' | 'owner' | 'repo' | 'repository' | 'prNumber' | 'headSha'>,
-  { run, budgeted }: ApprovedSteps,
+  steps: ApprovedSteps,
 ): Promise<ApprovedRun> {
-  const target = await run('target', () => budgeted(async () => targetOf(await octokitFor(installationId), { owner, repo, prNumber })));
+  const { budgeted } = steps;
+  const target = await steps.target(() => budgeted(async () => targetOf(await octokitFor(installationId), { owner, repo, prNumber })));
   if (!target) return { ...SILENT };
 
   let verdict: ApprovedVerdict;
   let named: string;
   if (target.kind === 'product') {
-    const reading = await run('record', () => readingOf(readRecord, repository, target.prd, now, log));
+    const reading = await steps.product(() => readingOf(readRecord, repository, target.prd, now, log));
     verdict = approvedVerdict(target.prd, reading);
     named = target.prd.id;
   } else {
-    const judged = await run('record', () => budgeted(async () => judgedAt(await octokitFor(installationId), target, ask)));
+    const judged = await steps.repo(() => budgeted(async () => judgedAt(await octokitFor(installationId), target, ask)));
     if (!judged) return { posted: false, reason: `PRD ${Number(target.prd)} was born in its repository (◇): its phase-0 PR approved it.` };
     verdict = repoApprovedVerdict(target.prd, judged.reading, judged.head);
     named = `${Number(target.prd)}`;
   }
 
   const anchor = target.kind === 'product' ? 'attestation' : 'approval';
-  const checkRunId = await run('publish', () => budgeted(async () =>
+  const checkRunId = await steps.publish(() => budgeted(async () =>
     postApproved(await octokitFor(installationId), { owner, repo, headSha, name: target.name, verdict, galaxyUrl, anchor })));
 
   return { checkRunId, name: target.name, prd: named, state: verdict.state, conclusion: verdict.conclusion };
