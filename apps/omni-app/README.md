@@ -20,6 +20,31 @@ request carries one check run named **outbox** (shown as **omni-loop · outbox**
 
 Nothing is added to an installed repository: no workflow, no file under `.github/`, no secret.
 
+The four checks of a pull request, **outbox**, **inbox**, **omni/approved** and **omni / budgets**, run on
+the App's own job ledger (PRD 2688, [The checks on the job ledger](#the-checks-on-the-job-ledger-prd-2688)),
+never on Inngest: a vendor's allowance never decides whether a gate exists.
+
+### The checks on the job ledger (PRD 2688)
+
+Each check is one kind of job, `pr-outbox`, `pr-inbox`, `pr-approved` and `pr-budgets`
+(`src/jobs/pr-checks.ts`), one job per pull request and check, keyed `<owner/name>#<number>`. A new event
+**refreshes** a job rather than adding one, so the latest state wins, 5 seconds after the last event:
+
+| what happens | the jobs refreshed |
+|---|---|
+| a pull request into the default branch opened, synchronized, reopened, ready for review, labelled, unlabelled or edited; a review submitted or dismissed | its four |
+| GitHub's **Re-run** on a check run | that check's alone, told by the check run's `external_id` |
+| the approved label put on or taken off a PRD's issue | the `pr-approved` job of each open pull request of that PRD, found on GitHub once the webhook has answered |
+| the server event of a product PRD (below) | the four of each pull request it reaches, due at once |
+
+The webhook writes the jobs before anything else, then, the 5 seconds gone by, runs the jobs due in
+`waitUntil`. An event while a check runs runs it once more on the latest head, after it finishes. A try
+that throws is retried after 1, 5, 30 and 120 minutes; the 5th ends the job `failed`, and the check is
+completed `failure` with the reason (`omni / budgets`: `neutral`, saying why), never left in progress.
+A check due but not started for over 10 minutes is posted `queued`, `Delayed: Omni is retrying this check`,
+by the sweep ([below](#the-job-ledger--the-sweep-human-steps-prd-2676)). A database failure never fails a
+delivery: the next event, or **Re-run**, refreshes the jobs again.
+
 ### Fix, knowledge and enforce PRs (PRD 1342)
 
 When the base branch's config says `laws.source: knowledge`, the check grades three more kinds of
@@ -46,7 +71,7 @@ checks, both read from the database as the service role (`SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY`), and only for a product that holds the PR's repository: a body naming a
 PRD of another product reads as no such PRD.
 
-**`omni/approved`** (`ci.approvedContext`; `null` turns it off), the function `approved-check`
+**`omni/approved`** (`ci.approvedContext`; `null` turns it off), the job `pr-approved`
 (`src/approved-check/`): whether what the PR builds is what was approved. It compares the approval in
 force with the dossier's latest versions.
 
@@ -81,12 +106,11 @@ galaxy says the server changed the PRD, so nothing polls. Galaxy POSTs `{ event,
 `/api/server-event` (`src/server-event/`), signed with an HMAC-SHA256 of the body under
 `STAGE_EVENT_SECRET` in `x-omni-signature-256`, for four events: `approved`, `voided` (a push changed a
 pinned file), `item-opened` and `item-settled` (an item answered, or adopted as it was raised). A bad
-or missing signature is 401, a body that is not a server event 400, and a good one 202. The function
-`server-event`, debounced per PRD, reads the PRD's open PRs from the `pull_requests` table the
+or missing signature is 401, a body that is not a server event 400, and a good one 202. The Inngest
+function `server-event`, debounced per PRD, reads the PRD's open PRs from the `pull_requests` table the
 collector keeps ([below](#the-engineering-boards-collector-prd-612)), reads each one once from GitHub,
-keeps those whose body names the PRD, and sends each the outbox check's event, which re-runs the
-outbox, approved and inbox checks. A PR the collector has not read yet gets both checks on its next
-webhook.
+keeps those whose body names the PRD, refreshes the four checks' jobs of each, due at once, and runs
+the jobs due (PRD 2688). A PR the collector has not read yet gets both checks on its next webhook.
 
 ## Fix rows and knowledge packs (PRD 2011)
 
@@ -298,28 +322,30 @@ delegate in `laws.owners` and no `laws.leadership`.
 ## How it runs
 
 ```
-GitHub ── pull_request / check_run.rerequested ──▶ /api/github    verify signature → inngest.send → 200
-             a merged pull_request.closed → omni-loop/retro.requested and
-                                            omni-loop/knowledge.harvest.requested, never the outbox check
-             every other handled action   → omni-loop/outbox.check.requested (outbox-check and inbox-check)
-             Re-run of an inbox check run → omni-loop/inbox.check.requested (inbox-check only)
-             a stage move (PRD 587)       → POST galaxy /api/stages/event, signed, beside either route
-Inngest ──▶ /api/inngest   function "outbox-check" (debounced per repo + PR)
-              step "in-progress"  create the check run, in_progress, on the head SHA
-                                  (no base config: stop here, post nothing)
-              step "evaluate"     snapshot base config + head delivery folder into /tmp, evaluate
-              step "publish"      complete the check run; rewrite the outbox comment unless the head moved on
-            onFailure          complete the check run as failure — never left in_progress
-                               (no base config: post nothing)
-Inngest ──▶ /api/inngest   function "inbox-check" (debounced per repo + PR)
-              step "in-progress"  the base config; a phase-0 head branch gets the check run, in_progress
-                                  (no base config, or another branch shape: stop here, post nothing)
-              step "evaluate"     snapshot the head's inbox + shipped folders into /tmp; the compare and
-                                  the PRD issue; evaluateInbox grades the five gates (canon: one
-                                  OpenRouter call unless cached)
-              step "publish"      complete the check run; no comment
-            onFailure          complete the check run as failure — never left in_progress
-                               (not a phase-0 PR: post nothing)
+GitHub ── pull_request / check_run.rerequested ──▶ /api/github    verify signature → refresh jobs → inngest.send → 200
+             every handled action          → the four checks' jobs refreshed (pr-outbox, pr-inbox,
+                                             pr-approved, pr-budgets), due in 5 seconds
+             Re-run of a check run         → that check's job alone, told by its external_id
+             a merged pull_request.closed  → omni-loop/retro.requested and
+                                             omni-loop/knowledge.harvest.requested, and the pack's job
+             a stage move (PRD 587)        → POST galaxy /api/stages/event, signed, beside either route
+           after the answer, in waitUntil: the 5 seconds gone by, the jobs due run (src/jobs/worker.ts)
+Ledger ──▶ job "pr-outbox", in one try
+              "in-progress"  create the check run, in_progress, on the head SHA
+                             (no base config: stop here, post nothing, the job skipped)
+              "evaluate"     snapshot base config + head delivery folder into /tmp, evaluate
+              "publish"      complete the check run; rewrite the outbox comment unless the head moved on
+            failure hook   on the 5th try that threw: complete the check run as failure — never left in_progress
+                           (no base config: post nothing)
+Ledger ──▶ job "pr-inbox", in one try
+              "in-progress"  the base config; a phase-0 head branch gets the check run, in_progress
+                             (no base config, or another branch shape: stop here, post nothing, the job skipped)
+              "evaluate"     snapshot the head's inbox + shipped folders into /tmp; the compare and
+                             the PRD issue; evaluateInbox grades the five gates (canon: one
+                             OpenRouter call unless cached)
+              "publish"      complete the check run; no comment
+            failure hook   on the 5th try that threw: complete the check run as failure — never left in_progress
+                           (not a phase-0 PR: post nothing)
 Inngest ──▶ /api/inngest   function "retro" (one at a time per repository)
               step "qualify"          the config at the merge SHA; a feature PR; its PRD folder
               step "gather-pulls"     the sub-PRs into the feature branch
@@ -368,8 +394,9 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | `snapshot` — only the listed paths, at most 2,000 files and 20 MB | `src/snapshot/` |
 | `evaluate` — pure, reuses the kit's gate unchanged | `src/evaluate/` |
 | `publish` — the check run and the comment | `src/publish/` |
-| `outbox-check` — the Inngest function | `src/outbox-check/`, served at `api/inngest.mjs` |
-| `inbox-check` — the Inngest function, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, served at `api/inngest.mjs` |
+| `outbox-check` — the `pr-outbox` job's handler and failure hook | `src/outbox-check/`, run by the job ledger's worker |
+| `inbox-check` — the `pr-inbox` job's handler, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, run by the job ledger's worker |
+| `jobs` — the job ledger, its worker, the checks' four kinds and the sweep | `src/jobs/`, run at `api/github.mjs`, `api/inngest.mjs` (the server event) and `api/jobs-sweep.mjs` |
 | `canon` — the inbox check's canon gate: the spec against the business, and its live ports | `src/canon/` |
 | `retro` — the Inngest function wiring the retro's units | `src/retro/retro.ts`, served at `api/inngest.mjs` |
 | `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.ts` |
@@ -478,15 +505,16 @@ None of these is taken by the code; a person does each once.
    the Vercel variable, redeploy, then delete the old key.
 3. **Inngest.** Create (or reuse) the Inngest account and sync the app at
    `https://<production domain>/api/inngest`. A deploy does not resync it: after a deploy that adds a
-   function (pr-stats, PRD 612, inbox-check, PRD 675, approved-check and server-event, PRD 1548, are
-   some), press **Resync** on the app in Inngest, or the new function never runs.
+   function (pr-stats, PRD 612, and server-event, PRD 1548, are some) or removes one (the four checks'
+   functions and `approved-rerun`, PRD 2688), press **Resync** on the app in Inngest, or the new function
+   never runs and the removed one stays listed.
 4. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
    default branch.
 
    > **Warning.** A required check that is never posted blocks every pull request in that repository:
-   > if the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The
-   > remedy is to remove the requirement in branch protection — never to fake a status. Inngest's run
-   > history shows whether a run was attempted.
+   > if the app is uninstalled, its deploy is broken or its database is down, nothing can merge. The
+   > remedy is to remove the requirement in branch protection — never to fake a status. The check's
+   > job and its tries (`background_jobs`, `background_job_attempts`, below) show whether it ran.
 5. **Labels.** Run `npx github:vertuoza/vertuo-omni-loop init` in the repository: it creates the missing `omni:*` labels.
 6. **The hourly health check.** In `vertuoza/vertuo-omni-loop`, set the repository variable
    `OMNI_APP_URL` to this app's production host, so the health workflow probes its `/api/health`
@@ -543,14 +571,15 @@ None of these is taken by the code. Until they are done, stages come from galaxy
 
 ### The job ledger — the sweep, human steps (PRD 2676)
 
-The knowledge pack is the one job of the ledger (`background_jobs`, `background_job_attempts`; the worker is
-`src/jobs/worker.ts`). A merge adds its job and runs the jobs due after the webhook answers; the sweep
-finishes what that left. `GET /api/jobs-sweep` answers only `Authorization: Bearer <CRON_SECRET>` (anything
+The ledger (`background_jobs`, `background_job_attempts`; the worker is `src/jobs/worker.ts`) holds the
+knowledge pack's jobs and the four pull-request checks' (PRD 2688, [above](#the-checks-on-the-job-ledger-prd-2688)).
+A merge adds its pack's job, a pull request event refreshes its checks' jobs, and the webhook runs the jobs
+due after it answers; the sweep finishes what that left, every kind's handler wired. `GET /api/jobs-sweep` answers only `Authorization: Bearer <CRON_SECRET>` (anything
 else is 401, and with no `CRON_SECRET` set every call is) and has two crons in `vercel.json`:
 
 | cron | call | what it does |
 |---|---|---|
-| every 15 minutes | `/api/jobs-sweep` | runs the jobs due: retries, claims that ran out, whatever the webhook did not finish |
+| every 15 minutes | `/api/jobs-sweep` | first posts, `queued` and delayed, every check due but not started for over 10 minutes; then runs the jobs due: retries, claims that ran out, whatever the webhook did not finish |
 | hourly, at minute 7 | `/api/jobs-sweep?gaps=1` | first the comparison: each repository a product holds and the App is installed on, with no pack or an older one than its latest commit on the knowledge folder or the config, gets a job (it stops when GitHub's budget is low); then the jobs due; and at 03:00 UTC it forgets the jobs finished over 90 days ago, with their attempts |
 
 1. **Set `CRON_SECRET`** in this app's Vercel project, to any long random value, and redeploy: a new

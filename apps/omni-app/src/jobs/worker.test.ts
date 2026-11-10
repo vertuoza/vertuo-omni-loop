@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import type { ClaimedJob, Finish, FinishAnswer, JobLedger } from './ledger.ts';
-import { LEASE_SECONDS, runDue, TIME_BUDGET_MS, type JobHandler, type JobResult } from './worker.ts';
+import { LEASE_SECONDS, runDue, TIME_BUDGET_MS, type FailureHook, type JobHandler, type JobResult } from './worker.ts';
 
 const START = Date.parse('2027-01-13T09:00:00Z');
 const MINUTE = 60_000;
@@ -184,6 +184,85 @@ describe('runDue — claiming', () => {
       return Promise.reject(new Error('boom'));
     }, { clock: read });
     expect(finished[0]?.retryAt).toBe(at(START + 30_000 + MINUTE));
+  });
+});
+
+describe('runDue — the failure hook of a kind (PRD 2688 s1)', () => {
+  type Called = { id: string; kind: string; reason: string };
+
+  /** A hook that records each call, then does what `then` says. */
+  function hookOf(then: () => Promise<void> = () => Promise.resolve()) {
+    const calls: Called[] = [];
+    const hook: FailureHook = (job, reason) => {
+      calls.push({ id: job.id, kind: job.kind, reason });
+      return then();
+    };
+    return { hook, calls };
+  }
+
+  const runWith = (ledger: JobLedger, handler: JobHandler, failures: Readonly<Partial<Record<string, FailureHook>>>, log: (line: string) => void = () => undefined) =>
+    runDue({ ledger, handlers: { 'pr-outbox': handler, 'knowledge-pack': handler }, failures, clock: () => START, log });
+
+  it('runs once, on the 5th throw only, with the job and its error\'s first line', async () => {
+    const { hook, calls } = hookOf();
+    const { ledger } = fakeLedger([1, 2, 3, 4, 5].map((tries) => ({ kind: 'pr-outbox', tries })));
+    const summary = await runWith(ledger, throws(new Error('GitHub answered 502\n    at handler')), { 'pr-outbox': hook });
+    expect(calls).toEqual([{ id: 'job-5', kind: 'pr-outbox', reason: 'GitHub answered 502' }]);
+    expect(summary).toMatchObject({ ran: 5, retry: 4, failed: 1 });
+  });
+
+  it('runs on no other outcome: done, skipped, a retry, or a wait on GitHub\'s budget on the 5th try', async () => {
+    const { hook, calls } = hookOf();
+    const { ledger } = fakeLedger([{ kind: 'pr-outbox', tries: 5 }, { kind: 'pr-outbox', tries: 5 }, { kind: 'pr-outbox', tries: 5 }]);
+    let n = 0;
+    await runWith(ledger, () => {
+      n += 1;
+      if (n === 1) return Promise.resolve({ outcome: 'done' });
+      if (n === 2) return Promise.resolve({ outcome: 'skipped', reason: 'not a loop pull request' });
+      return Promise.reject(new GithubDeferred(START + 40 * MINUTE));
+    }, { 'pr-outbox': hook });
+    expect(calls).toEqual([]);
+  });
+
+  it('runs only the failing job\'s own kind: a kind with no hook fails as before', async () => {
+    const { hook, calls } = hookOf();
+    const { ledger, finished } = fakeLedger([{ kind: 'knowledge-pack', tries: 5 }]);
+    await runWith(ledger, throws(new Error('boom')), { 'pr-outbox': hook });
+    expect(calls).toEqual([]);
+    expect(finished.map(({ outcome }) => outcome)).toEqual(['failed']);
+  });
+
+  it('runs only once the ledger kept the job failed: not when a refresh queued it again, its claim was taken over, or the finish was refused', async () => {
+    const { hook, calls } = hookOf();
+    const answers: Record<string, () => Promise<FinishAnswer>> = {
+      'job-1': () => Promise.resolve('queued'),
+      'job-2': () => Promise.resolve('stale'),
+      'job-3': () => Promise.reject(new Error('the database refused: connection reset')),
+      'job-4': () => Promise.resolve('failed'),
+    };
+    const { ledger } = fakeLedger([1, 2, 3, 4].map(() => ({ kind: 'pr-outbox', tries: 5 })), {
+      finish: ({ id }) => (answers[id] ?? (() => Promise.resolve('failed')))(),
+    });
+    await runWith(ledger, throws(new Error('boom')), { 'pr-outbox': hook });
+    expect(calls.map(({ id }) => id)).toEqual(['job-4']);
+  });
+
+  it('a hook that throws is logged, and the run goes on', async () => {
+    const lines: string[] = [];
+    const { hook, calls } = hookOf(() => Promise.reject(new Error('GitHub answered 500\n    at hook')));
+    const { ledger, finished } = fakeLedger([{ kind: 'pr-outbox', tries: 5 }, { kind: 'pr-outbox', tries: 1 }]);
+    let n = 0;
+    const summary = await runWith(ledger, () => (++n === 1 ? Promise.reject(new Error('boom')) : Promise.resolve({ outcome: 'done' })), { 'pr-outbox': hook }, (line) => lines.push(line));
+    expect(calls).toHaveLength(1);
+    expect(finished.map(({ outcome }) => outcome)).toEqual(['failed', 'done']);
+    expect(summary).toMatchObject({ ran: 2, failed: 1, done: 1 });
+    expect(lines).toContain(`job pr-outbox initech/pack-api@${'1'.repeat(40)}: its failure hook threw: GitHub answered 500`);
+  });
+
+  it('with no hooks given, a failure is as it always was', async () => {
+    const { ledger, finished } = fakeLedger([{ tries: 5 }]);
+    expect((await run(ledger, throws(new Error('boom')))).failed).toBe(1);
+    expect(finished.map(({ outcome }) => outcome)).toEqual(['failed']);
   });
 });
 

@@ -11,16 +11,15 @@ import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { createContext } from 'omni-loop/kit/lib/context.ts';
 import { adoptItem, settleItem } from 'omni-loop/kit/lib/outbox/settle.ts';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
 import { githubClient, memoryGithubStore, type GithubStore } from '@omni/github';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { type AppEvent, inngest } from '../inngest-client.ts';
+import type { RefreshJob } from '../jobs/ledger.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { installationOctokitFor } from '../octokit-for.ts';
 import { RECORD_MARKER } from 'omni-loop/kit/lib/escalation/comments.ts';
-import { checkRunAt, commitOf, fakeGitHub, outputOf, overHttp } from './fake-github.ts';
-import { createOutboxCheck } from './outbox-check.ts';
+import { checkRunAt, claimedJob, commitOf, fakeGitHub, outputOf, overHttp } from './fake-github.ts';
+import { OUTBOX_KIND, outboxHandler } from './job.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const fixture = (name: string) => join(FIXTURES, name);
@@ -102,17 +101,17 @@ afterEach(() => {
 /** A fresh run: an empty store, no plain call, nothing logged. */
 const freshRun = (): Run => ({ store: memoryGithubStore(), plain: [], logged: [] });
 
-/** A signed delivery through `/api/github`'s unit, then every event it sent through the real function. */
+/** A signed delivery through `/api/github`'s unit, then every outbox job it refreshed through the real handler. */
 async function deliver(github: GitHub, delivery: Delivery, run: Run = freshRun()) {
   const { sent, errors } = await attempt(github, delivery, run);
   expect(errors).toEqual([]);
   return sent;
 }
 
-/** `deliver`, handing back each run's error instead of failing on it. */
+/** `deliver`, handing back each try's error instead of failing on it. */
 async function attempt(github: GitHub, { event, payload }: Delivery, run: Run) {
   const body = JSON.stringify(payload);
-  const sent: AppEvent[] = [];
+  const sent: RefreshJob[] = [];
   const response = await receiveWebhook({
     body,
     headers: {
@@ -121,14 +120,18 @@ async function attempt(github: GitHub, { event, payload }: Delivery, run: Run) {
     },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: (events) => Promise.resolve(sent.push(...events)),
+    send: () => Promise.resolve(),
+    refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs.filter((job) => job.kind === OUTBOX_KIND))),
   });
   expect(response.status).toBe(200);
-  const fn = createOutboxCheck({ client: inngest, octokitFor: appOctokitFor(github, run), log: (line) => run.logged.push(line) });
+  const handler = outboxHandler({ octokitFor: appOctokitFor(github, run), log: (line) => run.logged.push(line) });
   const errors: unknown[] = [];
-  for (const e of sent) {
-    const { error } = await new InngestTestEngine({ function: fn, events: [e] }).execute();
-    if (error) errors.push(error);
+  for (const job of sent) {
+    try {
+      await handler(claimedJob(job.kind, job.payload));
+    } catch (error) {
+      errors.push(error);
+    }
   }
   return { sent, errors };
 }
@@ -439,7 +442,7 @@ describe('end to end — a signed webhook to a completed check', () => {
     expect(run.plain).toEqual([`/app/installations/${INSTALLATION}/access_tokens`]);
   });
 
-  it('8. a paused budget refuses the check: nothing is sent to GitHub, nothing is posted, one line is logged', async () => {
+  it('8. a paused budget refuses the check: nothing is sent to GitHub, nothing is posted, the refusal is thrown for the worker to wait on', async () => {
     const pull = featurePull();
     const github = fakeGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-open') }, pull });
     const run = freshRun();
@@ -447,10 +450,10 @@ describe('end to end — a signed webhook to a completed check', () => {
     await run.store.pause(INSTALLATION, 'core', until, Date.now());
     const { errors } = await attempt(github, pullRequestDelivery(pull), run);
     expect(errors).toHaveLength(1);
+    expect(String(errors[0] instanceof Error ? (errors[0].cause instanceof Error ? errors[0].cause.message : errors[0].message) : errors[0])).toContain(`GitHub paused until ${new Date(until).toISOString()}`);
     expect(github.state.requests).toEqual([]);
     expect(github.state.checkRuns).toEqual([]);
     expect(github.state.comments).toEqual([]);
-    expect(run.logged).toEqual([expect.stringContaining(`GitHub paused until ${new Date(until).toISOString()}`)]);
   });
 });
 

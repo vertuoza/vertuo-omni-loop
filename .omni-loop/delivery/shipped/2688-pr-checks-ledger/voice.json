@@ -1,0 +1,168 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-10",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One job per pull request and check, with every try written down, is a pattern I can explain to the team.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Now my merges depend on your own queue as well, and a jam would block every pull request.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "My repositories that require the outbox check stop being blocked, and my specs are judged on phase-0 PRs again.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Nothing changes on my screen; the checks on my pull requests just come back.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It stays out of the front end, and gates that work again mean less slop reaching production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "So now my merges hang on your own queue too. If it jams, every PR in the company is blocked and nobody knows why.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "Fits the product manager and the lead engineer best; the skeptical back-end developer worst, until a stuck check showed on the pull request itself."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-10",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Moving the function bodies over unchanged keeps the verdicts I already trust, and the failure handlers stay.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A delayed check on the pull request and a health issue answer my worry; two and a half hours to a failure is slow, but visible.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "All four gates come back in one PRD, the business-laws verdict on phase-0 PRs included.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "My pull requests get their checks back without me doing anything.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "No front-end change, and the gates I rely on return.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "fit": "Fits the product manager best; the slow path to a failure is what the skeptical back-end developer still feels."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-10",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The verdicts were kept, the two law proofs now run through the job, and every try is written down: the gates I trust are back.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A stuck check now says it is delayed on the pull request itself, so a jam is visible; the slow road to a failure is still slow.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "All four gates are back on every pull request, and no vendor quota can switch them off again.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "My pull requests show their checks again, and I did not have to change anything.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing touches the front end, and the gates that keep slop out of production work again.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "fit": "Fits the product manager and the lead engineer best; the skeptical back-end developer accepts it because a delayed check now shows on the pull request."
+    }
+  ]
+}

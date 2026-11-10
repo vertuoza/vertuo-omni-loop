@@ -1,83 +1,54 @@
-// `budgets-check`: the Inngest function posting **omni / budgets** on each pull request of a repository
-// whose `budgets.context.enabled` is true (PRD 1679 s3): whether what every agent session reads stayed
-// under its ceilings, the verdict `omni check context` gives in a checkout.
+// `budgets-check`: the check posting **omni / budgets** on each pull request of a repository whose
+// `budgets.context.enabled` is true (PRD 1679 s3): whether what every agent session reads stayed under its
+// ceilings, the verdict `omni check context` gives in a checkout. It runs as the `pr-budgets` job of the
+// ledger (PRD 2688, ./job.ts), its three stages in order in one try:
 //
-//   step "target"   read the pull request and its base branch's config: a base without the loop's config,
-//                   a config that does not parse, or one with budgets off, gets nothing at all, not even
-//                   `skipped` (acceptance 7)
-//   step "measure"  snapshot the head and the base, measure, judge and write the output (./measure-pull.ts)
-//   step "publish"  post the check run completed: `failure` on a red, `success` within budget, `neutral`
-//                   when something could not be measured, which never blocks a merge (D6)
-//   onFailure       once the retries are spent, post it `neutral`, saying why: a check that cannot run
-//                   never blocks a merge either
+//   "target"   read the pull request and its base branch's config: a base without the loop's config,
+//              a config that does not parse, or one with budgets off, gets nothing at all, not even
+//              `skipped` (acceptance 7)
+//   "measure"  snapshot the head and the base, measure, judge and write the output (./measure-pull.ts)
+//   "publish"  post the check run completed: `failure` on a red, `success` within budget, `neutral`
+//              when something could not be measured, which never blocks a merge (D6)
+//   failure    once the 5th try threw, post it `neutral`, saying why: a check that cannot run never
+//              blocks a merge either (`postNotMeasured`)
 //
-// It listens to the outbox check's event, so every pull request action the webhook handles runs it, and
-// so does the server event's re-check of a product PRD's pull requests: an `item-settled` that answers a
-// raise posts it again, green, with no new push (../server-event/recheck.ts). It listens to its own event
-// too, which the webhook sends for a re-run of a budgets check run (its `external_id` is
-// BUDGETS_EXTERNAL_ID). Debounced per repository and pull request, 3 retries, like the other checks.
+// Every pull request event the webhook handles refreshes the job, and so does the server event's re-check
+// of a product PRD's pull requests: an `item-settled` that answers a raise posts it again, green, with no new
+// push (../server-event/recheck.ts). A re-run of a budgets check run (its `external_id` is
+// BUDGETS_EXTERNAL_ID) refreshes it too.
 //
 // The installation's GitHub budget is shared with galaxy (PRD 902): a call the budget refuses, paused or
-// deferred, is never sent; the step logs one line and is retried once the pause or the window ends.
-import { RetryAfterError, type Inngest } from 'inngest';
-import { GithubDeferred, GithubPaused } from '@omni/github';
+// deferred, is never sent; it is thrown, and the worker reads it as `waiting`.
 import { contextBudget } from 'omni-loop/kit/lib/config.ts';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { BUDGETS_CHECK_EVENT, BUDGETS_EXTERNAL_ID, CheckRequestDataSchema, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
+import { BUDGETS_EXTERNAL_ID } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readBaseConfig, readPull, type GitHubClient, type PullFacts, type Repo } from '../outbox-check/github.ts';
 import { CreatedSchema, firstLine } from '../outbox-check/github-schema.ts';
-import { onFailedRun } from '../outbox-check/outbox-check.ts';
 import { measurePull } from './measure-pull.ts';
 import { BUDGETS_CHECK_NAME, notMeasuredOutput, type BudgetsOutput } from './output.ts';
 import type { OutboxRowsReader } from './raises.ts';
 
-export const BUDGETS_FUNCTION_ID = 'budgets-check';
-
 /** What a run returns when it posted nothing. */
 const SILENT = Object.freeze({ posted: false, reason: 'budgets are off here, or the loop is not installed' });
 
-const BUDGETS_DEBOUNCE = Object.freeze({
-  key: 'event.data.repository + "#" + string(event.data.prNumber)',
-  period: '5s',
-  timeout: '1m',
-});
+/** What a run of the check needs to find the pull request and its head commit. */
+export type BudgetsRequest = { installationId: number; owner: string; repo: string; prNumber: PrNumber; headSha: string };
 
-export function createBudgetsCheck({
-  client,
-  octokitFor,
-  readOutboxRows = null,
-  log = (line) => { console.error(line); },
-}: {
-  client: Inngest;
-  octokitFor: OctokitFor<GitHubClient>;
-  /** A product PRD's outbox rows' reader; null when the App cannot read the server here, which reads no raise of a product PRD. */
-  readOutboxRows?: OutboxRowsReader | null;
-  log?: (line: string) => void;
-}) {
-  return client.createFunction(
-    {
-      id: BUDGETS_FUNCTION_ID,
-      name: 'omni-loop · budgets',
-      triggers: [{ event: OUTBOX_CHECK_EVENT }, { event: BUDGETS_CHECK_EVENT }],
-      debounce: BUDGETS_DEBOUNCE,
-      retries: 3,
-      onFailure: createBudgetsFailureHandler({ octokitFor }),
-    },
-    async ({ event, step }) => {
-      const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
-      const budgeted = <T>(work: () => Promise<T>) => onBudget(`${owner}/${repo}#${prNumber}`, log, work);
-
-      const pr = await step.run('target', () => budgeted(async () => budgetedPull(await octokitFor(installationId), { owner, repo, prNumber })));
-      if (!pr) return { ...SILENT };
-
-      const output = await step.run('measure', () => budgeted(async () =>
-        measurePull(await octokitFor(installationId), { owner, repo, pr: { ...pr, headSha } }, { readOutboxRows, log })));
-
-      const checkRunId = await step.run('publish', () => budgeted(async () => postBudgets(await octokitFor(installationId), { owner, repo, headSha, output })));
-      return { checkRunId, name: BUDGETS_CHECK_NAME, conclusion: output.conclusion };
-    },
-  );
+/**
+ * The check's three stages, the body its job of the ledger runs in order in one try (./job.ts): `target`
+ * reads the pull request (null when it gets no check at all), `measure` gives the verdict, `publish` posts it
+ * and answers the check run's id.
+ */
+export function budgetsStages(
+  { octokitFor, readOutboxRows, log }: { octokitFor: OctokitFor<GitHubClient>; readOutboxRows: OutboxRowsReader | null; log: (line: string) => void },
+  { installationId, owner, repo, prNumber, headSha }: BudgetsRequest,
+) {
+  return {
+    target: async () => budgetedPull(await octokitFor(installationId), { owner, repo, prNumber }),
+    measure: async (pr: PullFacts) => measurePull(await octokitFor(installationId), { owner, repo, pr: { ...pr, headSha } }, { readOutboxRows, log }),
+    publish: async (output: BudgetsOutput) => postBudgets(await octokitFor(installationId), { owner, repo, headSha, output }),
+  };
 }
 
 /** The pull request, when its base branch has the loop with budgets on; null for any other. */
@@ -103,38 +74,19 @@ async function postBudgets(octokit: GitHubClient, { owner, repo, headSha, output
   return CreatedSchema.parse(data).id;
 }
 
-/**
- * The failure handler: once the run has failed after its retries, post the check `neutral`, saying why,
- * on a pull request whose base has budgets on; nothing on any other, nor when GitHub cannot say.
- */
-export function createBudgetsFailureHandler({ octokitFor }: { octokitFor: OctokitFor<GitHubClient> }) {
-  return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => {
-    let pr: PullFacts | null = null;
-    try {
-      pr = await budgetedPull(octokit, { owner, repo, prNumber });
-    } catch {
-      // GitHub itself may be what failed: whether budgets are on stays unknown, so nothing is posted.
-    }
-    if (!pr) return { ...SILENT };
-    const output = notMeasuredOutput(`the check could not run — ${firstLine(reason)}`);
-    return { checkRunId: await postBudgets(octokit, { owner, repo, headSha, output }), name: BUDGETS_CHECK_NAME, conclusion: output.conclusion };
-  });
-}
-
-/** The budget's refusal `error` is, or wraps a few causes deep; null when it is none. */
-function refusalOf(error: unknown, depth = 0): GithubPaused | GithubDeferred | null {
-  if (error instanceof GithubPaused || error instanceof GithubDeferred) return error;
-  return error instanceof Error && depth < 3 ? refusalOf(error.cause, depth + 1) : null;
-}
-
-/** Runs a step's GitHub work: a call the budget refused logs one line, and the step is retried once the budget allows it. */
-async function onBudget<T>(where: string, log: (line: string) => void, work: () => Promise<T>): Promise<T> {
+/** Posts the check `neutral`, saying why, on a pull request whose base has budgets on; nothing on any other, nor when GitHub cannot say. */
+export async function postNotMeasured(
+  octokit: GitHubClient,
+  { owner, repo, prNumber, headSha }: Repo & { prNumber: PrNumber; headSha: string },
+  reason: unknown,
+) {
+  let pr: PullFacts | null = null;
   try {
-    return await work();
-  } catch (error) {
-    const refused = refusalOf(error);
-    if (!refused) throw error;
-    log(`budgets check of ${where} waits for the GitHub budget: ${refused.message}`);
-    throw new RetryAfterError(refused.message, new Date(refused.until), { cause: refused });
+    pr = await budgetedPull(octokit, { owner, repo, prNumber });
+  } catch {
+    // GitHub itself may be what failed: whether budgets are on stays unknown, so nothing is posted.
   }
+  if (!pr) return { ...SILENT };
+  const output = notMeasuredOutput(`the check could not run — ${firstLine(reason)}`);
+  return { checkRunId: await postBudgets(octokit, { owner, repo, headSha, output }), name: BUDGETS_CHECK_NAME, conclusion: output.conclusion };
 }

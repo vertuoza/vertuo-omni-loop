@@ -6,7 +6,10 @@
 -- `waiting` giving its try back and a 5th `retry` failing it; a replay keeps the attempts;
 -- background_jobs_health() in each case, with counts and no name; forgetting keeps what is under 90 days;
 -- two workers at once never hold one job; nobody but the service role reads or calls any of it.
--- One transaction, rolled back at the end, then the race through dblink. Any `FAIL:` stops the run.
+-- The refresh (PRD 2688 s1): each row of its table (none, queued, running, done, skipped, failed), never
+-- another kind's job of the same key; a try that ends, or a claim that runs out, on a job holding `again`
+-- keeps its attempt line and queues the job at once, `again` cleared; a refresh racing a claim waits for it.
+-- One transaction, rolled back at the end, then the races through dblink. Any `FAIL:` stops the run.
 
 begin;
 
@@ -51,6 +54,30 @@ create function pg_temp.ended(k text, ago interval) returns void language sql se
 $$;
 create function pg_temp.health() returns jsonb language sql as $$ select public.background_jobs_health() $$;
 
+-- PRD 2688: the jobs of one pull request, one per check, and what is done to them.
+create function pg_temp.pr(k text) returns public.background_jobs language sql security definer as $$
+  select * from public.background_jobs j where j.kind = k and j.key = 'initech/pr-api#12';
+$$;
+create function pg_temp.pr_tries(k text) returns text language sql security definer as $$
+  select coalesce(string_agg(a.try || ':' || a.outcome, ' ' order by a.id), '')
+    from public.background_job_attempts a join public.background_jobs j on j.id = a.job_id
+   where j.kind = k and j.key = 'initech/pr-api#12';
+$$;
+create function pg_temp.pr_due(k text, ago interval) returns void language sql security definer as $$
+  update public.background_jobs j set run_after = now() - ago where j.kind = k and j.key = 'initech/pr-api#12';
+$$;
+create function pg_temp.pr_expire(k text) returns void language sql security definer as $$
+  update public.background_jobs j set claimed_until = now() - interval '1 second' where j.kind = k and j.key = 'initech/pr-api#12';
+$$;
+-- Refreshes the pull request's job of kind k with head commit `sha`, due in 5 seconds; what the refresh did.
+create function pg_temp.refresh(k text, sha text) returns text language sql as $$
+  select public.background_job_refresh(k, 'initech/pr-api#12', 'Initech/PR-API', jsonb_build_object('sha', sha), 5);
+$$;
+-- The jobs claimed now, as their kinds in order; `none` when no job is due.
+create function pg_temp.kinds_claimed() returns text language sql as $$
+  select coalesce(string_agg(c.kind, ' ' order by c.kind), 'none') from public.background_job_claim(10, 60) c;
+$$;
+
 -- ── Nobody but the service role reads or calls any of it ──
 do $$
 declare
@@ -59,7 +86,8 @@ begin
   foreach fn in array array[
     'public.background_job_add(text, text, text, jsonb)', 'public.background_job_claim(integer, integer)',
     'public.background_job_finish(uuid, uuid, text, text, timestamptz)', 'public.background_job_replay(uuid)',
-    'public.background_jobs_health()', 'public.background_jobs_forget()'] loop
+    'public.background_jobs_health()', 'public.background_jobs_forget()',
+    'public.background_job_refresh(text, text, text, jsonb, integer)'] loop
     if has_function_privilege('anon', fn, 'execute') or has_function_privilege('authenticated', fn, 'execute') then
       raise exception 'FAIL: % may be called by someone signed in or signed out', fn;
     end if;
@@ -94,10 +122,12 @@ select pg_temp.refused($q$select public.background_job_add('knowledge-pack', 'x/
 select pg_temp.refused($q$select * from public.background_job_claim(1, 60)$q$, '42501', 'a person claiming a job');
 select pg_temp.refused($q$select public.background_jobs_health()$q$, '42501', 'a person reading the health');
 select pg_temp.refused($q$select 1 from public.background_jobs$q$, '42501', 'a person reading the jobs');
+select pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'x/y#1', 'x/y', '{}', 5)$q$, '42501', 'a person refreshing a job');
 reset role;
 set local role anon;
 select pg_temp.refused($q$select 1 from public.background_job_attempts$q$, '42501', 'anon reading the attempts');
 select pg_temp.refused($q$select public.background_jobs_forget()$q$, '42501', 'anon forgetting the jobs');
+select pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'x/y#1', 'x/y', '{}', 5)$q$, '42501', 'anon refreshing a job');
 reset role;
 
 set local role service_role;
@@ -374,6 +404,210 @@ begin
 end $$;
 reset role;
 
+-- ── The refresh (PRD 2688 s1), from an empty ledger: the knowledge packs above are done with ──
+delete from public.background_jobs;
+set local role service_role;
+
+-- ── None: added, due in 5 seconds; queued: the new payload, due 5 seconds from now, its tries kept ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  if pg_temp.refresh('pr-outbox', 'a') <> 'added' then
+    raise exception 'FAIL: a first refresh did not add the job';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  if j.state <> 'queued' or j.subject <> 'initech/pr-api' or j.payload <> '{"sha": "a"}' or j.tries <> 0 or j.again
+     or j.run_after <> now() + interval '5 seconds' then
+    raise exception 'FAIL: an added job is not queued, due in 5 seconds, of its payload and lower-case subject: %', j;
+  end if;
+  -- The same key of another kind is its own job; it is left alone by everything below.
+  if pg_temp.refresh('pr-inbox', 'a') <> 'added' then
+    raise exception 'FAIL: the same key of another kind was not added';
+  end if;
+  if pg_temp.kinds_claimed() <> 'none' then
+    raise exception 'FAIL: a job due in 5 seconds was handed out now';
+  end if;
+
+  -- A try that threw: queued for its retry an hour later, one try spent.
+  perform pg_temp.pr_due('pr-outbox', interval '0');
+  if pg_temp.kinds_claimed() <> 'pr-outbox' then
+    raise exception 'FAIL: the job due was not handed out';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  perform public.background_job_finish(j.id, j.claim, 'retry', 'GitHub answered 502', now() + interval '1 hour');
+  if pg_temp.refresh('pr-outbox', 'b') <> 'updated' then
+    raise exception 'FAIL: a refresh of a queued job did not answer updated';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  if j.state <> 'queued' or j.payload <> '{"sha": "b"}' or j.run_after <> now() + interval '5 seconds' or j.tries <> 1 or j.again
+     or (select count(*) from public.background_jobs b where b.kind = 'pr-outbox') <> 1 then
+    raise exception 'FAIL: a refreshed queued job is not one job of the new payload, due in 5 seconds, its try kept: %', j;
+  end if;
+
+  perform pg_temp.refused($q$select public.background_job_refresh('PR Outbox', 'k', 's', '{}', 5)$q$, '22023', 'a kind out of shape', 'Kind');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-outbox', ' ', 's', '{}', 5)$q$, '22023', 'an empty key', 'Key');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'k', '', '{}', 5)$q$, '22023', 'an empty subject', 'Subject');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'k', 's', '[]', 5)$q$, '22023', 'a payload not an object', 'Payload');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'k', 's', null, 5)$q$, '22023', 'no payload', 'Payload');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'k', 's', '{}', -1)$q$, '22023', 'a delay below 0', 'Delay');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'k', 's', '{}', 3601)$q$, '22023', 'a delay over an hour', 'Delay');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'k', 's', '{}', null)$q$, '22023', 'no delay', 'Delay');
+end $$;
+
+-- ── Running: the new payload and `again`; the try's finish, whatever its outcome, keeps its line and queues it at once ──
+do $$
+declare
+  j     public.background_jobs;
+  claim uuid;
+begin
+  perform pg_temp.pr_due('pr-outbox', interval '0');
+  perform pg_temp.kinds_claimed();
+  j := pg_temp.pr('pr-outbox');
+  claim := j.claim;
+  if pg_temp.refresh('pr-outbox', 'c') <> 'again' then
+    raise exception 'FAIL: a refresh of a running job did not answer again';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  if j.state <> 'running' or j.claim <> claim or j.tries <> 2 or j.payload <> '{"sha": "c"}' or not j.again then
+    raise exception 'FAIL: a refreshed running job is not still held, of the new payload, holding again: %', j;
+  end if;
+  if pg_temp.kinds_claimed() <> 'none' then
+    raise exception 'FAIL: a running job holding again was handed out while held';
+  end if;
+
+  -- done: its line kept, then queued at once, `again` cleared, its tries at zero.
+  if public.background_job_finish(j.id, j.claim, 'done', null, null) <> 'queued' then
+    raise exception 'FAIL: the finish of a job holding again did not answer queued';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  if j.state <> 'queued' or j.again or j.tries <> 0 or j.run_after <> now() or j.claim is not null or j.reason is not null
+     or j.finished_at is not null or j.payload <> '{"sha": "c"}' or pg_temp.pr_tries('pr-outbox') <> '1:retry 2:done' then
+    raise exception 'FAIL: a done try holding again did not keep its line and queue the job at once: % %', j, pg_temp.pr_tries('pr-outbox');
+  end if;
+
+  -- retry: at once, not at its retry time.
+  if pg_temp.kinds_claimed() <> 'pr-outbox' then
+    raise exception 'FAIL: the job queued again was not handed out at once';
+  end if;
+  perform pg_temp.refresh('pr-outbox', 'd');
+  j := pg_temp.pr('pr-outbox');
+  if public.background_job_finish(j.id, j.claim, 'retry', 'GitHub answered 502', now() + interval '1 hour') <> 'queued' then
+    raise exception 'FAIL: a retry holding again did not answer queued';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  if j.state <> 'queued' or j.again or j.tries <> 0 or j.run_after <> now() or pg_temp.pr_tries('pr-outbox') <> '1:retry 2:done 1:retry' then
+    raise exception 'FAIL: a retry holding again is not queued at once: % %', j, pg_temp.pr_tries('pr-outbox');
+  end if;
+
+  -- failed: queued, not failed, and no reason kept on the job; the line keeps the error.
+  perform pg_temp.kinds_claimed();
+  perform pg_temp.refresh('pr-outbox', 'e');
+  j := pg_temp.pr('pr-outbox');
+  if public.background_job_finish(j.id, j.claim, 'failed', 'it threw', null) <> 'queued' then
+    raise exception 'FAIL: a failure holding again did not answer queued';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  if j.state <> 'queued' or j.again or j.reason is not null or j.finished_at is not null or j.payload <> '{"sha": "e"}'
+     or pg_temp.pr_tries('pr-outbox') <> '1:retry 2:done 1:retry 1:failed'
+     or (select a.error from public.background_job_attempts a where a.job_id = j.id order by a.id desc limit 1) <> 'it threw' then
+    raise exception 'FAIL: a failure holding again did not keep its line and queue the job: % %', j, pg_temp.pr_tries('pr-outbox');
+  end if;
+
+  -- With no refresh while it ran, a finish is as it always was.
+  perform pg_temp.kinds_claimed();
+  j := pg_temp.pr('pr-outbox');
+  if public.background_job_finish(j.id, j.claim, 'done', null, null) <> 'done' or (pg_temp.pr('pr-outbox')).state <> 'done' then
+    raise exception 'FAIL: a finish with no again did not end the job done: %', pg_temp.pr('pr-outbox');
+  end if;
+end $$;
+
+-- ── Done, skipped or failed: queued again with the new payload, no tries, no reason; the attempts kept ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  -- done (pr-outbox, above).
+  if pg_temp.refresh('pr-outbox', 'f') <> 'requeued' then
+    raise exception 'FAIL: a refresh of a done job did not answer requeued';
+  end if;
+  j := pg_temp.pr('pr-outbox');
+  if j.state <> 'queued' or j.tries <> 0 or j.reason is not null or j.finished_at is not null or j.payload <> '{"sha": "f"}'
+     or j.run_after <> now() + interval '5 seconds' or j.again or pg_temp.pr_tries('pr-outbox') <> '1:retry 2:done 1:retry 1:failed 1:done' then
+    raise exception 'FAIL: a refreshed done job is not queued in 5 seconds, its tries at zero and its attempts kept: % %', j, pg_temp.pr_tries('pr-outbox');
+  end if;
+
+  -- skipped.
+  perform pg_temp.refresh('pr-approved', 'a');
+  perform pg_temp.pr_due('pr-approved', interval '0');
+  perform pg_temp.kinds_claimed();
+  j := pg_temp.pr('pr-approved');
+  perform public.background_job_finish(j.id, j.claim, 'skipped', 'not a loop pull request', null);
+  if pg_temp.refresh('pr-approved', 'b') <> 'requeued' then
+    raise exception 'FAIL: a refresh of a skipped job did not answer requeued';
+  end if;
+  j := pg_temp.pr('pr-approved');
+  if j.state <> 'queued' or j.tries <> 0 or j.reason is not null or j.finished_at is not null or j.payload <> '{"sha": "b"}'
+     or pg_temp.pr_tries('pr-approved') <> '1:skipped' then
+    raise exception 'FAIL: a refreshed skipped job is not queued with no reason, its attempts kept: % %', j, pg_temp.pr_tries('pr-approved');
+  end if;
+
+  -- failed.
+  perform pg_temp.refresh('pr-budgets', 'a');
+  perform pg_temp.pr_due('pr-budgets', interval '0');
+  perform pg_temp.kinds_claimed();
+  j := pg_temp.pr('pr-budgets');
+  perform public.background_job_finish(j.id, j.claim, 'failed', 'GitHub answered 502', null);
+  if (pg_temp.pr('pr-budgets')).state <> 'failed' or pg_temp.refresh('pr-budgets', 'b') <> 'requeued' then
+    raise exception 'FAIL: a refresh of a failed job did not answer requeued';
+  end if;
+  j := pg_temp.pr('pr-budgets');
+  if j.state <> 'queued' or j.tries <> 0 or j.reason is not null or j.finished_at is not null or j.payload <> '{"sha": "b"}'
+     or pg_temp.pr_tries('pr-budgets') <> '1:failed' then
+    raise exception 'FAIL: a refreshed failed job is not queued with no tries and no reason, its attempts kept: % %', j, pg_temp.pr_tries('pr-budgets');
+  end if;
+end $$;
+
+-- ── A claim that runs out on a job holding `again`: its lost line, then queued at once, even on its 5th try ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  for n in 1..5 loop
+    perform pg_temp.pr_due('pr-approved', interval '0');
+    if pg_temp.kinds_claimed() <> 'pr-approved' then
+      raise exception 'FAIL: the job was not handed out for its try %', n;
+    end if;
+    if n < 5 then perform pg_temp.pr_expire('pr-approved'); end if;
+  end loop;
+  perform pg_temp.refresh('pr-approved', 'c');
+  perform pg_temp.pr_expire('pr-approved');
+  if pg_temp.kinds_claimed() <> 'pr-approved' then
+    raise exception 'FAIL: a job holding again whose 5th claim ran out was not handed out again';
+  end if;
+  j := pg_temp.pr('pr-approved');
+  if j.state <> 'running' or j.tries <> 1 or j.again or j.payload <> '{"sha": "c"}'
+     or pg_temp.pr_tries('pr-approved') <> '1:skipped 1:lost 2:lost 3:lost 4:lost 5:lost' then
+    raise exception 'FAIL: a lost claim holding again did not keep its line and queue the job as new: % %', j, pg_temp.pr_tries('pr-approved');
+  end if;
+end $$;
+
+-- ── Another kind's job of the same key was never touched ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  j := pg_temp.pr('pr-inbox');
+  if j.state <> 'queued' or j.payload <> '{"sha": "a"}' or j.tries <> 0 or j.again or j.run_after <> now() + interval '5 seconds'
+     or pg_temp.pr_tries('pr-inbox') <> '' then
+    raise exception 'FAIL: a refresh of another kind touched the job of the same key: %', j;
+  end if;
+end $$;
+reset role;
+
+-- ── `again` is held only while running ──
+select pg_temp.refused($q$update public.background_jobs set again = true where kind = 'pr-inbox'$q$, '23514', 'again on a queued job');
+
 rollback;
 
 -- ── Two workers at once never hold one job ──
@@ -433,6 +667,65 @@ begin
   perform extensions.dblink_disconnect('bj_two');
   perform extensions.dblink_exec('bj_setup', teardown);
   perform extensions.dblink_disconnect('bj_setup');
+end $$;
+rollback;
+
+-- ── A refresh racing a claim waits for it, then holds `again`: the new head commit is never lost (PRD 2688 s1) ──
+-- Job p is due. The first session claims it and holds it uncommitted; the second refreshes it meanwhile, and
+-- must wait for the claim rather than read the job as still queued. Once the claim commits, the refresh answers
+-- `again`, and the job is running, of the new payload, holding again. Set up and torn down as above.
+begin;
+create extension if not exists dblink schema extensions;
+do $$
+declare
+  link      constant text := 'host=db port=5432 dbname=postgres user=postgres password=postgres';
+  setup     constant text := $s$
+    delete from public.background_jobs where kind = 'check-refresh-race';
+    insert into public.background_jobs (kind, key, subject, payload, created_at)
+    values ('check-refresh-race', 'p', 'initech/race', '{"sha": "old"}', now() - interval '1 minute');
+  $s$;
+  teardown  constant text := $s$delete from public.background_jobs where kind = 'check-refresh-race'$s$;
+  claim     constant text := $s$select coalesce((select string_agg(c.key, ' ') from public.background_job_claim(10, 60) c where c.kind = 'check-refresh-race'), 'none')$s$;
+  refresh   constant text := $s$select public.background_job_refresh('check-refresh-race', 'p', 'initech/race', '{"sha": "new"}', 5)$s$;
+  claimed   text;
+  refreshed text;
+  held      text;
+begin
+  perform extensions.dblink_connect('bjr_setup', link);
+  perform extensions.dblink_exec('bjr_setup', setup);
+  perform extensions.dblink_connect('bjr_one', link);
+  perform extensions.dblink_connect('bjr_two', link);
+  begin
+    perform extensions.dblink_exec('bjr_one', 'begin; set local role service_role');
+    perform extensions.dblink_exec('bjr_two', 'begin; set local role service_role; set local lock_timeout = ''10s''');
+    select r into claimed from extensions.dblink('bjr_one', claim) as t (r text);
+    perform extensions.dblink_send_query('bjr_two', refresh);
+    perform pg_sleep(0.3);
+    if extensions.dblink_is_busy('bjr_two') <> 1 then
+      raise exception 'FAIL: a refresh did not wait for the claim holding the job';
+    end if;
+    perform extensions.dblink_exec('bjr_one', 'commit');
+    select r into refreshed from extensions.dblink_get_result('bjr_two') as t (r text);
+    perform r from extensions.dblink_get_result('bjr_two') as t (r text);
+    perform extensions.dblink_exec('bjr_two', 'commit');
+    select h into held from extensions.dblink('bjr_setup', $s$
+      select j.state || ':' || j.tries || ':' || j.again || ':' || (j.payload ->> 'sha')
+        from public.background_jobs j where j.kind = 'check-refresh-race'$s$) as t (h text);
+    if claimed <> 'p' or refreshed <> 'again' or held <> 'running:1:true:new' then
+      raise exception 'FAIL: a refresh racing a claim answered "%" on "%", leaving %, not again on a running job of the new payload',
+        refreshed, claimed, held;
+    end if;
+  exception when others then
+    perform extensions.dblink_disconnect('bjr_one');
+    perform extensions.dblink_disconnect('bjr_two');
+    perform extensions.dblink_exec('bjr_setup', teardown);
+    perform extensions.dblink_disconnect('bjr_setup');
+    raise;
+  end;
+  perform extensions.dblink_disconnect('bjr_one');
+  perform extensions.dblink_disconnect('bjr_two');
+  perform extensions.dblink_exec('bjr_setup', teardown);
+  perform extensions.dblink_disconnect('bjr_setup');
 end $$;
 rollback;
 

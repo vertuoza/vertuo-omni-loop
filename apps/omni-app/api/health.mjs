@@ -205,6 +205,7 @@ function serviceDb({ url, key, fetch }) {
 }
 
 // apps/omni-app/src/jobs/ledger.ts
+var RefreshedSchema = z5.enum(["added", "updated", "again", "requeued"]);
 var PayloadSchema = z5.record(z5.string(), z5.unknown());
 var ClaimedRowSchema = z5.object({
   id: z5.string().min(1),
@@ -238,6 +239,13 @@ function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
     add: async ({ kind, key, subject, payload }) => z5.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
+    refresh: async ({ kind, key, subject, payload, delaySeconds }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
+      p_kind: kind,
+      p_key: key,
+      p_subject: subject,
+      p_payload: payload,
+      p_delay_seconds: delaySeconds
+    }))),
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z5.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
       return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));

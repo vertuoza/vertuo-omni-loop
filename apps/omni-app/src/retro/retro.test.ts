@@ -21,7 +21,6 @@ import {
   mergeFiles,
   widgetScenario,
 } from '../../test/retro-scenario.ts';
-import { FUNCTION_ID as OUTBOX_FUNCTION_ID } from '../outbox-check/outbox-check.ts';
 import { DAY_14, FIX_PULLS, ISSUES, MERGED_AT, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.ts';
 import { GITATTRIBUTES, UNMERGED, churnRecording } from './kinds/churn.fixtures/delivery.ts';
 import {
@@ -1025,7 +1024,7 @@ describe('retro — its daily schedule', () => {
 describe('retro — the function’s configuration', () => {
   it('is its own function, triggered by the retro event and its daily schedule, never by the outbox check’s event', () => {
     expect(retro.id()).toBe(RETRO_FUNCTION_ID);
-    expect(RETRO_FUNCTION_ID).not.toBe(OUTBOX_FUNCTION_ID);
+    expect(RETRO_FUNCTION_ID).not.toBe('outbox-check');
     expect(triggersOf(retro).filter((trigger) => trigger.event)).toEqual([{ event: RETRO_EVENT }]);
     expect(triggersOf(retro)).not.toContainEqual({ event: OUTBOX_CHECK_EVENT });
   });

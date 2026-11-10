@@ -10,9 +10,9 @@ import { internalEvents } from 'inngest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { readAsk, readRecord, RECORD_MARKER, type RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
+import { inngest } from '../inngest-client.ts';
 import { checkRunAt, commitOf, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
-import { createOutboxCheck } from '../outbox-check/outbox-check.ts';
+import { runOutboxCheck } from '../outbox-check/outbox-check.ts';
 import { recordLines } from './record.ts';
 import { createEscalation, ESCALATION_FUNCTION_ID, EVERY_HOUR } from './sweep.ts';
 
@@ -36,10 +36,38 @@ afterEach(() => {
   for (const root of made.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-const event = (headSha = 'head1') => ({
-  name: OUTBOX_CHECK_EVENT,
-  data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha, trigger: 'pull_request.synchronize' },
+const request = (headSha = 'head1') => ({
+  installationId: 7,
+  owner: 'acme',
+  repo: 'widgets',
+  repository: 'acme/widgets',
+  prNumber: parsePr(12),
+  headSha,
+  trigger: 'pull_request.synchronize',
 });
+
+/**
+ * One run of the outbox check's body, as its `pr-outbox` job runs it (PRD 2688): each step in turn, in one
+ * try. What it returned or threw, and the steps it took, by name.
+ */
+async function checked(octokit: Parameters<typeof runOutboxCheck>[0]['octokitFor'], now: string, log: (line: string) => void, headSha = 'head1') {
+  const steps: string[] = [];
+  const named = (name: string) => <T>(work: () => Promise<T>) => {
+    steps.push(name);
+    return work();
+  };
+  try {
+    const result = await runOutboxCheck({ octokitFor: octokit, now: () => new Date(now), log }, request(headSha), {
+      start: named('in-progress'),
+      evaluate: named('evaluate'),
+      publish: named('publish'),
+      escalation: named('escalation'),
+    });
+    return { steps, result, error: undefined };
+  } catch (error) {
+    return { steps, result: undefined, error };
+  }
+}
 
 type GitHub = ReturnType<typeof fakeGitHub>;
 
@@ -66,8 +94,7 @@ const approve = (github: GitHub, headSha: string) => github.state.reviews.push({
 
 async function run(github: GitHub, now: string, headSha = 'head1') {
   github.state.pull.head.sha = headSha;
-  const fn = createOutboxCheck({ client: inngest, octokitFor: () => github.octokit, now: () => new Date(now), log: () => undefined });
-  return new InngestTestEngine({ function: fn, events: [event(headSha)] }).execute();
+  return checked(() => github.octokit, now, () => undefined, headSha);
 }
 
 const records = (github: GitHub) => github.state.comments.filter((comment) => comment.body.startsWith(RECORD_MARKER));
@@ -85,8 +112,8 @@ const WEDNESDAY = '2026-10-14T10:00:00Z';
 describe('the escalation record, after each outbox check run', () => {
   it('a first held run creates the record, one line per held thing at step 0, and mentions nobody', async () => {
     const github = featureGitHub();
-    const { ctx, result } = await run(github, MONDAY);
-    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress', 'evaluate', 'publish', 'escalation']);
+    const { steps, result } = await run(github, MONDAY);
+    expect(steps).toEqual(['in-progress', 'evaluate', 'publish', 'escalation']);
     expect(result).toMatchObject({ conclusion: 'failure', escalation: 'created' });
     expect(recordOf(github)).toEqual([
       { thing: 'N-PRODUCT-1', kind: 'law', firstHeld: MONDAY, step: 0, asked: [], nextDue: '2026-10-14T09:00:00Z' },
@@ -141,8 +168,8 @@ describe('the escalation record, after each outbox check run', () => {
 
   it('a repository with no delegate and no leadership gets no escalation comment and no extra step', async () => {
     const github = featureGitHub(PLAIN);
-    const { ctx, result } = await run(github, MONDAY);
-    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress', 'evaluate', 'publish']);
+    const { steps, result } = await run(github, MONDAY);
+    expect(steps).toEqual(['in-progress', 'evaluate', 'publish']);
     expect(result).toMatchObject({ conclusion: 'failure', escalation: 'none' });
     expect(records(github)).toEqual([]);
   });
@@ -156,8 +183,7 @@ describe('the escalation record, after each outbox check run', () => {
           ? Promise.reject(new Error('GitHub is down'))
           : github.octokit.request(route, params),
     };
-    const fn = createOutboxCheck({ client: inngest, octokitFor: () => refusing, now: () => new Date(MONDAY), log: (line) => logged.push(line) });
-    const { result, error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+    const { result, error } = await checked(() => refusing, MONDAY, (line) => logged.push(line));
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ conclusion: 'failure', escalation: 'failed' });
     expect(checkRunAt(github.state, -1)).toMatchObject({ status: 'completed', conclusion: 'failure' });
