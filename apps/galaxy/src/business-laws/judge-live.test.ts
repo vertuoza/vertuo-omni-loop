@@ -43,11 +43,11 @@ describe.runIf(live)('the judge, against its real model', () => {
 
   it.each(KEEPS)('is not red on a sentence of omni-loop-2 that keeps BL-GATE-1: %s', async (sentence) => {
     expect(await judge(sentence)).toMatchObject({ state: 'green', findings: [] });
-  }, 60_000);
+  });
 
   it('is still red on a design that breaks BL-GATE-1, and says what breaks it', async () => {
     const verdict = await judge(BREAKS);
     expect(verdict.state).toBe('red');
     expect(verdict.findings[0]?.broken).not.toBe('');
-  }, 60_000);
+  });
 });
