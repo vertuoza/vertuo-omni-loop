@@ -14,7 +14,7 @@ export interface McpProductRow {
 /** The product's key, switch and archive mark; null when it cannot be read or is none of the caller's. */
 export async function mcpProductOf(db: Pick<SupabaseClient, 'from'>, product: string): Promise<McpProductRow | null> {
   const { data, error } = await db.from('products').select('key, mcp_enabled, archived_at').eq('id', product).maybeSingle();
-  return error ? null : (data as McpProductRow | null);
+  return error ? null : data;
 }
 
 /** The caller's role in the workspace; null when it cannot be read. */

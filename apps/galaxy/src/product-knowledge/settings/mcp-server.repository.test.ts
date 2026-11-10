@@ -31,8 +31,8 @@ describe('the MCP server card storage', () => {
 
   it('switches through product_mcp_set, accepted or refused', async () => {
     const rpc = vi.fn().mockResolvedValueOnce({ error: null }).mockResolvedValueOnce({ error: { code: '42501' } });
-    expect(await setMcp({ rpc } as unknown as Pick<SupabaseClient, 'rpc'>, 'p-1', true)).toBe(true);
-    expect(await setMcp({ rpc } as unknown as Pick<SupabaseClient, 'rpc'>, 'p-1', false)).toBe(false);
+    expect(await setMcp({ rpc }, 'p-1', true)).toBe(true);
+    expect(await setMcp({ rpc }, 'p-1', false)).toBe(false);
     expect(rpc).toHaveBeenCalledWith('product_mcp_set', { p_product: 'p-1', p_on: true });
   });
 });
