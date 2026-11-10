@@ -15,6 +15,10 @@
 //
 // A claim the database refuses is thrown to the caller; a finish it refuses is logged and the run goes on: the
 // claim runs out and the job is due again.
+//
+// A kind may have a failure hook (PRD 2688 s1, spec "Failure, never stuck"): it runs once, when the 5th try
+// threw and the ledger kept the job `failed`, never on a finish refused, overtaken (`stale`) or queued again by a
+// refresh that came while it ran. A hook that throws is logged, and the run goes on.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { noteTo } from '../run-log/run-log.ts';
 import type { ClaimedJob, FinishAnswer, JobLedger, JobOutcome } from './ledger.ts';
@@ -36,6 +40,8 @@ const MAX_REASON = 500;
 /** How a handler says the job ended: done, or nothing to do and why. Anything else it throws. */
 export type JobResult = { outcome: 'done' } | { outcome: 'skipped'; reason: string };
 export type JobHandler = (job: ClaimedJob) => Promise<JobResult>;
+/** What a kind does once its job ended failed: the job, and the error's first line as the ledger kept it. */
+export type FailureHook = (job: ClaimedJob, reason: string) => Promise<void>;
 
 /** What one run did: the jobs it ran, by how they ended; `stale` counts the finishes a newer claim overtook. */
 export type RunSummary = { ran: number; stale: number } & Record<JobOutcome, number>;
@@ -44,11 +50,12 @@ type Settled = { outcome: JobOutcome; reason: string | null; retryAt: string | n
 
 /**
  * Runs the jobs due until none is or the time budget is spent; what it did. `handlers` maps a kind to the
- * handler that runs its jobs.
+ * handler that runs its jobs, `failures` a kind to the hook run once its job ended failed.
  */
 export async function runDue({
   ledger,
   handlers,
+  failures = {},
   clock = Date.now,
   budgetMs = TIME_BUDGET_MS,
   leaseSeconds = LEASE_SECONDS,
@@ -56,6 +63,7 @@ export async function runDue({
 }: {
   ledger: JobLedger;
   handlers: Readonly<Partial<Record<string, JobHandler>>>;
+  failures?: Readonly<Partial<Record<string, FailureHook>>>;
   clock?: () => number;
   budgetMs?: number;
   leaseSeconds?: number;
@@ -71,8 +79,19 @@ export async function runDue({
     const kept = await keep(ledger, job, settled, log);
     if (kept === 'stale') summary.stale += 1;
     else if (kept !== null) summary[settled.outcome] += 1;
+    if (kept === 'failed') await failed(job, settled.reason, failures[job.kind], log);
   }
   return summary;
+}
+
+/** Runs the kind's failure hook, if it has one; a hook that throws is logged. */
+async function failed(job: ClaimedJob, reason: string | null, hook: FailureHook | undefined, log: (line: string) => void): Promise<void> {
+  if (!hook) return;
+  try {
+    await hook(job, reason ?? 'it failed on its last try');
+  } catch (error) {
+    log(`job ${job.kind} ${job.key}: its failure hook threw: ${firstLine(error instanceof Error ? error.message : String(error))}`);
+  }
 }
 
 /** Runs the job and reads how its try ended. */
