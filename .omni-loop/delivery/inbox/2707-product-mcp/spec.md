@@ -58,6 +58,8 @@ sections:
   - **Copy for Claude Code** (copies `claude mcp add --transport http <key>-knowledge <url> --header
     "Authorization: Bearer oma_…"`) and **Copy for Cursor** (copies its `mcp.json` entry);
   - *"Keys: Settings › API keys"*, linked to `/app/settings/api-keys`;
+  - for each repository of the product with no knowledge pack yet, the line *"No knowledge yet from
+    <owner/name>."*;
   - for a workspace owner, the button **Turn off**, with *"Stops agents on their next call."*
 - `docs/guide/api.md` explains the rest: any other MCP client (the URL and the header), and a key limited
   to some repositories reading only their part.
@@ -73,7 +75,9 @@ It is read-only and offers two tools.
 `product_mcp_for_key(hash, key)`. That function answers only when all of these hold:
 
 - the key is live;
-- its maker is still a member of the workspace (BR-PRODUCT-64, kept);
+- its maker is still a member of the workspace (BR-PRODUCT-64 and BL-ACCESS-1, kept). Nothing is kept
+  open between calls: no session, no cache of a key. Every call checks the key and its maker's membership
+  in the database again, so the moment a person leaves, every key they made reads nothing;
 - the product belongs to the key's workspace (BR-PRODUCT-63, kept);
 - the product's MCP is on.
 
@@ -121,9 +125,13 @@ repositories that both hold an `ADR-0012` never collide. Product ids carry none.
   entry missing a word scores 0 and is left out. A tie is broken by id. The snippet is the body's first
   sentence that holds a word, up to 200 characters.
 - **`repositories`** goes with every answer: each repository of the product the key may read, with the
-  pack's commit and when it was kept, or `pack: null` with *"no pack yet: it fills on the next merge"*.
-  A repository with no pack never fails a call (BL-PRODUCTKNOWLEDGE-4, kept: a merge reaches the
-  product on its own).
+  pack's commit and when it was kept, or `pack: null` with *"no knowledge from this repository yet:
+  it arrives with its next merge. Tell your person."*. A repository with no pack never fails a call.
+- **A merge reaches agents with nobody doing anything** (BL-PRODUCTKNOWLEDGE-4, kept). The App keeps a
+  pack on every merge into the repository's default branch (PRD 2011). Each call reads the newest pack,
+  so the first call after a merge already answers from it, with no push, command or refresh by anyone.
+  **When it cannot, a person is told:** the agent gets the line above, and the MCP server card names
+  each repository of the product with no pack yet, for the owner who turned it on.
 - `get_knowledge` on an id the product does not hold answers, as a tool error: *"No knowledge entry
   <id> in <product>. Search for it with search_knowledge."*
 - The server's instructions tell the agent to search before it decides anything the knowledge may
@@ -198,7 +206,10 @@ Retiring them, or moving them under a product, is for a later PRD.
    this one.
 8. **`/api/mcp` is left alone** (taken here). Agents connected to it keep working. Its future is a
    later PRD.
-9. **The voice: the B-E DEv objected at design** (persona:B-E DEv): *"Another URL and key to paste is fluff
+9. **A missing pack is told to a person on the card** (taken here, to keep BL-PRODUCTKNOWLEDGE-4, which the
+   business-law judge read as unkept by the first spec): the card names each repository with no pack yet.
+   Removing that line later is one line of the card.
+10. **The voice: the B-E DEv objected at design** (persona:B-E DEv): *"Another URL and key to paste is fluff
    to me, unless my agent finds the right ADR without me knowing its number."* **Settled: accepted.**
    `search_knowledge` finds entries by plain words, and the card gives a one-line setup command.
 
@@ -303,10 +314,12 @@ workspace's own keys (L-GDPR-1, kept). The card says before **Turn on** that eve
 
 **The business laws:**
 - BL-ACCESS-1 (when a person leaves, every access they had through the workspace ends at once): kept.
-  `product_mcp_for_key()` reads nothing for a key whose maker is no longer a member, from the next call.
+  Nothing is kept open between calls. Every call checks in the database that the key's maker is still a
+  member, so the moment they leave, every key they made reads nothing, with no step by anyone.
 - BL-PRODUCTKNOWLEDGE-4 (a merge that changes a repository's knowledge reaches its product without
-  anyone doing anything): kept. The endpoint reads the packs the App keeps on each merge, and a missing
-  pack is named, never hidden.
+  anyone doing anything; when it cannot, a person is told): kept. Every call reads the newest pack, which
+  the App keeps on every merge, so a merge reaches agents with nobody acting. A repository with no pack
+  is named to the agent, which is told to tell its person, and on the MCP server card for the owner.
 - BL-PRODUCTKNOWLEDGE-1, -2, -3: kept. The endpoint only reads; it proposes, changes and retires nothing.
 
 ## Acceptance criteria
@@ -333,5 +346,10 @@ workspace's own keys (L-GDPR-1, kept). The card says before **Turn on** that eve
 - **Turned off.** After an owner turns the server off, the next call of an agent already connected
   answers 404.
 - **No pack yet.** A product repository with no pack yet is listed under `repositories` with
-  `pack: null`, and every call still answers.
+  `pack: null` and its line, and every call still answers. The MCP server card names that repository:
+  *"No knowledge yet from <owner/name>."*
+- **A merge reaches agents.** After a merge changes a business law in the law home and the App keeps its
+  pack, the next `get_knowledge` on that law answers the new text, with nothing run by anyone.
+- **Leaving ends access at once.** Once a key's maker is removed from the workspace, the very next call
+  with that key reads nothing, though the agent connected before they left.
 - **Nothing else moves.** `/api/mcp` answers as before.

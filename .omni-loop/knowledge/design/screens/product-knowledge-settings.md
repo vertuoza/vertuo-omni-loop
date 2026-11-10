@@ -23,7 +23,8 @@ read the product's knowledge with the workspace's API keys, and the URL they con
 - **MCP server:** a card after them, its state `Off` or `On`.
   - Off: *Agents can't read this product's knowledge yet.*, *Then every API key reads it.*, and **Turn on**.
   - On: *Any workspace API key reads its knowledge.*, the URL with **Copy**, **Copy for Claude Code**,
-    **Copy for Cursor**, *Keys: Settings › API keys*, and **Turn off** with *Stops agents on their next call.*
+    **Copy for Cursor**, *Keys: Settings › API keys*, *No knowledge yet from <owner/name>.* for each
+    repository of the product with no knowledge pack yet, and **Turn off** with *Stops agents on their next call.*
 
 ## States
 
@@ -34,7 +35,7 @@ read the product's knowledge with the workspace's API keys, and the URL they con
 ## Words
 
 MCP server · Off · On · Turn on · Turn off · Copy · Copy for Claude Code · Copy for Cursor · API key ·
-Settings › API keys.
+Settings › API keys · No knowledge yet from.
 
 ## Refusals
 
@@ -43,7 +44,6 @@ Settings › API keys.
 
 ## Open questions
 
-- Should the card list which repositories have no knowledge pack yet?
 - Should the card show when an agent last read it?
 
 ## Source

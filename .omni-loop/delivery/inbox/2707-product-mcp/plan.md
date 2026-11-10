@@ -41,7 +41,8 @@ green.
   - only an owner switches it, and an archived product refuses;
   - with the server off, nothing is read;
   - another workspace's key reads nothing;
-  - a revoked key, or one whose maker left, reads nothing (BR-PRODUCT-64, BL-ACCESS-1);
+  - a revoked key, or one whose maker left, reads nothing on the very next call after they leave
+    (BR-PRODUCT-64, BL-ACCESS-1);
   - an allow-list naming none of the product's repositories reads nothing, one naming some reads only
     those, and an empty one reads all;
   - only the service role may call `product_mcp_for_key()`.
@@ -63,8 +64,11 @@ green.
   - caps hits at 20 and gives `total`;
   - with no query, lists in id order.
 - `get_knowledge` answers one entry whole, or the "No knowledge entry" line.
-- Every answer carries `repositories`, with `pack: null` for a repository with no pack yet, and never fails
-  because of it.
+- Every answer carries `repositories`, with `pack: null` and the "tell your person" line for a repository
+  with no pack yet, and never fails because of it.
+- Nothing is kept between calls. A test switches the stubbed key's maker out of the workspace between two
+  calls of one connected client, and the second call reads nothing. A test swaps the stubbed newest pack
+  between two calls, and the second call answers the new text (BL-PRODUCTKNOWLEDGE-4).
 - The layers follow ADR-0095 (contract, controller, service, repository), and the layering guard passes.
 - The tests run through the real MCP client over the route, with fixture packs of a fictional product only.
 
@@ -74,6 +78,8 @@ green.
   - Off shows its two lines and, for an owner, **Turn on**.
   - On shows its line, the URL with **Copy**, **Copy for Claude Code**, **Copy for Cursor**, the link to
     Settings › API keys and, for an owner, **Turn off** with its line.
+  - Each repository of the product with no knowledge pack yet is named: *"No knowledge yet from
+    <owner/name>."* (BL-PRODUCTKNOWLEDGE-4).
 - A member who is not an owner sees the state, and the URL and copy buttons when it is on, but no Turn on
   or Turn off. An archived product shows the state, read-only.
 - The switch calls `product_mcp_set()` as the signed-in person, and the page shows the new state.
