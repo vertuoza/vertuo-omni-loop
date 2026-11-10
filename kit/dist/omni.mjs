@@ -40100,19 +40100,37 @@ function tagsOf(text18) {
   return { ...layers.length > 0 ? { layers } : {}, ...domain2 === null ? {} : { domain: domain2 } };
 }
 var levelOf = (record2) => record2.level ?? "repo";
+var STATUS_HEADER = /\*\*Status:\*\*[ \t]*([^·\n]*)/;
+function headerStatus(text18) {
+  const value = (STATUS_HEADER.exec(headerOf(text18))?.[1] ?? "").replace(/`/g, "").trim();
+  return value === "" ? null : value;
+}
+function parseDecisionRecord(file2, text18) {
+  const name3 = file2.split("/").pop() ?? file2;
+  return {
+    number: name3.match(RECORD2)?.[1] ?? "",
+    file: file2,
+    title: text18.match(TITLE2)?.[1] ?? null,
+    status: headerStatus(text18),
+    text: text18,
+    prd: headerPrd(text18),
+    ...tagsOf(text18)
+  };
+}
 function readFolder(root, dir, level) {
   const absolute = join48(root, dir);
   const names = existsSync35(absolute) ? readdirSync16(absolute, { withFileTypes: true }).filter((entry3) => entry3.isFile() && RECORD2.test(entry3.name)).map((entry3) => entry3.name).sort() : [];
   return names.map((name3) => {
     const file2 = `${dir}/${name3}`;
-    const text18 = readFileSync39(join48(root, file2), "utf8");
+    const parsed2 = parseDecisionRecord(file2, readFileSync39(join48(root, file2), "utf8"));
     return {
       ...level === "repo" ? {} : { level },
-      number: name3.match(RECORD2)?.[1] ?? "",
-      file: file2,
-      title: text18.match(TITLE2)?.[1] ?? null,
-      prd: headerPrd(text18),
-      ...tagsOf(text18)
+      number: parsed2.number,
+      file: parsed2.file,
+      title: parsed2.title,
+      prd: parsed2.prd,
+      ...parsed2.layers === void 0 ? {} : { layers: parsed2.layers },
+      ...parsed2.domain === void 0 ? {} : { domain: parsed2.domain }
     };
   });
 }
