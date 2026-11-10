@@ -20,6 +20,8 @@ const FindingSchema = z.object({
   statement: z.string(),
   why: z.string(),
   quote: text,
+  // What the judge found broken, in its own words; a verdict kept before bug #2696 has none.
+  broken: z.string().optional(),
   domain: z.string(),
   file: z.string(),
   owners: z.array(z.string()),

@@ -32,6 +32,8 @@ import { AskCallError } from '../ask/client.ts';
 import { ARTIFACT_KINDS, sha256 } from '../dossier/folder.ts';
 import type { Layout } from '../layout.ts';
 import type { PrdNumber, ProductPrdId } from '../ids.ts';
+import { parseLaws } from './laws.ts';
+import type { Laws } from './laws.ts';
 
 export type ApprovalState = 'approved' | 'pending' | 'drifted' | 'unreachable' | 'refused';
 
@@ -51,7 +53,7 @@ const ApprovalSchema = z.object({
 /** A PRD's Tech Approval, as the approval route says it: the person named, and where it stands. */
 const TechSchema = z.object({ login: text, state: z.enum(['asked', 'approved', 'voided']) });
 
-const ApprovalReplySchema = z.object({ url: text, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(undefined) });
+const ApprovalReplySchema = z.object({ url: text, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(undefined), laws: z.unknown().optional() });
 
 /** A PRD's Tech Approval: who it names, and whether it is asked, approved or voided. */
 export type Tech = z.infer<typeof TechSchema>;
@@ -75,8 +77,9 @@ export type ApprovalReply = z.infer<typeof ApprovalReplySchema>;
 export type Drift = { kind: string; file: string; how: 'content' | 'whitespace only' | 'missing' | 'voided' };
 
 /** The approval read against the tree: its state, the lines that say it, and what they rest on; `tech`
- * only when the PRD holds a Tech Approval request. */
-export type ApprovalReading = { state: ApprovalState; lines: string[]; url: string | null; approval: Approval | null; drift: Drift[]; tech?: Tech };
+ * only when the PRD holds a Tech Approval request; `laws` only when the reply says where the spec stands
+ * with its business laws (bug #2696). */
+export type ApprovalReading = { state: ApprovalState; lines: string[]; url: string | null; approval: Approval | null; drift: Drift[]; tech?: Tech; laws?: Laws };
 
 /** The line of a state the server never got to judge. */
 export const UNREACHABLE_LINE = 'server unreachable · held, not failed';
@@ -115,8 +118,9 @@ type Judge = { named: string; fileOf: (file: Pick<PinnedFile, 'kind' | 'path'>) 
 /** The approval in force judged by `judge`: pending, voided, its approver gone, a file differing, or approved. */
 function judged(reply: ApprovalReply, { named, fileOf, drift: driftIn }: Judge): ApprovalReading {
   const { url, approval, tech } = reply;
+  const laws = parseLaws(reply.laws);
   const reading = (state: ApprovalState, lines: string[], drift: Drift[] = []): ApprovalReading =>
-    ({ state, lines, url, approval, drift, ...(tech ? { tech } : {}) });
+    ({ state, lines, url, approval, drift, ...(tech ? { tech } : {}), ...(laws ? { laws } : {}) });
   const waitsOn = techWaitsOn(tech);
   const techLine = waitsOn === null ? [] : [`${named} · ${waitingForTech(waitsOn)}: ${url}`];
   if (!approval) return reading('pending', techLine.length > 0 ? techLine : [`${named} waits for approval: ${url}`]);

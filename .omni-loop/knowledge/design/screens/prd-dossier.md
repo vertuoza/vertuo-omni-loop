@@ -34,7 +34,7 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   is pinned while the page scrolls (`PinnedHead.tsx`).
 - **The approve screen,** under the head, for a viewer allowed to approve while the PRD waits or
   drifted: each changed file's diff, the spec's Problem and Solution, then Approve. Above Approve, the
-  business laws' verdict (PRD 2632): on a red, each finding's law, its Why, the spec's words, its owner and
+  business laws' verdict (PRD 2632): on a red, each finding's law, its Why, the spec's words, what the judge found broken (bug #2696), its owner and
   Ask to amend this law, with Approve off; on a green, what was judged; when it could not judge, why.
 - **The pane** of the tab shown (`?tab=`, its version by `?v=`): the before/after page framed on its
   sandboxed route; the spec and the plan rendered from Markdown with raw HTML off; Questions with the
@@ -68,7 +68,7 @@ Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbo
 Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Request a Tech Approval, Give Tech Approval (PRD 2608), Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval, Main,
 Repo, Repos, On GitHub, Opened. Main's words (PRD 2410): Watching · n days left, Clean, Broke main,
-Could not check; on a finding: Approve, Reject. Business laws (PRD 2632): Business laws ✗ n, Business laws ✓ n judged, Business laws not judged, Why, Ask to amend this law. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
+Could not check; on a finding: Approve, Reject. Business laws (PRD 2632): Business laws ✗ n, Business laws ✓ n judged, Business laws not judged, Why, The spec says, The judge says, Ask to amend this law. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
 
 ## Refusals
 

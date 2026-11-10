@@ -37,6 +37,28 @@ export type LawsView =
 /** Why the page says a spec was not judged when its law home has no pack yet; any other `none` shows nothing. */
 const NO_PACK = 'the law home has no knowledge pack yet';
 
+/** One break as the terminal reads it: the law, the spec's words, and what the judge found broken, when kept. */
+type FindingAnswer = { law: string; statement: string; quote: string; broken?: string };
+
+/** Where a spec stands with its business laws, as the approval route tells the terminal (bug #2696):
+ * `pending` while the latest spec has no verdict yet, else the verdict, a red with its findings. */
+export type LawsAnswer =
+  | { state: 'pending' }
+  | { state: 'green' | 'red' | 'neutral'; reason: string; judgedAt?: string; findings: FindingAnswer[] };
+
+/** What the terminal reads of the standing `read`; null where nothing is judged. It never judges. */
+export function standingAnswer(read: Standing | null): LawsAnswer | null {
+  if (read === null || read.lawHome === null || read.specVersion === null) return null;
+  if (read.verdict === null) return read.packSha === null ? { state: 'neutral', reason: NO_PACK, findings: [] } : { state: 'pending' };
+  const { state, reason, judgedAt, findings } = read.verdict;
+  return {
+    state,
+    reason,
+    judgedAt,
+    findings: findings.map(({ law, statement, quote, broken }) => ({ law, statement, quote, ...(broken ? { broken } : {}) })),
+  };
+}
+
 /** The knowledge root and the owners' logins a pack's config names; the defaults when it has none or it does not parse. */
 export function configOf(files: readonly { path: string; content: string }[]): { root: string; owners: string[] } {
   const text = files.find((file) => file.path === CONFIG_PATH)?.content;

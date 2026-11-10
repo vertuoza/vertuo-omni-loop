@@ -46,6 +46,7 @@ import { field } from '../../lib/ask/schema.ts';
 import type { Context } from '../../lib/context.ts';
 import type { FixKind, TooLarge } from '../../lib/dossier/folder.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { chooseDraft } from '../../lib/dossier/draft.ts';
@@ -72,6 +73,8 @@ type DossierOptions = {
   now?: () => number;
   /** PRD 1548: the scratch space `get` writes in; the system's when not given. */
   scratch?: string | undefined;
+  /** Bug #2696: waits between two reads of a product PRD's verdict after a push; the clock's when not given. */
+  pause?: ((ms: number) => Promise<void>) | undefined;
 };
 
 /** What each verb is handed once the context, the client and the sign-in are known. */
@@ -300,7 +303,7 @@ function kindOf(flag: string | undefined, numbered: boolean): 'prd' | IssueKind 
  * repository slug, which it sends only when set. */
 async function runProduct(
   call: ProductCall,
-  { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, scratch }: Pick<FreeIo, 'cwd' | 'stdout' | 'stderr' | 'exec'> & DossierOptions & { fetch: Fetch; now: () => number },
+  { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, scratch, pause = (ms) => sleep(ms) }: Pick<FreeIo, 'cwd' | 'stdout' | 'stderr' | 'exec'> & DossierOptions & { fetch: Fetch; now: () => number },
 ): Promise<number> {
   const ctx = loadContext(cwd, { exec });
   const toggle = dossierSwitch(ctx.config);
@@ -313,7 +316,7 @@ async function runProduct(
     println(stderr, NO_SIGN_IN);
     return 1;
   }
-  const io = { repo: ctx.config.repo.slug, client, home: mainCheckout(ctx.root, exec) ?? ctx.root, scratch, stdout, stderr, now };
+  const io = { repo: ctx.config.repo.slug, client, home: mainCheckout(ctx.root, exec) ?? ctx.root, scratch, stdout, stderr, now, pause };
   return runProductCall(call, io, addedLine);
 }
 
@@ -321,13 +324,13 @@ export const dossier = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, vars, reads, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now, scratch }: FreeIo & DossierOptions,
+    { cwd, stdout, stderr, exec, vars, reads, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now, scratch, pause }: FreeIo & DossierOptions,
   ) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind', 'product', 'from', 'title'], booleans: ['new'] });
     const [verb = '', ...rest] = positional;
     const productCall = productCallOf(verb, rest, flags);
     if (productCall && flags.kind !== undefined) throw usageError(`usage: ${PRODUCT_USAGE}`);
-    if (productCall) return runProduct(productCall, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, scratch });
+    if (productCall) return runProduct(productCall, { cwd, stdout, stderr, exec, tokens, home, fetch, callMs, now, scratch, pause });
     const [first = ''] = rest;
     const title = verb === 'open' && rest.length === 1 ? first.trim().slice(0, TITLE_MAX) : '';
     const numbered = ['push', 'link'].includes(verb);

@@ -6,7 +6,7 @@ import { AmendLaw } from './AmendLaw';
 // seal once approved. Three faces:
 //
 // - red, `Business laws ✗ n`: for each finding the law's id and statement, Why it exists, the spec's words,
-//   who owns it and why its domain was taken, and Ask to amend this law; Approve is off beside it (./approval.ts).
+//   what the judge found broken under them (bug #2696; a verdict kept before it shows none), who owns it and why its domain was taken, and Ask to amend this law; Approve is off beside it (./approval.ts).
 // - green, `Business laws ✓ n judged · Quotes, Invoicing`: what was judged, each domain's reason one click away.
 // - not judged, `Business laws not judged`: why, and Approve stays on.
 //
@@ -46,6 +46,7 @@ function Red({ verdict }: { verdict: KeptVerdict }) {
             <p data-content>{finding.statement}</p>
             {finding.why !== '' && <p><b>Why:</b> <span data-content>{finding.why}</span></p>}
             <p>The spec says: <q className="dossier-laws-quote" data-content>{finding.quote}</q></p>
+            {finding.broken && <p>The judge says: <span data-content>{finding.broken}</span></p>}
             {hint !== '' && <p className="ask-hint">{hint}</p>}
             <AmendLaw id={finding.law} />
           </div>

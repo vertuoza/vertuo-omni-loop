@@ -4,7 +4,7 @@ import { serviceDb } from '../data/sign-in-live';
 import { serverEnv } from '../env';
 import { lawsModelFromEnv } from './model';
 import { verdictsRepository, type VerdictsDb } from './verdicts.repository';
-import { verdictService, type LawsView, type VerdictService } from './verdicts.service';
+import { standingAnswer, verdictService, type LawsAnswer, type LawsView, type VerdictService } from './verdicts.service';
 
 // The business laws' verdicts on their real dependencies (PRD 2632 s4): the service role keeps a verdict and
 // reads what the judge needs (SUPABASE_SERVICE_ROLE_KEY), OpenRouter judges (OPENROUTER_API_KEY; without it
@@ -36,6 +36,17 @@ export async function lawsOfApproved(caller: VerdictsDb, dossier: string, versio
   } catch (error) {
     log.error({ event: 'business-laws', outcome: 'failed', error });
     return { show: 'nothing' };
+  }
+}
+
+/** Where dossier `dossier`'s latest spec stands with its business laws, as the member `caller` reads it, for
+ * the terminal (bug #2696); null where nothing is judged, or it cannot be read. Never judges: a push does. */
+export async function lawsForTerminal(caller: VerdictsDb, dossier: string): Promise<LawsAnswer | null> {
+  try {
+    return standingAnswer(await verdictsRepository(caller).standing(dossier));
+  } catch (error) {
+    log.error({ event: 'business-laws', outcome: 'failed', error });
+    return null;
   }
 }
 

@@ -32,7 +32,7 @@ function world({ laws = LAWS, ask, unset = false, fail = false }: { laws?: RepoL
   const asked: string[] = [];
   const model: AskLaws = ({ user }) => {
     asked.push(user);
-    return Promise.resolve({ ok: true, reply: { findings: [{ law: 'BL-QUOTES-1', quote: 'sent with a zero total' }] } });
+    return Promise.resolve({ ok: true, reply: { findings: [{ law: 'BL-QUOTES-1', quote: 'sent with a zero total', why: 'The design sends a quote whose total is zero.' }] } });
   };
   const deps: BusinessLawsRouteDeps = {
     secret: unset ? undefined : SECRET,
@@ -104,7 +104,7 @@ describe('the verdict', () => {
   });
 
   it('drops a quote the spec does not hold', async () => {
-    const ask: AskLaws = () => Promise.resolve({ ok: true, reply: { findings: [{ law: 'BL-QUOTES-1', quote: 'never written' }] } });
+    const ask: AskLaws = () => Promise.resolve({ ok: true, reply: { findings: [{ law: 'BL-QUOTES-1', quote: 'never written', why: 'The design sends a quote whose total is zero.' }] } });
     expect((await send(world({ ask }))).body).toMatchObject({ state: 'green', findings: [] });
   });
 

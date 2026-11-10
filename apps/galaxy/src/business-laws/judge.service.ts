@@ -6,10 +6,12 @@
 //   domains of the spec's `areas:`, the domains of each glossary term or avoid word its body uses, every law
 //   of those domains, and every `product/` law. No model picks.
 // - How: the laws in batches of BATCH (40), one model call each. A finding counts only when it quotes the
-//   spec word for word (whitespace and case aside, as the canon gate does) and cites a law of its own batch;
-//   anything else is dropped, so it never makes a verdict red.
+//   spec word for word (whitespace and case aside, as the canon gate does), cites a law of its own batch and
+//   says what the design does that the law forbids; anything else is dropped, so it never makes a verdict
+//   red. The model is told that a sentence which restates a law, cites it or says how the design keeps it is
+//   no finding (bug #2696).
 // - What it answers: `red` with each finding (the law's statement and Why as they are now, the spec's words,
-//   who owns the law), `green` with the laws and domains judged, or `neutral` with why, never red on its own
+//   what the judge found broken in its own words, who owns the law), `green` with the laws and domains judged, or `neutral` with why, never red on its own
 //   failure: no model key, a model error, a reply out of shape.
 //
 // It keeps nothing: ./verdicts.service.ts keeps what it says, once per spec version and pack commit.
@@ -22,12 +24,17 @@ const BATCH = 40;
 /** The most characters of the spec the model reads; the quote check still reads all of it. */
 const SPEC_LIMIT = 40_000;
 
-/** One break the judge keeps: the law, its words as judged, the spec's words, and who owns it. */
+/** The most characters kept of what the judge says a finding breaks. */
+const MAX_BROKEN = 300;
+
+/** One break the judge keeps: the law, its words as judged (`why` is the law's own Why), the spec's words,
+ * what the judge says the design does that the law forbids (`broken`), and who owns it. */
 export type LawFinding = {
   law: string;
   statement: string;
   why: string;
   quote: string;
+  broken: string;
   domain: string;
   file: string;
   owners: string[];
@@ -53,10 +60,11 @@ const Reply = z.object({
 const SYSTEM = [
   "You check a product spec against the product's business laws: rules of the product, each with the reason it exists.",
   'Report a finding only when what the spec designs breaks a law given below. Never report a law that is not given.',
+  'A finding is something the spec designs that a law forbids. A sentence that restates a law, cites it, or says how the design keeps it is no finding, even when it uses the words of the law.',
   'Answer one JSON object and nothing else: {"findings": [{"law", "quote", "why"}]}.',
   '- law: the id of the law broken, exactly as given (e.g. "BL-QUOTES-1").',
   `- quote: the exact words of the spec that break it, copied character for character, at most ${MAX_QUOTE} characters.`,
-  '- why: one short sentence.',
+  '- why: one short sentence saying what the design does that the law forbids. When you cannot say it, there is no finding.',
   'No finding when the spec breaks none: "findings": [].',
 ].join('\n');
 
@@ -93,8 +101,9 @@ function keptFindings(spec: string, reply: z.infer<typeof Reply>, batch: readonl
   return reply.findings.flatMap((finding) => {
     const law = laws.get(finding.law.trim());
     const quote = finding.quote.trim();
-    if (!law || quote.length > MAX_QUOTE || !quoted(spec, quote)) return [];
-    return [{ law: law.id, statement: law.statement, why: law.why ?? '', quote, domain: law.domain, file: law.file, owners: [...owners] }];
+    const broken = (finding.why ?? '').trim().slice(0, MAX_BROKEN);
+    if (!law || broken === '' || quote.length > MAX_QUOTE || !quoted(spec, quote)) return [];
+    return [{ law: law.id, statement: law.statement, why: law.why ?? '', quote, broken, domain: law.domain, file: law.file, owners: [...owners] }];
   });
 }
 

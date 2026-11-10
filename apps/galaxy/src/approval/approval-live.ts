@@ -6,7 +6,7 @@ import { appCredentials, installUrl } from '../signup/github-app';
 import type { ApprovalDeps } from './approval-api';
 import { approvedLabeler } from './label';
 import { liveSendServerEvent } from '../server-event/server-event-live';
-import { judgeBeforeApprove } from '../business-laws/verdicts.live';
+import { judgeBeforeApprove, lawsForTerminal } from '../business-laws/verdicts.live';
 import { reachDeps } from '../approvals/approvals-live';
 import { approvalsRepository } from '../approvals/approvals.repository';
 import { askApproversAfterTech } from '../approvals/approvals.service';
@@ -32,6 +32,7 @@ export function approvalDeps(): ApprovalDeps {
     installLink: installUrl(serverEnv().githubAppSlug),
     tellApp: liveSendServerEvent,
     judge: judgeBeforeApprove,
+    laws: lawsForTerminal,
     askProduct: (db, repo, prd, origin) => askApproversAfterTech({ ...reachDeps(), approvals: approvalsRepository(db) }, repo, prd, origin),
   };
 }

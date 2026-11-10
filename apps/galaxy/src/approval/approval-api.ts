@@ -2,7 +2,7 @@
 // tested with a stubbed Supabase client and the route stays one line each:
 //
 //   GET  /api/dossiers/approval?repo=<owner/name>&prd=<n>  → 200 {url, approval}
-//   GET  /api/dossiers/approval?prd=<key>-<n>[&repo=…]     → 200 {url, approval}
+//   GET  /api/dossiers/approval?prd=<key>-<n>[&repo=…]     → 200 {url, approval[, laws]}
 //   POST /api/dossiers/approval {dossier}                  → 201 {url, approval}
 //
 // A product PRD (PRD 1548) has no repository: it is found by its id, `mobile-12`, the repository only
@@ -38,6 +38,10 @@
 // laws when it has no verdict at the law home's newest pack (`judge`), and dossier_approve() refuses a red there, in
 // its own words. A red holds the product approval only: a Tech Approval is neither judged first nor refused by it.
 //
+// Since bug #2696 a GET of a product PRD carries `laws` where its latest spec is judged: `{state: 'pending'}`
+// while it has no verdict yet, else `{state, reason, judgedAt, findings}`, each finding the law, its statement,
+// the spec's quote and what the judge found broken. A GET never judges (a push does), and an older kit ignores it.
+//
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed query or body (or the
 // database's own: a ◇ dossier, a draft, a missing spec, plan or before/after, a red business law verdict), 401 no valid sign-in, 403
 // not a member of the dossier's workspace, 404 no such dossier, 503 no database here, 500 the database
@@ -48,6 +52,7 @@ import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { authenticate, callerOrigin, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
+import type { LawsAnswer } from '../business-laws/verdicts.service';
 import type { ServerEvent } from '../server-event/server-event.service';
 
 /** A Supabase client acting as the caller: the functions. */
@@ -74,6 +79,9 @@ export type ApprovalDeps = {
   /** Judges the dossier's latest spec against its business laws when it has no verdict yet (PRD 2632 s4), as
    * the caller reads it; never throws. Missing: nothing is judged first, and the database still refuses a red. */
   judge?: (db: ApprovalDb, dossier: string) => Promise<void>;
+  /** Where the dossier's latest spec stands with its business laws, as the caller reads it (bug #2696): a GET
+   * of a product PRD carries it as `laws`. Null: nothing is judged there. Missing, or throwing: left out. */
+  laws?: (db: ApprovalDb, dossier: string) => Promise<LawsAnswer | null>;
 };
 
 const REPO = /^[\w.-]+\/[\w.-]+$/;
@@ -172,7 +180,18 @@ async function inForce(request: Request, db: ApprovalDb, key: PrdKey | Response,
     console.error(`approval: the database answered out of shape for PRD ${nameOf(key)}`);
     return refuse(500, NOT_READ);
   }
-  return reply(200, answerOf(request, read.data));
+  const laws = key.product === null ? null : await lawsOf(db, read.data.dossier, deps);
+  return reply(200, { ...answerOf(request, read.data), ...(laws ? { laws } : {}) });
+}
+
+/** Where dossier `dossier`'s spec stands with its business laws, or null: reading it never fails the approval's read. */
+async function lawsOf(db: ApprovalDb, dossier: string, deps: ApprovalDeps): Promise<LawsAnswer | null> {
+  try {
+    return (await deps.laws?.(db, dossier)) ?? null;
+  } catch (error) {
+    log.error({ event: 'business-laws', outcome: 'failed', error });
+    return null;
+  }
 }
 
 /** A PRD's number as a query sends it: digits only, 1 to 2³¹−1; or null. */

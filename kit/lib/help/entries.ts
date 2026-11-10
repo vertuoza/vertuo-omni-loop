@@ -115,7 +115,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'prd',
     kind: 'command',
     who: 'you',
-    usage: ['omni prd <n>', 'omni prd <key>-<n> [--show <kind>]'],
+    usage: ['omni prd <n>', 'omni prd <key>-<n> [--show <kind> | --json]'],
     label: 'omni prd <n>',
     summary: 'where PRD n lives and its files',
     detail:
