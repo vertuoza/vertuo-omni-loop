@@ -1,0 +1,116 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-10",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Another URL and key to paste is fluff to me, unless my agent finds the right ADR without me knowing its number.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every agent reading the same ADRs and rules from the last merge is what keeps my teams cohesive.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "If my agent reads the real rules before it writes code, it may make less slop, as long as it stays read-only.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "One switch per product and every repository's knowledge is in my agents, so I build across repositories faster.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "I don't master the harness, so it only helps me if turning it on is one button and a line to paste.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Another URL and key to paste is fluff to me, unless my agent finds the right ADR without me knowing its number.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "Fits the lead engineer and the PM best, and the skeptical back-end developer worst, until search by plain words was added."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-10",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A search by plain words and one setup command is a real tool, not fluff, as long as the answers are the files in Git.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The same decisions in every agent, owner-only switch, and a key limited to some repositories stays limited: I can adopt that.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Read-only and fed from merged knowledge only, so it cannot push anything into my code.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "No new key to make: the API key we already have works the moment the product is on.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Turn on, copy, paste: I can set it up for my mobile team without asking a developer.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "Fits every persona at 3 or more; the skeptical developers stay at 3 until they see the answers match the files in Git."
+    }
+  ]
+}
