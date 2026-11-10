@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2687: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>PRD 2687: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="omni-app">
+<h3>omni-app</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">TODAY</div><p>To install the Omni GitHub App you set up GitHub, the database, Vercel and an Inngest account, with three Inngest variables.</p><p>The guides describe jobs that run on Inngest, though none does any more.</p></div><div><div class="label">AFTER</div><p>To install the Omni GitHub App you set up GitHub, the database and Vercel. Nothing else.</p><p>The guides describe the job ledger. The checks, retros and boards behave exactly as before.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+Pixel perfect: no screen changes
+</div>
+</div>
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare"><div><div class="label">TODAY</div><p><code>omni init</code> warns that nothing can merge when the App is uninstalled, its deploy is broken or Inngest is down.</p></div><div><div class="label">AFTER</div><p><code>omni init</code> gives the same warning, naming the App, its deploy and its database.</p></div></div>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+Pixel perfect: no screen changes
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<div class="diagram"><figure class="mermaid-diagram" data-source="flowchart LR
+  subgraph Today
+    GH1[GitHub] --&gt; A1[omni-app]
+    A1 --&gt; L1[(Supabase job ledger)]
+    I1[Inngest] -. calls a route that serves nothing .-&gt; A1
+  end
+  subgraph After
+    GH2[GitHub] --&gt; A2[omni-app]
+    A2 --&gt; L2[(Supabase job ledger)]
+    V2[Vercel cron] --&gt; A2
+  end"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="0 0 403.93359375 942.1238403320312" style="max-width: 403.93359375px;" class="flowchart" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#mermaid-0 .cluster-label text{fill:#333;}#mermaid-0 .cluster-label span{color:#333;}#mermaid-0 .cluster-label span p{background-color:transparent;}#mermaid-0 .label text,#mermaid-0 span{fill:#333;color:#333;}#mermaid-0 .node rect,#mermaid-0 .node circle,#mermaid-0 .node ellipse,#mermaid-0 .node polygon,#mermaid-0 .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#mermaid-0 .rough-node .label text,#mermaid-0 .node .label text,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-anchor:middle;}#mermaid-0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-0 .rough-node .label,#mermaid-0 .node .label,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-align:center;}#mermaid-0 .node.clickable{cursor:pointer;}#mermaid-0 .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#mermaid-0 .arrowheadPath{fill:#333333;}#mermaid-0 .edgePath .path{stroke:#333333;stroke-width:2.0px;}#mermaid-0 .flowchart-link{stroke:#333333;fill:none;}#mermaid-0 .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#mermaid-0 .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#mermaid-0 .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#mermaid-0 .cluster text{fill:#333;}#mermaid-0 .cluster span{color:#333;}#mermaid-0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-0 rect.text{fill:none;stroke-width:0;}#mermaid-0 .icon-shape,#mermaid-0 .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .icon-shape p,#mermaid-0 .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#mermaid-0 .icon-shape rect,#mermaid-0 .image-shape rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"></g><g class="edgeLabels"></g><g class="nodes"><g transform="translate(0, 0)" class="root"><g class="clusters"><g data-look="classic" id="After" class="cluster"><rect height="414.06192779541016" width="387.93359375" y="8" x="8" style=""></rect><g transform="translate(183.646484375, 8)" class="cluster-label"><foreignObject height="24" width="36.640625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>After</p></span></div></foreignObject></g></g></g><g class="edgePaths"><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_GH2_A2_3" d="M110.371,99.5L110.371,105.75C110.371,112,110.371,124.5,118.333,136.605C126.294,148.71,142.218,160.42,150.179,166.275L158.141,172.13"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A2_L2_4" d="M198.078,228.5L198.078,234.75C198.078,241,198.078,253.5,198.078,265.333C198.078,277.167,198.078,288.333,198.078,293.917L198.078,299.5"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_V2_A2_5" d="M285.785,99.5L285.785,105.75C285.785,112,285.785,124.5,277.823,136.605C269.862,148.71,253.938,160.42,245.977,166.275L238.015,172.13"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(110.37109375, 72.5)" id="flowchart-GH2-6" class="node default"><rect height="54" width="109.859375" y="-27" x="-54.9296875" style="" class="basic label-container"></rect><g transform="translate(-24.9296875, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="49.859375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>GitHub</p></span></div></foreignObject></g></g><g transform="translate(198.078125, 201.5)" id="flowchart-A2-7" class="node default"><rect height="54" width="127.28125" y="-27" x="-63.640625" style="" class="basic label-container"></rect><g transform="translate(-33.640625, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="67.28125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>omni-app</p></span></div></foreignObject></g></g><g transform="translate(198.078125, 344.0309638977051)" id="flowchart-L2-9" class="node default"><path transform="translate(-79.8125, -40.53096179183136)" style="" class="basic label-container" d="M0,14.020641194554239 a79.8125,14.020641194554239 0,0,0 159.625,0 a79.8125,14.020641194554239 0,0,0 -159.625,0 l0,53.02064119455424 a79.8125,14.020641194554239 0,0,0 159.625,0 l0,-53.02064119455424"></path><g transform="translate(-72.3125, -2)" style="" class="label"><rect></rect><foreignObject height="24" width="144.625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Supabase job ledger</p></span></div></foreignObject></g></g><g transform="translate(285.78515625, 72.5)" id="flowchart-V2-10" class="node default"><rect height="54" width="140.96875" y="-27" x="-70.484375" style="" class="basic label-container"></rect><g transform="translate(-40.484375, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="80.96875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Vercel cron</p></span></div></foreignObject></g></g></g></g><g transform="translate(2.4375, 464.0619201660156)" class="root"><g class="clusters"><g data-look="classic" id="Today" class="cluster"><rect height="462.06192779541016" width="383.05859375" y="8" x="8" style=""></rect><g transform="translate(178.982421875, 8)" class="cluster-label"><foreignObject height="24" width="41.09375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Today</p></span></div></foreignObject></g></g></g><g class="edgePaths"><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_GH1_A1_0" d="M110.371,99.5L110.371,109.75C110.371,120,110.371,140.5,119.228,160.506C128.086,180.513,145.8,200.026,154.657,209.782L163.515,219.538"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A1_L1_1" d="M190.715,276.5L190.715,282.75C190.715,289,190.715,301.5,190.715,313.333C190.715,325.167,190.715,336.333,190.715,341.917L190.715,347.5"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-dotted edge-thickness-normal edge-pattern-solid flowchart-link" id="L_I1_A1_2" d="M271.059,99.5L271.059,109.75C271.059,120,271.059,140.5,262.201,160.506C253.344,180.513,235.63,200.026,226.772,209.782L217.915,219.538"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(271.05859375, 161)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>calls a route that serves nothing</p></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(110.37109375, 72.5)" id="flowchart-GH1-0" class="node default"><rect height="54" width="109.859375" y="-27" x="-54.9296875" style="" class="basic label-container"></rect><g transform="translate(-24.9296875, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="49.859375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>GitHub</p></span></div></foreignObject></g></g><g transform="translate(190.71484375, 249.5)" id="flowchart-A1-1" class="node default"><rect height="54" width="127.28125" y="-27" x="-63.640625" style="" class="basic label-container"></rect><g transform="translate(-33.640625, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="67.28125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>omni-app</p></span></div></foreignObject></g></g><g transform="translate(190.71484375, 392.0309638977051)" id="flowchart-L1-3" class="node default"><path transform="translate(-79.8125, -40.53096179183136)" style="" class="basic label-container" d="M0,14.020641194554239 a79.8125,14.020641194554239 0,0,0 159.625,0 a79.8125,14.020641194554239 0,0,0 -159.625,0 l0,53.02064119455424 a79.8125,14.020641194554239 0,0,0 159.625,0 l0,-53.02064119455424"></path><g transform="translate(-72.3125, -2)" style="" class="label"><rect></rect><foreignObject height="24" width="144.625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Supabase job ledger</p></span></div></foreignObject></g></g><g transform="translate(271.05859375, 72.5)" id="flowchart-I1-4" class="node default"><rect height="54" width="111.515625" y="-27" x="-55.7578125" style="" class="basic label-container"></rect><g transform="translate(-25.7578125, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="51.515625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Inngest</p></span></div></foreignObject></g></g></g></g></g></g></g></svg></figure></div>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ol><li>PRD 2686 is merged and live: Inngest runs nothing.</li><li>Merge: the App deploys without <code>/api/inngest</code>, and the kit's new bundle is served. No migration.</li><li>A person removes the three <code>INNGEST_*</code> variables from the Vercel project, and Inngest's integration if one is installed.</li><li>A person archives the app on Inngest, then closes the account.</li></ol>
+</div>
+<div data-service="omni-app">
+<h3>omni-app <span class="badge" data-role>BACK-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+N/A — no table changes
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr><tr><td>GET, POST, PUT /api/inngest <span class="badge breaking">breaking</span></td><td>removed</td><td>Inngest syncs the app and calls its functions</td><td>404</td><td>omni-app</td></tr><tr><td>INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY, INNGEST_DEV</td><td>removed</td><td>read by the SDK</td><td>read by nothing</td><td>omni-app</td></tr><tr><td>dependency <code>inngest</code></td><td>removed</td><td>^4.21.0</td><td>none</td><td>omni-app</td></tr></table><p>The removed route's only caller is Inngest itself, which the same PRD retires.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare"><div><div class="label">TODAY</div><ul><li>Each run writes an <code>inngest</code> log line.</li><li>The repository's <code>layers.job</code> names <code>inngest-client.ts</code>.</li></ul></div><div><div class="label">AFTER</div><ul><li>Each run writes a <code>jobs</code> log line; the guide says which name older lines carry.</li><li><code>layers.job</code> names <code>apps/omni-app/src/jobs/</code>.</li><li>A guard test refuses a tracked file that names Inngest, outside the history folders.</li></ul></div></div>
+</div>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+N/A — the kit has no database
+</div>
+<div data-section="api" data-state="na">
+<h4>API / schema</h4>
+N/A — no command, flag or output shape changes
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare"><div><div class="label">TODAY</div><p>The install's text names Inngest as one of three things that can stop every merge.</p></div><div><div class="label">AFTER</div><p>It names the App, its deploy and its database. Where the install writes is unchanged.</p></div></div>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>
