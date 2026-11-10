@@ -25,6 +25,63 @@ Only a workspace owner makes or revokes a key.
 A key stops working when an owner revokes it, or when the person who made it leaves the workspace.
 Keep it out of your repository: send it as a header, as below.
 
+## Connect an agent to a product's knowledge
+
+A product can serve its knowledge to agents through its own MCP server: its business laws, the
+decisions behind its architecture (ADRs), its rules, its Legal entries, its terms and its Never
+lines, across all its repositories. Any agent that speaks MCP can search and read it with an API key.
+
+1. **Turn it on.** A workspace owner opens the product's settings (**Product settings**, the
+   knowledge section) and chooses **Turn on** on the **MCP server** card. Off is the default. Every
+   API key of the workspace then reads the product's knowledge, so turn it on only when that is what
+   you want.
+2. **Copy the URL.** The card shows it as `https://www.omni-loop.xyz/api/products/<key>/mcp`, where
+   `<key>` is the product's key. Copy it with **Copy**.
+3. **Connect the agent.** Send the key in the `Authorization` header as `Bearer oma_…`. The card's
+   **Copy for Claude Code** and **Copy for Cursor** buttons write the whole setup for you:
+
+   ```bash terminal
+   claude mcp add --transport http <key>-knowledge https://www.omni-loop.xyz/api/products/<key>/mcp --header "Authorization: Bearer oma_…"
+   ```
+
+   In Cursor, the `mcp.json` entry is the same URL and header:
+
+   ```json file=mcp.json
+   {
+     "mcpServers": {
+       "<key>-knowledge": {
+         "url": "https://www.omni-loop.xyz/api/products/<key>/mcp",
+         "headers": { "Authorization": "Bearer oma_…" }
+       }
+     }
+   }
+   ```
+
+   Any other MCP client works the same way: the URL, and the header above. Make the key on
+   **Settings › API keys**.
+
+The server offers two tools, both read-only:
+
+- `search_knowledge` finds entries by plain words, with no model. It takes an optional `query`, and
+  optional `kind`, `domain` and `repo` filters. Without a `query` it lists the entries that match the
+  filters. For example, `{"query": "api key"}` answers the ADRs, rules, Legal entries and terms that
+  mention it, each with an id to cite.
+- `get_knowledge` reads one entry whole, by its id. For example, `{"id": "BL-QUOTES-1"}` answers that
+  business law's statement, Why, domains and owner.
+
+Each answer also lists the product's repositories. A repository with no knowledge yet is named there
+with no entry: its next merge brings it, and a person may need to be told.
+
+A key limited to some repositories reads only their part. Its allow-list names the repositories it
+may read: the product's business laws, Legal entries, terms and Never lines stay whole, but the ADRs
+and rules come only from the listed repositories. A key whose allow-list names none of the product's
+repositories cannot reach the product at all.
+
+If the server answers **404** with `No MCP server here.`, one of three things holds: the product's
+server is off, the product is unknown, or the key cannot reach it. The server gives the same answer in
+all three cases, so no caller can tell which products exist. Check that the server is on, then that
+the key belongs to the product's workspace and is on the product's allow-list.
+
 ## Read the PRDs
 
 ```bash terminal
