@@ -6,7 +6,7 @@ import { inngest } from '../inngest-client.ts';
 import { EnvError, readEnv } from '../env.ts';
 import { capture, throwing } from '../run-log/capture.ts';
 import { githubRoute } from './github-route.ts';
-import { FLEET_BOARD_EVENT } from '../fleet-board/events.ts';
+import type { NewJob } from '../jobs/ledger.ts';
 import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
 
 /** `/api/github`'s handlers over `source`, as the route reads the process's environment. */
@@ -52,7 +52,7 @@ describe('/api/github', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('sends a loop pull request’s fleet board event on the app’s Inngest client, and no check event (PRD 2530)', async () => {
+  it('adds a loop pull request’s `fleet-board` job to the ledger, and sends the app’s Inngest client nothing (PRD 2530, PRD omni-loop-3 s3)', async () => {
     const opened = JSON.stringify({
       action: 'opened',
       installation: { id: 7 },
@@ -69,9 +69,27 @@ describe('/api/github', () => {
         base: { ref: 'main' },
       },
     });
-    const response = await POST(new Request('https://omni-loop.example/api/github', { method: 'POST', body: opened, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(opened) } }));
+    const queued: NewJob[] = [];
+    const jobs = {
+      add: () => Promise.resolve(false),
+      queue: (job: NewJob) => Promise.resolve(queued.push(job) > 0),
+      refresh: () => Promise.resolve('added'),
+      approved: () => Promise.resolve([]),
+      run: () => Promise.resolve(),
+    };
+    const kept: Promise<unknown>[] = [];
+    const { POST: post } = githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { jobs, keepAlive: (work) => kept.push(work), pause: () => Promise.resolve() });
+    const response = await post(new Request('https://omni-loop.example/api/github', { method: 'POST', body: opened, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(opened) } }));
     expect(response.status).toBe(200);
-    expect(send.mock.calls.map((call) => call[0])).toMatchObject([[{ name: FLEET_BOARD_EVENT, data: { repository: 'o/r', prNumber: 3, author: 'ada' } }]]);
+    expect(await response.text()).toBe('sent 0 · 5 jobs');
+    expect(queued).toMatchObject([{ kind: 'fleet-board', key: 'o/r#3', payload: { repository: 'o/r', prNumber: 3, author: 'ada' }, maxTries: 4 }]);
+    expect(send).not.toHaveBeenCalled();
+
+    const refusing = { ...jobs, queue: () => Promise.reject(new Error('the database refused: down')) };
+    const refused = await githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { jobs: refusing, keepAlive: (work) => kept.push(work), pause: () => Promise.resolve() })
+      .POST(new Request('https://omni-loop.example/api/github', { method: 'POST', body: opened, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(opened) } }));
+    expect(refused.status).toBe(500);
+    await Promise.all(kept);
   });
 
   it('answers 401 to a bad signature and creates no event', async () => {

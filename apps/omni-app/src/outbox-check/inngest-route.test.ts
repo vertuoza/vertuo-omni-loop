@@ -5,9 +5,7 @@ import { RETRO_FUNCTION_ID } from '../retro/retro.ts';
 import { HARVEST_FUNCTION_ID } from '../knowledge-harvest/knowledge-harvest.ts';
 import { CANON_ACTION_FUNCTION_ID } from '../inbox-check/canon-action.ts';
 import { SERVER_EVENT_FUNCTION_ID } from '../server-event/recheck.ts';
-import { FIX_ROW_STAMP_FUNCTION_ID } from '../fix-rows/fix-row-stamp.ts';
 import { MAIN_WATCH_FUNCTION_ID } from '../main-watch/main-watch.ts';
-import { FLEET_BOARD_FUNCTION_ID } from '../fleet-board/fleet-board.ts';
 
 describe('/api/inngest', () => {
   beforeEach(() => {
@@ -17,23 +15,21 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the retro function (PRD 72) and the knowledge harvest (PRD 82), the canon buttons (PRD 839), the server event (PRD 1548), the fix row stamp (PRD 2011), the main watch (PRD 2410), the fleet board (PRD 2530), and nothing else', () => {
+  it('serves the retro function (PRD 72) and the knowledge harvest (PRD 82), the canon buttons (PRD 839), the server event (PRD 1548), the main watch (PRD 2410), and nothing else', () => {
     expect(functions.map((fn) => fn.id())).toEqual([
       RETRO_FUNCTION_ID,
       HARVEST_FUNCTION_ID,
       CANON_ACTION_FUNCTION_ID,
       SERVER_EVENT_FUNCTION_ID,
-      FIX_ROW_STAMP_FUNCTION_ID,
       MAIN_WATCH_FUNCTION_ID,
-      FLEET_BOARD_FUNCTION_ID,
     ]);
   });
 
-  it('serves none of the pull-request checks: they run on the job ledger (PRD 2688, acceptance 11)', () => {
+  it('serves none of the pull-request checks, the fix row stamp nor the fleet board: they run on the job ledger (PRD 2688, acceptance 11; PRD omni-loop-3 s3)', () => {
     const ids = functions.map((fn) => fn.id());
-    for (const gone of ['outbox-check', 'inbox-check', 'approved-check', 'approved-rerun', 'budgets-check']) expect(ids).not.toContain(gone);
+    for (const gone of ['outbox-check', 'inbox-check', 'approved-check', 'approved-rerun', 'budgets-check', 'fix-row-stamp', 'fleet-board']) expect(ids).not.toContain(gone);
     const triggers = functions.flatMap((fn) => (fn as unknown as { opts: { triggers?: { event?: string }[] } }).opts.triggers ?? []).map((trigger) => trigger.event);
-    for (const event of ['omni-loop/outbox.check.requested', 'omni-loop/inbox.check.requested', 'omni-loop/approved.check.requested', 'omni-loop/approved.label.changed', 'omni-loop/budgets.check.requested']) {
+    for (const event of ['omni-loop/outbox.check.requested', 'omni-loop/inbox.check.requested', 'omni-loop/approved.check.requested', 'omni-loop/approved.label.changed', 'omni-loop/budgets.check.requested', 'omni-loop/fix.stamp.requested', 'omni-loop/fleet-board.requested']) {
       expect(triggers).not.toContain(event);
     }
   });
@@ -47,8 +43,8 @@ describe('/api/inngest', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { function_count: number };
     // Inngest registers each failure handler as a function of its own, beside its function; canonAction,
-    // serverEvent, fixRowStamp, mainWatch and fleetBoard have none.
-    expect(body.function_count).toBe(9);
+    // serverEvent and mainWatch have none.
+    expect(body.function_count).toBe(7);
   });
 });
 
@@ -78,6 +74,6 @@ describe('/api/inngest — the environment, read when the route loads (PRD 1059)
   });
 
   it('loads on a preview with nothing set', async () => {
-    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(7);
+    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(5);
   });
 });

@@ -31,8 +31,8 @@
 //
 // The fix stamp (PRD 2011 s7): a pull request closed, merged or not, or reopened, into the repository's
 // default branch, or on any branch when its body names a bug record (`Fixes mobile-B74`), also becomes one
-// fix stamp event, beside whatever else it becomes, handed to `sendStamps`; the `fix-row-stamp` function
-// stamps the Fixes rows of that repository and pull request (../fix-rows/). A sub-PR into its feature
+// `fix-row-stamp` job of the ledger (PRD omni-loop-3 s3), beside whatever else it becomes, handed to
+// `queueJobs`; the job stamps the Fixes rows of that repository and pull request (../fix-rows/job.ts). A sub-PR into its feature
 // branch names no record, and becomes none.
 //
 // The main watch (PRD 2410): a pull request merged into the default branch also becomes one main watch
@@ -43,8 +43,8 @@
 // The fleet board (PRD 2530): a pull request opened, reopened, ready for review or edited, open, into the
 // repository's default branch, and signed by the loop, read from the delivery alone (its body carries the
 // signature's marker, or the loop's bot opened it), also becomes one fleet board event, beside whatever else
-// it becomes, handed to `sendBoard`; the `fleet-board` function adds it to its author's fleet's board
-// (../fleet-board/). A sub-PR, a pull request typed by hand, a closed one, or a delivery naming no default
+// it becomes, handed to `queueJobs` as one `fleet-board` job of the ledger (PRD omni-loop-3 s3), which adds it to
+// its author's fleet's board (../fleet-board/job.ts). A sub-PR, a pull request typed by hand, a closed one, or a delivery naming no default
 // branch becomes none: the board takes only the loop's pull requests into main.
 //
 // The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
@@ -55,6 +55,10 @@
 // The knowledge pack (PRD 2676 s2): the same merged pull request also becomes one job of the ledger, `toPackJobs`,
 // handed to `addJobs` before anything is sent to Inngest, so Inngest refusing an event never loses it. A job
 // that cannot be added is logged and the delivery goes on: the hourly comparison repairs it.
+//
+// The fix stamp's and the fleet board's jobs (PRD omni-loop-3 s3), `toQueuedJobs`, are handed to `queueJobs` once
+// the pack's are added, before anything is sent to Inngest. Nothing repairs one that was lost, so a refusal answers
+// 500, and GitHub's redelivery, the same job by its key, adds it then.
 //
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
@@ -73,7 +77,9 @@ import {
 } from '../inngest-client.ts';
 import { isSignedBody } from 'omni-loop/kit/lib/signature.ts';
 import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
+import { fixRowStampJob } from '../fix-rows/job.ts';
 import { FLEET_BOARD_EVENT, fleetBoardId, type FleetBoardRequest } from '../fleet-board/events.ts';
+import { fleetBoardJob } from '../fleet-board/job.ts';
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type MainWatchRequest } from '../main-watch/events.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
@@ -218,10 +224,9 @@ export async function receiveWebhook({
   send,
   refreshJobs = () => Promise.resolve(),
   rerunApproved = () => Promise.resolve(),
-  sendStamps = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
-  sendBoard = () => Promise.resolve(),
   addJobs = () => Promise.resolve(),
+  queueJobs = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log = noteTo('webhook'),
@@ -234,14 +239,15 @@ export async function receiveWebhook({
   refreshJobs?: (jobs: RefreshJob[]) => Promise<unknown>;
   /** Takes the approved label's re-runs (PRD 1612), each a PRD whose pull requests' approved check runs again; none given, they go nowhere. */
   rerunApproved?: (reruns: ApprovedRerun[]) => Promise<unknown>;
-  /** Sends the fix stamp events (PRD 2011 s7); none given, they go nowhere. */
-  sendStamps?: (events: FixStampRequest[]) => Promise<unknown>;
   /** Sends the main watch's events (PRD 2410); none given, they go nowhere. */
   sendWatch?: (events: MainWatchRequest[]) => Promise<unknown>;
-  /** Sends the fleet board's events (PRD 2530); none given, they go nowhere. */
-  sendBoard?: (events: FleetBoardRequest[]) => Promise<unknown>;
   /** Adds the ledger's jobs (PRD 2676 s2), before any event is sent; none given, they go nowhere. */
   addJobs?: (jobs: NewJob[]) => Promise<unknown>;
+  /**
+   * Adds the fix stamp's and the fleet board's jobs (PRD omni-loop-3 s3), before any event is sent; a refusal
+   * answers 500. None given, they go nowhere.
+   */
+  queueJobs?: (jobs: NewJob[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -267,24 +273,26 @@ export async function receiveWebhook({
 
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
-  const stamps = toFixStampRequests(event, payload);
+  const queued = toQueuedJobs(event, payload);
   const watch = toMainWatchRequests(event, payload);
-  const board = toFleetBoardRequests(event, payload);
-  const sent = events.length + stamps.length + watch.length + board.length;
-  if (checks.length + approved.length + sent === 0) return reply(200, 'ignored');
+  const sent = events.length + watch.length;
+  if (checks.length + approved.length + queued.length + sent === 0) return reply(200, 'ignored');
 
   await addPackJobs(addJobs, toPackJobs(event, payload), log);
+  try {
+    if (queued.length > 0) await queueJobs(queued);
+  } catch (error) {
+    return reply(500, `could not add the job: ${String(messageOf(error))}`);
+  }
 
   try {
     if (approved.length > 0) await rerunApproved(approved);
     if (events.length > 0) await send(events);
-    if (stamps.length > 0) await sendStamps(stamps);
     if (watch.length > 0) await sendWatch(watch);
-    if (board.length > 0) await sendBoard(board);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
-  const jobs = checks.length + approved.length;
+  const jobs = checks.length + approved.length + queued.length;
   return reply(200, jobs > 0 ? `sent ${String(sent)} · ${String(jobs)} jobs` : `sent ${String(sent)}`);
 }
 
@@ -425,6 +433,14 @@ function toPackJobs(event: string, delivery: unknown): NewJob[] {
   return toRetroRequests(event, delivery).map(({ data: { installationId, owner, repo, prNumber, mergeSha, mergedAt } }) =>
     packJob({ installationId, owner, repo, prNumber, sha: mergeSha, committedAt: mergedAt }),
   );
+}
+
+/**
+ * The jobs the delivery adds beside the pack's (PRD omni-loop-3 s3): its fix stamp's `fix-row-stamp` job, then its
+ * fleet board's `fleet-board` job, each read by its filter below.
+ */
+export function toQueuedJobs(event: string, delivery: unknown): NewJob[] {
+  return [...toFixStampRequests(event, delivery).map(({ data }) => fixRowStampJob(data)), ...toFleetBoardRequests(event, delivery).map(({ data }) => fleetBoardJob(data))];
 }
 
 /**

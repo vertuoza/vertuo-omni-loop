@@ -12,8 +12,8 @@
 //   the approval     the approved label put on or taken off a PRD's issue refreshes the `pr-approved` job of each
 //                    open pull request of that PRD, read from GitHub (../approved-check/github.ts)
 //   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's and the
-//                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts): the
-//                    webhook, the server event's recheck and the sweep all run the same jobs, so each runs every
+//                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts), and
+//                    the two the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3): the webhook, the server event's recheck and the sweep all run the same jobs, so each runs every
 //                    kind, and none spends a try on a job it has no handler for
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { askJudge } from '../approved-check/judge-client.ts';
@@ -26,6 +26,10 @@ import { outboxRowsReader, type OutboxRowsReader } from '../budgets-check/raises
 import { liveCanon } from '../canon/live.ts';
 import { DEFAULT_GALAXY_URL, type AppEnv, type SupabaseEnv } from '../env.ts';
 import { ESCALATION_KIND, escalationHandler } from '../escalation/job.ts';
+import { FIX_ROW_STAMP_KIND, fixRowStampHandler } from '../fix-rows/job.ts';
+import { fixRowStamper } from '../fix-rows/stamp.ts';
+import { FLEET_BOARD_KIND, fleetBoardHandler } from '../fleet-board/job.ts';
+import { fleetBoardStore } from '../fleet-board/store.ts';
 import { businessLawsJudge, businessLawsJudgeUrl } from '../inbox-check/business-laws-judge.ts';
 import type { CanonGrader, LawsGrader } from '../inbox-check/evaluate-inbox.ts';
 import { PR_INBOX_KIND, inboxFailureHook, inboxHandler } from '../inbox-check/inbox-check.ts';
@@ -128,7 +132,7 @@ export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'github
 
 /**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the four checks',
- * the Engineering board's collector's and the escalation's.
+ * the Engineering board's collector's, the escalation's, the fix row stamp's and the fleet board's.
  */
 export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient & GraphqlOctokit>): Workers {
   const { supabase } = env;
@@ -149,6 +153,8 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
+      [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
+      [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
     },
     failures: checks.failures,
   };

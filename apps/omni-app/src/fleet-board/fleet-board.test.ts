@@ -1,15 +1,16 @@
-// The `fleet-board` function (PRD 2530 s2), run on its event against a faked GitHub GraphQL and an
-// in-memory store with the database's semantics: the author's fleet with a board gets the card and the note
+// The `fleet-board` job (PRD omni-loop-3 s3; PRD 2530 s2), claimed and run against a faked GitHub GraphQL and an
+// in-memory store with the database's semantics, a look again driven by a stubbed clock: the author's fleet with a board gets the card and the note
 // `Added #<n> · <owner>/<repo>`; no fleet, or no board, calls and writes nothing; GitHub's refusals write
 // their notes and are never retried; two workspaces on one installation each use their own fleet. No test
 // calls GitHub or Supabase.
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { httpError } from '../../test/github-replay.ts';
-import { inngest } from '../inngest-client.ts';
-import { FLEET_BOARD_EVENT, type FleetBoardData } from './events.ts';
-import { createFleetBoard, FLEET_BOARD_FUNCTION_ID } from './fleet-board.ts';
+import type { ClaimedJob, JobFields } from '../jobs/ledger.ts';
+import { liveWorkers } from '../jobs/pr-checks.ts';
+import type { JobResult } from '../jobs/worker.ts';
+import type { FleetBoardData } from './events.ts';
+import { FLEET_BOARD_KIND, fleetBoardHandler, fleetBoardJob, LOOKS } from './job.ts';
 import type { GraphqlOctokit } from './github.ts';
 import type { Fleet, FleetBoardStore } from './store.ts';
 
@@ -112,43 +113,85 @@ function fakeGithub({ projects = { 'acme/7': 'PVT_acme7' }, refuse }: { projects
   return github;
 }
 
-/** The function on `store` and `github`, run once on `data`. */
-async function run({ store, github, data = DATA, onJob }: { store: FleetBoardStore; github: Github; data?: FleetBoardData; onJob?: (look: number) => void }) {
-  const fn = createFleetBoard({ client: inngest, octokitFor: () => github.octokit, store, now: () => new Date(NOW) });
-  // A sleep is answered at once, and says which look it followed.
-  const sleeps = Array.from({ length: 9 }, (_, index) => ({ id: `wait-${String(index + 1)}`, handler: () => { onJob?.(index + 1); return null; } }));
-  return new InngestTestEngine({ function: fn, events: [{ name: FLEET_BOARD_EVENT, data } as never], steps: sleeps }).execute();
+/** The job of `data`, claimed on its first try, carrying what its last `later` kept. */
+function claimed(data: FleetBoardData, progress: JobFields = {}): ClaimedJob {
+  const job = fleetBoardJob(data);
+  return { id: 'job-1', claim: 'claim-1', claimedUntil: NOW, tries: 1, lane: null, maxTries: job.maxTries ?? 5, kind: job.kind, key: job.key, subject: job.subject, payload: job.payload, progress };
+}
+
+/** How the run ended: `result` and `error` as a run reports them, every line it logged, and each `later` it asked for. */
+type Ran = { result?: JobResult; error?: unknown; lines: string[]; laters: JobFields[] };
+
+/**
+ * The job on `store` and `github`, claimed and run on `data` until it ends: each `later` is kept, the stubbed clock
+ * moved to its date, and the job run again with its progress, as the ledger hands it back. `onJob` is told the look
+ * each `later` followed.
+ */
+async function run({ store, github, data = DATA, onJob }: { store: FleetBoardStore | null; github: Github; data?: FleetBoardData; onJob?: (look: number) => void }): Promise<Ran> {
+  let clock = Date.parse(NOW);
+  const lines: string[] = [];
+  const laters: JobFields[] = [];
+  const handler = fleetBoardHandler({ octokitFor: () => github.octokit, store, now: () => new Date(clock), log: (line) => lines.push(line) });
+  let progress: JobFields = {};
+  for (;;) {
+    let result: JobResult;
+    try {
+      result = await handler(claimed(data, progress));
+    } catch (error) {
+      return { error, lines, laters };
+    }
+    if (result.outcome !== 'later') return { result, lines, laters };
+    expect(result.at.getTime(), 'a look again is due a minute on').toBe(clock + 60_000);
+    expect(laters.length, 'never more than ten looks').toBeLessThan(LOOKS);
+    laters.push(result.progress);
+    onJob?.(Number(result.progress.look));
+    clock = result.at.getTime();
+    progress = result.progress;
+  }
 }
 
 describe('fleet-board — a loop pull request lands on its author’s fleet’s board (PRD 2530 s2)', () => {
-  it('runs on the fleet board event, retrying a GitHub error twice', () => {
-    const fn = createFleetBoard({ client: inngest, octokitFor: () => fakeGithub().octokit, store: null });
-    expect(fn.opts).toMatchObject({ id: FLEET_BOARD_FUNCTION_ID, triggers: [{ event: FLEET_BOARD_EVENT }], retries: 2 });
+  it('is one job per pull request, keyed `<owner/name>#<pr>`, in no lane, with 4 tries, its payload the request', () => {
+    expect(fleetBoardJob({ ...DATA, repository: 'Acme/Widgets' })).toEqual({
+      kind: 'fleet-board',
+      key: 'acme/widgets#28',
+      subject: 'acme/widgets',
+      payload: { ...DATA, repository: 'Acme/Widgets' },
+      maxTries: 4,
+    });
+    expect(FLEET_BOARD_KIND).toBe('fleet-board');
+  });
+
+  it('has a handler in the worker every runner of the ledger runs', () => {
+    const { handlers } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
+    expect(typeof handlers[FLEET_BOARD_KIND]).toBe('function');
   });
 
   it('adds the pull request to the board of its author’s fleet, matched case-insensitively, and notes it', async () => {
     const ws = acme();
     const { store, calls } = memoryStore([ws]);
     const github = fakeGithub();
-    const { result, error } = await run({ store, github });
+    const { result, error, lines } = await run({ store, github });
 
     expect(error).toBeUndefined();
     expect(github.added).toEqual([{ project: 'PVT_acme7', content: 'PR_kwDO28' }]);
     expect(ws.fleets.core).toMatchObject({ note: 'Added #28 · acme/widgets', notedAt: NOW });
     expect(calls).toEqual(['workspaces 4242 acme/widgets', 'fleet ws-acme Ada-L', 'note ws-acme core Added #28 · acme/widgets']);
-    expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' }] });
+    expect(result).toEqual({ outcome: 'done' });
+    expect(lines).toEqual(['fleet board: acme/widgets#28: ws-acme core: Added #28 · acme/widgets']);
   });
 
   it('calls nothing and writes nothing when the author is in no fleet', async () => {
     const ws = acme();
     const { store, calls } = memoryStore([ws]);
     const github = fakeGithub();
-    const { result, error } = await run({ store, github, data: { ...DATA, author: 'grace' } });
+    const { result, error, laters } = await run({ store, github, data: { ...DATA, author: 'grace' } });
 
     expect(error).toBeUndefined();
     expect(github.queries).toBe(0);
     expect(calls.filter((call) => call.startsWith('note'))).toEqual([]);
-    expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', skipped: NO_FLEET }] });
+    expect(result).toEqual({ outcome: 'skipped', reason: `acme/widgets#28: ws-acme: ${NO_FLEET}` });
+    expect(laters).toHaveLength(9);
   });
 
   it('calls nothing and writes nothing when the author is in no workspace at all, or the fleet is retired', async () => {
@@ -171,7 +214,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
     expect(github.queries).toBe(0);
     expect(calls.filter((call) => call.startsWith('note'))).toEqual([]);
     expect(ws.fleets.core?.note).toBeUndefined();
-    expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', fleet: 'core', skipped: 'the fleet has no board' }] });
+    expect(result).toEqual({ outcome: 'skipped', reason: 'acme/widgets#28: ws-acme core: the fleet has no board' });
   });
 
   it('calls nothing when no workspace tracks the repository on this installation', async () => {
@@ -181,7 +224,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
 
     expect(github.queries).toBe(0);
     expect(calls).toEqual(['workspaces 4242 acme/widgets']);
-    expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [] });
+    expect(result).toEqual({ outcome: 'skipped', reason: 'acme/widgets#28: no workspace tracks it on this installation' });
   });
 
   it('writes `Not added: ask an org admin` when GitHub refuses the App the organization’s projects, and is not retried', async () => {
@@ -200,7 +243,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
       expect(error, refuse.error.message).toBeUndefined();
       expect(github.added).toEqual([]);
       expect(ws.fleets.core).toMatchObject({ note: 'Not added: ask an org admin', notedAt: NOW });
-      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Not added: ask an org admin' }] });
+      expect(result).toEqual({ outcome: 'done' });
     }
   });
 
@@ -231,7 +274,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
     expect(ws.fleets.core?.note).toBe('Not added: no such project');
   });
 
-  it('fails the run, writing no note, on a rate limit or a GitHub error of 5xx, so Inngest retries it', async () => {
+  it('fails the run, writing no note, on a rate limit or a GitHub error of 5xx, so the worker retries it', async () => {
     const failures = [httpError(502, 'Bad Gateway'), graphqlError('RATE_LIMITED', 'API rate limit exceeded'), httpError(403, 'API rate limit exceeded for installation')];
     for (const failure of failures) {
       const ws = acme();
@@ -249,7 +292,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
     const third = acme({ id: 'ws-gamma', players: {}, fleets: {} });
     const { store } = memoryStore([first, second, third]);
     const github = fakeGithub({ projects: { 'acme/7': 'PVT_acme7', 'acme/9': 'PVT_acme9' } });
-    const { result } = await run({ store, github });
+    const { result, lines } = await run({ store, github });
 
     expect(github.added).toEqual([
       { project: 'PVT_acme7', content: 'PR_kwDO28' },
@@ -258,14 +301,8 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
     expect(first.fleets.core?.note).toBe('Added #28 · acme/widgets');
     expect(second.fleets.ops?.note).toBe('Added #28 · acme/widgets');
     expect(second.fleets.core?.note).toBeUndefined();
-    expect(result).toEqual({
-      pull: 'acme/widgets#28',
-      workspaces: [
-        { workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' },
-        { workspace: 'ws-beta', fleet: 'ops', note: 'Added #28 · acme/widgets' },
-        { workspace: 'ws-gamma', skipped: NO_FLEET },
-      ],
-    });
+    expect(result).toEqual({ outcome: 'done' });
+    expect(lines.at(-1)).toBe(`fleet board: acme/widgets#28: ws-acme core: Added #28 · acme/widgets; ws-beta ops: Added #28 · acme/widgets; ws-gamma: ${NO_FLEET}`);
   });
 
   describe('a runner’s pull request (PRD 2530 s3)', () => {
@@ -283,7 +320,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
       expect(github.added).toEqual([{ project: 'PVT_acme7', content: 'PR_kwDO28' }]);
       expect(ws.fleets.core?.note).toBe('Added #28 · acme/widgets');
       expect(calls.filter((call) => call.startsWith('job'))).toEqual(['job ws-acme']);
-      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' }] });
+      expect(result).toEqual({ outcome: 'done' });
     });
 
     it('looks again after a minute when no job holds the link yet, and adds the card once one does', async () => {
@@ -302,7 +339,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
       expect(error).toBeUndefined();
       expect(calls.filter((call) => call.startsWith('job'))).toHaveLength(4);
       expect(github.added).toEqual([{ project: 'PVT_acme7', content: 'PR_kwDO28' }]);
-      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' }] });
+      expect(result).toEqual({ outcome: 'done' });
     });
 
     it('stops after ten looks, a minute apart, when no job ever holds the link: no call, no note', async () => {
@@ -310,15 +347,17 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
       const { store, calls } = memoryStore([ws]);
       const github = fakeGithub();
       let slept = 0;
-      const { result, error } = await run({ store, github, data: RUNNER, onJob: () => (slept += 1) });
+      const { result, error, laters, lines } = await run({ store, github, data: RUNNER, onJob: () => (slept += 1) });
 
       expect(error).toBeUndefined();
       expect(calls.filter((call) => call.startsWith('job'))).toHaveLength(10);
+      expect(laters).toEqual(Array.from({ length: 9 }, (_, index) => ({ look: index + 1 })));
+      expect(lines[0]).toBe('fleet board: acme/widgets#28: no runner job holds it yet, look 1 of 10: looking again in a minute');
       expect(slept).toBe(9);
       expect(github.queries).toBe(0);
       expect(calls.filter((call) => call.startsWith('note'))).toEqual([]);
       expect(ws.fleets.core?.note).toBeUndefined();
-      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', skipped: NO_FLEET }] });
+      expect(result).toEqual({ outcome: 'skipped', reason: `acme/widgets#28: ws-acme: ${NO_FLEET}` });
     });
 
     it('gives no fleet to a job sent by an API key, found at once, calling nothing', async () => {
@@ -332,7 +371,7 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
       expect(calls.filter((call) => call.startsWith('job'))).toEqual(['job ws-acme']);
       expect(github.queries).toBe(0);
       expect(ws.fleets.core?.note).toBeUndefined();
-      expect(result).toEqual({ pull: 'acme/widgets#28', workspaces: [{ workspace: 'ws-acme', skipped: NO_FLEET }] });
+      expect(result).toEqual({ outcome: 'skipped', reason: `acme/widgets#28: ws-acme: ${NO_FLEET}` });
     });
 
     it('does not look for a job when the author is in a fleet', async () => {
@@ -346,28 +385,25 @@ describe('fleet-board — a loop pull request lands on its author’s fleet’s 
       const other = acme({ id: 'ws-beta', players: {}, fleets: {} });
       const { store, calls } = memoryStore([sender, other]);
       let slept = 0;
-      const { result } = await run({ store, github: fakeGithub(), data: RUNNER, onJob: () => (slept += 1) });
+      const { result, lines } = await run({ store, github: fakeGithub(), data: RUNNER, onJob: () => (slept += 1) });
 
       expect(slept).toBe(0);
       expect(calls.filter((call) => call.startsWith('job'))).toEqual(['job ws-acme', 'job ws-beta']);
-      expect(result).toEqual({
-        pull: 'acme/widgets#28',
-        workspaces: [{ workspace: 'ws-acme', fleet: 'core', note: 'Added #28 · acme/widgets' }, { workspace: 'ws-beta', skipped: NO_FLEET }],
-      });
+      expect(result).toEqual({ outcome: 'done' });
+      expect(lines).toEqual([`fleet board: acme/widgets#28: ws-acme core: Added #28 · acme/widgets; ws-beta: ${NO_FLEET}`]);
     });
   });
 
   it('skips the run with no database, calling nothing', async () => {
     const github = fakeGithub();
-    const fn = createFleetBoard({ client: inngest, octokitFor: () => github.octokit, store: null });
-    const { result, error } = await new InngestTestEngine({ function: fn, events: [{ name: FLEET_BOARD_EVENT, data: DATA } as never] }).execute();
+    const { result, error } = await run({ store: null, github });
 
     expect(error).toBeUndefined();
-    expect(result).toEqual({ pull: 'acme/widgets#28', skipped: 'no database to read the fleets from' });
+    expect(result).toEqual({ outcome: 'skipped', reason: 'no database to read the fleets from' });
     expect(github.queries).toBe(0);
   });
 
-  it('refuses an event out of shape by its field, calling nothing', async () => {
+  it('refuses a payload out of shape by its field, calling nothing', async () => {
     const { store, calls } = memoryStore([acme()]);
     const github = fakeGithub();
     const { error } = await run({ store, github, data: { ...DATA, nodeId: '' } });
