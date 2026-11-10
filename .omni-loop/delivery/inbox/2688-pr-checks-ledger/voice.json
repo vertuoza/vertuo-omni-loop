@@ -111,6 +111,58 @@
         }
       ],
       "fit": "Fits the product manager best; the slow path to a failure is what the skeptical back-end developer still feels."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-10",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The verdicts were kept, the two law proofs now run through the job, and every try is written down: the gates I trust are back.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A stuck check now says it is delayed on the pull request itself, so a jam is visible; the slow road to a failure is still slow.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "All four gates are back on every pull request, and no vendor quota can switch them off again.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "My pull requests show their checks again, and I did not have to change anything.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing touches the front end, and the gates that keep slop out of production work again.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "fit": "Fits the product manager and the lead engineer best; the skeptical back-end developer accepts it because a delayed check now shows on the pull request."
     }
   ]
 }
