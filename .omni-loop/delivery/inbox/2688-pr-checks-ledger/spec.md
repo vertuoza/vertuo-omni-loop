@@ -63,7 +63,8 @@ delivery is answered. Inngest is no longer sent the shared event.
 Each handler is the body of today's function, its steps run in order in one try: start the check run (`in progress`, or already
 `skipped`, `success` or the product verdict where the function posts one today), evaluate, publish, and for `pr-outbox` the
 escalation record. A job may run twice and must be harmless: a second run posts a newer check run on the same head commit and
-rewrites the same comment, as an Inngest retry does today. A repository without the loop's config ends the job `skipped` and posts
+updates the App's own status comment (the one the check writes, marked as the App's), as an Inngest retry does today. No handler
+ever edits a comment a person wrote, and no answer a person gave is changed. A repository without the loop's config ends the job `skipped` and posts
 nothing, as today. GitHub's budget low is `waiting` (15 minutes, the try given back), as the worker does for a pack.
 
 ### Failure, never stuck
