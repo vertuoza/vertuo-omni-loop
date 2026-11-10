@@ -205,7 +205,10 @@ function serviceDb({ url, key, fetch }) {
 }
 
 // apps/omni-app/src/jobs/schedule.ts
-var SCHEDULES = Object.freeze([]);
+var SCHEDULES = Object.freeze([
+  { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
+  { kind: "escalation", periodMinutes: 60, maxTries: 3 }
+]);
 
 // apps/omni-app/src/jobs/ledger.ts
 var RefreshedSchema = z5.enum(["added", "updated", "again", "requeued"]);

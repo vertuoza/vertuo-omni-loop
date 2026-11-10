@@ -8721,7 +8721,10 @@ function createCanonAction({ client, octokitFor, galaxyUrl }) {
 import { z as z33 } from "zod";
 
 // apps/omni-app/src/jobs/schedule.ts
-var SCHEDULES = Object.freeze([]);
+var SCHEDULES = Object.freeze([
+  { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
+  { kind: "escalation", periodMinutes: 60, maxTries: 3 }
+]);
 
 // apps/omni-app/src/jobs/ledger.ts
 var REFRESH_DELAY_SECONDS = 5;
@@ -11393,290 +11396,11 @@ function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
   return createCanon({ readBusiness, readConstituents, judge: judge3, ask: ask3 });
 }
 
-// apps/omni-app/src/inbox-check/business-laws-judge.ts
-import { z as z48 } from "zod";
-var SECRET_VAR = "BUSINESS_LAWS_JUDGE_SECRET";
-var GATE = "business laws";
-var TIMEOUT_MS = 55e3;
-var FindingSchema3 = z48.looseObject({
-  law: z48.string(),
-  statement: z48.string(),
-  why: z48.string(),
-  quote: z48.string(),
-  // What the judge found broken, in its own words (bug #2696); an older galaxy sends none.
-  broken: z48.string().optional().catch(void 0),
-  owners: z48.array(z48.string()).catch([])
-});
-var VerdictSchema2 = z48.looseObject({
-  state: z48.enum(["green", "red", "neutral"]),
-  reason: z48.string(),
-  laws: z48.array(z48.string()),
-  domains: z48.array(z48.looseObject({ key: z48.string(), name: z48.string().optional() })).catch([]),
-  findings: z48.array(FindingSchema3).catch([])
-});
-var RefusalSchema2 = z48.looseObject({ error: z48.string().optional().catch(void 0) });
-function businessLawsJudgeUrl(galaxyUrl) {
-  return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/business-laws/judge`;
-}
-var notJudged = (why) => ({ name: GATE, ok: true, neutral: true, reason: `not judged: ${why}` });
-function detailsOf(finding) {
-  const owners = finding.owners.length > 0 ? finding.owners.map((owner) => `@${owner}`).join(" or ") : "nobody is named";
-  return [
-    `${finding.law}: ${finding.statement}`,
-    `Why: ${finding.why === "" ? "not given" : finding.why}`,
-    `The spec says: "${finding.quote}"`,
-    ...finding.broken ? [`The judge says: ${finding.broken}`] : [],
-    `Owner: ${owners}`
-  ];
-}
-function gateOf(verdict) {
-  if (verdict.state === "neutral") return notJudged(verdict.reason);
-  if (verdict.state === "green") {
-    const domains = verdict.domains.map((domain) => domain.name ?? domain.key);
-    const where = domains.length > 0 ? ` \xB7 ${domains.join(", ")}` : "";
-    return { name: GATE, ok: true, reason: verdict.laws.length === 0 ? verdict.reason : `${verdict.laws.length} judged${where}` };
-  }
-  const reason2 = `${verdict.reason}: ${verdict.findings.map((finding) => finding.law).join(", ")}`;
-  return { name: GATE, ok: false, title: `${GATE} \u2717 ${verdict.findings.length}`, reason: reason2, details: verdict.findings.flatMap(detailsOf) };
-}
-async function signedCall(post, { url, secret, body, timeoutMs }) {
-  const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) };
-  try {
-    const response = await post(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
-    const reply = await response.json().catch(() => null);
-    return response.ok ? { reply } : { why: `galaxy answered ${response.status}${refusalOf2(reply)}` };
-  } catch (error) {
-    return { why: `galaxy could not be reached: ${error instanceof Error ? error.message : String(error)}` };
-  }
-}
-function refusalOf2(reply) {
-  const refusal4 = RefusalSchema2.safeParse(reply);
-  return refusal4.success && refusal4.data.error ? `: ${refusal4.data.error}` : "";
-}
-function gateOfReply(reply) {
-  const verdict = VerdictSchema2.safeParse(reply);
-  if (!verdict.success) return notJudged("galaxy answered no verdict");
-  if (verdict.data.state === "red" && verdict.data.findings.length === 0) return notJudged("galaxy answered a red with no finding");
-  return gateOf(verdict.data);
-}
-function businessLawsJudge({ url, secret, fetch: post = fetch, timeoutMs = TIMEOUT_MS }) {
-  return {
-    async grade({ repo, spec }) {
-      if (!secret) return notJudged(`judge not configured (${SECRET_VAR} is not set)`);
-      const called = await signedCall(post, { url, secret, body: JSON.stringify({ repo, spec }), timeoutMs });
-      return "why" in called ? notJudged(called.why) : gateOfReply(called.reply);
-    }
-  };
-}
-
-// apps/omni-app/src/knowledge-pack/store.ts
-import { z as z49 } from "zod";
-var KeptSchema = z49.object({
-  workspace: z49.string().min(1),
-  packId: z49.string().min(1),
-  created: z49.boolean(),
-  newest: z49.boolean(),
-  files: z49.number().int().nonnegative()
-});
-var PutAnswerSchema = z49.object({
-  repository: z49.string().min(1),
-  sha: z49.string().regex(/^[0-9a-f]{40}$/),
-  packs: z49.array(KeptSchema)
-});
-var HolderSchema = z49.object({ product_id: z49.string().min(1) });
-var refused6 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
-function knowledgePackStore(connection) {
-  const db = serviceDb(connection);
-  return {
-    held: async (repository) => {
-      const answer = await db.from("product_repositories").select("product_id").eq("repository", repository.toLowerCase()).limit(1);
-      return rowsOf(HolderSchema, answer).length > 0;
-    },
-    put: async ({ repository, sha, committedAt, files }) => {
-      const { data, error } = await db.rpc("knowledge_pack_put", {
-        p_repo: repository,
-        p_sha: sha,
-        p_committed_at: committedAt,
-        p_files: files.map(({ path, content, sha256: sha2562 }) => ({ path, content, sha256: sha2562 }))
-      });
-      if (error) throw refused6(error);
-      return PutAnswerSchema.parse(data);
-    }
-  };
-}
-
-// apps/omni-app/src/outbox-check/outbox-check.ts
+// apps/omni-app/src/escalation/sweep.ts
 import { mkdtempSync as mkdtempSync8, rmSync as rmSync12 } from "node:fs";
 import { tmpdir as tmpdir8 } from "node:os";
-import { join as join54 } from "node:path";
-
-// apps/omni-app/src/outbox-check/delivery-scope.ts
-function deliveryFetched(config, pr) {
-  const kind = pullKind(pr, config);
-  if ("skip" in kind) return () => true;
-  const own = ownFolder(kind);
-  const delivery2 = `${config.paths.delivery.replace(/\/+$/, "")}/`;
-  return (path) => {
-    if (!path.startsWith(delivery2)) return true;
-    const [, folder, ...rest] = path.slice(delivery2.length).split("/");
-    return folder === void 0 || rest.length === 0 || own(folder);
-  };
-}
-function ownFolder(kind) {
-  if (kind.kind === "feature") return featureFolder(kind.topic);
-  if (kind.kind === "fix") return fixFolder(kind.topic);
-  return () => false;
-}
-function featureFolder(topic) {
-  return (folder) => parseFolderName(folder)?.topic === topic;
-}
-function fixFolder(topic) {
-  const digits = /^(\d+)-/.exec(topic)?.[1];
-  if (digits === void 0 || Number(digits) === 0) return () => false;
-  const prefix = issuePrefix(parsePrd(digits));
-  return (folder) => folder.startsWith(prefix);
-}
-
-// apps/omni-app/src/outbox-check/law-locked.ts
-import { existsSync as existsSync39, readFileSync as readFileSync38 } from "node:fs";
-import { join as join52 } from "node:path";
-var STANDING = /* @__PURE__ */ new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
-function approversOf(reviews, headSha) {
-  const standing = /* @__PURE__ */ new Map();
-  for (const review of reviews) {
-    const login = review.user?.login;
-    if (login !== void 0 && STANDING.has(review.state)) standing.set(login, review);
-  }
-  return [...standing].filter(([, review]) => review.state === "APPROVED" && review.commit_id === headSha).map(([login]) => login);
-}
-async function approversAt(octokit, { owner, repo, prNumber, headSha }) {
-  const reviews = await paginate(
-    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page }).then(({ data }) => ReviewsPageSchema.parse(data))
-  );
-  return approversOf(reviews, headSha);
-}
-async function lawGateAt(octokit, {
-  owner,
-  repo,
-  prNumber,
-  baseSha,
-  headSha,
-  config,
-  base,
-  head,
-  changes
-}) {
-  const ctx = createContext(head, config);
-  const businessLaws = businessLawFiles(changes, { ctx });
-  if (config.laws.source !== "knowledge" && businessLaws.length > 0) {
-    await snapshot(octokit, { owner, repo, ref: baseSha, paths: businessLaws, dest: base });
-    await snapshot(octokit, { owner, repo, ref: headSha, paths: businessLaws, dest: head });
-  }
-  const fired = lockedLawChanges(changes, { ctx, base: diskSource(base) });
-  if (fired.length === 0) return null;
-  await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
-  const codeowners = readCodeowners((file) => existsSync39(join52(base, file)) ? readFileSync38(join52(base, file), "utf8") : null);
-  const approvers = await approversAt(octokit, { owner, repo, prNumber, headSha });
-  const lawOwners = config.laws.owners.map((entry) => lawOwnerParts(entry).owner);
-  const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
-  return { fired, ...held, codeowners: codeowners.file };
-}
-function heldLine2(held, codeowners) {
-  const files = held.paths.map((path) => `\`${path}\``).join(", ");
-  if (held.reason === "no-codeowner") {
-    const where = codeowners === null ? "no CODEOWNERS file" : `no person in \`${codeowners}\``;
-    return `  - ${held.law}: ${where} owns ${files} on the base branch, so nothing can clear it \u2014 add its owner there first.`;
-  }
-  return `  - ${held.law}: waiting for an approving review of the head commit from ${held.owners.join(" or ")}, who own ${files}.`;
-}
-function withLawGate(verdict, gate) {
-  if (gate === null) return verdict;
-  const laws = [...new Set(gate.fired.map((one) => one.law))].join(", ");
-  if (gate.awaiting.length === 0) {
-    const approved = gate.approvedBy.map((login) => `@${login}`).join(", ");
-    return { ...verdict, summary: `${verdict.summary}
-
-Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
-  }
-  const heldLaws2 = gate.awaiting.map((held) => held.law).join(", ");
-  const title = `Locked law changed without its CODEOWNER's approval \u2014 ${heldLaws2}`;
-  const summary2 = [
-    `This pull request changes a locked law. Only an approving review on GitHub from a CODEOWNER of each file it changed clears it: no outbox item, label or trailer does.`,
-    ...gate.awaiting.map((held) => heldLine2(held, gate.codeowners)),
-    "",
-    verdict.summary
-  ].join("\n");
-  return { ...verdict, conclusion: "failure", title: verdict.conclusion === "failure" ? `${title}; ${verdict.title}` : title, summary: summary2 };
-}
-
-// apps/omni-app/src/outbox-check/product-outbox.ts
-import { z as z50 } from "zod";
-var text10 = z50.string().min(1);
-var HolderRowSchema3 = z50.object({ product_id: text10, products: z50.object({ name: text10 }) });
-var DossierRowSchema3 = z50.object({ id: text10 });
-var ItemRowSchema2 = z50.object({ item: text10, rank: text10, outbox_settlements: z50.array(z50.unknown()) });
-function productOutboxReader(connection) {
-  const db = serviceDb(connection);
-  return async (repository, prd) => {
-    const [holder] = rowsOf(HolderRowSchema3, await db.from("product_repositories").select("product_id, products!inner(key, name)").eq("repository", repository.toLowerCase()).eq("products.key", prd.key).limit(1));
-    if (!holder) return null;
-    const [dossier] = rowsOf(DossierRowSchema3, await db.from("dossiers").select("id").eq("product_id", holder.product_id).eq("product_seq", prd.seq).eq("kind", "prd").limit(1));
-    if (!dossier) return null;
-    const items = rowsOf(ItemRowSchema2, await db.from("outbox_items").select("item, rank, outbox_settlements(verdict)").eq("dossier_id", dossier.id).order("raised_at", { ascending: true }).order("item", { ascending: true }));
-    return {
-      dossierId: dossier.id,
-      productId: holder.product_id,
-      productName: holder.products.name,
-      open: items.filter((row) => row.outbox_settlements.length === 0).map(({ item, rank }) => ({ item, rank }))
-    };
-  };
-}
-function questionsUrl(galaxyUrl, productId) {
-  return `${galaxyUrl.replace(/\/+$/, "")}/app/products/${encodeURIComponent(productId)}/questions`;
-}
-function minuteOf2(iso2) {
-  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso2);
-  return match ? `${match[1] ?? ""} ${match[2] ?? ""} UTC` : iso2;
-}
-function productOutboxVerdict(prd, reading, galaxyUrl) {
-  if (!reading.reachable) {
-    return {
-      conclusion: "neutral",
-      title: `held \xB7 server unreachable since ${minuteOf2(reading.since)} \xB7 held, not failed`,
-      summary: `The outbox of ${prd.id} could not be read: held, not failed. It is posted again on the next push, answer or question, or when this check is re-run.`,
-      detailsUrl: null
-    };
-  }
-  const { outbox } = reading;
-  if (!outbox) {
-    return {
-      conclusion: "failure",
-      title: `unknown \xB7 no product PRD ${prd.id} holds this repository`,
-      summary: `This pull request says it is part of ${prd.id}, but no product keyed \`${prd.key}\` that holds this repository has a PRD ${prd.seq}.`,
-      detailsUrl: null
-    };
-  }
-  const details = questionsUrl(galaxyUrl, outbox.productId);
-  const gate = `${prd.id}'s outbox lives on ${outbox.productName}, on the server: one gate for every repository the PRD builds in.`;
-  if (outbox.open.length === 0) {
-    return { conclusion: "success", title: `0 open \xB7 one gate on ${outbox.productName}`, summary: [gate, "", "No open question."].join("\n"), detailsUrl: details };
-  }
-  return {
-    conclusion: "failure",
-    title: `${outbox.open.length} open \xB7 answer on ${outbox.productName} \u203A Questions`,
-    summary: [
-      gate,
-      "",
-      ...outbox.open.map(({ item, rank }) => `- \`${item}\` \xB7 ${rank}`),
-      "",
-      `Answer them on [${outbox.productName} \u203A Questions](${details}).`
-    ].join("\n"),
-    detailsUrl: details
-  };
-}
-
-// apps/omni-app/src/escalation/held.ts
 import { join as join53 } from "node:path";
+import { z as z48 } from "zod";
 
 // kit/lib/escalation/escalation.ts
 var DAY_MS = 24 * 60 * 60 * 1e3;
@@ -11746,28 +11470,6 @@ function decide(held, now, settings) {
   return held.map((one) => decideOne(one, now, settings));
 }
 
-// apps/omni-app/src/escalation/held.ts
-var WAITING_RANKS = /* @__PURE__ */ new Set(["high", "human-action"]);
-function settingsOf(config) {
-  return { owners: config.laws.owners, leadership: config.laws.leadership, workingDays: config.limits.escalationWorkingDays };
-}
-function heldItems(config, head, pr) {
-  const kind = pullKind(pr, config);
-  if ("skip" in kind || kind.kind !== "feature") return [];
-  const prd = prdOfTopic(kind.topic, prdDirs(config).flatMap((dir) => prdFoldersIn(join53(head, dir)).map((folder) => folder.name)), config);
-  if ("skip" in prd) return [];
-  return openItems(prd.number, { ctx: createContext(head, config) }).filter((item) => item.rank !== null && WAITING_RANKS.has(item.rank)).map((item) => ({ thing: item.id ?? item.file.replace(/^.*\//, "").replace(/\.md$/, ""), kind: "item" }));
-}
-function heldLaws(gate) {
-  if (gate === null) return [];
-  return [...new Set(gate.awaiting.map((one) => one.law))].map((law) => ({ thing: law, kind: "law" }));
-}
-function heldAt({ config, head, pr, gate }) {
-  const settings = settingsOf(config);
-  if (!escalates(settings)) return null;
-  return { settings, held: [...heldLaws(gate), ...heldItems(config, head, pr)] };
-}
-
 // kit/lib/escalation/comments.ts
 var RECORD_MARKER = "<!-- omni:escalation -->";
 var ASK_MARKER = (thing, step) => `<!-- omni:escalation-ask ${thing} ${String(step)} -->`;
@@ -11826,6 +11528,472 @@ function readAsk(body) {
   return [...body.matchAll(ASK_RE)].flatMap(
     ([, thing, step]) => thing === void 0 || step === void 0 ? [] : [{ thing, step: asStep(step) }]
   );
+}
+
+// apps/omni-app/src/escalation/held.ts
+import { join as join52 } from "node:path";
+var WAITING_RANKS = /* @__PURE__ */ new Set(["high", "human-action"]);
+function settingsOf(config) {
+  return { owners: config.laws.owners, leadership: config.laws.leadership, workingDays: config.limits.escalationWorkingDays };
+}
+function heldItems(config, head, pr) {
+  const kind = pullKind(pr, config);
+  if ("skip" in kind || kind.kind !== "feature") return [];
+  const prd = prdOfTopic(kind.topic, prdDirs(config).flatMap((dir) => prdFoldersIn(join52(head, dir)).map((folder) => folder.name)), config);
+  if ("skip" in prd) return [];
+  return openItems(prd.number, { ctx: createContext(head, config) }).filter((item) => item.rank !== null && WAITING_RANKS.has(item.rank)).map((item) => ({ thing: item.id ?? item.file.replace(/^.*\//, "").replace(/\.md$/, ""), kind: "item" }));
+}
+function heldLaws(gate) {
+  if (gate === null) return [];
+  return [...new Set(gate.awaiting.map((one) => one.law))].map((law) => ({ thing: law, kind: "law" }));
+}
+function heldAt({ config, head, pr, gate }) {
+  const settings = settingsOf(config);
+  if (!escalates(settings)) return null;
+  return { settings, held: [...heldLaws(gate), ...heldItems(config, head, pr)] };
+}
+
+// apps/omni-app/src/escalation/sweep.ts
+var InstallationsSchema = z48.array(z48.looseObject({ id: z48.number() }));
+var RepositoriesSchema = z48.looseObject({
+  repositories: z48.array(z48.looseObject({ name: z48.string(), owner: z48.looseObject({ login: z48.string() }) }))
+});
+var OpenPullsSchema = z48.array(z48.looseObject({ number: z48.number(), base: z48.looseObject({ sha: z48.string() }) }));
+var lower = (login) => login.toLowerCase();
+function moveDue(lines, settings, now, posted) {
+  const decisions = decide(lines.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
+  const due = [];
+  const moved = lines.map((line, index) => {
+    const decision = decisions[index];
+    if (decision === void 0 || decision.step <= line.step) return line;
+    const already = new Set(line.asked.map(lower));
+    const newlyAsked = decision.asked.filter((login) => !already.has(lower(login)));
+    const announced = posted.some((one) => one.thing === line.thing && one.step >= decision.step);
+    if (!announced && newlyAsked.length > 0) due.push({ ...decision, newlyAsked });
+    const { thing, kind, firstHeld, step, asked, nextDue } = decision;
+    return { thing, kind, firstHeld, step, asked, nextDue };
+  });
+  return { lines: moved, due };
+}
+async function settingsAt(octokit, { owner, repo, baseSha }) {
+  const dest = mkdtempSync8(join53(tmpdir8(), "omni-escalation-"));
+  try {
+    const { config } = await readBaseConfig(octokit, { owner, repo, baseSha, dest });
+    return config === null ? null : settingsOf(config);
+  } finally {
+    rmSync12(dest, { recursive: true, force: true });
+  }
+}
+function recordIn(comments) {
+  for (const comment of comments) {
+    const lines = readRecord(comment.body);
+    if (lines !== null) return lines.length > 0 ? { record: comment, lines } : null;
+  }
+  return null;
+}
+async function sweepPull(octokit, { owner, repo, prNumber, now, settings }) {
+  const comments = await listComments(octokit, { owner, repo, prNumber });
+  const found = recordIn(comments);
+  if (found === null) return "none";
+  const read = await settings();
+  if (read === null || !escalates(read)) return "none";
+  const moved = moveDue(found.lines, read, now, comments.flatMap((comment) => readAsk(comment.body)));
+  if (moved.due.length > 0) {
+    await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { owner, repo, issue_number: prNumber, body: renderAsk(moved.due) });
+  }
+  const body = renderRecord(moved.lines);
+  if (body !== found.record.body) {
+    await octokit.request("PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}", { owner, repo, comment_id: found.record.id, body });
+  }
+  if (moved.due.length > 0) return "asked";
+  return body === found.record.body ? "unchanged" : "moved";
+}
+async function sweepRepository(octokit, { owner, repo, now, log: log2 }) {
+  const pulls = await paginate(
+    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, state: "open", per_page: PER_PAGE, page }).then(({ data }) => OpenPullsSchema.parse(data))
+  );
+  const configs = /* @__PURE__ */ new Map();
+  const settingsOfBase = (baseSha) => () => {
+    const known = configs.get(baseSha) ?? settingsAt(octokit, { owner, repo, baseSha });
+    configs.set(baseSha, known);
+    return known;
+  };
+  const swept = { pulls: pulls.length, asked: 0, failed: 0 };
+  for (const pull of pulls) {
+    try {
+      const outcome2 = await sweepPull(octokit, { owner, repo, prNumber: parsePr(pull.number), now, settings: settingsOfBase(pull.base.sha) });
+      if (outcome2 === "asked") swept.asked += 1;
+    } catch (error) {
+      if (refusalIn(error)) throw error;
+      swept.failed += 1;
+      log2(`escalation sweep of ${owner}/${repo}#${String(pull.number)} waits for the next hour: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return swept;
+}
+async function installationsOf(app) {
+  const installations = await paginate(
+    (page) => app.request("GET /app/installations", { per_page: PER_PAGE, page }).then(({ data }) => InstallationsSchema.parse(data))
+  );
+  return installations.map(({ id }) => id);
+}
+async function repositoriesOf(octokit) {
+  const repositories = await paginate(
+    (page) => octokit.request("GET /installation/repositories", { per_page: PER_PAGE, page }).then(({ data }) => RepositoriesSchema.parse(data).repositories)
+  );
+  return repositories.map(({ name, owner }) => ({ owner: owner.login, repo: name }));
+}
+async function sweepAll({ app, octokitFor, now, log: log2 }) {
+  const total = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
+  for (const installation of await installationsOf(app)) {
+    const octokit = await octokitFor(installation);
+    for (const { owner, repo } of await repositoriesOf(octokit)) {
+      const swept = await sweepRepository(octokit, { owner, repo, now, log: log2 });
+      total.repositories += 1;
+      total.pulls += swept.pulls;
+      total.asked += swept.asked;
+      total.failed += swept.failed;
+    }
+  }
+  return total;
+}
+
+// apps/omni-app/src/escalation/job.ts
+var ESCALATION_KIND = "escalation";
+function sweptLine({ repositories, pulls, asked, failed: failed3 }) {
+  return `escalation: ${String(repositories)} repositories, ${String(pulls)} open pull requests, ${String(asked)} asked, ${String(failed3)} left for the next hour`;
+}
+function escalationHandler({
+  octokitFor,
+  appOctokit,
+  log: log2 = noteTo("escalation"),
+  clock = Date.now
+}) {
+  return async () => {
+    if (appOctokit === null) {
+      log2("escalation: the App cannot list its installations here, so nobody is asked.");
+      return { outcome: "skipped", reason: "no app: the App cannot list its installations here" };
+    }
+    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2 });
+    log2(sweptLine(swept));
+    return { outcome: "done" };
+  };
+}
+
+// apps/omni-app/src/inbox-check/business-laws-judge.ts
+import { z as z49 } from "zod";
+var SECRET_VAR = "BUSINESS_LAWS_JUDGE_SECRET";
+var GATE = "business laws";
+var TIMEOUT_MS = 55e3;
+var FindingSchema3 = z49.looseObject({
+  law: z49.string(),
+  statement: z49.string(),
+  why: z49.string(),
+  quote: z49.string(),
+  // What the judge found broken, in its own words (bug #2696); an older galaxy sends none.
+  broken: z49.string().optional().catch(void 0),
+  owners: z49.array(z49.string()).catch([])
+});
+var VerdictSchema2 = z49.looseObject({
+  state: z49.enum(["green", "red", "neutral"]),
+  reason: z49.string(),
+  laws: z49.array(z49.string()),
+  domains: z49.array(z49.looseObject({ key: z49.string(), name: z49.string().optional() })).catch([]),
+  findings: z49.array(FindingSchema3).catch([])
+});
+var RefusalSchema2 = z49.looseObject({ error: z49.string().optional().catch(void 0) });
+function businessLawsJudgeUrl(galaxyUrl) {
+  return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/business-laws/judge`;
+}
+var notJudged = (why) => ({ name: GATE, ok: true, neutral: true, reason: `not judged: ${why}` });
+function detailsOf(finding) {
+  const owners = finding.owners.length > 0 ? finding.owners.map((owner) => `@${owner}`).join(" or ") : "nobody is named";
+  return [
+    `${finding.law}: ${finding.statement}`,
+    `Why: ${finding.why === "" ? "not given" : finding.why}`,
+    `The spec says: "${finding.quote}"`,
+    ...finding.broken ? [`The judge says: ${finding.broken}`] : [],
+    `Owner: ${owners}`
+  ];
+}
+function gateOf(verdict) {
+  if (verdict.state === "neutral") return notJudged(verdict.reason);
+  if (verdict.state === "green") {
+    const domains = verdict.domains.map((domain) => domain.name ?? domain.key);
+    const where = domains.length > 0 ? ` \xB7 ${domains.join(", ")}` : "";
+    return { name: GATE, ok: true, reason: verdict.laws.length === 0 ? verdict.reason : `${verdict.laws.length} judged${where}` };
+  }
+  const reason2 = `${verdict.reason}: ${verdict.findings.map((finding) => finding.law).join(", ")}`;
+  return { name: GATE, ok: false, title: `${GATE} \u2717 ${verdict.findings.length}`, reason: reason2, details: verdict.findings.flatMap(detailsOf) };
+}
+async function signedCall(post, { url, secret, body, timeoutMs }) {
+  const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) };
+  try {
+    const response = await post(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
+    const reply = await response.json().catch(() => null);
+    return response.ok ? { reply } : { why: `galaxy answered ${response.status}${refusalOf2(reply)}` };
+  } catch (error) {
+    return { why: `galaxy could not be reached: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+function refusalOf2(reply) {
+  const refusal4 = RefusalSchema2.safeParse(reply);
+  return refusal4.success && refusal4.data.error ? `: ${refusal4.data.error}` : "";
+}
+function gateOfReply(reply) {
+  const verdict = VerdictSchema2.safeParse(reply);
+  if (!verdict.success) return notJudged("galaxy answered no verdict");
+  if (verdict.data.state === "red" && verdict.data.findings.length === 0) return notJudged("galaxy answered a red with no finding");
+  return gateOf(verdict.data);
+}
+function businessLawsJudge({ url, secret, fetch: post = fetch, timeoutMs = TIMEOUT_MS }) {
+  return {
+    async grade({ repo, spec }) {
+      if (!secret) return notJudged(`judge not configured (${SECRET_VAR} is not set)`);
+      const called = await signedCall(post, { url, secret, body: JSON.stringify({ repo, spec }), timeoutMs });
+      return "why" in called ? notJudged(called.why) : gateOfReply(called.reply);
+    }
+  };
+}
+
+// apps/omni-app/src/knowledge-pack/store.ts
+import { z as z50 } from "zod";
+var KeptSchema = z50.object({
+  workspace: z50.string().min(1),
+  packId: z50.string().min(1),
+  created: z50.boolean(),
+  newest: z50.boolean(),
+  files: z50.number().int().nonnegative()
+});
+var PutAnswerSchema = z50.object({
+  repository: z50.string().min(1),
+  sha: z50.string().regex(/^[0-9a-f]{40}$/),
+  packs: z50.array(KeptSchema)
+});
+var HolderSchema = z50.object({ product_id: z50.string().min(1) });
+var refused6 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+function knowledgePackStore(connection) {
+  const db = serviceDb(connection);
+  return {
+    held: async (repository) => {
+      const answer = await db.from("product_repositories").select("product_id").eq("repository", repository.toLowerCase()).limit(1);
+      return rowsOf(HolderSchema, answer).length > 0;
+    },
+    put: async ({ repository, sha, committedAt, files }) => {
+      const { data, error } = await db.rpc("knowledge_pack_put", {
+        p_repo: repository,
+        p_sha: sha,
+        p_committed_at: committedAt,
+        p_files: files.map(({ path, content, sha256: sha2562 }) => ({ path, content, sha256: sha2562 }))
+      });
+      if (error) throw refused6(error);
+      return PutAnswerSchema.parse(data);
+    }
+  };
+}
+
+// apps/omni-app/src/octokit-for.ts
+import { App } from "@octokit/app";
+import { createClient as createClient4 } from "@supabase/supabase-js";
+var APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
+function installationOctokitFor(githubApp, github) {
+  let app;
+  return async (installationId) => {
+    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app reads GitHub as an installation");
+    app ??= new App({ appId: id, privateKey });
+    const octokit = await app.getInstallationOctokit(installationId);
+    const budgeted = github.bound({ installation: installationId, priority: "background" });
+    const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init);
+    octokit.hook.before("request", (options) => {
+      options.request = { ...options.request, fetch: fetch2 };
+    });
+    return octokit;
+  };
+}
+function appOctokitFor(githubApp) {
+  let app;
+  return () => {
+    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app looks up its installations as the App");
+    app ??= new App({ appId: id, privateKey });
+    return app.octokit;
+  };
+}
+function githubStoreOf(supabase) {
+  if (!supabase) return null;
+  const db = createClient4(supabase.url, supabase.key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  });
+  return supabaseGithubStore({ etags: () => db.from("github_etags"), budget: () => db.from("github_budget") });
+}
+
+// apps/omni-app/src/outbox-check/outbox-check.ts
+import { mkdtempSync as mkdtempSync9, rmSync as rmSync13 } from "node:fs";
+import { tmpdir as tmpdir9 } from "node:os";
+import { join as join55 } from "node:path";
+
+// apps/omni-app/src/outbox-check/delivery-scope.ts
+function deliveryFetched(config, pr) {
+  const kind = pullKind(pr, config);
+  if ("skip" in kind) return () => true;
+  const own = ownFolder(kind);
+  const delivery2 = `${config.paths.delivery.replace(/\/+$/, "")}/`;
+  return (path) => {
+    if (!path.startsWith(delivery2)) return true;
+    const [, folder, ...rest] = path.slice(delivery2.length).split("/");
+    return folder === void 0 || rest.length === 0 || own(folder);
+  };
+}
+function ownFolder(kind) {
+  if (kind.kind === "feature") return featureFolder(kind.topic);
+  if (kind.kind === "fix") return fixFolder(kind.topic);
+  return () => false;
+}
+function featureFolder(topic) {
+  return (folder) => parseFolderName(folder)?.topic === topic;
+}
+function fixFolder(topic) {
+  const digits = /^(\d+)-/.exec(topic)?.[1];
+  if (digits === void 0 || Number(digits) === 0) return () => false;
+  const prefix = issuePrefix(parsePrd(digits));
+  return (folder) => folder.startsWith(prefix);
+}
+
+// apps/omni-app/src/outbox-check/law-locked.ts
+import { existsSync as existsSync39, readFileSync as readFileSync38 } from "node:fs";
+import { join as join54 } from "node:path";
+var STANDING = /* @__PURE__ */ new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
+function approversOf(reviews, headSha) {
+  const standing = /* @__PURE__ */ new Map();
+  for (const review of reviews) {
+    const login = review.user?.login;
+    if (login !== void 0 && STANDING.has(review.state)) standing.set(login, review);
+  }
+  return [...standing].filter(([, review]) => review.state === "APPROVED" && review.commit_id === headSha).map(([login]) => login);
+}
+async function approversAt(octokit, { owner, repo, prNumber, headSha }) {
+  const reviews = await paginate(
+    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page }).then(({ data }) => ReviewsPageSchema.parse(data))
+  );
+  return approversOf(reviews, headSha);
+}
+async function lawGateAt(octokit, {
+  owner,
+  repo,
+  prNumber,
+  baseSha,
+  headSha,
+  config,
+  base,
+  head,
+  changes
+}) {
+  const ctx = createContext(head, config);
+  const businessLaws = businessLawFiles(changes, { ctx });
+  if (config.laws.source !== "knowledge" && businessLaws.length > 0) {
+    await snapshot(octokit, { owner, repo, ref: baseSha, paths: businessLaws, dest: base });
+    await snapshot(octokit, { owner, repo, ref: headSha, paths: businessLaws, dest: head });
+  }
+  const fired = lockedLawChanges(changes, { ctx, base: diskSource(base) });
+  if (fired.length === 0) return null;
+  await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
+  const codeowners = readCodeowners((file) => existsSync39(join54(base, file)) ? readFileSync38(join54(base, file), "utf8") : null);
+  const approvers = await approversAt(octokit, { owner, repo, prNumber, headSha });
+  const lawOwners = config.laws.owners.map((entry) => lawOwnerParts(entry).owner);
+  const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
+  return { fired, ...held, codeowners: codeowners.file };
+}
+function heldLine2(held, codeowners) {
+  const files = held.paths.map((path) => `\`${path}\``).join(", ");
+  if (held.reason === "no-codeowner") {
+    const where = codeowners === null ? "no CODEOWNERS file" : `no person in \`${codeowners}\``;
+    return `  - ${held.law}: ${where} owns ${files} on the base branch, so nothing can clear it \u2014 add its owner there first.`;
+  }
+  return `  - ${held.law}: waiting for an approving review of the head commit from ${held.owners.join(" or ")}, who own ${files}.`;
+}
+function withLawGate(verdict, gate) {
+  if (gate === null) return verdict;
+  const laws = [...new Set(gate.fired.map((one) => one.law))].join(", ");
+  if (gate.awaiting.length === 0) {
+    const approved = gate.approvedBy.map((login) => `@${login}`).join(", ");
+    return { ...verdict, summary: `${verdict.summary}
+
+Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
+  }
+  const heldLaws2 = gate.awaiting.map((held) => held.law).join(", ");
+  const title = `Locked law changed without its CODEOWNER's approval \u2014 ${heldLaws2}`;
+  const summary2 = [
+    `This pull request changes a locked law. Only an approving review on GitHub from a CODEOWNER of each file it changed clears it: no outbox item, label or trailer does.`,
+    ...gate.awaiting.map((held) => heldLine2(held, gate.codeowners)),
+    "",
+    verdict.summary
+  ].join("\n");
+  return { ...verdict, conclusion: "failure", title: verdict.conclusion === "failure" ? `${title}; ${verdict.title}` : title, summary: summary2 };
+}
+
+// apps/omni-app/src/outbox-check/product-outbox.ts
+import { z as z51 } from "zod";
+var text10 = z51.string().min(1);
+var HolderRowSchema3 = z51.object({ product_id: text10, products: z51.object({ name: text10 }) });
+var DossierRowSchema3 = z51.object({ id: text10 });
+var ItemRowSchema2 = z51.object({ item: text10, rank: text10, outbox_settlements: z51.array(z51.unknown()) });
+function productOutboxReader(connection) {
+  const db = serviceDb(connection);
+  return async (repository, prd) => {
+    const [holder] = rowsOf(HolderRowSchema3, await db.from("product_repositories").select("product_id, products!inner(key, name)").eq("repository", repository.toLowerCase()).eq("products.key", prd.key).limit(1));
+    if (!holder) return null;
+    const [dossier] = rowsOf(DossierRowSchema3, await db.from("dossiers").select("id").eq("product_id", holder.product_id).eq("product_seq", prd.seq).eq("kind", "prd").limit(1));
+    if (!dossier) return null;
+    const items = rowsOf(ItemRowSchema2, await db.from("outbox_items").select("item, rank, outbox_settlements(verdict)").eq("dossier_id", dossier.id).order("raised_at", { ascending: true }).order("item", { ascending: true }));
+    return {
+      dossierId: dossier.id,
+      productId: holder.product_id,
+      productName: holder.products.name,
+      open: items.filter((row) => row.outbox_settlements.length === 0).map(({ item, rank }) => ({ item, rank }))
+    };
+  };
+}
+function questionsUrl(galaxyUrl, productId) {
+  return `${galaxyUrl.replace(/\/+$/, "")}/app/products/${encodeURIComponent(productId)}/questions`;
+}
+function minuteOf2(iso2) {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso2);
+  return match ? `${match[1] ?? ""} ${match[2] ?? ""} UTC` : iso2;
+}
+function productOutboxVerdict(prd, reading, galaxyUrl) {
+  if (!reading.reachable) {
+    return {
+      conclusion: "neutral",
+      title: `held \xB7 server unreachable since ${minuteOf2(reading.since)} \xB7 held, not failed`,
+      summary: `The outbox of ${prd.id} could not be read: held, not failed. It is posted again on the next push, answer or question, or when this check is re-run.`,
+      detailsUrl: null
+    };
+  }
+  const { outbox } = reading;
+  if (!outbox) {
+    return {
+      conclusion: "failure",
+      title: `unknown \xB7 no product PRD ${prd.id} holds this repository`,
+      summary: `This pull request says it is part of ${prd.id}, but no product keyed \`${prd.key}\` that holds this repository has a PRD ${prd.seq}.`,
+      detailsUrl: null
+    };
+  }
+  const details = questionsUrl(galaxyUrl, outbox.productId);
+  const gate = `${prd.id}'s outbox lives on ${outbox.productName}, on the server: one gate for every repository the PRD builds in.`;
+  if (outbox.open.length === 0) {
+    return { conclusion: "success", title: `0 open \xB7 one gate on ${outbox.productName}`, summary: [gate, "", "No open question."].join("\n"), detailsUrl: details };
+  }
+  return {
+    conclusion: "failure",
+    title: `${outbox.open.length} open \xB7 answer on ${outbox.productName} \u203A Questions`,
+    summary: [
+      gate,
+      "",
+      ...outbox.open.map(({ item, rank }) => `- \`${item}\` \xB7 ${rank}`),
+      "",
+      `Answer them on [${outbox.productName} \u203A Questions](${details}).`
+    ].join("\n"),
+    detailsUrl: details
+  };
 }
 
 // apps/omni-app/src/escalation/record.ts
@@ -11931,8 +12099,8 @@ async function sayingBudget(where, log2, work) {
 }
 async function evaluateAt2(octokit, { owner, repo, prNumber, headSha }) {
   const pr = await readPull2(octokit, { owner, repo, prNumber });
-  const base = mkdtempSync8(join54(tmpdir8(), "omni-base-"));
-  const head = mkdtempSync8(join54(tmpdir8(), "omni-head-"));
+  const base = mkdtempSync9(join55(tmpdir9(), "omni-base-"));
+  const head = mkdtempSync9(join55(tmpdir9(), "omni-head-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base });
     let comments = [];
@@ -11958,8 +12126,8 @@ async function evaluateAt2(octokit, { owner, repo, prNumber, headSha }) {
     const held = heldAt({ config, head, pr, gate });
     return held === null ? withLawGate(verdict, gate) : { ...withLawGate(verdict, gate), held };
   } finally {
-    rmSync12(base, { recursive: true, force: true });
-    rmSync12(head, { recursive: true, force: true });
+    rmSync13(base, { recursive: true, force: true });
+    rmSync13(head, { recursive: true, force: true });
   }
 }
 function failOutboxCheck(octokit, { owner, repo, prNumber, headSha }, reason2, log2) {
@@ -12023,40 +12191,504 @@ function outboxFailureHook({ octokitFor, log: log2 = noteTo("outbox-check") }) {
   };
 }
 
+// apps/omni-app/src/pr-stats/schema.ts
+import { z as z53 } from "zod";
+
+// kit/lib/plan-repo/gh-schema.ts
+import { z as z52 } from "zod";
+var GhRepositorySchema = z52.looseObject({ default_branch: z52.string() });
+var GhContentEntrySchema = z52.looseObject({ type: z52.string(), name: z52.string(), path: z52.string() });
+var GhCompareFileSchema = z52.looseObject({
+  filename: z52.string(),
+  previous_filename: z52.string().optional()
+});
+var GhCompareSchema = z52.looseObject({
+  ahead_by: z52.number().optional(),
+  status: z52.string().optional(),
+  files: z52.array(GhCompareFileSchema).optional()
+});
+function firstIssue(error) {
+  const [issue] = error.issues;
+  if (issue === void 0) return error.message;
+  const field4 = issue.path.length > 0 ? issue.path.join(".") : "(answer)";
+  return `${field4}: ${issue.message}`;
+}
+
+// apps/omni-app/src/pr-stats/schema.ts
+var RateLimitSchema = z53.looseObject({
+  limit: z53.number(),
+  remaining: z53.number(),
+  resetAt: z53.string().nullish()
+});
+var RateLimited = z53.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z53.looseObject({
+  repository: z53.looseObject({
+    pullRequests: z53.looseObject({
+      pageInfo: z53.looseObject({ hasNextPage: z53.boolean(), endCursor: z53.string().nullish() }),
+      nodes: z53.array(z53.looseObject({ number: PrNumberSchema, updatedAt: z53.string() }))
+    })
+  })
+});
+var ActorSchema = z53.looseObject({ login: z53.string().nullish(), __typename: z53.string().nullish() }).nullish();
+var PullDetailSchema = z53.looseObject({
+  number: PrNumberSchema,
+  author: ActorSchema,
+  createdAt: z53.string(),
+  mergedAt: z53.string().nullish(),
+  closedAt: z53.string().nullish(),
+  mergedBy: ActorSchema,
+  baseRefName: z53.string().nullish(),
+  headRefName: z53.string().nullish(),
+  isDraft: z53.boolean().nullish(),
+  body: z53.string().nullish(),
+  additions: z53.number().nullish(),
+  deletions: z53.number().nullish(),
+  labels: z53.looseObject({ nodes: z53.array(z53.looseObject({ name: z53.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z53.looseObject({
+    totalCount: z53.number(),
+    nodes: z53.array(
+      z53.looseObject({
+        commit: z53.looseObject({ message: z53.string().nullish(), committedDate: z53.string().nullish() }).nullish()
+      })
+    )
+  }).nullish(),
+  reviews: z53.looseObject({ nodes: z53.array(z53.looseObject({ author: ActorSchema, submittedAt: z53.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z53.looseObject({
+    nodes: z53.array(
+      z53.looseObject({ createdAt: z53.string().nullish(), label: z53.looseObject({ name: z53.string().nullish() }).nullish() }).nullish()
+    ).nullish()
+  }).nullish()
+});
+var PullDetailsSchema = z53.looseObject({ repository: z53.record(z53.string(), z53.unknown()) });
+var PullCommentsSchema = z53.looseObject({
+  comments: z53.looseObject({ nodes: z53.array(z53.looseObject({ body: z53.string().nullish() }).nullish()).nullish() }).nullish()
+}).nullish();
+var TrackedRowSchema2 = z53.looseObject({
+  workspace_id: z53.string(),
+  full_name: z53.string(),
+  collected_until: z53.string().nullish(),
+  workspaces: z53.looseObject({ github_installation_id: z53.union([z53.number(), z53.string()]) })
+});
+var FailureSchema2 = z53.looseObject({
+  errors: z53.array(z53.looseObject({ type: z53.unknown().optional(), message: z53.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z53.unknown().optional(),
+  status: z53.unknown().optional()
+});
+function parseAnswer(schema, value, what) {
+  return parsedOr(schema, value, `GitHub answered ${what} unexpectedly`);
+}
+function parsedOr(schema, value, context) {
+  const parsed2 = schema.safeParse(value);
+  if (parsed2.success) return parsed2.data;
+  throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
+}
+var BudgetSchema = z53.object({
+  limit: z53.number().exactOptional(),
+  remaining: z53.number().exactOptional(),
+  resetAt: z53.string().nullable().exactOptional()
+});
+var TrackedRepositorySchema = z53.object({
+  workspaceId: z53.string(),
+  installationId: z53.number(),
+  fullName: z53.string(),
+  collectedUntil: z53.string().nullable()
+});
+var TrackedRepositoriesSchema = z53.array(TrackedRepositorySchema);
+var BatchOutSchema = z53.object({
+  saved: z53.number(),
+  cursor: z53.string(),
+  more: z53.boolean(),
+  paused: z53.literal(true).exactOptional(),
+  error: z53.string().exactOptional(),
+  budget: BudgetSchema
+});
+
+// apps/omni-app/src/pr-stats/signed.ts
+var DEFAULT_SIGNATURE = parseConfig("kit: 1\n").signature;
+if (!DEFAULT_SIGNATURE) throw new Error("the kit's default config signs as Omni-man");
+var SIGNATURE = DEFAULT_SIGNATURE;
+var OMNI_LOGIN = botLogin(SIGNATURE.email);
+var TRAILER = /^co-authored-by:.*<([^>]+)>$/i;
+function carriesOmniTrailer(message) {
+  if (typeof message !== "string") return false;
+  const email = SIGNATURE.email.toLowerCase();
+  return message.split("\n").some((line) => TRAILER.exec(line.trim())?.[1]?.trim().toLowerCase() === email);
+}
+function isOmniSigned({ author, body, commitMessages }) {
+  return author === OMNI_LOGIN || isSignedBody(body) || (commitMessages ?? []).some(carriesOmniTrailer);
+}
+function isBot(user) {
+  if (!user) return false;
+  return user.type === "Bot" || typeof user.login === "string" && user.login.endsWith("[bot]");
+}
+
+// apps/omni-app/src/pr-stats/github.ts
+var PER_PAGE3 = 100;
+var MAX_LIST_PAGES = 50;
+var COMMITS_READ = 100;
+var LABELS_READ = 100;
+var REVIEWS_READ = 100;
+var LABEL_EVENTS_READ = 100;
+var NEEDS_FIX_LABEL = parseConfig("kit: 1\n").labels.needsFix;
+var COMMENTS_READ = 100;
+var MAIN_BRANCHES = ["main", "master", "develop"];
+var STATUS_MARKER = makeMarkers(parseConfig("kit: 1\n").markers.prefix).status;
+var BUDGET_FLOOR = 0.5;
+var QUERY_COST_MARGIN = 10;
+var RATE_LIMIT = "rateLimit { limit remaining resetAt }";
+var BudgetLow = class extends Error {
+  constructor(budget) {
+    super(`GitHub budget low: ${budget.remaining} of ${budget.limit} left, until ${budget.resetAt ?? "the reset"}`);
+    this.name = "BudgetLow";
+  }
+};
+function affords(budget) {
+  if (budget.limit === void 0) return true;
+  return Number(budget.remaining) - QUERY_COST_MARGIN >= budget.limit * BUDGET_FLOOR;
+}
+async function ask2(octokit, budget, query, variables) {
+  if (budget.limit === void 0) {
+    const answer2 = parseAnswer(RateLimited, await octokit.graphql(`query Budget { ${RATE_LIMIT} }`), "Budget");
+    Object.assign(budget, answer2?.rateLimit);
+  }
+  if (!affords(budget)) throw new BudgetLow(budget);
+  const data = await octokit.graphql(query, variables);
+  const answer = parseAnswer(RateLimited, data, operationOf(query));
+  if (answer?.rateLimit) Object.assign(budget, answer.rateLimit);
+  return data;
+}
+function operationOf(query) {
+  return /query\s+(\w+)/.exec(query)?.[1] ?? "a query";
+}
+var LIST = `query PullsUpdated($owner: String!, $repo: String!, $first: Int!, $after: String) {
+  ${RATE_LIMIT}
+  repository(owner: $owner, name: $repo) {
+    pullRequests(first: $first, after: $after, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      pageInfo { hasNextPage endCursor }
+      nodes { number updatedAt }
+    }
+  }
+}`;
+async function pullsUpdatedAfter(octokit, budget, { owner, repo, since }) {
+  const after = Date.parse(since);
+  const out = [];
+  let cursor = null;
+  for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
+    const answer = await ask2(octokit, budget, LIST, { owner, repo, first: PER_PAGE3, after: cursor });
+    const data = parseAnswer(PullsUpdatedSchema, answer, "PullsUpdated");
+    const { nodes, pageInfo } = data.repository.pullRequests;
+    for (const pull of nodes) {
+      if (Date.parse(pull.updatedAt) <= after) return out.reverse();
+      out.push({ number: pull.number, updatedAt: pull.updatedAt });
+    }
+    if (!pageInfo.hasNextPage) break;
+    cursor = pageInfo.endCursor;
+  }
+  return out.reverse();
+}
+var PULL_FIELDS = `number
+  author { login __typename }
+  createdAt mergedAt closedAt
+  mergedBy { login __typename }
+  baseRefName headRefName isDraft body additions deletions
+  labels(first: ${LABELS_READ}) { nodes { name } }
+  commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message committedDate } } }
+  reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }
+  timelineItems(first: ${LABEL_EVENTS_READ}, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }`;
+async function readPullRecords(octokit, budget, { workspaceId, fullName, numbers }) {
+  if (numbers.length === 0) return [];
+  const [owner, repo] = fullName.split("/");
+  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { ${PULL_FIELDS} }`).join("\n    ");
+  const query = `query PullDetails($owner: String!, $repo: String!) {
+  ${RATE_LIMIT}
+  repository(owner: $owner, name: $repo) {
+    ${pulls}
+  }
+}`;
+  const data = parseAnswer(PullDetailsSchema, await ask2(octokit, budget, query, { owner, repo }), "PullDetails");
+  const records = numbers.flatMap((number) => {
+    const pull = data.repository[`p${number}`];
+    return pull ? [recordOf(parseAnswer(PullDetailSchema, pull, `PullDetails, pull request ${number}`), { workspaceId, fullName })] : [];
+  });
+  const held = records.filter(({ row }) => canHoldRun(row)).map(({ row }) => row.number);
+  const states = await readStatusStates(octokit, budget, { owner, repo, numbers: held });
+  for (const { row } of records) row.status_state = states.get(row.number) ?? null;
+  return records;
+}
+function canHoldRun(row) {
+  return !row.merged_at && !row.closed_at && row.omni_signed && MAIN_BRANCHES.includes(row.base ?? "");
+}
+async function readStatusStates(octokit, budget, { owner, repo, numbers }) {
+  const states = /* @__PURE__ */ new Map();
+  if (numbers.length === 0) return states;
+  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { comments(first: ${COMMENTS_READ}) { nodes { body } } }`).join("\n    ");
+  const query = `query PullStatus($owner: String!, $repo: String!) {
+  ${RATE_LIMIT}
+  repository(owner: $owner, name: $repo) {
+    ${pulls}
+  }
+}`;
+  const data = parseAnswer(PullDetailsSchema, await ask2(octokit, budget, query, { owner, repo }), "PullStatus");
+  for (const number of numbers) {
+    const pull = parseAnswer(PullCommentsSchema, data.repository[`p${number}`], `PullStatus, pull request ${number}`);
+    const comment = pull?.comments?.nodes?.find((node) => node?.body?.includes(STATUS_MARKER));
+    const state = comment?.body ? stateOf(comment.body) : null;
+    if (state) states.set(number, state);
+  }
+  return states;
+}
+function stateOf(body) {
+  return /^\s*-?\s*state:\s*(.+?)\s*$/m.exec(body)?.[1] ?? null;
+}
+function loginOf2(actor) {
+  if (!actor?.login) return null;
+  return actor.__typename === "Bot" && !actor.login.endsWith("[bot]") ? `${actor.login}[bot]` : actor.login;
+}
+function recordOf(pull, { workspaceId, fullName }) {
+  const author = loginOf2(pull.author);
+  const commits = pull.commits ?? { totalCount: 0, nodes: [] };
+  const row = {
+    workspace_id: workspaceId,
+    repo: fullName,
+    number: pull.number,
+    author,
+    author_is_bot: Boolean(pull.author) && isBot({ login: author, type: pull.author?.__typename }),
+    opened_at: pull.createdAt,
+    ...closing(pull),
+    ...loopFacts(pull, commits),
+    commits: commits.totalCount,
+    additions: pull.additions ?? 0,
+    deletions: pull.deletions ?? 0,
+    omni_signed: isOmniSigned({ author, body: pull.body, commitMessages: commits.nodes.map((node) => node.commit?.message) })
+  };
+  return { row, reviews: firstReviews(pull, author).map(([reviewer, firstAt]) => ({ workspace_id: workspaceId, repo: fullName, number: pull.number, reviewer, first_at: firstAt })) };
+}
+function loopFacts(pull, commits) {
+  return {
+    base: pull.baseRefName ?? null,
+    head: pull.headRefName ?? null,
+    draft: Boolean(pull.isDraft),
+    labels: (pull.labels?.nodes ?? []).map((label2) => label2?.name).filter((name) => Boolean(name)),
+    head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
+    needs_fix_at: firstNeedsFix(pull)
+  };
+}
+function firstNeedsFix(pull) {
+  let first = null;
+  for (const event of pull.timelineItems?.nodes ?? []) {
+    if (event?.label?.name !== NEEDS_FIX_LABEL || !event.createdAt) continue;
+    if (!first || Date.parse(event.createdAt) < Date.parse(first)) first = event.createdAt;
+  }
+  return first;
+}
+function closing(pull) {
+  return { merged_at: pull.mergedAt ?? null, closed_at: pull.closedAt ?? null, merged_by: loginOf2(pull.mergedBy) };
+}
+function firstReviews(pull, author) {
+  const first = /* @__PURE__ */ new Map();
+  for (const review of pull.reviews?.nodes ?? []) {
+    const reviewer = loginOf2(review.author);
+    if (!reviewer || !review.submittedAt || reviewer === author) continue;
+    const at4 = first.get(reviewer);
+    if (!at4 || Date.parse(review.submittedAt) < Date.parse(at4)) first.set(reviewer, review.submittedAt);
+  }
+  return [...first].sort(([a], [b]) => a.localeCompare(b));
+}
+
+// apps/omni-app/src/pr-stats/collect.ts
+var BACKFILL_DAYS = 90;
+var BATCH = 50;
+var MAX_BATCHES = 20;
+var DAY_MS2 = 24 * 60 * 60 * 1e3;
+var atOnce = { run: (_id, fn) => Promise.resolve(fn()) };
+async function collectAll({ store, octokitFor, step = atOnce, now }) {
+  const nowIso = new Date(now).toISOString();
+  const backfillFrom = new Date(now - BACKFILL_DAYS * DAY_MS2).toISOString();
+  const repositories = await savedStep(step, "list-repositories", TrackedRepositoriesSchema, () => store.trackedRepositories());
+  const summary2 = { repositories: repositories.length, collected: 0, failed: 0, unfinished: 0, paused: 0, saved: 0 };
+  const budgets = /* @__PURE__ */ new Map();
+  for (const repository of repositories) {
+    const { outcome: outcome2, saved } = await collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso });
+    summary2[outcome2] += 1;
+    summary2.saved += saved;
+  }
+  return summary2;
+}
+async function collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso }) {
+  const { installationId, workspaceId, fullName } = repository;
+  let saved = 0;
+  let cursor = repository.collectedUntil ?? backfillFrom;
+  for (let n = 1; ; n += 1) {
+    const budget = budgets.get(installationId) ?? {};
+    if (!affords(budget)) return { outcome: "paused", saved };
+    const out = await savedStep(
+      step,
+      `collect ${workspaceId}/${fullName} ${n}`,
+      BatchOutSchema,
+      () => collectBatch({ store, octokitFor, repository, cursor, nowIso, budget })
+    );
+    saved += out.saved;
+    cursor = out.cursor;
+    budgets.set(installationId, out.budget);
+    const outcome2 = outcomeOf(out, n);
+    if (outcome2) return { outcome: outcome2, saved };
+  }
+}
+function outcomeOf(out, n) {
+  if (out.paused) return "paused";
+  if (out.error) return "failed";
+  if (!out.more) return "collected";
+  return n === MAX_BATCHES ? "unfinished" : null;
+}
+async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before2 }) {
+  const { workspaceId, fullName, installationId } = repository;
+  const [owner, repo] = fullName.split("/");
+  let reached = cursor;
+  let saved = 0;
+  const budget = { ...before2 };
+  try {
+    const octokit = await octokitFor(installationId);
+    const listed = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
+    const taken = batchOf(listed);
+    const records = await readPullRecords(octokit, budget, { workspaceId, fullName, numbers: taken.map((item) => item.number) });
+    const byNumber = new Map(records.map((record) => [record.row.number, record]));
+    for (const [index, item] of taken.entries()) {
+      const record = byNumber.get(item.number);
+      if (record) {
+        await store.savePull(record.row, record.reviews);
+        saved += 1;
+      }
+      if (taken[index + 1]?.updatedAt !== item.updatedAt) reached = item.updatedAt;
+    }
+    const more = listed.length > taken.length;
+    await store.updateRepository(
+      workspaceId,
+      fullName,
+      more ? { collected_until: reached } : { collected_at: nowIso, collected_until: reached, collect_error: null }
+    );
+    return { saved, cursor: reached, more, budget };
+  } catch (error) {
+    if (refusalIn(error)) {
+      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
+      throw error;
+    }
+    if (error instanceof BudgetLow) {
+      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
+      return { saved, cursor: reached, more: false, paused: true, budget };
+    }
+    const reason2 = describe2(error);
+    await store.updateRepository(workspaceId, fullName, { collected_until: reached, collect_error: reason2 });
+    return { saved, cursor: reached, more: false, error: reason2, budget };
+  }
+}
+function batchOf(listed) {
+  let end = Math.min(BATCH, listed.length);
+  while (end < listed.length && listed[end]?.updatedAt === listed[end - 1]?.updatedAt) end += 1;
+  return listed.slice(0, end);
+}
+function describe2(error) {
+  const failure2 = FailureSchema2.safeParse(error);
+  const { errors, message: said, status } = failure2.success ? failure2.data : {};
+  const graphqlError = errors?.[0];
+  if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
+  const message = printed2(said ?? error ?? "unknown error").split("\n")[0] ?? "";
+  return status ? `HTTP ${printed2(status)}: ${message}` : message;
+}
+var printed2 = (value) => String(value);
+
+// apps/omni-app/src/pr-stats/supabase-store.ts
+import { createClient as createClient5 } from "@supabase/supabase-js";
+var TRACKED2 = "workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)";
+function supabaseStore({ url, key, fetch: fetch2 }) {
+  const db = createClient5(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...fetch2 ? { global: { fetch: fetch2 } } : {}
+  });
+  return {
+    async trackedRepositories() {
+      const rows = checked(
+        await db.from("repositories").select(TRACKED2).eq("tracked", true).not("workspaces.github_installation_id", "is", null).order("workspace_id").order("full_name")
+      );
+      return parsedOr(TrackedRowSchema2.array(), rows, "The database answered the tracked repositories unexpectedly").map((row) => ({
+        workspaceId: row.workspace_id,
+        installationId: Number(row.workspaces.github_installation_id),
+        fullName: row.full_name,
+        collectedUntil: row.collected_until ?? null
+      }));
+    },
+    async savePull(row, reviews) {
+      checked(await db.from("pull_requests").upsert(row, { onConflict: "workspace_id,repo,number" }));
+      if (reviews.length > 0) {
+        checked(await db.from("pull_request_reviews").upsert(reviews, { onConflict: "workspace_id,repo,number,reviewer" }));
+      }
+    },
+    async updateRepository(workspaceId, fullName, patch) {
+      checked(await db.from("repositories").update(patch).eq("workspace_id", workspaceId).eq("full_name", fullName));
+    }
+  };
+}
+function checked({ data, error }) {
+  if (error) throw new Error(`The database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+  return data ?? [];
+}
+
+// apps/omni-app/src/pr-stats/job.ts
+var PR_STATS_KIND = "pr-stats";
+function collectedLine({ repositories, collected, failed: failed3, unfinished, paused, saved }) {
+  return `pr-stats: ${String(repositories)} repositories: ${String(collected)} collected, ${String(failed3)} failed, ${String(unfinished)} unfinished, ${String(paused)} paused; ${String(saved)} pull requests saved`;
+}
+function prStatsHandler({
+  octokitFor,
+  supabase,
+  storeFor = supabaseStore,
+  log: log2 = noteTo("pr-stats"),
+  clock = Date.now
+}) {
+  return async () => {
+    if (!supabase) {
+      log2("prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.");
+      return { outcome: "skipped", reason: "no store: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set" };
+    }
+    const summary2 = await collectAll({ store: storeFor(supabase), octokitFor, now: clock() });
+    log2(collectedLine(summary2));
+    return { outcome: "done" };
+  };
+}
+
 // apps/omni-app/src/jobs/pack.ts
-import { z as z56 } from "zod";
+import { z as z59 } from "zod";
 
 // apps/omni-app/src/knowledge-harvest/github.ts
-import { mkdtempSync as mkdtempSync11, readdirSync as readdirSync20, rmSync as rmSync15, statSync as statSync15 } from "node:fs";
-import { tmpdir as tmpdir11 } from "node:os";
-import { join as join65 } from "node:path";
+import { mkdtempSync as mkdtempSync12, readdirSync as readdirSync20, rmSync as rmSync16, statSync as statSync15 } from "node:fs";
+import { tmpdir as tmpdir12 } from "node:os";
+import { join as join66 } from "node:path";
 
 // kit/lib/knowledge/pipeline.ts
 import {
   cpSync,
   existsSync as existsSync48,
   mkdirSync as mkdirSync12,
-  mkdtempSync as mkdtempSync9,
+  mkdtempSync as mkdtempSync10,
   readdirSync as readdirSync19,
   readFileSync as readFileSync46,
   renameSync as renameSync3,
-  rmSync as rmSync13,
+  rmSync as rmSync14,
   statSync as statSync14,
   symlinkSync,
   writeFileSync as writeFileSync17
 } from "node:fs";
-import { tmpdir as tmpdir9 } from "node:os";
-import { dirname as dirname14, join as join63 } from "node:path";
-import { z as z53 } from "zod";
+import { tmpdir as tmpdir10 } from "node:os";
+import { dirname as dirname14, join as join64 } from "node:path";
+import { z as z56 } from "zod";
 
 // kit/lib/delivery/ship.ts
 import { execFileSync as execFileSync7 } from "node:child_process";
 import { existsSync as existsSync41, readFileSync as readFileSync40, writeFileSync as writeFileSync14, mkdirSync as mkdirSync9 } from "node:fs";
-import { basename as basename12, join as join56, dirname as dirname11 } from "node:path";
+import { basename as basename12, join as join57, dirname as dirname11 } from "node:path";
 
 // kit/lib/releases/check-releases.ts
 import { existsSync as existsSync40, readFileSync as readFileSync39 } from "node:fs";
-import { join as join55 } from "node:path";
+import { join as join56 } from "node:path";
 
 // kit/lib/releases/note.ts
 import { dirname as dirname10 } from "node:path";
@@ -12199,7 +12831,7 @@ var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
 function releaseNoteReasons(ctx, prd, dir, read) {
   if (!ctx.config.releaseNotes.enabled) return [];
   const file = releaseNotePath(dir);
-  if (!existsSync41(join56(ctx.root, file))) return [`no release note: ${file}`];
+  if (!existsSync41(join57(ctx.root, file))) return [`no release note: ${file}`];
   return gradeReleaseNote(read(file), { prd }).map((rule) => `release note: ${rule}`);
 }
 function planShip(ctx, prd, { files, read }) {
@@ -12217,12 +12849,12 @@ function planShip(ctx, prd, { files, read }) {
   const shipped = `${dirs.shipped}/${where.name}`;
   const outbox = `${dirs.outbox}/${where.name}`;
   const moves = [{ from: where.dir, to: shipped }];
-  const hasOutbox = existsSync41(join56(ctx.root, outbox));
+  const hasOutbox = existsSync41(join57(ctx.root, outbox));
   if (hasOutbox) moves.push({ from: outbox, to: `${shipped}/outbox` });
   const rewrites = [];
   for (const file of files) {
     if (!REWRITTEN.test(file) || basename12(file) === SETTLED_FILE) continue;
-    if (!existsSync41(join56(ctx.root, file))) continue;
+    if (!existsSync41(join57(ctx.root, file))) continue;
     const before2 = read(file);
     let after = before2.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
@@ -12236,19 +12868,19 @@ function movedPath(moves, file) {
 
 // kit/lib/outbox/settle-merge.ts
 import { existsSync as existsSync42 } from "node:fs";
-import { join as join57 } from "node:path";
-import { z as z51 } from "zod";
+import { join as join58 } from "node:path";
+import { z as z54 } from "zod";
 var MERGED_OVER_RED_BASIS = "merged-over-red";
 var MERGED_OVER_RED_REASON = "the feature pull request merged while this item was open; merging adopts what was built";
-var PrField = z51.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
-var MergeSchema = z51.object({
-  by: z51.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z51.string().min(1, "merge.by is required \u2014 who merged")),
-  at: z51.string().regex(
+var PrField = z54.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
+var MergeSchema = z54.object({
+  by: z54.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z54.string().min(1, "merge.by is required \u2014 who merged")),
+  at: z54.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
   ),
   pr: PrField,
-  url: z51.string().trim().min(1).optional()
+  url: z54.string().trim().min(1).optional()
 }).strict();
 function mergeAnswer(merge) {
   return {
@@ -12294,7 +12926,7 @@ function settleAtMerge({
     return { ok: false, errors: [`PRD ${prd} has no inbox or shipped folder`] };
   }
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  const existing = existsSync42(join57(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
+  const existing = existsSync42(join58(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
   const answer = mergeAnswer(facts);
   const errors = [];
   const entries = [];
@@ -12342,11 +12974,11 @@ function settleAtMerge({
 
 // kit/lib/knowledge/check-knowledge.ts
 import { existsSync as existsSync44, readFileSync as readFileSync42, statSync as statSync13 } from "node:fs";
-import { join as join59 } from "node:path";
+import { join as join60 } from "node:path";
 
 // kit/lib/codeowners-laws.ts
 import { existsSync as existsSync43, mkdirSync as mkdirSync10, readFileSync as readFileSync41, writeFileSync as writeFileSync15 } from "node:fs";
-import { dirname as dirname12, join as join58 } from "node:path";
+import { dirname as dirname12, join as join59 } from "node:path";
 var DEFAULT_CODEOWNERS = ".github/CODEOWNERS";
 function testPaths(enforcedBy2) {
   return enforcedBy2.split(",").map((part) => (part.replace(/`/g, "").trim().split("#")[0] ?? "").trim()).filter(Boolean);
@@ -12380,7 +13012,7 @@ function expectedOwnersBlock(ctx, knowledge = readKnowledge({ ctx })) {
 }
 function codeownersFile(ctx) {
   for (const file of CODEOWNERS_FILES) {
-    const absolute = join58(ctx.root, file);
+    const absolute = join59(ctx.root, file);
     if (existsSync43(absolute)) return { file, text: readFileSync41(absolute, "utf8") };
   }
   return { file: DEFAULT_CODEOWNERS, text: null };
@@ -12451,13 +13083,13 @@ function findOwningLibraryViolations(ctx, knowledge) {
   if (ctx.copyOf) return violations;
   for (const domain of knowledge.domains) {
     const readme = `${domainsDir(ctx)}/${domain.name}/README.md`;
-    if (!existsSync44(join59(ctx.root, readme))) continue;
-    const section4 = readFileSync42(join59(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
+    if (!existsSync44(join60(ctx.root, readme))) continue;
+    const section4 = readFileSync42(join60(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
     const listed = section4.split(/^## /m)[0] ?? "";
     for (const match of listed.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = (match[1] ?? "").replace(/\/$/, "");
-      if (!existsSync44(join59(ctx.root, path))) {
+      if (!existsSync44(join60(ctx.root, path))) {
         violations.push(
           violation(readme, domain.name, `names owning library ${path}, which does not exist.`)
         );
@@ -12610,8 +13242,8 @@ function missingPathViolations(ctx, entry, label2, value, { onlyPathLike }) {
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
     const [path = "", anchor] = part.split("#");
-    if (anchor && existsSync44(join59(ctx.root, path)) && path.endsWith(".md")) {
-      if (!headingAnchors(readFileSync42(join59(ctx.root, path), "utf8")).has(anchor.toLowerCase())) {
+    if (anchor && existsSync44(join60(ctx.root, path)) && path.endsWith(".md")) {
+      if (!headingAnchors(readFileSync42(join60(ctx.root, path), "utf8")).has(anchor.toLowerCase())) {
         violations.push(
           violation(
             entry.file,
@@ -12622,7 +13254,7 @@ function missingPathViolations(ctx, entry, label2, value, { onlyPathLike }) {
       }
       continue;
     }
-    if (!existsSync44(join59(ctx.root, path))) {
+    if (!existsSync44(join60(ctx.root, path))) {
       violations.push(
         violation(
           entry.file,
@@ -12764,7 +13396,7 @@ function contractViolations2(ctx, entry) {
       continue;
     }
     if (ctx.copyOf) continue;
-    const absolute = join59(ctx.root, path);
+    const absolute = join60(ctx.root, path);
     if (!existsSync44(absolute)) {
       violations.push(violation(entry.file, entry.id, `points to "${path}", which does not exist \u2014 fix its "Points to:" line.`));
     } else if (!statSync13(absolute).isFile()) {
@@ -12935,8 +13567,8 @@ function gradeKnowledge({
 
 // kit/lib/knowledge/classify.ts
 import { existsSync as existsSync45, readFileSync as readFileSync43 } from "node:fs";
-import { join as join60 } from "node:path";
-import { z as z52 } from "zod";
+import { join as join61 } from "node:path";
+import { z as z55 } from "zod";
 
 // kit/lib/knowledge/look-rule.ts
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
@@ -12948,36 +13580,36 @@ var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 var RECORD_ID = /^ADR-(\d{4})$/;
 function capped(field4, max) {
-  return z52.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
+  return z55.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
 }
-var text11 = (field4) => z52.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
+var text11 = (field4) => z55.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
 var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
-var enforcedBy = z52.array(text11("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
-var worthALaw = z52.boolean({ error: "worthALaw must be true or false" }).optional();
-var ClassificationSchema = z52.discriminatedUnion(
+var enforcedBy = z55.array(text11("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
+var worthALaw = z55.boolean({ error: "worthALaw must be true or false" }).optional();
+var ClassificationSchema = z55.discriminatedUnion(
   "kind",
   [
-    z52.object({
-      kind: z52.literal("adr"),
+    z55.object({
+      kind: z55.literal("adr"),
       title: text11("title").refine((value) => !value.includes("\n"), "title must be one line"),
       statement,
       reason
     }).strict(),
-    z52.object({ kind: z52.literal("invariant"), place: text11("place"), statement, enforcedBy, worthALaw, reason }).strict(),
-    z52.object({
-      kind: z52.literal("rule"),
+    z55.object({ kind: z55.literal("invariant"), place: text11("place"), statement, enforcedBy, worthALaw, reason }).strict(),
+    z55.object({
+      kind: z55.literal("rule"),
       place: text11("place"),
       statement,
       serves: text11("serves"),
-      principle: z52.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
+      principle: z55.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
       enforcedBy,
       worthALaw,
       reason
     }).strict(),
-    z52.object({ kind: z52.literal("covered"), covers: text11("covers"), reason }).strict(),
-    z52.object({ kind: z52.literal("stays-here"), statement, reason }).strict()
+    z55.object({ kind: z55.literal("covered"), covers: text11("covers"), reason }).strict(),
+    z55.object({ kind: z55.literal("stays-here"), statement, reason }).strict()
   ],
   { error: () => `kind must be one of: ${CLASSIFICATION_KINDS.join(", ")}` }
 ).superRefine((reply, context) => {
@@ -12994,13 +13626,13 @@ function firstLine2(value) {
 }
 function knowledgeSummary({ ctx }) {
   const places = {
-    adr: existsSync45(join60(ctx.root, ctx.layout.adrDir)),
-    knowledge: existsSync45(join60(ctx.root, ctx.layout.knowledgeRoot))
+    adr: existsSync45(join61(ctx.root, ctx.layout.adrDir)),
+    knowledge: existsSync45(join61(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge = readKnowledge({ ctx });
   const placeOf5 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
   const domains = knowledge.domains.map((domain) => {
-    const readme = join60(ctx.root, domainsDir(ctx), domain.name, "README.md");
+    const readme = join61(ctx.root, domainsDir(ctx), domain.name, "README.md");
     return { name: domain.name, firstLine: existsSync45(readme) ? firstLine2(readFileSync43(readme, "utf8")) : null };
   });
   const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf5(entry), statement: entry.statement }));
@@ -13171,7 +13803,7 @@ function classificationPrompt({
 
 // kit/lib/knowledge/harvest.ts
 import { existsSync as existsSync46, readFileSync as readFileSync44 } from "node:fs";
-import { join as join61 } from "node:path";
+import { join as join62 } from "node:path";
 var BECAME_FIELD = "Became";
 var STAYS_HERE_FIELD = "Stays here";
 function writtenBack(entry) {
@@ -13202,14 +13834,14 @@ function harvestCandidates({ ctx, prd }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) return [];
   const ledgerFile = `${outboxDir}/${SETTLED_FILE}`;
-  const absolute = join61(ctx.root, ledgerFile);
+  const absolute = join62(ctx.root, ledgerFile);
   if (!existsSync46(absolute)) return [];
   return candidatesFromLedger(readFileSync44(absolute, "utf8"), { markers: ctx.markers, ledgerFile });
 }
 
 // kit/lib/knowledge/write.ts
 import { existsSync as existsSync47, mkdirSync as mkdirSync11, readFileSync as readFileSync45, writeFileSync as writeFileSync16 } from "node:fs";
-import { dirname as dirname13, join as join62 } from "node:path";
+import { dirname as dirname13, join as join63 } from "node:path";
 var KEPT_STATUSES = Object.freeze(["added", "modified", "renamed"]);
 var LAW_ISSUE_FIRST = "its law issue opens first";
 var CLASSIFIER = "classifier";
@@ -13305,7 +13937,7 @@ function makeFiles(ctx) {
   return {
     read(path) {
       if (!texts.has(path)) {
-        const absolute = join62(ctx.root, path);
+        const absolute = join63(ctx.root, path);
         texts.set(path, existsSync47(absolute) ? readFileSync45(absolute, "utf8") : null);
       }
       return texts.get(path) ?? null;
@@ -13566,7 +14198,7 @@ function landLaw({
   ...run
 }) {
   const { ctx, merge, candidate, source } = run;
-  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync47(join62(ctx.root, path)) });
+  const proof = proofOf({ proposed: reply.enforcedBy, changed, pr: merge.pr, exists: (path) => existsSync47(join63(ctx.root, path)) });
   const chosen = lawPath(proof.kept, worth, reply.worthALaw);
   if (chosen.path === "no") {
     const law = { ...chosen.worth, issue: null };
@@ -13587,7 +14219,7 @@ function landLaw({
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
-var PullFilesSchema = z53.array(z53.looseObject({ filename: z53.string().min(1), status: z53.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
+var PullFilesSchema = z56.array(z56.looseObject({ filename: z56.string().min(1), status: z56.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
 function keptPaths(changed) {
   return changed.filter((file) => KEPT_STATUSES.includes(file.status)).map((file) => file.path);
 }
@@ -13596,18 +14228,18 @@ function loopPaths(ctx) {
   return [paths.delivery, paths.knowledge, paths.adr, paths.playbook, paths.glossary].filter((path) => typeof path === "string" && path.length > 0).map((path) => path.replace(/\/+$/, ""));
 }
 function overlay(root, keep2) {
-  const scratch = mkdtempSync9(join63(tmpdir9(), "omni-harvest-"));
+  const scratch = mkdtempSync10(join64(tmpdir10(), "omni-harvest-"));
   const walk3 = (dir) => {
-    for (const name of readdirSync19(join63(root, dir))) {
+    for (const name of readdirSync19(join64(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === ".git") continue;
       if (keep2.includes(rel)) {
-        cpSync(join63(root, rel), join63(scratch, rel), { recursive: true });
-      } else if (keep2.some((path) => path.startsWith(`${rel}/`)) && statSync14(join63(root, rel)).isDirectory()) {
-        mkdirSync12(join63(scratch, rel), { recursive: true });
+        cpSync(join64(root, rel), join64(scratch, rel), { recursive: true });
+      } else if (keep2.some((path) => path.startsWith(`${rel}/`)) && statSync14(join64(root, rel)).isDirectory()) {
+        mkdirSync12(join64(scratch, rel), { recursive: true });
         walk3(rel);
       } else {
-        symlinkSync(join63(root, rel), join63(scratch, rel));
+        symlinkSync(join64(root, rel), join64(scratch, rel));
       }
     }
   };
@@ -13619,11 +14251,11 @@ function inScratch(ctx, fn) {
   try {
     return fn(createContext(root, ctx.config));
   } finally {
-    rmSync13(root, { recursive: true, force: true });
+    rmSync14(root, { recursive: true, force: true });
   }
 }
 function filesUnder2(root, dir) {
-  const absolute = join63(root, dir);
+  const absolute = join64(root, dir);
   if (!existsSync48(absolute)) return [];
   const out = [];
   for (const entry of readdirSync19(absolute, { withFileTypes: true })) {
@@ -13634,14 +14266,14 @@ function filesUnder2(root, dir) {
   return out;
 }
 function applyHarvestEdits({ root, edits }) {
-  for (const path of edits.deletes) rmSync13(join63(root, path), { force: true });
+  for (const path of edits.deletes) rmSync14(join64(root, path), { force: true });
   for (const { from, to } of edits.moves) {
-    mkdirSync12(dirname14(join63(root, to)), { recursive: true });
-    renameSync3(join63(root, from), join63(root, to));
+    mkdirSync12(dirname14(join64(root, to)), { recursive: true });
+    renameSync3(join64(root, from), join64(root, to));
   }
   for (const { path, text: text17 } of edits.writes) {
-    mkdirSync12(dirname14(join63(root, path)), { recursive: true });
-    writeFileSync17(join63(root, path), text17);
+    mkdirSync12(dirname14(join64(root, path)), { recursive: true });
+    writeFileSync17(join64(root, path), text17);
   }
 }
 function mergeWrites(writes) {
@@ -13670,7 +14302,7 @@ function prepareHarvest({
     let rewrites = [];
     if (defined(scratch.layout.whereIs(n), `the folder of PRD ${n}`).state === "inbox") {
       const files = loopPaths(scratch).flatMap((path) => filesUnder2(scratch.root, path));
-      const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync46(join63(scratch.root, file), "utf8") });
+      const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync46(join64(scratch.root, file), "utf8") });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
       rewrites = plan.rewrites.map(({ file, text: text17 }) => ({ path: movedPath(moves, file), text: text17 }));
@@ -13725,7 +14357,7 @@ function knowledgeFiles(ctx) {
   return filesUnder2(ctx.root, ctx.layout.knowledgeRoot).filter((file) => file.endsWith(".md"));
 }
 function runChecks(ctx) {
-  const knowledge = existsSync48(join63(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
+  const knowledge = existsSync48(join64(ctx.root, ctx.layout.knowledgeRoot)) ? gradeKnowledge({ ctx, files: knowledgeFiles(ctx) }).violations : [];
   const outbox = findOutboxViolations({ ctx });
   return { knowledge, outbox };
 }
@@ -13749,7 +14381,7 @@ function lawQuestions({
   prdTitle
 }) {
   const kept3 = keptPaths(prepared.changed ?? []);
-  const proven = (paths = []) => paths.some((path) => kept3.includes(path.trim()) && existsSync48(join63(ctx.root, path.trim())));
+  const proven = (paths = []) => paths.some((path) => kept3.includes(path.trim()) && existsSync48(join64(ctx.root, path.trim())));
   return classified.flatMap(({ id, reply }) => {
     if (!reply || reply.kind !== "rule" && reply.kind !== "invariant") return [];
     if (reply.worthALaw === void 0 || proven(reply.enforcedBy)) return [];
@@ -13822,9 +14454,9 @@ function noEdits(edits) {
 }
 
 // apps/omni-app/src/retro/qualify.ts
-import { mkdtempSync as mkdtempSync10, rmSync as rmSync14 } from "node:fs";
-import { tmpdir as tmpdir10 } from "node:os";
-import { join as join64 } from "node:path";
+import { mkdtempSync as mkdtempSync11, rmSync as rmSync15 } from "node:fs";
+import { tmpdir as tmpdir11 } from "node:os";
+import { join as join65 } from "node:path";
 async function qualify(octokit, { owner, repo, prNumber, mergeSha }) {
   const read = await readPull(octokit, { owner, repo, prNumber });
   if (!read.merged) return { skip: `#${prNumber} was closed, not merged.`, pr: read };
@@ -13876,11 +14508,11 @@ function topicOf2(headRef, featureTemplate) {
   return topic && !topic.includes("/") ? topic : null;
 }
 async function configAt2(octokit, { owner, repo, sha }) {
-  const dest = mkdtempSync10(join64(tmpdir10(), "omni-retro-config-"));
+  const dest = mkdtempSync11(join65(tmpdir11(), "omni-retro-config-"));
   try {
     return await readBaseConfig(octokit, { owner, repo, baseSha: sha, dest, ignoreUnknownKeys: true });
   } finally {
-    rmSync14(dest, { recursive: true, force: true });
+    rmSync15(dest, { recursive: true, force: true });
   }
 }
 async function prdFolder(octokit, { owner, repo, sha, dirs, topic }) {
@@ -13908,155 +14540,155 @@ function section3(markdown, name) {
 }
 
 // apps/omni-app/src/knowledge-harvest/schema.ts
-import { z as z54 } from "zod";
-var HarvestEventSchema = z54.looseObject({
-  installationId: z54.number(),
-  owner: z54.string(),
-  repo: z54.string(),
+import { z as z57 } from "zod";
+var HarvestEventSchema = z57.looseObject({
+  installationId: z57.number(),
+  owner: z57.string(),
+  repo: z57.string(),
   prNumber: PrNumberSchema
 });
 var FailedHarvestEventSchema = HarvestEventSchema.partial();
-var PullMergeSchema = z54.looseObject({
-  merged: z54.boolean().nullish(),
-  merged_at: z54.string().nullish(),
-  merged_by: z54.looseObject({ login: z54.string().nullish() }).nullish(),
-  merge_commit_sha: z54.string().nullish(),
-  html_url: z54.string().nullish()
+var PullMergeSchema = z57.looseObject({
+  merged: z57.boolean().nullish(),
+  merged_at: z57.string().nullish(),
+  merged_by: z57.looseObject({ login: z57.string().nullish() }).nullish(),
+  merge_commit_sha: z57.string().nullish(),
+  html_url: z57.string().nullish()
 });
-var RefSchema3 = z54.looseObject({ object: z54.looseObject({ sha: z54.string() }) });
-var OpenPullSchema = z54.looseObject({ head: z54.looseObject({ ref: z54.string().nullish() }).nullish() });
-var CommitSchema = z54.looseObject({ message: z54.string().nullish() });
-function parsedOr(schema, value, context) {
+var RefSchema3 = z57.looseObject({ object: z57.looseObject({ sha: z57.string() }) });
+var OpenPullSchema = z57.looseObject({ head: z57.looseObject({ ref: z57.string().nullish() }).nullish() });
+var CommitSchema = z57.looseObject({ message: z57.string().nullish() });
+function parsedOr2(schema, value, context) {
   const parsed2 = schema.safeParse(value);
   if (parsed2.success) return parsed2.data;
   const [issue] = parsed2.error.issues;
   const field4 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
   throw new Error(`${context}: ${field4}: ${issue?.message ?? parsed2.error.message}`);
 }
-var MergeSchema2 = z54.object({ by: z54.string(), at: z54.string(), pr: PrNumberSchema, url: z54.string().exactOptional() });
-var QualifiedSchema = z54.union([
-  z54.object({ skip: z54.string() }),
-  z54.object({
-    skip: z54.null(),
+var MergeSchema2 = z57.object({ by: z57.string(), at: z57.string(), pr: PrNumberSchema, url: z57.string().exactOptional() });
+var QualifiedSchema = z57.union([
+  z57.object({ skip: z57.string() }),
+  z57.object({
+    skip: z57.null(),
     config: ConfigSchema,
-    prd: z54.object({ number: PrdNumberSchema, topic: z54.string(), title: z54.string() }),
+    prd: z57.object({ number: PrdNumberSchema, topic: z57.string(), title: z57.string() }),
     merge: MergeSchema2
   })
 ]);
-var MoveSchema = z54.object({ from: z54.string(), to: z54.string() });
-var EditsSchema = z54.object({
-  deletes: z54.array(z54.string()),
-  moves: z54.array(MoveSchema),
-  writes: z54.array(z54.object({ path: z54.string(), text: z54.string() }))
+var MoveSchema = z57.object({ from: z57.string(), to: z57.string() });
+var EditsSchema = z57.object({
+  deletes: z57.array(z57.string()),
+  moves: z57.array(MoveSchema),
+  writes: z57.array(z57.object({ path: z57.string(), text: z57.string() }))
 });
-var ItemSectionsSchema = z54.object({
-  questionPlain: z54.string().nullable().exactOptional(),
-  decisionPlain: z54.string().nullable().exactOptional(),
-  options: z54.array(z54.object({ letter: z54.string(), text: z54.string() })).nullable().exactOptional(),
-  personSteps: z54.string().nullable().exactOptional(),
-  whatIHadToDecide: z54.string().nullable().exactOptional(),
-  whatIDidMeanwhile: z54.string().nullable().exactOptional(),
-  whatItCostsToChangeLater: z54.string().nullable().exactOptional()
+var ItemSectionsSchema = z57.object({
+  questionPlain: z57.string().nullable().exactOptional(),
+  decisionPlain: z57.string().nullable().exactOptional(),
+  options: z57.array(z57.object({ letter: z57.string(), text: z57.string() })).nullable().exactOptional(),
+  personSteps: z57.string().nullable().exactOptional(),
+  whatIHadToDecide: z57.string().nullable().exactOptional(),
+  whatIDidMeanwhile: z57.string().nullable().exactOptional(),
+  whatItCostsToChangeLater: z57.string().nullable().exactOptional()
 });
-var CandidateSchema = z54.object({
-  id: z54.string(),
-  verdict: z54.string().nullable(),
-  answer: z54.string(),
-  itemText: z54.string(),
-  item: z54.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
+var CandidateSchema = z57.object({
+  id: z57.string(),
+  verdict: z57.string().nullable(),
+  answer: z57.string(),
+  itemText: z57.string(),
+  item: z57.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
 });
-var SummarySchema = z54.object({
-  places: z54.object({ adr: z54.boolean(), knowledge: z54.boolean() }),
-  domains: z54.array(z54.object({ name: z54.string(), firstLine: z54.string().nullable() })),
-  principles: z54.array(z54.object({ id: z54.string(), place: z54.string(), statement: z54.string() })),
-  decisions: z54.array(z54.object({ number: z54.string(), title: z54.string().nullable() })),
-  laws: z54.array(
-    z54.object({ id: z54.string(), kind: z54.enum(["principle", "rule", "invariant"]).nullable(), place: z54.string(), statement: z54.string() })
+var SummarySchema = z57.object({
+  places: z57.object({ adr: z57.boolean(), knowledge: z57.boolean() }),
+  domains: z57.array(z57.object({ name: z57.string(), firstLine: z57.string().nullable() })),
+  principles: z57.array(z57.object({ id: z57.string(), place: z57.string(), statement: z57.string() })),
+  decisions: z57.array(z57.object({ number: z57.string(), title: z57.string().nullable() })),
+  laws: z57.array(
+    z57.object({ id: z57.string(), kind: z57.enum(["principle", "rule", "invariant"]).nullable(), place: z57.string(), statement: z57.string() })
   )
 });
-var SettledSchema = z54.object({
-  tip: z54.string(),
-  prepared: z54.object({
-    ok: z54.literal(true),
+var SettledSchema = z57.object({
+  tip: z57.string(),
+  prepared: z57.object({
+    ok: z57.literal(true),
     prd: PrdNumberSchema,
     edits: EditsSchema,
-    settled: z54.array(z54.object({ id: z54.string(), from: z54.enum(["open", "drift"]) })),
-    shipped: z54.array(MoveSchema),
-    candidates: z54.array(CandidateSchema),
+    settled: z57.array(z57.object({ id: z57.string(), from: z57.enum(["open", "drift"]) })),
+    shipped: z57.array(MoveSchema),
+    candidates: z57.array(CandidateSchema),
     summary: SummarySchema,
-    changed: z54.array(z54.object({ path: z54.string(), status: z54.string() }))
+    changed: z57.array(z57.object({ path: z57.string(), status: z57.string() }))
   })
 });
-var ClassificationOutSchema = z54.object({
-  id: z54.string(),
+var ClassificationOutSchema = z57.object({
+  id: z57.string(),
   reply: ClassificationSchema.nullable(),
-  reason: z54.string().nullable(),
-  error: z54.string().nullable()
+  reason: z57.string().nullable(),
+  error: z57.string().nullable()
 });
-var PlacedSchema = z54.object({
-  id: z54.string(),
-  kind: z54.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
-  landedAs: z54.array(z54.string()),
-  files: z54.array(z54.string()),
-  ledgerFile: z54.string(),
-  ledgerLine: z54.string(),
-  decided: z54.string(),
-  status: z54.string().nullable(),
-  proposed: z54.boolean(),
-  reason: z54.string(),
-  enforcedBy: z54.array(z54.string()).exactOptional(),
-  dropped: z54.array(z54.object({ path: z54.string(), reason: z54.string() })).exactOptional(),
-  law: z54.object({ worth: z54.boolean(), decidedBy: z54.string(), confidence: z54.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
+var PlacedSchema = z57.object({
+  id: z57.string(),
+  kind: z57.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
+  landedAs: z57.array(z57.string()),
+  files: z57.array(z57.string()),
+  ledgerFile: z57.string(),
+  ledgerLine: z57.string(),
+  decided: z57.string(),
+  status: z57.string().nullable(),
+  proposed: z57.boolean(),
+  reason: z57.string(),
+  enforcedBy: z57.array(z57.string()).exactOptional(),
+  dropped: z57.array(z57.object({ path: z57.string(), reason: z57.string() })).exactOptional(),
+  law: z57.object({ worth: z57.boolean(), decidedBy: z57.string(), confidence: z57.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
 });
-var LawIssueSchema = z54.object({
-  id: z54.string(),
-  entry: z54.string(),
-  register: z54.string(),
-  statement: z54.string(),
-  source: z54.string(),
-  title: z54.string(),
-  body: z54.string()
+var LawIssueSchema = z57.object({
+  id: z57.string(),
+  entry: z57.string(),
+  register: z57.string(),
+  statement: z57.string(),
+  source: z57.string(),
+  title: z57.string(),
+  body: z57.string()
 });
-var WrittenSchema = z54.object({
+var WrittenSchema = z57.object({
   edits: EditsSchema,
-  placed: z54.array(PlacedSchema),
-  notPlaced: z54.array(z54.object({ id: z54.string(), reason: z54.string() })),
-  checks: z54.object({ knowledge: z54.array(z54.string()), outbox: z54.array(z54.string()) }),
-  commit: z54.object({
-    files: z54.array(z54.object({ path: z54.string(), content: z54.string() })),
-    moves: z54.array(MoveSchema),
-    deletes: z54.array(z54.string())
+  placed: z57.array(PlacedSchema),
+  notPlaced: z57.array(z57.object({ id: z57.string(), reason: z57.string() })),
+  checks: z57.object({ knowledge: z57.array(z57.string()), outbox: z57.array(z57.string()) }),
+  commit: z57.object({
+    files: z57.array(z57.object({ path: z57.string(), content: z57.string() })),
+    moves: z57.array(MoveSchema),
+    deletes: z57.array(z57.string())
   }),
-  taken: z54.array(z54.string()),
-  lawIssues: z54.array(LawIssueSchema)
+  taken: z57.array(z57.string()),
+  lawIssues: z57.array(LawIssueSchema)
 });
-var LawWorthStateSchema = z54.object({
-  statement: z54.string(),
-  why: z54.string().nullable(),
-  principle: z54.string().nullable(),
-  domain: z54.string().nullable(),
-  prdTitle: z54.string().nullable()
+var LawWorthStateSchema = z57.object({
+  statement: z57.string(),
+  why: z57.string().nullable(),
+  principle: z57.string().nullable(),
+  domain: z57.string().nullable(),
+  prdTitle: z57.string().nullable()
 });
-var LawQuestionsSchema = z54.array(z54.object({ id: z54.string(), state: LawWorthStateSchema, old: z54.boolean() }));
-var LawJudgementSchema = z54.object({
-  worth: z54.object({ worth: z54.boolean(), decidedBy: z54.string(), confidence: z54.number().nullable() }).nullable(),
-  reason: z54.string().nullable()
+var LawQuestionsSchema = z57.array(z57.object({ id: z57.string(), state: LawWorthStateSchema, old: z57.boolean() }));
+var LawJudgementSchema = z57.object({
+  worth: z57.object({ worth: z57.boolean(), decidedBy: z57.string(), confidence: z57.number().nullable() }).nullable(),
+  reason: z57.string().nullable()
 });
-var LawIssueOpenedSchema = z54.object({ number: IssueNumberSchema, created: z54.boolean() });
-var ListedIssueSchema = z54.looseObject({ number: IssueNumberSchema, title: z54.string().nullish(), pull_request: z54.unknown().optional() });
-var PublishedSchema = z54.object({
-  branch: z54.string(),
-  commit: z54.string(),
-  committed: z54.boolean(),
-  pr: z54.object({ number: PrNumberSchema, url: z54.string(), created: z54.boolean() })
+var LawIssueOpenedSchema = z57.object({ number: IssueNumberSchema, created: z57.boolean() });
+var ListedIssueSchema = z57.looseObject({ number: IssueNumberSchema, title: z57.string().nullish(), pull_request: z57.unknown().optional() });
+var PublishedSchema = z57.object({
+  branch: z57.string(),
+  commit: z57.string(),
+  committed: z57.boolean(),
+  pr: z57.object({ number: PrNumberSchema, url: z57.string(), created: z57.boolean() })
 }).nullable();
-var CommentedSchema = z54.object({ commentId: CommentIdSchema, created: z54.boolean() });
+var CommentedSchema = z57.object({ commentId: CommentIdSchema, created: z57.boolean() });
 
 // apps/omni-app/src/knowledge-harvest/github.ts
 var OPEN_PULLS_UNEXPECTED = "GitHub answered the open pull requests unexpectedly";
 async function readMerge(octokit, { owner, repo, prNumber }) {
   const { data: answer } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { owner, repo, pull_number: prNumber });
-  const data = parsedOr(PullMergeSchema, answer, `GitHub answered #${prNumber} unexpectedly`);
+  const data = parsedOr2(PullMergeSchema, answer, `GitHub answered #${prNumber} unexpectedly`);
   return {
     merged: data.merged === true || Boolean(data.merged_at),
     by: data.merged_by?.login ?? null,
@@ -14067,13 +14699,13 @@ async function readMerge(octokit, { owner, repo, prNumber }) {
 }
 async function pullFiles(octokit, { owner, repo, prNumber }) {
   const files = await paginate(
-    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page }).then(({ data }) => parsedOr(ListSchema, data, `GitHub answered the files of #${prNumber} unexpectedly`))
+    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page }).then(({ data }) => parsedOr2(ListSchema, data, `GitHub answered the files of #${prNumber} unexpectedly`))
   );
-  return parsedOr(PullFilesSchema, files, `GitHub answered the files of #${prNumber} unexpectedly`);
+  return parsedOr2(PullFilesSchema, files, `GitHub answered the files of #${prNumber} unexpectedly`);
 }
 async function tipOf(octokit, { owner, repo, branch }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` });
-  return parsedOr(RefSchema3, data, `GitHub answered the branch ${branch} unexpectedly`).object.sha;
+  return parsedOr2(RefSchema3, data, `GitHub answered the branch ${branch} unexpectedly`).object.sha;
 }
 function loopPaths2(config) {
   const { paths } = config;
@@ -14090,21 +14722,21 @@ function harvestFetched(delivery2, prd) {
   };
 }
 async function withTreeAt(octokit, { owner, repo, sha, config, also = [], prd }, fn) {
-  const root = mkdtempSync11(join65(tmpdir11(), "omni-harvest-tree-"));
+  const root = mkdtempSync12(join66(tmpdir12(), "omni-harvest-tree-"));
   const delivery2 = config.paths.delivery;
   const fetchIf = prd === void 0 || !delivery2 ? () => true : harvestFetched(delivery2, prd);
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths: [.../* @__PURE__ */ new Set([...loopPaths2(config), ...also])], dest: root, fetchIf });
     return await fn(createContext(root, loadConfig(root)), root);
   } finally {
-    rmSync15(root, { recursive: true, force: true });
+    rmSync16(root, { recursive: true, force: true });
   }
 }
 function filesIn(root, dir = "") {
   const out = [];
-  for (const name of readdirSync20(join65(root, dir))) {
+  for (const name of readdirSync20(join66(root, dir))) {
     const rel = dir ? `${dir}/${name}` : name;
-    if (statSync15(join65(root, rel)).isDirectory()) out.push(...filesIn(root, rel));
+    if (statSync15(join66(root, rel)).isDirectory()) out.push(...filesIn(root, rel));
     else out.push(rel);
   }
   return out.sort();
@@ -14118,22 +14750,22 @@ async function takenElsewhere(octokit, { owner, repo, config, own }) {
       state: "open",
       per_page: PER_PAGE,
       page
-    }).then(({ data }) => parsedOr(ListSchema, data, OPEN_PULLS_UNEXPECTED))
+    }).then(({ data }) => parsedOr2(ListSchema, data, OPEN_PULLS_UNEXPECTED))
   );
-  const branches = [...new Set(parsedOr(OpenPullSchema.array(), pulls, OPEN_PULLS_UNEXPECTED).map((pull) => pull.head?.ref))].filter((ref) => typeof ref === "string" && ref.length > 0 && ref !== own && topicOf2(ref, config.branches.knowledge) !== null).sort();
+  const branches = [...new Set(parsedOr2(OpenPullSchema.array(), pulls, OPEN_PULLS_UNEXPECTED).map((pull) => pull.head?.ref))].filter((ref) => typeof ref === "string" && ref.length > 0 && ref !== own && topicOf2(ref, config.branches.knowledge) !== null).sort();
   const records = /* @__PURE__ */ new Set();
   const ids = /* @__PURE__ */ new Set();
   const paths = [config.paths.knowledge, config.paths.adr].filter((path) => Boolean(path));
   for (const branch of branches) {
     const sha = await tipOf(octokit, { owner, repo, branch });
-    const root = mkdtempSync11(join65(tmpdir11(), "omni-harvest-taken-"));
+    const root = mkdtempSync12(join66(tmpdir12(), "omni-harvest-taken-"));
     try {
       await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
       const ctx = createContext(root, config);
       for (const entry of readKnowledge({ ctx }).entries) ids.add(entry.id);
       for (const record of readDecisions({ ctx }).records) records.add(record.number);
     } finally {
-      rmSync15(root, { recursive: true, force: true });
+      rmSync16(root, { recursive: true, force: true });
     }
   }
   return { records: [...records].sort(), ids: [...ids].sort(), branches };
@@ -14141,12 +14773,12 @@ async function takenElsewhere(octokit, { owner, repo, config, own }) {
 var LAW_ISSUES_UNEXPECTED = "GitHub answered the open law issues unexpectedly";
 async function openLawIssue(octokit, { owner, repo, label: label2, issue }) {
   const listed = await paginate(
-    (page) => octokit.request("GET /repos/{owner}/{repo}/issues", { owner, repo, labels: label2, state: "open", per_page: PER_PAGE, page }).then(({ data: data2 }) => parsedOr(ListSchema, data2, LAW_ISSUES_UNEXPECTED))
+    (page) => octokit.request("GET /repos/{owner}/{repo}/issues", { owner, repo, labels: label2, state: "open", per_page: PER_PAGE, page }).then(({ data: data2 }) => parsedOr2(ListSchema, data2, LAW_ISSUES_UNEXPECTED))
   );
-  const open = parsedOr(ListedIssueSchema.array(), listed, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
+  const open = parsedOr2(ListedIssueSchema.array(), listed, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
   if (open) return { number: open.number, created: false };
   const { data } = await octokit.request("POST /repos/{owner}/{repo}/issues", { owner, repo, title: issue.title, body: issue.body, labels: [label2] });
-  return { number: parsedOr(ListedIssueSchema, data, "GitHub answered the new law issue unexpectedly").number, created: true };
+  return { number: parsedOr2(ListedIssueSchema, data, "GitHub answered the new law issue unexpectedly").number, created: true };
 }
 
 // apps/omni-app/src/knowledge-pack/files.ts
@@ -14179,31 +14811,31 @@ function packFiles(read) {
 }
 
 // apps/omni-app/src/knowledge-pack/github.ts
-import { mkdtempSync as mkdtempSync12, readdirSync as readdirSync21, readFileSync as readFileSync47, rmSync as rmSync16, statSync as statSync16 } from "node:fs";
-import { tmpdir as tmpdir12 } from "node:os";
-import { join as join66 } from "node:path";
-import { z as z55 } from "zod";
-var PullFileSchema = z55.looseObject({ filename: z55.string().min(1), previous_filename: z55.string().nullish() });
+import { mkdtempSync as mkdtempSync13, readdirSync as readdirSync21, readFileSync as readFileSync47, rmSync as rmSync17, statSync as statSync16 } from "node:fs";
+import { tmpdir as tmpdir13 } from "node:os";
+import { join as join67 } from "node:path";
+import { z as z58 } from "zod";
+var PullFileSchema = z58.looseObject({ filename: z58.string().min(1), previous_filename: z58.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z55.array(PullFileSchema).parse(data);
+    return z58.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
 function filesIn2(root, dir = "") {
-  return readdirSync21(join66(root, dir)).flatMap((name) => {
+  return readdirSync21(join67(root, dir)).flatMap((name) => {
     const rel = dir ? `${dir}/${name}` : name;
-    return statSync16(join66(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
+    return statSync16(join67(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
   });
 }
 async function withPathsAt(octokit, { owner, repo, sha, paths }, fn) {
-  const root = mkdtempSync12(join66(tmpdir12(), "omni-knowledge-pack-"));
+  const root = mkdtempSync13(join67(tmpdir13(), "omni-knowledge-pack-"));
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
     return fn(root);
   } finally {
-    rmSync16(root, { recursive: true, force: true });
+    rmSync17(root, { recursive: true, force: true });
   }
 }
 async function configAt3(octokit, where) {
@@ -14211,7 +14843,7 @@ async function configAt3(octokit, where) {
     const files = filesIn2(root);
     if (!files.includes(CONFIG_FILE)) return { none: `it has no ${CONFIG_FILE}` };
     try {
-      return { config: parseConfig(readFileSync47(join66(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
+      return { config: parseConfig(readFileSync47(join67(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
     } catch (error) {
       return { none: `its config does not parse: ${(error instanceof Error ? error.message : String(error)).split("\n")[0] ?? ""}` };
     }
@@ -14221,7 +14853,7 @@ async function packBytesAt(octokit, { owner, repo, sha, paths }) {
   return withPathsAt(
     octokit,
     { owner, repo, sha, paths: [...paths.folders, ...paths.files] },
-    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync47(join66(root, path))]))
+    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync47(join67(root, path))]))
   );
 }
 
@@ -14267,12 +14899,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z56.object({
-  installationId: z56.number(),
-  owner: z56.string().min(1),
-  repo: z56.string().min(1),
-  sha: z56.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z56.string().min(1),
+var PackPayloadSchema = z59.object({
+  installationId: z59.number(),
+  owner: z59.string().min(1),
+  repo: z59.string().min(1),
+  sha: z59.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z59.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packHandler({
@@ -14387,7 +15019,12 @@ function liveWorkers(env, octokitFor) {
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret })
   });
   return {
-    handlers: { [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }), ...checks.handlers },
+    handlers: {
+      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }),
+      ...checks.handlers,
+      [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
+      [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) })
+    },
     failures: checks.failures
   };
 }
@@ -14605,7 +15242,7 @@ async function upsertPull(octokit, { owner, repo, branch, base, head, title, bod
 }
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
-import { z as z57 } from "zod";
+import { z as z60 } from "zod";
 async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text17 }) {
   const body = `${marker2}
 ${String(text17).trimEnd()}
@@ -14629,7 +15266,7 @@ ${String(text17).trimEnd()}
   });
   return { commentId: CommentWrittenSchema.parse(data).id, created: true };
 }
-var FailureCommentSchema = z57.object({ commentId: CommentIdSchema, reason: z57.string(), created: z57.boolean() });
+var FailureCommentSchema = z60.object({ commentId: CommentIdSchema, reason: z60.string(), created: z60.boolean() });
 var COMMENT_FAILURE_STEP = "comment-failure";
 function commentOnFailure(octokitFor, step, { installationId, owner, repo }, schema, comment) {
   const run = async () => {
@@ -14874,7 +15511,7 @@ function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudge: lawJ
           repo,
           commit_sha: head
         });
-        const { message } = parsedOr(CommitSchema, headCommit, `GitHub answered the commit ${head} unexpectedly`);
+        const { message } = parsedOr2(CommitSchema, headCommit, `GitHub answered the commit ${head} unexpectedly`);
         const already = head !== tip && (message ?? "").includes(commitMarker(merge.pr));
         const commit = already ? head : await addCommit(octokit, {
           owner,
@@ -14945,15 +15582,15 @@ function createHarvestFailureHandler({ octokitFor }) {
 }
 
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z58 } from "zod";
+import { z as z61 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS3 = 55e3;
-var VerdictSchema3 = z58.looseObject({
-  answer: z58.enum(["true", "false"]),
-  confidence: z58.number().nullable().catch(null),
-  decidedBy: z58.string().nullable().catch(null)
+var VerdictSchema3 = z61.looseObject({
+  answer: z61.enum(["true", "false"]),
+  confidence: z61.number().nullable().catch(null),
+  decidedBy: z61.string().nullable().catch(null)
 });
-var RefusalSchema3 = z58.looseObject({ error: z58.string().optional().catch(void 0) });
+var RefusalSchema3 = z61.looseObject({ error: z61.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
@@ -14984,633 +15621,6 @@ function lawJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_
     const answered = await signedPost(post, { url, secret, body, timeoutMs });
     return "unreached" in answered ? kept2(`galaxy could not be reached: ${answered.unreached}`) : judgementOf(answered);
   };
-}
-
-// apps/omni-app/src/octokit-for.ts
-import { App } from "@octokit/app";
-import { createClient as createClient4 } from "@supabase/supabase-js";
-var APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
-function installationOctokitFor(githubApp, github) {
-  let app;
-  return async (installationId) => {
-    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app reads GitHub as an installation");
-    app ??= new App({ appId: id, privateKey });
-    const octokit = await app.getInstallationOctokit(installationId);
-    const budgeted = github.bound({ installation: installationId, priority: "background" });
-    const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init);
-    octokit.hook.before("request", (options) => {
-      options.request = { ...options.request, fetch: fetch2 };
-    });
-    return octokit;
-  };
-}
-function appOctokitFor(githubApp) {
-  let app;
-  return () => {
-    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app looks up its installations as the App");
-    app ??= new App({ appId: id, privateKey });
-    return app.octokit;
-  };
-}
-function githubStoreOf(supabase) {
-  if (!supabase) return null;
-  const db = createClient4(supabase.url, supabase.key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-  });
-  return supabaseGithubStore({ etags: () => db.from("github_etags"), budget: () => db.from("github_budget") });
-}
-
-// apps/omni-app/src/escalation/sweep.ts
-import { mkdtempSync as mkdtempSync13, rmSync as rmSync17 } from "node:fs";
-import { tmpdir as tmpdir13 } from "node:os";
-import { join as join67 } from "node:path";
-import { z as z59 } from "zod";
-var ESCALATION_FUNCTION_ID = "escalation";
-var EVERY_HOUR = "0 * * * *";
-var InstallationsSchema = z59.array(z59.looseObject({ id: z59.number() }));
-var RepositoriesSchema = z59.looseObject({
-  repositories: z59.array(z59.looseObject({ name: z59.string(), owner: z59.looseObject({ login: z59.string() }) }))
-});
-var OpenPullsSchema = z59.array(z59.looseObject({ number: z59.number(), base: z59.looseObject({ sha: z59.string() }) }));
-var lower = (login) => login.toLowerCase();
-function moveDue(lines, settings, now, posted) {
-  const decisions = decide(lines.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
-  const due = [];
-  const moved = lines.map((line, index) => {
-    const decision = decisions[index];
-    if (decision === void 0 || decision.step <= line.step) return line;
-    const already = new Set(line.asked.map(lower));
-    const newlyAsked = decision.asked.filter((login) => !already.has(lower(login)));
-    const announced = posted.some((one) => one.thing === line.thing && one.step >= decision.step);
-    if (!announced && newlyAsked.length > 0) due.push({ ...decision, newlyAsked });
-    const { thing, kind, firstHeld, step, asked, nextDue } = decision;
-    return { thing, kind, firstHeld, step, asked, nextDue };
-  });
-  return { lines: moved, due };
-}
-async function settingsAt(octokit, { owner, repo, baseSha }) {
-  const dest = mkdtempSync13(join67(tmpdir13(), "omni-escalation-"));
-  try {
-    const { config } = await readBaseConfig(octokit, { owner, repo, baseSha, dest });
-    return config === null ? null : settingsOf(config);
-  } finally {
-    rmSync17(dest, { recursive: true, force: true });
-  }
-}
-function recordIn(comments) {
-  for (const comment of comments) {
-    const lines = readRecord(comment.body);
-    if (lines !== null) return lines.length > 0 ? { record: comment, lines } : null;
-  }
-  return null;
-}
-async function sweepPull(octokit, { owner, repo, prNumber, now, settings }) {
-  const comments = await listComments(octokit, { owner, repo, prNumber });
-  const found = recordIn(comments);
-  if (found === null) return "none";
-  const read = await settings();
-  if (read === null || !escalates(read)) return "none";
-  const moved = moveDue(found.lines, read, now, comments.flatMap((comment) => readAsk(comment.body)));
-  if (moved.due.length > 0) {
-    await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { owner, repo, issue_number: prNumber, body: renderAsk(moved.due) });
-  }
-  const body = renderRecord(moved.lines);
-  if (body !== found.record.body) {
-    await octokit.request("PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}", { owner, repo, comment_id: found.record.id, body });
-  }
-  if (moved.due.length > 0) return "asked";
-  return body === found.record.body ? "unchanged" : "moved";
-}
-async function sweepRepository(octokit, { owner, repo, now, log: log2 }) {
-  const pulls = await paginate(
-    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, state: "open", per_page: PER_PAGE, page }).then(({ data }) => OpenPullsSchema.parse(data))
-  );
-  const configs = /* @__PURE__ */ new Map();
-  const settingsOfBase = (baseSha) => () => {
-    const known = configs.get(baseSha) ?? settingsAt(octokit, { owner, repo, baseSha });
-    configs.set(baseSha, known);
-    return known;
-  };
-  const swept = { pulls: pulls.length, asked: 0, failed: 0 };
-  for (const pull of pulls) {
-    try {
-      const outcome2 = await sweepPull(octokit, { owner, repo, prNumber: parsePr(pull.number), now, settings: settingsOfBase(pull.base.sha) });
-      if (outcome2 === "asked") swept.asked += 1;
-    } catch (error) {
-      swept.failed += 1;
-      log2(`escalation sweep of ${owner}/${repo}#${String(pull.number)} waits for the next hour: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-  return swept;
-}
-async function installationsOf(app) {
-  const installations = await paginate(
-    (page) => app.request("GET /app/installations", { per_page: PER_PAGE, page }).then(({ data }) => InstallationsSchema.parse(data))
-  );
-  return installations.map(({ id }) => id);
-}
-async function repositoriesOf(octokit) {
-  const repositories = await paginate(
-    (page) => octokit.request("GET /installation/repositories", { per_page: PER_PAGE, page }).then(({ data }) => RepositoriesSchema.parse(data).repositories)
-  );
-  return repositories.map(({ name, owner }) => ({ owner: owner.login, repo: name }));
-}
-function createEscalation({ client, octokitFor, appOctokit, log: log2 = noteTo("escalation"), clock = Date.now }) {
-  return client.createFunction(
-    {
-      id: ESCALATION_FUNCTION_ID,
-      name: "omni-loop \xB7 escalation",
-      triggers: [{ cron: EVERY_HOUR }],
-      // One sweep at a time: two never race to post the same ask.
-      concurrency: { limit: 1 },
-      retries: 2
-    },
-    async ({ step }) => {
-      if (appOctokit === null) {
-        log2("escalation: the App cannot list its installations here, so nobody is asked.");
-        return { skipped: "no app" };
-      }
-      const app = await appOctokit();
-      const now = await step.run("clock", () => clock());
-      const installations = await step.run("installations", () => installationsOf(app));
-      const total = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
-      for (const installation of installations) {
-        const repositories = await step.run(`repositories ${String(installation)}`, async () => repositoriesOf(await octokitFor(installation)));
-        for (const { owner, repo } of repositories) {
-          const swept = await step.run(
-            `sweep ${owner}/${repo}`,
-            async () => sweepRepository(await octokitFor(installation), { owner, repo, now: new Date(now), log: log2 })
-          );
-          total.repositories += 1;
-          total.pulls += swept.pulls;
-          total.asked += swept.asked;
-          total.failed += swept.failed;
-        }
-      }
-      return total;
-    }
-  );
-}
-
-// apps/omni-app/src/pr-stats/schema.ts
-import { z as z61 } from "zod";
-
-// kit/lib/plan-repo/gh-schema.ts
-import { z as z60 } from "zod";
-var GhRepositorySchema = z60.looseObject({ default_branch: z60.string() });
-var GhContentEntrySchema = z60.looseObject({ type: z60.string(), name: z60.string(), path: z60.string() });
-var GhCompareFileSchema = z60.looseObject({
-  filename: z60.string(),
-  previous_filename: z60.string().optional()
-});
-var GhCompareSchema = z60.looseObject({
-  ahead_by: z60.number().optional(),
-  status: z60.string().optional(),
-  files: z60.array(GhCompareFileSchema).optional()
-});
-function firstIssue(error) {
-  const [issue] = error.issues;
-  if (issue === void 0) return error.message;
-  const field4 = issue.path.length > 0 ? issue.path.join(".") : "(answer)";
-  return `${field4}: ${issue.message}`;
-}
-
-// apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z61.looseObject({
-  limit: z61.number(),
-  remaining: z61.number(),
-  resetAt: z61.string().nullish()
-});
-var RateLimited = z61.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z61.looseObject({
-  repository: z61.looseObject({
-    pullRequests: z61.looseObject({
-      pageInfo: z61.looseObject({ hasNextPage: z61.boolean(), endCursor: z61.string().nullish() }),
-      nodes: z61.array(z61.looseObject({ number: PrNumberSchema, updatedAt: z61.string() }))
-    })
-  })
-});
-var ActorSchema = z61.looseObject({ login: z61.string().nullish(), __typename: z61.string().nullish() }).nullish();
-var PullDetailSchema = z61.looseObject({
-  number: PrNumberSchema,
-  author: ActorSchema,
-  createdAt: z61.string(),
-  mergedAt: z61.string().nullish(),
-  closedAt: z61.string().nullish(),
-  mergedBy: ActorSchema,
-  baseRefName: z61.string().nullish(),
-  headRefName: z61.string().nullish(),
-  isDraft: z61.boolean().nullish(),
-  body: z61.string().nullish(),
-  additions: z61.number().nullish(),
-  deletions: z61.number().nullish(),
-  labels: z61.looseObject({ nodes: z61.array(z61.looseObject({ name: z61.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z61.looseObject({
-    totalCount: z61.number(),
-    nodes: z61.array(
-      z61.looseObject({
-        commit: z61.looseObject({ message: z61.string().nullish(), committedDate: z61.string().nullish() }).nullish()
-      })
-    )
-  }).nullish(),
-  reviews: z61.looseObject({ nodes: z61.array(z61.looseObject({ author: ActorSchema, submittedAt: z61.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z61.looseObject({
-    nodes: z61.array(
-      z61.looseObject({ createdAt: z61.string().nullish(), label: z61.looseObject({ name: z61.string().nullish() }).nullish() }).nullish()
-    ).nullish()
-  }).nullish()
-});
-var PullDetailsSchema = z61.looseObject({ repository: z61.record(z61.string(), z61.unknown()) });
-var PullCommentsSchema = z61.looseObject({
-  comments: z61.looseObject({ nodes: z61.array(z61.looseObject({ body: z61.string().nullish() }).nullish()).nullish() }).nullish()
-}).nullish();
-var TrackedRowSchema2 = z61.looseObject({
-  workspace_id: z61.string(),
-  full_name: z61.string(),
-  collected_until: z61.string().nullish(),
-  workspaces: z61.looseObject({ github_installation_id: z61.union([z61.number(), z61.string()]) })
-});
-var FailureSchema2 = z61.looseObject({
-  errors: z61.array(z61.looseObject({ type: z61.unknown().optional(), message: z61.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z61.unknown().optional(),
-  status: z61.unknown().optional()
-});
-function parseAnswer(schema, value, what) {
-  return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
-}
-function parsedOr2(schema, value, context) {
-  const parsed2 = schema.safeParse(value);
-  if (parsed2.success) return parsed2.data;
-  throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
-}
-var BudgetSchema = z61.object({
-  limit: z61.number().exactOptional(),
-  remaining: z61.number().exactOptional(),
-  resetAt: z61.string().nullable().exactOptional()
-});
-var TrackedRepositorySchema = z61.object({
-  workspaceId: z61.string(),
-  installationId: z61.number(),
-  fullName: z61.string(),
-  collectedUntil: z61.string().nullable()
-});
-var TrackedRepositoriesSchema = z61.array(TrackedRepositorySchema);
-var BatchOutSchema = z61.object({
-  saved: z61.number(),
-  cursor: z61.string(),
-  more: z61.boolean(),
-  paused: z61.literal(true).exactOptional(),
-  error: z61.string().exactOptional(),
-  budget: BudgetSchema
-});
-
-// apps/omni-app/src/pr-stats/signed.ts
-var DEFAULT_SIGNATURE = parseConfig("kit: 1\n").signature;
-if (!DEFAULT_SIGNATURE) throw new Error("the kit's default config signs as Omni-man");
-var SIGNATURE = DEFAULT_SIGNATURE;
-var OMNI_LOGIN = botLogin(SIGNATURE.email);
-var TRAILER = /^co-authored-by:.*<([^>]+)>$/i;
-function carriesOmniTrailer(message) {
-  if (typeof message !== "string") return false;
-  const email = SIGNATURE.email.toLowerCase();
-  return message.split("\n").some((line) => TRAILER.exec(line.trim())?.[1]?.trim().toLowerCase() === email);
-}
-function isOmniSigned({ author, body, commitMessages }) {
-  return author === OMNI_LOGIN || isSignedBody(body) || (commitMessages ?? []).some(carriesOmniTrailer);
-}
-function isBot(user) {
-  if (!user) return false;
-  return user.type === "Bot" || typeof user.login === "string" && user.login.endsWith("[bot]");
-}
-
-// apps/omni-app/src/pr-stats/github.ts
-var PER_PAGE3 = 100;
-var MAX_LIST_PAGES = 50;
-var COMMITS_READ = 100;
-var LABELS_READ = 100;
-var REVIEWS_READ = 100;
-var LABEL_EVENTS_READ = 100;
-var NEEDS_FIX_LABEL = parseConfig("kit: 1\n").labels.needsFix;
-var COMMENTS_READ = 100;
-var MAIN_BRANCHES = ["main", "master", "develop"];
-var STATUS_MARKER = makeMarkers(parseConfig("kit: 1\n").markers.prefix).status;
-var BUDGET_FLOOR = 0.5;
-var QUERY_COST_MARGIN = 10;
-var RATE_LIMIT = "rateLimit { limit remaining resetAt }";
-var BudgetLow = class extends Error {
-  constructor(budget) {
-    super(`GitHub budget low: ${budget.remaining} of ${budget.limit} left, until ${budget.resetAt ?? "the reset"}`);
-    this.name = "BudgetLow";
-  }
-};
-function affords(budget) {
-  if (budget.limit === void 0) return true;
-  return Number(budget.remaining) - QUERY_COST_MARGIN >= budget.limit * BUDGET_FLOOR;
-}
-async function ask2(octokit, budget, query, variables) {
-  if (budget.limit === void 0) {
-    const answer2 = parseAnswer(RateLimited, await octokit.graphql(`query Budget { ${RATE_LIMIT} }`), "Budget");
-    Object.assign(budget, answer2?.rateLimit);
-  }
-  if (!affords(budget)) throw new BudgetLow(budget);
-  const data = await octokit.graphql(query, variables);
-  const answer = parseAnswer(RateLimited, data, operationOf(query));
-  if (answer?.rateLimit) Object.assign(budget, answer.rateLimit);
-  return data;
-}
-function operationOf(query) {
-  return /query\s+(\w+)/.exec(query)?.[1] ?? "a query";
-}
-var LIST = `query PullsUpdated($owner: String!, $repo: String!, $first: Int!, $after: String) {
-  ${RATE_LIMIT}
-  repository(owner: $owner, name: $repo) {
-    pullRequests(first: $first, after: $after, orderBy: { field: UPDATED_AT, direction: DESC }) {
-      pageInfo { hasNextPage endCursor }
-      nodes { number updatedAt }
-    }
-  }
-}`;
-async function pullsUpdatedAfter(octokit, budget, { owner, repo, since }) {
-  const after = Date.parse(since);
-  const out = [];
-  let cursor = null;
-  for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
-    const answer = await ask2(octokit, budget, LIST, { owner, repo, first: PER_PAGE3, after: cursor });
-    const data = parseAnswer(PullsUpdatedSchema, answer, "PullsUpdated");
-    const { nodes, pageInfo } = data.repository.pullRequests;
-    for (const pull of nodes) {
-      if (Date.parse(pull.updatedAt) <= after) return out.reverse();
-      out.push({ number: pull.number, updatedAt: pull.updatedAt });
-    }
-    if (!pageInfo.hasNextPage) break;
-    cursor = pageInfo.endCursor;
-  }
-  return out.reverse();
-}
-var PULL_FIELDS = `number
-  author { login __typename }
-  createdAt mergedAt closedAt
-  mergedBy { login __typename }
-  baseRefName headRefName isDraft body additions deletions
-  labels(first: ${LABELS_READ}) { nodes { name } }
-  commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message committedDate } } }
-  reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }
-  timelineItems(first: ${LABEL_EVENTS_READ}, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }`;
-async function readPullRecords(octokit, budget, { workspaceId, fullName, numbers }) {
-  if (numbers.length === 0) return [];
-  const [owner, repo] = fullName.split("/");
-  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { ${PULL_FIELDS} }`).join("\n    ");
-  const query = `query PullDetails($owner: String!, $repo: String!) {
-  ${RATE_LIMIT}
-  repository(owner: $owner, name: $repo) {
-    ${pulls}
-  }
-}`;
-  const data = parseAnswer(PullDetailsSchema, await ask2(octokit, budget, query, { owner, repo }), "PullDetails");
-  const records = numbers.flatMap((number) => {
-    const pull = data.repository[`p${number}`];
-    return pull ? [recordOf(parseAnswer(PullDetailSchema, pull, `PullDetails, pull request ${number}`), { workspaceId, fullName })] : [];
-  });
-  const held = records.filter(({ row }) => canHoldRun(row)).map(({ row }) => row.number);
-  const states = await readStatusStates(octokit, budget, { owner, repo, numbers: held });
-  for (const { row } of records) row.status_state = states.get(row.number) ?? null;
-  return records;
-}
-function canHoldRun(row) {
-  return !row.merged_at && !row.closed_at && row.omni_signed && MAIN_BRANCHES.includes(row.base ?? "");
-}
-async function readStatusStates(octokit, budget, { owner, repo, numbers }) {
-  const states = /* @__PURE__ */ new Map();
-  if (numbers.length === 0) return states;
-  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { comments(first: ${COMMENTS_READ}) { nodes { body } } }`).join("\n    ");
-  const query = `query PullStatus($owner: String!, $repo: String!) {
-  ${RATE_LIMIT}
-  repository(owner: $owner, name: $repo) {
-    ${pulls}
-  }
-}`;
-  const data = parseAnswer(PullDetailsSchema, await ask2(octokit, budget, query, { owner, repo }), "PullStatus");
-  for (const number of numbers) {
-    const pull = parseAnswer(PullCommentsSchema, data.repository[`p${number}`], `PullStatus, pull request ${number}`);
-    const comment = pull?.comments?.nodes?.find((node) => node?.body?.includes(STATUS_MARKER));
-    const state = comment?.body ? stateOf(comment.body) : null;
-    if (state) states.set(number, state);
-  }
-  return states;
-}
-function stateOf(body) {
-  return /^\s*-?\s*state:\s*(.+?)\s*$/m.exec(body)?.[1] ?? null;
-}
-function loginOf2(actor) {
-  if (!actor?.login) return null;
-  return actor.__typename === "Bot" && !actor.login.endsWith("[bot]") ? `${actor.login}[bot]` : actor.login;
-}
-function recordOf(pull, { workspaceId, fullName }) {
-  const author = loginOf2(pull.author);
-  const commits = pull.commits ?? { totalCount: 0, nodes: [] };
-  const row = {
-    workspace_id: workspaceId,
-    repo: fullName,
-    number: pull.number,
-    author,
-    author_is_bot: Boolean(pull.author) && isBot({ login: author, type: pull.author?.__typename }),
-    opened_at: pull.createdAt,
-    ...closing(pull),
-    ...loopFacts(pull, commits),
-    commits: commits.totalCount,
-    additions: pull.additions ?? 0,
-    deletions: pull.deletions ?? 0,
-    omni_signed: isOmniSigned({ author, body: pull.body, commitMessages: commits.nodes.map((node) => node.commit?.message) })
-  };
-  return { row, reviews: firstReviews(pull, author).map(([reviewer, firstAt]) => ({ workspace_id: workspaceId, repo: fullName, number: pull.number, reviewer, first_at: firstAt })) };
-}
-function loopFacts(pull, commits) {
-  return {
-    base: pull.baseRefName ?? null,
-    head: pull.headRefName ?? null,
-    draft: Boolean(pull.isDraft),
-    labels: (pull.labels?.nodes ?? []).map((label2) => label2?.name).filter((name) => Boolean(name)),
-    head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
-    needs_fix_at: firstNeedsFix(pull)
-  };
-}
-function firstNeedsFix(pull) {
-  let first = null;
-  for (const event of pull.timelineItems?.nodes ?? []) {
-    if (event?.label?.name !== NEEDS_FIX_LABEL || !event.createdAt) continue;
-    if (!first || Date.parse(event.createdAt) < Date.parse(first)) first = event.createdAt;
-  }
-  return first;
-}
-function closing(pull) {
-  return { merged_at: pull.mergedAt ?? null, closed_at: pull.closedAt ?? null, merged_by: loginOf2(pull.mergedBy) };
-}
-function firstReviews(pull, author) {
-  const first = /* @__PURE__ */ new Map();
-  for (const review of pull.reviews?.nodes ?? []) {
-    const reviewer = loginOf2(review.author);
-    if (!reviewer || !review.submittedAt || reviewer === author) continue;
-    const at4 = first.get(reviewer);
-    if (!at4 || Date.parse(review.submittedAt) < Date.parse(at4)) first.set(reviewer, review.submittedAt);
-  }
-  return [...first].sort(([a], [b]) => a.localeCompare(b));
-}
-
-// apps/omni-app/src/pr-stats/collect.ts
-var BACKFILL_DAYS = 90;
-var BATCH = 50;
-var MAX_BATCHES = 20;
-var DAY_MS2 = 24 * 60 * 60 * 1e3;
-async function collectAll({ store, octokitFor, step, now }) {
-  const nowIso = new Date(now).toISOString();
-  const backfillFrom = new Date(now - BACKFILL_DAYS * DAY_MS2).toISOString();
-  const repositories = await savedStep(step, "list-repositories", TrackedRepositoriesSchema, () => store.trackedRepositories());
-  const summary2 = { repositories: repositories.length, collected: 0, failed: 0, unfinished: 0, paused: 0, saved: 0 };
-  const budgets = /* @__PURE__ */ new Map();
-  for (const repository of repositories) {
-    const { outcome: outcome2, saved } = await collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso });
-    summary2[outcome2] += 1;
-    summary2.saved += saved;
-  }
-  return summary2;
-}
-async function collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso }) {
-  const { installationId, workspaceId, fullName } = repository;
-  let saved = 0;
-  let cursor = repository.collectedUntil ?? backfillFrom;
-  for (let n = 1; ; n += 1) {
-    const budget = budgets.get(installationId) ?? {};
-    if (!affords(budget)) return { outcome: "paused", saved };
-    const out = await savedStep(
-      step,
-      `collect ${workspaceId}/${fullName} ${n}`,
-      BatchOutSchema,
-      () => collectBatch({ store, octokitFor, repository, cursor, nowIso, budget })
-    );
-    saved += out.saved;
-    cursor = out.cursor;
-    budgets.set(installationId, out.budget);
-    const outcome2 = outcomeOf(out, n);
-    if (outcome2) return { outcome: outcome2, saved };
-  }
-}
-function outcomeOf(out, n) {
-  if (out.paused) return "paused";
-  if (out.error) return "failed";
-  if (!out.more) return "collected";
-  return n === MAX_BATCHES ? "unfinished" : null;
-}
-async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before2 }) {
-  const { workspaceId, fullName, installationId } = repository;
-  const [owner, repo] = fullName.split("/");
-  let reached = cursor;
-  let saved = 0;
-  const budget = { ...before2 };
-  try {
-    const octokit = await octokitFor(installationId);
-    const listed = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
-    const taken = batchOf(listed);
-    const records = await readPullRecords(octokit, budget, { workspaceId, fullName, numbers: taken.map((item) => item.number) });
-    const byNumber = new Map(records.map((record) => [record.row.number, record]));
-    for (const [index, item] of taken.entries()) {
-      const record = byNumber.get(item.number);
-      if (record) {
-        await store.savePull(record.row, record.reviews);
-        saved += 1;
-      }
-      if (taken[index + 1]?.updatedAt !== item.updatedAt) reached = item.updatedAt;
-    }
-    const more = listed.length > taken.length;
-    await store.updateRepository(
-      workspaceId,
-      fullName,
-      more ? { collected_until: reached } : { collected_at: nowIso, collected_until: reached, collect_error: null }
-    );
-    return { saved, cursor: reached, more, budget };
-  } catch (error) {
-    if (error instanceof BudgetLow) {
-      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
-      return { saved, cursor: reached, more: false, paused: true, budget };
-    }
-    const reason2 = describe2(error);
-    await store.updateRepository(workspaceId, fullName, { collected_until: reached, collect_error: reason2 });
-    return { saved, cursor: reached, more: false, error: reason2, budget };
-  }
-}
-function batchOf(listed) {
-  let end = Math.min(BATCH, listed.length);
-  while (end < listed.length && listed[end]?.updatedAt === listed[end - 1]?.updatedAt) end += 1;
-  return listed.slice(0, end);
-}
-function describe2(error) {
-  const failure2 = FailureSchema2.safeParse(error);
-  const { errors, message: said, status } = failure2.success ? failure2.data : {};
-  const graphqlError = errors?.[0];
-  if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
-  const message = printed2(said ?? error ?? "unknown error").split("\n")[0] ?? "";
-  return status ? `HTTP ${printed2(status)}: ${message}` : message;
-}
-var printed2 = (value) => String(value);
-
-// apps/omni-app/src/pr-stats/supabase-store.ts
-import { createClient as createClient5 } from "@supabase/supabase-js";
-var TRACKED2 = "workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)";
-function supabaseStore({ url, key, fetch: fetch2 }) {
-  const db = createClient5(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    ...fetch2 ? { global: { fetch: fetch2 } } : {}
-  });
-  return {
-    async trackedRepositories() {
-      const rows = checked(
-        await db.from("repositories").select(TRACKED2).eq("tracked", true).not("workspaces.github_installation_id", "is", null).order("workspace_id").order("full_name")
-      );
-      return parsedOr2(TrackedRowSchema2.array(), rows, "The database answered the tracked repositories unexpectedly").map((row) => ({
-        workspaceId: row.workspace_id,
-        installationId: Number(row.workspaces.github_installation_id),
-        fullName: row.full_name,
-        collectedUntil: row.collected_until ?? null
-      }));
-    },
-    async savePull(row, reviews) {
-      checked(await db.from("pull_requests").upsert(row, { onConflict: "workspace_id,repo,number" }));
-      if (reviews.length > 0) {
-        checked(await db.from("pull_request_reviews").upsert(reviews, { onConflict: "workspace_id,repo,number,reviewer" }));
-      }
-    },
-    async updateRepository(workspaceId, fullName, patch) {
-      checked(await db.from("repositories").update(patch).eq("workspace_id", workspaceId).eq("full_name", fullName));
-    }
-  };
-}
-function checked({ data, error }) {
-  if (error) throw new Error(`The database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
-  return data ?? [];
-}
-
-// apps/omni-app/src/pr-stats/pr-stats.ts
-var PR_STATS_FUNCTION_ID = "pr-stats";
-var EVERY_15_MINUTES = "*/15 * * * *";
-function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore, log: log2 = noteTo("pr-stats"), clock = Date.now }) {
-  return client.createFunction(
-    {
-      id: PR_STATS_FUNCTION_ID,
-      name: "omni-loop \xB7 pr stats",
-      triggers: [{ cron: EVERY_15_MINUTES }],
-      // One collection at a time: a run still backfilling is never raced by the next tick.
-      concurrency: { limit: 1 },
-      retries: 2
-    },
-    async ({ step }) => {
-      if (!supabase) {
-        log2("prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.");
-        return { skipped: "no store" };
-      }
-      const store = storeFor(supabase);
-      const now = await step.run("clock", () => clock());
-      return collectAll({ store, octokitFor, step, now });
-    }
-  );
 }
 
 // apps/omni-app/src/retro/retro.ts
@@ -20244,10 +20254,8 @@ function appFunctions(env, {
       openrouter: env.openrouter,
       lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(env.galaxyUrl), secret: env.lawJudge.secret }) : null
     }),
-    prStats: createPrStats({ client: inngest2, octokitFor, supabase: env.supabase }),
     canonAction: createCanonAction({ client: inngest2, octokitFor, galaxyUrl: env.galaxyUrl }),
     serverEvent: createServerEventRecheck({ client: inngest2, octokitFor, readTargets: supabase ? targetsReader(supabase) : null, jobs }),
-    escalation: createEscalation({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
     fixRowStamp: createFixRowStamp({ client: inngest2, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
     mainWatch: createMainWatch({
       client: inngest2,
