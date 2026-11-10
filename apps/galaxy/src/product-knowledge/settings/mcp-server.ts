@@ -45,7 +45,7 @@ export function originFrom(host: string | null, proto: string | null): string {
 /** What the card draws from the product's row, the caller's role in the workspace and the repositories with no pack. */
 export function cardFrom(
   row: { key: string | null; mcp_enabled: boolean; archived_at: string | null },
-  role: string | null, origin: string, missing: string[],
+  role: unknown, origin: string, missing: string[],
 ): McpCard {
   return { key: row.key, on: row.mcp_enabled, owner: role === 'owner', archived: row.archived_at !== null, origin, missing: row.mcp_enabled ? missing : [] };
 }

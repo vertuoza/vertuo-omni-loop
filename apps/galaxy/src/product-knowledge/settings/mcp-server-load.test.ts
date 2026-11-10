@@ -5,11 +5,13 @@ import type { KnowledgeReader } from '../constituents/knowledge-reader';
 // card is drawn from the caller's own rows, never from a service role, and a repository with no pack is named
 // only while the server is on. Fictional product only.
 
-const state = vi.hoisted(() => ({
-  reader: { kind: 'unreadable' } as unknown,
-  packs: {} as Record<string, 'ok' | 'missing' | 'failed'>,
-  held: { plan: null, repositories: ['acme/api', 'acme/web'] } as { plan: string | null; repositories: string[] } | null,
-}));
+interface Stubs {
+  reader: unknown;
+  packs: Record<string, 'ok' | 'missing' | 'failed'>;
+  held: { plan: string | null; repositories: string[] } | null;
+}
+
+const state = vi.hoisted((): Stubs => ({ reader: { kind: 'unreadable' }, packs: {}, held: null }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/headers', () => ({ headers: () => Promise.resolve(new Headers({ host: 'omni.example', 'x-forwarded-proto': 'https' })) }));

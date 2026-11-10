@@ -1,9 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '../../../../../supabase/database.types.ts';
 import type { WriteSource } from '../constituents/knowledge-reader';
+import { switchServer } from './mcp-port';
 import {
   claudeCodeCommand, cursorEntry, KEYS_HREF, KEYS_LABEL, mcpUrl, MCP_TITLE, noKnowledgeLine, OFF_LINES, OFF_NOTE, ON_LINE, type McpCard,
 } from './mcp-server';
@@ -17,12 +16,6 @@ interface Props {
   card: McpCard;
   product: string;
   source: WriteSource;
-}
-
-async function switchServer(source: WriteSource, product: string, on: boolean): Promise<boolean> {
-  if (source.kind === 'demo') return true;
-  const { error } = await createBrowserClient<Database>(source.url, source.key).rpc('product_mcp_set', { p_product: product, p_on: on });
-  return !error;
 }
 
 function CopyButton({ label, text }: { label: string; text: string }) {
