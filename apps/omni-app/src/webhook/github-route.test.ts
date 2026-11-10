@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
+import { inngest } from '../inngest-client.ts';
 import { EnvError, readEnv } from '../env.ts';
 import { capture, throwing } from '../run-log/capture.ts';
 import { githubRoute } from './github-route.ts';
@@ -45,14 +45,14 @@ describe('/api/github', () => {
     vi.restoreAllMocks();
   });
 
-  it('sends one event on the app’s Inngest client for a signed, handled delivery', async () => {
+  it('sends the app’s Inngest client nothing for a signed pull request event: its checks are jobs of the ledger (PRD 2688)', async () => {
     const response = await POST(request({ 'x-hub-signature-256': sign(body) }));
     expect(response.status).toBe(200);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toMatchObject([{ name: OUTBOX_CHECK_EVENT, data: { repository: 'o/r', prNumber: 3 } }]);
+    expect(await response.text()).toBe('sent 0 · 4 jobs');
+    expect(send).not.toHaveBeenCalled();
   });
 
-  it('sends a loop pull request’s fleet board event on the app’s Inngest client, beside its check event (PRD 2530)', async () => {
+  it('sends a loop pull request’s fleet board event on the app’s Inngest client, and no check event (PRD 2530)', async () => {
     const opened = JSON.stringify({
       action: 'opened',
       installation: { id: 7 },
@@ -71,7 +71,7 @@ describe('/api/github', () => {
     });
     const response = await POST(new Request('https://omni-loop.example/api/github', { method: 'POST', body: opened, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(opened) } }));
     expect(response.status).toBe(200);
-    expect(send.mock.calls.map((call) => call[0])).toMatchObject([[{ name: OUTBOX_CHECK_EVENT }], [{ name: FLEET_BOARD_EVENT, data: { repository: 'o/r', prNumber: 3, author: 'ada' } }]]);
+    expect(send.mock.calls.map((call) => call[0])).toMatchObject([[{ name: FLEET_BOARD_EVENT, data: { repository: 'o/r', prNumber: 3, author: 'ada' } }]]);
   });
 
   it('answers 401 to a bad signature and creates no event', async () => {
@@ -194,7 +194,18 @@ describe('/api/github — one webhook line per delivery (PRD 1723 s6)', () => {
 
   it('logs failed when the event could not be sent on, 502', async () => {
     const { log, route: logRoute } = logged(() => Promise.reject(new Error('inngest is down')));
-    expect((await logRoute.POST(delivered({ 'x-hub-signature-256': sign(body) }))).status).toBe(502);
+    const merged = JSON.stringify({
+      action: 'closed',
+      installation: { id: 7 },
+      repository: { name: 'r', full_name: 'o/r', owner: { login: 'o' } },
+      pull_request: { number: 3, merged: true, merge_commit_sha: 'm', merged_at: '2026-09-29T10:00:00Z', head: { sha: 'def456' }, base: { ref: 'main' } },
+    });
+    const request = new Request('https://omni-loop.example/api/github', {
+      method: 'POST',
+      body: merged,
+      headers: { 'x-github-event': 'pull_request', 'x-github-delivery': 'del-42', 'x-hub-signature-256': sign(merged) },
+    });
+    expect((await logRoute.POST(request)).status).toBe(502);
     expect(log.lines()).toEqual([expect.objectContaining({ level: 'error', outcome: 'failed', status: 502, repo: 'o/r' })]);
   });
 

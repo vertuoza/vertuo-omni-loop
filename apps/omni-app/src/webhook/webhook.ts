@@ -1,19 +1,19 @@
-// `webhook`: a raw GitHub delivery in, a response out — and, for a handled event, the Inngest events
-// it asks for. It touches no GitHub API: it verifies GitHub's signature itself (PRD 28, decision 8)
-// before anything becomes an event, routes by event and action, and hands the events to the `send`
-// it is given. Nothing is sent unless the signature is valid.
+// `webhook`: a raw GitHub delivery in, a response out — and, for a handled event, the jobs of the ledger
+// and the Inngest events it asks for. It touches no GitHub API: it verifies GitHub's signature itself
+// (PRD 28, decision 8) before anything becomes a job or an event, routes by event and action, and hands
+// the jobs to `refreshJobs` and the events to the `send` it is given. Nothing is written or sent unless
+// the signature is valid.
 //
-// Two routes, never both for one delivery: a merged `pull_request.closed` becomes the retro event
-// (PRD 72) and the knowledge harvest event (PRD 82), and nothing else; every other handled action
-// becomes the outbox check event, exactly as before. An unmerged `closed` becomes nothing on either
-// route; beside them, a `closed` or `reopened` may also become a fix stamp (below).
+// The checks (PRD 2688): every handled pull request action into the default branch refreshes the four
+// jobs of that pull request, `pr-outbox`, `pr-inbox`, `pr-approved` and `pr-budgets` (../jobs/pr-checks.ts),
+// handed to `refreshJobs` before anything else is called, so the latest state wins. A re-run of a check
+// run refreshes only the job of its kind, told by its `external_id`: the inbox's, the approved check's
+// (PRD 1548), the budgets check's (PRD 1679); any other is the outbox check's. A refresh that fails is
+// logged and the delivery goes on: the next event, or GitHub's Re-run button, refreshes the jobs again.
 //
-// The inbox check (PRD 675) listens to that same outbox check event, so every handled pull request
-// action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
-// the inbox check event alone, a re-run of an approved check run (PRD 1548) the approved check event
-// alone, a re-run of an `omni / budgets` check run (PRD 1679) the budgets check event alone; a re-run of
-// any other check run stays the outbox check event. The approved check and the budgets check listen to
-// the outbox check event too, so every handled pull request action re-evaluates them as well.
+// Beside the checks, a merged `pull_request.closed` becomes the retro event (PRD 72) and the knowledge
+// harvest event (PRD 82), and refreshes no check. An unmerged `closed` becomes nothing on either; beside
+// them, a `closed` or `reopened` may also become a fix stamp (below).
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
 // run, becomes one canon action event alone, carrying the button and the facts the check run's summary
@@ -48,9 +48,9 @@
 // branch becomes none: the board takes only the loop's pull requests into main.
 //
 // The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
-// (`labels.approved`'s default, as the stage events read it) becomes one approved label event alone;
-// the `approved-rerun` function runs the `omni/approved` check again on every open pull request of that
-// PRD. Every handled pull request action also runs that check, on the outbox check's own event.
+// (`labels.approved`'s default, as the stage events read it) becomes one approval re-run alone, handed to
+// `rerunApproved`: the route finds that PRD's open pull requests once it has answered, and refreshes the
+// `pr-approved` job of each (../jobs/pr-checks.ts).
 //
 // The knowledge pack (PRD 2676 s2): the same merged pull request also becomes one job of the ledger, `toPackJobs`,
 // handed to `addJobs` before anything is sent to Inngest, so Inngest refusing an event never loses it. A job
@@ -63,20 +63,11 @@ import { z } from 'zod';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  APPROVED_CHECK_EVENT,
-  APPROVED_EXTERNAL_ID,
-  APPROVED_LABEL_EVENT,
-  BUDGETS_CHECK_EVENT,
-  BUDGETS_EXTERNAL_ID,
   HARVEST_EVENT,
-  INBOX_CHECK_EVENT,
   INBOX_EXTERNAL_ID,
-  OUTBOX_CHECK_EVENT,
   RETRO_EVENT,
   type AppEvent,
-  type ApprovedLabelRequest,
   type CanonActionRequest,
-  type CheckRequest,
   type HarvestRequest,
   type RetroRequest,
 } from '../inngest-client.ts';
@@ -88,7 +79,8 @@ import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { packJob } from '../jobs/pack.ts';
-import type { NewJob } from '../jobs/ledger.ts';
+import { prCheckJob, prCheckJobs, rerunKindOf, type ApprovedRerun } from '../jobs/pr-checks.ts';
+import type { NewJob, RefreshJob } from '../jobs/ledger.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
 import { TOUCH_EVENTS, toTouches, type Touch } from '../stage-forward/touch.ts';
@@ -97,10 +89,10 @@ import { TOUCH_EVENTS, toTouches, type Touch } from '../stage-forward/touch.ts';
 type ActionTable = Readonly<Record<string, readonly string[]>>;
 
 /**
- * The events and actions the app re-evaluates the outbox check on. `check_run.rerequested` is
- * GitHub's **Re-run** button; GitHub delivers it only to the app that created the check run. A
- * review submitted or dismissed (PRD 1726) re-runs it too: a CODEOWNER's approval is what clears a
- * change to a locked law, without a new push.
+ * The events and actions that refresh the checks' jobs. `check_run.rerequested` is GitHub's **Re-run**
+ * button; GitHub delivers it only to the app that created the check run. A review submitted or
+ * dismissed (PRD 1726) refreshes them too: a CODEOWNER's approval is what clears a change to a locked
+ * law, without a new push.
  */
 export const CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited']),
@@ -224,7 +216,8 @@ export async function receiveWebhook({
   headers,
   secret,
   send,
-  sendApproved = () => Promise.resolve(),
+  refreshJobs = () => Promise.resolve(),
+  rerunApproved = () => Promise.resolve(),
   sendStamps = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
   sendBoard = () => Promise.resolve(),
@@ -237,8 +230,10 @@ export async function receiveWebhook({
   headers: HeadersIn;
   secret: string | undefined;
   send: (events: AppEvent[]) => Promise<unknown>;
-  /** Sends the approved label's events (PRD 1612); none given, they go nowhere. */
-  sendApproved?: (events: ApprovedLabelRequest[]) => Promise<unknown>;
+  /** Refreshes the checks' jobs (PRD 2688), before anything else is called; none given, they go nowhere. */
+  refreshJobs?: (jobs: RefreshJob[]) => Promise<unknown>;
+  /** Takes the approved label's re-runs (PRD 1612), each a PRD whose pull requests' approved check runs again; none given, they go nowhere. */
+  rerunApproved?: (reruns: ApprovedRerun[]) => Promise<unknown>;
   /** Sends the fix stamp events (PRD 2011 s7); none given, they go nowhere. */
   sendStamps?: (events: FixStampRequest[]) => Promise<unknown>;
   /** Sends the main watch's events (PRD 2410); none given, they go nowhere. */
@@ -266,6 +261,39 @@ export async function receiveWebhook({
   }
 
   const event = header(headers, 'x-github-event') ?? '';
+  const checks = toCheckJobs(event, payload);
+  await refreshCheckJobs(refreshJobs, checks, log);
+  await forwardToGalaxy(event, payload, { forward, touch, log });
+
+  const events = toEvents(event, payload);
+  const approved = toApprovedLabelRequests(event, payload);
+  const stamps = toFixStampRequests(event, payload);
+  const watch = toMainWatchRequests(event, payload);
+  const board = toFleetBoardRequests(event, payload);
+  const sent = events.length + stamps.length + watch.length + board.length;
+  if (checks.length + approved.length + sent === 0) return reply(200, 'ignored');
+
+  await addPackJobs(addJobs, toPackJobs(event, payload), log);
+
+  try {
+    if (approved.length > 0) await rerunApproved(approved);
+    if (events.length > 0) await send(events);
+    if (stamps.length > 0) await sendStamps(stamps);
+    if (watch.length > 0) await sendWatch(watch);
+    if (board.length > 0) await sendBoard(board);
+  } catch (error) {
+    return reply(502, `could not send the event: ${String(messageOf(error))}`);
+  }
+  const jobs = checks.length + approved.length;
+  return reply(200, jobs > 0 ? `sent ${String(sent)} · ${String(jobs)} jobs` : `sent ${String(sent)}`);
+}
+
+/** Hands galaxy the delivery's stage event and touches, if any; a failure is logged and the delivery goes on. */
+async function forwardToGalaxy(
+  event: string,
+  payload: unknown,
+  { forward, touch, log }: { forward: (stageEvent: StageEvent) => Promise<unknown>; touch: (touch: Touch) => Promise<unknown>; log: (line: string) => void },
+): Promise<void> {
   const stageEvent = toStageEvent(event, payload);
   if (stageEvent) {
     try {
@@ -281,27 +309,15 @@ export async function receiveWebhook({
       log(`touch: could not forward — ${String(messageOf(error))}`);
     }
   }));
+}
 
-  const events = toEvents(event, payload);
-  const approved = toApprovedLabelRequests(event, payload);
-  const stamps = toFixStampRequests(event, payload);
-  const watch = toMainWatchRequests(event, payload);
-  const board = toFleetBoardRequests(event, payload);
-  const total = events.length + approved.length + stamps.length + watch.length + board.length;
-  if (total === 0) return reply(200, 'ignored');
-
-  await addPackJobs(addJobs, toPackJobs(event, payload), log);
-
+/** Refreshes the checks' jobs, if any; a failure is logged and the delivery goes on. */
+async function refreshCheckJobs(refreshJobs: (jobs: RefreshJob[]) => Promise<unknown>, jobs: RefreshJob[], log: (line: string) => void): Promise<void> {
   try {
-    if (events.length > 0) await send(events);
-    if (approved.length > 0) await sendApproved(approved);
-    if (stamps.length > 0) await sendStamps(stamps);
-    if (watch.length > 0) await sendWatch(watch);
-    if (board.length > 0) await sendBoard(board);
+    if (jobs.length > 0) await refreshJobs(jobs);
   } catch (error) {
-    return reply(502, `could not send the event: ${String(messageOf(error))}`);
+    log(`jobs: could not refresh the checks — ${String(messageOf(error))}`);
   }
-  return reply(200, `sent ${total}`);
 }
 
 /** Adds the jobs, if any; a failure is logged and the delivery goes on. */
@@ -315,7 +331,7 @@ async function addPackJobs(addJobs: (jobs: NewJob[]) => Promise<unknown>, jobs: 
 
 /**
  * The router alone, pure: a retro action goes to the retro and the knowledge harvest, a canon button's
- * click to the canon action, anything else to the outbox check.
+ * click to the canon action. The checks are jobs, never events: `toCheckJobs`.
  */
 export function toEvents(event: string, payload: unknown): AppEvent[] {
   const action = readPayload(payload)?.action;
@@ -323,19 +339,17 @@ export function toEvents(event: string, payload: unknown): AppEvent[] {
     return [...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
   }
   if (handles(CANON_ACTIONS, event, action)) return toCanonActionRequests(event, payload);
-  return toCheckRequests(event, payload);
+  return [];
 }
 
 /**
- * The checks' filter, pure: a check action becomes one check request per pull request it names —
- * the inbox check event for a re-run of an inbox check run, the approved check event for a re-run of
- * an approved check run, the outbox check event otherwise;
- * anything else — a `closed`, merged or not, included — becomes none. A pull request into another
- * branch than the repository's default, a sub-PR into its feature branch, becomes none either
- * (#1413): no check of the loop grades it, and each event of one cost a run. A delivery naming no
- * default branch is sent as before.
+ * The checks' filter, pure (PRD 2688): a check action refreshes the four jobs of each pull request it
+ * names; a re-run of a check run refreshes only the job of its kind, by its `external_id`. Anything
+ * else — a `closed`, merged or not, included — refreshes none. A pull request into another branch than
+ * the repository's default, a sub-PR into its feature branch, refreshes none either (#1413): no check
+ * of the loop grades it. A delivery naming no default branch refreshes them as before.
  */
-export function toCheckRequests(event: string, delivery: unknown): CheckRequest[] {
+export function toCheckJobs(event: string, delivery: unknown): RefreshJob[] {
   const payload = readPayload(delivery);
   if (!payload || !handles(CHECK_ACTIONS, event, payload.action)) return [];
 
@@ -343,7 +357,7 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
   if (!source) return [];
 
   const trigger = `${event}.${String(payload.action)}`;
-  const name = event === 'check_run' ? rerunEventOf(payload.check_run?.external_id) : OUTBOX_CHECK_EVENT;
+  const kind = event === 'check_run' ? rerunKindOf(payload.check_run?.external_id) : null;
   const pulls =
     event !== 'check_run'
       ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha, base: payload.pull_request?.base?.ref }]
@@ -355,18 +369,10 @@ export function toCheckRequests(event: string, delivery: unknown): CheckRequest[
   const defaultBranch = payload.repository?.default_branch;
   const intoDefault = (pull: { base: string | null | undefined }) => !defaultBranch || pull.base === defaultBranch;
 
-  return pulls.filter(intoDefault).filter(isNamed).map((pull) => ({
-    name,
-    data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger },
-  }));
-}
-
-/** The event a re-run of a check run asks for, by the `external_id` the check run carries. */
-function rerunEventOf(externalId: string | null | undefined): string {
-  if (externalId === INBOX_EXTERNAL_ID) return INBOX_CHECK_EVENT;
-  if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_CHECK_EVENT;
-  if (externalId === BUDGETS_EXTERNAL_ID) return BUDGETS_CHECK_EVENT;
-  return OUTBOX_CHECK_EVENT;
+  return pulls.filter(intoDefault).filter(isNamed).flatMap((pull) => {
+    const request = { ...source, prNumber: pull.number, headSha: pull.sha, trigger };
+    return kind === null ? prCheckJobs(request) : [prCheckJob(kind, request)];
+  });
 }
 
 /**
@@ -514,10 +520,10 @@ const LabelEventSchema = z.looseObject({
 
 /**
  * The approved label's filter, pure (PRD 1612): the approved label added to or removed from an issue
- * (never a pull request) becomes one approved label event naming the issue as the PRD; any other label
- * or action becomes none.
+ * (never a pull request) becomes one approval re-run naming the issue as the PRD; any other label or
+ * action becomes none.
  */
-export function toApprovedLabelRequests(event: string, delivery: unknown): ApprovedLabelRequest[] {
+export function toApprovedLabelRequests(event: string, delivery: unknown): ApprovedRerun[] {
   const payload = readPayload(delivery);
   if (!payload || !handles(APPROVED_LABEL_ACTIONS, event, payload.action)) return [];
   const source = sourceOf(payload);
@@ -525,7 +531,7 @@ export function toApprovedLabelRequests(event: string, delivery: unknown): Appro
   if (!source || !read.success) return [];
   const { label, issue } = read.data;
   if (label.name !== APPROVED_LABEL || issue.pull_request !== undefined) return [];
-  return [{ name: APPROVED_LABEL_EVENT, data: { ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` } }];
+  return [{ ...source, prd: issue.number, trigger: `${event}.${String(payload.action)}` }];
 }
 
 /** The canon buttons' identifiers. */

@@ -1,8 +1,8 @@
-// `approved-check`: the Inngest function posting **omni/approved** (`ci.approvedContext`) on a pull
-// request whose PRD was approved on the server, saying whether what it builds is what was approved:
-// a target feature PR of a product PRD (PRD 1548 s3), and a ◆ PRD's feature PR or a target PR that is
-// `Part of <owner/repo>#<n>` (PRD 1612, folded into PRD 1548's design). Beside it, `approved-rerun`
-// runs it again on every open pull request of a PRD whose approved label changed (PRD 1612).
+// `approved-check`: the check posting **omni/approved** (`ci.approvedContext`) on a pull request whose PRD
+// was approved on the server, saying whether what it builds is what was approved: a target feature PR of a
+// product PRD (PRD 1548 s3), and a ◆ PRD's feature PR or a target PR that is `Part of <owner/repo>#<n>`
+// (PRD 1612, folded into PRD 1548's design). It runs as the `pr-approved` job of the ledger (PRD 2688,
+// ./approved-job.ts), its steps in order in one try:
 //
 //   step "target"   read the pull request and its base branch's config: a base without the loop's config,
 //                   or a config whose `ci.approvedContext` is null, gets nothing at all, not even
@@ -18,40 +18,22 @@
 //                   (`approvedVerdict`, and ./repo-verdict.ts `repoApprovedVerdict`: one set of states), and its Details on the
 //                   PRD page: a product PRD's attestation (`#attestation`), a ◆ PRD's approval (`#approval`)
 //
-//   approved-rerun, on APPROVED_LABEL_EVENT, debounced per PRD:
-//     step "find"   the PRD's open feature PRs and its target PRs (./github.ts), each with its head
-//     step "rerun"  one APPROVED_CHECK_EVENT each
-//
-// The body is `checkApproved`, run in the steps of Inngest's function and, as the kind `pr-approved` of the job
-// ledger (PRD 2688 s4), in one try by ./approved-job.ts.
-//
-// It listens to the outbox check's event, so every pull request action that re-evaluates the outbox
-// check re-evaluates this one, and to its own, which the webhook sends for a re-run of an approved check
-// run (its `external_id` is APPROVED_EXTERNAL_ID) and the rerun sends. Debounced per repository and pull
-// request, 3 retries, like the outbox check. It posts on events only, never polls: a run held on an
+// The body is `checkApproved` (the job runs it). Every pull request event the webhook handles refreshes the
+// job, and so does a re-run of an approved check run (its `external_id` is APPROVED_EXTERNAL_ID); the approved
+// label put on or taken off a PRD's issue refreshes the job of each open pull request of that PRD,
+// `approvedPullsOf` (../jobs/pr-checks.ts). It posts on events only, never polls: a run held on an
 // unreachable server is posted again by the next event, or a re-run.
 //
 // The installation's GitHub budget is shared with galaxy (PRD 902): a call the budget refuses, paused or
-// deferred, is never sent; the step logs one line and is retried once the pause or the window ends.
-import { RetryAfterError, type Inngest } from 'inngest';
+// deferred, is never sent; it is thrown, and the worker reads it as `waiting`.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Config } from 'omni-loop/kit/lib/types.ts';
-import {
-  APPROVED_CHECK_EVENT,
-  APPROVED_EXTERNAL_ID,
-  APPROVED_LABEL_EVENT,
-  ApprovedLabelDataSchema,
-  CheckRequestDataSchema,
-  OUTBOX_CHECK_EVENT,
-  type CheckRequest,
-  type CheckRequestData,
-} from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, type CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { CreatedSchema } from '../outbox-check/github-schema.ts';
 import { MAX_SUMMARY } from '../publish/publish.ts';
-import { noteTo } from '../run-log/run-log.ts';
 import { configAt, featurePullOf, openPullsOfPrd, prdFolderAt, type PullRef } from './github.ts';
 import type { RecordReader } from './record.ts';
 import { heldReading, readingAt, type AskJudge, type RepoSource } from './repo-reading.ts';
@@ -59,25 +41,8 @@ import { repoApprovedVerdict } from './repo-verdict.ts';
 import { approvedVerdict, productPrdOf, type ApprovedVerdict, type ProductPrdRef, type RecordReading } from './state.ts';
 import { subjectOf } from './subject.ts';
 
-export const APPROVED_FUNCTION_ID = 'approved-check';
-export const APPROVED_RERUN_FUNCTION_ID = 'approved-rerun';
-
 /** What a run returns when it posted nothing: no PRD approved on the server named, no loop here, or the check turned off. */
 const SILENT = Object.freeze({ posted: false, reason: 'not a pull request of a PRD approved on the server, with the approved check on' });
-
-/** One check per repository and pull request at a time: the latest event wins. */
-export const APPROVED_DEBOUNCE = Object.freeze({
-  key: 'event.data.repository + "#" + string(event.data.prNumber)',
-  period: '5s',
-  timeout: '1m',
-});
-
-/** One rerun per PRD at a time: a label removed and added again is one rerun. */
-export const RERUN_DEBOUNCE = Object.freeze({
-  key: 'event.data.repository + "#" + string(event.data.prd)',
-  period: '5s',
-  timeout: '1m',
-});
 
 /**
  * The check's target: its name and the PRD the pull request is about, a product PRD by its id, or a ◆
@@ -91,48 +56,6 @@ type Target =
 /** The galaxy that holds no judge here: every ◆ PRD's check is held. */
 export const NO_JUDGE: AskJudge = () => Promise.resolve({ held: 'the App cannot ask galaxy\'s judge here' });
 
-export function createApprovedCheck({
-  client,
-  octokitFor,
-  readRecord,
-  galaxyUrl,
-  ask = NO_JUDGE,
-  now = () => new Date(),
-  log = noteTo('approved-check'),
-}: {
-  client: Inngest;
-  octokitFor: OctokitFor<GitHubClient>;
-  /** The record's reader; null when the App cannot read the server here, which holds every product PRD's check. */
-  readRecord: RecordReader | null;
-  galaxyUrl: string;
-  /** Galaxy's judge, for a ◆ PRD (PRD 1612); none given, every ◆ PRD's check is held. */
-  ask?: AskJudge;
-  now?: () => Date;
-  log?: (line: string) => void;
-}) {
-  return client.createFunction(
-    {
-      id: APPROVED_FUNCTION_ID,
-      name: 'omni-loop · approved',
-      triggers: [{ event: OUTBOX_CHECK_EVENT }, { event: APPROVED_CHECK_EVENT }],
-      debounce: APPROVED_DEBOUNCE,
-      retries: 3,
-    },
-    async ({ event, step }) => {
-      const request = CheckRequestDataSchema.parse(event.data);
-      const where = `${request.owner}/${request.repo}#${request.prNumber}`;
-      // The steps are Inngest's: each is retried and replayed on its own, the budget's refusal retried at its end.
-      return checkApproved({ octokitFor, readRecord, galaxyUrl, ask, now, log }, request, {
-        target: (work) => step.run('target', work),
-        product: (work) => step.run('record', work),
-        repo: (work) => step.run('record', work),
-        publish: (work) => step.run('publish', work),
-        budgeted: (work) => onBudget(where, log, work),
-      });
-    },
-  );
-}
-
 /** What the check needs of the world: GitHub, the record's reader, galaxy's address and judge, the clock, the log. */
 export type ApprovedDeps = {
   octokitFor: OctokitFor<GitHubClient>;
@@ -145,9 +68,9 @@ export type ApprovedDeps = {
 };
 
 /**
- * How the body's steps run: Inngest's `step.run` for the function, a plain call in one try for the job of the
- * ledger (`./approved-job.ts`). `budgeted` wraps a step's GitHub work: Inngest turns the budget's refusal into
- * a retry after it, the job lets it through for the worker to read as `waiting`.
+ * How the body's steps run: a plain call each, in one try, for the job of the ledger (`./approved-job.ts`).
+ * `budgeted` wraps a step's GitHub work: the job lets the budget's refusal through for the worker to read as
+ * `waiting`.
  */
 export type ApprovedSteps = {
   /** Step "target". */
@@ -168,7 +91,7 @@ export type ApprovedRun =
   | { posted: false; reason: string }
   | { checkRunId: number; name: string; prd: ProductPrdRef['id']; state: ApprovedVerdict['state']; conclusion: ApprovedVerdict['conclusion'] };
 
-/** The body of the check, one run: the same for the Inngest function and for the job of the ledger. */
+/** The body of the check, one run of its job of the ledger. */
 export async function checkApproved(
   { octokitFor, readRecord, galaxyUrl, ask, now, log }: ApprovedDeps,
   { installationId, owner, repo, repository, prNumber, headSha }: Pick<CheckRequestData, 'installationId' | 'owner' | 'repo' | 'repository' | 'prNumber' | 'headSha'>,
@@ -198,41 +121,10 @@ export async function checkApproved(
   return { checkRunId, name: target.name, prd: named, state: verdict.state, conclusion: verdict.conclusion };
 }
 
-export function createApprovedRerun({
-  client,
-  octokitFor,
-  log = noteTo('approved-rerun'),
-}: {
-  client: Inngest;
-  octokitFor: OctokitFor<GitHubClient>;
-  log?: (line: string) => void;
-}) {
-  return client.createFunction(
-    {
-      id: APPROVED_RERUN_FUNCTION_ID,
-      name: 'omni-loop · approved, rerun',
-      triggers: [{ event: APPROVED_LABEL_EVENT }],
-      debounce: RERUN_DEBOUNCE,
-      retries: 3,
-    },
-    async ({ event, step }) => {
-      const { installationId, owner, repo, prd, trigger } = ApprovedLabelDataSchema.parse(event.data);
-      const pulls = await step.run('find', () => onBudget(`${owner}/${repo} PRD ${Number(prd)}`, log, async () => {
-        const octokit = await octokitFor(installationId);
-        const found = await openPullsOfPrd(octokit, { owner, repo, prd });
-        return Promise.all(found.map(async (pull) => ({ ...pull, headSha: (await readPull(octokit, pull)).headSha })));
-      }));
-      if (pulls.length === 0) return { rerun: [] };
-      await step.sendEvent('rerun', pulls.map((pull) => rerunOf(installationId, pull, trigger)));
-      return { rerun: pulls.map((pull) => `${pull.owner}/${pull.repo}#${pull.prNumber}`) };
-    },
-  );
-}
-
-/** The event that runs the check again on `pull`, at its head. */
-function rerunOf(installationId: number, pull: PullRef & { headSha: string }, trigger: string | undefined): CheckRequest {
-  const data = { installationId, owner: pull.owner, repo: pull.repo, repository: `${pull.owner}/${pull.repo}`, prNumber: pull.prNumber, headSha: pull.headSha };
-  return { name: APPROVED_CHECK_EVENT, data: trigger === undefined ? data : { ...data, trigger } };
+/** The open pull requests of `prd` (its feature PRs and its target PRs), each with its head. GitHub's refusal is thrown. */
+export async function approvedPullsOf(octokit: GitHubClient, { owner, repo, prd }: { owner: string; repo: string; prd: PrdNumber }): Promise<(PullRef & { headSha: string })[]> {
+  const found = await openPullsOfPrd(octokit, { owner, repo, prd });
+  return Promise.all(found.map(async (pull) => ({ ...pull, headSha: (await readPull(octokit, pull)).headSha })));
 }
 
 /**
@@ -329,16 +221,4 @@ export function refusalIn(error: unknown): GithubPaused | GithubDeferred | null 
     if (cause instanceof GithubPaused || cause instanceof GithubDeferred) return cause;
   }
   return null;
-}
-
-/** Runs a step's GitHub work: a call the budget refused logs one line, and the step is retried once the budget allows it. */
-async function onBudget<T>(where: string, log: (line: string) => void, work: () => Promise<T>): Promise<T> {
-  try {
-    return await work();
-  } catch (error) {
-    const refused = refusalIn(error);
-    if (!refused) throw error;
-    log(`approved check of ${where} waits for the GitHub budget: ${refused.message}`);
-    throw new RetryAfterError(refused.message, new Date(refused.until), { cause: refused });
-  }
 }
