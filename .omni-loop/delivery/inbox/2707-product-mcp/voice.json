@@ -111,6 +111,58 @@
         }
       ],
       "fit": "Fits every persona at 3 or more; the skeptical developers stay at 3 until they see the answers match the files in Git."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-10",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One command with a key we already have, and it answers from the files in Git: that is a tool I would actually keep.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every agent reads the same ADRs and laws from the last merge, and an owner controls it per product: that keeps the teams cohesive.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It only reads, so it cannot put slop in my code; I will judge it once agents cite the rules they used.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Turn it on per product and every repository's knowledge reaches our agents with no new key to make.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Turn on, copy, paste: I can set it up for my mobile team myself, and the card tells me what is missing.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "Fits every persona at 3 or more; the skeptical front-end developer waits to see agents cite the rules they used."
     }
   ]
 }
