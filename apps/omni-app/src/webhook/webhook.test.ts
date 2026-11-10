@@ -2,7 +2,9 @@ import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, BUDGETS_CHECK_EVENT, BUDGETS_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
+import { type AppEvent, APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, HARVEST_EVENT, INBOX_EXTERNAL_ID, RETRO_EVENT } from '../inngest-client.ts';
+import type { RefreshJob } from '../jobs/ledger.ts';
+import { PR_CHECK_KINDS } from '../jobs/pr-checks.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
   APPROVED_LABEL_ACTIONS,
@@ -14,7 +16,7 @@ import {
   receiveWebhook,
   toApprovedLabelRequests,
   toCanonActionRequests,
-  toCheckRequests,
+  toCheckJobs,
   toEvents,
   toFixStampRequests,
   toFleetBoardRequests,
@@ -26,15 +28,9 @@ import { FLEET_BOARD_EVENT, type FleetBoardRequest } from '../fleet-board/events
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, type MainWatchRequest } from '../main-watch/events.ts';
-import { APPROVED_LABEL_EVENT } from '../inngest-client.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
 import { FIX_STAMP_EVENT, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
 import type { Touch } from '../stage-forward/touch.ts';
-import { appFunctions } from '../functions.ts';
-import { readEnv } from '../env.ts';
-
-/** The functions the app serves, bound to an empty environment. */
-const { inboxCheck, approvedCheck } = appFunctions(readEnv({}));
 
 const SECRET = 'shh-test-secret';
 
@@ -71,88 +67,100 @@ const rerequestedPayload = (pullRequests = RERUN_PULLS, checkRun = {}) => ({
   check_run: { id: 9, name: 'outbox', head_sha: 'abc123', pull_requests: pullRequests, ...checkRun },
 });
 
+/** The check request a job of pull request 28 carries, on `trigger`. */
+const request = (trigger: string) => ({
+  installationId: 4242,
+  owner: 'vertuoza',
+  repo: 'vertuo-omni-loop',
+  repository: 'vertuoza/vertuo-omni-loop',
+  prNumber: parsePr(28),
+  headSha: 'abc123',
+  trigger,
+});
+
+/** The job of `kind` pull request 28 refreshes, on `trigger`. */
+const checkJob = (kind: string, trigger: string): RefreshJob => ({
+  kind,
+  key: 'vertuoza/vertuo-omni-loop#28',
+  subject: 'vertuoza/vertuo-omni-loop',
+  payload: request(trigger),
+  delaySeconds: 5,
+});
+
 /** A delivery: `signature` null sends none, and left out signs the body with the secret. */
 type Delivery = { event?: string; payload?: unknown; signature?: string | null; secret?: string; send?: ReturnType<typeof sending> };
 
+/** The delivery received: the answer, what `send` was handed, and the checks' jobs refreshed. */
 function deliver({ event = 'pull_request', payload = pullRequestPayload('opened'), signature, secret = SECRET, send }: Delivery = {}) {
   const body = JSON.stringify(payload);
   const headers: Record<string, string> = { 'x-github-event': event, 'x-github-delivery': 'd-1' };
   if (signature !== null) headers['x-hub-signature-256'] = signature ?? sign(body);
   const sent = send ?? sending();
-  return receiveWebhook({ body, headers, secret, send: sent, forward: forwarding() }).then((response) => ({ response, send: sent }));
+  const refreshed: RefreshJob[] = [];
+  const refreshJobs = (jobs: RefreshJob[]) => Promise.resolve(refreshed.push(...jobs));
+  return receiveWebhook({ body, headers, secret, send: sent, refreshJobs, forward: forwarding() }).then((response) => ({ response, send: sent, refreshed }));
 }
 
 describe('webhook — the signature', () => {
-  it('sends one event for a validly signed, handled pull request', async () => {
-    const { response, send } = await deliver();
-    expect(response.status).toBe(200);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toEqual([
-      {
-        name: OUTBOX_CHECK_EVENT,
-        data: {
-          installationId: 4242,
-          owner: 'vertuoza',
-          repo: 'vertuo-omni-loop',
-          repository: 'vertuoza/vertuo-omni-loop',
-          prNumber: 28,
-          headSha: 'abc123',
-          trigger: 'pull_request.opened',
-        },
-      },
-    ]);
+  it('refreshes the four checks\' jobs of a validly signed, handled pull request, and sends Inngest nothing (PRD 2688)', async () => {
+    const { response, send, refreshed } = await deliver();
+    expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
+    expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual(PR_CHECK_KINDS.map((kind) => checkJob(kind, 'pull_request.opened')));
   });
 
-  it('answers 401 and sends nothing to a wrong signature', async () => {
-    const { response, send } = await deliver({ signature: sign('{"tampered":true}') });
+  it('answers 401 and refreshes nothing to a wrong signature', async () => {
+    const { response, send, refreshed } = await deliver({ signature: sign('{"tampered":true}') });
     expect(response.status).toBe(401);
     expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
-  it('answers 401 and sends nothing to a body signed with another secret', async () => {
+  it('answers 401 and refreshes nothing to a body signed with another secret', async () => {
     const payload = pullRequestPayload('opened');
-    const { response, send } = await deliver({ payload, signature: sign(JSON.stringify(payload), 'other') });
+    const { response, refreshed } = await deliver({ payload, signature: sign(JSON.stringify(payload), 'other') });
     expect(response.status).toBe(401);
-    expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
-  it('answers 401 and sends nothing when the signature header is missing', async () => {
-    const { response, send } = await deliver({ signature: null });
+  it('answers 401 and refreshes nothing when the signature header is missing', async () => {
+    const { response, refreshed } = await deliver({ signature: null });
     expect(response.status).toBe(401);
-    expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
   it('answers 401 to a malformed signature header rather than throwing', async () => {
-    const { response, send } = await deliver({ signature: 'sha1=nope' });
+    const { response, refreshed } = await deliver({ signature: 'sha1=nope' });
     expect(response.status).toBe(401);
-    expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
-  it('fails closed with 500 and sends nothing when no secret is configured', async () => {
-    const { response, send } = await deliver({ secret: '' });
+  it('fails closed with 500 and refreshes nothing when no secret is configured', async () => {
+    const { response, refreshed } = await deliver({ secret: '' });
     expect(response.status).toBe(500);
-    expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 });
 
 describe('webhook — the event and action filter', () => {
-  it.each(CHECK_ACTIONS.pull_request)('handles pull_request.%s', async (action) => {
-    const { response, send } = await deliver({ payload: pullRequestPayload(action) });
+  it.each(CHECK_ACTIONS.pull_request)('refreshes the checks on pull_request.%s', async (action) => {
+    const { response, refreshed } = await deliver({ payload: pullRequestPayload(action) });
     expect(response.status).toBe(200);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0][0]?.data).toHaveProperty('trigger', `pull_request.${action}`);
+    expect(refreshed.map((job) => job.kind)).toEqual([...PR_CHECK_KINDS]);
+    expect(refreshed[0]?.payload).toHaveProperty('trigger', `pull_request.${action}`);
   });
 
-  it('answers 200 and sends nothing to a closed pull request that was not merged', async () => {
-    const { response, send } = await deliver({ payload: pullRequestPayload('closed') });
-    expect(response.status).toBe(200);
+  it('answers 200 and refreshes nothing on a closed pull request that was not merged', async () => {
+    const { response, send, refreshed } = await deliver({ payload: pullRequestPayload('closed') });
+    expect(response).toEqual({ status: 200, body: 'ignored' });
     expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
-  it.each(['assigned', 'review_requested', 'converted_to_draft'])('answers 200 and sends nothing to pull_request.%s', async (action) => {
-    const { response, send } = await deliver({ payload: pullRequestPayload(action) });
-    expect(response.status).toBe(200);
-    expect(send).not.toHaveBeenCalled();
+  it.each(['assigned', 'review_requested', 'converted_to_draft'])('answers 200 and refreshes nothing on pull_request.%s', async (action) => {
+    const { response, refreshed } = await deliver({ payload: pullRequestPayload(action) });
+    expect(response).toEqual({ status: 200, body: 'ignored' });
+    expect(refreshed).toEqual([]);
   });
 
   it.each([
@@ -161,85 +169,58 @@ describe('webhook — the event and action filter', () => {
     ['ping', { zen: 'Keep it logically awesome.' }],
     ['check_suite', { action: 'requested', installation: INSTALLATION, repository: REPOSITORY }],
   ])('answers 200 and sends nothing to an unrelated %s event', async (event, payload) => {
-    const { response, send } = await deliver({ event, payload });
+    const { response, send, refreshed } = await deliver({ event, payload });
     expect(response.status).toBe(200);
     expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
-  it('answers 200 and sends nothing to a check_run action other than rerequested', async () => {
-    const { response, send } = await deliver({ event: 'check_run', payload: { ...rerequestedPayload(), action: 'completed' } });
+  it('answers 200 and refreshes nothing on a check_run action other than rerequested', async () => {
+    const { response, refreshed } = await deliver({ event: 'check_run', payload: { ...rerequestedPayload(), action: 'completed' } });
+    expect(response.status).toBe(200);
+    expect(refreshed).toEqual([]);
+  });
+
+  it('turns check_run.rerequested of the outbox check into its one job, for its pull request', async () => {
+    const { response, send, refreshed } = await deliver({ event: 'check_run', payload: rerequestedPayload() });
     expect(response.status).toBe(200);
     expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([checkJob('pr-outbox', 'check_run.rerequested')]);
   });
 
-  it('turns check_run.rerequested into one event for its pull request', async () => {
-    const { response, send } = await deliver({ event: 'check_run', payload: rerequestedPayload() });
-    expect(response.status).toBe(200);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toEqual([
-      {
-        name: OUTBOX_CHECK_EVENT,
-        data: {
-          installationId: 4242,
-          owner: 'vertuoza',
-          repo: 'vertuo-omni-loop',
-          repository: 'vertuoza/vertuo-omni-loop',
-          prNumber: 28,
-          headSha: 'abc123',
-          trigger: 'check_run.rerequested',
-        },
-      },
-    ]);
+  it.each([
+    ['an inbox check run (PRD 675)', 'inbox', INBOX_EXTERNAL_ID, 'pr-inbox'],
+    ['an approved check run (PRD 1548)', 'omni/approved', APPROVED_EXTERNAL_ID, 'pr-approved'],
+    ['a budgets check run (PRD 1679)', 'omni / budgets', BUDGETS_EXTERNAL_ID, 'pr-budgets'],
+  ])('turns a re-run of %s into its own job only', async (_, name, externalId, kind) => {
+    const payload = rerequestedPayload(RERUN_PULLS, { name, external_id: externalId });
+    const { refreshed } = await deliver({ event: 'check_run', payload });
+    expect(refreshed).toEqual([checkJob(kind, 'check_run.rerequested')]);
   });
 
-  it('turns a re-run of an inbox check run into the inbox check event only (PRD 675)', async () => {
-    const payload = rerequestedPayload(RERUN_PULLS, { name: 'inbox', external_id: INBOX_EXTERNAL_ID });
-    const { send } = await deliver({ event: 'check_run', payload });
-    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
-    expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: INBOX_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
-  });
-
-  it('turns a re-run of an approved check run into the approved check event only (PRD 1548)', async () => {
-    const payload = rerequestedPayload(RERUN_PULLS, { name: 'omni/approved', external_id: APPROVED_EXTERNAL_ID });
-    const { send } = await deliver({ event: 'check_run', payload });
-    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
-    expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: APPROVED_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
-  });
-
-  it('turns a re-run of a budgets check run into the budgets check event only (PRD 1679)', async () => {
-    const payload = rerequestedPayload(RERUN_PULLS, { name: 'omni / budgets', external_id: BUDGETS_EXTERNAL_ID });
-    const { send } = await deliver({ event: 'check_run', payload });
-    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
-    expect(send.mock.calls[0]?.[0][0]).toMatchObject({ name: BUDGETS_CHECK_EVENT, data: { prNumber: 28, trigger: 'check_run.rerequested' } });
-  });
-
-  it('keeps a re-run of any other check run the outbox check event, whatever its name', () => {
+  it('keeps a re-run of any other check run the outbox check\'s job, whatever its name', () => {
     const payload = rerequestedPayload(RERUN_PULLS, { name: 'inbox', external_id: 'someone-else' });
-    expect(toCheckRequests('check_run', payload).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
+    expect(toCheckJobs('check_run', payload).map((job) => job.kind)).toEqual(['pr-outbox']);
   });
 
-  it('sends, for every handled pull request action, the one event the outbox, inbox and approved checks all run on', () => {
+  it('turns no handled pull request action into an Inngest event: the checks are jobs (PRD 2688)', () => {
     for (const action of CHECK_ACTIONS.pull_request) {
-      expect(toEvents('pull_request', pullRequestPayload(action)).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
+      expect(toEvents('pull_request', pullRequestPayload(action))).toEqual([]);
     }
-    expect(inboxCheck.opts.triggers).toContainEqual({ event: OUTBOX_CHECK_EVENT });
-    expect(inboxCheck.opts.triggers).toContainEqual({ event: INBOX_CHECK_EVENT });
-    expect(approvedCheck.opts.triggers).toContainEqual({ event: OUTBOX_CHECK_EVENT });
-    expect(approvedCheck.opts.triggers).toContainEqual({ event: APPROVED_CHECK_EVENT });
   });
 
-  it('answers 200 and sends nothing to a rerequested check run tied to no pull request', async () => {
-    const { response, send } = await deliver({ event: 'check_run', payload: rerequestedPayload([]) });
+  it('answers 200 and refreshes nothing on a rerequested check run tied to no pull request', async () => {
+    const { response, refreshed } = await deliver({ event: 'check_run', payload: rerequestedPayload([]) });
     expect(response.status).toBe(200);
-    expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
-  it('answers 200 and sends nothing to a handled event without an installation', async () => {
+  it('answers 200 and refreshes nothing on a handled event without an installation', async () => {
     const payload = pullRequestPayload('opened');
     delete payload.installation;
-    const { response, send } = await deliver({ payload });
+    const { response, refreshed } = await deliver({ payload });
     expect(response.status).toBe(200);
-    expect(send).not.toHaveBeenCalled();
+    expect(refreshed).toEqual([]);
   });
 
   it('answers 400 to a signed body that is not JSON', async () => {
@@ -256,67 +237,99 @@ describe('webhook — the event and action filter', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('answers 502 when the event cannot be sent, so GitHub records a failed delivery', async () => {
+  it('answers 502 when an event cannot be sent, so GitHub records a failed delivery', async () => {
     const send = vi.fn<Send>(() => Promise.reject(new Error('inngest down')));
-    const { response } = await deliver({ send });
+    const { response } = await deliver({ payload: mergedPayload(), send });
     expect(response.status).toBe(502);
   });
 });
 
-describe('toCheckRequests', () => {
-  it('is the filter alone, pure: no signature, no send', () => {
-    expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
-    expect(toCheckRequests('pull_request', pullRequestPayload('closed'))).toEqual([]);
+describe('webhook — the checks\' jobs come first (PRD 2688 s7)', () => {
+  it('refreshes the jobs before anything else is called: the stage event, the touches and Inngest after', async () => {
+    const order: string[] = [];
+    const payload = pullRequestPayload('ready_for_review', { pull_request: { number: 28, head: { sha: 'abc123', ref: 'feat/x' }, base: { ref: 'main' } } });
+    const body = JSON.stringify(payload);
+    await receiveWebhook({
+      body,
+      headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) },
+      secret: SECRET,
+      send: () => Promise.resolve(order.push('send')),
+      refreshJobs: (jobs) => Promise.resolve(order.push(...jobs.map((job) => `refresh ${job.kind}`))),
+      forward: () => Promise.resolve(order.push('forward')),
+      touch: () => Promise.resolve(order.push('touch')),
+    });
+    expect(order.slice(0, 4)).toEqual(PR_CHECK_KINDS.map((kind) => `refresh ${kind}`));
+    expect(order.slice(4).length).toBeGreaterThan(0);
   });
 
-  it('turns no event of a sub-PR, a pull request into another branch than the default, into an outbox check (#1413)', () => {
+  it('a refresh the database refuses is logged and the delivery goes on', async () => {
+    const logged: string[] = [];
+    const body = JSON.stringify(pullRequestPayload('synchronize'));
+    const response = await receiveWebhook({
+      body,
+      headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) },
+      secret: SECRET,
+      send: sending(),
+      refreshJobs: () => Promise.reject(new Error('the database refused: down')),
+      forward: forwarding(),
+      log: (line) => logged.push(line),
+    });
+    expect(response.status).toBe(200);
+    expect(logged).toEqual(['jobs: could not refresh the checks — the database refused: down']);
+  });
+});
+
+describe('toCheckJobs', () => {
+  it('is the filter alone, pure: no signature, no ledger', () => {
+    expect(toCheckJobs('pull_request', pullRequestPayload('synchronize'))).toHaveLength(4);
+    expect(toCheckJobs('pull_request', pullRequestPayload('closed'))).toEqual([]);
+  });
+
+  it('keys each job by the lower-case repository and the pull request, due 5 seconds after the refresh', () => {
+    const payload = pullRequestPayload('synchronize', { repository: { ...REPOSITORY, full_name: 'Vertuoza/Vertuo-Omni-Loop', name: 'Vertuo-Omni-Loop', owner: { login: 'Vertuoza' } } });
+    expect(toCheckJobs('pull_request', payload).map((job) => [job.kind, job.key, job.subject, job.delaySeconds])).toEqual(
+      PR_CHECK_KINDS.map((kind) => [kind, 'vertuoza/vertuo-omni-loop#28', 'vertuoza/vertuo-omni-loop', 5]),
+    );
+  });
+
+  it('refreshes no job of a sub-PR, a pull request into another branch than the default (#1413)', () => {
     const subPr = { number: 28, head: { sha: 'abc123', ref: 'feat/x--s1' }, base: { ref: 'feat/x' } };
     for (const action of CHECK_ACTIONS.pull_request) {
-      expect(toCheckRequests('pull_request', pullRequestPayload(action, { pull_request: subPr })), action).toEqual([]);
+      expect(toCheckJobs('pull_request', pullRequestPayload(action, { pull_request: subPr })), action).toEqual([]);
     }
-    expect(toCheckRequests('check_run', rerequestedPayload([subPr]))).toEqual([]);
+    expect(toCheckJobs('check_run', rerequestedPayload([subPr]))).toEqual([]);
   });
 
-  it('still turns a pull request into the default branch, and its check re-run, into the outbox check (#1413)', () => {
-    expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
-    expect(toCheckRequests('check_run', rerequestedPayload())).toHaveLength(1);
+  it('still refreshes the jobs of a pull request into the default branch, and of its check re-run (#1413)', () => {
+    expect(toCheckJobs('pull_request', pullRequestPayload('synchronize'))).toHaveLength(4);
+    expect(toCheckJobs('check_run', rerequestedPayload())).toHaveLength(1);
   });
 
-  it('never turns a closed pull request into the outbox check, merged or not', () => {
-    expect(toCheckRequests('pull_request', mergedPayload())).toEqual([]);
+  it('never refreshes the checks of a closed pull request, merged or not', () => {
+    expect(toCheckJobs('pull_request', mergedPayload())).toEqual([]);
   });
 
-  it('turns a review submitted or dismissed into the outbox check of its pull request (PRD 1726); no other review action', () => {
+  it('refreshes the checks of a review submitted or dismissed (PRD 1726); no other review action', () => {
     expect(CHECK_ACTIONS.pull_request_review).toEqual(['submitted', 'dismissed']);
     for (const action of ['submitted', 'dismissed']) {
-      expect(toCheckRequests('pull_request_review', pullRequestPayload(action, { review: { state: 'approved' } }))).toEqual([
-        {
-          name: OUTBOX_CHECK_EVENT,
-          data: {
-            installationId: 4242,
-            owner: 'vertuoza',
-            repo: 'vertuo-omni-loop',
-            repository: 'vertuoza/vertuo-omni-loop',
-            prNumber: parsePr(28),
-            headSha: 'abc123',
-            trigger: `pull_request_review.${action}`,
-          },
-        },
-      ]);
+      expect(toCheckJobs('pull_request_review', pullRequestPayload(action, { review: { state: 'approved' } }))).toEqual(
+        PR_CHECK_KINDS.map((kind) => checkJob(kind, `pull_request_review.${action}`)),
+      );
     }
-    expect(toCheckRequests('pull_request_review', pullRequestPayload('edited'))).toEqual([]);
+    expect(toCheckJobs('pull_request_review', pullRequestPayload('edited'))).toEqual([]);
     const subPr = { number: 28, head: { sha: 'abc123', ref: 'feat/x--s1' }, base: { ref: 'feat/x' } };
-    expect(toCheckRequests('pull_request_review', pullRequestPayload('submitted', { pull_request: subPr }))).toEqual([]);
+    expect(toCheckJobs('pull_request_review', pullRequestPayload('submitted', { pull_request: subPr }))).toEqual([]);
     expect(HANDLED.pull_request_review).toEqual(['submitted', 'dismissed']);
   });
 
   it('reads the pull request number as one (PRD 1049): a delivery naming no pull request number becomes nothing', () => {
-    const [request] = toCheckRequests('pull_request', pullRequestPayload('synchronize'));
-    expect(request?.data.prNumber).toBe(parsePr(28));
-    expect(toCheckRequests('pull_request', pullRequestPayload('synchronize', { number: 0, pull_request: { number: 0, head: { sha: 'abc123' } } }))).toEqual([]);
+    const [job] = toCheckJobs('pull_request', pullRequestPayload('synchronize'));
+    expect(job?.payload.prNumber).toBe(parsePr(28));
+    expect(toCheckJobs('pull_request', pullRequestPayload('synchronize', { number: 0, pull_request: { number: 0, head: { sha: 'abc123' } } }))).toEqual([]);
     expect(toRetroRequests('pull_request', mergedPayload({ number: 2.5 }))).toEqual([]);
   });
 });
+
 
 const MERGED_AT = '2026-09-25T14:44:12Z';
 const MERGE_SHA = '4e2dc907b5fdb1d86f28778fa67ee5953981abc5';
@@ -336,9 +349,10 @@ const mergedPayload = (over = {}) =>
   });
 
 describe('webhook — the retro route (PRD 72)', () => {
-  it('turns a merged pull request into one retro event and one harvest event (PRD 82), and no outbox event', async () => {
-    const { response, send } = await deliver({ payload: mergedPayload() });
+  it('turns a merged pull request into one retro event and one harvest event (PRD 82), and refreshes no check', async () => {
+    const { response, send, refreshed } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
+    expect(refreshed).toEqual([]);
     // The retro, the harvest, and beside them the fix stamp (PRD 2011 s7) and the main watch (PRD 2410), which `send` never gets.
     expect(response.body).toBe('sent 4');
     expect(send).toHaveBeenCalledTimes(1);
@@ -400,7 +414,8 @@ describe('webhook — the retro route (PRD 72)', () => {
   it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro or harvest event', (action) => {
     expect(toRetroRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
     expect(toHarvestRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
-    expect(toEvents('pull_request', { ...mergedPayload(), action }).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+    expect(toEvents('pull_request', { ...mergedPayload(), action })).toEqual([]);
+    expect(toCheckJobs('pull_request', { ...mergedPayload(), action })).toHaveLength(4);
   });
 
   it('handles exactly the check actions, the retro actions and the canon buttons', () => {
@@ -463,11 +478,11 @@ describe('webhook — the stage events (PRD 587)', () => {
     expect(forwarded.at).toEqual(expect.any(String));
   });
 
-  it('keeps the retro, harvest and outbox-check events unchanged beside it', async () => {
+  it('keeps the retro and harvest events and the checks\' jobs unchanged beside it', async () => {
     const send = sending();
     await receive(stagePayload('closed', 'feat/real-stages', 'main'), { send, forward: forwarding() });
     expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
-    expect(toEvents('pull_request', stagePayload('ready_for_review', 'feat/x', 'main')).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+    expect(toCheckJobs('pull_request', stagePayload('ready_for_review', 'feat/x', 'main')).map((job) => job.kind)).toEqual([...PR_CHECK_KINDS]);
   });
 
   it('forwards nothing for any other branch or action, and nothing on a bad signature', async () => {
@@ -571,7 +586,7 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
 
   it('never re-runs a check for a click', () => {
     expect(toEvents('check_run', clicked(CANON_ACTION.rewrite)).map((e) => e.name)).toEqual([CANON_ACTION_EVENT]);
-    expect(toCheckRequests('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
+    expect(toCheckJobs('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
   });
 
   it.each([
@@ -600,18 +615,15 @@ describe('webhook — the approved label (PRD 1612)', () => {
     expect(APPROVED_LABEL_ACTIONS).toEqual({ issues: ['labeled', 'unlabeled'] });
   });
 
-  it.each(['labeled', 'unlabeled'])('the approved label %s on a PRD issue is one approved label event naming the PRD', (action) => {
+  it.each(['labeled', 'unlabeled'])('the approved label %s on a PRD issue is one approval re-run naming the PRD', (action) => {
     expect(toApprovedLabelRequests('issues', labelPayload(action))).toEqual([
       {
-        name: APPROVED_LABEL_EVENT,
-        data: {
-          installationId: 4242,
-          owner: 'vertuoza',
-          repo: 'vertuo-omni-loop',
-          repository: 'vertuoza/vertuo-omni-loop',
-          prd: 1612,
-          trigger: `issues.${action}`,
-        },
+        installationId: 4242,
+        owner: 'vertuoza',
+        repo: 'vertuo-omni-loop',
+        repository: 'vertuoza/vertuo-omni-loop',
+        prd: 1612,
+        trigger: `issues.${action}`,
       },
     ]);
   });
@@ -623,26 +635,27 @@ describe('webhook — the approved label (PRD 1612)', () => {
     expect(toApprovedLabelRequests('pull_request', labelPayload('labeled'))).toEqual([]);
   });
 
-  it('is not the outbox check’s event', () => {
+  it('is no Inngest event and refreshes no check of its own', () => {
     expect(toEvents('issues', labelPayload('labeled'))).toEqual([]);
+    expect(toCheckJobs('issues', labelPayload('labeled'))).toEqual([]);
   });
 
-  it('a signed delivery of the approved label hands the event to sendApproved, nothing to send', async () => {
+  it('a signed delivery of the approved label hands the re-run to rerunApproved, nothing to send', async () => {
     const payload = labelPayload('unlabeled');
     const body = JSON.stringify(payload);
     const send = sending();
-    const sendApproved = vi.fn(() => Promise.resolve());
+    const rerunApproved = vi.fn(() => Promise.resolve());
     const response = await receiveWebhook({
       body,
       headers: { 'x-github-event': 'issues', 'x-hub-signature-256': sign(body) },
       secret: SECRET,
       send,
-      sendApproved,
+      rerunApproved,
       forward: forwarding(),
     });
-    expect(response).toEqual({ status: 200, body: 'sent 1' });
+    expect(response).toEqual({ status: 200, body: 'sent 0 · 1 jobs' });
     expect(send).not.toHaveBeenCalled();
-    expect(sendApproved).toHaveBeenCalledWith(toApprovedLabelRequests('issues', payload));
+    expect(rerunApproved).toHaveBeenCalledWith(toApprovedLabelRequests('issues', payload));
   });
 });
 
@@ -854,7 +867,8 @@ describe('webhook — the fleet board (PRD 2530)', () => {
       const signed = loopPull(action);
       const byHand = loopPull(action, { body: 'by hand' });
       expect(toEvents('pull_request', signed)).toEqual(toEvents('pull_request', byHand));
-      expect(toEvents('pull_request', signed).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+      expect(toCheckJobs('pull_request', signed)).toEqual(toCheckJobs('pull_request', byHand));
+      expect(toCheckJobs('pull_request', signed)).toHaveLength(4);
       expect(toFixStampRequests('pull_request', signed)).toEqual(toFixStampRequests('pull_request', byHand));
       expect(toMainWatchRequests('pull_request', signed)).toEqual([]);
       expect(toApprovedLabelRequests('pull_request', signed)).toEqual([]);
@@ -862,14 +876,14 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     expect(toFixStampRequests('pull_request', loopPull('reopened')).map((event) => event.name)).toEqual([FIX_STAMP_EVENT]);
   });
 
-  it('a signed delivery hands the fleet board its event beside the outbox check’s, and answers 502 when it cannot be sent', async () => {
+  it('a signed delivery hands the fleet board its event beside the checks\' jobs, and answers 502 when it cannot be sent', async () => {
     const body = JSON.stringify(loopPull('opened'));
     const headers = { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) };
     const send = sending();
     const sendBoard = vi.fn((events: FleetBoardRequest[]) => Promise.resolve(events.length));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendBoard, forward: forwarding() })).toEqual({ status: 200, body: 'sent 2' });
+    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendBoard, forward: forwarding() })).toEqual({ status: 200, body: 'sent 1 · 4 jobs' });
     expect(sendBoard).toHaveBeenCalledWith([boardEvent('opened')]);
-    expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+    expect(send).not.toHaveBeenCalled();
 
     const failing = vi.fn(() => Promise.reject(new Error('inngest is down')));
     expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendBoard: failing, forward: forwarding() })).toEqual({ status: 502, body: 'could not send the event: inngest is down' });
@@ -882,7 +896,7 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     const body = JSON.stringify(loopPull('opened', { body: 'by hand' }));
     const sendBoard = vi.fn(() => Promise.resolve());
     const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), sendBoard, forward: forwarding() });
-    expect(response).toEqual({ status: 200, body: 'sent 1' });
+    expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
     expect(sendBoard).not.toHaveBeenCalled();
   });
 });

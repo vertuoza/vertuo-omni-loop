@@ -10,7 +10,7 @@
 //            never waits on a check that will not come. Nothing on a pull request the check does not run on
 //            (a base without the loop's config, the check off, no PRD approved on the server)
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { APPROVED_EXTERNAL_ID, CheckRequestDataSchema, type CheckRequestData } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, checkPayloadOf, CheckRequestDataSchema, type CheckRequestData } from '../inngest-client.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { completeAsFailure, type GitHubClient } from '../outbox-check/github.ts';
@@ -66,10 +66,5 @@ async function mayBeChecked(octokit: GitHubClient, at: { owner: string; repo: st
   }
 }
 
-/** The job's payload as the check's event data, or the error naming its first malformed field. */
-function requestOf(raw: unknown): CheckRequestData {
-  const parsed = CheckRequestDataSchema.safeParse(raw);
-  if (parsed.success) return parsed.data;
-  const [issue] = parsed.error.issues;
-  throw new Error(`The pr-approved job is malformed: ${issue?.path.join('.') || '(payload)'}: ${issue?.message ?? parsed.error.message}`);
-}
+/** The job's payload as the check's request, or the error naming its first malformed field. */
+const requestOf = (raw: unknown): CheckRequestData => checkPayloadOf(CheckRequestDataSchema, APPROVED_KIND, raw);

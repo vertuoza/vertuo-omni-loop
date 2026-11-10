@@ -7,12 +7,10 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
-import { fakeGitHub } from './fake-github.ts';
-import { createOutboxCheck } from './outbox-check.ts';
+import { checkRunAt, claimedJob, fakeGitHub } from './fake-github.ts';
+import { OUTBOX_KIND, outboxHandler } from './job.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const fixture = (name: string) => join(FIXTURES, name);
@@ -44,21 +42,18 @@ function headWith(name: string, extra: Record<string, string>): string {
   return dir;
 }
 
-const event = () => ({
-  name: OUTBOX_CHECK_EVENT,
-  data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha: 'head1', trigger: 'pull_request.synchronize' },
-});
+const payload = { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha: 'head1', trigger: 'pull_request.synchronize' };
 
-/** One run of the check on a pull request from `headRef`; what it fetched and what it concluded. */
+/** One run of the check's job on a pull request from `headRef`; what it fetched and what it concluded. */
 async function run({ base, head, headRef }: { base: string; head: string; headRef: string }) {
   const github = fakeGitHub({
     commits: { base1: base, head1: head },
     pull: { number: parsePr(12), base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' } },
   });
-  const fn = createOutboxCheck({ client: inngest, octokitFor: () => github.octokit });
-  const { result } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+  await outboxHandler({ octokitFor: () => github.octokit, log: () => undefined })(claimedJob(OUTBOX_KIND, payload));
   const fetched = github.state.requests.filter((r) => r.route === BLOB).map((r) => String(r.file_sha));
-  return { result, fetched };
+  const { conclusion, output } = checkRunAt(github.state, -1);
+  return { result: { conclusion, output }, fetched };
 }
 
 describe('outbox-check — the delivery folder is listed, and only the pull request\'s own folder fetched (issue 1968)', () => {

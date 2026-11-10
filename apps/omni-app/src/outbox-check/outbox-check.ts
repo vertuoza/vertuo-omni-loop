@@ -1,4 +1,5 @@
-// `outbox-check`: the Inngest function wiring the app's units together (PRD 28, "Flow").
+// `outbox-check`: the check wiring the app's units together (PRD 28, "Flow"). It runs as the `pr-outbox` job
+// of the ledger (PRD 2688, ./job.ts), its steps in order in one try:
 //
 //   step "in-progress"  create the check run, `in_progress`, on the head SHA — unless the base branch
 //                       has no `.omni-loop/config.yml`: then the run ends there, and nothing is posted;
@@ -14,41 +15,38 @@
 //   step "escalation"   keep the escalation record (PRD 1794): what still waits on a person, handed
 //                       on from "evaluate"; only on a repository that names a delegate or leadership,
 //                       and after the verdict is published, so it never changes it
-//   onFailure           complete the check run as `failure` — never left `in_progress`; on a pull
-//                       request that is not an Omni Loop feature PR, `skipped` instead, never `failure`;
-//                       on a repository without the loop's config, nothing
+//   failure hook        once the 5th try threw (./job.ts): complete the check run as `failure` — never left
+//                       `in_progress`; on a pull request that is not an Omni Loop feature PR, `skipped`
+//                       instead, never `failure`; on a repository without the loop's config, nothing
 //
-// Runs are debounced per repository and pull request, so a burst of pushes and label changes is one
-// evaluation of the latest state. The server event sends the same event when an approval, a void, an item
-// or a settlement changed a product PRD (../server-event/recheck.ts), so the target PRs' checks follow the
-// server without a push. A snapshot over its bound is not retried: the same bound fails the
-// same way, so it goes straight to the failure handler with the bound as its reason.
+// Every pull request event the webhook handles refreshes the job, so a burst of pushes and label changes is
+// one evaluation of the latest state. The server event refreshes it too when an approval, a void, an item or
+// a settlement changed a product PRD (../server-event/recheck.ts), so the target PRs' checks follow the
+// server without a push.
 //
 // The app is public (PRD 359): it is installed on repositories that never asked for the loop, so a
 // repository without the loop's config gets no check run and no comment, not even a `skipped` one.
 //
 // The installation's GitHub budget is shared with galaxy (PRD 902): a call the budget refuses, paused
-// or deferred, is never sent. A step refused so logs one line and waits for the budget, retried once
-// the pause or the floor's window ends, so nothing new is posted meanwhile.
+// or deferred, is never sent. It is thrown, and the worker reads it as `waiting`, so nothing new is
+// posted meanwhile.
 //
-// `createOutboxCheck` takes the Inngest client and `octokitFor(installationId)`, so a test runs the
-// real function against a stubbed GitHub; the app serves it wired to its client and to installation
-// tokens signed with the GitHub App's private key, its calls through the shared budget-aware client
-// (`installationOctokitFor`, ../octokit-for.ts).
+// `runOutboxCheck` takes `octokitFor(installationId)`, so a test runs the real check against a stubbed
+// GitHub; the worker runs it wired to installation tokens signed with the GitHub App's private key, its
+// calls through the shared budget-aware client (`installationOctokitFor`, ../octokit-for.ts).
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NonRetriableError, RetryAfterError, type Inngest } from 'inngest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { createContext } from 'omni-loop/kit/lib/context.ts';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { businessLawFiles } from 'omni-loop/kit/lib/outbox/decision-coverage.ts';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
-import { CheckRequestDataSchema, FailureEventDataSchema, OUTBOX_CHECK_EVENT, type CheckRequestData } from '../inngest-client.ts';
+import type { CheckRequestData } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { DEFAULT_CHECK_NAME, publish, startCheck, type Published } from '../publish/publish.ts';
 import { noteTo } from '../run-log/run-log.ts';
-import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
+import { snapshot } from '../snapshot/snapshot.ts';
 import {
   changedFiles,
   checkTarget,
@@ -65,7 +63,6 @@ import {
   type CheckTarget,
   type GitHubClient,
 } from './github.ts';
-import { messageField } from './github-schema.ts';
 import { deliveryFetched } from './delivery-scope.ts';
 import { lawGateAt, withLawGate } from './law-locked.ts';
 import { productOutboxVerdict, type OutboxReading, type ProductOutboxReader } from './product-outbox.ts';
@@ -73,27 +70,11 @@ import { heldAt, type HeldNow } from '../escalation/held.ts';
 import { keepRecord } from '../escalation/record.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
 
-/** What a failure handler is handed: the failed run's event, its final error, and its steps. */
-type FailureInput = {
-  event: { name?: string; data: unknown };
-  error?: unknown;
-  step?: { run: (id: string, fn: () => Promise<unknown>) => Promise<unknown> };
-};
-
-export const FUNCTION_ID = 'outbox-check';
-
 /** What a run returns when it posted nothing: the repository has not installed the loop. */
 const SILENT = Object.freeze({ posted: false, reason: NOT_ACTIVE_ON_REPO });
 
-/** Why the failure handler posted nothing: GitHub could not say whether the gate runs on this pull request. */
+/** Why the failure hook posted nothing: GitHub could not say whether the gate runs on this pull request. */
 const UNKNOWN_PR = 'omni-loop could not tell whether this is an Omni Loop feature PR';
-
-/** One evaluation per repository and pull request at a time: the latest event wins. */
-export const DEBOUNCE = Object.freeze({
-  key: 'event.data.repository + "#" + string(event.data.prNumber)',
-  period: '5s',
-  timeout: '1m',
-});
 
 /** What the check's body needs besides the pull request: GitHub, the product's outbox, the galaxy, the clock. */
 export type OutboxDeps = {
@@ -106,7 +87,7 @@ export type OutboxDeps = {
   log?: (line: string) => void;
 };
 
-/** The body's steps, by name: Inngest runs each as a step of the function, the job ledger just runs it. */
+/** The body's steps, by name: the job of the ledger runs each in turn, in one try (./job.ts). */
 export type RunStep = {
   start: (work: () => Promise<Started>) => Promise<Started>;
   evaluate: (work: () => Promise<Evaluated>) => Promise<Evaluated>;
@@ -126,10 +107,7 @@ type Evaluated = Verdict & { held?: HeldNow };
 /** What the body returns: the posted check, or `SILENT` when the repository has not installed the loop. */
 export type OutboxOutcome = { posted: false; reason: string } | { checkRunId: number | undefined; name: string; conclusion: string; comment?: string; escalation?: string };
 
-/**
- * The check's body, shared by the Inngest function and the `pr-outbox` job (./job.ts): its steps in order,
- * each through `runStep`. The body is the same whoever runs it, so the verdicts are too.
- */
+/** The check's body, the `pr-outbox` job's (./job.ts): its steps in order, each through `runStep`. */
 export async function runOutboxCheck(
   { octokitFor, readProductOutbox = null, galaxyUrl = '', now = () => new Date(), log = noteTo('outbox-check') }: OutboxDeps,
   request: CheckRequestData,
@@ -173,33 +151,6 @@ export async function runOutboxCheck(
   const escalation = holding ? await runStep.escalation(() => recordSafely(holding, { octokitFor, installationId, owner, repo, prNumber, now, log })) : 'none';
 
   return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment, escalation };
-}
-
-export function createOutboxCheck({ client, ...deps }: OutboxDeps & { client: Inngest }) {
-  const log = deps.log ?? noteTo('outbox-check');
-  return client.createFunction(
-    {
-      id: FUNCTION_ID,
-      name: 'omni-loop · outbox',
-      triggers: [{ event: OUTBOX_CHECK_EVENT }],
-      debounce: DEBOUNCE,
-      retries: 3,
-      onFailure: createFailureHandler({ octokitFor: deps.octokitFor }),
-    },
-    async ({ event, step }) => {
-      const request = CheckRequestDataSchema.parse(event.data);
-      const where = `${request.owner}/${request.repo}#${String(request.prNumber)}`;
-      // Each step is retried by Inngest: a budget refusal waits for the budget, a snapshot over its bound is not retried.
-      const budgeted = <T>(work: () => Promise<T>) => waitingOnBudget(where, log, work);
-      const runStep: RunStep = {
-        start: (work) => step.run('in-progress', () => budgeted(work)),
-        evaluate: (work) => step.run('evaluate', () => budgeted(() => notRetriedPastBound(work))),
-        publish: (work) => step.run('publish', () => budgeted(work)),
-        escalation: (work) => step.run('escalation', work),
-      };
-      return runOutboxCheck({ ...deps, log }, request, runStep);
-    },
-  );
 }
 
 /** A product PRD's outbox as the check reads it: reached, or held since now when the reader is missing or throws. */
@@ -247,19 +198,6 @@ async function recordSafely(
   }
 }
 
-/**
- * Runs a check's step "evaluate": a snapshot over its bound is not retried, since the same bound
- * fails the same way; it goes straight to the failure handler with the bound as its reason.
- */
-export async function notRetriedPastBound<T>(evaluation: () => Promise<T>): Promise<T> {
-  try {
-    return await evaluation();
-  } catch (error) {
-    if (error instanceof SnapshotBoundError) throw new NonRetriableError(error.message, { cause: error });
-    throw error;
-  }
-}
-
 /** The budget's refusal behind `error`, however deep Octokit wrapped it; null when there is none. */
 function budgetRefusal(error: unknown): GithubPaused | GithubDeferred | null {
   let cause = error;
@@ -271,17 +209,16 @@ function budgetRefusal(error: unknown): GithubPaused | GithubDeferred | null {
 }
 
 /**
- * Runs a step of the check: a call the installation's budget refused (PRD 902) logs one line for the
- * pull request `where`, and the step is retried once the budget allows it, never sooner.
+ * Runs the failure hook's work: a call the installation's budget refused (PRD 902) logs one line for the
+ * pull request `where`, and is thrown as it is, never swallowed.
  */
-async function waitingOnBudget<T>(where: string, log: (line: string) => void, work: () => Promise<T>): Promise<T> {
+async function sayingBudget<T>(where: string, log: (line: string) => void, work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
     const refused = budgetRefusal(error);
-    if (!refused) throw error;
-    log(`outbox check of ${where} waits for the GitHub budget: ${refused.message}`);
-    throw new RetryAfterError(refused.message, new Date(refused.until), { cause: refused });
+    if (refused) log(`outbox check of ${where} waits for the GitHub budget: ${refused.message}`);
+    throw error;
   }
 }
 
@@ -335,23 +272,15 @@ async function evaluateAt(
 }
 
 /**
- * The failure handler: once the run has failed after its retries, complete the check as `failure`
- * with the reason ("omni-loop could not evaluate: …"); on a pull request the gate does not run on,
+ * The `pr-outbox` job's failure hook's work (./job.ts): once the 5th try threw, complete the check as
+ * `failure` with the reason ("omni-loop could not evaluate: …"); on a pull request the gate does not run on,
  * `skipped` instead (issue 876), or `success` on a target feature PR (issue 1202), but `failure` on a
- * product PRD's target PR, whose outbox the check grades (PRD 1548 s8). Inngest hands it the original event under
- * `event.data.event` and the final error.
+ * product PRD's target PR, whose outbox the check grades (PRD 1548 s8).
  *
- * A call the installation's budget refuses (PRD 902) is never swallowed: the handler waits for the
- * budget as the check's steps do, retried once it allows the call, so the check run the step
- * "in-progress" opened is completed then, never left `in_progress` (issue 1970).
+ * A call the installation's budget refuses (PRD 902) is never swallowed: it is logged and thrown (issue 1970).
  */
-export function createFailureHandler({ octokitFor, log = noteTo('outbox-check') }: { octokitFor: OctokitFor<GitHubClient>; log?: (line: string) => void }) {
-  return onFailedRun(octokitFor, ({ octokit, request, reason }) => failOutboxCheck(octokit, request, reason, log));
-}
-
-/** The failure handler's work, shared with the `pr-outbox` job's failure hook (./job.ts): complete the check as `failure`, or as it must be on a pull request the gate does not run on. */
 export function failOutboxCheck(octokit: GitHubClient, { owner, repo, prNumber, headSha }: CheckRequestData, reason: unknown, log: (line: string) => void) {
-  return waitingOnBudget(`${owner}/${repo}#${String(prNumber)}`, log, async () => {
+  return sayingBudget(`${owner}/${repo}#${String(prNumber)}`, log, async () => {
     const target = await targetOrUnknown(octokit, { owner, repo, prNumber, headSha });
     if (target && !target.active) return { ...SILENT };
     if (target && !target.gated) return completeUngated(octokit, { owner, repo, headSha, target, reason });
@@ -414,22 +343,4 @@ async function completeUngated(
   }
   const checkRunIds = await completeAsSkipped(octokit, { owner, repo, headSha, name, reason });
   return { checkRunIds, name, conclusion: 'skipped' };
-}
-
-/** What a failure handler's work is handed: the installation's GitHub, the failed run's event data, the reason. */
-type FailedRun = { octokit: GitHubClient; request: CheckRequestData; reason: unknown };
-
-/**
- * A check's failure handler: it reads the failed run's original event and the reason it failed
- * ("unknown error" when nothing says), and does `work` in the step "complete-as-failure" (or directly,
- * when it is called without steps).
- */
-export function onFailedRun(octokitFor: OctokitFor<GitHubClient>, work: (failed: FailedRun) => Promise<unknown>) {
-  return async ({ event, error, step }: FailureInput): Promise<unknown> => {
-    const failed = FailureEventDataSchema.parse(event.data);
-    const request = CheckRequestDataSchema.parse(failed.event.data);
-    const reason = messageField(error) ?? failed.error?.message ?? 'unknown error';
-    const complete = async () => work({ octokit: await octokitFor(request.installationId), request, reason });
-    return step?.run ? step.run('complete-as-failure', complete) : complete();
-  };
 }

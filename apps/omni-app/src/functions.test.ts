@@ -11,16 +11,11 @@ const octokitFor = () => {
 };
 
 const ids = {
-  outboxCheck: 'outbox-check',
-  inboxCheck: 'inbox-check',
-  approvedCheck: 'approved-check',
-  approvedRerun: 'approved-rerun',
   retro: 'retro',
   knowledgeHarvest: 'knowledge-harvest',
   prStats: 'pr-stats',
   canonAction: 'canon-action',
   serverEvent: 'server-event',
-  budgetsCheck: 'budgets-check',
   escalation: 'escalation',
   fixRowStamp: 'fix-row-stamp',
   mainWatch: 'main-watch',
@@ -37,10 +32,11 @@ function startOf(fn: Fn) {
 }
 
 describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
-  it('serves the fourteen functions by these ids', () => {
+  it('serves the nine functions by these ids: neither the knowledge pack nor the pull-request checks, which are jobs of the ledger (PRD 2676, PRD 2688)', () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     expect(Object.fromEntries(Object.entries(functions).map(([name, fn]) => [name, fn.opts.id]))).toEqual(ids);
-    expect(Object.values(functions).map((fn) => fn.opts.id)).not.toContain('knowledge-pack');
+    const served = Object.values(functions).map((fn) => fn.opts.id);
+    for (const gone of ['knowledge-pack', 'outbox-check', 'inbox-check', 'approved-check', 'approved-rerun', 'budgets-check']) expect(served).not.toContain(gone);
   });
 
   for (const [name, id] of Object.entries(ids)) {
@@ -59,7 +55,7 @@ describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
   it('a failure handler’s run logs its own line, and fails or ends exactly as it did', async () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     const withFailure = Object.entries(functions).filter(([, fn]) => typeof fn.opts.onFailure === 'function');
-    expect(withFailure.map(([name]) => name).sort()).toEqual(['budgetsCheck', 'inboxCheck', 'knowledgeHarvest', 'outboxCheck', 'retro']);
+    expect(withFailure.map(([name]) => name).sort()).toEqual(['knowledgeHarvest', 'retro']);
     for (const [name] of withFailure) {
       const log = capture();
       const fn = appFunctions(readEnv({}), { octokitFor, logger: log.logger })[name as keyof typeof ids];

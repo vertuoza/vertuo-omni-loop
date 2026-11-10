@@ -11,6 +11,13 @@
 // webhook 10 seconds). A repository no product holds adds nothing and reads nothing on GitHub; a database
 // failure is logged and the delivery goes on (the sweep's comparison repairs it).
 //
+// The checks (PRD 2688 s7): a pull request event refreshes its checks' jobs before anything else is called,
+// on any repository the App is installed on; the approved label's re-run finds its PRD's open pull requests
+// on GitHub once the delivery is answered, and refreshes their `pr-approved` jobs. Then, the refresh's delay
+// gone by (5 seconds, so a burst of events runs each check once, on the latest head), the jobs due run in
+// `waitUntil`, every kind's handler wired (../jobs/pr-checks.ts). A database failure is logged and the
+// delivery goes on: the next event, or a re-run, refreshes the jobs again.
+//
 // Every delivery, a GET included, writes one `webhook` line (PRD 1723 s6, ../run-log/run-log.ts): its
 // outcome and status, the delivery id and the GitHub event's name in `fn`, and, once the signature is
 // checked, the repository. A thrown error is logged `failed` and rethrown unchanged.
@@ -21,9 +28,9 @@ import type { AppEnv } from '../env.ts';
 import type { FixStampRequest } from '../fix-rows/fix-stamp.ts';
 import type { FleetBoardRequest } from '../fleet-board/events.ts';
 import type { MainWatchRequest } from '../main-watch/events.ts';
-import { type AppEvent, type ApprovedLabelRequest, inngest } from '../inngest-client.ts';
-import { jobLedger, type NewJob } from '../jobs/ledger.ts';
-import { packHandler, PACK_KIND } from '../jobs/pack.ts';
+import { type AppEvent, inngest } from '../inngest-client.ts';
+import { jobLedger, REFRESH_DELAY_SECONDS, type NewJob, type RefreshJob } from '../jobs/ledger.ts';
+import { approvedRerunJobs, liveWorkers, type ApprovedRerun, type WorkerEnv } from '../jobs/pr-checks.ts';
 import { runDue } from '../jobs/worker.ts';
 import { knowledgePackStore } from '../knowledge-pack/store.ts';
 import { githubStoreOf, installationOctokitFor } from '../octokit-for.ts';
@@ -33,30 +40,102 @@ import { loggedHandler, noteTo } from '../run-log/run-log.ts';
 import { receiveWebhook } from './webhook.ts';
 
 /** Every event the route sends on the app's Inngest client. */
-type RouteEvent = AppEvent | ApprovedLabelRequest | FixStampRequest | MainWatchRequest | FleetBoardRequest;
+type RouteEvent = AppEvent | FixStampRequest | MainWatchRequest | FleetBoardRequest;
 
-/** The groups the route reads. */
-export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl'> & Partial<Pick<AppEnv, 'supabase' | 'githubApp'>>;
+/** The groups the route reads: its own, and those the checks' worker reads (../jobs/pr-checks.ts). */
+export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl'> &
+  Partial<Pick<AppEnv, 'supabase' | 'githubApp' | 'openrouter' | 'constituentJudge' | 'businessLawsJudge'>>;
 
-/** The ledger as the route uses it: add a job (whether it did), and run the jobs due. */
+/** The ledger as the route uses it: add a job (whether it did), refresh one, find an approval's jobs, run the jobs due. */
 export type RouteJobs = {
   /** Adds the job when a product holds its repository; whether one was added. */
   add: (job: NewJob) => Promise<boolean>;
+  /** Refreshes a check's job, on any repository: the latest event wins. */
+  refresh: (job: RefreshJob) => Promise<unknown>;
+  /** The `pr-approved` jobs of the open pull requests of the PRD whose approved label changed, read from GitHub. */
+  approved: (rerun: ApprovedRerun) => Promise<RefreshJob[]>;
   run: () => Promise<unknown>;
 };
 
-/** The ledger on the database as the service role, with the pack as its one handler; none where the App has no database. */
+/** How long after a refresh the route runs the jobs due: the refresh's delay, and a second for the clocks. */
+export const RUN_AFTER_REFRESH_MS = (REFRESH_DELAY_SECONDS + 1) * 1000;
+
+/** The ledger on the database as the service role, every kind's handler wired; none where the App has no database. */
 function liveJobs(env: GithubRouteEnv, logger: Logger): RouteJobs | null {
-  if (!env.supabase) return null;
-  const ledger = jobLedger(env.supabase);
-  const store = knowledgePackStore(env.supabase);
+  const { supabase } = env;
+  if (!supabase) return null;
+  const ledger = jobLedger(supabase);
+  const store = knowledgePackStore(supabase);
+  const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo('github', logger) }));
+  const workerEnv: WorkerEnv = { ...env, supabase };
   return {
     add: async (job) => (await store.held(job.subject)) && ledger.add(job),
-    run: () => {
-      const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(env.supabase ?? null), log: noteTo('github', logger) }));
-      return runDue({ ledger, handlers: { [PACK_KIND]: packHandler({ octokitFor, store }) } });
+    refresh: (job) => ledger.refresh(job),
+    approved: async (rerun) => approvedRerunJobs(await octokitFor(rerun.installationId), rerun),
+    run: () => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor) }),
+  };
+}
+
+/** Waits `ms` milliseconds. */
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * One delivery's jobs: the hooks `receiveWebhook` calls (refresh the checks' jobs, take the approvals' re-runs,
+ * add the pack's jobs), and the work after the answer, or null when the delivery left the ledger nothing to run.
+ */
+function deliveryJobs(jobs: RouteJobs | null) {
+  let added = false;
+  let refreshed = false;
+  const reruns: ApprovedRerun[] = [];
+  return {
+    hooks: {
+      refreshJobs: async (checks: RefreshJob[]) => {
+        if (!jobs) return;
+        for (const job of checks) {
+          await jobs.refresh(job);
+          refreshed = true;
+        }
+      },
+      rerunApproved: (asked: ApprovedRerun[]) => {
+        if (jobs) reruns.push(...asked);
+        return Promise.resolve();
+      },
+      addJobs: async (newJobs: NewJob[]) => {
+        if (!jobs) return;
+        for (const job of newJobs) added = (await jobs.add(job)) || added;
+      },
+    },
+    after: ({ pause, say }: { pause: (ms: number) => Promise<void>; say: (line: string) => void }): Promise<void> | null => {
+      const wait = refreshed || reruns.length > 0;
+      if (!jobs || !(added || wait)) return null;
+      return afterAnswer(jobs, { reruns, wait, pause, say });
     },
   };
+}
+
+/**
+ * The work after the answer: each approval's `pr-approved` jobs found and refreshed, then, once a refreshed
+ * job is due, the jobs due run. Nothing it meets is thrown: a failure is logged, and the next event, a re-run
+ * or the sweep picks the jobs up.
+ */
+async function afterAnswer(
+  jobs: RouteJobs,
+  { reruns, wait, pause, say }: { reruns: ApprovedRerun[]; wait: boolean; pause: (ms: number) => Promise<void>; say: (line: string) => void },
+): Promise<void> {
+  const why = (error: unknown) => (error instanceof Error ? error.message : String(error));
+  for (const rerun of reruns) {
+    try {
+      for (const job of await jobs.approved(rerun)) await jobs.refresh(job);
+    } catch (error) {
+      say(`the approved check of ${rerun.repository} PRD ${String(rerun.prd)} was not refreshed — ${why(error)}`);
+    }
+  }
+  try {
+    if (wait) await pause(RUN_AFTER_REFRESH_MS);
+    await jobs.run();
+  } catch (error) {
+    say(`the run failed — ${why(error)}`);
+  }
 }
 
 /** The repository a delivery names, `full_name`, or undefined when it names none. */
@@ -83,40 +162,41 @@ export function githubRoute(
     logger = log,
     jobs = liveJobs(env, logger),
     keepAlive = waitUntil,
+    pause = sleep,
   }: {
     send?: (events: RouteEvent[]) => Promise<unknown>;
     logger?: Logger;
     jobs?: RouteJobs | null;
     /** Keeps the function alive for the jobs after the answer: `waitUntil` of `@vercel/functions` unless given. */
     keepAlive?: (work: Promise<unknown>) => void;
+    /** Waits for a refreshed job to fall due before the run: a timer unless given. */
+    pause?: (ms: number) => Promise<void>;
   } = {},
 ) {
   const stage = { url: stageEventUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   const touched = { url: touchedUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
+  const say = noteTo('jobs', logger);
   return {
     POST: loggedHandler(logger, 'webhook', async (request, note) => {
       note({ deliveryId: request.headers.get('x-github-delivery') ?? undefined, fn: request.headers.get('x-github-event') ?? undefined });
       const text = await request.text();
-      const added = { any: false };
+      const delivery = deliveryJobs(jobs);
       const { status, body } = await receiveWebhook({
         body: text,
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
-        sendApproved: send,
+        ...delivery.hooks,
         sendStamps: send,
         sendWatch: send,
         sendBoard: send,
-        addJobs: async (newJobs) => {
-          if (!jobs) return;
-          for (const job of newJobs) added.any = (await jobs.add(job)) || added.any;
-        },
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched),
       });
       // A delivery whose signature was not checked names no repository in the log.
       if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text) });
-      if (added.any && jobs) keepAlive(jobs.run().catch((error: unknown) => { noteTo('jobs', logger)(`the run failed — ${error instanceof Error ? error.message : String(error)}`); }));
+      const after = delivery.after({ pause, say });
+      if (after) keepAlive(after);
       return new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     }),
     GET: loggedHandler(logger, 'webhook', () => new Response('method not allowed', { status: 405, headers: { allow: 'POST' } })),

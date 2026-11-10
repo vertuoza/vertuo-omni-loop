@@ -11,7 +11,7 @@
 // the App's own status comment, as an Inngest retry does. The payload is the check request, with no token
 // (L-GDPR-2).
 import { NOT_ACTIVE_ON_REPO } from '../evaluate/evaluate.ts';
-import { CheckRequestDataSchema } from '../inngest-client.ts';
+import { checkPayloadOf, CheckRequestDataSchema, type CheckRequestData } from '../inngest-client.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { noteTo } from '../run-log/run-log.ts';
@@ -21,12 +21,7 @@ import { failOutboxCheck, runOutboxCheck, type OutboxDeps } from './outbox-check
 export const OUTBOX_KIND = 'pr-outbox';
 
 /** The job's payload as the check request, or the error naming its first malformed field. */
-function requestOf(raw: unknown) {
-  const parsed = CheckRequestDataSchema.safeParse(raw);
-  if (parsed.success) return parsed.data;
-  const [issue] = parsed.error.issues;
-  throw new Error(`The pr-outbox job is malformed: ${issue?.path.join('.') || '(payload)'}: ${issue?.message ?? parsed.error.message}`);
-}
+const requestOf = (raw: unknown): CheckRequestData => checkPayloadOf(CheckRequestDataSchema, OUTBOX_KIND, raw);
 
 /** The handler of the `pr-outbox` kind. */
 export function outboxHandler(deps: OutboxDeps): JobHandler {

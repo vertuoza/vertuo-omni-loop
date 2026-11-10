@@ -1,17 +1,17 @@
 // `server-event`: the Inngest function a server event runs (PRD 1548 s4 and s8, acceptance 8). An
-// approval, a void, an outbox item opened or one settled on the server re-posts both checks,
-// `omni/approved` and the outbox check, on every open target pull request of that product PRD:
+// approval, a void, an outbox item opened or one settled on the server re-posts the checks, `omni/approved`
+// and the outbox check among them, on every open target pull request of that product PRD:
 //
 //   step "targets"             its open pull requests, read from the database (./targets.ts), never
 //                              listed from GitHub
 //   step "pull <owner/name#n>" each one read (one `GET` of that pull request, never a list): kept when
 //                              its body names the PRD (`Part of mobile-12`), with its head
-//   step "recheck"             one outbox check event per kept pull request (OUTBOX_CHECK_EVENT), the one the
-//                              webhook sends, which the outbox check (../outbox-check/outbox-check.ts) and
-//                              the approved check (../approved-check/approved-check.ts) both run, the inbox
-//                              check too, and the budgets check (../budgets-check/budgets-check.ts), so an
-//                              `item-settled` that answers a ceiling's raise turns `omni / budgets` green
-//                              with no new push (PRD 1679): each verdict is that function's alone
+//   step "recheck"             the four checks' jobs of each kept pull request refreshed on the ledger
+//                              (PRD 2688, ../jobs/pr-checks.ts), due at once: the outbox check, the inbox
+//                              check, the approved check and the budgets check, so an `item-settled` that
+//                              answers a ceiling's raise turns `omni / budgets` green with no new push
+//                              (PRD 1679): each verdict is that check's alone
+//   step "run"                 the jobs due run, on the ledger's worker
 //
 // Debounced per PRD: the burst of events one approval or one push makes re-checks once, from the last.
 // The installation's GitHub budget is shared with galaxy (PRD 902): a read it refuses is never sent; the
@@ -20,7 +20,8 @@ import { RetryAfterError, type Inngest } from 'inngest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { productPrdOf } from '../approved-check/state.ts';
-import { OUTBOX_CHECK_EVENT, type CheckRequest } from '../inngest-client.ts';
+import type { RefreshJob } from '../jobs/ledger.ts';
+import { prCheckJobs } from '../jobs/pr-checks.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { noteTo } from '../run-log/run-log.ts';
@@ -40,6 +41,12 @@ const NONE: readonly string[] = Object.freeze([]);
 /** A pull request kept: it names the PRD, at this head. */
 type Kept = { repository: string; number: number; headSha: string };
 
+/** The ledger as the recheck uses it: refresh a check's job, then run the jobs due. */
+export type RecheckJobs = {
+  refresh: (job: RefreshJob) => Promise<unknown>;
+  run: () => Promise<unknown>;
+};
+
 /** The budget's refusal `error` is, or wraps a few causes deep; null when it is none. */
 function refusalIn(error: unknown, depth = 0): GithubPaused | GithubDeferred | null {
   if (error instanceof GithubPaused || error instanceof GithubDeferred) return error;
@@ -57,19 +64,22 @@ export function createServerEventRecheck({
   client,
   octokitFor,
   readTargets,
+  jobs,
   log = noteTo('server-event-recheck'),
 }: {
   client: Inngest;
   octokitFor: OctokitFor<GitHubClient>;
   /** The targets' reader; null when the App cannot read the server here, which re-checks nothing. */
   readTargets: TargetsReader | null;
+  /** The checks' jobs on the ledger; null when the App has no database here, which re-checks nothing. */
+  jobs: RecheckJobs | null;
   log?: (line: string) => void;
 }) {
   return client.createFunction(
     { id: SERVER_EVENT_FUNCTION_ID, name: 'omni-loop · server event', triggers: [{ event: SERVER_EVENT }], debounce: SERVER_EVENT_DEBOUNCE, retries: 3 },
     async ({ event, step }) => {
       const { event: what, dossier } = ServerEventSchema.parse(event.data);
-      if (!readTargets) {
+      if (!readTargets || !jobs) {
         log(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
         return { rechecked: NONE };
       }
@@ -93,14 +103,19 @@ export function createServerEventRecheck({
       }
       if (kept.length === 0) return { prd: targets.prdId, rechecked: NONE };
 
-      const events: CheckRequest[] = kept.map(({ repository, number, headSha }) => {
+      const checks = kept.flatMap(({ repository, number, headSha }) => {
         const [owner = '', repo = ''] = repository.split('/');
-        return {
-          name: OUTBOX_CHECK_EVENT,
-          data: { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER },
-        };
+        const request = { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER };
+        return prCheckJobs(request, 0);
       });
-      await step.sendEvent('recheck', events);
+      await step.run('recheck', async () => {
+        for (const job of checks) await jobs.refresh(job);
+        return checks.length;
+      });
+      await step.run('run', async () => {
+        await jobs.run();
+        return 'ran';
+      });
       return { prd: targets.prdId, rechecked: kept.map((pull) => `${pull.repository}#${pull.number}`) };
     },
   );

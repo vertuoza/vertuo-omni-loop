@@ -1,16 +1,16 @@
-// The fourteen Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The nine Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
-// needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
-// the approved check (PRD 1548), reading a product PRD's record as the service role and, for a ◆ PRD of a repository,
-// asking galaxy's judge signed with `STAGE_EVENT_SECRET` (PRD 1612), with its rerun on the approved label (PRD 1612), the budgets
-// check (PRD 1679), reading a product PRD's raises as the service role,
-// the retro with its day-14 run (PRD 72), queueing `/omni:retro-apply` as the service role (PRD 2338), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
+// needs (./env.ts): the retro with its day-14 run (PRD 72), queueing `/omni:retro-apply` as the service role (PRD 2338), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
 // the pr-stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), which re-checks
 // a product PRD's open target pull requests, read from the database, once galaxy says it was approved or voided,
+// by refreshing their checks' jobs on the ledger and running them (PRD 2688),
 // the hourly escalation sweep (PRD 1794), which lists the App's installations as the App itself, the fix row stamp
 // (PRD 2011), which stamps a bug record's Fixes rows as the service role when their pull request merges, closes or
 // reopens, and is handed no GitHub. The knowledge pack (PRD 2011) is no longer one of them: it is a job of the
-// ledger (PRD 2676, ./jobs/pack.ts), so it can never run on both. The main watch
+// ledger (PRD 2676, ./jobs/pack.ts), so it can never run on both. Nor are the four pull-request checks, the
+// outbox check (PRD 28), the inbox check (PRD 675), the approved check (PRD 1548) with its rerun on the approved
+// label (PRD 1612) and the budgets check (PRD 1679): they are jobs of the ledger too (PRD 2688,
+// ./jobs/pr-checks.ts), which the webhook refreshes (./webhook/github-route.ts). The main watch
 // (PRD 2410) keeps a merged PRD's seven days on main in its tables as the service role, finds its installation on
 // each target as the retro does, and queues `/omni:rewind` on its first break through the retro's runner queue. The fleet
 // board (PRD 2530) reads the fleets and writes a fleet's note as the service role, and adds a loop pull request into the
@@ -26,25 +26,18 @@
 import { githubClient } from '@omni/github';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from './env.ts';
-import { liveCanon } from './canon/live.ts';
-import { businessLawsJudge, businessLawsJudgeUrl } from './inbox-check/business-laws-judge.ts';
-import { createApprovedCheck, createApprovedRerun } from './approved-check/approved-check.ts';
-import { askJudge } from './approved-check/judge-client.ts';
-import { createBudgetsCheck } from './budgets-check/budgets-check.ts';
-import { outboxRowsReader } from './budgets-check/raises.ts';
-import { recordReader } from './approved-check/record.ts';
 import { createFixRowStamp } from './fix-rows/fix-row-stamp.ts';
 import { createFleetBoard } from './fleet-board/fleet-board.ts';
 import { fleetBoardStore } from './fleet-board/store.ts';
 import { fixRowStamper } from './fix-rows/stamp.ts';
 import { createCanonAction } from './inbox-check/canon-action.ts';
-import { createInboxCheck } from './inbox-check/inbox-check.ts';
 import { inngest as appInngest } from './inngest-client.ts';
+import { jobLedger } from './jobs/ledger.ts';
+import { liveWorkers } from './jobs/pr-checks.ts';
+import { runDue } from './jobs/worker.ts';
 import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts';
 import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
-import { createOutboxCheck } from './outbox-check/outbox-check.ts';
-import { productOutboxReader } from './outbox-check/product-outbox.ts';
 import { createEscalation } from './escalation/sweep.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
@@ -67,18 +60,11 @@ export function appFunctions(
   }: { octokitFor?: AppOctokitFor; logger?: Logger } = {},
 ) {
   const inngest = loggedClient(appInngest, logger);
+  const { supabase } = env;
+  const ledger = supabase ? jobLedger(supabase) : null;
+  // The server event's recheck refreshes the checks' jobs, then runs the jobs due with every kind's handler.
+  const jobs = supabase && ledger ? { refresh: ledger.refresh, run: () => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor) }) } : null;
   return {
-    outboxCheck: createOutboxCheck({ client: inngest, octokitFor, readProductOutbox: env.supabase ? productOutboxReader(env.supabase) : null, galaxyUrl: env.galaxyUrl }),
-    inboxCheck: createInboxCheck({ client: inngest, octokitFor, canon: liveCanon(env), laws: businessLawsJudge({ url: businessLawsJudgeUrl(env.galaxyUrl), secret: env.businessLawsJudge?.secret }) }),
-    approvedCheck: createApprovedCheck({
-      client: inngest,
-      octokitFor,
-      readRecord: env.supabase ? recordReader(env.supabase) : null,
-      galaxyUrl: env.galaxyUrl,
-      ask: (repo, prd) => askJudge(repo, prd, { galaxyUrl: env.galaxyUrl, secret: env.stageEvents?.secret }),
-    }),
-    approvedRerun: createApprovedRerun({ client: inngest, octokitFor }),
-    budgetsCheck: createBudgetsCheck({ client: inngest, octokitFor, readOutboxRows: env.supabase ? outboxRowsReader(env.supabase) : null }),
     retro: createRetro({
       client: inngest,
       octokitFor,
@@ -95,7 +81,7 @@ export function appFunctions(
     }),
     prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
     canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
-    serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null }),
+    serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: supabase ? targetsReader(supabase) : null, jobs }),
     escalation: createEscalation({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
     fixRowStamp: createFixRowStamp({ client: inngest, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
     mainWatch: createMainWatch({

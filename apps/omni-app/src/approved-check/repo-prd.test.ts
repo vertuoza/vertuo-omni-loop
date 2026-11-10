@@ -1,22 +1,15 @@
-// `approved-check` on a ◆ PRD of a repository, and `approved-rerun` (PRD 1612, folded into PRD 1548's
+// `approved-check` on a ◆ PRD of a repository, and the approval's re-run (PRD 1612, folded into PRD 1548's
 // check): a feature PR or a `Part of <owner/repo>#<n>` target PR, judged by the kit's one judge at the
-// head, its reading said in the check's one set of states (./state.ts). Against a stubbed GitHub of
-// several repositories; galaxy's judge is a function the test hands in.
-import { InngestTestEngine } from '@inngest/test';
+// head, its reading said in the check's one set of states (./state.ts), run as the `pr-approved` job of the
+// ledger (PRD 2688). Against a stubbed GitHub of several repositories; galaxy's judge is a function the
+// test hands in.
 import { describe, expect, it } from 'vitest';
 import type { ApprovalReply } from 'omni-loop/kit/lib/approval/approval.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { sha256 } from 'omni-loop/kit/lib/dossier/folder.ts';
-import { readEnv } from '../env.ts';
-import { appFunctions } from '../functions.ts';
-import { APPROVED_CHECK_EVENT, APPROVED_LABEL_EVENT, inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
-import {
-  APPROVED_DEBOUNCE,
-  APPROVED_FUNCTION_ID,
-  APPROVED_RERUN_FUNCTION_ID,
-  RERUN_DEBOUNCE,
-  createApprovedCheck,
-  createApprovedRerun,
-} from './approved-check.ts';
+import { approvedRerunJobs } from '../jobs/pr-checks.ts';
+import { claimedJob } from '../outbox-check/fake-github.ts';
+import { APPROVED_KIND, approvedHandler } from './approved-job.ts';
 import type { AskJudge } from './repo-reading.ts';
 
 /** A request's parameters, as a unit hands them to `octokit.request`. */
@@ -149,14 +142,12 @@ const api = (body: string): FakeRepo => ({
   pulls: { 40: { base: { ref: 'main', sha: 'apibase' }, head: { ref: 'feat/approved-gate', sha: 'apihead' }, body } },
 });
 
-const checkEvent = (over: Params = {}) => ({
-  name: OUTBOX_CHECK_EVENT,
-  data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha: 'head1', trigger: 'pull_request.synchronize', ...over },
-});
+const checkPayload = (over: Params = {}): Params => ({ installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha: 'head1', trigger: 'pull_request.synchronize', ...over });
 
-async function run(github: ReturnType<typeof fakeGitHub>, ask: AskJudge, event: { name: string; data: Params } = checkEvent()) {
-  const fn = createApprovedCheck({ client: inngest, octokitFor: () => github.octokit, readRecord: null, galaxyUrl: GALAXY, ask });
-  return new InngestTestEngine({ function: fn, events: [event] as never }).execute();
+/** One try of the `pr-approved` job on the stub: how it ended. */
+async function run(github: ReturnType<typeof fakeGitHub>, ask: AskJudge, payload: Params = checkPayload()) {
+  const handler = approvedHandler({ octokitFor: () => github.octokit, readRecord: null, galaxyUrl: GALAXY, ask });
+  return { result: await handler(claimedJob(APPROVED_KIND, payload)) };
 }
 
 describe('approved-check, a ◆ PRD of a repository — which pull requests get the check', () => {
@@ -164,8 +155,8 @@ describe('approved-check, a ◆ PRD of a repository — which pull requests get 
     const github = fakeGitHub(widgets());
     const { result } = await run(github, answering(APPROVED));
     expect(github.checkRuns).toHaveLength(1);
-    expect(github.checkRuns[0]).toMatchObject({ owner: 'acme', repo: 'widgets', name: 'omni/approved', head_sha: 'head1', status: 'completed' });
-    expect(result).toMatchObject({ name: 'omni/approved', prd: '1612', state: 'building', conclusion: 'success' });
+    expect(github.checkRuns[0]).toMatchObject({ owner: 'acme', repo: 'widgets', name: 'omni/approved', head_sha: 'head1', status: 'completed', conclusion: 'success', output: { title: expect.stringMatching(/^building/) as unknown } });
+    expect(result).toEqual({ outcome: 'done' });
   });
 
   it('a ◇ PRD’s feature PR (its spec without phase0: server) gets none, and galaxy is never asked', async () => {
@@ -174,7 +165,7 @@ describe('approved-check, a ◆ PRD of a repository — which pull requests get 
     const { result } = await run(github, (repo) => { asked.push(repo); return Promise.resolve({ reply: APPROVED }); });
     expect(github.checkRuns).toEqual([]);
     expect(asked).toEqual([]);
-    expect(result).toMatchObject({ posted: false });
+    expect(result).toMatchObject({ outcome: 'skipped' });
   });
 
   it('a sub-PR (its base is the feature branch) gets none', async () => {
@@ -214,7 +205,7 @@ describe('approved-check, a ◆ PRD of a repository — which pull requests get 
     const asked: string[] = [];
     const github = fakeGitHub({ ...widgets(), 'acme/api': api('Part of acme/widgets#1612\n\nThe API side.') });
     await run(github, (repo, prd) => { asked.push(`${repo}#${prd}`); return Promise.resolve({ reply: APPROVED }); },
-      checkEvent({ repo: 'api', repository: 'acme/api', prNumber: 40, headSha: 'apihead' }));
+      checkPayload({ repo: 'api', repository: 'acme/api', prNumber: 40, headSha: 'apihead' }));
     expect(asked).toEqual(['acme/widgets#1612']);
     expect(github.checkRuns).toHaveLength(1);
     expect(github.checkRuns[0]).toMatchObject({ owner: 'acme', repo: 'api', head_sha: 'apihead', conclusion: 'success', details_url: DETAILS });
@@ -222,7 +213,7 @@ describe('approved-check, a ◆ PRD of a repository — which pull requests get 
 
   it('a target PR whose PRD repository cannot be read is held, never failed', async () => {
     const github = fakeGitHub({ 'acme/api': api('Part of acme/private#7') });
-    await run(github, answering(APPROVED), checkEvent({ repo: 'api', repository: 'acme/api', prNumber: 40, headSha: 'apihead' }));
+    await run(github, answering(APPROVED), checkPayload({ repo: 'api', repository: 'acme/api', prNumber: 40, headSha: 'apihead' }));
     expect(github.checkRuns[0]).toMatchObject({ conclusion: 'neutral', output: { title: 'held · server unreachable · held, not failed' } });
   });
 
@@ -288,27 +279,17 @@ describe('approved-check, a ◆ PRD of a repository — each state, named once (
 });
 
 describe('approved-check — when it runs', () => {
-  it('runs on the outbox check’s event and on its own, debounced per pull request', () => {
-    const fn = createApprovedCheck({ client: inngest, octokitFor: () => fakeGitHub({}).octokit, readRecord: null, galaxyUrl: GALAXY, ask: answering(APPROVED) });
-    expect(fn.id()).toBe(APPROVED_FUNCTION_ID);
-    expect(APPROVED_DEBOUNCE.key).toBe('event.data.repository + "#" + string(event.data.prNumber)');
-  });
-
-  it('is served by the app, beside its rerun', () => {
-    const { approvedCheck, approvedRerun } = appFunctions(readEnv({}));
-    expect(approvedCheck.id()).toBe(APPROVED_FUNCTION_ID);
-    expect(approvedRerun.id()).toBe(APPROVED_RERUN_FUNCTION_ID);
-  });
-
-  it('on its own event, posts on the head the event names', async () => {
+  it('posts on the head its job names, a re-run\'s included (it carries no trigger)', async () => {
     const github = fakeGitHub(widgets());
-    await run(github, answering(APPROVED), { name: APPROVED_CHECK_EVENT, data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha: 'head1' } });
+    await run(github, answering(APPROVED), { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha: 'head1' });
     expect(github.checkRuns[0]).toMatchObject({ head_sha: 'head1' });
   });
 });
 
-describe('approved-rerun — the approved label added or removed', () => {
-  it('reruns the check on every open pull request of the PRD, its feature PR and its target PRs, each at its head', async () => {
+describe('the approved label added or removed refreshes the `pr-approved` job of each pull request of the PRD (PRD 2688)', () => {
+  const RERUN = { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prd: parsePrd(1612), trigger: 'issues.unlabeled' };
+
+  it('every open pull request of the PRD, its feature PR and its target PRs, each at its head', async () => {
     const repos: Record<string, FakeRepo> = { ...widgets(), 'acme/api': api('Part of acme/widgets#1612\n\nAPI.') };
     const widgetsRepo = repos['acme/widgets'];
     if (widgetsRepo?.pulls) widgetsRepo.pulls[13] = { base: { ref: 'main', sha: 'base1' }, head: { ref: 'chore/x', sha: 'h' }, body: 'Closes #16120' };
@@ -317,34 +298,24 @@ describe('approved-rerun — the approved label added or removed', () => {
       { number: 41, body: 'Mentions Part of acme/widgets#1612 later', repository_url: 'https://api.github.com/repos/acme/web', pull_request: {} },
       { number: 42, body: 'Part of acme/widgets#16120', repository_url: 'https://api.github.com/repos/acme/web', pull_request: {} },
     ]);
-    const fn = createApprovedRerun({ client: inngest, octokitFor: () => github.octokit });
-    const { result, ctx } = await new InngestTestEngine({
-      function: fn,
-      events: [{ name: APPROVED_LABEL_EVENT, data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prd: 1612, trigger: 'issues.unlabeled' } }],
-      steps: [{ id: 'rerun', handler: () => ({ ids: ['e1', 'e2'] }) }],
-    }).execute();
-    expect(result).toEqual({ rerun: ['acme/widgets#12', 'acme/api#40'] });
-    const [[id, events]] = ctx.step.sendEvent.mock.calls as [[string, { name: string; data: Params }[]]];
-    expect(id).toBe('rerun');
-    expect(events.map((e) => [e.name, e.data.repository, e.data.prNumber, e.data.headSha, e.data.trigger])).toEqual([
-      [APPROVED_CHECK_EVENT, 'acme/widgets', 12, 'head1', 'issues.unlabeled'],
-      [APPROVED_CHECK_EVENT, 'acme/api', 40, 'apihead', 'issues.unlabeled'],
+    const jobs = await approvedRerunJobs(github.octokit, RERUN);
+    expect(jobs.map((job) => [job.kind, job.key, job.payload.repository, job.payload.prNumber, job.payload.headSha, job.payload.trigger])).toEqual([
+      [APPROVED_KIND, 'acme/widgets#12', 'acme/widgets', 12, 'head1', 'issues.unlabeled'],
+      [APPROVED_KIND, 'acme/api#40', 'acme/api', 40, 'apihead', 'issues.unlabeled'],
     ]);
     const searched = github.requests.find((r) => r.route === 'GET /search/issues');
     expect(searched?.q).toBe('"Part of acme/widgets#1612" is:pr is:open user:acme');
   });
 
-  it('sends nothing when the PRD has no open pull request', async () => {
+  it('refreshes nothing when the PRD has no open pull request', async () => {
     const github = fakeGitHub({ 'acme/widgets': { commits: {} } });
-    const fn = createApprovedRerun({ client: inngest, octokitFor: () => github.octokit });
-    const { result } = await new InngestTestEngine({
-      function: fn,
-      events: [{ name: APPROVED_LABEL_EVENT, data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prd: 1612 } }],
-    }).execute();
-    expect(result).toEqual({ rerun: [] });
+    expect(await approvedRerunJobs(github.octokit, RERUN)).toEqual([]);
   });
 
-  it('is debounced per PRD', () => {
-    expect(RERUN_DEBOUNCE.key).toBe('event.data.repository + "#" + string(event.data.prd)');
+  it('runs each job it refreshes as the check, on its pull request\'s head', async () => {
+    const github = fakeGitHub(widgets());
+    const [job] = await approvedRerunJobs(github.octokit, RERUN);
+    await run(github, answering(APPROVED), job?.payload ?? {});
+    expect(github.checkRuns).toEqual([expect.objectContaining({ repo: 'widgets', head_sha: 'head1', conclusion: 'success' })]);
   });
 });
