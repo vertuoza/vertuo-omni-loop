@@ -736,7 +736,11 @@ export type Database = {
           id: string
           key: string
           kind: string
+          lane: string | null
+          laters: number
+          max_tries: number
           payload: Json
+          progress: Json
           reason: string | null
           run_after: string
           state: string
@@ -753,7 +757,11 @@ export type Database = {
           id?: string
           key: string
           kind: string
+          lane?: string | null
+          laters?: number
+          max_tries?: number
           payload?: Json
+          progress?: Json
           reason?: string | null
           run_after?: string
           state?: string
@@ -770,7 +778,11 @@ export type Database = {
           id?: string
           key?: string
           kind?: string
+          lane?: string | null
+          laters?: number
+          max_tries?: number
           payload?: Json
+          progress?: Json
           reason?: string | null
           run_after?: string
           state?: string
@@ -5114,6 +5126,8 @@ export type Database = {
         Args: {
           p_key: string
           p_kind: string
+          p_lane?: string
+          p_max_tries?: number
           p_payload: Json
           p_subject: string
         }
@@ -5131,7 +5145,11 @@ export type Database = {
           id: string
           key: string
           kind: string
+          lane: string | null
+          laters: number
+          max_tries: number
           payload: Json
+          progress: Json
           reason: string | null
           run_after: string
           state: string
@@ -5150,6 +5168,7 @@ export type Database = {
           p_claim: string
           p_id: string
           p_outcome: string
+          p_progress?: Json
           p_reason?: string
           p_retry_at?: string
         }
@@ -5161,6 +5180,8 @@ export type Database = {
           p_delay_seconds: number
           p_key: string
           p_kind: string
+          p_lane?: string
+          p_max_tries?: number
           p_payload: Json
           p_subject: string
         }
@@ -5178,7 +5199,11 @@ export type Database = {
           id: string
           key: string
           kind: string
+          lane: string | null
+          laters: number
+          max_tries: number
           payload: Json
+          progress: Json
           reason: string | null
           run_after: string
           state: string
@@ -5193,7 +5218,10 @@ export type Database = {
         }
       }
       background_jobs_forget: { Args: never; Returns: number }
-      background_jobs_health: { Args: never; Returns: Json }
+      background_jobs_health: {
+        Args: { p_kinds?: string[]; p_periods?: number[] }
+        Returns: Json
+      }
       bug_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
       business_archived: {
         Args: {

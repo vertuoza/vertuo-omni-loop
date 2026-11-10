@@ -5,8 +5,10 @@
 //   finished                                       done
 //   nothing to do                                  skipped, with why
 //   threw, tries left                              retry, waiting 1, then 5, then 30 minutes, then 2 hours
-//   threw on its 5th try                           failed, with the error
+//   threw on its last try (its own, 5 by default)  failed, with the error
 //   GitHub's budget for the installation is low    waiting, 15 minutes later, its try given back
+//   asked to run again later (PRD omni-loop-3 s1)  later, at its date, with the progress its next run reads, its
+//                                                  try given back; the ledger fails its 21st
 //
 // An error is kept as its first line, cut to 500 characters, as today's knowledge pack logs it (L-GDPR-2): never a
 // stack, never a token a later line might hold. A kind with no handler here (a deploy landed between two tries)
@@ -21,13 +23,13 @@
 // refresh that came while it ran. A hook that throws is logged, and the run goes on.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { noteTo } from '../run-log/run-log.ts';
-import type { ClaimedJob, FinishAnswer, JobLedger, JobOutcome } from './ledger.ts';
+import type { ClaimedJob, FinishAnswer, JobFields, JobLedger, JobOutcome } from './ledger.ts';
 
 /** How long a run claims jobs for. */
 export const TIME_BUDGET_MS = 240_000;
 /** How long a claim holds a job: past it, the try is lost and the job due again. */
 export const LEASE_SECONDS = 300;
-/** A job's tries: the 5th that throws is failed. */
+/** A job's tries when it carries none: the 5th that throws is failed. */
 const MAX_TRIES = 5;
 /** The wait after the 1st, 2nd, 3rd and 4th try that threw. */
 const RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
@@ -37,8 +39,12 @@ const WAIT_MINUTES = 15;
 const MINUTE = 60_000;
 const MAX_REASON = 500;
 
-/** How a handler says the job ended: done, or nothing to do and why. Anything else it throws. */
-export type JobResult = { outcome: 'done' } | { outcome: 'skipped'; reason: string };
+/**
+ * How a handler says the job ended: done; nothing to do and why; or run me again at `at`, reading `progress`
+ * (`job.progress` on that run: its own counters, small, never a token nor a person's words). Anything else it
+ * throws.
+ */
+export type JobResult = { outcome: 'done' } | { outcome: 'skipped'; reason: string } | { outcome: 'later'; at: Date; progress: JobFields };
 export type JobHandler = (job: ClaimedJob) => Promise<JobResult>;
 /** What a kind does once its job ended failed: the job, and the error's first line as the ledger kept it. */
 export type FailureHook = (job: ClaimedJob, reason: string) => Promise<void>;
@@ -46,7 +52,10 @@ export type FailureHook = (job: ClaimedJob, reason: string) => Promise<void>;
 /** What one run did: the jobs it ran, by how they ended; `stale` counts the finishes a newer claim overtook. */
 export type RunSummary = { ran: number; stale: number } & Record<JobOutcome, number>;
 
-type Settled = { outcome: JobOutcome; reason: string | null; retryAt: string | null };
+type Settled = { outcome: JobOutcome; reason: string | null; retryAt: string | null; progress?: JobFields };
+
+/** Why the ledger failed a job that asked to run later once too often (background_job_finish()). */
+const TOO_MANY_LATERS = 'it asked to run later more than 20 times';
 
 /**
  * Runs the jobs due until none is or the time budget is spent; what it did. `handlers` maps a kind to the
@@ -69,7 +78,7 @@ export async function runDue({
   leaseSeconds?: number;
   log?: (line: string) => void;
 }): Promise<RunSummary> {
-  const summary: RunSummary = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, failed: 0, stale: 0 };
+  const summary: RunSummary = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
   const start = clock();
   while (clock() - start < budgetMs) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
@@ -77,9 +86,12 @@ export async function runDue({
     const settled = await settle(job, handlers[job.kind], clock);
     summary.ran += 1;
     const kept = await keep(ledger, job, settled, log);
+    // A `later` the ledger failed (its 21st) counts, and is hooked, as the failure it became.
+    const ended = settled.outcome === 'later' && kept === 'failed' ? { ...settled, outcome: 'failed' as const, reason: TOO_MANY_LATERS } : settled;
     if (kept === 'stale') summary.stale += 1;
-    else if (kept !== null) summary[settled.outcome] += 1;
-    if (kept === 'failed') await failed(job, settled.reason, failures[job.kind], log);
+    else if (kept !== null) summary[ended.outcome] += 1;
+    if (ended !== settled) log(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+    if (kept === 'failed') await failed(job, ended.reason, failures[job.kind], log);
   }
   return summary;
 }
@@ -98,16 +110,22 @@ async function failed(job: ClaimedJob, reason: string | null, hook: FailureHook 
 async function settle(job: ClaimedJob, handler: JobHandler | undefined, clock: () => number): Promise<Settled> {
   try {
     if (!handler) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
-    const result = await handler(job);
-    return result.outcome === 'done' ? { outcome: 'done', reason: null, retryAt: null } : { outcome: 'skipped', reason: firstLine(result.reason), retryAt: null };
+    return settledOf(await handler(job));
   } catch (error) {
     const reason = firstLine(error instanceof Error ? error.message : String(error));
     const budget = budgetRefusal(error);
     if (budget) return { outcome: 'waiting', reason: firstLine(budget.message), retryAt: later(clock, WAIT_MINUTES) };
     const wait = RETRY_MINUTES[job.tries - 1];
-    if (job.tries >= MAX_TRIES || wait === undefined) return { outcome: 'failed', reason, retryAt: null };
+    if (job.tries >= (job.maxTries ?? MAX_TRIES) || wait === undefined) return { outcome: 'failed', reason, retryAt: null };
     return { outcome: 'retry', reason, retryAt: later(clock, wait) };
   }
+}
+
+/** How a try that returned ended. */
+function settledOf(result: JobResult): Settled {
+  if (result.outcome === 'done') return { outcome: 'done', reason: null, retryAt: null };
+  if (result.outcome === 'later') return { outcome: 'later', reason: null, retryAt: result.at.toISOString(), progress: result.progress };
+  return { outcome: 'skipped', reason: firstLine(result.reason), retryAt: null };
 }
 
 /** Records the try; the ledger's answer, or null when it refused (logged). */
@@ -122,7 +140,7 @@ async function keep(ledger: JobLedger, job: ClaimedJob, settled: Settled, log: (
   }
   if (answer === 'stale') log(`${name}: its claim was taken over, so its ${settled.outcome} was not kept`);
   else if (settled.outcome === 'skipped') log(`${name}: skipped: ${settled.reason ?? ''}`);
-  else if (settled.outcome !== 'done') log(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ''}`);
+  else if (settled.outcome !== 'done' && settled.outcome !== 'later') log(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ''}`);
   return answer;
 }
 

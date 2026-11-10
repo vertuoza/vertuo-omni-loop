@@ -46,6 +46,10 @@ const ROW = {
   created_at: '2027-01-13T08:59:00+00:00',
   finished_at: null,
   again: false,
+  progress: { look: 2 },
+  laters: 2,
+  lane: 'initech/pack-api',
+  max_tries: 4,
 };
 
 describe('jobLedger — the ledger as the service role (PRD 2676 s1)', () => {
@@ -93,9 +97,35 @@ describe('jobLedger — the ledger as the service role (PRD 2676 s1)', () => {
       tries: 2,
       claim: CLAIM,
       claimedUntil: '2027-01-13T09:05:00+00:00',
+      progress: { look: 2 },
+      lane: 'initech/pack-api',
+      maxTries: 4,
     }]);
     expect(db.calls).toEqual([expect.objectContaining({ method: 'POST', path: '/rest/v1/rpc/background_job_claim', body: { p_limit: 1, p_lease_seconds: 300 } })]);
     expect(await ledger(dbFetch([]).fetch).claim({ limit: 1, leaseSeconds: 300 })).toEqual([]);
+  });
+
+  it('claim: a row from before the later migration reads as no progress, no lane and 5 tries (PRD omni-loop-3 s1)', async () => {
+    const old: Record<string, unknown> = { ...ROW };
+    for (const column of ['progress', 'laters', 'lane', 'max_tries']) Reflect.deleteProperty(old, column);
+    const [job] = await ledger(dbFetch([old]).fetch).claim({ limit: 1, leaseSeconds: 300 });
+    expect(job).toMatchObject({ progress: {}, lane: null, maxTries: 5 });
+  });
+
+  it('add and refresh: send a lane and tries only when given (PRD omni-loop-3 s1)', async () => {
+    const add = dbFetch(true);
+    await ledger(add.fetch).add({ kind: 'pr-stats', key: 'pr-stats@2027-01-15T09:00:00.000Z', subject: 'pr-stats', payload: {}, lane: 'pr-stats', maxTries: 3 });
+    expect(add.calls[0]?.body).toEqual({ p_kind: 'pr-stats', p_key: 'pr-stats@2027-01-15T09:00:00.000Z', p_subject: 'pr-stats', p_payload: {}, p_lane: 'pr-stats', p_max_tries: 3 });
+    const refresh = dbFetch('added');
+    await ledger(refresh.fetch).refresh({ kind: 'canon-action', key: 'delivery-1', subject: 'initech/web', payload: {}, delaySeconds: 0, lane: 'initech/web#9' });
+    expect(refresh.calls[0]?.body).toEqual({ p_kind: 'canon-action', p_key: 'delivery-1', p_subject: 'initech/web', p_payload: {}, p_delay_seconds: 0, p_lane: 'initech/web#9' });
+  });
+
+  it('finish: a later sends its date and its progress; answers queued (PRD omni-loop-3 s1)', async () => {
+    const db = dbFetch('queued');
+    const retryAt = '2027-01-13T09:01:00.000Z';
+    expect(await ledger(db.fetch).finish({ id: ID, claim: CLAIM, outcome: 'later', reason: null, retryAt, progress: { look: 3 } })).toBe('queued');
+    expect(db.calls[0]?.body).toEqual({ p_id: ID, p_claim: CLAIM, p_outcome: 'later', p_retry_at: retryAt, p_progress: { look: 3 } });
   });
 
   it('claim: throws on a row that is not held, or out of shape', async () => {
@@ -149,6 +179,16 @@ describe('jobLedger — the ledger as the service role (PRD 2676 s1)', () => {
     expect(await ledger(db.fetch).health()).toEqual({ state: 'late', late: 1, failed: 0 });
     expect(db.calls).toEqual([expect.objectContaining({ method: 'GET', path: '/rest/v1/rpc/background_jobs_health' })]);
     await expect(ledger(dbFetch({ state: 'jammed', late: 0, failed: 0 }).fetch).health()).rejects.toThrow();
+  });
+
+  it('health: sends the schedules as their kinds and periods in seconds, and reads the late ones (PRD omni-loop-3 s1)', async () => {
+    const db = dbFetch({ state: 'late', late: 0, failed: 0, scheduled: 1 });
+    const schedules = [{ kind: 'pr-stats', periodMinutes: 15, maxTries: 3 }, { kind: 'escalation', periodMinutes: 60, maxTries: 3 }];
+    expect(await ledger(db.fetch).health(schedules)).toEqual({ state: 'late', late: 0, failed: 0, scheduled: 1 });
+    expect(db.calls).toEqual([expect.objectContaining({ method: 'GET', path: '/rest/v1/rpc/background_jobs_health', search: '?p_kinds={pr-stats,escalation}&p_periods={900,3600}' })]);
+    const none = dbFetch({ state: 'ok', late: 0, failed: 0, scheduled: 0 });
+    await ledger(none.fetch).health([]);
+    expect(none.calls[0]?.search).toBe('');
   });
 
   it('forget: calls background_jobs_forget; answers how many jobs it deleted', async () => {

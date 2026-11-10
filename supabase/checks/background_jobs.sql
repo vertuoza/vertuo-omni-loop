@@ -9,6 +9,9 @@
 -- The refresh (PRD 2688 s1): each row of its table (none, queued, running, done, skipped, failed), never
 -- another kind's job of the same key; a try that ends, or a claim that runs out, on a job holding `again`
 -- keeps its attempt line and queues the job at once, `again` cleared; a refresh racing a claim waits for it.
+-- Waiting and pacing (PRD omni-loop-3 s1): `later` queues the job at its date with its progress, its try given
+-- back, and the 21st fails it; one job of a kind and lane runs at a time, in one claim or two at once; each job
+-- has its own tries; a schedule with no done job for three periods is late; a stale claim is still refused.
 -- One transaction, rolled back at the end, then the races through dblink. Any `FAIL:` stops the run.
 
 begin;
@@ -84,10 +87,10 @@ declare
   fn text;
 begin
   foreach fn in array array[
-    'public.background_job_add(text, text, text, jsonb)', 'public.background_job_claim(integer, integer)',
-    'public.background_job_finish(uuid, uuid, text, text, timestamptz)', 'public.background_job_replay(uuid)',
-    'public.background_jobs_health()', 'public.background_jobs_forget()',
-    'public.background_job_refresh(text, text, text, jsonb, integer)'] loop
+    'public.background_job_add(text, text, text, jsonb, text, integer)', 'public.background_job_claim(integer, integer)',
+    'public.background_job_finish(uuid, uuid, text, text, timestamptz, jsonb)', 'public.background_job_replay(uuid)',
+    'public.background_jobs_health(text[], integer[])', 'public.background_jobs_forget()',
+    'public.background_job_refresh(text, text, text, jsonb, integer, text, integer)'] loop
     if has_function_privilege('anon', fn, 'execute') or has_function_privilege('authenticated', fn, 'execute') then
       raise exception 'FAIL: % may be called by someone signed in or signed out', fn;
     end if;
@@ -135,7 +138,7 @@ set local role service_role;
 -- ── Nothing yet: ok ──
 do $$
 begin
-  if pg_temp.health() <> '{"state": "ok", "late": 0, "failed": 0}'::jsonb then
+  if pg_temp.health() <> '{"state": "ok", "late": 0, "failed": 0, "scheduled": 0}'::jsonb then
     raise exception 'FAIL: an empty ledger is not ok: %', pg_temp.health();
   end if;
 end $$;
@@ -338,7 +341,7 @@ end $$;
 do $$
 begin
   -- Two failed jobs (b of pack-api, d of pack-docs), neither with a later done job of its repository.
-  if pg_temp.health() <> '{"state": "late", "late": 0, "failed": 2}'::jsonb then
+  if pg_temp.health() <> '{"state": "late", "late": 0, "failed": 2, "scheduled": 0}'::jsonb then
     raise exception 'FAIL: two failed jobs with no later done job are not late: %', pg_temp.health();
   end if;
   -- pack-api's done job a finished before b failed: b still counts. Once a is later, b is answered.
@@ -355,17 +358,17 @@ begin
   perform pg_temp.claimed();
   perform public.background_job_finish((pg_temp.job(pg_temp.key('f'))).id, (pg_temp.job(pg_temp.key('f'))).claim, 'done', null, null);
   perform pg_temp.ended(pg_temp.key('d'), interval '1 hour');
-  if pg_temp.health() <> '{"state": "ok", "late": 0, "failed": 0}'::jsonb then
+  if pg_temp.health() <> '{"state": "ok", "late": 0, "failed": 0, "scheduled": 0}'::jsonb then
     raise exception 'FAIL: every failure answered is not ok: %', pg_temp.health();
   end if;
   -- A job due 30 minutes ago is not late; due over an hour ago, it is.
   perform public.background_job_add('knowledge-pack', pg_temp.key('g'), 'initech/pack-ops', '{}');
   perform pg_temp.due_since(pg_temp.key('g'), interval '30 minutes');
-  if pg_temp.health() <> '{"state": "ok", "late": 0, "failed": 0}'::jsonb then
+  if pg_temp.health() <> '{"state": "ok", "late": 0, "failed": 0, "scheduled": 0}'::jsonb then
     raise exception 'FAIL: a job due 30 minutes ago is late: %', pg_temp.health();
   end if;
   perform pg_temp.due_since(pg_temp.key('g'), interval '61 minutes');
-  if pg_temp.health() <> '{"state": "late", "late": 1, "failed": 0}'::jsonb then
+  if pg_temp.health() <> '{"state": "late", "late": 1, "failed": 0, "scheduled": 0}'::jsonb then
     raise exception 'FAIL: a job due over an hour ago is not late: %', pg_temp.health();
   end if;
   -- Held by a claim that ran out over an hour ago: still late.
@@ -376,7 +379,7 @@ update public.background_jobs set claimed_until = now() - interval '61 minutes' 
 set local role service_role;
 do $$
 begin
-  if pg_temp.health() <> '{"state": "late", "late": 1, "failed": 0}'::jsonb then
+  if pg_temp.health() <> '{"state": "late", "late": 1, "failed": 0, "scheduled": 0}'::jsonb then
     raise exception 'FAIL: a claim that ran out over an hour ago is not late: %', pg_temp.health();
   end if;
 end $$;
@@ -608,6 +611,276 @@ reset role;
 -- ── `again` is held only while running ──
 select pg_temp.refused($q$update public.background_jobs set again = true where kind = 'pr-inbox'$q$, '23514', 'again on a queued job');
 
+-- ── Waiting and pacing (PRD omni-loop-3 s1), from an empty ledger ──
+delete from public.background_jobs;
+
+-- A job of kind k under key ky, its attempts as `try:outcome`, and what the owner may do to it.
+create function pg_temp.kj(k text, ky text) returns public.background_jobs language sql security definer as $$
+  select * from public.background_jobs j where j.kind = k and j.key = ky;
+$$;
+create function pg_temp.kj_tries(k text, ky text) returns text language sql security definer as $$
+  select coalesce(string_agg(a.try || ':' || a.outcome, ' ' order by a.id), '')
+    from public.background_job_attempts a join public.background_jobs j on j.id = a.job_id
+   where j.kind = k and j.key = ky;
+$$;
+create function pg_temp.kj_due(k text, ky text, ago interval) returns void language sql security definer as $$
+  update public.background_jobs j set run_after = now() - ago where j.kind = k and j.key = ky;
+$$;
+create function pg_temp.kj_expire(k text, ky text) returns void language sql security definer as $$
+  update public.background_jobs j set claimed_until = now() - interval '1 second' where j.kind = k and j.key = ky;
+$$;
+create function pg_temp.kj_ended(k text, ky text, ago interval) returns void language sql security definer as $$
+  update public.background_jobs j set finished_at = now() - ago where j.kind = k and j.key = ky;
+$$;
+-- The jobs claimed now, as `kind/key` in order; `none` when no job is due.
+create function pg_temp.taken(lim integer default 10) returns text language sql as $$
+  select coalesce(string_agg(c.kind || '/' || c.key, ' ' order by c.kind, c.key), 'none') from public.background_job_claim(lim, 60) c;
+$$;
+-- The `scheduled` count of the health, for the schedules given.
+create function pg_temp.scheduled(kinds text[], periods integer[]) returns integer language sql as $$
+  select (public.background_jobs_health(kinds, periods) ->> 'scheduled')::integer;
+$$;
+
+set local role service_role;
+
+-- ── `later`: queued at its date with its progress, its try given back; a stale claim is still refused ──
+do $$
+declare
+  j     public.background_jobs;
+  stale uuid;
+begin
+  perform public.background_job_add('fleet-board', 'initech/web#7', 'initech/web', '{"pr": 7}', null, 4);
+  if pg_temp.taken() <> 'fleet-board/initech/web#7' then
+    raise exception 'FAIL: the fleet board job was not handed out';
+  end if;
+  j := pg_temp.kj('fleet-board', 'initech/web#7');
+  perform pg_temp.refused(format('select public.background_job_finish(%L, %L, ''later'', null, null, ''{}'')', j.id, j.claim),
+    '22023', 'a later with no date', 'Retry at');
+  perform pg_temp.refused(format('select public.background_job_finish(%L, %L, ''later'', null, now(), ''[]'')', j.id, j.claim),
+    '22023', 'a progress not an object', 'Progress');
+  perform pg_temp.refused(format('select public.background_job_finish(%L, %L, ''later'', null, now(), jsonb_build_object(''x'', repeat(''a'', 4100)))', j.id, j.claim),
+    '22023', 'a progress too big', 'Progress');
+  if public.background_job_finish(j.id, j.claim, 'later', null, now() + interval '1 minute', '{"look": 1}') <> 'queued' then
+    raise exception 'FAIL: a later did not answer queued';
+  end if;
+  j := pg_temp.kj('fleet-board', 'initech/web#7');
+  if j.state <> 'queued' or j.tries <> 0 or j.laters <> 1 or j.progress <> '{"look": 1}' or j.run_after <> now() + interval '1 minute'
+     or j.claim is not null or j.finished_at is not null or j.reason is not null or j.payload <> '{"pr": 7}'
+     or pg_temp.kj_tries('fleet-board', 'initech/web#7') <> '1:later'
+     or (select a.error from public.background_job_attempts a where a.job_id = j.id) is not null then
+    raise exception 'FAIL: a later is not queued a minute on with its progress and its try given back: % %', j, pg_temp.kj_tries('fleet-board', 'initech/web#7');
+  end if;
+  if pg_temp.taken() <> 'none' then
+    raise exception 'FAIL: a job that asked to run later was handed out early';
+  end if;
+
+  -- Its next run reads its progress; a claim that ran out, and the stale claim's later refused.
+  perform pg_temp.kj_due('fleet-board', 'initech/web#7', interval '0');
+  perform pg_temp.taken();
+  j := pg_temp.kj('fleet-board', 'initech/web#7');
+  if j.tries <> 1 or j.progress <> '{"look": 1}' then
+    raise exception 'FAIL: the run after a later is not its first try with its progress: %', j;
+  end if;
+  stale := j.claim;
+  perform pg_temp.kj_expire('fleet-board', 'initech/web#7');
+  perform pg_temp.taken();
+  perform pg_temp.refused(format('select public.background_job_finish(%L, %L, ''later'', null, now(), ''{"look": 2}'')', j.id, stale),
+    '55000', 'a stale claim asking to run later', 'no longer held');
+  j := pg_temp.kj('fleet-board', 'initech/web#7');
+  if j.progress <> '{"look": 1}' or j.laters <> 1 then
+    raise exception 'FAIL: a stale later changed the job: %', j;
+  end if;
+  perform public.background_job_finish(j.id, j.claim, 'later', null, now(), '{"look": 2}');
+end $$;
+
+-- ── The 21st `later` fails the job; a replay starts it afresh ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  -- Two laters above; eighteen more make twenty.
+  for n in 3..20 loop
+    perform pg_temp.kj_due('fleet-board', 'initech/web#7', interval '0');
+    perform pg_temp.taken();
+    j := pg_temp.kj('fleet-board', 'initech/web#7');
+    if public.background_job_finish(j.id, j.claim, 'later', null, now(), jsonb_build_object('look', n)) <> 'queued' then
+      raise exception 'FAIL: later number % did not answer queued', n;
+    end if;
+  end loop;
+  j := pg_temp.kj('fleet-board', 'initech/web#7');
+  if j.state <> 'queued' or j.laters <> 20 or j.tries <> 1 or j.progress <> '{"look": 20}' then
+    raise exception 'FAIL: twenty laters did not leave the job queued with its progress: %', j;
+  end if;
+  perform pg_temp.kj_due('fleet-board', 'initech/web#7', interval '0');
+  perform pg_temp.taken();
+  j := pg_temp.kj('fleet-board', 'initech/web#7');
+  if public.background_job_finish(j.id, j.claim, 'later', null, now(), '{"look": 21}') <> 'failed' then
+    raise exception 'FAIL: the 21st later did not fail the job';
+  end if;
+  j := pg_temp.kj('fleet-board', 'initech/web#7');
+  if j.state <> 'failed' or j.reason <> 'it asked to run later more than 20 times' or j.finished_at is null or j.laters <> 20
+     or j.progress <> '{"look": 20}' or pg_temp.kj_tries('fleet-board', 'initech/web#7') !~ ' 2:failed$' then
+    raise exception 'FAIL: the 21st later is not a failure saying why: % %', j, pg_temp.kj_tries('fleet-board', 'initech/web#7');
+  end if;
+  j := public.background_job_replay(j.id);
+  if j.state <> 'queued' or j.tries <> 0 or j.laters <> 0 or j.progress <> '{}' then
+    raise exception 'FAIL: a replay did not reset the laters and the progress with the tries: %', j;
+  end if;
+  perform pg_temp.kj_due('fleet-board', 'initech/web#7', interval '-1 day');  -- held back
+end $$;
+
+-- ── `later` on a job holding `again`: its line kept, then queued at once, afresh ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  perform public.background_job_refresh('pr-approved', 'initech/web#8', 'initech/web', '{"sha": "a"}', 0);
+  if pg_temp.taken() <> 'pr-approved/initech/web#8' then
+    raise exception 'FAIL: the refreshed job was not handed out';
+  end if;
+  perform public.background_job_refresh('pr-approved', 'initech/web#8', 'initech/web', '{"sha": "b"}', 0);
+  j := pg_temp.kj('pr-approved', 'initech/web#8');
+  if public.background_job_finish(j.id, j.claim, 'later', null, now() + interval '1 hour', '{"look": 2}') <> 'queued' then
+    raise exception 'FAIL: a later holding again did not answer queued';
+  end if;
+  j := pg_temp.kj('pr-approved', 'initech/web#8');
+  if j.state <> 'queued' or j.again or j.tries <> 0 or j.laters <> 0 or j.progress <> '{}' or j.run_after <> now()
+     or j.payload <> '{"sha": "b"}' or pg_temp.kj_tries('pr-approved', 'initech/web#8') <> '1:later' then
+    raise exception 'FAIL: a later holding again did not keep its line and queue the job at once, afresh: % %', j, pg_temp.kj_tries('pr-approved', 'initech/web#8');
+  end if;
+  perform pg_temp.kj_due('pr-approved', 'initech/web#8', interval '-1 day');  -- held back
+end $$;
+
+-- ── Each job has its own tries: 5 when not given ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  perform public.background_job_add('knowledge-pack', 'initech/api@1', 'initech/api', '{}');
+  perform public.background_job_add('pr-stats', 'pr-stats@2027-01-15T09:00:00.000Z', 'pr-stats', '{}', 'pr-stats', 3);
+  if (pg_temp.kj('knowledge-pack', 'initech/api@1')).max_tries <> 5 or (pg_temp.kj('knowledge-pack', 'initech/api@1')).lane is not null
+     or (pg_temp.kj('pr-stats', 'pr-stats@2027-01-15T09:00:00.000Z')).max_tries <> 3
+     or (pg_temp.kj('pr-stats', 'pr-stats@2027-01-15T09:00:00.000Z')).lane <> 'pr-stats' then
+    raise exception 'FAIL: a job added is not of the tries and lane it was given, 5 and none when not given';
+  end if;
+  perform pg_temp.refused($q$select public.background_job_add('pr-stats', 'k', 's', '{}', null, 0)$q$, '22023', 'no tries', 'Max tries');
+  perform pg_temp.refused($q$select public.background_job_add('pr-stats', 'k', 's', '{}', null, 6)$q$, '22023', 'six tries', 'Max tries');
+  perform pg_temp.refused($q$select public.background_job_refresh('pr-stats', 'k', 's', '{}', 0, null, 6)$q$, '22023', 'six tries refreshed', 'Max tries');
+  perform pg_temp.refused(format('select public.background_job_add(''pr-stats'', ''k'', ''s'', ''{}'', %L)', repeat('l', 513)), '22023', 'a lane too long', 'Lane');
+  perform pg_temp.kj_due('knowledge-pack', 'initech/api@1', interval '-1 day');  -- held back: not part of what follows
+
+  -- The 3rd lost claim of a job of 3 tries fails it.
+  for n in 1..3 loop
+    if pg_temp.taken() <> 'pr-stats/pr-stats@2027-01-15T09:00:00.000Z' then
+      raise exception 'FAIL: the job of 3 tries was not handed out for its try %', n;
+    end if;
+    perform pg_temp.kj_expire('pr-stats', 'pr-stats@2027-01-15T09:00:00.000Z');
+  end loop;
+  if pg_temp.taken() <> 'none' then
+    raise exception 'FAIL: a job that lost its last claim was handed out again';
+  end if;
+  j := pg_temp.kj('pr-stats', 'pr-stats@2027-01-15T09:00:00.000Z');
+  if j.state <> 'failed' or j.tries <> 3 or j.reason <> 'its claim ran out on its last try'
+     or pg_temp.kj_tries('pr-stats', 'pr-stats@2027-01-15T09:00:00.000Z') <> '1:lost 2:lost 3:lost' then
+    raise exception 'FAIL: the 3rd lost claim did not fail a job of 3 tries: % %', j, pg_temp.kj_tries('pr-stats', 'pr-stats@2027-01-15T09:00:00.000Z');
+  end if;
+
+  -- A retry on the 3rd try of a job of 3 tries fails it.
+  perform public.background_job_add('escalation', 'escalation@2027-01-15T09:00:00.000Z', 'escalation', '{}', 'escalation', 3);
+  for n in 1..3 loop
+    perform pg_temp.kj_due('escalation', 'escalation@2027-01-15T09:00:00.000Z', interval '0');
+    perform pg_temp.taken();
+    j := pg_temp.kj('escalation', 'escalation@2027-01-15T09:00:00.000Z');
+    perform public.background_job_finish(j.id, j.claim, 'retry', 'GitHub answered 502', now());
+  end loop;
+  j := pg_temp.kj('escalation', 'escalation@2027-01-15T09:00:00.000Z');
+  if j.state <> 'failed' or j.tries <> 3 or pg_temp.kj_tries('escalation', 'escalation@2027-01-15T09:00:00.000Z') <> '1:retry 2:retry 3:failed' then
+    raise exception 'FAIL: a retry on the 3rd try did not fail a job of 3 tries: % %', j, pg_temp.kj_tries('escalation', 'escalation@2027-01-15T09:00:00.000Z');
+  end if;
+
+  -- A refresh adds with its tries and lane; a later refresh moves the lane, never the tries.
+  if public.background_job_refresh('canon-action', 'delivery-1', 'initech/web', '{}', 0, 'initech/web#9', 2) <> 'added' then
+    raise exception 'FAIL: a refresh with a lane and tries did not add the job';
+  end if;
+  perform public.background_job_refresh('canon-action', 'delivery-1', 'initech/web', '{}', 0, 'initech/web#10', 4);
+  j := pg_temp.kj('canon-action', 'delivery-1');
+  if j.max_tries <> 2 or j.lane <> 'initech/web#10' then
+    raise exception 'FAIL: a refresh changed the tries, or kept the old lane: %', j;
+  end if;
+  perform pg_temp.kj_due('canon-action', 'delivery-1', interval '-1 day');  -- held back
+end $$;
+
+-- ── One job of a kind and lane runs at a time ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  perform public.background_job_add('pr-stats', 'pr-stats@a', 'pr-stats', '{}', 'pr-stats', 3);
+  perform public.background_job_add('pr-stats', 'pr-stats@b', 'pr-stats', '{}', 'pr-stats', 3);
+  perform public.background_job_add('pr-stats', 'pr-stats@c', 'pr-stats', '{}', 'another', 3);
+  perform public.background_job_add('pr-stats', 'pr-stats@d', 'pr-stats', '{}');
+  perform public.background_job_add('escalation', 'escalation@a', 'escalation', '{}', 'pr-stats', 3);
+  perform pg_temp.kj_due('pr-stats', 'pr-stats@a', interval '2 minutes');
+  perform pg_temp.kj_due('pr-stats', 'pr-stats@b', interval '1 minute');
+  -- In one claim: the oldest of the lane, not its second; another lane, no lane and another kind of the same lane run.
+  if pg_temp.taken() <> 'escalation/escalation@a pr-stats/pr-stats@a pr-stats/pr-stats@c pr-stats/pr-stats@d' then
+    raise exception 'FAIL: one claim did not hand out one job of the lane, and the others';
+  end if;
+  -- While a@ runs, b@ waits.
+  perform pg_temp.kj_due('pr-stats', 'pr-stats@b', interval '1 hour');
+  if pg_temp.taken() <> 'none' then
+    raise exception 'FAIL: a job was handed out while another of its kind and lane ran';
+  end if;
+  j := pg_temp.kj('pr-stats', 'pr-stats@a');
+  perform public.background_job_finish(j.id, j.claim, 'done', null, null);
+  if pg_temp.taken() <> 'pr-stats/pr-stats@b' then
+    raise exception 'FAIL: the job of the lane was not handed out once the running one finished';
+  end if;
+  -- A claim that ran out frees the lane: the job is due again, and it is the one handed out.
+  perform public.background_job_add('pr-stats', 'pr-stats@e', 'pr-stats', '{}', 'pr-stats', 3);
+  perform pg_temp.kj_expire('pr-stats', 'pr-stats@b');
+  if pg_temp.taken(1) <> 'pr-stats/pr-stats@b' then
+    raise exception 'FAIL: a lost claim of the lane was not handed out again before the next job of the lane';
+  end if;
+end $$;
+reset role;
+-- The database holds the lane too: two running jobs of one kind and lane are refused.
+select pg_temp.refused($q$update public.background_jobs set state = 'running', claim = gen_random_uuid(), claimed_at = now(),
+  claimed_until = now() + interval '1 minute' where kind = 'pr-stats' and key = 'pr-stats@e'$q$, '23505', 'two running jobs of one lane');
+set local role service_role;
+
+-- ── A schedule with no done job for three periods is late ──
+do $$
+begin
+  -- pr-stats@a is done just now; the escalation of the lane has none yet.
+  if pg_temp.scheduled(array['pr-stats'], array[900]) <> 0 then
+    raise exception 'FAIL: a schedule with a done job just now is late';
+  end if;
+  if pg_temp.scheduled(array['pr-stats', 'escalation'], array[900, 3600]) <> 1 then
+    raise exception 'FAIL: a schedule whose kind has no done job is not late';
+  end if;
+  if (public.background_jobs_health(array['escalation'], array[3600]) ->> 'state') <> 'late' then
+    raise exception 'FAIL: a late schedule does not make the health late';
+  end if;
+  if pg_temp.scheduled(array['escalation'], array[0]) <> 0 or (pg_temp.health() ->> 'scheduled')::integer <> 0 then
+    raise exception 'FAIL: a schedule of no period, or no schedule, counted';
+  end if;
+  perform pg_temp.kj_ended('pr-stats', 'pr-stats@a', interval '44 minutes');
+  if pg_temp.scheduled(array['pr-stats'], array[900]) <> 0 then
+    raise exception 'FAIL: a done job 44 minutes ago made a schedule of 15 minutes late';
+  end if;
+  perform pg_temp.kj_ended('pr-stats', 'pr-stats@a', interval '46 minutes');
+  if pg_temp.scheduled(array['pr-stats'], array[900]) <> 1 then
+    raise exception 'FAIL: no done job for 46 minutes did not make a schedule of 15 minutes late';
+  end if;
+  -- A failed or skipped job is no run: the escalation's failure above does not answer it.
+  perform pg_temp.kj_ended('pr-stats', 'pr-stats@a', interval '2 hours 59 minutes');
+  if pg_temp.scheduled(array['pr-stats'], array[3600]) <> 0 then
+    raise exception 'FAIL: a done job 2 hours 59 minutes ago made an hourly schedule late';
+  end if;
+end $$;
+reset role;
+
 rollback;
 
 -- ── Two workers at once never hold one job ──
@@ -726,6 +999,60 @@ begin
   perform extensions.dblink_disconnect('bjr_two');
   perform extensions.dblink_exec('bjr_setup', teardown);
   perform extensions.dblink_disconnect('bjr_setup');
+end $$;
+rollback;
+
+-- ── Two claims at once never both take a job of one kind and lane (PRD omni-loop-3 s1) ──
+-- Jobs x and y are due, in one lane. The first session claims and holds x uncommitted; the second runs while it
+-- does: x is locked, and y's lane is held by the first claim, so it gets none. Once both commit, x runs and y
+-- waits. Set up and torn down as above.
+begin;
+create extension if not exists dblink schema extensions;
+do $$
+declare
+  link     constant text := 'host=db port=5432 dbname=postgres user=postgres password=postgres';
+  setup    constant text := $s$
+    delete from public.background_jobs where kind = 'check-lane-race';
+    insert into public.background_jobs (kind, key, subject, lane, created_at) values
+      ('check-lane-race', 'x', 'initech/race', 'one', now() - interval '2 minutes'),
+      ('check-lane-race', 'y', 'initech/race', 'one', now() - interval '1 minute');
+  $s$;
+  teardown constant text := $s$delete from public.background_jobs where kind = 'check-lane-race'$s$;
+  claim    constant text := $s$select coalesce((select string_agg(c.key, ' ' order by c.key) from public.background_job_claim(10, 60) c where c.kind = 'check-lane-race'), 'none')$s$;
+  first    text;
+  second   text;
+  held     text;
+begin
+  perform extensions.dblink_connect('bjl_setup', link);
+  perform extensions.dblink_exec('bjl_setup', setup);
+  perform extensions.dblink_connect('bjl_one', link);
+  perform extensions.dblink_connect('bjl_two', link);
+  begin
+    perform extensions.dblink_exec('bjl_one', 'begin; set local role service_role');
+    perform extensions.dblink_exec('bjl_two', 'begin; set local role service_role; set local lock_timeout = ''3s''');
+    select r into first from extensions.dblink('bjl_one', claim) as t (r text);
+    select r into second from extensions.dblink('bjl_two', claim) as t (r text);
+    perform extensions.dblink_exec('bjl_one', 'commit');
+    perform extensions.dblink_exec('bjl_two', 'commit');
+    if first <> 'x' or second <> 'none' then
+      raise exception 'FAIL: two claims at once of one lane took "%" and "%", not x and nothing', first, second;
+    end if;
+    select h into held from extensions.dblink('bjl_setup', $s$
+      select string_agg(j.key || ':' || j.state, ' ' order by j.key) from public.background_jobs j where j.kind = 'check-lane-race'$s$) as t (h text);
+    if held <> 'x:running y:queued' then
+      raise exception 'FAIL: the lane race did not leave x running and y queued: %', held;
+    end if;
+  exception when others then
+    perform extensions.dblink_disconnect('bjl_one');
+    perform extensions.dblink_disconnect('bjl_two');
+    perform extensions.dblink_exec('bjl_setup', teardown);
+    perform extensions.dblink_disconnect('bjl_setup');
+    raise;
+  end;
+  perform extensions.dblink_disconnect('bjl_one');
+  perform extensions.dblink_disconnect('bjl_two');
+  perform extensions.dblink_exec('bjl_setup', teardown);
+  perform extensions.dblink_disconnect('bjl_setup');
 end $$;
 rollback;
 

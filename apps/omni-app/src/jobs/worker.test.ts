@@ -8,7 +8,7 @@ const MINUTE = 60_000;
 const at = (ms: number) => new Date(ms).toISOString();
 
 /** What a finish answers by default: the state the outcome leads to. */
-const stateAfter = ({ outcome }: Finish): FinishAnswer => (outcome === 'retry' || outcome === 'waiting' ? 'queued' : outcome);
+const stateAfter = ({ outcome }: Finish): FinishAnswer => (outcome === 'retry' || outcome === 'waiting' || outcome === 'later' ? 'queued' : outcome);
 
 /** A ledger in memory: the jobs it hands out, one per claim, and every finish it was sent. */
 function fakeLedger(jobs: Partial<ClaimedJob>[], { finish = (input) => Promise.resolve(stateAfter(input)) }: { finish?: (input: Finish) => Promise<FinishAnswer> } = {}) {
@@ -59,7 +59,7 @@ describe('runDue — each outcome of the spec\'s table (PRD 2676 s1)', () => {
     const { ledger, finished } = fakeLedger([{}]);
     const summary = await run(ledger, done);
     expect(finished).toEqual([{ id: 'job-1', claim: 'claim-1', outcome: 'done', reason: null, retryAt: null }]);
-    expect(summary).toEqual({ ran: 1, done: 1, skipped: 0, retry: 0, waiting: 0, failed: 0, stale: 0 });
+    expect(summary).toEqual({ ran: 1, done: 1, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 });
   });
 
   it('a job with nothing to do is skipped, with why', async () => {
@@ -125,6 +125,45 @@ describe('runDue — each outcome of the spec\'s table (PRD 2676 s1)', () => {
     ]);
   });
 
+  it('a job that asks to run again later is later, at its date, with the progress its next run reads (PRD omni-loop-3 s1)', async () => {
+    const lines: string[] = [];
+    const { ledger, finished } = fakeLedger([{ tries: 5, progress: { look: 3 } }]);
+    const seen: unknown[] = [];
+    const summary = await run(ledger, (job) => {
+      seen.push(job.progress);
+      return Promise.resolve({ outcome: 'later', at: new Date(START + MINUTE), progress: { look: 4 } });
+    }, { log: (line) => lines.push(line) });
+    expect(seen).toEqual([{ look: 3 }]);
+    expect(finished).toEqual([{ id: 'job-1', claim: 'claim-1', outcome: 'later', reason: null, retryAt: at(START + MINUTE), progress: { look: 4 } }]);
+    expect(summary).toEqual({ ran: 1, done: 0, skipped: 0, retry: 0, waiting: 0, later: 1, failed: 0, stale: 0 });
+    expect(lines).toEqual([]);
+  });
+
+  it('a later the ledger failed (its 21st) counts as failed, says why, and runs the failure hook', async () => {
+    const lines: string[] = [];
+    const reasons: string[] = [];
+    const { ledger } = fakeLedger([{}], { finish: () => Promise.resolve('failed') });
+    const summary = await runDue({
+      ledger,
+      handlers: { 'knowledge-pack': () => Promise.resolve({ outcome: 'later', at: new Date(START + MINUTE), progress: { look: 21 } }) },
+      failures: { 'knowledge-pack': (_job, reason) => {
+        reasons.push(reason);
+        return Promise.resolve();
+      } },
+      clock: () => START,
+      log: (line) => lines.push(line),
+    });
+    expect(summary).toMatchObject({ ran: 1, later: 0, failed: 1 });
+    expect(reasons).toEqual(['it asked to run later more than 20 times']);
+    expect(lines).toEqual([`job knowledge-pack initech/pack-api@${'1'.repeat(40)}: failed: it asked to run later more than 20 times`]);
+  });
+
+  it('each job has its own tries: one of 3 tries fails on its 3rd throw; none set is 5', async () => {
+    const { ledger, finished } = fakeLedger([{ tries: 2, maxTries: 3 }, { tries: 3, maxTries: 3 }, { tries: 3 }]);
+    await run(ledger, throws(new Error('GitHub answered 502')));
+    expect(finished.map(({ outcome }) => outcome)).toEqual(['retry', 'failed', 'retry']);
+  });
+
   it('hands the handler the job as claimed', async () => {
     const { ledger } = fakeLedger([{ payload: { installationId: 9, sha: 'a'.repeat(40) } }]);
     const seen: ClaimedJob[] = [];
@@ -151,7 +190,7 @@ describe('runDue — claiming', () => {
 
   it('nothing due: one claim, nothing run', async () => {
     const { ledger, claims, finished } = fakeLedger([]);
-    expect(await run(ledger, done)).toEqual({ ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, failed: 0, stale: 0 });
+    expect(await run(ledger, done)).toEqual({ ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 });
     expect(claims).toHaveLength(1);
     expect(finished).toEqual([]);
   });
