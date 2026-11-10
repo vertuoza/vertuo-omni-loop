@@ -8,11 +8,15 @@
 
 ## Reproduction
 
-- **File:** `apps/galaxy/src/business-laws/judge-why.test.ts`, `apps/galaxy/src/dossier/page/business-laws-judged-render.test.ts`, `kit/bin/commands/prd-product-laws.test.ts`
+- **File:** `apps/galaxy/src/business-laws/judge-why.test.ts`
 - **Level:** unit
-- **Red:** Tests  10 failed | 3 passed (13)
+- **Red:** × keeps the judge's own why for a finding, beside the law's Why
 
 ## Fix
+
+The reproduction has two more files, for the page and the terminal:
+`apps/galaxy/src/dossier/page/business-laws-judged-render.test.ts` and
+`kit/bin/commands/prd-product-laws.test.ts`; the three ran 10 failed, 3 passed before the fix.
 
 The judge dropped the model's own why for a finding and kept only the law's Why, so a red never said what
 was judged broken. It now keeps it on each finding (`broken`), the PRD's page shows it under the spec's
