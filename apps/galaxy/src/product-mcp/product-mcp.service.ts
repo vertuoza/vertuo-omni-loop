@@ -9,7 +9,8 @@
 // - **What it reads,** built anew on each call: the newest pack of each repository the key may read, the
 //   law home's pack for the business laws, and the product's own rows. A repository with no pack yet reads
 //   `pack: null` with the line telling the agent to tell its person (BL-PRODUCTKNOWLEDGE-4); it never fails
-//   the call.
+//   the call. The Legal entries (with each owner's login) and the Glossary come with the access itself, as
+//   the agent link reads them.
 import { knowledgeEntries, type PackText } from './entries';
 import { NO_PACK_LINE, type KnowledgeEntry, type RepositoryState } from './product-mcp.contract';
 import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
@@ -30,11 +31,6 @@ export function productMcpService(repository: ProductMcpRepository) {
   const filesOf = (ids: readonly string[]): Promise<Map<string, PackText[]>> =>
     Promise.all([...new Set(ids)].map(async (id) => [id, await repository.packFiles(id)] as const)).then((pairs) => new Map(pairs));
 
-  /** The login of each owner, null when it cannot be read: an owner's name never fails the read. */
-  const loginsOf = (workspaceId: string, ids: readonly string[]): Promise<Map<string, string | null>> =>
-    Promise.all([...new Set(ids)].map(async (id) => [id, await repository.login(workspaceId, id).catch(() => null)] as const))
-      .then((pairs) => new Map(pairs));
-
   return {
     /** Who `hash` (null: no key of an API key's shape) is for the product `key`. */
     async resolve(hash: string | null, key: string): Promise<Resolution> {
@@ -48,16 +44,15 @@ export function productMcpService(repository: ProductMcpRepository) {
     async read(access: AccessRow): Promise<KnowledgeRead> {
       const home = access.law_home;
       const packIds = [...access.repositories, ...(home ? [home] : [])].flatMap((ref) => (ref.pack_id === null ? [] : [ref.pack_id]));
-      const [files, rows] = await Promise.all([filesOf(packIds), repository.rows(access.product.id)]);
-      const logins = await loginsOf(access.product.workspace_id, rows.legal.flatMap((row) => (row.ownerId === null ? [] : [row.ownerId])));
+      const [files, never] = await Promise.all([filesOf(packIds), repository.never(access.product.id)]);
       const filesFor = (packId: string | null): PackText[] | null => (packId === null ? null : files.get(packId) ?? null);
       const homeFiles = home ? filesFor(home.pack_id) : null;
       const entries = knowledgeEntries({
         repositories: access.repositories.map((ref) => ({ repo: ref.repo, files: filesFor(ref.pack_id) })),
         lawHome: home && homeFiles ? { repo: home.repo, files: homeFiles } : null,
-        legal: rows.legal.map((row) => ({ id: row.id, statement: row.statement, source: row.source, owner: row.ownerId === null ? null : logins.get(row.ownerId) ?? null })),
-        glossary: rows.glossary,
-        never: rows.never,
+        legal: access.knowledge.legal,
+        glossary: access.knowledge.glossary,
+        never,
       });
       return { product: access.product.name, entries, repositories: access.repositories.map(stateOf) };
     },

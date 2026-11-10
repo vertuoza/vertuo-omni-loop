@@ -31,6 +31,10 @@ const ACCESS = {
   product: { id: 'p-acme', key: 'acme-app', name: 'Acme App', workspace_id: 'w-acme' },
   repositories: [{ repo: 'acme/api', pack_id: null, sha: null, committed_at: null }],
   law_home: { repo: 'acme/widgets', pack_id: 'k-1', sha: 'c'.repeat(40), committed_at: '2026-11-09T10:00:00Z' },
+  knowledge: {
+    legal: [{ id: 'L-GDPR-2', statement: 'Credentials are never stored in clear.', source: 'GDPR art. 32', owner: 'anna' }],
+    glossary: [{ term: 'API key', meaning: 'A secret.', avoid: ['token'] }],
+  },
 };
 
 describe('productMcpRepository', () => {
@@ -67,27 +71,16 @@ describe('productMcpRepository', () => {
     ]);
   });
 
-  it('reads the product\'s live Legal entries, terms and Never lines', async () => {
-    const { db, lines } = fakeDb([
-      { data: [{ code: 'GDPR', number: 2, statement: 'Credentials are never stored in clear.', source: 'GDPR art. 32', owner_id: null }], error: null },
-      { data: [{ term: 'API key', meaning: 'A secret.', avoid: ['token'] }], error: null },
-      { data: [{ seq: 6, body: 'Never locks a workspace in.' }], error: null },
-    ]);
-    expect(await productMcpRepository(db).rows('p-acme')).toEqual({
-      legal: [{ id: 'L-GDPR-2', statement: 'Credentials are never stored in clear.', source: 'GDPR art. 32', ownerId: null }],
-      glossary: [{ term: 'API key', meaning: 'A secret.', avoid: ['token'] }],
-      never: [{ seq: 6, body: 'Never locks a workspace in.' }],
-    });
-    expect(lines).toEqual([
-      'from("product_legal").select("code, number, statement, source, owner_id").eq("product_id","p-acme").is("retired_at",null)',
-      'from("product_glossary").select("term, meaning, avoid").eq("product_id","p-acme").is("removed_at",null)',
-      'from("constituents").select("seq, body").eq("product_id","p-acme").eq("kind","never").is("removed_at",null)',
-    ]);
+  it('reads the product\'s knowledge from product_mcp_for_key()\'s answer, leaving out the keys it does not use', async () => {
+    const answer = { ...ACCESS, knowledge: { ...ACCESS.knowledge, domains: [], lawHome: 'acme/widgets' } };
+    const { db, lines } = fakeDb([{ data: answer, error: null }]);
+    expect(await productMcpRepository(db).access(HASH, 'acme-app')).toEqual(ACCESS);
+    expect(lines).toHaveLength(1);
   });
 
-  it('reads an owner\'s login through member_login()', async () => {
-    const { db, lines } = fakeDb([{ data: 'anna', error: null }]);
-    expect(await productMcpRepository(db).login('w-acme', 'u-anna')).toBe('anna');
-    expect(lines).toEqual(['rpc("member_login",{"p_workspace":"w-acme","p_user":"u-anna"})']);
+  it('reads the product\'s live Never lines', async () => {
+    const { db, lines } = fakeDb([{ data: [{ seq: 6, body: 'Never locks a workspace in.' }], error: null }]);
+    expect(await productMcpRepository(db).never('p-acme')).toEqual([{ seq: 6, body: 'Never locks a workspace in.' }]);
+    expect(lines).toEqual(['from("constituents").select("seq, body").eq("product_id","p-acme").eq("kind","never").is("removed_at",null)']);
   });
 });

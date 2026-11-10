@@ -2,7 +2,9 @@
 // since an API key is no person's session and product_mcp_for_key() is the service role's alone
 // (supabase/migrations/20270114090000_product_mcp.sql). That function checks the key, its maker's
 // membership, the product's workspace, its switch and the key's allow-list on every call; every other read
-// here is filtered by the product and the packs it answered, so a read never reaches past them. Every answer
+// here is filtered by the product and the packs it answered, so a read never reaches past them. The Legal
+// entries and the Glossary come in its answer, read by product_knowledge_for_agents() inside the database, so
+// no table of personal data is read here. Every answer
 // is parsed where it comes in; a refusal of the database, or an answer out of shape, throws, naming the call.
 // It holds no rule.
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -21,25 +23,24 @@ const PackRef = z.object({
   committed_at: z.string().nullable(),
 });
 
+const LegalRow = z.object({ id: z.string(), statement: z.string(), source: z.string(), owner: z.string().nullable() });
+const TermRow = z.object({ term: z.string(), meaning: z.string(), avoid: z.array(z.string()) });
+
 const AccessRow = z.object({
   product: z.object({ id: z.string(), key: z.string(), name: z.string(), workspace_id: z.string() }),
   repositories: z.array(PackRef),
   law_home: PackRef.nullable(),
+  // product_knowledge_for_agents() of the product, as the agent link reads it: the Legal entries with each
+  // owner's login, and the Glossary. Its other keys are not read here.
+  knowledge: z.object({ legal: z.array(LegalRow), glossary: z.array(TermRow) }),
 });
 /** What product_mcp_for_key() answers for a key that reads the product. */
 export type AccessRow = z.infer<typeof AccessRow>;
 
 const FileRow = z.object({ path: z.string(), content: z.string() });
-const LegalRow = z.object({ code: z.string(), number: z.number().int(), statement: z.string(), source: z.string(), owner_id: z.string().nullable() });
-const TermRow = z.object({ term: z.string(), meaning: z.string(), avoid: z.array(z.string()) });
 const NeverRow = z.object({ seq: z.number().int(), body: z.string() });
-
-/** The product's own rows, as the agents' read keeps them: live entries only. */
-export type ProductRows = {
-  legal: { id: string; statement: string; source: string; ownerId: string | null }[];
-  glossary: z.infer<typeof TermRow>[];
-  never: z.infer<typeof NeverRow>[];
-};
+/** One of the product's live Never lines. */
+type NeverLine = z.infer<typeof NeverRow>;
 
 type Raw = { data: unknown; error: { message?: string } | null };
 
@@ -76,26 +77,10 @@ export function productMcpRepository(db: ProductMcpDb) {
       }
     },
 
-    /** The product's live Legal entries, Glossary terms and Never lines. */
-    async rows(productId: string): Promise<ProductRows> {
-      const [legal, glossary, never] = await Promise.all([
-        read(db.from('product_legal').select('code, number, statement, source, owner_id').eq('product_id', productId).is('retired_at', null),
-          z.array(LegalRow), 'product_legal'),
-        read(db.from('product_glossary').select('term, meaning, avoid').eq('product_id', productId).is('removed_at', null),
-          z.array(TermRow), 'product_glossary'),
-        read(db.from('constituents').select('seq, body').eq('product_id', productId).eq('kind', 'never').is('removed_at', null),
-          z.array(NeverRow), 'constituents'),
-      ]);
-      return {
-        legal: legal.map((row) => ({ id: `L-${row.code}-${String(row.number)}`, statement: row.statement, source: row.source, ownerId: row.owner_id })),
-        glossary,
-        never,
-      };
-    },
-
-    /** A member's login in the workspace, as the agents' read names a Legal entry's owner (member_login()). */
-    login: async (workspaceId: string, userId: string): Promise<string | null> =>
-      read(db.rpc('member_login', { p_workspace: workspaceId, p_user: userId }), z.string().nullable(), 'member_login'),
+    /** The product's live Never lines (no personal data: product_knowledge_for_agents() does not carry them). */
+    never: (productId: string): Promise<NeverLine[]> =>
+      read(db.from('constituents').select('seq, body').eq('product_id', productId).eq('kind', 'never').is('removed_at', null),
+        z.array(NeverRow), 'constituents'),
   };
 }
 

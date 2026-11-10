@@ -12,7 +12,7 @@
 --                                        on twice changes nothing
 --   product_mcp_for_key(hash, key)       service role only, as api_key_of() is (the route's check). Answers
 --                                        `{product: {id, key, name, workspace_id}, repositories: [{repo,
---                                        pack_id, sha, committed_at}], law_home}`, or null
+--                                        pack_id, sha, committed_at}], law_home, knowledge}`, or null
 --
 -- product_mcp_for_key() answers only while all of these hold, and null for anything else:
 -- - the hash names a live API key whose maker is still a member of its workspace (api_key_of(), which also
@@ -25,7 +25,9 @@
 -- else only those it names), in name order, each with its newest knowledge pack, the pack fields null
 -- when none was kept yet. `law_home` is the product's law home (product_law_home()) in the same shape,
 -- whatever the allow-list, since business laws belong to the product, not to one repository; null when
--- the product has none.
+-- the product has none. `knowledge` is product_knowledge_for_agents() of the product (its Legal entries with
+-- each owner's login, its Glossary, its domains and its law home), exactly as the agent link reads them,
+-- whole for any key that reaches the product (PRD 2707 s3).
 --
 -- Every change adds: one column, two functions. Nothing existing is changed or dropped.
 -- Proven by supabase/checks/product_mcp.sql.
@@ -121,12 +123,13 @@ begin
     'product', jsonb_build_object('id', p.id, 'key', p.key, 'name', p.name, 'workspace_id', p.workspace_id),
     'repositories', coalesce((select jsonb_agg(public.product_mcp_repository(p.workspace_id, r) order by o)
                                 from unnest(repos) with ordinality as x (r, o)), '[]'::jsonb),
-    'law_home', case when home is not null then public.product_mcp_repository(p.workspace_id, home) end);
+    'law_home', case when home is not null then public.product_mcp_repository(p.workspace_id, home) end,
+    'knowledge', public.product_knowledge_for_agents(p.id));
 end;
 $$;
 
 comment on function public.product_mcp_for_key(text, text) is
-  'PRD 2707: what a live API key of the product''s workspace reads of it through its MCP server: {product, repositories, law_home}, or null when the key does not work, the product is not the key''s workspace''s, archived or off, or the key''s allow-list names none of its repositories. The service role''s only.';
+  'PRD 2707: what a live API key of the product''s workspace reads of it through its MCP server: {product, repositories, law_home, knowledge}, or null when the key does not work, the product is not the key''s workspace''s, archived or off, or the key''s allow-list names none of its repositories. The service role''s only.';
 
 -- ── Who may call what ────────────────────────────────────────────────────────────
 

@@ -53,6 +53,22 @@ insert into public.product_repositories (product_id, workspace_id, repository, a
   ('00000000-0000-4000-8000-0000027071f2', '00000000-0000-4000-8000-000002707100', 'lantern/wick', 'person'),
   ('00000000-0000-4000-8000-0000027072f1', '00000000-0000-4000-8000-000002707200', 'harbor/dock', 'person');
 update public.products set plan_repository = 'lantern/lamp-api' where id = '00000000-0000-4000-8000-0000027071f1';
+-- Lamp's knowledge as the agent link reads it (product_knowledge_for_agents(), PRD 2707 s3): a Legal entry
+-- owned by Lia, whose player plays as lia-gh, a retired one, and a term. Dock has a Legal entry of its own.
+insert into public.teams (workspace_id, name, label, color, home, sort) values
+  ('00000000-0000-4000-8000-000002707100', 'wicks', 'WICKS', '#3355ff', null, 10);
+insert into public.players (workspace_id, user_id, display_name, team, hero, github_login) values
+  ('00000000-0000-4000-8000-000002707100', '00000000-0000-4000-8000-0000027070a1', 'LIA', 'wicks',
+   '{"v":1,"body":"girl","skin":2,"hair":3,"suit":0,"cape":8}', 'lia-gh');
+insert into public.product_legal (workspace_id, product_id, code, number, statement, source, owner_id, retired_at) values
+  ('00000000-0000-4000-8000-000002707100', '00000000-0000-4000-8000-0000027071f1', 'GDPR', 2,
+   'Credentials are never stored in clear.', 'https://law.example/gdpr-32', '00000000-0000-4000-8000-0000027070a1', null),
+  ('00000000-0000-4000-8000-000002707100', '00000000-0000-4000-8000-0000027071f1', 'GDPR', 1,
+   'A retired entry.', 'https://law.example/gdpr-5', null, now()),
+  ('00000000-0000-4000-8000-000002707200', '00000000-0000-4000-8000-0000027072f1', 'DOCK', 1,
+   'A dock keeps its ledger.', 'https://law.example/dock', '00000000-0000-4000-8000-0000027070c1', null);
+insert into public.product_glossary (workspace_id, product_id, term, meaning, avoid) values
+  ('00000000-0000-4000-8000-000002707100', '00000000-0000-4000-8000-0000027071f1', 'Wick', 'The part of a lamp that burns.', '{string}');
 
 create function pg_temp.hash(secret text) returns text language sql immutable as $$
   select encode(sha256(convert_to(secret, 'UTF8')), 'hex');
@@ -227,6 +243,17 @@ begin
   if got::text like '%' || pg_temp.hash('oma_lantern_every_0001') || '%' then
     raise exception 'FAIL: the answer carries the key''s hash';
   end if;
+  -- The product's knowledge, as the agent link reads it: live Legal entries with their owner's login, the Glossary.
+  if got->'knowledge'->'legal' is distinct from jsonb_build_array(jsonb_build_object('id', 'L-GDPR-2',
+       'statement', 'Credentials are never stored in clear.', 'source', 'https://law.example/gdpr-32', 'owner', 'lia-gh')) then
+    raise exception 'FAIL: the Legal entries read as %', got->'knowledge'->'legal';
+  end if;
+  if got->'knowledge'->'glossary'->0->>'term' is distinct from 'Wick' or jsonb_array_length(got->'knowledge'->'glossary') is distinct from 1 then
+    raise exception 'FAIL: the Glossary read as %', got->'knowledge'->'glossary';
+  end if;
+  if got::text like '%lia@lantern.test%' then
+    raise exception 'FAIL: the answer carries an email';
+  end if;
   -- The key reads, whatever the case of the product's key; it wrote last used.
   if pg_temp.reads('oma_lantern_every_0001', 'LAMP')->'product'->>'key' <> 'lamp' then
     raise exception 'FAIL: the product''s key read in capitals answered nothing';
@@ -237,6 +264,11 @@ do $$
 begin
   if (select last_used_at from public.agent_tokens where token_hash = pg_temp.hash('oma_lantern_every_0001')) is null then
     raise exception 'FAIL: a call left the key''s last used empty';
+  end if;
+  -- The knowledge is exactly the agent link's read of the product.
+  if (pg_temp.reads('oma_lantern_every_0001', 'lamp')->'knowledge') is null or pg_temp.reads('oma_lantern_every_0001', 'lamp')->'knowledge'
+     <> public.product_knowledge_for_agents('00000000-0000-4000-8000-0000027071f1') then
+    raise exception 'FAIL: the knowledge is not the agent link''s read';
   end if;
 end $$;
 
@@ -284,6 +316,11 @@ begin
   end if;
   if pg_temp.reads('oma_harbor_every_0005', 'dock')->'product'->>'key' <> 'dock' then
     raise exception 'FAIL: Harbor''s key does not read its own Dock';
+  end if;
+  -- Each key reads the Legal entries of the product it reaches, never another's.
+  if pg_temp.reads('oma_harbor_every_0005', 'dock')->'knowledge'->'legal'->0->>'id' is distinct from 'L-DOCK-1'
+     or pg_temp.reads('oma_harbor_every_0005', 'dock')::text like '%L-GDPR-2%' then
+    raise exception 'FAIL: Dock''s Legal entries read as %', pg_temp.reads('oma_harbor_every_0005', 'dock')->'knowledge'->'legal';
   end if;
   -- Dock has no plan repository and one repository: that one is its law home, with no pack yet.
   if pg_temp.reads('oma_harbor_every_0005', 'dock')->'law_home'

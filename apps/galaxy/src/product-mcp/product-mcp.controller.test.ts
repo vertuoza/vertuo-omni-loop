@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { hashApiKey } from '../public-api/keys/secret';
 import { handleProductMcp, type ProductMcpDeps } from './product-mcp.controller';
 import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema } from './product-mcp.contract';
-import type { AccessRow, ProductMcpRepository, ProductRows } from './product-mcp.repository';
+import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
 
 // `/api/products/<key>/mcp` (PRD 2707 s3) driven by the SDK's own client over the route's handler, against a
@@ -39,11 +39,12 @@ const WIDGETS = [
   { path: '.omni-loop/knowledge/product/rules.md', content: '## BR-PRODUCT-3\nAn API key is shown once.\nEnforced by: kit/key.test.ts\n' },
 ];
 const API = [{ path: '.omni-loop/knowledge/adr/0012-keys-are-hashed.md', content: '# ADR-0012 — API keys are hashed\n\n**Status:** accepted' }];
-const ROWS: ProductRows = {
-  legal: [{ id: 'L-GDPR-2', statement: 'Credentials are never stored in clear.', source: 'https://law.example/gdpr-32', ownerId: 'u-anna' }],
+// The product's knowledge as product_knowledge_for_agents() answers it inside product_mcp_for_key().
+const KNOWLEDGE: AccessRow['knowledge'] = {
+  legal: [{ id: 'L-GDPR-2', statement: 'Credentials are never stored in clear.', source: 'https://law.example/gdpr-32', owner: 'anna' }],
   glossary: [{ term: 'API key', meaning: 'A secret a program sends to read the workspace.', avoid: ['token'] }],
-  never: [{ seq: 6, body: 'Never locks a workspace in.' }],
 };
+const NEVER = [{ seq: 6, body: 'Never locks a workspace in.' }];
 const SHA = 'a'.repeat(40);
 
 async function world({ database = true, failing = false }: { database?: boolean; failing?: boolean } = {}) {
@@ -69,6 +70,7 @@ async function world({ database = true, failing = false }: { database?: boolean;
         product: { id: 'p-acme', key: 'acme-app', name: 'Acme App', workspace_id: 'w-acme' },
         repositories: hash === hashes.narrow ? [api] : [api, widgets],
         law_home: widgets,
+        knowledge: KNOWLEDGE,
       };
       return Promise.resolve(access);
     },
@@ -77,8 +79,7 @@ async function world({ database = true, failing = false }: { database?: boolean;
       return Promise.resolve(hash === hashes.other || ((hash === hashes.live || hash === hashes.narrow) && state.makerIsMember));
     },
     packFiles: (id) => Promise.resolve(id === 'pack-api' ? API : [...WIDGETS, { path: '.omni-loop/knowledge/domains/quotes/business-laws.md', content: state.laws }]),
-    rows: () => Promise.resolve(ROWS),
-    login: (_w, user) => Promise.resolve(user === 'u-anna' ? 'anna' : null),
+    never: () => Promise.resolve(NEVER),
   };
   const logged: string[] = [];
   const deps: ProductMcpDeps = { service: database ? productMcpService(repository) : null, log: (line) => { logged.push(line); } };
