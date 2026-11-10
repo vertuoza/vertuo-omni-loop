@@ -247,7 +247,7 @@ function fakeLedger(now: () => number) {
         Object.assign(row, { state: 'queued', runAfter: now(), again: false });
         return Promise.resolve('queued');
       }
-      if (outcome === 'retry' || outcome === 'waiting') {
+      if (outcome === 'retry' || outcome === 'waiting' || outcome === 'later') {
         Object.assign(row, { state: 'queued', runAfter: Date.parse(retryAt ?? '') });
         return Promise.resolve('queued');
       }

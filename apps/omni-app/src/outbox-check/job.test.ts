@@ -35,7 +35,7 @@ function ledgerOf(tries: number) {
     claim: () => Promise.resolve(queue.splice(0, 1)),
     finish: (input): Promise<FinishAnswer> => {
       finished.push(input);
-      return Promise.resolve(input.outcome === 'retry' || input.outcome === 'waiting' ? 'queued' : input.outcome);
+      return Promise.resolve(input.outcome === 'retry' || input.outcome === 'waiting' || input.outcome === 'later' ? 'queued' : input.outcome);
     },
   };
   return { ledger, finished };

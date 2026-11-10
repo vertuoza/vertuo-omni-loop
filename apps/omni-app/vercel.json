@@ -23,7 +23,7 @@
   "crons": [
     {
       "path": "/api/jobs-sweep",
-      "schedule": "*/15 * * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/jobs-sweep?gaps=1",

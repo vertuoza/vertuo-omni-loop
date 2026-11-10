@@ -37,10 +37,10 @@ describe('the Vercel functions', () => {
     expect(config.functions['api/health.mjs']).toEqual({ maxDuration: 10 });
   });
 
-  it('holds both crons of the job sweep: the jobs due every 15 minutes, the comparison hourly', () => {
+  it('holds both crons of the job sweep: the jobs due every minute (PRD omni-loop-3 s1), the comparison hourly', () => {
     const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as { crons: { path: string; schedule: string }[] };
     expect(config.crons).toEqual([
-      { path: '/api/jobs-sweep', schedule: '*/15 * * * *' },
+      { path: '/api/jobs-sweep', schedule: '* * * * *' },
       { path: '/api/jobs-sweep?gaps=1', schedule: '7 * * * *' },
     ]);
   });
