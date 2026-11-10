@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jobLedger } from './ledger.ts';
+import { jobLedger, REFRESH_DELAY_SECONDS } from './ledger.ts';
 
 type Call = { method: string; path: string; search: string; body: unknown; key: string | null };
 type Refusal = { status: number; message: string; code: string };
@@ -45,6 +45,7 @@ const ROW = {
   reason: null,
   created_at: '2027-01-13T08:59:00+00:00',
   finished_at: null,
+  again: false,
 };
 
 describe('jobLedger — the ledger as the service role (PRD 2676 s1)', () => {
@@ -59,6 +60,26 @@ describe('jobLedger — the ledger as the service role (PRD 2676 s1)', () => {
       key: 'service-key',
     }]);
     expect(await ledger(dbFetch(false).fetch).add({ kind: 'knowledge-pack', key: KEY, subject: 'initech/pack-api', payload: {} })).toBe(false);
+  });
+
+  it('refresh: calls background_job_refresh with the kind, key, subject, payload and delay; answers what it did (PRD 2688 s1)', async () => {
+    const pr = { kind: 'pr-outbox', key: 'initech/pr-api#12', subject: 'Initech/PR-API', payload: { installationId: 7, sha: 'b'.repeat(40) } };
+    const db = dbFetch('again');
+    expect(await ledger(db.fetch).refresh({ ...pr, delaySeconds: REFRESH_DELAY_SECONDS })).toBe('again');
+    expect(REFRESH_DELAY_SECONDS).toBe(5);
+    expect(db.calls).toEqual([{
+      method: 'POST',
+      path: '/rest/v1/rpc/background_job_refresh',
+      search: '',
+      body: { p_kind: 'pr-outbox', p_key: 'initech/pr-api#12', p_subject: 'Initech/PR-API', p_payload: pr.payload, p_delay_seconds: 5 },
+      key: 'service-key',
+    }]);
+    for (const answer of ['added', 'updated', 'requeued'] as const) {
+      expect(await ledger(dbFetch(answer).fetch).refresh({ ...pr, delaySeconds: 0 })).toBe(answer);
+    }
+    await expect(ledger(dbFetch('queued').fetch).refresh({ ...pr, delaySeconds: 5 })).rejects.toThrow();
+    await expect(ledger(dbFetch({ status: 400, code: '22023', message: 'Delay: between 0 and 3600 seconds.' }).fetch).refresh({ ...pr, delaySeconds: -1 }))
+      .rejects.toThrow('the database refused: Delay: between 0 and 3600 seconds. (22023)');
   });
 
   it('claim: calls background_job_claim with the limit and lease; answers each job as claimed', async () => {
@@ -140,6 +161,7 @@ describe('jobLedger — the ledger as the service role (PRD 2676 s1)', () => {
   it('every call throws the database\'s refusal with its code', async () => {
     const refused = () => dbFetch({ status: 401, code: '42501', message: 'permission denied for function' }).fetch;
     await expect(ledger(refused()).add({ kind: 'knowledge-pack', key: KEY, subject: 'initech/pack-api', payload: {} })).rejects.toThrow('the database refused: permission denied for function (42501)');
+    await expect(ledger(refused()).refresh({ kind: 'pr-outbox', key: 'initech/pr-api#12', subject: 'initech/pr-api', payload: {}, delaySeconds: 5 })).rejects.toThrow('(42501)');
     await expect(ledger(refused()).claim({ limit: 1, leaseSeconds: 300 })).rejects.toThrow('(42501)');
     await expect(ledger(refused()).health()).rejects.toThrow('(42501)');
     await expect(ledger(refused()).forget()).rejects.toThrow('(42501)');

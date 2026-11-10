@@ -727,6 +727,7 @@ export type Database = {
       }
       background_jobs: {
         Row: {
+          again: boolean
           claim: string | null
           claimed_at: string | null
           claimed_until: string | null
@@ -743,6 +744,7 @@ export type Database = {
           tries: number
         }
         Insert: {
+          again?: boolean
           claim?: string | null
           claimed_at?: string | null
           claimed_until?: string | null
@@ -759,6 +761,7 @@ export type Database = {
           tries?: number
         }
         Update: {
+          again?: boolean
           claim?: string | null
           claimed_at?: string | null
           claimed_until?: string | null
@@ -5119,6 +5122,7 @@ export type Database = {
       background_job_claim: {
         Args: { p_lease_seconds: number; p_limit: number }
         Returns: {
+          again: boolean
           claim: string | null
           claimed_at: string | null
           claimed_until: string | null
@@ -5152,9 +5156,20 @@ export type Database = {
         Returns: string
       }
       background_job_line: { Args: { p_text: string }; Returns: string }
+      background_job_refresh: {
+        Args: {
+          p_delay_seconds: number
+          p_key: string
+          p_kind: string
+          p_payload: Json
+          p_subject: string
+        }
+        Returns: string
+      }
       background_job_replay: {
         Args: { p_id: string }
         Returns: {
+          again: boolean
           claim: string | null
           claimed_at: string | null
           claimed_until: string | null
