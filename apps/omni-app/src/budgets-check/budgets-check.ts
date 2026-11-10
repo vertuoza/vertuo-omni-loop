@@ -17,6 +17,9 @@
 // too, which the webhook sends for a re-run of a budgets check run (its `external_id` is
 // BUDGETS_EXTERNAL_ID). Debounced per repository and pull request, 3 retries, like the other checks.
 //
+// The same three stages run as the `pr-budgets` job of the ledger (./job.ts, PRD 2688 s5); this function stays
+// registered until the webhook refreshes that job instead (s7).
+//
 // The installation's GitHub budget is shared with galaxy (PRD 902): a call the budget refuses, paused or
 // deferred, is never sent; the step logs one line and is retried once the pause or the window ends.
 import { RetryAfterError, type Inngest } from 'inngest';
@@ -65,19 +68,39 @@ export function createBudgetsCheck({
       onFailure: createBudgetsFailureHandler({ octokitFor }),
     },
     async ({ event, step }) => {
-      const { installationId, owner, repo, prNumber, headSha } = CheckRequestDataSchema.parse(event.data);
+      const request = CheckRequestDataSchema.parse(event.data);
+      const { owner, repo, prNumber } = request;
       const budgeted = <T>(work: () => Promise<T>) => onBudget(`${owner}/${repo}#${prNumber}`, log, work);
+      const stages = budgetsStages({ octokitFor, readOutboxRows, log }, request);
 
-      const pr = await step.run('target', () => budgeted(async () => budgetedPull(await octokitFor(installationId), { owner, repo, prNumber })));
+      const pr = await step.run('target', () => budgeted(stages.target));
       if (!pr) return { ...SILENT };
 
-      const output = await step.run('measure', () => budgeted(async () =>
-        measurePull(await octokitFor(installationId), { owner, repo, pr: { ...pr, headSha } }, { readOutboxRows, log })));
+      const output = await step.run('measure', () => budgeted(() => stages.measure(pr)));
 
-      const checkRunId = await step.run('publish', () => budgeted(async () => postBudgets(await octokitFor(installationId), { owner, repo, headSha, output })));
+      const checkRunId = await step.run('publish', () => budgeted(() => stages.publish(output)));
       return { checkRunId, name: BUDGETS_CHECK_NAME, conclusion: output.conclusion };
     },
   );
+}
+
+/** What a run of the check needs to find the pull request and its head commit. */
+export type BudgetsRequest = { installationId: number; owner: string; repo: string; prNumber: PrNumber; headSha: string };
+
+/**
+ * The check's three stages, the body both its Inngest function (a step each) and its job of the ledger
+ * (PRD 2688 s5, one try) run in order: `target` reads the pull request (null when it gets no check at all),
+ * `measure` gives the verdict, `publish` posts it and answers the check run's id.
+ */
+export function budgetsStages(
+  { octokitFor, readOutboxRows, log }: { octokitFor: OctokitFor<GitHubClient>; readOutboxRows: OutboxRowsReader | null; log: (line: string) => void },
+  { installationId, owner, repo, prNumber, headSha }: BudgetsRequest,
+) {
+  return {
+    target: async () => budgetedPull(await octokitFor(installationId), { owner, repo, prNumber }),
+    measure: async (pr: PullFacts) => measurePull(await octokitFor(installationId), { owner, repo, pr: { ...pr, headSha } }, { readOutboxRows, log }),
+    publish: async (output: BudgetsOutput) => postBudgets(await octokitFor(installationId), { owner, repo, headSha, output }),
+  };
 }
 
 /** The pull request, when its base branch has the loop with budgets on; null for any other. */
@@ -108,17 +131,24 @@ async function postBudgets(octokit: GitHubClient, { owner, repo, headSha, output
  * on a pull request whose base has budgets on; nothing on any other, nor when GitHub cannot say.
  */
 export function createBudgetsFailureHandler({ octokitFor }: { octokitFor: OctokitFor<GitHubClient> }) {
-  return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => {
-    let pr: PullFacts | null = null;
-    try {
-      pr = await budgetedPull(octokit, { owner, repo, prNumber });
-    } catch {
-      // GitHub itself may be what failed: whether budgets are on stays unknown, so nothing is posted.
-    }
-    if (!pr) return { ...SILENT };
-    const output = notMeasuredOutput(`the check could not run — ${firstLine(reason)}`);
-    return { checkRunId: await postBudgets(octokit, { owner, repo, headSha, output }), name: BUDGETS_CHECK_NAME, conclusion: output.conclusion };
-  });
+  return onFailedRun(octokitFor, ({ octokit, request, reason }) => postNotMeasured(octokit, request, reason));
+}
+
+/** Posts the check `neutral`, saying why, on a pull request whose base has budgets on; nothing on any other, nor when GitHub cannot say. */
+export async function postNotMeasured(
+  octokit: GitHubClient,
+  { owner, repo, prNumber, headSha }: Repo & { prNumber: PrNumber; headSha: string },
+  reason: unknown,
+) {
+  let pr: PullFacts | null = null;
+  try {
+    pr = await budgetedPull(octokit, { owner, repo, prNumber });
+  } catch {
+    // GitHub itself may be what failed: whether budgets are on stays unknown, so nothing is posted.
+  }
+  if (!pr) return { ...SILENT };
+  const output = notMeasuredOutput(`the check could not run — ${firstLine(reason)}`);
+  return { checkRunId: await postBudgets(octokit, { owner, repo, headSha, output }), name: BUDGETS_CHECK_NAME, conclusion: output.conclusion };
 }
 
 /** The budget's refusal `error` is, or wraps a few causes deep; null when it is none. */
