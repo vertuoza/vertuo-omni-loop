@@ -314,3 +314,236 @@ One boolean in the failure hook; flipping it is a one-line change.
 ```
 
 <!-- /omni-outbox-settled: s4-01-approved-failure-when-unsure -->
+
+<!-- omni-outbox-settled: s7-02-sweep-runs-every-kind -->
+
+## s7-02-sweep-runs-every-kind — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-10
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-sweep-runs-every-kind
+prd: 2688
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-11-10
+wave: 3
+---
+
+## The question, in plain words
+
+The quarter-hourly sweep only knew how to run the knowledge pack's work, so it would have dropped a check's work and left the check hanging. Should it run every kind of work, though its file belongs to no slice of this wave?
+
+## The decision, in plain words
+
+The sweep now runs every kind of work with the same handlers the webhook uses. It is a two-line change outside this slice's own files.
+
+## The intro, for fun
+
+The night shift only knew one machine on the factory floor.
+
+## The punchline, for fun
+
+Now it knows all five, so nothing waits for the morning.
+
+## The options, in plain words
+
+A. A. As built: the sweep runs every kind of work, changed in this slice.
+B. B. Undo it here and make it a slice of its own.
+
+## What I had to decide
+
+Answer A to keep it in this slice (apps/omni-app/src/jobs/sweep.ts wires liveWorkers), B to move it into a slice of its own before the feature pull request is ready.
+
+## What I did meanwhile
+
+The sweep runs the checks' work: retries, and work whose runner died, are picked up within 15 minutes.
+
+## What it costs to change later
+
+B costs one more sub-pull-request for the same two lines.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the plan gave the sweep to s6, which added the delayed post only; no slice was given the sweep's handlers, and its file is outside s7's territory.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-sweep-runs-every-kind -->
+
+<!-- omni-outbox-settled: s7-03-approval-label-looks-up-once -->
+
+## s7-03-approval-label-looks-up-once — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-10
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-approval-label-looks-up-once
+prd: 2688
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-11-10
+wave: 3
+---
+
+## The question, in plain words
+
+When the approval label changes on a PRD, the App looks up that PRD's open pull requests on GitHub once, right after answering, to re-run their approval checks. If GitHub refuses at that moment, should the App try again later, or wait for the next push?
+
+## The decision, in plain words
+
+The lookup runs once and a failure is written to the log. The next push, or a press of Re-run, brings the check back.
+
+## The intro, for fun
+
+The label changed, so someone has to knock on every open door.
+
+## The punchline, for fun
+
+They knock once; if nobody answers, the next push knocks again.
+
+## The options, in plain words
+
+A. A. As built: one lookup right after the answer, logged when it fails.
+B. B. A job of its own for the label change, retried like any other, which then re-runs each pull request's check.
+
+## What I had to decide
+
+Answer A to keep it, or B to make the approval's re-run its own kind of job that retries (apps/omni-app/src/webhook/github-route.ts, approvedRerunJobs).
+Decided by: Jev (hardToRevert 0.50) · agent said false
+
+## What I did meanwhile
+
+A label change re-runs the approval check on every open pull request of the PRD, unless GitHub refuses that one lookup.
+
+## What it costs to change later
+
+B is one more kind of job and its handler, with no stored data to migrate.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the spec says the webhook refreshes each pull request's approval job but not what happens when GitHub refuses the lookup.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-approval-label-looks-up-once -->
+
+<!-- omni-outbox-settled: s7-04-server-event-runs-checks-at-once -->
+
+## s7-04-server-event-runs-checks-at-once — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-10
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-04-server-event-runs-checks-at-once
+prd: 2688
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-11-10
+wave: 3
+---
+
+## The question, in plain words
+
+When the server says a product PRD changed, the App re-runs the checks of its pull requests. Should those checks run at once, or wait five seconds as they do after a push?
+
+## The decision, in plain words
+
+They run at once, inside the same background run, which already waits for a burst of server events to settle.
+
+## The intro, for fun
+
+The server rang the bell; the checks could answer now or after a short pause.
+
+## The punchline, for fun
+
+They answer now, since the bell already waited for the crowd.
+
+## The options, in plain words
+
+A. A. As built: the checks are due at once and run in the same background run.
+B. B. The checks wait five seconds, and the next webhook or the sweep runs them.
+
+## What I had to decide
+
+Answer A to keep it, B to make them wait five seconds and leave them to the next webhook or the sweep (apps/omni-app/src/server-event/recheck.ts).
+Decided by: Jev (hardToRevert 0.44) · agent said false
+
+## What I did meanwhile
+
+An approval, a void or an answered question turns the pull request's checks within seconds, with no new push.
+
+## What it costs to change later
+
+A constant: the wait given when the checks are queued.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the spec says the recheck refreshes the jobs but not when they run.
+
+```
+
+<!-- /omni-outbox-settled: s7-04-server-event-runs-checks-at-once -->
