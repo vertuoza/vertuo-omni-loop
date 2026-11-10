@@ -82,3 +82,313 @@ Undoing it is regenerating one file and changing one field of one function: no d
 ```
 
 <!-- /omni-outbox-settled: s2-01-s2-types-and-law-home -->
+
+<!-- omni-outbox-settled: s3-01-refused-key-told-apart-from-404 -->
+
+## s3-01-refused-key-told-apart-from-404 — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-10
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-refused-key-told-apart-from-404
+prd: 2707
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-10
+wave: 2
+---
+
+## The question, in plain words
+
+When the server's check answers nothing, how do we tell a key that does not work from a product that is off or out of the key's reach?
+
+## The decision, in plain words
+
+When the check answers nothing, the server asks once more whether the key itself works. A key that does not work connects and gets the one line on each call; a working key for a product it cannot read gets the same not-found answer for every such product.
+
+## The intro, for fun
+
+Two kinds of no came back from the database looking exactly alike.
+
+## The punchline, for fun
+
+So the server asks the key one more question before it picks which no to say.
+
+## The options, in plain words
+
+A. A. Ask whether the key works when the check answers nothing: a dead key gets the one line, a working key gets not-found (built).
+B. B. Answer not-found for every request the check refuses, whatever the key, and drop the one line on this server.
+C. C. Answer the one line for every refusal, so a product that is off connects too.
+
+## What I had to decide
+
+Whether a working key for a product that is off or out of its reach gets not-found, and a key that does not work at all gets the one line.
+
+## What I did meanwhile
+
+A key that does not work connects and answers the one line on every call; a working key gets not-found for a product it cannot read.
+
+## What it costs to change later
+
+A constant: one extra read of the key, only when the main check answers nothing.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- A key of another workspace is a working key, so it gets not-found too, as the spec asks; no test against a real database proves the extra read, only the stubbed one (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-refused-key-told-apart-from-404 -->
+
+<!-- omni-outbox-settled: s3-02-product-rows-carry-no-domain -->
+
+## s3-02-product-rows-carry-no-domain — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-10
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-product-rows-carry-no-domain
+prd: 2707
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-10
+wave: 2
+---
+
+## The question, in plain words
+
+Should a search limited to one domain also find the product's terms, Legal entries and Never lines of that domain?
+
+## The decision, in plain words
+
+Terms, Legal entries and Never lines carry no domain in the search, so a search limited to a domain finds only business laws, decisions and rules of that domain. A search without a domain still finds them all.
+
+## The intro, for fun
+
+The glossary knows which domains its words belong to, but the search was not told.
+
+## The punchline, for fun
+
+For now a domain filter only looks at what lives in the repositories and the laws.
+
+## The options, in plain words
+
+A. A. Terms, Legal entries and Never lines carry no domain in the search (built).
+B. B. Read each term's domains too, so a search limited to a domain finds its terms.
+
+## What I had to decide
+
+Whether a term should be found by a search limited to one of its domains.
+
+## What I did meanwhile
+
+A search limited to a domain leaves out the product's terms, Legal entries and Never lines.
+
+## What it costs to change later
+
+A constant: one more read of the terms' domains and a list of domains on each entry.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Legal entries and Never lines have no domain in the store at all; only terms do (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-product-rows-carry-no-domain -->
+
+<!-- omni-outbox-settled: s3-03-legal-read-through-the-key-check -->
+
+## s3-03-legal-read-through-the-key-check — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-10
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-legal-read-through-the-key-check
+prd: 2707
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-10
+wave: 2
+---
+
+## The question, in plain words
+
+This slice changed the database function and its check that another slice built, so the server reads Legal entries and their owners the same way the agent link does. Is that the right home for it?
+
+## The decision, in plain words
+
+The function that checks the key now also answers the product's Legal entries, with each owner's GitHub name, and its Glossary, read exactly as the agent link reads them. The server no longer reads those tables or the owner's name itself, because it was not allowed to, and the fallback could have shown an email.
+
+## The intro, for fun
+
+The server knocked on a door it had no key to, and nobody heard it.
+
+## The punchline, for fun
+
+So the database now hands the Legal entries over with the key check itself.
+
+## The options, in plain words
+
+A. A. The key check answers the Legal entries and the Glossary as the agent link reads them, and the server reads only the Never lines itself (built).
+B. B. Add a separate database function, the service role's only, that answers a product's Legal entries and Glossary, and leave the key check as it was.
+
+## What I had to decide
+
+Whether the key check may carry the product's Legal entries and Glossary, so the server never reads an owner's name on its own.
+
+## What I did meanwhile
+
+Every Legal entry the server answers names its owner the way the agent link names them, and only for a key that reaches the product.
+
+## What it costs to change later
+
+A constant while the feature is unmerged: one key of the function's answer and the lines that read it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- This slice's territory did not hold the migration or its check: the wave will report the change as a territory breach (author).
+- The owner's name falls back to an email when the person has no player and no GitHub identity, exactly as the agent link already does; this change neither adds nor removes that (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-03-legal-read-through-the-key-check -->
+
+<!-- omni-outbox-settled: s4-01-mcp-card-claude-words-guard -->
+
+## s4-01-mcp-card-claude-words-guard — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-10
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-10
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-mcp-card-claude-words-guard
+prd: 2707
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-10
+wave: 2
+---
+
+## The question, in plain words
+
+The settings card must say Copy for Claude Code, but a guard test refuses the word Claude in the app unless a file is listed. Is it right to list the card there?
+
+## The decision, in plain words
+
+I added two lines to the guard's list of allowed names so the card can say Copy for Claude Code and show Claude Code's own setup command, as the spec asks.
+
+## The intro, for fun
+
+The guard keeps the app from talking about one brand.
+
+## The punchline, for fun
+
+This time the brand is the whole point of the button.
+
+## The options, in plain words
+
+A. A. List the card's two literals in the guard (built).
+B. B. Reuse the label and command from the Connect agent setup, so the card says Claude Code only through a file already listed, and its command carries that setup's server name instead of the product's key.
+
+## What I had to decide
+
+Two entries in apps/galaxy/src/agent-words.test.ts, outside the slice's territory, each limited to one literal of the card.
+
+## What I did meanwhile
+
+The card is built as the spec words it, and the guard stays green.
+
+## What it costs to change later
+
+One test file outside the territory changes, by two list entries that a later PRD can drop.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the guard's list is the right home for the card's two names (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-mcp-card-claude-words-guard -->
