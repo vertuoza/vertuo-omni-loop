@@ -1,25 +1,25 @@
 // The one Inngest client the omni-loop app sends and serves its events through. `/api/github` sends
-// on it, the `outbox-check`, `inbox-check`, `approved-check`, `budgets-check`, `retro` and `knowledge-harvest` functions are created on it, and `/api/inngest` serves it. The event key and
-// the signing key come from the environment (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`), which the
-// SDK reads itself; nothing here names a secret.
+// on it, the `retro` and `knowledge-harvest` functions, among others, are created on it, and `/api/inngest`
+// serves it. The event key and the signing key come from the environment (`INNGEST_EVENT_KEY`,
+// `INNGEST_SIGNING_KEY`), which the SDK reads itself; nothing here names a secret.
 //
 // Beside the client, the shape of the data of every event the webhook sends: one schema each, which
 // a function parses `event.data` through before it reads it (an event comes back from Inngest over
 // the network), so a malformed event fails by the name of its field.
+//
+// The pull-request checks are no longer Inngest's (PRD 2688): they run on the App's job ledger
+// (./jobs/pr-checks.ts), whose payload is the check request below. Their shared event is sent no more.
 import { Inngest } from 'inngest';
 import { z } from 'zod';
 import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export const APP_ID = 'omni-loop';
 
-/** The event `/api/github` sends for a handled pull request or a check run's re-run. */
-export const OUTBOX_CHECK_EVENT = 'omni-loop/outbox.check.requested';
-
 /**
- * The event `/api/github` sends when a person re-runs an inbox check run (PRD 675). Every other time,
- * the `inbox-check` function runs on the outbox check's own event, which it also listens to.
+ * The event the pull-request checks ran on until PRD 2688, sent by nothing now: a test proves no
+ * function listens to it.
  */
-export const INBOX_CHECK_EVENT = 'omni-loop/inbox.check.requested';
+export const OUTBOX_CHECK_EVENT = 'omni-loop/outbox.check.requested';
 
 /**
  * The `external_id` every inbox check run carries, so the webhook, which reads no config, tells a
@@ -27,28 +27,8 @@ export const INBOX_CHECK_EVENT = 'omni-loop/inbox.check.requested';
  */
 export const INBOX_EXTERNAL_ID = 'omni-loop/inbox';
 
-/**
- * The event `/api/github` sends when a person re-runs an approved check run (PRD 1548). Every other
- * time, the `approved-check` function runs on the outbox check's own event, which it also listens to.
- */
-export const APPROVED_CHECK_EVENT = 'omni-loop/approved.check.requested';
-
 /** The `external_id` every approved check run carries, so the webhook tells a re-run of it, whatever `ci.approvedContext` names it. */
 export const APPROVED_EXTERNAL_ID = 'omni-loop/approved';
-
-/**
- * The event `/api/github` sends when a PRD's issue gains or loses the approved label (PRD 1612). It names
- * a PRD, not a pull request: the `approved-rerun` function finds that PRD's open pull requests and sends
- * one APPROVED_CHECK_EVENT each, with its head.
- */
-export const APPROVED_LABEL_EVENT = 'omni-loop/approved.label.changed';
-
-/**
- * The event `/api/github` sends when a person re-runs an `omni / budgets` check run (PRD 1679). Every
- * other time, the `budgets-check` function runs on the outbox check's own event, which it also listens
- * to: a pull request's actions, and the server event's re-check of a product PRD's pull requests.
- */
-export const BUDGETS_CHECK_EVENT = 'omni-loop/budgets.check.requested';
 
 /** The `external_id` every budgets check run carries, so the webhook tells a re-run of it. */
 export const BUDGETS_EXTERNAL_ID = 'omni-loop/budgets';
@@ -72,18 +52,29 @@ const SourceSchema = z.looseObject({
   repository: z.string(),
 });
 
-/** A check's event data: the outbox check's, and the inbox check's re-run. */
+/** A check's request: the pull request a check's job of the ledger runs on, at its head (PRD 2688). */
 export const CheckRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
   headSha: z.string(),
   trigger: z.string().optional(),
 });
 
-/** A PRD, in the repository of its issue, whose approved label changed (PRD 1612). */
-export const ApprovedLabelDataSchema = SourceSchema.extend({
-  prd: PrdNumberSchema,
-  trigger: z.string().optional(),
+/** What the inbox and budgets checks read of a check's request: the installation, the pull request and its head. */
+export const PullAtSchema = z.object({
+  installationId: z.number(),
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  prNumber: PrNumberSchema,
+  headSha: z.string().min(1),
 });
+
+/** A check's job's payload, read through `schema`; or the error naming the job's kind and its first malformed field. */
+export function checkPayloadOf<T>(schema: z.ZodType<T>, kind: string, raw: unknown): T {
+  const parsed = schema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  const [issue] = parsed.error.issues;
+  throw new Error(`The ${kind} job is malformed: ${issue?.path.join('.') || '(payload)'}: ${issue?.message ?? parsed.error.message}`);
+}
 
 /** The facts a red canon check run hides in its summary (./inbox-check/canon-actions.ts). */
 const CanonFactsSchema = z.object({
@@ -101,15 +92,6 @@ export const CanonActionRequestDataSchema = SourceSchema.extend({
   facts: CanonFactsSchema,
 });
 
-/**
- * What a failure handler is handed: the original event under `event.data.event`, the final error
- * under `event.data.error`. Only what the handlers read of it.
- */
-export const FailureEventDataSchema = z.looseObject({
-  event: z.looseObject({ data: z.unknown() }),
-  error: z.looseObject({ message: z.unknown() }).nullish(),
-});
-
 export type CheckRequestData = z.infer<typeof CheckRequestDataSchema>;
 /** A merged pull request, for the retro: a type only, as the retro parses its event itself. */
 export type RetroRequestData = z.infer<typeof SourceSchema> & { prNumber: PrNumber; mergeSha: string; mergedAt: string };
@@ -118,12 +100,8 @@ export type HarvestRequestData = z.infer<typeof SourceSchema> & { prNumber: PrNu
 export type CanonFacts = z.infer<typeof CanonFactsSchema>;
 export type CanonActionRequestData = z.infer<typeof CanonActionRequestDataSchema>;
 
-export type CheckRequest = { name: string; data: CheckRequestData };
-export type ApprovedLabelData = z.infer<typeof ApprovedLabelDataSchema>;
-/** The approved label's event (PRD 1612), sent beside the webhook's others. */
-export type ApprovedLabelRequest = { name: typeof APPROVED_LABEL_EVENT; data: ApprovedLabelData };
 export type RetroRequest = { name: string; data: RetroRequestData };
 export type HarvestRequest = { name: string; data: HarvestRequestData };
 export type CanonActionRequest = { name: string; data: CanonActionRequestData };
 /** Every event the webhook sends. */
-export type AppEvent = CheckRequest | RetroRequest | HarvestRequest | CanonActionRequest;
+export type AppEvent = RetroRequest | HarvestRequest | CanonActionRequest;

@@ -419,9 +419,12 @@ var CheckRequestDataSchema = SourceSchema.extend({
   headSha: z5.string(),
   trigger: z5.string().optional()
 });
-var ApprovedLabelDataSchema = SourceSchema.extend({
-  prd: PrdNumberSchema,
-  trigger: z5.string().optional()
+var PullAtSchema = z5.object({
+  installationId: z5.number(),
+  owner: z5.string().min(1),
+  repo: z5.string().min(1),
+  prNumber: PrNumberSchema,
+  headSha: z5.string().min(1)
 });
 var CanonFactsSchema = z5.object({
   prd: PrdNumberSchema,
@@ -434,10 +437,6 @@ var CanonActionRequestDataSchema = SourceSchema.extend({
   checkRunId: z5.number().optional(),
   action: z5.string(),
   facts: CanonFactsSchema
-});
-var FailureEventDataSchema = z5.looseObject({
-  event: z5.looseObject({ data: z5.unknown() }),
-  error: z5.looseObject({ message: z5.unknown() }).nullish()
 });
 
 // apps/omni-app/src/run-log/run-log.ts

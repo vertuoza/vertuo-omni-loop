@@ -1,19 +1,20 @@
-// `approved-check` end to end against the stubbed GitHub (PRD 1548 s3): a signed webhook in, the real
-// function run on every event it sent, the record read from a fake. No test calls GitHub or Supabase.
+// `approved-check` end to end against the stubbed GitHub (PRD 1548 s3): a signed webhook in, the `pr-approved`
+// job it refreshed run through the real handler (PRD 2688), the record read from a fake. No test calls GitHub
+// or Supabase.
 import { createHmac } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { InngestTestEngine } from '@inngest/test';
 import { GithubDeferred } from '@omni/github';
-import { RetryAfterError } from 'inngest';
 import { afterAll, describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, type AppEvent, inngest } from '../inngest-client.ts';
-import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
-import { stdoutLines } from '../run-log/capture.ts';
+import { APPROVED_EXTERNAL_ID } from '../inngest-client.ts';
+import type { RefreshJob } from '../jobs/ledger.ts';
+import type { JobHandler } from '../jobs/worker.ts';
+import { checkRunAt, claimedJob, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
-import { APPROVED_FUNCTION_ID, attestationUrl, createApprovedCheck } from './approved-check.ts';
+import { attestationUrl } from './approved-check.ts';
+import { APPROVED_KIND, approvedHandler } from './approved-job.ts';
 import type { RecordReader } from './record.ts';
 import type { ApprovalRecord, PinnedFile } from './state.ts';
 
@@ -48,9 +49,16 @@ const RECORD: ApprovalRecord = {
   latest: PINS.map(({ kind, sha256, versionId, content }) => ({ kind, sha256, versionId, commitSha: null, content })),
 };
 
-const A_NUMBER: unknown = expect.any(Number);
-
 const pullOf = (body: string | undefined) => ({ number: parsePr(446), base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/offline-upload', sha: 'head1' }, labels: [], ...(body === undefined ? {} : { body }) });
+
+/** One try of the job through `handler`: how it ended, or what it threw. */
+async function exec(handler: JobHandler, payload: Record<string, unknown> = PAYLOAD) {
+  try {
+    return { result: await handler(claimedJob(APPROVED_KIND, payload)), error: undefined };
+  } catch (error) {
+    return { result: undefined, error };
+  }
+}
 
 /** A run: the stubbed GitHub, the record's reads, and the log. */
 function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/d-12', config = ACTIVE, record = RECORD }: { body?: string; config?: string | null; record?: ApprovalRecord | null | Error } = {}) {
@@ -62,24 +70,25 @@ function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.
     return record instanceof Error ? Promise.reject(record) : Promise.resolve(record);
   };
   const logged: string[] = [];
-  const fn = createApprovedCheck({ client: inngest, octokitFor: () => github.octokit, readRecord, galaxyUrl: GALAXY, now: () => NOW, log: (line) => logged.push(line) });
-  return { github, reads, logged, fn };
+  const handler = approvedHandler({ octokitFor: () => github.octokit, readRecord, galaxyUrl: GALAXY, now: () => NOW, log: (line) => logged.push(line) });
+  return { github, reads, logged, handler };
 }
 
-/** A signed delivery through `/api/github`'s unit, then every event it sent through the approved check. */
+/** A signed delivery through `/api/github`'s unit, then every `pr-approved` job it refreshed through the handler. */
 async function deliver(run: ReturnType<typeof setUp>, event: string, payload: Record<string, unknown>) {
   const raw = JSON.stringify(payload);
-  const sent: AppEvent[] = [];
+  const sent: RefreshJob[] = [];
   const response = await receiveWebhook({
     body: raw,
     headers: { 'x-github-event': event, 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(raw).digest('hex')}` },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: (events) => Promise.resolve(sent.push(...events)),
+    send: () => Promise.resolve(),
+    refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs)),
   });
   expect(response.status).toBe(200);
   const results = [];
-  for (const e of sent) results.push(await new InngestTestEngine({ function: run.fn, events: [e] }).execute());
+  for (const job of sent.filter((one) => one.kind === APPROVED_KIND)) results.push(await exec(run.handler, job.payload));
   return { sent, results };
 }
 
@@ -97,7 +106,7 @@ describe('approved-check — a target feature PR of a product PRD (acceptance 6)
     for (const action of ['opened', 'synchronize']) {
       const run = setUp();
       const { results } = await deliver(run, 'pull_request', pullRequest(action));
-      expect(results.map((r) => r.result)).toEqual([{ checkRunId: A_NUMBER, name: 'omni/approved', prd: 'mobile-12', state: 'building', conclusion: 'success' }]);
+      expect(results.map((r) => r.result)).toEqual([{ outcome: 'done' }]);
       const { run: check, output, created } = posted(run);
       expect(check).toMatchObject({ name: 'omni/approved', head_sha: 'head1', status: 'completed', conclusion: 'success' });
       expect(output.title).toBe('building · 5 of 5 pinned');
@@ -124,30 +133,30 @@ describe('approved-check — a target feature PR of a product PRD (acceptance 6)
 
   it('holds every check when the App cannot read the server here', async () => {
     const github = fakeGitHub({ commits: { base1: commitWith(ACTIVE) }, pull: pullOf('Part of mobile-12') });
-    const fn = createApprovedCheck({ client: inngest, octokitFor: () => github.octokit, readRecord: null, galaxyUrl: GALAXY, now: () => NOW, log: () => undefined });
-    const { result } = await new InngestTestEngine({ function: fn, events: [{ name: APPROVED_CHECK_EVENT, data: event }] }).execute();
-    expect(result).toMatchObject({ state: 'held', conclusion: 'neutral' });
+    const handler = approvedHandler({ octokitFor: () => github.octokit, readRecord: null, galaxyUrl: GALAXY, now: () => NOW, log: () => undefined });
+    await exec(handler);
+    expect(checkRunAt(github.state, 0)).toMatchObject({ conclusion: 'neutral', output: { title: expect.stringMatching(/^held/) as unknown } });
   });
 
-  it('runs again on a re-run of its own check run', async () => {
+  it('runs again on a re-run of its own check run, and only it', async () => {
     const run = setUp();
     const payload = { action: 'rerequested', installation: { id: 7 }, repository: REPOSITORY, check_run: { external_id: APPROVED_EXTERNAL_ID, head_sha: 'head1', pull_requests: [{ number: 446, head: { sha: 'head1' }, base: { ref: 'main' } }] } };
     const { sent } = await deliver(run, 'check_run', payload);
-    expect(sent.map((e) => e.name)).toEqual([APPROVED_CHECK_EVENT]);
+    expect(sent.map((job) => job.kind)).toEqual([APPROVED_KIND]);
     expect(posted(run).run).toMatchObject({ conclusion: 'success' });
   });
 });
 
-const event = { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 446, headSha: 'head1', trigger: 'pull_request.edited' };
-const runOn = (run: ReturnType<typeof setUp>) => new InngestTestEngine({ function: run.fn, events: [{ name: APPROVED_CHECK_EVENT, data: event }] }).execute();
+const PAYLOAD = { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 446, headSha: 'head1', trigger: 'pull_request.edited' };
+const runOn = (run: ReturnType<typeof setUp>) => exec(run.handler);
 
 describe('approved-check — the pull requests that get no check (acceptance 8)', () => {
-  it('posts nothing, and reads no record, on a body naming no product PRD', async () => {
+  it('posts nothing, and reads no record, on a body naming no product PRD: the job ends skipped', async () => {
     // `Part of acme/plans#12` is a ◆ PRD's target PR since PRD 1612: ./repo-prd.test.ts checks it.
     for (const body of ['Closes #12', '']) {
       const run = setUp({ body });
       const { result } = await runOn(run);
-      expect(result).toMatchObject({ posted: false });
+      expect(result).toMatchObject({ outcome: 'skipped' });
       expect(run.github.state.checkRuns).toEqual([]);
       expect(run.reads).toEqual([]);
     }
@@ -156,7 +165,7 @@ describe('approved-check — the pull requests that get no check (acceptance 8)'
   it('posts nothing on a base without the loop, or whose ci.approvedContext is null', async () => {
     for (const config of [null, `${ACTIVE}ci:\n  approvedContext: null\n`]) {
       const run = setUp({ config });
-      expect((await runOn(run)).result).toMatchObject({ posted: false });
+      expect((await runOn(run)).result).toMatchObject({ outcome: 'skipped' });
       expect(run.github.state.checkRuns).toEqual([]);
     }
   });
@@ -169,43 +178,22 @@ describe('approved-check — the pull requests that get no check (acceptance 8)'
 });
 
 describe('approved-check — the GitHub budget (PRD 902)', () => {
-  it('retries a step the budget defers once its window ends, posting nothing meanwhile', async () => {
+  it('throws the budget\'s refusal as it is, for the worker to wait on, posting nothing meanwhile', async () => {
     const until = NOW.getTime() + 60_000;
-    const logged: string[] = [];
-    const fn = createApprovedCheck({ client: inngest, octokitFor: () => { throw new GithubDeferred(until); }, readRecord: () => Promise.resolve(RECORD), galaxyUrl: GALAXY, log: (line) => logged.push(line) });
-    const { error } = await new InngestTestEngine({ function: fn, events: [{ name: APPROVED_CHECK_EVENT, data: event }] }).execute();
-    expect(error).toMatchObject({ name: RetryAfterError.name });
-    expect(logged).toEqual([`approved check of acme/widgets#446 waits for the GitHub budget: GitHub budget below its background floor until ${new Date(until).toISOString()}`]);
-  });
-
-  it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {
-    const until = NOW.getTime() + 60_000;
-    const fn = createApprovedCheck({ client: inngest, octokitFor: () => { throw new GithubDeferred(until); }, readRecord: () => Promise.resolve(RECORD), galaxyUrl: GALAXY });
-    const lines = await stdoutLines(() => new InngestTestEngine({ function: fn, events: [{ name: APPROVED_CHECK_EVENT, data: event }] }).execute());
-    expect(lines.filter((line) => line.event === 'note')).toEqual([
-      {
-        level: 'warn',
-        event: 'note',
-        fn: 'approved-check',
-        message: `approved check of acme/widgets#446 waits for the GitHub budget: GitHub budget below its background floor until ${new Date(until).toISOString()}`,
-      },
-    ]);
+    const refusal = new GithubDeferred(until);
+    const handler = approvedHandler({ octokitFor: () => { throw refusal; }, readRecord: () => Promise.resolve(RECORD), galaxyUrl: GALAXY, log: () => undefined });
+    const { error } = await exec(handler);
+    expect(error).toBe(refusal);
   });
 
   it('lets any other failure through to the retries', async () => {
-    const fn = createApprovedCheck({ client: inngest, octokitFor: () => { throw new Error('boom'); }, readRecord: null, galaxyUrl: GALAXY });
-    const { error } = await new InngestTestEngine({ function: fn, events: [{ name: APPROVED_CHECK_EVENT, data: event }] }).execute();
+    const handler = approvedHandler({ octokitFor: () => { throw new Error('boom'); }, readRecord: null, galaxyUrl: GALAXY });
+    const { error } = await exec(handler);
     expect(error).toMatchObject({ message: 'boom' });
-    expect(error).not.toMatchObject({ name: RetryAfterError.name });
   });
 });
 
-describe('approved-check — its id and its Details', () => {
-  it('is served as approved-check, on the outbox check event and its own', () => {
-    const { fn } = setUp();
-    expect(fn.id()).toBe(APPROVED_FUNCTION_ID);
-  });
-
+describe('approved-check — its Details', () => {
   it('links the PRD page\'s attestation, on galaxy\'s host however it ends, and nothing without a dossier', () => {
     expect(attestationUrl('https://galaxy.example/', 'd-1')).toBe('https://galaxy.example/prd/d-1#attestation');
     expect(attestationUrl(GALAXY, null)).toBeNull();

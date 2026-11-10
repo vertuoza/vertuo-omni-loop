@@ -1,9 +1,12 @@
 // The job ledger (PRD 2676 s1, spec "The ledger"), as the service role (`SUPABASE_URL`,
 // `SUPABASE_SERVICE_ROLE_KEY`, the approved check's own pair): the App has no person's session. Every call is
-// one of the six functions of `supabase/migrations/20270113090000_background_jobs.sql`, the service role's
-// alone, and every answer is parsed where it comes in:
+// one of the seven functions of `supabase/migrations/20270113090000_background_jobs.sql` and
+// `20270114090000_pr_check_jobs.sql`, the service role's alone, and every answer is parsed where it comes in:
 //
 //   add      background_job_add(): a job, nothing for a key the kind already holds; whether it added one
+//   refresh  background_job_refresh() (PRD 2688 s1): the job of that kind and key on its latest payload, due in
+//            the delay; `added`, `updated` (it was queued), `again` (it was running: its finish queues it once
+//            more) or `requeued` (it was finished: queued, its tries at zero, its attempts kept)
 //   claim    background_job_claim(): the jobs due, oldest first, each under a fresh claim with one more try;
 //            the claims that ran out are written as `lost` first (due again, or failed on the 5th try)
 //   finish   background_job_finish(): the try recorded and the job moved; `stale` when the claim is no longer
@@ -24,6 +27,16 @@ export type JobOutcome = 'done' | 'skipped' | 'retry' | 'waiting' | 'failed';
 
 /** A job to add: what it is, its key (unique per kind), its repository and what it needs. Never a token. */
 export type NewJob = { kind: string; key: string; subject: string; payload: { [field: string]: Json | undefined } };
+
+/** A job to refresh, and how many seconds from now it falls due when queued (0 to 3600). */
+export type RefreshJob = NewJob & { delaySeconds: number };
+
+/** The spec's refresh delay: a burst of events within 5 seconds becomes one run on the latest. */
+export const REFRESH_DELAY_SECONDS = 5;
+
+const RefreshedSchema = z.enum(['added', 'updated', 'again', 'requeued']);
+/** What a refresh did to the job: see the table in the header. */
+export type Refreshed = z.infer<typeof RefreshedSchema>;
 
 const PayloadSchema = z.record(z.string(), z.unknown());
 
@@ -81,6 +94,7 @@ export type JobsHealth = z.infer<typeof HealthSchema>;
 
 export type Ledger = {
   add: (job: NewJob) => Promise<boolean>;
+  refresh: (job: RefreshJob) => Promise<Refreshed>;
   claim: (input: { limit: number; leaseSeconds: number }) => Promise<ClaimedJob[]>;
   finish: (input: Finish) => Promise<FinishAnswer>;
   replay: (id: string) => Promise<Replayed>;
@@ -107,6 +121,15 @@ export function jobLedger(connection: Connection): Ledger {
   return {
     add: async ({ kind, key, subject, payload }) =>
       z.boolean().parse(dataOf(await db.rpc('background_job_add', { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
+
+    refresh: async ({ kind, key, subject, payload, delaySeconds }) =>
+      RefreshedSchema.parse(dataOf(await db.rpc('background_job_refresh', {
+        p_kind: kind,
+        p_key: key,
+        p_subject: subject,
+        p_payload: payload,
+        p_delay_seconds: delaySeconds,
+      }))),
 
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z.array(ClaimedRowSchema).parse(dataOf(await db.rpc('background_job_claim', { p_limit: limit, p_lease_seconds: leaseSeconds })));

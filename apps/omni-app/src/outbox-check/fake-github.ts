@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { at } from 'omni-loop/kit/lib/narrow.ts';
+import type { ClaimedJob } from '../jobs/ledger.ts';
 
 /** A request's parameters, as a unit hands them to `octokit.request`. */
 type Params = Record<string, unknown>;
@@ -55,6 +56,12 @@ export function checkRunAt(state: { checkRuns: FakeCheckRun[] }, index: number):
 /** A check run's `output`: the test fails when it holds no title and summary. */
 export function outputOf(run: FakeCheckRun): z.infer<typeof OutputSchema> {
   return OutputSchema.parse(run.output);
+}
+
+/** A check's job of the ledger as a worker holds it (PRD 2688): of `kind`, carrying `payload`, on its `tries`th try. */
+export function claimedJob(kind: string, payload: Params, tries = 1): ClaimedJob {
+  const subject = `${String(payload.owner)}/${String(payload.repo)}`.toLowerCase();
+  return { id: 'job-1', kind, key: `${subject}#${String(payload.prNumber)}`, subject, payload, tries, claim: 'claim-1', claimedUntil: '2027-01-14T09:05:00.000Z' };
 }
 
 /** One entry of a tree this double lists. */
