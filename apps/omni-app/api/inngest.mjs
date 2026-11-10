@@ -19323,12 +19323,15 @@ The retro could not run: ${reason2}
 import { z as z65 } from "zod";
 var APP_SENDER = "omni-app";
 var IdRowSchema = z65.object({ id: z65.string().min(1) });
+var RemovedRowSchema = z65.object({ removed_at: z65.string().nullable() });
 function runnerQueue(connection) {
   const db = serviceDb(connection);
   return async ({ installationId, repository, line }) => {
     const repo = repository.toLowerCase();
     const [workspace] = rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1));
     if (!workspace) return { job: null, created: false, reason: `no workspace holds the installation ${String(installationId)}` };
+    const [listed] = rowsOf(RemovedRowSchema, await db.from("repositories").select("removed_at").eq("workspace_id", workspace.id).eq("full_name", repo).limit(1));
+    if (listed && listed.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
     const [found] = rowsOf(
       IdRowSchema,
       await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line).order("queued_at").limit(1)

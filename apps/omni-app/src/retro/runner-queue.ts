@@ -6,6 +6,9 @@
 //   workspace   the one the App's installation belongs to (`workspaces.github_installation_id`, unique):
 //               the repository's workspace, so the job goes nowhere else (BR-PRODUCT-63); none, and
 //               nothing is queued
+//   removed     the workspace removed the repository (`repositories.removed_at`, PRD 2188): nothing runs
+//               on it, so nothing is queued and no earlier job is given back (#2693). A repository the
+//               workspace never listed is not removed: its job is queued
 //   found       a job of that workspace, for that repository, with that line, whatever its sender or
 //               status: a replay of the retro, or its day-14 run on the same retro PR, finds it again
 //               and queues no second one
@@ -33,6 +36,9 @@ export type ApplyQueue = (job: ApplyJob) => Promise<Queued>;
 /** A row read for its id: a workspace, or a job. */
 export const IdRowSchema = z.object({ id: z.string().min(1) });
 
+/** A repository of a workspace, read for when its owner removed it: null while it is listed. */
+export const RemovedRowSchema = z.object({ removed_at: z.string().nullable() });
+
 /** The queue, as the service role on `connection`. */
 export function runnerQueue(connection: Connection): ApplyQueue {
   const db = serviceDb(connection);
@@ -40,6 +46,9 @@ export function runnerQueue(connection: Connection): ApplyQueue {
     const repo = repository.toLowerCase();
     const [workspace] = rowsOf(IdRowSchema, await db.from('workspaces').select('id').eq('github_installation_id', installationId).limit(1));
     if (!workspace) return { job: null, created: false, reason: `no workspace holds the installation ${String(installationId)}` };
+
+    const [listed] = rowsOf(RemovedRowSchema, await db.from('repositories').select('removed_at').eq('workspace_id', workspace.id).eq('full_name', repo).limit(1));
+    if (listed && listed.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
 
     const [found] = rowsOf(
       IdRowSchema,
