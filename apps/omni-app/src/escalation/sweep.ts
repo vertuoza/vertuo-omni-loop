@@ -15,27 +15,25 @@
 // - **Asking never decides.** It reads and writes comments only: no review, answer, adoption, label,
 //   check run or verdict. The gate stays red until a person answers.
 //
-// One step per installation's repositories, one per repository, so a failure stays on its repository;
-// a pull request GitHub refuses to read is logged and swept again the next hour.
+// It runs as a job of the ledger (./job.ts, PRD omni-loop-3 s2), re-run whole: a pull request GitHub refuses to
+// read is logged and swept again the next hour. A call the shared GitHub client refuses unsent (the
+// installation's budget below its background floor, or paused: PRD 902) ends the sweep there, the refusal
+// thrown, so the job waits and sweeps again; what it already asked is never asked twice.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Inngest } from 'inngest';
 import { z } from 'zod';
 import { decide, escalates, type Decision, type EscalationSettings } from 'omni-loop/kit/lib/escalation/escalation.ts';
 import { readAsk, readRecord, renderAsk, renderRecord, type AskedStep, type RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { parsePr, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { refusalIn } from '../approved-check/approved-check.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { listComments, readBaseConfig, type Comment, type GitHubClient } from '../outbox-check/github.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';
-import { noteTo } from '../run-log/run-log.ts';
 import { settingsOf } from './held.ts';
 
-export const ESCALATION_FUNCTION_ID = 'escalation';
-export const EVERY_HOUR = '0 * * * *';
-
 /** The App's own client, signed with its JWT: it lists the installations. */
-type AppClient = () => Promise<GitHubClient> | GitHubClient;
+export type AppClient = () => Promise<GitHubClient> | GitHubClient;
 
 /** A repository an installation holds. */
 type Repository = { owner: string; repo: string };
@@ -137,6 +135,7 @@ async function sweepRepository(octokit: GitHubClient, { owner, repo, now, log }:
       const outcome = await sweepPull(octokit, { owner, repo, prNumber: parsePr(pull.number), now, settings: settingsOfBase(pull.base.sha) });
       if (outcome === 'asked') swept.asked += 1;
     } catch (error) {
+      if (refusalIn(error)) throw error;
       swept.failed += 1;
       log(`escalation sweep of ${owner}/${repo}#${String(pull.number)} waits for the next hour: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -158,46 +157,22 @@ async function repositoriesOf(octokit: GitHubClient): Promise<Repository[]> {
   return repositories.map(({ name, owner }) => ({ owner: owner.login, repo: name }));
 }
 
-/** The function, bound to its client, each installation's GitHub, the App's own (`null`: off), a log and a clock. */
-export function createEscalation({ client, octokitFor, appOctokit, log = noteTo('escalation'), clock = Date.now }: {
-  client: Inngest.Any;
-  octokitFor: OctokitFor<GitHubClient>;
-  appOctokit: AppClient | null;
-  log?: (line: string) => void;
-  clock?: () => number;
-}) {
-  return client.createFunction(
-    {
-      id: ESCALATION_FUNCTION_ID,
-      name: 'omni-loop · escalation',
-      triggers: [{ cron: EVERY_HOUR }],
-      // One sweep at a time: two never race to post the same ask.
-      concurrency: { limit: 1 },
-      retries: 2,
-    },
-    async ({ step }) => {
-      if (appOctokit === null) {
-        log('escalation: the App cannot list its installations here, so nobody is asked.');
-        return { skipped: 'no app' };
-      }
-      // Outside a step, so an App with no key fails the run at once (its `EnvError`), not one retry at a time.
-      const app = await appOctokit();
-      const now = await step.run('clock', () => clock());
-      const installations = await step.run('installations', () => installationsOf(app));
-      const total: RepositorySwept & { repositories: number } = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
-      for (const installation of installations) {
-        const repositories = await step.run(`repositories ${String(installation)}`, async () => repositoriesOf(await octokitFor(installation)));
-        for (const { owner, repo } of repositories) {
-          const swept = await step.run(`sweep ${owner}/${repo}`, async () =>
-            sweepRepository(await octokitFor(installation), { owner, repo, now: new Date(now), log }),
-          );
-          total.repositories += 1;
-          total.pulls += swept.pulls;
-          total.asked += swept.asked;
-          total.failed += swept.failed;
-        }
-      }
-      return total;
-    },
-  );
+/** What one sweep did: the repositories swept, the open pull requests read, the asks posted, the pull requests left for the next hour. */
+export type Swept = RepositorySwept & { repositories: number };
+
+/** Sweeps every repository of every installation of the App, at `now`. */
+export async function sweepAll({ app, octokitFor, now, log }: { app: GitHubClient; octokitFor: OctokitFor<GitHubClient>; now: Date; log: (line: string) => void }): Promise<Swept> {
+  const total: Swept = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
+  for (const installation of await installationsOf(app)) {
+    const octokit = await octokitFor(installation);
+    for (const { owner, repo } of await repositoriesOf(octokit)) {
+      const swept = await sweepRepository(octokit, { owner, repo, now, log });
+      total.repositories += 1;
+      total.pulls += swept.pulls;
+      total.asked += swept.asked;
+      total.failed += swept.failed;
+    }
+  }
+  return total;
 }
+

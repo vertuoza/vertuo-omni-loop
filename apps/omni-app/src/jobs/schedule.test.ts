@@ -39,9 +39,9 @@ describe('scheduledJobs — the job of the current slot of each schedule', () =>
     ]);
   });
 
-  it('holds no entry yet: the kinds are registered with their handlers (s2)', () => {
-    expect(SCHEDULES).toEqual([]);
-    expect(scheduledJobs(SCHEDULES, at('2027-01-15T09:20:00.000Z'))).toEqual([]);
+  it('holds the Engineering board’s collector every 15 minutes and the escalation every hour, 3 tries each (s2)', () => {
+    expect(SCHEDULES).toEqual([STATS, ESCALATION]);
+    expect(scheduledJobs(SCHEDULES, at('2027-01-15T09:20:00.000Z')).map((job) => job.key)).toEqual(['pr-stats@2027-01-15T09:15:00.000Z', 'escalation@2027-01-15T09:00:00.000Z']);
   });
 });
 

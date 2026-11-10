@@ -4,6 +4,9 @@
 //   step "list-repositories"                  the tracked repositories and their installations
 //   steps "collect <workspace>/<repo> <n>"    one repository, at most `BATCH` pull requests a step
 //
+// A step is a unit of the run, read back through its schema; on the job ledger (./job.ts, PRD omni-loop-3) a run
+// re-runs whole and no step is saved, so each unit runs at once.
+//
 // A repository's first collection backfills `BACKFILL_DAYS` days; each after it reads only the pull
 // requests updated after its cursor (`collected_until`), oldest update first, so the cursor only moves
 // past what was written. A failure (no access, a rate limit, a GitHub error) is caught inside that
@@ -13,10 +16,13 @@
 //
 // The installation's GitHub budget is shared with the outbox check (bug 638): every read goes through
 // GraphQL, and once a budget would drop under half, the run ends for every repository of that
-// installation, each cursor at what was written and no error recorded; the next run carries on.
+// installation, each cursor at what was written and no error recorded; the next run carries on. A call the shared
+// GitHub client refuses unsent (the installation's budget below its background floor, or paused: PRD 902) ends
+// the run there, the cursor at what was written and no error recorded, the refusal thrown: the job waits.
 import { type Budget, BudgetLow, type GraphqlOctokit, type ListedPull, affords, pullsUpdatedAfter, readPullRecords } from './github.ts';
 import { BatchOutSchema, FailureSchema, TrackedRepositoriesSchema, type BatchOut } from './schema.ts';
 import type { PrStatsStore, TrackedRepository } from './supabase-store.ts';
+import { refusalIn } from '../approved-check/approved-check.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { savedStep, type StepRun } from '../saved-step.ts';
 
@@ -31,8 +37,11 @@ const MAX_BATCHES = 20;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The part of an Inngest step the collector runs: one memoized, retried unit, its output read back through its schema. */
+/** A unit of the run, its output read back through its schema. */
 export type CollectStep = StepRun;
+
+/** A job's unit: run at once, nothing saved, since a job re-runs whole. */
+const atOnce: CollectStep = { run: (_id, fn) => Promise.resolve(fn()) };
 
 /** What a run did: repositories by how their collection ended, and pull requests saved. */
 export type CollectSummary = { repositories: number; saved: number } & Record<Outcome, number>;
@@ -50,10 +59,10 @@ type RepositoryRun = {
 };
 
 /** Every tracked repository collected, a step per batch; `now` is the run's clock, in ms. */
-export async function collectAll({ store, octokitFor, step, now }: {
+export async function collectAll({ store, octokitFor, step = atOnce, now }: {
   store: PrStatsStore;
   octokitFor: OctokitFor<GraphqlOctokit>;
-  step: CollectStep;
+  step?: CollectStep;
   now: number;
 }): Promise<CollectSummary> {
   const nowIso = new Date(now).toISOString();
@@ -133,6 +142,10 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
     );
     return { saved, cursor: reached, more, budget };
   } catch (error) {
+    if (refusalIn(error)) {
+      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
+      throw error;
+    }
     if (error instanceof BudgetLow) {
       await store.updateRepository(workspaceId, fullName, { collected_until: reached });
       return { saved, cursor: reached, more: false, paused: true, budget };
