@@ -3330,6 +3330,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -3348,6 +3349,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           key?: string | null
+          mcp_enabled?: boolean
           name: string
           ordinal?: never
           pitch?: Json
@@ -3366,6 +3368,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           key?: string | null
+          mcp_enabled?: boolean
           name?: string
           ordinal?: never
           pitch?: Json
@@ -5379,6 +5382,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -6293,6 +6297,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -6329,6 +6334,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -6641,6 +6647,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -6760,6 +6767,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -6967,6 +6975,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -6983,6 +6992,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      product_mcp_for_key: {
+        Args: { p_hash: string; p_key: string }
+        Returns: Json
+      }
+      product_mcp_repository: {
+        Args: { p_repo: string; p_workspace: string }
+        Returns: Json
+      }
+      product_mcp_set: {
+        Args: { p_on: boolean; p_product: string }
+        Returns: boolean
+      }
       product_of_key: {
         Args: { p_key: string; p_repo?: string }
         Returns: {
@@ -6994,6 +7015,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -7021,6 +7043,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -7048,6 +7071,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -7076,6 +7100,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -7133,6 +7158,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -7648,6 +7674,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
@@ -7675,6 +7702,7 @@ export type Database = {
           created_by: string | null
           id: string
           key: string | null
+          mcp_enabled: boolean
           name: string
           ordinal: number
           pitch: Json
