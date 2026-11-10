@@ -82,6 +82,10 @@ server is off, the product is unknown, or the key cannot reach it. The server gi
 all three cases, so no caller can tell which products exist. Check that the server is on, then that
 the key belongs to the product's workspace and is on the product's allow-list.
 
+A key that does not work (missing, mistyped or revoked, or made by someone who has left the
+workspace) still connects, and every call answers: `This API key does not work here. Make one on
+Settings › API keys, and check the product's MCP server is on.`
+
 ## Read the PRDs
 
 ```bash terminal
