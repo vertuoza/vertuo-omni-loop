@@ -22,7 +22,11 @@ import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts
 import { createServerEventRecheck } from '../server-event/recheck.ts';
 import { SERVER_EVENT } from '../server-event/server-event.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
+import { GithubPaused } from '@omni/github';
+import type { ClaimedJob, JobLedger } from '../jobs/ledger.ts';
+import { runDue } from '../jobs/worker.ts';
 import { BUDGETS_FUNCTION_ID, createBudgetsCheck, createBudgetsFailureHandler } from './budgets-check.ts';
+import { BUDGETS_KIND, budgetsFailureHook, budgetsHandler, budgetsJob } from './job.ts';
 import { BUDGETS_CHECK_NAME } from './output.ts';
 import type { OutboxRowsReader } from './raises.ts';
 
@@ -327,6 +331,99 @@ describe('budgets-check — its failure handler (D6: a check that cannot run nev
     const setup = setUp({ base: off, head: off });
     expect(await failed(setup)).toMatchObject({ posted: false });
     expect(setup.github.state.checkRuns).toEqual([]);
+  });
+});
+
+describe('budgets-check — its job of the ledger, kind pr-budgets (PRD 2688 s5)', () => {
+  const REQUEST = { installationId: 7, owner: 'Acme', repo: 'Widgets', prNumber: parsePr(31), headSha: 'head1' };
+  const claimed = (payload: Record<string, unknown> = REQUEST, tries = 1): ClaimedJob => ({
+    id: 'job-1',
+    kind: BUDGETS_KIND,
+    key: 'acme/widgets#31',
+    subject: 'acme/widgets',
+    payload,
+    tries,
+    claim: 'claim-1',
+    claimedUntil: '2027-01-14T09:05:00Z',
+  });
+  const handle = (setup: Setup, extra: { readOutboxRows?: OutboxRowsReader | null; log?: (line: string) => void } = {}) =>
+    budgetsHandler({ octokitFor: () => setup.octokit, log: () => undefined, ...extra });
+
+  it('is keyed by repository and pull request in lower case, due in the refresh delay, its payload holding no token', () => {
+    expect(budgetsJob(REQUEST)).toEqual({ kind: 'pr-budgets', key: 'acme/widgets#31', subject: 'acme/widgets', payload: REQUEST, delaySeconds: 5 });
+  });
+
+  it('gives the verdict the function gave, red over budget, posted on the head commit', async () => {
+    const setup = setUp({ head: overBudget() });
+    expect(await handle(setup)(claimed())).toEqual({ outcome: 'done' });
+    expect(latest(setup)).toMatchObject({ status: 'completed', conclusion: 'failure', head_sha: 'head1' });
+    expect(outputOf(latest(setup)).title).toBe('1 target over budget');
+    expect(postedIds(setup)).toEqual([BUDGETS_EXTERNAL_ID]);
+  });
+
+  it('gives the same green, and a second run posts a newer check run on the same commit', async () => {
+    const setup = setUp({ head: BASE });
+    await handle(setup)(claimed());
+    await handle(setup)(claimed());
+    expect(budgetRuns(setup).map(({ conclusion, head_sha }) => [conclusion, head_sha])).toEqual([['success', 'head1'], ['success', 'head1']]);
+  });
+
+  it('ends skipped, posting nothing, where budgets are off or the loop is not installed', async () => {
+    const off = withCeilings(baseFiles(false));
+    const withoutBudgets = setUp({ base: off, head: off });
+    expect(await handle(withoutBudgets)(claimed())).toMatchObject({ outcome: 'skipped' });
+    expect(withoutBudgets.github.state.checkRuns).toEqual([]);
+
+    const bare = setUp({ base: { 'README.md': '# Widgets\n' }, head: { 'README.md': '# Widgets\n' } });
+    expect(await handle(bare)(claimed())).toMatchObject({ outcome: 'skipped' });
+    expect(bare.github.state.checkRuns).toEqual([]);
+  });
+
+  it('throws GitHub\'s budget refusal as it is, which the worker reads as waiting', async () => {
+    const refusing = { request: () => Promise.reject(new GithubPaused(Date.parse('2027-01-14T10:00:00Z'))) };
+    const handler = budgetsHandler({ octokitFor: () => refusing, log: () => undefined });
+    await expect(handler(claimed())).rejects.toBeInstanceOf(GithubPaused);
+  });
+
+  it('throws on a payload out of shape, naming the field', async () => {
+    await expect(handle(setUp({ head: BASE }))(claimed({ ...REQUEST, headSha: undefined }))).rejects.toThrow('The budgets job is malformed: headSha');
+  });
+
+  it('its failure hook posts the check neutral, saying why, where budgets are on; nothing where they are off', async () => {
+    const setup = setUp({ head: BASE });
+    await budgetsFailureHook({ octokitFor: () => setup.octokit })(claimed(), 'step timed out');
+    expect(latest(setup).conclusion).toBe('neutral');
+    expect(outputOf(latest(setup)).summary).toContain('Not measured: the check could not run — step timed out.');
+
+    const off = withCeilings(baseFiles(false));
+    const withoutBudgets = setUp({ base: off, head: off });
+    await budgetsFailureHook({ octokitFor: () => withoutBudgets.octokit })(claimed(), 'step timed out');
+    expect(withoutBudgets.github.state.checkRuns).toEqual([]);
+  });
+
+  it('a job that throws on its 5th try ends failed, and the check is posted neutral, never left in progress (acceptance 7)', async () => {
+    const setup = setUp({ head: BASE });
+    const broken = { request: () => Promise.reject(new Error('GitHub answered 500')) };
+    const finished: string[] = [];
+    const ledger: JobLedger = {
+      claim: (() => {
+        const queue = [claimed(REQUEST, 5)];
+        return () => Promise.resolve(queue.splice(0, 1));
+      })(),
+      finish: ({ outcome }) => {
+        finished.push(outcome);
+        return Promise.resolve('failed');
+      },
+    };
+    const summary = await runDue({
+      ledger,
+      handlers: { [BUDGETS_KIND]: budgetsHandler({ octokitFor: () => broken, log: () => undefined }) },
+      failures: { [BUDGETS_KIND]: budgetsFailureHook({ octokitFor: () => setup.octokit }) },
+      log: () => undefined,
+    });
+    expect(summary.failed).toBe(1);
+    expect(finished).toEqual(['failed']);
+    expect(latest(setup)).toMatchObject({ conclusion: 'neutral', head_sha: 'head1' });
   });
 });
 
