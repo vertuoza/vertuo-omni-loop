@@ -4,15 +4,14 @@
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { type AppEvent, inngest } from '../inngest-client.ts';
+import type { RefreshJob } from '../jobs/ledger.ts';
 import { stdoutLines } from '../run-log/capture.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
-import { checkRunAt, fakeGitHub, outputOf } from './fake-github.ts';
-import { createFailureHandler, createOutboxCheck } from './outbox-check.ts';
+import { checkRunAt, claimedJob, fakeGitHub, outputOf } from './fake-github.ts';
+import { OUTBOX_KIND, outboxFailureHook, outboxHandler } from './job.ts';
 import type { ProductOutbox, ProductOutboxReader } from './product-outbox.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
@@ -33,16 +32,17 @@ const OUTBOX: ProductOutbox = { dossierId: 'd-1', productId: 'p-1', productName:
 
 type Pull = ReturnType<typeof targetPull>;
 
-/** A signed `pull_request` delivery through `/api/github`'s unit: the events it sent. */
-async function deliver(pull: Pull): Promise<AppEvent[]> {
+/** A signed `pull_request` delivery through `/api/github`'s unit: the outbox check's jobs it refreshed. */
+async function deliver(pull: Pull): Promise<RefreshJob[]> {
   const body = JSON.stringify({ action: 'opened', installation: { id: 7 }, repository: REPOSITORY, number: pull.number, pull_request: pull });
-  const sent: AppEvent[] = [];
+  const sent: RefreshJob[] = [];
   const response = await receiveWebhook({
     body,
     headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: (events) => Promise.resolve(sent.push(...events)),
+    send: () => Promise.resolve(),
+    refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs.filter((job) => job.kind === OUTBOX_KIND))),
   });
   expect(response.status).toBe(200);
   return sent;
@@ -60,21 +60,17 @@ function setUp({ pull = targetPull(), read }: { pull?: Pull; read?: ProductOutbo
     reads.push([repository, prd]);
     return Promise.resolve(OUTBOX);
   };
-  const fn = createOutboxCheck({
-    client: inngest,
+  const handler = outboxHandler({
     octokitFor: () => github.octokit,
     readProductOutbox: read === undefined ? reader : read,
     galaxyUrl: GALAXY,
     now: () => new Date('2026-10-11T10:05:00.000Z'),
     log: (line) => logged.push(line),
   });
-  const run = async (events: AppEvent[]) => {
-    for (const event of events) {
-      const { error } = await new InngestTestEngine({ function: fn, events: [event as never] }).execute();
-      expect(error).toBeUndefined();
-    }
+  const run = async (jobs: RefreshJob[]) => {
+    for (const job of jobs) await handler(claimedJob(job.kind, job.payload));
   };
-  return { github, reads, logged, fn, run };
+  return { github, reads, logged, run };
 }
 
 const routes = (github: ReturnType<typeof fakeGitHub>) => github.state.requests.map((r) => r.route);
@@ -120,9 +116,9 @@ describe('the outbox check of a product PRD\'s target PR — one gate on the pro
 
   it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {
     const t = setUp({ read: null });
-    const fn = createOutboxCheck({ client: inngest, octokitFor: () => t.github.octokit, readProductOutbox: null, galaxyUrl: GALAXY, now: () => new Date('2026-10-11T10:05:00.000Z') });
-    const [event] = await deliver(targetPull());
-    const lines = await stdoutLines(() => new InngestTestEngine({ function: fn, events: [event as never] }).execute());
+    const handler = outboxHandler({ octokitFor: () => t.github.octokit, readProductOutbox: null, galaxyUrl: GALAXY, now: () => new Date('2026-10-11T10:05:00.000Z') });
+    const [job] = await deliver(targetPull());
+    const lines = await stdoutLines(() => handler(claimedJob(OUTBOX_KIND, job?.payload ?? {})));
     expect(lines.filter((line) => line.event === 'note')).toEqual([
       { level: 'warn', event: 'note', fn: 'outbox-check', message: 'outbox check of acme/widgets for mobile-12 is held: the App cannot read the server here' },
     ]);
@@ -159,11 +155,10 @@ describe('the outbox check of a product PRD\'s target PR — one gate on the pro
     expect(t.reads).toEqual([]);
   });
 
-  it('fails closed when the run failed after its retries: a product PRD\'s outbox is a gate', async () => {
+  it('fails closed when the job failed on its 5th try: a product PRD\'s outbox is a gate', async () => {
     const t = setUp();
-    const [event] = await deliver(targetPull());
-    const failed = await createFailureHandler({ octokitFor: () => t.github.octokit })({ event: { data: { event, error: { message: 'GitHub answered 502' } } } });
-    expect(failed).toMatchObject({ name: 'outbox', reason: 'GitHub answered 502' });
-    expect(checkRunAt(t.github.state, -1)).toMatchObject({ conclusion: 'failure', output: { title: 'omni-loop could not evaluate: GitHub answered 502' } });
+    const [job] = await deliver(targetPull());
+    await outboxFailureHook({ octokitFor: () => t.github.octokit, log: () => undefined })(claimedJob(OUTBOX_KIND, job?.payload ?? {}, 5), 'GitHub answered 502');
+    expect(checkRunAt(t.github.state, -1)).toMatchObject({ name: 'outbox', conclusion: 'failure', output: { title: 'omni-loop could not evaluate: GitHub answered 502' } });
   });
 });

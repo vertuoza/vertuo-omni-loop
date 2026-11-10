@@ -294,7 +294,9 @@ describe('/api/github — the latest state wins, on a ledger that keeps the refr
   });
 
   it('an event while a check runs runs that check once more, on the latest head commit, after it finishes (acceptance 3)', async () => {
-    const run = checked((post) => post(pushed('head2')));
+    const run = checked(async (post) => {
+      await post(pushed('head2'));
+    });
     await run.post(pushed('head1'));
     run.at(RUN_AFTER_REFRESH_MS);
     await run.settle();

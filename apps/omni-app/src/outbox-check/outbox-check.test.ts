@@ -1,19 +1,15 @@
+// The outbox check through its job of the ledger (PRD 2688 s7: the Inngest function is gone, the `pr-outbox`
+// job runs the same body), against the stubbed GitHub. The two laws this file proves hold through the job.
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
-import { checkRunAt, fakeGitHub } from './fake-github.ts';
+import { checkRunAt, claimedJob, fakeGitHub } from './fake-github.ts';
 import { startCheck } from '../publish/publish.ts';
-import { DEBOUNCE, FUNCTION_ID, createFailureHandler, createOutboxCheck } from './outbox-check.ts';
-import { appFunctions } from '../functions.ts';
-import { readEnv } from '../env.ts';
-
-/** The functions the app serves, bound to an empty environment. */
-const { outboxCheck } = appFunctions(readEnv({}));
+import { OUTBOX_KIND, outboxFailureHook, outboxHandler } from './job.ts';
+import type { GitHubClient } from './github.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const fixture = (name: string) => join(FIXTURES, name);
@@ -24,19 +20,18 @@ type Params = Record<string, unknown>;
 /** A tree GitHub answered, as far as the bound's test reads it. */
 const TreeAnswerSchema = z.looseObject({ data: z.looseObject({}) });
 
-const event = (over = {}) => ({
-  name: OUTBOX_CHECK_EVENT,
-  data: {
-    installationId: 7,
-    owner: 'acme',
-    repo: 'widgets',
-    repository: 'acme/widgets',
-    prNumber: 12,
-    headSha: 'head1',
-    trigger: 'pull_request.synchronize',
-    ...over,
-  },
+const payload = (over = {}) => ({
+  installationId: 7,
+  owner: 'acme',
+  repo: 'widgets',
+  repository: 'acme/widgets',
+  prNumber: 12,
+  headSha: 'head1',
+  trigger: 'pull_request.synchronize',
+  ...over,
 });
+
+const quiet = () => undefined;
 
 function featureGitHub(over = {}) {
   return fakeGitHub({
@@ -46,35 +41,37 @@ function featureGitHub(over = {}) {
   });
 }
 
-function engine(github: ReturnType<typeof featureGitHub>) {
-  const fn = createOutboxCheck({ client: inngest, octokitFor: () => github.octokit });
-  return new InngestTestEngine({ function: fn, events: [event()] });
+/** One try of the `pr-outbox` job over `octokit`: how it ended, or what it threw. */
+async function run(octokit: GitHubClient) {
+  try {
+    return { result: await outboxHandler({ octokitFor: () => octokit, log: quiet })(claimedJob(OUTBOX_KIND, payload())), error: undefined };
+  } catch (error) {
+    return { result: undefined, error };
+  }
 }
 
-describe('outbox-check — the three steps', () => {
-  it('runs in-progress, then evaluate, then publish, in that order', async () => {
-    const github = featureGitHub();
-    const { ctx, result } = await engine(github).execute();
-    const ids = ctx.step.run.mock.calls.map(([id]) => id);
-    expect(ids).toEqual(['in-progress', 'evaluate', 'publish']);
-    expect(result).toMatchObject({ conclusion: 'failure', name: 'outbox', comment: 'created' });
-  });
+/** The job's failure hook over `octokit`, the job having failed on its 5th try with `reason`. */
+const failed = (octokit: GitHubClient, reason: string) => outboxFailureHook({ octokitFor: () => octokit, log: quiet })(claimedJob(OUTBOX_KIND, payload(), 5), reason);
 
+describe('outbox-check — the three steps, in one try of the job', () => {
   it('creates the check in progress before anything is evaluated, then completes that same run', async () => {
     const github = featureGitHub();
-    await engine(github).execute();
+    expect((await run(github.octokit)).result).toEqual({ outcome: 'done' });
+    const routes = github.state.requests.map((r) => r.route);
+    expect(routes.indexOf('POST /repos/{owner}/{repo}/check-runs')).toBeLessThan(routes.indexOf('GET /repos/{owner}/{repo}/compare/{basehead}'));
     const writes = github.state.requests.filter((r) => r.route.includes('check-runs'));
     expect(writes.map((r) => [r.route, r.status])).toEqual([
       ['POST /repos/{owner}/{repo}/check-runs', 'in_progress'],
       ['PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', 'completed'],
     ]);
     expect(github.state.checkRuns).toHaveLength(1);
-    expect(github.state.checkRuns[0]).toMatchObject({ head_sha: 'head1', status: 'completed', conclusion: 'failure' });
+    expect(github.state.checkRuns[0]).toMatchObject({ name: 'outbox', head_sha: 'head1', status: 'completed', conclusion: 'failure' });
+    expect(github.state.comments).toHaveLength(1);
   });
 
   it('snapshots only the base config and the head delivery folder', async () => {
     const github = featureGitHub();
-    await engine(github).execute();
+    await run(github.octokit);
     const blobs = github.state.requests
       .filter((r) => r.route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}')
       .map((r) => String(r.file_sha));
@@ -86,7 +83,7 @@ describe('outbox-check — the three steps', () => {
 
   it('with laws in the knowledge folder, also snapshots it at the base and at the head (PRD 1342)', async () => {
     const github = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-feature-demoted') } });
-    await engine(github).execute();
+    await run(github.octokit);
     const blobs = github.state.requests
       .filter((r) => r.route === 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}')
       .map((r) => String(r.file_sha));
@@ -99,7 +96,7 @@ describe('outbox-check — the three steps', () => {
 
   it('hands the changed files from the compare endpoint to the gate', async () => {
     const github = featureGitHub();
-    await engine(github).execute();
+    await run(github.octokit);
     const compare = github.state.requests.find((r) => r.route === 'GET /repos/{owner}/{repo}/compare/{basehead}');
     assertDefined(compare, 'the compare request');
     expect(compare.basehead).toBe('base1...head1');
@@ -113,15 +110,15 @@ describe('outbox-check — the three steps', () => {
 
     // The head renames the override label to `ship-it`: that label overrides nothing, the base's still does.
     const renamed = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-renames-label') }, pull: pull(['ship-it']) });
-    await engine(renamed).execute();
+    await run(renamed.octokit);
     expect(renamed.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
     const base = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-renames-label') }, pull: pull(['omni:outbox-go']) });
-    await engine(base).execute();
+    await run(base.octokit);
     expect(base.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'neutral' });
 
     // From the head, only what is judged: the delivery folder, and the knowledge folder beside the base's.
     const laws = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-feature-demoted') } });
-    await engine(laws).execute();
+    await run(laws.octokit);
     const blobs = [...blobsOf(renamed), ...blobsOf(laws)];
     expect(blobs).toContain('base1:.omni-loop/config.yml');
     expect(blobs).toContain('base1:.omni-loop/knowledge/product/invariants.md');
@@ -135,11 +132,9 @@ describe('outbox-check — the three steps', () => {
 describe('outbox-check — silent where the loop is not installed (PRD 359)', () => {
   const inactiveGitHub = () => featureGitHub({ commits: { base1: fixture('base-inactive'), head1: fixture('head-open') } });
 
-  it('a pull request on a repository without .omni-loop posts no check and no comment', async () => {
+  it('a pull request on a repository without .omni-loop posts no check and no comment, and the job ends skipped', async () => {
     const github = inactiveGitHub();
-    const { ctx, result } = await engine(github).execute();
-    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress']);
-    expect(result).toEqual({ posted: false, reason: 'omni-loop is not active on this repo' });
+    expect((await run(github.octokit)).result).toEqual({ outcome: 'skipped', reason: 'omni-loop is not active on this repo' });
     expect(github.state.checkRuns).toEqual([]);
     expect(github.state.comments).toEqual([]);
     const writes = github.state.requests.filter((r) => r.route.startsWith('POST ') || r.route.startsWith('PATCH '));
@@ -148,58 +143,29 @@ describe('outbox-check — silent where the loop is not installed (PRD 359)', ()
 
   it('a broken config still gets its check: omni-loop is installed there, and says what is wrong', async () => {
     const github = featureGitHub({ commits: { base1: fixture('base-broken'), head1: fixture('head-open') } });
-    await engine(github).execute();
+    await run(github.octokit);
     expect(github.state.checkRuns).toHaveLength(1);
     expect(github.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
   });
 
-  it('the failure handler posts nothing either on a repository without .omni-loop', async () => {
+  it('the failure hook posts nothing either on a repository without .omni-loop', async () => {
     const github = inactiveGitHub();
-    const handler = createFailureHandler({ octokitFor: () => github.octokit });
-    const out = await handler({
-      event: { name: 'inngest/function.failed', data: { event: event(), error: { message: 'boom' } } },
-      error: new Error('boom'),
-    });
-    expect(out).toEqual({ posted: false, reason: 'omni-loop is not active on this repo' });
+    await failed(github.octokit, 'boom');
     expect(github.state.checkRuns).toEqual([]);
   });
 });
 
-describe('outbox-check — the function’s configuration', () => {
-  it('is triggered by the event /api/github sends', () => {
-    expect(outboxCheck.id()).toBe(FUNCTION_ID);
-    expect(outboxCheck.opts.triggers).toEqual([{ event: OUTBOX_CHECK_EVENT }]);
-  });
-
-  it('debounces per repository and pull request number', () => {
-    expect(outboxCheck.opts.debounce).toBe(DEBOUNCE);
-    expect(DEBOUNCE.key).toContain('event.data.repository');
-    expect(DEBOUNCE.key).toContain('event.data.prNumber');
-    expect(DEBOUNCE.period).toMatch(/^\d+s$/);
-  });
-
-  it('has a failure handler', () => {
-    expect(typeof outboxCheck.opts.onFailure).toBe('function');
-  });
-});
-
 describe('outbox-check — fail closed', () => {
-  it('a thrown step fails the run (and Inngest then calls the failure handler)', async () => {
+  it('a try that throws leaves the check in progress, and the failure hook then completes it as failure', async () => {
     const github = featureGitHub();
     const broken = { request: (route: string, params?: Params) => {
       if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') return Promise.reject(new Error('GitHub is down'));
       return github.octokit.request(route, params);
     } };
-    const fn = createOutboxCheck({ client: inngest, octokitFor: () => broken });
-    const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
-    expect(error).toBeTruthy();
+    expect((await run(broken)).error).toBeTruthy();
     expect(checkRunAt(github.state, 0).status).toBe('in_progress');
 
-    const handler = createFailureHandler({ octokitFor: () => github.octokit });
-    await handler({
-      event: { name: 'inngest/function.failed', data: { event: event(), error: { message: 'GitHub is down' } } },
-      error: new Error('GitHub is down'),
-    });
+    await failed(github.octokit, 'GitHub is down');
     expect(github.state.checkRuns).toHaveLength(1);
     expect(github.state.checkRuns[0]).toMatchObject({
       status: 'completed',
@@ -208,13 +174,9 @@ describe('outbox-check — fail closed', () => {
     });
   });
 
-  it('creates the check already failed when the run failed before creating one', async () => {
+  it('creates the check already failed when the job failed before creating one', async () => {
     const github = featureGitHub();
-    const handler = createFailureHandler({ octokitFor: () => github.octokit });
-    await handler({
-      event: { name: 'inngest/function.failed', data: { event: event(), error: { message: 'boom\nstack' } } },
-      error: new Error('boom\nstack'),
-    });
+    await failed(github.octokit, 'boom\nstack');
     expect(github.state.checkRuns).toHaveLength(1);
     expect(checkRunAt(github.state, 0)).toMatchObject({
       name: 'outbox',
@@ -232,16 +194,11 @@ describe('outbox-check — fail closed', () => {
       if (route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}') return Promise.reject(new Error('502'));
       return github.octokit.request(route, params);
     } };
-    const handler = createFailureHandler({ octokitFor: () => flaky });
-    const out = await handler({
-      event: { name: 'inngest/function.failed', data: { event: event(), error: { message: '502' } } },
-      error: new Error('502'),
-    });
-    expect(out).toHaveProperty('name', 'outbox');
-    expect(checkRunAt(github.state, 0).conclusion).toBe('failure');
+    await failed(flaky, '502');
+    expect(checkRunAt(github.state, 0)).toMatchObject({ name: 'outbox', conclusion: 'failure' });
   });
 
-  it('does not retry a snapshot over its bound, and names the bound', async () => {
+  it('a snapshot over its bound throws, naming the bound', async () => {
     const github = featureGitHub();
     const huge = { request: async (route: string, params: Params = {}) => {
       const response = await github.octokit.request(route, params);
@@ -251,18 +208,12 @@ describe('outbox-check — fail closed', () => {
       }
       return response;
     } };
-    const fn = createOutboxCheck({ client: inngest, octokitFor: () => huge });
-    const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
-    expect(error).toHaveProperty('name', 'NonRetriableError');
+    const { error } = await run(huge);
     expect(error).toHaveProperty('message', expect.stringMatching(/over the bound of 2,000 files/));
   });
 });
 
 describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', () => {
-  const failed = (message: string) => ({
-    event: { name: 'inngest/function.failed', data: { event: event(), error: { message } } },
-    error: new Error(message),
-  });
   const RATE_LIMIT = 'API rate limit exceeded for installation ID 7.';
   const dependabotPr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'dependabot/npm_and_yarn/brace-expansion-5.0.12', sha: 'head1' } };
   const plainFeaturePr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/VS-29444-gantt-node-move-dates', sha: 'head1' } };
@@ -276,11 +227,13 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
     } };
   }
 
+  /** The conclusion of the last check run the job posted. */
+  const lastConclusion = (github: ReturnType<typeof featureGitHub>) => checkRunAt(github.state, -1).conclusion;
+
   for (const [kind, pull] of [['a dependabot PR', dependabotPr], ['a plain feature PR', plainFeaturePr]] as const) {
     it(`${kind}: one check, completed skipped, before any gate read`, async () => {
       const github = featureGitHub({ pull });
-      const { result } = await engine(github).execute();
-      expect(result).toMatchObject({ conclusion: 'skipped' });
+      await run(github.octokit);
       expect(github.state.checkRuns).toEqual([
         expect.objectContaining({ name: 'outbox', head_sha: 'head1', status: 'completed', conclusion: 'skipped' }),
       ]);
@@ -289,19 +242,17 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
       expect(reads).not.toContain('GET /repos/{owner}/{repo}/issues/{issue_number}/comments');
     });
 
-    it(`${kind}: a run GitHub rate-limits never ends red`, async () => {
+    it(`${kind}: a job GitHub rate-limits never ends red`, async () => {
       const github = featureGitHub({ pull });
-      const limited = rateLimitedAfterClassify(github);
-      const fn = createOutboxCheck({ client: inngest, octokitFor: () => limited });
-      await new InngestTestEngine({ function: fn, events: [event()] }).execute();
-      await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+      await run(rateLimitedAfterClassify(github));
+      await failed(github.octokit, RATE_LIMIT);
       expect(github.state.checkRuns.map((r) => r.conclusion)).not.toContain('failure');
       expect(github.state.checkRuns.map((r) => r.status)).not.toContain('in_progress');
     });
 
-    it(`${kind}: the failure handler, run with no check yet, posts skipped — never failure`, async () => {
+    it(`${kind}: the failure hook, run with no check yet, posts skipped — never failure`, async () => {
       const github = featureGitHub({ pull });
-      await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+      await failed(github.octokit, RATE_LIMIT);
       expect(github.state.checkRuns).toEqual([
         expect.objectContaining({ status: 'completed', conclusion: 'skipped' }),
       ]);
@@ -309,10 +260,9 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
 
     it(`${kind}: a re-synchronize keeps it skipped`, async () => {
       const github = featureGitHub({ pull });
-      await engine(github).execute();
+      await run(github.octokit);
       github.state.pull.head.sha = 'head1';
-      const again = createOutboxCheck({ client: inngest, octokitFor: () => github.octokit });
-      await new InngestTestEngine({ function: again, events: [event({ trigger: 'pull_request.synchronize' })] }).execute();
+      await run(github.octokit);
       expect(github.state.checkRuns.map((r) => r.conclusion)).toEqual(['skipped', 'skipped']);
     });
   }
@@ -323,43 +273,42 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
 
     it('passes before any gate read, pointing to the plan PR', async () => {
       const github = featureGitHub({ pull: targetPr, others: planPulls });
-      const { result } = await engine(github).execute();
-      expect(result).toMatchObject({ conclusion: 'success' });
+      await run(github.octokit);
       expect(github.state.checkRuns).toEqual([expect.objectContaining({ name: 'outbox', status: 'completed', conclusion: 'success' })]);
       const reads = github.state.requests.map((r) => r.route);
       expect(reads).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
       expect(reads).not.toContain('GET /repos/{owner}/{repo}/issues/{issue_number}/comments');
     });
 
-    it('the failure handler, run with no check yet, passes it too — never failure, never skipped', async () => {
+    it('the failure hook, run with no check yet, passes it too — never failure, never skipped', async () => {
       const github = featureGitHub({ pull: targetPr, others: planPulls });
-      await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+      await failed(github.octokit, RATE_LIMIT);
       expect(github.state.checkRuns).toEqual([expect.objectContaining({ status: 'completed', conclusion: 'success' })]);
     });
 
     it('a sub-PR in the target, into its feature branch, stays skipped whatever its body says', async () => {
       const github = featureGitHub({ pull: { ...targetPr, base: { ref: 'feat/crew-api', sha: 'base1' }, head: { ref: 'feat/crew-api--s1', sha: 'head1' } }, others: planPulls });
-      const { result } = await engine(github).execute();
-      expect(result).toMatchObject({ conclusion: 'skipped' });
+      await run(github.octokit);
+      expect(lastConclusion(github)).toBe('skipped');
     });
 
     it('a body naming this same repository stays skipped, as today', async () => {
       const github = featureGitHub({ pull: { ...targetPr, body: 'Part of acme/widgets#8' } });
-      const { result } = await engine(github).execute();
-      expect(result).toMatchObject({ conclusion: 'skipped' });
+      await run(github.octokit);
+      expect(lastConclusion(github)).toBe('skipped');
     });
 
     it('a body saying Closes #<n> too is gated here: Closes wins', async () => {
       const github = featureGitHub({ pull: { ...targetPr, head: { ref: 'feat/widget', sha: 'head1' }, body: 'Closes #42\nPart of acme/plan#8' }, others: planPulls });
-      const { result } = await engine(github).execute();
-      expect(result).toMatchObject({ conclusion: 'failure' });
+      await run(github.octokit);
+      expect(lastConclusion(github)).toBe('failure');
     });
 
     it('a target\'s fix PR defers to the plan PR too, where its record lives (PRD 1342)', async () => {
       const fixPr = { ...targetPr, head: { ref: 'fix/77-crash', sha: 'head1' } };
       const github = featureGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-fix') }, pull: fixPr, others: planPulls });
-      const { result } = await engine(github).execute();
-      expect(result).toMatchObject({ conclusion: 'success' });
+      await run(github.octokit);
+      expect(lastConclusion(github)).toBe('success');
       expect(github.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
     });
 
@@ -367,29 +316,25 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
       const github = featureGitHub({ pull: targetPr });
       const broken = { request: (route: string, params?: Params) =>
         route === 'GET /repos/{owner}/{repo}/pulls' ? Promise.reject(Object.assign(new Error('boom'), { status: 500 })) : github.octokit.request(route, params) };
-      const fn = createOutboxCheck({ client: inngest, octokitFor: () => broken });
-      const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+      const { error } = await run(broken);
       expect(error).toBeDefined();
     });
   });
 
-  it('the failure handler posts nothing when it cannot tell what the pull request is', async () => {
+  it('the failure hook posts nothing when it cannot tell what the pull request is', async () => {
     const github = featureGitHub({ pull: dependabotPr });
     const down = { request: (route: string, params?: Params) => {
       if (route.startsWith('GET ')) return Promise.reject(new Error(RATE_LIMIT));
       return github.octokit.request(route, params);
     } };
-    const out = await createFailureHandler({ octokitFor: () => down })(failed(RATE_LIMIT));
-    expect(out).toMatchObject({ posted: false });
+    await failed(down, RATE_LIMIT);
     expect(github.state.checkRuns).toEqual([]);
   });
 
   it('an Omni Loop feature PR GitHub rate-limits still fails closed', async () => {
     const github = featureGitHub();
-    const limited = rateLimitedAfterClassify(github);
-    const fn = createOutboxCheck({ client: inngest, octokitFor: () => limited });
-    await new InngestTestEngine({ function: fn, events: [event()] }).execute();
-    await createFailureHandler({ octokitFor: () => github.octokit })(failed(RATE_LIMIT));
+    await run(rateLimitedAfterClassify(github));
+    await failed(github.octokit, RATE_LIMIT);
     expect(github.state.checkRuns).toEqual([
       expect.objectContaining({ status: 'completed', conclusion: 'failure' }),
     ]);
@@ -397,16 +342,16 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
 
   it('an Omni Loop feature PR with an open outbox item is still red', async () => {
     const github = featureGitHub();
-    const { result } = await engine(github).execute();
-    expect(result).toMatchObject({ conclusion: 'failure' });
+    await run(github.octokit);
+    expect(lastConclusion(github)).toBe('failure');
   });
 });
 
 describe('outbox-check — the live gate grades the pull request', () => {
-  /** The check run the live function completes for a feature PR at `head`, the range changing `files`. */
+  /** The check run the live job completes for a feature PR at `head`, the range changing `files`. */
   async function liveCheck(head: string, files: { filename: string; status: string }[] = []) {
     const github = featureGitHub({ commits: { base1: fixture('base-active'), head1: fixture(head) }, files });
-    await engine(github).execute();
+    await run(github.octokit);
     return checkRunAt(github.state, -1);
   }
 

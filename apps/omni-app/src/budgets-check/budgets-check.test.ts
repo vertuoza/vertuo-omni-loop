@@ -17,16 +17,15 @@ import { createContext } from 'omni-loop/kit/lib/context.ts';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { formText, makeRepo } from 'omni-loop/kit/test/fixture.ts';
 import { main } from 'omni-loop/kit/bin/omni.ts';
-import { BUDGETS_CHECK_EVENT, BUDGETS_EXTERNAL_ID, OUTBOX_CHECK_EVENT, type AppEvent, type CheckRequest, inngest } from '../inngest-client.ts';
-import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
+import { BUDGETS_EXTERNAL_ID, inngest } from '../inngest-client.ts';
+import { checkRunAt, claimedJob, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { createServerEventRecheck } from '../server-event/recheck.ts';
 import { SERVER_EVENT } from '../server-event/server-event.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { GithubPaused } from '@omni/github';
-import type { ClaimedJob, JobLedger } from '../jobs/ledger.ts';
+import type { ClaimedJob, JobLedger, RefreshJob } from '../jobs/ledger.ts';
 import { runDue } from '../jobs/worker.ts';
-import { BUDGETS_FUNCTION_ID, createBudgetsCheck, createBudgetsFailureHandler } from './budgets-check.ts';
-import { BUDGETS_KIND, budgetsFailureHook, budgetsHandler, budgetsJob } from './job.ts';
+import { BUDGETS_KIND, budgetsFailureHook, budgetsHandler } from './job.ts';
 import { BUDGETS_CHECK_NAME } from './output.ts';
 import type { OutboxRowsReader } from './raises.ts';
 
@@ -114,16 +113,17 @@ function setUp({ base = BASE, head, pull = pullOf(), history = [] }: { base?: Fi
 
 type Setup = ReturnType<typeof setUp>;
 
-/** A signed delivery through `/api/github`'s unit; the events it sent. */
-async function eventsOf(event: string, payload: Record<string, unknown>): Promise<AppEvent[]> {
+/** A signed delivery through `/api/github`'s unit; the checks' jobs it refreshed (PRD 2688). */
+async function eventsOf(event: string, payload: Record<string, unknown>): Promise<RefreshJob[]> {
   const body = JSON.stringify(payload);
-  const sent: AppEvent[] = [];
+  const sent: RefreshJob[] = [];
   const response = await receiveWebhook({
     body,
     headers: { 'x-github-event': event, 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: (events) => Promise.resolve(sent.push(...events)),
+    send: () => Promise.resolve(),
+    refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs)),
   });
   expect(response.status).toBe(200);
   return sent;
@@ -132,15 +132,11 @@ async function eventsOf(event: string, payload: Record<string, unknown>): Promis
 const pullRequestEvents = (pull: Pull) =>
   eventsOf('pull_request', { action: 'synchronize', installation: { id: 7 }, repository: REPOSITORY, number: pull.number, pull_request: pull });
 
-/** Every event through the real function; what each run returned. */
-async function run({ octokit }: Setup, events: readonly AppEvent[], readOutboxRows: OutboxRowsReader | null = null, logged: string[] = []) {
-  const fn = createBudgetsCheck({ client: inngest, octokitFor: () => octokit, readOutboxRows, log: (line) => logged.push(line) });
+/** Every `pr-budgets` job through the real handler; how each try ended. */
+async function run({ octokit }: Setup, jobs: readonly RefreshJob[], readOutboxRows: OutboxRowsReader | null = null, logged: string[] = []) {
+  const handler = budgetsHandler({ octokitFor: () => octokit, readOutboxRows, log: (line) => logged.push(line) });
   const results: unknown[] = [];
-  for (const event of events) {
-    const { result, error } = await new InngestTestEngine({ function: fn, events: [event] }).execute();
-    expect(error).toBeUndefined();
-    results.push(result);
-  }
+  for (const job of jobs.filter(({ kind }) => kind === BUDGETS_KIND)) results.push(await handler(claimedJob(job.kind, job.payload)));
   return results;
 }
 
@@ -154,7 +150,7 @@ describe('budgets-check — the omni / budgets check run (PRD 1679 s3)', () => {
     const off = withCeilings(baseFiles(false));
     const setup = setUp({ base: off, head: { ...off, [GUIDE]: BIG_GUIDE } });
     const [result] = await run(setup, await pullRequestEvents(pullOf()));
-    expect(result).toMatchObject({ posted: false });
+    expect(result).toMatchObject({ outcome: 'skipped' });
     expect(setup.github.state.checkRuns).toEqual([]);
   });
 
@@ -265,7 +261,7 @@ describe('budgets-check — the omni / budgets check run (PRD 1679 s3)', () => {
       repository: REPOSITORY,
       check_run: { head_sha: 'head1', external_id: BUDGETS_EXTERNAL_ID, pull_requests: [{ number: 31, head: { sha: 'head1' } }] },
     });
-    expect(events.map(({ name }) => name)).toEqual([BUDGETS_CHECK_EVENT]);
+    expect(events.map(({ kind }) => kind)).toEqual([BUDGETS_KIND]);
     const setup = setUp({ head: BASE });
     await run(setup, events);
     expect(latest(setup).conclusion).toBe('success');
@@ -285,15 +281,15 @@ describe('budgets-check — the omni / budgets check run (PRD 1679 s3)', () => {
     expect(reads).toEqual(['acme/widgets mobile-12']);
 
     rows.items[0] = { ...rows.items[0], settlement: { verdict: 'agreed', basis: 'answered', settledAt: '2026-10-12T10:00:00Z' } } as (typeof rows.items)[0];
+    const sent: RefreshJob[] = [];
     const recheck = createServerEventRecheck({
       client: inngest,
       octokitFor: () => setup.octokit,
       readTargets: () => Promise.resolve({ prdId: 'mobile-12', installationId: 7, pulls: [{ repository: 'acme/widgets', number: 31 }] }),
+      jobs: { refresh: (job) => Promise.resolve(sent.push(job)), run: () => run(setup, sent, readOutboxRows) },
     });
-    const { ctx } = await new InngestTestEngine({ function: recheck, events: [{ name: SERVER_EVENT, data: { event: 'item-settled', dossier: DOSSIER, at: '2026-10-12T10:00:00Z' } }] }).execute();
-    const sent = sentEvents(ctx);
-    expect(sent.map(({ name }) => name)).toEqual([OUTBOX_CHECK_EVENT]);
-    await run(setup, sent, readOutboxRows);
+    await new InngestTestEngine({ function: recheck, events: [{ name: SERVER_EVENT, data: { event: 'item-settled', dossier: DOSSIER, at: '2026-10-12T10:00:00Z' } }] }).execute();
+    expect(sent.filter(({ kind }) => kind === BUDGETS_KIND)).toHaveLength(1);
     expect(budgetRuns(setup)).toHaveLength(2);
     expect(latest(setup)).toMatchObject({ conclusion: 'success', head_sha: 'head1' });
   });
@@ -307,16 +303,14 @@ describe('budgets-check — the omni / budgets check run (PRD 1679 s3)', () => {
     expect(logged.join('\n')).toContain('the raises of PRD mobile-12 are not read');
   });
 
-  it('serves under its own id', () => {
-    expect(createBudgetsCheck({ client: inngest, octokitFor: () => setUp({ head: BASE }).octokit }).id()).toBe(BUDGETS_FUNCTION_ID);
-  });
 });
 
-describe('budgets-check — its failure handler (D6: a check that cannot run never blocks a merge)', () => {
+describe('budgets-check — its failure hook (D6: a check that cannot run never blocks a merge)', () => {
   const failed = (setup: Setup) =>
-    createBudgetsFailureHandler({ octokitFor: () => setup.octokit })({
-      event: { data: { event: { data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 31, headSha: 'head1' } }, error: { message: 'step timed out' } } },
-    });
+    budgetsFailureHook({ octokitFor: () => setup.octokit })(
+      claimedJob(BUDGETS_KIND, { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 31, headSha: 'head1' }, 5),
+      'step timed out',
+    );
 
   it('posts the check neutral, saying why, where budgets are on', async () => {
     const setup = setUp({ head: BASE });
@@ -329,7 +323,7 @@ describe('budgets-check — its failure handler (D6: a check that cannot run nev
   it('posts nothing where budgets are off', async () => {
     const off = withCeilings(baseFiles(false));
     const setup = setUp({ base: off, head: off });
-    expect(await failed(setup)).toMatchObject({ posted: false });
+    await failed(setup);
     expect(setup.github.state.checkRuns).toEqual([]);
   });
 });
@@ -348,10 +342,6 @@ describe('budgets-check — its job of the ledger, kind pr-budgets (PRD 2688 s5)
   });
   const handle = (setup: Setup, extra: { readOutboxRows?: OutboxRowsReader | null; log?: (line: string) => void } = {}) =>
     budgetsHandler({ octokitFor: () => setup.octokit, log: () => undefined, ...extra });
-
-  it('is keyed by repository and pull request in lower case, due in the refresh delay, its payload holding no token', () => {
-    expect(budgetsJob(REQUEST)).toEqual({ kind: 'pr-budgets', key: 'acme/widgets#31', subject: 'acme/widgets', payload: REQUEST, delaySeconds: 5 });
-  });
 
   it('gives the verdict the function gave, red over budget, posted on the head commit', async () => {
     const setup = setUp({ head: overBudget() });
@@ -386,7 +376,7 @@ describe('budgets-check — its job of the ledger, kind pr-budgets (PRD 2688 s5)
   });
 
   it('throws on a payload out of shape, naming the field', async () => {
-    await expect(handle(setUp({ head: BASE }))(claimed({ ...REQUEST, headSha: undefined }))).rejects.toThrow('The budgets job is malformed: headSha');
+    await expect(handle(setUp({ head: BASE }))(claimed({ ...REQUEST, headSha: undefined }))).rejects.toThrow('The pr-budgets job is malformed: headSha');
   });
 
   it('its failure hook posts the check neutral, saying why, where budgets are on; nothing where they are off', async () => {
@@ -426,12 +416,6 @@ describe('budgets-check — its job of the ledger, kind pr-budgets (PRD 2688 s5)
     expect(latest(setup)).toMatchObject({ conclusion: 'neutral', head_sha: 'head1' });
   });
 });
-
-/** The events a run sent, by the step's `sendEvent`. */
-function sentEvents(ctx: unknown): CheckRequest[] {
-  const send = (ctx as { step: { sendEvent: { mock: { calls: unknown[][] } } } }).step.sendEvent;
-  return send.mock.calls.flatMap((call) => call[1] as CheckRequest[]);
-}
 
 /** A high item that asks to raise the testing form's ceiling to `ceiling`. */
 function raiseItem(ceiling: number): string {
