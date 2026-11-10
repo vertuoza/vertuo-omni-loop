@@ -1,5 +1,5 @@
 -- A product's MCP server: who switches it, and what an API key reads through it (PRD 2707 s2,
--- 20270114090000_product_mcp.sql). The supabase workflow runs it on every pull request, after
+-- 20270115090000_product_mcp.sql). The supabase workflow runs it on every pull request, after
 -- `supabase db start` has applied the migrations and the demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/product_mcp.sql
 -- A product's server is off until an owner of its workspace turns it on with product_mcp_set(); a member,

@@ -10,7 +10,7 @@ import { productMcpService } from './product-mcp.service';
 
 // `/api/products/<key>/mcp` (PRD 2707 s3) driven by the SDK's own client over the route's handler, against a
 // stubbed repository that plays product_mcp_for_key() and api_key_of() as
-// supabase/migrations/20270114090000_product_mcp.sql writes them, over a fictional product, Acme App:
+// supabase/migrations/20270115090000_product_mcp.sql writes them, over a fictional product, Acme App:
 // acme/widgets (the law home) and acme/api. Every request asks the stub again, so a change between two
 // calls of one connected client shows on the second.
 

@@ -1,6 +1,6 @@
 // A product's MCP server's storage (PRD 2707 s3; ADR-0095), on the client it is given: the service role's,
 // since an API key is no person's session and product_mcp_for_key() is the service role's alone
-// (supabase/migrations/20270114090000_product_mcp.sql). That function checks the key, its maker's
+// (supabase/migrations/20270115090000_product_mcp.sql). That function checks the key, its maker's
 // membership, the product's workspace, its switch and the key's allow-list on every call; every other read
 // here is filtered by the product and the packs it answered, so a read never reaches past them. The Legal
 // entries and the Glossary come in its answer, read by product_knowledge_for_agents() inside the database, so
