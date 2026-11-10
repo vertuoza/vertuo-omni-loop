@@ -7554,6 +7554,33 @@ async function compareOne({ repository, pack: pack2 }, { ledger, appOctokit, oct
 
 // apps/omni-app/src/jobs/ledger.ts
 import { z as z28 } from "zod";
+
+// apps/omni-app/src/jobs/schedule.ts
+var SCHEDULES = Object.freeze([]);
+var MINUTE = 6e4;
+function slotStart(schedule, now) {
+  const period = schedule.periodMinutes * MINUTE;
+  return Math.floor(now / period) * period;
+}
+function scheduledJobs(schedules, now) {
+  return schedules.map((schedule) => {
+    const slot = new Date(slotStart(schedule, now)).toISOString();
+    return { kind: schedule.kind, key: `${schedule.kind}@${slot}`, subject: schedule.kind, payload: { slot }, lane: schedule.kind, maxTries: schedule.maxTries };
+  });
+}
+async function addScheduled({
+  ledger,
+  schedules = SCHEDULES,
+  clock = Date.now
+}) {
+  let added = 0;
+  for (const job of scheduledJobs(schedules, clock())) {
+    if (await ledger.add(job)) added += 1;
+  }
+  return { scheduled: schedules.length, added };
+}
+
+// apps/omni-app/src/jobs/ledger.ts
 var RefreshedSchema = z28.enum(["added", "updated", "again", "requeued"]);
 var PayloadSchema = z28.record(z28.string(), z28.unknown());
 var ClaimedRowSchema = z28.object({
@@ -7562,7 +7589,10 @@ var ClaimedRowSchema = z28.object({
   key: z28.string().min(1),
   subject: z28.string().min(1),
   payload: PayloadSchema,
+  progress: PayloadSchema.default({}),
+  lane: z28.string().min(1).nullable().default(null),
   tries: z28.number().int().min(1).max(5),
+  max_tries: z28.number().int().min(1).max(5).default(5),
   claim: z28.string().min(1),
   claimed_until: z28.string().min(1)
 });
@@ -7577,35 +7607,46 @@ var ReplayedRowSchema = z28.object({
 var HealthSchema = z28.object({
   state: z28.enum(["ok", "late"]),
   late: z28.number().int().nonnegative(),
-  failed: z28.number().int().nonnegative()
+  failed: z28.number().int().nonnegative(),
+  /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
+  scheduled: z28.number().int().nonnegative().optional()
 });
 var refused2 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
   if (error) throw refused2(error);
   return data;
 }
+function paced(lane, maxTries) {
+  return { ...lane === void 0 ? {} : { p_lane: lane }, ...maxTries === void 0 ? {} : { p_max_tries: maxTries } };
+}
+function healthArgs(schedules) {
+  if (schedules.length === 0) return void 0;
+  return { p_kinds: schedules.map(({ kind }) => kind), p_periods: schedules.map(({ periodMinutes }) => periodMinutes * 60) };
+}
 function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
-    add: async ({ kind, key, subject, payload }) => z28.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
-    refresh: async ({ kind, key, subject, payload, delaySeconds }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
+    add: async ({ kind, key, subject, payload, lane, maxTries }) => z28.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane, maxTries) }))),
+    refresh: async ({ kind, key, subject, payload, delaySeconds, lane, maxTries }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
       p_kind: kind,
       p_key: key,
       p_subject: subject,
       p_payload: payload,
-      p_delay_seconds: delaySeconds
+      p_delay_seconds: delaySeconds,
+      ...paced(lane, maxTries)
     }))),
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z28.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
-      return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));
+      return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
-    finish: async ({ id, claim, outcome, reason: reason2, retryAt }) => {
+    finish: async ({ id, claim, outcome, reason: reason2, retryAt, progress }) => {
       const answer = await db.rpc("background_job_finish", {
         p_id: id,
         p_claim: claim,
         p_outcome: outcome,
         ...reason2 === null ? {} : { p_reason: reason2 },
-        ...retryAt === null ? {} : { p_retry_at: retryAt }
+        ...retryAt === null ? {} : { p_retry_at: retryAt },
+        ...progress === void 0 ? {} : { p_progress: progress }
       });
       if (answer.error?.code === "55000") return "stale";
       return JobStateSchema.parse(dataOf(answer));
@@ -7616,7 +7657,7 @@ function jobLedger(connection) {
       const job = ReplayedRowSchema.parse(dataOf(answer));
       return { replayed: true, ...job };
     },
-    health: async () => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", void 0, { get: true }))),
+    health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
     forget: async () => z28.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
   };
 }
@@ -12105,8 +12146,9 @@ var LEASE_SECONDS = 300;
 var MAX_TRIES = 5;
 var RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 var WAIT_MINUTES = 15;
-var MINUTE = 6e4;
+var MINUTE2 = 6e4;
 var MAX_REASON = 500;
+var TOO_MANY_LATERS = "it asked to run later more than 20 times";
 async function runDue({
   ledger,
   handlers,
@@ -12116,7 +12158,7 @@ async function runDue({
   leaseSeconds = LEASE_SECONDS,
   log: log2 = noteTo("jobs")
 }) {
-  const summary = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, failed: 0, stale: 0 };
+  const summary = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
   const start = clock();
   while (clock() - start < budgetMs) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
@@ -12124,9 +12166,11 @@ async function runDue({
     const settled = await settle(job, handlers[job.kind], clock);
     summary.ran += 1;
     const kept2 = await keep(ledger, job, settled, log2);
+    const ended = settled.outcome === "later" && kept2 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
     if (kept2 === "stale") summary.stale += 1;
-    else if (kept2 !== null) summary[settled.outcome] += 1;
-    if (kept2 === "failed") await failed2(job, settled.reason, failures[job.kind], log2);
+    else if (kept2 !== null) summary[ended.outcome] += 1;
+    if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+    if (kept2 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
   }
   return summary;
 }
@@ -12141,16 +12185,20 @@ async function failed2(job, reason2, hook, log2) {
 async function settle(job, handler, clock) {
   try {
     if (!handler) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
-    const result = await handler(job);
-    return result.outcome === "done" ? { outcome: "done", reason: null, retryAt: null } : { outcome: "skipped", reason: firstLine3(result.reason), retryAt: null };
+    return settledOf(await handler(job));
   } catch (error) {
     const reason2 = firstLine3(error instanceof Error ? error.message : String(error));
     const budget = budgetRefusal2(error);
     if (budget) return { outcome: "waiting", reason: firstLine3(budget.message), retryAt: later(clock, WAIT_MINUTES) };
     const wait2 = RETRY_MINUTES[job.tries - 1];
-    if (job.tries >= MAX_TRIES || wait2 === void 0) return { outcome: "failed", reason: reason2, retryAt: null };
+    if (job.tries >= (job.maxTries ?? MAX_TRIES) || wait2 === void 0) return { outcome: "failed", reason: reason2, retryAt: null };
     return { outcome: "retry", reason: reason2, retryAt: later(clock, wait2) };
   }
+}
+function settledOf(result) {
+  if (result.outcome === "done") return { outcome: "done", reason: null, retryAt: null };
+  if (result.outcome === "later") return { outcome: "later", reason: null, retryAt: result.at.toISOString(), progress: result.progress };
+  return { outcome: "skipped", reason: firstLine3(result.reason), retryAt: null };
 }
 async function keep(ledger, job, settled, log2) {
   const name = `job ${job.kind} ${job.key}`;
@@ -12163,7 +12211,7 @@ async function keep(ledger, job, settled, log2) {
   }
   if (answer === "stale") log2(`${name}: its claim was taken over, so its ${settled.outcome} was not kept`);
   else if (settled.outcome === "skipped") log2(`${name}: skipped: ${settled.reason ?? ""}`);
-  else if (settled.outcome !== "done") log2(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ""}`);
+  else if (settled.outcome !== "done" && settled.outcome !== "later") log2(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ""}`);
   return answer;
 }
 function budgetRefusal2(error) {
@@ -12176,7 +12224,7 @@ function firstLine3(message) {
   const line = message.split("\n").map((one) => one.trim()).find((one) => one.length > 0);
   return line ? line.slice(0, MAX_REASON) : "it threw with no message";
 }
-var later = (clock, minutes) => new Date(clock() + minutes * MINUTE).toISOString();
+var later = (clock, minutes) => new Date(clock() + minutes * MINUTE2).toISOString();
 
 // apps/omni-app/src/jobs/sweep.ts
 var FORGET_HOUR_UTC = 3;
@@ -12188,6 +12236,7 @@ function liveJobs(env, logger) {
   return {
     run: () => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor) }),
     delayed: () => postDelayed({ store: delayedStore(supabase), octokitFor }),
+    schedule: () => addScheduled({ ledger }),
     gaps: () => compareGaps({ store: gapsStore(supabase), ledger, appOctokit: appOctokitFor(env.githubApp ?? null), octokitFor }),
     replay: (id) => ledger.replay(id),
     forget: () => ledger.forget()
@@ -12215,6 +12264,7 @@ function jobsSweepRoute(env, { logger = log, jobs = liveJobs(env, logger), clock
         if (new Date(clock()).getUTCHours() === FORGET_HOUR_UTC) body.forgotten = await ledger.forget();
       }
       body.delayed = await ledger.delayed();
+      body.scheduled = await ledger.schedule();
       body.run = await ledger.run();
       return json(200, { ok: true, ...body });
     }),

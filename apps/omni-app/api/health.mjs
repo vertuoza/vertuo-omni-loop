@@ -204,6 +204,9 @@ function serviceDb({ url, key, fetch }) {
   });
 }
 
+// apps/omni-app/src/jobs/schedule.ts
+var SCHEDULES = Object.freeze([]);
+
 // apps/omni-app/src/jobs/ledger.ts
 var RefreshedSchema = z5.enum(["added", "updated", "again", "requeued"]);
 var PayloadSchema = z5.record(z5.string(), z5.unknown());
@@ -213,7 +216,10 @@ var ClaimedRowSchema = z5.object({
   key: z5.string().min(1),
   subject: z5.string().min(1),
   payload: PayloadSchema,
+  progress: PayloadSchema.default({}),
+  lane: z5.string().min(1).nullable().default(null),
   tries: z5.number().int().min(1).max(5),
+  max_tries: z5.number().int().min(1).max(5).default(5),
   claim: z5.string().min(1),
   claimed_until: z5.string().min(1)
 });
@@ -228,35 +234,46 @@ var ReplayedRowSchema = z5.object({
 var HealthSchema = z5.object({
   state: z5.enum(["ok", "late"]),
   late: z5.number().int().nonnegative(),
-  failed: z5.number().int().nonnegative()
+  failed: z5.number().int().nonnegative(),
+  /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
+  scheduled: z5.number().int().nonnegative().optional()
 });
 var refused = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
   if (error) throw refused(error);
   return data;
 }
+function paced(lane, maxTries) {
+  return { ...lane === void 0 ? {} : { p_lane: lane }, ...maxTries === void 0 ? {} : { p_max_tries: maxTries } };
+}
+function healthArgs(schedules) {
+  if (schedules.length === 0) return void 0;
+  return { p_kinds: schedules.map(({ kind }) => kind), p_periods: schedules.map(({ periodMinutes }) => periodMinutes * 60) };
+}
 function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
-    add: async ({ kind, key, subject, payload }) => z5.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
-    refresh: async ({ kind, key, subject, payload, delaySeconds }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
+    add: async ({ kind, key, subject, payload, lane, maxTries }) => z5.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane, maxTries) }))),
+    refresh: async ({ kind, key, subject, payload, delaySeconds, lane, maxTries }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
       p_kind: kind,
       p_key: key,
       p_subject: subject,
       p_payload: payload,
-      p_delay_seconds: delaySeconds
+      p_delay_seconds: delaySeconds,
+      ...paced(lane, maxTries)
     }))),
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z5.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
-      return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));
+      return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
-    finish: async ({ id, claim, outcome, reason, retryAt }) => {
+    finish: async ({ id, claim, outcome, reason, retryAt, progress }) => {
       const answer = await db.rpc("background_job_finish", {
         p_id: id,
         p_claim: claim,
         p_outcome: outcome,
         ...reason === null ? {} : { p_reason: reason },
-        ...retryAt === null ? {} : { p_retry_at: retryAt }
+        ...retryAt === null ? {} : { p_retry_at: retryAt },
+        ...progress === void 0 ? {} : { p_progress: progress }
       });
       if (answer.error?.code === "55000") return "stale";
       return JobStateSchema.parse(dataOf(answer));
@@ -267,7 +284,7 @@ function jobLedger(connection) {
       const job = ReplayedRowSchema.parse(dataOf(answer));
       return { replayed: true, ...job };
     },
-    health: async () => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", void 0, { get: true }))),
+    health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
     forget: async () => z5.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
   };
 }

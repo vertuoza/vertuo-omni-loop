@@ -8719,6 +8719,11 @@ function createCanonAction({ client, octokitFor, galaxyUrl }) {
 
 // apps/omni-app/src/jobs/ledger.ts
 import { z as z33 } from "zod";
+
+// apps/omni-app/src/jobs/schedule.ts
+var SCHEDULES = Object.freeze([]);
+
+// apps/omni-app/src/jobs/ledger.ts
 var REFRESH_DELAY_SECONDS = 5;
 var RefreshedSchema = z33.enum(["added", "updated", "again", "requeued"]);
 var PayloadSchema = z33.record(z33.string(), z33.unknown());
@@ -8728,7 +8733,10 @@ var ClaimedRowSchema = z33.object({
   key: z33.string().min(1),
   subject: z33.string().min(1),
   payload: PayloadSchema,
+  progress: PayloadSchema.default({}),
+  lane: z33.string().min(1).nullable().default(null),
   tries: z33.number().int().min(1).max(5),
+  max_tries: z33.number().int().min(1).max(5).default(5),
   claim: z33.string().min(1),
   claimed_until: z33.string().min(1)
 });
@@ -8743,35 +8751,46 @@ var ReplayedRowSchema = z33.object({
 var HealthSchema = z33.object({
   state: z33.enum(["ok", "late"]),
   late: z33.number().int().nonnegative(),
-  failed: z33.number().int().nonnegative()
+  failed: z33.number().int().nonnegative(),
+  /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
+  scheduled: z33.number().int().nonnegative().optional()
 });
 var refused3 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
   if (error) throw refused3(error);
   return data;
 }
+function paced(lane2, maxTries) {
+  return { ...lane2 === void 0 ? {} : { p_lane: lane2 }, ...maxTries === void 0 ? {} : { p_max_tries: maxTries } };
+}
+function healthArgs(schedules) {
+  if (schedules.length === 0) return void 0;
+  return { p_kinds: schedules.map(({ kind }) => kind), p_periods: schedules.map(({ periodMinutes }) => periodMinutes * 60) };
+}
 function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
-    add: async ({ kind, key, subject, payload }) => z33.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
-    refresh: async ({ kind, key, subject, payload, delaySeconds }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
+    add: async ({ kind, key, subject, payload, lane: lane2, maxTries }) => z33.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane2, maxTries) }))),
+    refresh: async ({ kind, key, subject, payload, delaySeconds, lane: lane2, maxTries }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
       p_kind: kind,
       p_key: key,
       p_subject: subject,
       p_payload: payload,
-      p_delay_seconds: delaySeconds
+      p_delay_seconds: delaySeconds,
+      ...paced(lane2, maxTries)
     }))),
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z33.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
-      return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));
+      return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
-    finish: async ({ id, claim, outcome: outcome2, reason: reason2, retryAt }) => {
+    finish: async ({ id, claim, outcome: outcome2, reason: reason2, retryAt, progress }) => {
       const answer = await db.rpc("background_job_finish", {
         p_id: id,
         p_claim: claim,
         p_outcome: outcome2,
         ...reason2 === null ? {} : { p_reason: reason2 },
-        ...retryAt === null ? {} : { p_retry_at: retryAt }
+        ...retryAt === null ? {} : { p_retry_at: retryAt },
+        ...progress === void 0 ? {} : { p_progress: progress }
       });
       if (answer.error?.code === "55000") return "stale";
       return JobStateSchema.parse(dataOf(answer));
@@ -8782,7 +8801,7 @@ function jobLedger(connection) {
       const job = ReplayedRowSchema.parse(dataOf(answer));
       return { replayed: true, ...job };
     },
-    health: async () => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", void 0, { get: true }))),
+    health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
     forget: async () => z33.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
   };
 }
@@ -14381,6 +14400,7 @@ var RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 var WAIT_MINUTES = 15;
 var MINUTE = 6e4;
 var MAX_REASON = 500;
+var TOO_MANY_LATERS = "it asked to run later more than 20 times";
 async function runDue({
   ledger,
   handlers,
@@ -14390,7 +14410,7 @@ async function runDue({
   leaseSeconds = LEASE_SECONDS,
   log: log2 = noteTo("jobs")
 }) {
-  const summary2 = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, failed: 0, stale: 0 };
+  const summary2 = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
   const start = clock();
   while (clock() - start < budgetMs) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
@@ -14398,9 +14418,11 @@ async function runDue({
     const settled = await settle(job, handlers[job.kind], clock);
     summary2.ran += 1;
     const kept3 = await keep(ledger, job, settled, log2);
+    const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
     if (kept3 === "stale") summary2.stale += 1;
-    else if (kept3 !== null) summary2[settled.outcome] += 1;
-    if (kept3 === "failed") await failed2(job, settled.reason, failures[job.kind], log2);
+    else if (kept3 !== null) summary2[ended.outcome] += 1;
+    if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+    if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
   }
   return summary2;
 }
@@ -14415,16 +14437,20 @@ async function failed2(job, reason2, hook, log2) {
 async function settle(job, handler2, clock) {
   try {
     if (!handler2) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
-    const result = await handler2(job);
-    return result.outcome === "done" ? { outcome: "done", reason: null, retryAt: null } : { outcome: "skipped", reason: firstLine3(result.reason), retryAt: null };
+    return settledOf(await handler2(job));
   } catch (error) {
     const reason2 = firstLine3(error instanceof Error ? error.message : String(error));
     const budget = budgetRefusal2(error);
     if (budget) return { outcome: "waiting", reason: firstLine3(budget.message), retryAt: later(clock, WAIT_MINUTES) };
     const wait2 = RETRY_MINUTES[job.tries - 1];
-    if (job.tries >= MAX_TRIES || wait2 === void 0) return { outcome: "failed", reason: reason2, retryAt: null };
+    if (job.tries >= (job.maxTries ?? MAX_TRIES) || wait2 === void 0) return { outcome: "failed", reason: reason2, retryAt: null };
     return { outcome: "retry", reason: reason2, retryAt: later(clock, wait2) };
   }
+}
+function settledOf(result) {
+  if (result.outcome === "done") return { outcome: "done", reason: null, retryAt: null };
+  if (result.outcome === "later") return { outcome: "later", reason: null, retryAt: result.at.toISOString(), progress: result.progress };
+  return { outcome: "skipped", reason: firstLine3(result.reason), retryAt: null };
 }
 async function keep(ledger, job, settled, log2) {
   const name = `job ${job.kind} ${job.key}`;
@@ -14437,7 +14463,7 @@ async function keep(ledger, job, settled, log2) {
   }
   if (answer === "stale") log2(`${name}: its claim was taken over, so its ${settled.outcome} was not kept`);
   else if (settled.outcome === "skipped") log2(`${name}: skipped: ${settled.reason ?? ""}`);
-  else if (settled.outcome !== "done") log2(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ""}`);
+  else if (settled.outcome !== "done" && settled.outcome !== "later") log2(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ""}`);
   return answer;
 }
 function budgetRefusal2(error) {
