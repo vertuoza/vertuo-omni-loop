@@ -28,7 +28,7 @@ function world(due: DueJob[], failOn?: (params: Record<string, unknown>) => Erro
   };
   const octokit: RequestOctokit = {
     request: (route, params) => {
-      const given = (params ?? {}) as Record<string, unknown>;
+      const given = params ?? {};
       const error = failOn?.(given);
       if (error) return Promise.reject(error);
       expect(route).toBe('POST /repos/{owner}/{repo}/check-runs');
