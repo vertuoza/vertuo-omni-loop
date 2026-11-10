@@ -18,10 +18,14 @@ import type { NewJob } from './ledger.ts';
 export type Schedule = { kind: string; periodMinutes: number; maxTries: number };
 
 /**
- * The App's schedules. None yet: a kind joins once its handler runs on the ledger (PRD omni-loop-3 s2 adds
- * `pr-stats` every 15 minutes and `escalation` every hour, 3 tries each), so no job is added that nothing runs.
+ * The App's schedules. A kind joins once its handler runs on the ledger (./pr-checks.ts), so no job is added that
+ * nothing runs: the Engineering board's collector every 15 minutes (../pr-stats/job.ts) and the escalation sweep
+ * every hour (../escalation/job.ts), 3 tries each (PRD omni-loop-3 s2).
  */
-export const SCHEDULES: readonly Schedule[] = Object.freeze([]);
+export const SCHEDULES: readonly Schedule[] = Object.freeze([
+  { kind: 'pr-stats', periodMinutes: 15, maxTries: 3 },
+  { kind: 'escalation', periodMinutes: 60, maxTries: 3 },
+]);
 
 const MINUTE = 60_000;
 

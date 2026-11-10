@@ -5,16 +5,18 @@
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
-import { internalEvents } from 'inngest';
+import { GithubDeferred } from '@omni/github';
 import { afterEach, describe, expect, it } from 'vitest';
 import { readAsk, readRecord, RECORD_MARKER, type RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { inngest } from '../inngest-client.ts';
+import type { ClaimedJob, Finish, JobLedger } from '../jobs/ledger.ts';
+import { liveWorkers } from '../jobs/pr-checks.ts';
+import { SCHEDULES, scheduledJobs } from '../jobs/schedule.ts';
+import { runDue } from '../jobs/worker.ts';
 import { checkRunAt, commitOf, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { runOutboxCheck } from '../outbox-check/outbox-check.ts';
+import { ESCALATION_KIND, escalationHandler } from './job.ts';
 import { recordLines } from './record.ts';
-import { createEscalation, ESCALATION_FUNCTION_ID, EVERY_HOUR } from './sweep.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const fixture = (name: string) => join(FIXTURES, name);
@@ -244,13 +246,41 @@ function sweepGitHub(github: GitHub, open: { value: boolean } = { value: true })
   return { app, installation };
 }
 
-const tick = () => [{ name: internalEvents.ScheduledTimer, data: { cron: EVERY_HOUR } }] as never;
+/** The `escalation` job of the hour's slot, as the ledger hands it to the worker: claimed, on its first try. */
+const escalationJob = (slot = '2026-10-14T09:00:00.000Z'): ClaimedJob => ({
+  id: 'job-1',
+  kind: ESCALATION_KIND,
+  key: `${ESCALATION_KIND}@${slot}`,
+  subject: ESCALATION_KIND,
+  payload: { slot },
+  progress: {},
+  lane: ESCALATION_KIND,
+  maxTries: 3,
+  tries: 1,
+  claim: 'claim-1',
+  claimedUntil: slot,
+});
+
+const SWEPT = /^escalation: (\d+) repositories, (\d+) open pull requests, (\d+) asked, (\d+) left for the next hour$/;
+
+/**
+ * One run of a claimed `escalation` job (PRD omni-loop-3 s2): how it ended, the lines it logged before its summary,
+ * and the summary its last line says (null when it logged none).
+ */
+async function sweptBy(handler: ReturnType<typeof escalationHandler>, logged: string[]) {
+  const outcome = await handler(escalationJob());
+  const said = SWEPT.exec(logged.at(-1) ?? '')?.slice(1).map(Number);
+  const result = said ? { repositories: said[0], pulls: said[1], asked: said[2], failed: said[3] } : null;
+  return { outcome, result, lines: said ? logged.slice(0, -1) : logged };
+}
 
 async function sweep(github: GitHub, now: string, open?: { value: boolean }) {
   const { app, installation } = sweepGitHub(github, open);
-  const fn = createEscalation({ client: inngest, octokitFor: () => installation, appOctokit: () => app, clock: () => new Date(now).getTime(), log: () => undefined });
+  const logged: string[] = [];
+  const handler = escalationHandler({ octokitFor: () => installation, appOctokit: () => app, clock: () => new Date(now).getTime(), log: (line) => logged.push(line) });
   const from = github.state.requests.length;
-  const outcome = await new InngestTestEngine({ function: fn, events: tick() }).execute();
+  const outcome = await sweptBy(handler, logged);
+  expect(outcome.outcome).toEqual({ outcome: 'done' });
   return { ...outcome, requests: github.state.requests.slice(from) };
 }
 
@@ -396,23 +426,60 @@ describe('the hourly sweep: asks more people, never decides', () => {
       },
     };
     const logged: string[] = [];
-    const fn = createEscalation({ client: inngest, octokitFor: () => withBroken, appOctokit: () => app, clock: () => new Date(WEDNESDAY_LATER).getTime(), log: (line) => logged.push(line) });
-    const { result, error } = await new InngestTestEngine({ function: fn, events: tick() }).execute();
-    expect(error).toBeUndefined();
+    const handler = escalationHandler({ octokitFor: () => withBroken, appOctokit: () => app, clock: () => new Date(WEDNESDAY_LATER).getTime(), log: (line) => logged.push(line) });
+    const { outcome, result, lines } = await sweptBy(handler, logged);
+    expect(outcome).toEqual({ outcome: 'done' });
     expect(result).toMatchObject({ asked: 1, pulls: 2, failed: 1 });
-    expect(logged).toEqual([expect.stringContaining('escalation sweep of acme/widgets#99 waits for the next hour: GitHub is down')]);
+    expect(lines).toEqual([expect.stringContaining('escalation sweep of acme/widgets#99 waits for the next hour: GitHub is down')]);
   });
 
-  it('runs every hour, one run at a time', () => {
-    const fn = createEscalation({ client: inngest, octokitFor: () => ({ request: () => Promise.reject(new Error('unused')) }), appOctokit: null });
-    expect(fn.opts).toMatchObject({ id: ESCALATION_FUNCTION_ID, triggers: [{ cron: '0 * * * *' }], concurrency: { limit: 1 } });
+  it('a budget the shared client refuses ends the job waiting, its try given back; the next run asks nobody twice', async () => {
+    const github = featureGitHub();
+    await run(github, MONDAY);
+    const { app, installation } = sweepGitHub(github);
+    const deferred = new GithubDeferred(Date.parse(WEDNESDAY_LATER) + 15 * 60_000);
+    let refuse = true;
+    const budgeted = {
+      request: async (route: string, params: Params = {}): Promise<{ data: unknown }> => {
+        // The budget runs low once the ask is posted, before the record is rewritten.
+        if (refuse && route === 'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}') throw new Error('Request failed', { cause: deferred });
+        return installation.request(route, params);
+      },
+    };
+    const finishes: Finish[] = [];
+    const jobs = [escalationJob()];
+    const ledger: JobLedger = {
+      claim: () => Promise.resolve(jobs.splice(0, 1)),
+      finish: (finish) => {
+        finishes.push(finish);
+        return Promise.resolve('queued');
+      },
+    };
+    const handler = escalationHandler({ octokitFor: () => budgeted, appOctokit: () => app, clock: () => new Date(WEDNESDAY_LATER).getTime(), log: () => undefined });
+
+    const summary = await runDue({ ledger, handlers: { [ESCALATION_KIND]: handler }, clock: () => Date.parse(WEDNESDAY_LATER), log: () => undefined });
+
+    expect(summary).toMatchObject({ ran: 1, waiting: 1, failed: 0, retry: 0 });
+    expect(finishes).toEqual([expect.objectContaining({ outcome: 'waiting', reason: deferred.message })]);
+    expect(asks(github)).toHaveLength(1);
+    refuse = false;
+    expect((await handler(escalationJob())).outcome).toBe('done');
+    expect(asks(github)).toHaveLength(1);
+    expect(recordOf(github).map(({ step }) => step)).toEqual([1, 1]);
   });
 
-  it('with no App client it logs one line and asks nobody', async () => {
+  it('is added every hour, one job per slot, in its own lane, with 3 tries, and the worker runs it', () => {
+    expect(SCHEDULES).toContainEqual({ kind: ESCALATION_KIND, periodMinutes: 60, maxTries: 3 });
+    const jobs = scheduledJobs(SCHEDULES, Date.parse('2026-10-14T09:30:00Z')).filter((job) => job.kind === ESCALATION_KIND);
+    expect(jobs).toEqual([{ kind: 'escalation', key: 'escalation@2026-10-14T09:00:00.000Z', subject: 'escalation', payload: { slot: '2026-10-14T09:00:00.000Z' }, lane: 'escalation', maxTries: 3 }]);
+    const { handlers } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
+    expect(typeof handlers[ESCALATION_KIND]).toBe('function');
+  });
+
+  it('with no App client it logs one line, asks nobody and ends skipped', async () => {
     const logged: string[] = [];
-    const fn = createEscalation({ client: inngest, octokitFor: () => ({ request: () => Promise.reject(new Error('unused')) }), appOctokit: null, log: (line) => logged.push(line) });
-    const { result } = await new InngestTestEngine({ function: fn, events: tick() }).execute();
-    expect(result).toEqual({ skipped: 'no app' });
+    const handler = escalationHandler({ octokitFor: () => ({ request: () => Promise.reject(new Error('unused')) }), appOctokit: null, log: (line) => logged.push(line) });
+    expect(await handler(escalationJob())).toEqual({ outcome: 'skipped', reason: 'no app: the App cannot list its installations here' });
     expect(logged).toHaveLength(1);
   });
 });

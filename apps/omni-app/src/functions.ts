@@ -1,16 +1,17 @@
-// The nine Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The seven Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the retro with its day-14 run (PRD 72), queueing `/omni:retro-apply` as the service role (PRD 2338), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
-// the pr-stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), which re-checks
+// the canon buttons (PRD 839), the server event (PRD 1548), which re-checks
 // a product PRD's open target pull requests, read from the database, once galaxy says it was approved or voided,
-// by refreshing their checks' jobs on the ledger and running them (PRD 2688),
-// the hourly escalation sweep (PRD 1794), which lists the App's installations as the App itself, the fix row stamp
+// by refreshing their checks' jobs on the ledger and running them (PRD 2688), the fix row stamp
 // (PRD 2011), which stamps a bug record's Fixes rows as the service role when their pull request merges, closes or
 // reopens, and is handed no GitHub. The knowledge pack (PRD 2011) is no longer one of them: it is a job of the
 // ledger (PRD 2676, ./jobs/pack.ts), so it can never run on both. Nor are the four pull-request checks, the
 // outbox check (PRD 28), the inbox check (PRD 675), the approved check (PRD 1548) with its rerun on the approved
 // label (PRD 1612) and the budgets check (PRD 1679): they are jobs of the ledger too (PRD 2688,
-// ./jobs/pr-checks.ts), which the webhook refreshes (./webhook/github-route.ts). The main watch
+// ./jobs/pr-checks.ts), which the webhook refreshes (./webhook/github-route.ts). Nor are the pr-stats collector
+// (PRD 612) and the hourly escalation sweep (PRD 1794): they are jobs the schedule adds (PRD omni-loop-3,
+// ./jobs/schedule.ts, ./pr-stats/job.ts, ./escalation/job.ts). The main watch
 // (PRD 2410) keeps a merged PRD's seven days on main in its tables as the service role, finds its installation on
 // each target as the retro does, and queues `/omni:rewind` on its first break through the retro's runner queue. The fleet
 // board (PRD 2530) reads the fleets and writes a fleet's note as the service role, and adds a loop pull request into the
@@ -38,8 +39,6 @@ import { runDue } from './jobs/worker.ts';
 import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts';
 import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
-import { createEscalation } from './escalation/sweep.ts';
-import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
 import { runnerQueue } from './retro/runner-queue.ts';
 import { loggedClient, noteTo } from './run-log/run-log.ts';
@@ -79,10 +78,8 @@ export function appFunctions(
       openrouter: env.openrouter,
       lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(env.galaxyUrl), secret: env.lawJudge.secret }) : null,
     }),
-    prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
     canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
     serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: supabase ? targetsReader(supabase) : null, jobs }),
-    escalation: createEscalation({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
     fixRowStamp: createFixRowStamp({ client: inngest, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
     mainWatch: createMainWatch({
       client: inngest,

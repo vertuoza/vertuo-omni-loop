@@ -11,9 +11,10 @@
 //                    `external_id`, as the webhook told its event before; any other check run is the outbox's
 //   the approval     the approved label put on or taken off a PRD's issue refreshes the `pr-approved` job of each
 //                    open pull request of that PRD, read from GitHub (../approved-check/github.ts)
-//   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's
-//                    included: the webhook, the server event's recheck and the sweep all run the same jobs, so
-//                    each runs every kind, and none spends a try on a job it has no handler for
+//   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's and the
+//                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts): the
+//                    webhook, the server event's recheck and the sweep all run the same jobs, so each runs every
+//                    kind, and none spends a try on a job it has no handler for
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { askJudge } from '../approved-check/judge-client.ts';
 import { APPROVED_KIND, approvedFailure, approvedHandler } from '../approved-check/approved-job.ts';
@@ -24,15 +25,18 @@ import { BUDGETS_KIND, budgetsFailureHook, budgetsHandler } from '../budgets-che
 import { outboxRowsReader, type OutboxRowsReader } from '../budgets-check/raises.ts';
 import { liveCanon } from '../canon/live.ts';
 import { DEFAULT_GALAXY_URL, type AppEnv, type SupabaseEnv } from '../env.ts';
+import { ESCALATION_KIND, escalationHandler } from '../escalation/job.ts';
 import { businessLawsJudge, businessLawsJudgeUrl } from '../inbox-check/business-laws-judge.ts';
 import type { CanonGrader, LawsGrader } from '../inbox-check/evaluate-inbox.ts';
 import { PR_INBOX_KIND, inboxFailureHook, inboxHandler } from '../inbox-check/inbox-check.ts';
 import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from '../inngest-client.ts';
 import { knowledgePackStore } from '../knowledge-pack/store.ts';
-import type { OctokitFor } from '../octokit-for.ts';
+import { appOctokitFor, type OctokitFor } from '../octokit-for.ts';
 import type { GitHubClient } from '../outbox-check/github.ts';
 import { OUTBOX_KIND, outboxFailureHook, outboxHandler } from '../outbox-check/job.ts';
 import { productOutboxReader, type ProductOutboxReader } from '../outbox-check/product-outbox.ts';
+import type { GraphqlOctokit } from '../pr-stats/github.ts';
+import { PR_STATS_KIND, prStatsHandler } from '../pr-stats/job.ts';
 import { REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
 import type { FailureHook, JobHandler } from './worker.ts';
@@ -116,11 +120,17 @@ export function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecor
   };
 }
 
-/** The groups the live worker reads: the database it runs on, and what the checks ask beside GitHub. */
-export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'openrouter' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
+/**
+ * The groups the live worker reads: the database it runs on, what the checks ask beside GitHub, and the App's own
+ * key, with which the escalation lists its installations.
+ */
+export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
 
-/** Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's and the four checks'. */
-export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient>): Workers {
+/**
+ * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the four checks',
+ * the Engineering board's collector's and the escalation's.
+ */
+export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient & GraphqlOctokit>): Workers {
   const { supabase } = env;
   const galaxyUrl = env.galaxyUrl ?? DEFAULT_GALAXY_URL;
   const checks = prCheckWorkers({
@@ -134,7 +144,12 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient>
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret }),
   });
   return {
-    handlers: { [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }), ...checks.handlers },
+    handlers: {
+      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }),
+      ...checks.handlers,
+      [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
+      [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
+    },
     failures: checks.failures,
   };
 }
