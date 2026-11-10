@@ -28,7 +28,7 @@ import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
 import { productPrd } from './prd-product.ts';
 
-const USAGE = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join('|')}>]`;
+const USAGE = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join('|')}> | --json]`;
 
 /** `<n>` read as a PRD's id, or the usage error that names it. A value with no letter at its start and
  * no hyphen is a number or nothing, refused as `prdArg` refuses one (bug #571). */
@@ -44,21 +44,23 @@ function idArg(value: string | undefined) {
 
 /** The PRD the arguments name, and the kind `--show` asks for: a product PRD's only. */
 function readArgs(args: string[]) {
-  const { positional, flags } = parseArgs('prd', args, { values: ['show'] });
+  const { positional, flags } = parseArgs('prd', args, { values: ['show'], booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const id = idArg(positional[0]);
   const kind = flags.show ?? null;
-  if (kind === null) return { id, kind };
+  const json = flags.json === true;
+  if (json && (kind !== null || !isProductPrdId(id))) throw usageError(USAGE);
+  if (kind === null) return { id, kind, json };
   if (!isProductPrdId(id) || !isPrdKind(kind)) throw usageError(USAGE);
-  return { id, kind };
+  return { id, kind, json };
 }
 
 export const prd = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & GateOptions & { now?: () => number }) {
-    const { id, kind } = readArgs(args);
+    const { id, kind, json } = readArgs(args);
     const ctx = loadContext(cwd, { exec });
-    if (isProductPrdId(id)) return productPrd(id, kind, { ctx, exec, stdout, stderr, tokens, home, fetch, callMs, now });
+    if (isProductPrdId(id)) return productPrd(id, kind, { ctx, exec, stdout, stderr, tokens, home, fetch, callMs, now }, json);
     const where = whereIs(ctx, id);
     if (!where) {
       println(stderr, `omni prd: PRD ${id} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);

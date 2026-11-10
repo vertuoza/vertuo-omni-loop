@@ -28,6 +28,8 @@ const FindingSchema = z.looseObject({
   statement: z.string(),
   why: z.string(),
   quote: z.string(),
+  // What the judge found broken, in its own words (bug #2696); an older galaxy sends none.
+  broken: z.string().optional().catch(undefined),
   owners: z.array(z.string()).catch([]),
 });
 
@@ -49,13 +51,14 @@ export function businessLawsJudgeUrl(galaxyUrl: string): string {
 
 const notJudged = (why: string): Gate => ({ name: GATE, ok: true, neutral: true, reason: `not judged: ${why}` });
 
-/** One finding in the page's words: the law, why it exists, the spec's words, who owns it. */
+/** One finding in the page's words: the law, why it exists, the spec's words, what the judge found broken, who owns it. */
 function detailsOf(finding: z.infer<typeof FindingSchema>): string[] {
   const owners = finding.owners.length > 0 ? finding.owners.map((owner) => `@${owner}`).join(' or ') : 'nobody is named';
   return [
     `${finding.law}: ${finding.statement}`,
     `Why: ${finding.why === '' ? 'not given' : finding.why}`,
     `The spec says: "${finding.quote}"`,
+    ...(finding.broken ? [`The judge says: ${finding.broken}`] : []),
     `Owner: ${owners}`,
   ];
 }

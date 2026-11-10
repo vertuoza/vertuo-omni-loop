@@ -492,7 +492,7 @@ describe('the help table in this repository', () => {
   it('names a product PRD\'s verbs on omni dossier and omni prd (PRD 1548)', () => {
     const find = (name: string) => ENTRIES.find((e) => e.name === name && e.kind === 'command');
     expect(find('dossier')?.detail).toMatch(/get <key>-<n> <kind> writes the latest/);
-    expect(find('prd')?.usage).toEqual(['omni prd <n>', 'omni prd <key>-<n> [--show <kind>]']);
+    expect(find('prd')?.usage).toEqual(['omni prd <n>', 'omni prd <key>-<n> [--show <kind> | --json]']);
     expect(find('prd')?.detail).toMatch(/mobile, 12-mobile and Mobile-12 are refused by name/);
   });
 

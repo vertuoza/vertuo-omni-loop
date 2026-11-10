@@ -1,11 +1,15 @@
-// `omni prd <key>-<n> [--show <kind>]` (PRD 1548 s2): a product PRD (`mobile-12`), which lives on the
+// `omni prd <key>-<n> [--show <kind> | --json]` (PRD 1548 s2): a product PRD (`mobile-12`), which lives on the
 // server and in no repository, read from the Omni page.
 //
 // - Without `--show`: the approval route (`GET /api/dossiers/approval?prd=<key>-<n>`) answers its
 //   approval in force, which `readProductApproval` judges, and the dossier lookup
 //   (`GET /api/dossiers?product=&prd=`) its title, its page and its product; its stage is read as a ◆ PRD's
 //   is (`productPrdState`). It prints `PRD <id> — <title>`, `state:`, `birthplace: server`, one `approval:`
-//   line per line the reading says, `page:` and `product:`. While the server is down it prints the held
+//   line per line the reading says, `page:` and `product:`. Since bug #2696 the reply's `laws` is printed
+//   after the approval lines (`../../lib/approval/laws.ts`): `laws: green · 12 judged`, `laws: not judged ·
+//   <why>`, `laws: not judged yet`, or `laws: red · 2 laws broken` then, per finding, the law with the spec's
+//   words and `why:` what the judge found broken. With `--json` it prints one object instead: `{id, title,
+//   state, birthplace, approval, page, product, laws}`, `laws` the reply's own or null. While the server is down it prints the held
 //   reading and exits 0, as `omni prd <n>` does for a ◆ PRD; a PRD the page has not is exit 1.
 // - With `--show <kind>`: the latest version of that kind (`GET /api/dossiers/get`), read-only, under one
 //   line `<kind> of PRD <id> · v<k> · as of <time>`, the time it was read; each read is kept as the
@@ -18,6 +22,8 @@ import type { Fetch } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { field } from '../../lib/ask/schema.ts';
 import { readProductApproval } from '../../lib/approval/approval.ts';
+import type { ApprovalReading } from '../../lib/approval/approval.ts';
+import { lawsLines } from '../../lib/approval/laws.ts';
 import { productPrdState } from '../../lib/approval/prd-state.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import type { Context } from '../../lib/context.ts';
@@ -54,8 +60,28 @@ async function pageOf(id: ProductPrdId, client: NonNullable<ReturnType<typeof si
   }
 }
 
+const textOf = (value: unknown): string | null => (isText(value) ? value : null);
+
+/** What a lookup found of a product PRD: its stage, its approval reading, and what its page says, when read. */
+type Found = { id: ProductPrdId; state: string; approval: ApprovalReading; read: boolean; title: string | null; url: string | null; product: string | null };
+
+/** A product PRD as one object, its business laws verdict whole, or null (bug #2696). */
+const asJson = ({ id, state, approval, title, url, product }: Found): string =>
+  JSON.stringify({ id, title, state, birthplace: 'server', approval: approval.lines, page: url, product, laws: approval.laws ?? null }, null, 2);
+
+/** A product PRD as its lines: the approval's, then the business laws verdict's, when the page gives one. */
+const asLines = ({ id, state, approval, read, title, url, product }: Found): string => [
+  `PRD ${id}${title === null ? '' : ` — ${title}`}`,
+  `state: ${state}`,
+  'birthplace: server',
+  ...approval.lines.map((line) => `approval: ${line}`),
+  ...(approval.laws ? lawsLines(approval.laws) : []),
+  ...(url === null ? [] : [`page: ${url}`]),
+  ...(read ? [`product: ${product ?? 'none'}`] : []),
+].join('\n');
+
 /** Product PRD `id`: where it stands, read from the approval route, then its title, page and product. */
-async function lookup(id: ProductPrdId, client: NonNullable<ReturnType<typeof signedInClient>>, io: ProductPrdIo): Promise<number> {
+async function lookup(id: ProductPrdId, client: NonNullable<ReturnType<typeof signedInClient>>, io: ProductPrdIo, json: boolean): Promise<number> {
   const repo = io.ctx.config.repo.slug;
   const seen = { missing: false };
   const approval = await readProductApproval(id, async () => {
@@ -72,17 +98,8 @@ async function lookup(id: ProductPrdId, client: NonNullable<ReturnType<typeof si
   }
   const state = productPrdState(id, approval);
   const page = approval.state === 'unreachable' ? null : await pageOf(id, client, repo);
-  const title = field(page, 'title');
-  const url = field(page, 'url') ?? approval.url;
-  const product = field(page, 'product');
-  println(io.stdout, [
-    `PRD ${id}${isText(title) ? ` — ${title}` : ''}`,
-    `state: ${state.state}`,
-    'birthplace: server',
-    ...approval.lines.map((line) => `approval: ${line}`),
-    ...(isText(url) ? [`page: ${url}`] : []),
-    ...(page === null ? [] : [`product: ${isText(product) ? product : 'none'}`]),
-  ].join('\n'));
+  const found: Found = { id, state: state.state, approval, read: page !== null, title: textOf(field(page, 'title')), url: textOf(field(page, 'url') ?? approval.url), product: textOf(field(page, 'product')) };
+  println(io.stdout, json ? asJson(found) : asLines(found));
   return 0;
 }
 
@@ -128,12 +145,12 @@ async function show(id: ProductPrdId, kind: ArtifactKind, client: NonNullable<Re
   return 0;
 }
 
-/** `omni prd <key>-<n> [--show <kind>]`. */
-export async function productPrd(id: ProductPrdId, kind: ArtifactKind | null, io: ProductPrdIo): Promise<number> {
+/** `omni prd <key>-<n> [--show <kind> | --json]`. */
+export async function productPrd(id: ProductPrdId, kind: ArtifactKind | null, io: ProductPrdIo, json = false): Promise<number> {
   const signedIn = clientOf(io);
   if ('why' in signedIn) {
     println(io.stderr, `omni prd: ${signedIn.why}`);
     return 1;
   }
-  return kind === null ? lookup(id, signedIn.client, io) : show(id, kind, signedIn.client, io);
+  return kind === null ? lookup(id, signedIn.client, io, json) : show(id, kind, signedIn.client, io);
 }

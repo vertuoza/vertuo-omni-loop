@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AskLaws, LawVerdict } from './judge.service';
+import type { AskLaws } from './judge.service';
 import type { JudgeInput, KeptVerdict, Standing, VerdictsRepository } from './verdicts.repository';
 import { verdictService } from './verdicts.service';
 
@@ -34,8 +34,10 @@ const kept = (verdict: Partial<KeptVerdict> = {}): KeptVerdict => ({
 });
 
 /** A repository whose judge input is `input`, recording each verdict put. */
-function fakeRepository(input: JudgeInput | null | Error): { repo: VerdictsRepository; puts: { version: string; sha: string; verdict: LawVerdict }[] } {
-  const puts: { version: string; sha: string; verdict: LawVerdict }[] = [];
+type Put = { version: string; sha: string; verdict: Parameters<VerdictsRepository['put']>[2] };
+
+function fakeRepository(input: JudgeInput | null | Error): { repo: VerdictsRepository; puts: Put[] } {
+  const puts: Put[] = [];
   const repo: VerdictsRepository = {
     judgeInput: () => (input instanceof Error ? Promise.reject(input) : Promise.resolve(input)),
     put: (version, sha, verdict) => {
@@ -55,7 +57,7 @@ function fakeModel(reply: unknown): { ask: AskLaws; calls: string[] } {
 describe('ensuring a verdict', () => {
   it('judges the latest spec against the pack\'s laws, under the root and owners its config names, and keeps it', async () => {
     const { repo, puts } = fakeRepository(INPUT);
-    const { ask, calls } = fakeModel({ findings: [{ law: 'BL-QUOTES-1', quote: 'sent with a zero total' }] });
+    const { ask, calls } = fakeModel({ findings: [{ law: 'BL-QUOTES-1', quote: 'sent with a zero total', why: 'The design sends a quote whose total is zero.' }] });
     const ensured = await verdictService({ service: repo, ask }).ensure('d-1');
     expect(calls).toHaveLength(1);
     expect(calls[0]).not.toContain('BL-QUOTES-2');
@@ -103,7 +105,7 @@ describe('ensuring a verdict', () => {
     const files = [{ path: '.omni-loop/knowledge/domains/quotes/business-laws.md', content: LAW }];
     for (const extra of [[], [{ path: '.omni-loop/config.yml', content: 'kit: [' }]]) {
       const { repo, puts } = fakeRepository({ ...INPUT, pack: { sha: SHA, files: [...files, ...extra] } });
-      await verdictService({ service: repo, ask: fakeModel({ findings: [{ law: 'BL-QUOTES-1', quote: 'zero total' }] }).ask }).ensure('d-1');
+      await verdictService({ service: repo, ask: fakeModel({ findings: [{ law: 'BL-QUOTES-1', quote: 'zero total', why: 'The design sends a quote whose total is zero.' }] }).ask }).ensure('d-1');
       expect(puts[0]?.verdict.findings.map((f) => [f.law, f.owners])).toEqual([['BL-QUOTES-1', []]]);
     }
   });

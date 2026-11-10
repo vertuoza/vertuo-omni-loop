@@ -116,9 +116,10 @@ describe('omni dossier push <key>-<n>: a product PRD\'s edited files, as new ver
     const from = files({ 'spec.md': SPEC, 'plan.md': PLAN });
     const run = await dossier(['push', 'mobile-12', '--from', from], { reply: () => json(200, { ...PUSHED, added: [{ kind: 'plan', version: 2 }], unchanged: ['spec'] }) });
     expect(run).toMatchObject({ code: 0, out: `mobile-12\n${LINK}\nadded: plan v2 · unchanged: spec\n` });
+    // The push, then one read of the spec's business laws verdict (bug #2696), which this page does not give.
     expect(run.calls.map((c) => c.body)).toEqual([{
       productKey: 'mobile', prd: 12, repo: 'acme/widgets', title: 'Offline photo upload', artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'plan', content: PLAN }],
-    }]);
+    }, undefined]);
   });
 
   it('with no spec there, keeps the title the PRD has, read from its page', async () => {
@@ -127,7 +128,7 @@ describe('omni dossier push <key>-<n>: a product PRD\'s edited files, as new ver
       reply: (url) => (url.includes('/push') ? json(200, PUSHED) : json(200, { id: 'd-12', url: LINK, prdId: 'mobile-12', title: 'Offline photo upload', product: 'Mobile', approval: null })),
     });
     expect(run.code).toBe(0);
-    expect(run.calls.map((c) => c.url)).toEqual([`${BASE}/api/dossiers?product=mobile&prd=12&repo=acme%2Fwidgets`, `${BASE}/api/dossiers/push`]);
+    expect(run.calls.map((c) => c.url)).toEqual([`${BASE}/api/dossiers?product=mobile&prd=12&repo=acme%2Fwidgets`, `${BASE}/api/dossiers/push`, `${BASE}/api/dossiers/approval?prd=mobile-12&repo=acme%2Fwidgets`]);
     expect(run.calls[1]?.body).toMatchObject({ productKey: 'mobile', prd: 12, title: 'Offline photo upload' });
   });
 

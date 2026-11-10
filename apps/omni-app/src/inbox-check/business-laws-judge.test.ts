@@ -57,6 +57,12 @@ describe('businessLawsJudge', () => {
     });
   });
 
+  it('a red says what the judge found broken, under the quote, when galaxy sends it (bug #2696)', async () => {
+    const judged = { ...RED, findings: RED.findings.map((finding) => ({ ...finding, broken: 'The design sends a quote whose total is zero.' })) };
+    const gate = await businessLawsJudge({ url: 'u', secret: 's', fetch: recordingFetch(() => json(judged)).fetch }).grade(ASKED);
+    expect(gate.details?.slice(2, 4)).toEqual(['The spec says: "sent with a zero total"', 'The judge says: The design sends a quote whose total is zero.']);
+  });
+
   it('a green says what it judged', async () => {
     const green = { state: 'green', reason: '12 judged', laws: Array.from({ length: 12 }, (_, i) => `BL-QUOTES-${i + 1}`), domains: [{ key: 'quotes', name: 'Quotes' }, { key: 'invoicing' }], findings: [] };
     const gate = await businessLawsJudge({ url: 'u', secret: 's', fetch: recordingFetch(() => json(green)).fetch }).grade(ASKED);
