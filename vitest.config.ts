@@ -9,7 +9,8 @@ export const TEST_TIMEOUT_MS = 600_000;
 export default {
   test: {
     // Every folder runs `*.test.ts` beside `*.test.mjs` (PRD 725): the rename turns one into the other.
-    include: ['game/**/*.test.{mjs,ts}', 'kit/**/*.test.{mjs,ts}', 'packages/**/*.test.{mjs,ts}', 'apps/omni-app/**/*.test.{mjs,ts}', 'apps/*/src/**/*.test.ts', '.claude/hooks/**/*.test.{mjs,ts}', 'scripts/**/*.test.{mjs,ts}'],
+    // The Edge Functions' handlers are pure, and tested here with a fake model session (PRD 2728).
+    include: ['game/**/*.test.{mjs,ts}', 'kit/**/*.test.{mjs,ts}', 'packages/**/*.test.{mjs,ts}', 'apps/omni-app/**/*.test.{mjs,ts}', 'apps/*/src/**/*.test.ts', '.claude/hooks/**/*.test.{mjs,ts}', 'scripts/**/*.test.{mjs,ts}', 'supabase/functions/**/*.test.ts'],
     // The omni-hud mod's tests run under `claude plugin test kit/plugin-hud` alone (PRD 1208): they
     // import Claude Code's own test kit, which vitest cannot load.
     exclude: ['**/node_modules/**', 'kit/plugin-hud/**'],

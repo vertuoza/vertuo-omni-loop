@@ -413,6 +413,13 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# The `embed` function (PRD 2728): the gateway checks no JWT, since the new secret keys (`sb_secret_…`) are
+# not JWTs and it would refuse them; the function itself lets in a server key alone, compared in constant
+# time (supabase/functions/embed/handler.ts).
+[functions.embed]
+enabled = true
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
