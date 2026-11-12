@@ -23,12 +23,11 @@ Use this page when deciding where code goes, and what it may depend on.
 ## Layout
 <!-- slot: layout · required · by: invade · verified: 2026-10-20 -->
 A pnpm workspace (`pnpm-workspace.yaml`): the root package holds the kit (`kit/`) and the game
-layer (`game/`); `apps/*` and `packages/*` hold the rest. The README's layout table names every
-workspace package but two: `apps/omni-app` (the GitHub App) and `packages/github` (`@omni/github`).
+layer (`game/`); `apps/*` and `packages/*` hold the rest (`AGENTS.md` lists every package).
 
 - `kit/`: the `omni` CLI's source in `kit/bin` and `kit/lib`, the kit defaults in `kit/templates`,
   the plugin's skills in `kit/plugin`, the HUD plugin in `kit/plugin-hud`, the pitch's render engine
-  in `kit/pitch-engine` (a React page, PRD 1108), and the committed builds `kit/dist/omni.mjs` and `kit/dist/pitch-engine/`, which
+  in `kit/pitch-engine`, and the builds `kit/dist/omni.mjs` and `kit/dist/pitch-engine/`, which
   `pnpm kit:build` writes. This repository's own `.omni-loop/bin/omni.mjs` is a shim onto the
   source, not the bundle, so the skills run today's code here.
 - `.omni-loop/`: this repository's own loop: its config, its delivery folder (each PRD's spec,
