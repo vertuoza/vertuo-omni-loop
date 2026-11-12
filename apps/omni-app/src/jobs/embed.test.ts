@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { embedText, knowledgeEntries } from 'omni-loop/kit/lib/knowledge/entries.ts';
-import { EMBED_DIMENSIONS, type Embedder } from '../knowledge-embed/embedder.ts';
+import { EMBED_BATCH, EMBED_DIMENSIONS, type Embedder } from '../knowledge-embed/embedder.ts';
 import type { EmbedStore, ProductRows, VectorRow, WorkspacePack } from '../knowledge-embed/store.ts';
 import { EMBED_KIND, embedHandler, embedJob, packEntries, textHash, textsByHash } from './embed.ts';
 import type { ClaimedJob, Finish, JobLedger } from './ledger.ts';
@@ -164,7 +164,7 @@ describe('embedHandler', () => {
     for (const row of puts[0]?.rows ?? []) expect(row.vector).toEqual(vector(texts.get(row.sha256) ?? ''));
   });
 
-  it('embeds only the missing hashes, in batches of 64', async () => {
+  it(`embeds only the missing hashes, in batches of ${String(EMBED_BATCH)}`, async () => {
     const many = { ...product(), never: Array.from({ length: 140 }, (_, i) => ({ seq: i + 1, body: `Never line ${String(i + 1)}.` })), legal: [], glossary: [] };
     const { store, kept } = memoryStore([{ workspace: 'w-1', files: FILES, products: [many] }]);
     const all = [...textsByHash(packEntries(REPO, { files: FILES, products: [many] })).keys()];
@@ -173,7 +173,7 @@ describe('embedHandler', () => {
 
     await embedHandler({ store, embed, log: () => undefined })(job());
     expect(all).toHaveLength(142);
-    expect(calls.map((texts) => texts.length)).toEqual([64, 64, 4]);
+    expect(calls.map((texts) => texts.length)).toEqual([...Array.from({ length: Math.floor(132 / EMBED_BATCH) }, () => EMBED_BATCH), ...(132 % EMBED_BATCH ? [132 % EMBED_BATCH] : [])]);
   });
 
   it('skips a pack no workspace keeps, embedding nothing', async () => {
@@ -192,8 +192,8 @@ describe('embedHandler', () => {
       return Promise.resolve(texts.map(vector));
     };
     const result = await embedHandler({ store, embed, clock: () => now, budgetMs: 1500, log: () => undefined })(job());
-    expect(result).toEqual({ outcome: 'later', at: new Date(2000 + 60_000), progress: { embedded: 128 } });
-    expect(puts.map(({ rows }) => rows.length)).toEqual([64, 64]);
+    expect(result).toEqual({ outcome: 'later', at: new Date(2000 + 60_000), progress: { embedded: 2 * EMBED_BATCH } });
+    expect(puts.map(({ rows }) => rows.length)).toEqual([EMBED_BATCH, EMBED_BATCH]);
   });
 
   it('throws a malformed payload, naming its field', async () => {

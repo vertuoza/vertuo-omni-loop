@@ -6,7 +6,7 @@
 // - Each entry is named by the sha256 of its embedText() (the text its vector was made from, with no
 //   `Owner:` line), as the `knowledge-embed` job names it.
 // - Within one budget (2 seconds): the query is embedded, and the product's own rows with no vector yet (a
-//   Legal entry added since the last job) are embedded and kept, at most 64. That second part failing, or not
+//   Legal entry added since the last job) are embedded and kept, at most 8. That second part failing, or not
 //   done in time, only leaves those rows to rank by words.
 // - Then knowledge_nearest() ranks the entries' vectors, and rankByMeaning() orders the hits.
 // - The query's embedding failing or passing the budget, the database refusing, or no vector at all: the

@@ -9,7 +9,7 @@
 //           entries, Glossary terms and Never lines
 //   hash    each entry's embedText() (no `Owner:` line: no person in a vector), as lower-case hex sha256 of
 //           its UTF-8 bytes; the same text in two entries or two products is one hash
-//   embed   only the hashes the workspace holds no vector for (knowledge_vectors_missing()), 64 a call
+//   embed   only the hashes the workspace holds no vector for (knowledge_vectors_missing()), 8 a call
 //           through the `embed` Edge Function (../knowledge-embed/embedder.ts), each batch kept at once
 //           (knowledge_vectors_put()), so a try that stops halfway loses nothing
 //

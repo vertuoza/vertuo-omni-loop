@@ -3,7 +3,7 @@
 //
 //   POST <supabase url>/functions/v1/embed  {texts: string[]}  → {model: "gte-small", vectors: number[][]}
 //
-// one 384-long vector per text, in order, at most 64 texts a call; only the service role's JWT gets in. The
+// one 384-long vector per text, in order, at most 8 texts a call (bug 2748); only the service role's JWT gets in. The
 // client sends what it is given, passes the caller's signal on (the search's 2-second budget), and checks the
 // answer's shape: a refusal or an answer out of shape throws, naming the status, never the key or a text.
 import { z } from 'zod';
@@ -13,7 +13,7 @@ export const EMBED_MODEL = 'gte-small';
 /** Its vectors' length. */
 export const EMBED_DIMENSIONS = 384;
 /** At most this many texts per call. */
-export const EMBED_BATCH = 64;
+export const EMBED_BATCH = 8;
 
 /** Turns texts into vectors, one per text, in order; throws when it cannot, or once `signal` aborts. */
 export type Embedder = (texts: readonly string[], signal: AbortSignal) => Promise<number[][]>;
