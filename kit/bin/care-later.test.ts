@@ -49,7 +49,8 @@ function fakeExec(root: string, refusal: string | null) {
   const calls: { file: string; query: string; variables: unknown }[] = [];
   const exec = (file: string, args: readonly string[], options: ExecFileSyncOptions = {}) => {
     if (file === 'git') return `${root}\n`;
-    const sent = JSON.parse(String(options.input)) as { variables: unknown };
+    if (typeof options.input !== 'string') throw new Error(`gh ${args.join(' ')} sent no text on its stdin`);
+    const sent = JSON.parse(options.input) as { variables: unknown };
     const query = digText(sent, 'query');
     calls.push({ file, query, variables: sent.variables });
     if (args.join(' ') !== 'api graphql --input -') throw new Error(`unexpected gh ${args.join(' ')}`);

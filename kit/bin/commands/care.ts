@@ -401,7 +401,7 @@ async function runList(args: string[], { ctx, stdout, reads }: Io): Promise<numb
 }
 
 /** The flags `omni care reply` takes. */
-type ReplyFlags = { verdict?: string; body?: string; file?: string; thread?: string; repo?: string; prd?: string };
+type ReplyFlags = { verdict?: string; body?: string; file?: string; thread?: string; repo?: string };
 
 /** The reply's body from `--verdict` and `--body` or `--file`, ending with the care marker. */
 function replyBodyOf(flags: ReplyFlags, ctx: Context): string {
@@ -425,7 +425,7 @@ async function runReply(args: string[], io: CommandIo, free: TargetsIo): Promise
     println(stdout, body);
     return 0;
   }
-  if (flags.verdict === 'later') return postLater({ thread: flags.thread, body, prd: flags.prd, repo: flags.repo }, { ...io, reads: loopReadsFor(ctx, free) });
+  if (flags.verdict === 'later') return postLater({ thread: flags.thread, body, prdFlag: flags.prd, repo: flags.repo }, { ...io, reads: loopReadsFor(ctx, free) });
   return postReply({ thread: flags.thread, verdict: flags.verdict ?? '', body }, io);
 }
 
@@ -475,7 +475,7 @@ async function readAsked(prd: PrdNumber, thread: string, { ctx, reads, repo }: {
 
 /** PRD 2739: reads the thread, prepares the point and its high item, posts the `later` reply, resolves
  * the thread, then writes both; a thread it cannot read, or an item the outbox check refuses, posts nothing. */
-async function postLater({ thread, body, prd: prdFlag, repo }: { thread: string; body: string; prd: string | undefined; repo: string | undefined }, io: Io): Promise<number> {
+async function postLater({ thread, body, prdFlag, repo }: { thread: string; body: string; prdFlag: string | undefined; repo: string | undefined }, io: Io): Promise<number> {
   const { ctx, stdout, stderr, exec, env, reads } = io;
   if (prdFlag === undefined) throw usageError('omni care reply: a later reply keeps its point for PRD n: pass --prd <n>.');
   const prd = prdArg('care', '--prd', prdFlag);
