@@ -2,7 +2,8 @@
 # database, supabase/database.types.ts is what they generate (PRD 725), every read a module registers
 # in a `*.boundary.ts` parses with its schema (PRD 1030), and supabase/checks/access.sql
 # proves who may read and write what. On main: the
-# migrations are applied to the production project. Off until the repository variable SUPABASE_PROJECT_ID is set.
+# migrations are applied to the production project, then the `embed` Edge Function is deployed (PRD 2728).
+# Off until the repository variable SUPABASE_PROJECT_ID is set.
 # Setup (project, secrets, variables): apps/galaxy/README.md, "Deploy to production".
 name: supabase
 on:
@@ -19,7 +20,8 @@ on:
       - '.github/workflows/supabase.yml'
   push:
     branches: [main]
-    paths: ['supabase/migrations/**', '.github/workflows/supabase.yml']
+    # The Edge Functions and their settings (`verify_jwt` in supabase/config.toml) deploy too (PRD 2728).
+    paths: ['supabase/migrations/**', 'supabase/functions/**', 'supabase/config.toml', '.github/workflows/supabase.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -498,3 +500,10 @@ jobs:
       # blocking every deploy after it. The `check` job refuses one, but only against the main it saw: a
       # later migration that merges after it ran is applied here (PRD 1364, 2026-10-11).
       - run: supabase db push --include-all   # migrations only; the demo seed never reaches production
+      # The `embed` Edge Function (PRD 2728), after the migrations and from `main` alone, never from a run
+      # started by hand on another branch. Bundled by Supabase (`--use-api`), so no Docker; `verify_jwt` is
+      # read from supabase/config.toml. CI's local stack never starts the edge runtime: its tests run the
+      # handler with a fake model session.
+      - name: Deploy the embed function
+        if: github.ref == 'refs/heads/main'
+        run: supabase functions deploy embed --use-api
