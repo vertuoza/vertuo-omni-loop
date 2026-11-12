@@ -1,0 +1,116 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-12",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Another folder of markdown nobody opens. I'd rather see it where I already look.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A list of what each fix and review left open is what keeps my teams from losing the same problem twice.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "If the second bug a fix saw is kept, it is less likely to reach production unseen.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "I decide what becomes an issue, and nothing pings the team behind my back.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "One count in the status is something I can follow without knowing the harness.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Another folder of markdown nobody opens. I'd rather see it where I already look.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "Fits the lead engineer and the PM best, and the skeptical back-end developer worst, until the count joined omni status."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-12",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The count in omni status is where I already look; the gates mean nobody has to remember.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A list of what each fix and review left open is what keeps my teams from losing the same problem twice.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "omni bug refusing an unfiled point means the second bug cannot slip through a closed issue.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "I decide what becomes an issue, and nothing pings the team behind my back.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "One count in the status is something I can follow without knowing the harness.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "Fits every persona; the skeptical developers rise once the gates refuse an unfiled point."
+    }
+  ]
+}
