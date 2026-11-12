@@ -2203,12 +2203,12 @@ function readFrontMatter(raw) {
     })
   };
 }
-function splitSections(lines) {
+function splitSections(lines2) {
   const head = [];
   const sections = [];
   let current = null;
   let fenced = false;
-  for (const line of lines) {
+  for (const line of lines2) {
     const heading = fenced ? null : line.match(HEADING);
     if (FENCE.test(line)) fenced = !fenced;
     if (heading) {
@@ -2228,17 +2228,17 @@ function readHead(head) {
 }
 function readBody(raw) {
   const text17 = raw.replace(COMMENT, "").trim();
-  const lines = text17.split("\n").map((line) => line.trim()).filter(Boolean);
-  const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
-  if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text17, see: null, questions };
-  const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
+  const lines2 = text17.split("\n").map((line) => line.trim()).filter(Boolean);
+  const questions = lines2.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
+  if (lines2.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
+  if (questions.length === lines2.length) return { kind: "holes", text: text17, see: null, questions };
+  const see = lines2.length === 1 ? lines2[0]?.match(SEE) ?? null : null;
   if (see) return { kind: "pointer", text: text17, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
   return { kind: "text", text: text17, see: null, questions };
 }
-function readSection(heading, lines) {
-  const at4 = lines.findIndex((line) => line.trim() !== "");
-  const first = at4 === -1 ? "" : (lines[at4] ?? "").trim();
+function readSection(heading, lines2) {
+  const at4 = lines2.findIndex((line) => line.trim() !== "");
+  const first = at4 === -1 ? "" : (lines2[at4] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
   const marker2 = first.match(MARKER);
   if (!marker2) return { kind: "malformed", first };
@@ -2249,15 +2249,15 @@ function readSection(heading, lines) {
     required: need === "required",
     by: by === OLD_BY ? "invade" : by ?? null,
     verified: verified2 ?? null,
-    body: readBody(lines.slice(at4 + 1).join("\n"))
+    body: readBody(lines2.slice(at4 + 1).join("\n"))
   };
   return { kind: "slot", slot, oldBy: by === OLD_BY };
 }
 function readSlots(sections, { file, errors, oldSpellings }) {
   const slots = [];
   const unmarked = [];
-  for (const { heading, lines } of sections) {
-    const read = readSection(heading, lines);
+  for (const { heading, lines: lines2 } of sections) {
+    const read = readSection(heading, lines2);
     if (read.kind === "unmarked") {
       unmarked.push(heading);
       continue;
@@ -2556,12 +2556,12 @@ function idParts(id) {
   const parts = id.split("-");
   return { type: parts[0] ?? "", codes: parts.slice(1, -1), n: parts.at(-1) ?? "" };
 }
-function readFields(lines) {
+function readFields(lines2) {
   const fields = {};
   const counts = {};
   let fieldAt = -1;
   let open = null;
-  lines.forEach((line, index) => {
+  lines2.forEach((line, index) => {
     const match2 = line.match(FIELD_LINE);
     if (match2) {
       if (fieldAt === -1) fieldAt = index;
@@ -2675,9 +2675,9 @@ function splitEntries(text17) {
   return entries;
 }
 function parseEntryFile(file, text17, place) {
-  return splitEntries(text17).map(({ id, lines }) => {
-    const { fields, counts, fieldAt } = readFields(lines);
-    const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
+  return splitEntries(text17).map(({ id, lines: lines2 }) => {
+    const { fields, counts, fieldAt } = readFields(lines2);
+    const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
     const { proposed, problems: proposedProblems } = readProposed(file, id, fields.proposedLine);
@@ -2726,6 +2726,24 @@ function diskSource(root) {
     files: (dir) => listDir(root, dir, (entry) => entry.isFile()),
     dirs: (dir) => listDir(root, dir, (entry) => entry.isDirectory()),
     read: (file) => readFileSync5(join9(root, file), "utf8")
+  };
+}
+function memorySource(texts) {
+  const paths = Object.keys(texts);
+  const under = (dir) => {
+    const prefix = `${dir}/`;
+    return paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
+  };
+  return {
+    files: (dir) => under(dir).filter((rest) => !rest.includes("/")).sort(),
+    dirs: (dir) => {
+      const nested = under(dir).filter((rest) => rest.includes("/"));
+      return [...new Set(nested.map((rest) => rest.split("/")[0] ?? ""))].sort();
+    },
+    read: (file) => {
+      if (!Object.hasOwn(texts, file)) throw new Error(`${file} is not among the files read`);
+      return texts[file] ?? "";
+    }
   };
 }
 function glossaryTermOf(text17) {
@@ -2903,15 +2921,15 @@ function stableHash(text17) {
   }
   return hash >>> 0;
 }
-function serveLines(ids, lines, salt) {
+function serveLines(ids, lines2, salt) {
   const taken = /* @__PURE__ */ new Set();
   const served = /* @__PURE__ */ new Map();
   for (const id of ids) {
-    if (taken.size === lines.length) taken.clear();
-    let index = stableHash(`${salt}:${id}`) % lines.length;
-    while (taken.has(index)) index = (index + 1) % lines.length;
+    if (taken.size === lines2.length) taken.clear();
+    let index = stableHash(`${salt}:${id}`) % lines2.length;
+    while (taken.has(index)) index = (index + 1) % lines2.length;
     taken.add(index);
-    served.set(id, lines[index]);
+    served.set(id, lines2[index]);
   }
   return served;
 }
@@ -2931,15 +2949,15 @@ function withFile2(file, message) {
   return file ? `${file}: ${message}` : message;
 }
 function stripQuotes(value) {
-  const trimmed2 = value.trim();
-  if (trimmed2.length >= 2) {
-    const first = trimmed2[0];
-    const last = trimmed2[trimmed2.length - 1];
+  const trimmed3 = value.trim();
+  if (trimmed3.length >= 2) {
+    const first = trimmed3[0];
+    const last = trimmed3[trimmed3.length - 1];
     if (first === '"' && last === '"' || first === "'" && last === "'") {
-      return trimmed2.slice(1, -1);
+      return trimmed3.slice(1, -1);
     }
   }
-  return trimmed2;
+  return trimmed3;
 }
 function parseFrontMatterLines(rawFrontMatter) {
   const data = {};
@@ -3201,23 +3219,23 @@ function readFrontMatterBlock(text17, file, schema) {
     return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
   const [, rawFrontMatter = "", body = ""] = blockMatch;
-  const lines = parseFrontMatterLines(rawFrontMatter);
-  const checked2 = schema.safeParse(lines.data, { error: KIT_MESSAGES });
+  const lines2 = parseFrontMatterLines(rawFrontMatter);
+  const checked2 = schema.safeParse(lines2.data, { error: KIT_MESSAGES });
   const refusals = checked2.success ? [] : checked2.error.issues.map(
     (issue) => `${issue.path.length > 0 ? issue.path.join(".") : "(front matter)"}: ${issue.message}`
   );
   return {
     body,
-    errors: [...lines.errors, ...refusals].map((message) => withFile2(file, message)),
+    errors: [...lines2.errors, ...refusals].map((message) => withFile2(file, message)),
     data: checked2.success ? checked2.data : null
   };
 }
 var OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
 function parseOutboxOptions(content) {
-  const lines = (content ?? "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  const lines2 = (content ?? "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   const options = [];
   const errors = [];
-  for (const line of lines) {
+  for (const line of lines2) {
     const match2 = line.match(OPTION_LINE);
     if (!match2) {
       errors.push(`option line is not "<letter>. <sentence>": "${line}"`);
@@ -3253,9 +3271,9 @@ var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
 function countSentences(text17) {
-  const trimmed2 = (text17 ?? "").trim();
-  if (!trimmed2) return 0;
-  const matches = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
+  const trimmed3 = (text17 ?? "").trim();
+  if (!trimmed3) return 0;
+  const matches = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
 function uniqueMatches(text17, pattern) {
@@ -3527,7 +3545,7 @@ function renderSettledEntry({
   markers,
   closed = null
 }) {
-  const lines = [
+  const lines2 = [
     markers.settledOpen(item.id),
     "",
     `## ${item.id} \u2014 ${judgement.verdict}`,
@@ -3537,10 +3555,10 @@ function renderSettledEntry({
     `- Approved at: ${answer.approvedAt}`
   ];
   if (answer.channel) {
-    lines.push(`- Channel: ${channelLabel(answer.channel)}`);
-    if (answer.channel.url) lines.push(`- Channel URL: ${answer.channel.url}`);
+    lines2.push(`- Channel: ${channelLabel(answer.channel)}`);
+    if (answer.channel.url) lines2.push(`- Channel URL: ${answer.channel.url}`);
   }
-  lines.push(
+  lines2.push(
     `- Basis: ${judgement.basis} \u2014 ${judgement.reason}`,
     `- Closed: ${closed ?? closedLine(judgement.verdict)}`,
     `- Rank: ${item.rank}`,
@@ -3560,7 +3578,7 @@ function renderSettledEntry({
     markers.settledClose(item.id),
     ""
   );
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function parseSettledEntries(text17, markers) {
   return latestPerId(rawSettledEntries(text17, markers));
@@ -3580,11 +3598,11 @@ function closedEntry({ id, fields, blocks: blocks2 }) {
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
 function rawSettledEntries(text17, markers) {
-  const lines = text17.split("\n");
+  const lines2 = text17.split("\n");
   const entries = [];
   let current = null;
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
+  for (let index = 0; index < lines2.length; index += 1) {
+    const line = lines2[index] ?? "";
     const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
       current = openedEntry(openMatch[1]);
@@ -3601,8 +3619,8 @@ function rawSettledEntries(text17, markers) {
       const fence = fenceMatch[1];
       const start = index + 1;
       let end = start;
-      while (end < lines.length && lines[end] !== fence) end += 1;
-      current.blocks.push(lines.slice(start, end).join("\n"));
+      while (end < lines2.length && lines2[end] !== fence) end += 1;
+      current.blocks.push(lines2.slice(start, end).join("\n"));
       index = end;
       continue;
     }
@@ -3790,8 +3808,8 @@ function isOwnedBy(owners, login) {
 var OWNERS_BEGIN = "# BEGIN omni kb owners";
 var OWNERS_END = "# END omni kb owners";
 function ownerHandle(owner) {
-  const trimmed2 = owner.trim();
-  return trimmed2.includes("@") ? trimmed2 : `@${trimmed2}`;
+  const trimmed3 = owner.trim();
+  return trimmed3.includes("@") ? trimmed3 : `@${trimmed3}`;
 }
 function exactPattern(path) {
   return `/${path.replace(/^\/+/, "").replace(/[\\\s#*?[\]!]/g, (char) => `\\${char}`)}`;
@@ -3808,21 +3826,21 @@ function lawCodeowners(owners) {
 }
 function ownersBlock(paths, owners) {
   const handles2 = lawCodeowners(owners).map(ownerHandle).join(" ");
-  const lines = [OWNERS_BEGIN, "# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines."];
+  const lines2 = [OWNERS_BEGIN, "# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines."];
   const seen = /* @__PURE__ */ new Set();
   let why = null;
   for (const owned of paths) {
     if (seen.has(owned.path)) continue;
     seen.add(owned.path);
-    if (owned.why !== why) lines.push(`# ${owned.why}`);
+    if (owned.why !== why) lines2.push(`# ${owned.why}`);
     why = owned.why;
-    lines.push(`${exactPattern(owned.path)} ${handles2}`);
+    lines2.push(`${exactPattern(owned.path)} ${handles2}`);
   }
-  lines.push(OWNERS_END);
-  return lines.join("\n");
+  lines2.push(OWNERS_END);
+  return lines2.join("\n");
 }
-function blockSpan(lines) {
-  const at4 = (marker2) => lines.flatMap((line, index) => line.trim() === marker2 ? [index] : []);
+function blockSpan(lines2) {
+  const at4 = (marker2) => lines2.flatMap((line, index) => line.trim() === marker2 ? [index] : []);
   const begins = at4(OWNERS_BEGIN);
   const ends = at4(OWNERS_END);
   if (begins.length === 0 && ends.length === 0) return null;
@@ -3834,9 +3852,9 @@ function blockSpan(lines) {
   return { begin, end };
 }
 function ownersBlockIn(text17) {
-  const lines = text17.split("\n");
-  const span = blockSpan(lines);
-  return span === null ? null : lines.slice(span.begin, span.end + 1).map((line) => line.replace(/\r$/, "")).join("\n");
+  const lines2 = text17.split("\n");
+  const span = blockSpan(lines2);
+  return span === null ? null : lines2.slice(span.begin, span.end + 1).map((line) => line.replace(/\r$/, "")).join("\n");
 }
 
 // kit/lib/playbook/briefing-files.ts
@@ -3884,18 +3902,18 @@ function blocks(text17) {
   return found;
 }
 function readBody2(raw) {
-  const lines = raw.map((line) => line.trim());
-  const fieldAt = lines.findIndex((line) => FIELD.test(line));
-  const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter(Boolean).join(" ");
-  return { statement: statement2, why: fieldValue(lines, "Why") || null, also: fieldValue(lines, "Also") };
+  const lines2 = raw.map((line) => line.trim());
+  const fieldAt = lines2.findIndex((line) => FIELD.test(line));
+  const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter(Boolean).join(" ");
+  return { statement: statement2, why: fieldValue(lines2, "Why") || null, also: fieldValue(lines2, "Also") };
 }
-function fieldValue(lines, name) {
-  const at4 = lines.findIndex((line) => line.match(FIELD)?.[1] === name);
+function fieldValue(lines2, name) {
+  const at4 = lines2.findIndex((line) => line.match(FIELD)?.[1] === name);
   if (at4 === -1) return null;
-  const rest = lines.slice(at4 + 1);
+  const rest = lines2.slice(at4 + 1);
   const end = rest.findIndex((line) => line === "" || FIELD.test(line));
   const continued = end === -1 ? rest : rest.slice(0, end);
-  return [lines[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
+  return [lines2[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
 }
 function idProblem(file, id, place) {
   const code2 = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
@@ -3905,8 +3923,8 @@ function idProblem(file, id, place) {
   return null;
 }
 function parseBusinessLaws(file, text17, place) {
-  return blocks(text17).map(({ heading, lines }) => {
-    const { statement: statement2, why, also } = readBody2(lines);
+  return blocks(text17).map(({ heading, lines: lines2 }) => {
+    const { statement: statement2, why, also } = readBody2(lines2);
     const problems = [
       idProblem(file, heading, place),
       statement2 === "" ? `${file}: ${heading} \u2014 has no statement.` : null,
@@ -4096,17 +4114,17 @@ var ENTRY_ACCOUNT_LINE = /^(item|spec)\s+(.+)$/;
 function captured(match2, index) {
   return match2[index] ?? "";
 }
-function groupsOfThree(lines) {
+function groupsOfThree(lines2) {
   const groups = [];
-  for (let i = 0; i + 2 < lines.length; i += 3) {
-    groups.push([lines[i] ?? "", lines[i + 1] ?? "", lines[i + 2] ?? ""]);
+  for (let i = 0; i + 2 < lines2.length; i += 3) {
+    groups.push([lines2[i] ?? "", lines2[i + 1] ?? "", lines2[i + 2] ?? ""]);
   }
   return groups;
 }
 function parseEntries(content) {
-  const lines = content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-  if (lines.length === 0) return { errors: [], entries: [] };
-  if (lines.length % 3 !== 0) {
+  const lines2 = content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  if (lines2.length === 0) return { errors: [], entries: [] };
+  if (lines2.length % 3 !== 0) {
     return {
       errors: [
         "risky change entries must come in groups of three lines: a backticked path, a rule id, and an account"
@@ -4116,7 +4134,7 @@ function parseEntries(content) {
   }
   const errors = [];
   const entries = [];
-  for (const [pathLine, ruleLine, accountLine] of groupsOfThree(lines)) {
+  for (const [pathLine, ruleLine, accountLine] of groupsOfThree(lines2)) {
     const pathMatch = pathLine.match(ENTRY_PATH_LINE);
     if (!pathMatch) {
       errors.push(`risky change entry must start with a backticked path: "${pathLine}"`);
@@ -4389,33 +4407,33 @@ function formatUnreworked(entry) {
   return `  - ${entry.id}`;
 }
 function formatReport(prd, result, { subject = isProductPrdId(prd) ? `PRD ${prd}` : `PRD #${prd}` } = {}) {
-  const lines = [];
+  const lines2 = [];
   if (result.items.length === 0) {
-    lines.push(`outbox-status \u2014 ${subject}: no open item.`);
+    lines2.push(`outbox-status \u2014 ${subject}: no open item.`);
   } else {
-    lines.push(`outbox-status \u2014 ${subject}: ${result.items.length} open item(s):`);
-    lines.push(...result.items.map(formatItem));
+    lines2.push(`outbox-status \u2014 ${subject}: ${result.items.length} open item(s):`);
+    lines2.push(...result.items.map(formatItem));
   }
   const unreworked = result.unreworked ?? [];
   if (unreworked.length > 0) {
     const n = unreworked.length;
-    lines.push(
+    lines2.push(
       `${n} drifted decision${n === 1 ? "" : "s"} not yet reworked \u2014 run ${COMMANDS.yoloFix} #${prd}`
     );
-    lines.push(...unreworked.map(formatUnreworked));
+    lines2.push(...unreworked.map(formatUnreworked));
   }
   if (result.unaccounted !== void 0) {
     if (result.unaccounted.length === 0) {
-      lines.push("outbox-status \u2014 no unaccounted risky change.");
+      lines2.push("outbox-status \u2014 no unaccounted risky change.");
     } else {
-      lines.push(`outbox-status \u2014 ${result.unaccounted.length} unaccounted risky change(s):`);
-      lines.push(...result.unaccounted.map(formatUnaccounted));
+      lines2.push(`outbox-status \u2014 ${result.unaccounted.length} unaccounted risky change(s):`);
+      lines2.push(...result.unaccounted.map(formatUnaccounted));
     }
   }
   if (result.overridden) {
-    lines.push(`${result.overrideLabel} \u2014 override in effect; waved through.`);
+    lines2.push(`${result.overrideLabel} \u2014 override in effect; waved through.`);
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 
 // kit/lib/git.ts
@@ -4482,50 +4500,50 @@ function formatOutboxComment({
   ctx
 }) {
   const sorted = sortItems(items);
-  const lines = [ctx.markers.comment, "", `**Outbox \u2014 open items for PRD #${prd}**`, ""];
+  const lines2 = [ctx.markers.comment, "", `**Outbox \u2014 open items for PRD #${prd}**`, ""];
   if (sorted.length === 0) {
-    lines.push("No open items.");
+    lines2.push("No open items.");
   } else {
     for (const item of sorted) {
       const url = fileUrl({ owner, repo, ref, file: item.file });
-      lines.push(`- \`${item.rank}\` \u2014 [${item.id}](${url})`);
+      lines2.push(`- \`${item.rank}\` \u2014 [${item.id}](${url})`);
     }
   }
-  lines.push("");
+  lines2.push("");
   if (sorted.length > 0) {
-    lines.push(
+    lines2.push(
       `_${sorted.length} open item(s) on \`${branch}\`. Settled items move to \`${ctx.layout.outboxDir(prd)}/settled.md\`._`
     );
   } else if (unreworked.length > 0) {
-    lines.push(
+    lines2.push(
       `_No open item on \`${branch}\`, but drifted and not yet reworked: ${unreworked.map((entry) => entry.id).join(", ")} \u2014 run \`${COMMANDS.yoloFix}\`._`
     );
   } else {
-    lines.push(`_Nothing open on \`${branch}\`._`);
+    lines2.push(`_Nothing open on \`${branch}\`._`);
   }
   if (sorted.length > 0 && labels.includes(ctx.config.labels.outboxGo)) {
-    lines.push("");
-    lines.push(
+    lines2.push("");
+    lines2.push(
       `_These items were waved through with \`${ctx.config.labels.outboxGo}\` \u2014 waved through, not answered._`
     );
   }
   const sortedUnaccounted = sortUnaccountedChanges(unaccounted);
   if (sortedUnaccounted.length > 0) {
-    lines.push("");
-    lines.push(`**Unaccounted changes \u2014 PRD #${prd}**`);
-    lines.push("");
+    lines2.push("");
+    lines2.push(`**Unaccounted changes \u2014 PRD #${prd}**`);
+    lines2.push("");
     for (const change2 of sortedUnaccounted) {
-      lines.push(`- \`${change2.rule}\` \u2014 \`${change2.path}\``);
+      lines2.push(`- \`${change2.rule}\` \u2014 \`${change2.path}\``);
     }
   }
-  lines.push("");
-  lines.push(
+  lines2.push("");
+  lines2.push(
     formatAnnouncedMarker(
       announcedKeys({ items: sorted, unaccounted: sortedUnaccounted }),
       ctx.markers
     )
   );
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function findCommentByMarker(comments, marker2) {
   if (!isList(comments)) return null;
@@ -4597,9 +4615,9 @@ function adoptedEntriesForPrd(prd, { ctx }) {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
 function firstSentence(text17) {
-  const trimmed2 = (text17 ?? "").trim();
-  const match2 = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/);
-  return (match2 ? match2[0] : trimmed2).trim();
+  const trimmed3 = (text17 ?? "").trim();
+  const match2 = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/);
+  return (match2 ? match2[0] : trimmed3).trim();
 }
 function answeredQuestionText(entry) {
   const parsed2 = parseOutboxItem(entry.itemText, { file: null });
@@ -4695,13 +4713,13 @@ function questionBanter({
       fromPool.push(id);
     }
   }
-  for (const [id, lines] of assignBanter(fromPool)) banter.set(id, lines);
+  for (const [id, lines2] of assignBanter(fromPool)) banter.set(id, lines2);
   return banter;
 }
 function openQuestionLines(item, { number, round, banter }) {
   const humanAction = item.rank === "human-action";
   const options = offeredOptions(item);
-  const lines = [
+  const lines2 = [
     "---",
     "",
     `### Question ${number} \xB7 ${item.rank} \u2014 ${humanAction ? "needs a person" : "needs your decision"}`,
@@ -4714,7 +4732,7 @@ function openQuestionLines(item, { number, round, banter }) {
     ""
   ];
   if (humanAction && item.sections.personSteps) {
-    lines.push(
+    lines2.push(
       "**What a person must do:**",
       "",
       item.sections.personSteps.trim(),
@@ -4722,21 +4740,21 @@ function openQuestionLines(item, { number, round, banter }) {
       `Reply \`${number}: ok\` once it is done, or \`${number}: no, because \u2026\``
     );
   } else if (options.length > 0) {
-    lines.push(
+    lines2.push(
       ...formatOptionsTable(options, "recommended \xB7 built"),
       "",
       `Reply \`${number}: A\`, \`${number}: ${otherLetter(options)} because \u2026\`, or \`go with recommendation\``
     );
   } else {
-    lines.push(
+    lines2.push(
       `**Decision taken:** ${item.sections.decisionPlain}`,
       "",
       `Reply \`${number}: ok\` to keep it, or \`${number}: no, because \u2026\``
     );
   }
-  if (round) lines.push("", `_Asked again in round ${round}._`);
-  lines.push("");
-  return lines;
+  if (round) lines2.push("", `_Asked again in round ${round}._`);
+  lines2.push("");
+  return lines2;
 }
 function adoptedItem(entry) {
   const parsed2 = parseOutboxItem(entry.itemText, { file: null });
@@ -4746,7 +4764,7 @@ function adoptedQuestionLines(entry, { number, round, banter }) {
   const item = adoptedItem(entry);
   const question = item?.sections.questionPlain ?? answeredQuestionText(entry);
   const options = item ? offeredOptions(item) : [];
-  const lines = [
+  const lines2 = [
     `### Question ${number} \xB7 medium \u2014 adopted`,
     "",
     funLine(banter.intro),
@@ -4757,20 +4775,20 @@ function adoptedQuestionLines(entry, { number, round, banter }) {
     ""
   ];
   if (options.length > 0) {
-    lines.push(
+    lines2.push(
       ...formatOptionsTable(options, "adopted \xB7 built"),
       "",
       `To object, reply \`${number}: ${otherLetter(options)} because \u2026\``
     );
   } else {
     if (item?.sections.decisionPlain) {
-      lines.push(`**Decision taken:** ${item.sections.decisionPlain}`, "");
+      lines2.push(`**Decision taken:** ${item.sections.decisionPlain}`, "");
     }
-    lines.push(`To object, reply \`${number}: no, because \u2026\``);
+    lines2.push(`To object, reply \`${number}: no, because \u2026\``);
   }
-  if (round) lines.push("", `_Asked again in round ${round}._`);
-  lines.push("");
-  return lines;
+  if (round) lines2.push("", `_Asked again in round ${round}._`);
+  lines2.push("");
+  return lines2;
 }
 function formatOutboxPrComment({
   items,
@@ -4786,11 +4804,11 @@ function formatOutboxPrComment({
   const byNumber = (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
   const banter = questionBanter({ items: sorted, adopted, numberById });
   const facts = { numberById, roundMarkers, banter };
-  const lines = [ctx.markers.prComment, ""];
+  const lines2 = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
     const count2 = sorted.length;
     const example = exampleNumber(sorted, numberById);
-    lines.push(
+    lines2.push(
       `**${count2} question${count2 === 1 ? "" : "s"} need${count2 === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
@@ -4798,43 +4816,43 @@ function formatOutboxPrComment({
       `_A reply settles nothing on its own \u2014 \`${COMMANDS.yoloFix}\` reads the replies and settles them._`,
       ""
     );
-    for (const item of sorted) lines.push(...openQuestionLines(item, questionFacts(item.id, facts)));
+    for (const item of sorted) lines2.push(...openQuestionLines(item, questionFacts(item.id, facts)));
   } else if (adopted.length > 0) {
-    lines.push("**Nothing needs your decision**", "");
+    lines2.push("**Nothing needs your decision**", "");
   } else if (answered.length > 0) {
-    lines.push("**Every question is answered**", "");
+    lines2.push("**Every question is answered**", "");
   } else {
-    lines.push("No open items.", "");
+    lines2.push("No open items.", "");
   }
   const page = omniPageLink(prd, ctx);
-  if (page) lines.splice(4, 0, `Answer here, or on the Omni page: ${page}`, "");
+  if (page) lines2.splice(4, 0, `Answer here, or on the Omni page: ${page}`, "");
   if (adopted.length > 0) {
-    lines.push(
+    lines2.push(
       "---",
       "",
       `<details><summary>Adopted unless you object \xB7 ${adopted.length} medium</summary>`,
       ""
     );
     for (const entry of [...adopted].sort(byNumber)) {
-      lines.push(...adoptedQuestionLines(entry, questionFacts(entry.id, facts)));
+      lines2.push(...adoptedQuestionLines(entry, questionFacts(entry.id, facts)));
     }
-    lines.push("</details>", "");
+    lines2.push("</details>", "");
   }
   if (answered.length > 0) {
-    lines.push("**Answered**", "");
+    lines2.push("**Answered**", "");
     for (const entry of [...answered].sort(byNumber)) {
       const number = numberById.get(entry.id);
       const question = answeredQuestionText(entry);
-      lines.push(`**Question ${number}**`, "");
-      if (question) lines.push(question, "");
-      lines.push(
+      lines2.push(`**Question ${number}**`, "");
+      if (question) lines2.push(question, "");
+      lines2.push(
         `Reply: ${quoteReply(entry.answerText)} \u2014 @${entry.fields["Approved by"] ?? ""}, ${formatApprovedAt(entry.fields["Approved at"])} \xB7 ${answeredOutcome(entry)}`,
         ""
       );
     }
   }
-  lines.push(formatNumbersMarker(numbering, ctx.markers));
-  return lines.join("\n");
+  lines2.push(formatNumbersMarker(numbering, ctx.markers));
+  return lines2.join("\n");
 }
 function omniPageLink(prd, ctx) {
   const { answers, ask: ask3, repo } = ctx.config;
@@ -5361,11 +5379,11 @@ function cells(line) {
   if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
   return inner.split(/(?<!\\)\|/).map((cell3) => cell3.trim().replace(/\\\|/g, "|"));
 }
-function firstTable(lines) {
-  const start = lines.findIndex((line) => line.trim().startsWith("|"));
+function firstTable(lines2) {
+  const start = lines2.findIndex((line) => line.trim().startsWith("|"));
   if (start === -1) return null;
   const block = [];
-  for (const line of lines.slice(start)) {
+  for (const line of lines2.slice(start)) {
     if (!line.trim().startsWith("|")) break;
     block.push(line.trim());
   }
@@ -5518,10 +5536,10 @@ function cardField(label2) {
   const wanted = label2.trim().toLowerCase();
   return CARD_LINES.find(([, name]) => name.toLowerCase() === wanted)?.[0] ?? null;
 }
-function cardOf(lines) {
+function cardOf(lines2) {
   const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
   let field4 = null;
-  for (const line of lines) {
+  for (const line of lines2) {
     const labelled2 = CARD_LINE.exec(line);
     if (labelled2) {
       field4 = cardField(group(labelled2, 1));
@@ -5534,9 +5552,9 @@ function cardOf(lines) {
   }
   return { ...card, command: card.command === null ? null : codeCell(card.command) };
 }
-function cardsOf(lines) {
+function cardsOf(lines2) {
   const blocks2 = [];
-  for (const line of lines) {
+  for (const line of lines2) {
     const heading = CARD_HEADING.exec(line);
     if (heading) blocks2.push({ id: group(heading, 1), lines: [] });
     else blocks2.at(-1)?.lines.push(line);
@@ -6292,7 +6310,7 @@ function approvedVerdict(prd, reading) {
     return { state: "unknown", conclusion: "failure", title, summary: summary2, dossierId: null, drift: [] };
   }
   const { dossierId, approval, latest } = record;
-  const verdict = (state, conclusion, title, lines, drift2 = []) => ({ state, conclusion, title, summary: lines.join("\n"), dossierId, drift: drift2 });
+  const verdict = (state, conclusion, title, lines2, drift2 = []) => ({ state, conclusion, title, summary: lines2.join("\n"), dossierId, drift: drift2 });
   if (!approval) return verdict("pending", "failure", `pending \xB7 ${prd.id} waits for approval`, [`Nobody approved ${prd.id} yet.`]);
   const { login, member } = approval.approver;
   const attestation = [
@@ -6302,8 +6320,8 @@ function approvedVerdict(prd, reading) {
   ];
   const drift = driftsOf(approval, latest);
   if (drift.length > 0) {
-    const lines = drift.map(driftLine);
-    return verdict("drifted", "failure", `drifted \xB7 ${lines[0] ?? ""}`, [...lines, "", "Restore the file, or approve again on the PRD page.", "", ...attestation], drift);
+    const lines2 = drift.map(driftLine);
+    return verdict("drifted", "failure", `drifted \xB7 ${lines2[0] ?? ""}`, [...lines2, "", "Restore the file, or approve again on the PRD page.", "", ...attestation], drift);
   }
   if (!member) return verdict("refused", "failure", `refused \xB7 approver ${login} is not a workspace member`, attestation);
   const pinned = approval.files.length;
@@ -6646,11 +6664,11 @@ function specTitle(spec) {
   return (line[1] ?? "").trim().replace(/^(['"])(.*)\1$/, "$2") || null;
 }
 function section2(markdown, name) {
-  const lines = markdown.split("\n");
-  const start = lines.findIndex((line) => line.trim() === `## ${name}`);
+  const lines2 = markdown.split("\n");
+  const start = lines2.findIndex((line) => line.trim() === `## ${name}`);
   if (start === -1) return "";
-  const end = lines.findIndex((line, index) => index > start && /^## /.test(line));
-  return lines.slice(start + 1, end === -1 ? lines.length : end).join("\n").trim();
+  const end = lines2.findIndex((line, index) => index > start && /^## /.test(line));
+  return lines2.slice(start + 1, end === -1 ? lines2.length : end).join("\n").trim();
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
@@ -7286,10 +7304,10 @@ function isTableRow(line) {
 function isSeparatorRow(line) {
   return /^\|[\s:|-]+\|$/.test(line.trim());
 }
-function bodyRows(lines, headerIndex) {
+function bodyRows(lines2, headerIndex) {
   const rows = [];
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
+  for (let index = headerIndex + 1; index < lines2.length; index += 1) {
+    const line = lines2[index];
     if (!isTableRow(line)) break;
     if (isSeparatorRow(line)) continue;
     rows.push(cells2(line));
@@ -7320,11 +7338,11 @@ function parsePlanSlices(markdown) {
   return slices;
 }
 function sliceTable(markdown) {
-  const lines = markdown.split("\n");
+  const lines2 = markdown.split("\n");
   let headerIndex = -1;
   let foundAnyIdTable = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
+  for (let i = 0; i < lines2.length; i += 1) {
+    const line = lines2[i];
     if (isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim())) {
       foundAnyIdTable = true;
       const header3 = cells2(line).map((name) => name.toLowerCase());
@@ -7342,8 +7360,8 @@ function sliceTable(markdown) {
     }
     throw new Error("No slice table was found in this plan; its slices declare no territory.");
   }
-  const header2 = cells2(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  return { column: (name) => header2.indexOf(name), rows: bodyRows(lines, headerIndex) };
+  const header2 = cells2(lines2[headerIndex] ?? "").map((name) => name.toLowerCase());
+  return { column: (name) => header2.indexOf(name), rows: bodyRows(lines2, headerIndex) };
 }
 var TIERS2 = ["deep", "build", "light"];
 function isTier(text17) {
@@ -7404,12 +7422,12 @@ function parsePlanLandings(markdown) {
   return rows;
 }
 function sectionTable(markdown, heading) {
-  const lines = markdown.split("\n");
-  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  const lines2 = markdown.split("\n");
+  const start = lines2.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
   if (start === -1) return [];
   let headerIndex = -1;
-  for (let i = start + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
+  for (let i = start + 1; i < lines2.length; i += 1) {
+    const line = lines2[i] ?? "";
     if (/^#{1,2}\s/.test(line.trim())) break;
     if (isTableRow(line)) {
       headerIndex = i;
@@ -7417,8 +7435,8 @@ function sectionTable(markdown, heading) {
     }
   }
   if (headerIndex === -1) return [];
-  const header2 = cells2(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  return bodyRows(lines, headerIndex).map(
+  const header2 = cells2(lines2[headerIndex] ?? "").map((name) => name.toLowerCase());
+  return bodyRows(lines2, headerIndex).map(
     (row) => (name) => header2.indexOf(name) === -1 ? "" : plainCell(row[header2.indexOf(name)])
   );
 }
@@ -7689,12 +7707,12 @@ function changeBlocks(patch) {
   close();
   return blocks2;
 }
-function followLines(lines, blocks2, commit) {
+function followLines(lines2, blocks2, commit) {
   const next = /* @__PURE__ */ new Map();
   const replaced = blocks2.map(() => []);
   let index = 0;
   let shift = 0;
-  for (const [line, commits] of lines) {
+  for (const [line, commits] of lines2) {
     let block = blocks2[index];
     while (block !== void 0 && block[0] + block[1] <= line) {
       shift += block[3] - block[1];
@@ -7710,10 +7728,10 @@ function followLines(lines, blocks2, commit) {
   });
   return [...next.entries()].sort((a, b) => a[0] - b[0]);
 }
-function rewrittenRanges(lines, minCommits) {
+function rewrittenRanges(lines2, minCommits) {
   const ranges = [];
   let current = null;
-  for (const [line, commits] of lines) {
+  for (const [line, commits] of lines2) {
     if (commits.length < minCommits) {
       current = null;
       continue;
@@ -8532,7 +8550,7 @@ function driftOf2(ctx, prd, file) {
 function judged(reply2, { named, fileOf, drift: driftIn }) {
   const { url, approval, tech } = reply2;
   const laws = parseLaws(reply2.laws);
-  const reading = (state, lines, drift2 = []) => ({ state, lines, url, approval, drift: drift2, ...tech ? { tech } : {}, ...laws ? { laws } : {} });
+  const reading = (state, lines2, drift2 = []) => ({ state, lines: lines2, url, approval, drift: drift2, ...tech ? { tech } : {}, ...laws ? { laws } : {} });
   const waitsOn = techWaitsOn(tech);
   const techLine = waitsOn === null ? [] : [`${named} \xB7 ${waitingForTech(waitsOn)}: ${url}`];
   if (!approval) return reading("pending", techLine.length > 0 ? techLine : [`${named} waits for approval: ${url}`]);
@@ -8542,8 +8560,8 @@ function judged(reply2, { named, fileOf, drift: driftIn }) {
       const file = approval.files.find((f) => f.kind === kind);
       return file ? fileOf(file) : kind;
     };
-    const lines = voids.map((v) => `\u2260 ${basename6(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url}`);
-    return reading("drifted", [...lines, ...techLine], voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
+    const lines2 = voids.map((v) => `\u2260 ${basename6(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url}`);
+    return reading("drifted", [...lines2, ...techLine], voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
   }
   const { login, member } = approval.approver;
   if (!member) return reading("refused", [`approver ${login} is not a workspace member`]);
@@ -8716,18 +8734,18 @@ function signStageEvent(secret, body) {
 function stageEventUrl(galaxyUrl) {
   return `${galaxyUrl.replace(/\/+$/, "")}/api/stages/event`;
 }
-function forwardStageEvent(stageEvent, post) {
+function forwardStageEvent(stageEvent, post2) {
   const what = `${stageEvent.stage} of ${stageEvent.repository} ${stageEvent.prd ? `#${stageEvent.prd}` : stageEvent.topic}`;
-  return postSigned(stageEvent, post, { name: "stage event", what });
+  return postSigned(stageEvent, post2, { name: "stage event", what });
 }
-async function postSigned(payload, { url, secret, fetch: post = fetch, log: log2 = noteTo("stage-forward") }, { name, what }) {
+async function postSigned(payload, { url, secret, fetch: post2 = fetch, log: log2 = noteTo("stage-forward") }, { name, what }) {
   if (!secret) {
     log2(`${name}: STAGE_EVENT_SECRET is not set, the ${what} is left to the sync`);
     return;
   }
   const body = JSON.stringify(payload);
   try {
-    const response = await post(url, {
+    const response = await post2(url, {
       method: "POST",
       body,
       headers: { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
@@ -9135,7 +9153,7 @@ function lineOf2({ file, how, where }) {
 function repoApprovedVerdict(prd, reading, head) {
   const n = Number(prd);
   const dossierId = dossierOf(reading.url);
-  const verdict = (state, conclusion, title, lines, drift = []) => ({ state, conclusion, title, summary: [...lines, "", `Read against ${head}.`].join("\n"), dossierId, drift });
+  const verdict = (state, conclusion, title, lines2, drift = []) => ({ state, conclusion, title, summary: [...lines2, "", `Read against ${head}.`].join("\n"), dossierId, drift });
   const { approval } = reading;
   const held = () => verdict("held", "neutral", `held \xB7 ${UNREACHABLE}`, reading.lines);
   switch (reading.state) {
@@ -9147,9 +9165,9 @@ function repoApprovedVerdict(prd, reading, head) {
       return verdict("pending", "failure", `pending \xB7 PRD ${n} waits for approval`, reading.lines);
     case "drifted": {
       const drift = reading.drift.map((d) => headDrift(d, reading, head));
-      const lines = drift.map(lineOf2);
+      const lines2 = drift.map(lineOf2);
       const restore = `Run \`omni approval restore ${n}\` to write each drifted file back to its approved content, or approve again on the PRD page.`;
-      return verdict("drifted", "failure", `drifted \xB7 ${lines[0] ?? ""}`, [...lines, "", restore], drift);
+      return verdict("drifted", "failure", `drifted \xB7 ${lines2[0] ?? ""}`, [...lines2, "", restore], drift);
     }
     case "refused":
       return approval && !approval.approver.member ? verdict("refused", "failure", `refused \xB7 approver ${approval.approver.login} is not a workspace member`, reading.lines) : held();
@@ -9591,10 +9609,10 @@ function thesisPath(ctx) {
   return `${productDir(ctx)}/${THESIS_FILE}`;
 }
 function parseThesis(file, text17) {
-  const lines = text17.split("\n");
-  const start = lines.findIndex((line) => LAWS_HEADING.test(line.trim()));
+  const lines2 = text17.split("\n");
+  const start = lines2.findIndex((line) => LAWS_HEADING.test(line.trim()));
   if (start === -1) return { file, lawsSection: null, laws: [] };
-  const rest = lines.slice(start + 1);
+  const rest = lines2.slice(start + 1);
   const end = rest.findIndex((line) => ANY_H22.test(line));
   const body = end === -1 ? rest : rest.slice(0, end);
   const laws = body.flatMap((raw) => {
@@ -9799,10 +9817,10 @@ function readTarget2(path, index, { ctx }) {
 function headingAnchor(heading) {
   return heading.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
 }
-function headingsOf(lines) {
+function headingsOf(lines2) {
   const headings = [];
   let fenced = false;
-  for (const [index, line] of lines.entries()) {
+  for (const [index, line] of lines2.entries()) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const heading = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
     if (heading) headings.push({ index, depth: heading[1]?.length ?? 0, anchor: headingAnchor(heading[2] ?? "") });
@@ -9810,12 +9828,12 @@ function headingsOf(lines) {
   return headings;
 }
 function sectionOf(text17, anchor) {
-  const lines = text17.split("\n");
-  const headings = headingsOf(lines);
+  const lines2 = text17.split("\n");
+  const headings = headingsOf(lines2);
   const start = headings.find((heading) => heading.anchor === anchor);
   if (!start) return null;
   const end = headings.find((heading) => heading.index > start.index && heading.depth <= start.depth);
-  return lines.slice(start.index, end?.index).join("\n").trim();
+  return lines2.slice(start.index, end?.index).join("\n").trim();
 }
 function resolvePointer(base, see, { ctx, heading, file, problems }) {
   const { path, anchor } = see;
@@ -9945,32 +9963,32 @@ var BRIEFING = "briefing";
 var SESSION2 = "session";
 var LATEST_RECORDS = 20;
 function recordLines({ dir, records, shared, next }, all) {
-  const lines = [`## Records  [read live from ${dir}]`];
-  if (records.length === 0) lines.push("No decision records yet.");
+  const lines2 = [`## Records  [read live from ${dir}]`];
+  if (records.length === 0) lines2.push("No decision records yet.");
   const tagged = records.some((record) => levelOf(record) !== "repo");
   const own = records.filter((record) => levelOf(record) === "repo");
   const inherited = records.filter((record) => levelOf(record) !== "repo");
   const older = all ? 0 : Math.max(0, own.length - LATEST_RECORDS);
-  lines.push(
+  lines2.push(
     ...[...own.slice(older), ...inherited].map(
       (record) => `${record.number}  ${record.title ?? record.file}${tagged ? `  [${levelOf(record)}]` : ""}`
     )
   );
-  if (older > 0) lines.push(`\u2026 ${older} older records: omni kb show decisions --all`);
-  lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(", ")}`));
-  lines.push(`Next free number: ${next}`);
-  return lines;
+  if (older > 0) lines2.push(`\u2026 ${older} older records: omni kb show decisions --all`);
+  lines2.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(", ")}`));
+  lines2.push(`Next free number: ${next}`);
+  return lines2;
 }
 function formShowText(resolved, records, laws = null, { all = false } = {}) {
-  const lines = [`# ${resolved.title}`, `${resolved.file} \xB7 ${resolved.state}`];
+  const lines2 = [`# ${resolved.title}`, `${resolved.file} \xB7 ${resolved.state}`];
   for (const section4 of resolved.sections) {
-    lines.push("", section4.slot === null ? section4.label : `## ${section4.heading}  ${section4.label}`);
-    if (section4.text) lines.push(section4.text);
-    if (section4.source === "hole") lines.push(...section4.questions.map((question) => `TODO(human): ${question}`));
+    lines2.push("", section4.slot === null ? section4.label : `## ${section4.heading}  ${section4.label}`);
+    if (section4.text) lines2.push(section4.text);
+    if (section4.source === "hole") lines2.push(...section4.questions.map((question) => `TODO(human): ${question}`));
   }
-  if (records) lines.push("", ...recordLines(records, all));
-  if (laws) lines.push("", ...laws);
-  return lines.join("\n");
+  if (records) lines2.push("", ...recordLines(records, all));
+  if (laws) lines2.push("", ...laws);
+  return lines2.join("\n");
 }
 var harmless = (problem) => problem.startsWith("kit default ");
 function measureForm(ctx, form2) {
@@ -10213,13 +10231,13 @@ function redTitle(verdicts) {
     ...waiting > 0 ? [`${counted(waiting, "ceiling")} raised, waiting on a person's yes`] : []
   ].join(" \xB7 ");
 }
-var summaryOf = (lines) => lines.join("\n").slice(0, MAX_SUMMARY);
+var summaryOf = (lines2) => lines2.join("\n").slice(0, MAX_SUMMARY);
 function budgetsOutput(verdicts, context) {
   const state = overall(verdicts);
   if (state === "red") {
     const red = verdicts.filter(({ verdict }) => verdict === "over-budget" || verdict === "needs-yes");
-    const lines = red.flatMap((verdict, index) => [...index > 0 ? [""] : [], ...redMessage(verdict, context)]);
-    return { conclusion: "failure", title: redTitle(verdicts), summary: summaryOf([...lines, "", ...budgetTable(verdicts)]) };
+    const lines2 = red.flatMap((verdict, index) => [...index > 0 ? [""] : [], ...redMessage(verdict, context)]);
+    return { conclusion: "failure", title: redTitle(verdicts), summary: summaryOf([...lines2, "", ...budgetTable(verdicts)]) };
   }
   if (state === "neutral") {
     return { conclusion: "neutral", title: "not measured", summary: summaryOf([...neutralLines(verdicts), "", ...budgetTable(verdicts)]) };
@@ -10250,12 +10268,12 @@ import { existsSync as existsSync29, readdirSync as readdirSync15, readFileSync 
 import { join as join40 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
 function invariantAdrs(text17, heading) {
-  const lines = text17.split("\n");
-  const start = lines.findIndex((line) => line.trim() === heading.trim());
+  const lines2 = text17.split("\n");
+  const start = lines2.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
   const ids = /* @__PURE__ */ new Set();
-  for (const line of lines.slice(start + 1)) {
+  for (const line of lines2.slice(start + 1)) {
     const next = line.match(/^(#+)\s/);
     if (next?.[1] !== void 0 && next[1].length <= level) break;
     for (const match2 of line.matchAll(/ADR-\d{4}/g)) ids.add(match2[0]);
@@ -10564,34 +10582,34 @@ var RECOMMENDATION_TEXT = "go with recommendation";
 var LETTER_ANSWER = /^([A-Za-z])(?:\s*[.,:;)\-—–]?\s*because\b\s*(.*?))?[\s.!]*$/is;
 var RANK_PLAIN_LABEL = { "human-action": "needs a person", high: "high", medium: "medium" };
 function parseReplyLines(body) {
-  const lines = [];
+  const lines2 = [];
   for (const line of plainText(body).split(/\r?\n/)) {
     if (APPROVE_ALL_LINE.test(line)) {
-      lines.push({ kind: "approve-all", text: APPROVE_ALL_TEXT });
+      lines2.push({ kind: "approve-all", text: APPROVE_ALL_TEXT });
       continue;
     }
     if (RECOMMENDATION_RE.test(line)) {
-      lines.push({ kind: "approve-all", text: RECOMMENDATION_TEXT });
+      lines2.push({ kind: "approve-all", text: RECOMMENDATION_TEXT });
       continue;
     }
     const match2 = line.match(NUMBERED_LINE);
-    if (match2) lines.push({ kind: "numbered", number: Number(match2[1]), text: (match2[2] ?? "").trim() });
+    if (match2) lines2.push({ kind: "numbered", number: Number(match2[1]), text: (match2[2] ?? "").trim() });
   }
-  return lines;
+  return lines2;
 }
 function interpretAnswer({
   text: text17,
   options
 }) {
-  const trimmed2 = plainText(text17).trim();
-  if (RECOMMENDATION_RE.test(trimmed2)) {
+  const trimmed3 = plainText(text17).trim();
+  if (RECOMMENDATION_RE.test(trimmed3)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
-  const match2 = trimmed2.match(LETTER_ANSWER);
-  if (!match2) return { statedVerdict: null, recorded: trimmed2 };
+  const match2 = trimmed3.match(LETTER_ANSWER);
+  if (!match2) return { statedVerdict: null, recorded: trimmed3 };
   const letter = (match2[1] ?? "").toUpperCase();
   const option = (options ?? []).find((candidate) => candidate.letter === letter);
-  if (!option) return { undetermined: true, recorded: trimmed2 };
+  if (!option) return { undetermined: true, recorded: trimmed3 };
   const reason2 = (match2[2] ?? "").trim();
   return {
     statedVerdict: letter === "A" ? "agreed" : "drifted",
@@ -10747,14 +10765,14 @@ function formatRoundComment({
   markers
 }) {
   const ordered = [...questions].sort((a, b) => a.number - b.number);
-  const lines = [
+  const lines2 = [
     markers.round(round, ordered.map((question) => question.number)),
     "",
     `**Outbox round ${round}**`,
     ""
   ];
   for (const question of ordered) {
-    lines.push(
+    lines2.push(
       `**Question ${question.number}** \xB7 ${RANK_PLAIN_LABEL[question.rank] ?? question.rank}`,
       "",
       question.questionPlain,
@@ -10767,7 +10785,7 @@ function formatRoundComment({
       ""
     );
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function appendObjection({
   ctx,
@@ -10796,7 +10814,7 @@ function appendObjection({
   writeFileSync11(absoluteSettled, `${existing}${separator}${entry}`);
   return { ok: true, settledFile };
 }
-function readReplies({ ctx, prd, pr, post = false }, client) {
+function readReplies({ ctx, prd, pr, post: post2 = false }, client) {
   const comments = client.listComments();
   const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
@@ -10837,7 +10855,7 @@ function readReplies({ ctx, prd, pr, post = false }, client) {
       questions: plan.round.questions,
       markers: ctx.markers
     });
-    const posted = post ? client.createComment(body) : null;
+    const posted = post2 ? client.createComment(body) : null;
     round = { number: plan.round.number, body, posted: posted ?? null };
   }
   return {
@@ -11634,13 +11652,13 @@ function judgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/constituents/judge`;
 }
 var failed = (error, reason2) => ({ ok: false, error, answer: null, confidence: null, decidedBy: null, reason: reason2 });
-function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS2 }) {
+function constituentJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE_TIMEOUT_MS2 }) {
   return async ({ repo, state, old, ref }) => {
     if (!secret) return failed(JUDGE_NOT_CONFIGURED, `${JUDGE_SECRET_VAR} is not set`);
     const body = JSON.stringify({ repo, state, old, ref });
     let response;
     try {
-      response = await post(url, {
+      response = await post2(url, {
         method: "POST",
         body,
         headers: { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
@@ -11862,10 +11880,10 @@ var RepositoriesSchema = z47.looseObject({
 });
 var OpenPullsSchema = z47.array(z47.looseObject({ number: z47.number(), base: z47.looseObject({ sha: z47.string() }) }));
 var lower = (login) => login.toLowerCase();
-function moveDue(lines, settings, now2, posted) {
-  const decisions = decide(lines.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now2, settings);
+function moveDue(lines2, settings, now2, posted) {
+  const decisions = decide(lines2.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now2, settings);
   const due = [];
-  const moved = lines.map((line, index) => {
+  const moved = lines2.map((line, index) => {
     const decision = decisions[index];
     if (decision === void 0 || decision.step <= line.step) return line;
     const already = new Set(line.asked.map(lower));
@@ -11888,8 +11906,8 @@ async function settingsAt(octokit, { owner, repo, baseSha }) {
 }
 function recordIn(comments) {
   for (const comment of comments) {
-    const lines = readRecord(comment.body);
-    if (lines !== null) return lines.length > 0 ? { record: comment, lines } : null;
+    const lines2 = readRecord(comment.body);
+    if (lines2 !== null) return lines2.length > 0 ? { record: comment, lines: lines2 } : null;
   }
   return null;
 }
@@ -12323,10 +12341,10 @@ function gateOf(verdict) {
   const reason2 = `${verdict.reason}: ${verdict.findings.map((finding) => finding.law).join(", ")}`;
   return { name: GATE, ok: false, title: `${GATE} \u2717 ${verdict.findings.length}`, reason: reason2, details: verdict.findings.flatMap(detailsOf) };
 }
-async function signedCall(post, { url, secret, body, timeoutMs }) {
+async function signedCall(post2, { url, secret, body, timeoutMs }) {
   const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) };
   try {
-    const response = await post(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await post2(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
     const reply2 = await response.json().catch(() => null);
     return response.ok ? { reply: reply2 } : { why: `galaxy answered ${response.status}${refusalOf2(reply2)}` };
   } catch (error) {
@@ -12343,11 +12361,11 @@ function gateOfReply(reply2) {
   if (verdict.data.state === "red" && verdict.data.findings.length === 0) return notJudged("galaxy answered a red with no finding");
   return gateOf(verdict.data);
 }
-function businessLawsJudge({ url, secret, fetch: post = fetch, timeoutMs = TIMEOUT_MS }) {
+function businessLawsJudge({ url, secret, fetch: post2 = fetch, timeoutMs = TIMEOUT_MS }) {
   return {
     async grade({ repo, spec }) {
       if (!secret) return notJudged(`judge not configured (${SECRET_VAR} is not set)`);
-      const called = await signedCall(post, { url, secret, body: JSON.stringify({ repo, spec }), timeoutMs });
+      const called = await signedCall(post2, { url, secret, body: JSON.stringify({ repo, spec }), timeoutMs });
       return "why" in called ? notJudged(called.why) : gateOfReply(called.reply);
     }
   };
@@ -12412,7 +12430,7 @@ function canonComment(action, facts, { galaxyUrl }) {
     return [commentMarker(action), `To rewrite the spec${whom}, run \`/omni:brainstorm --rework ${facts.prd}\`.`].join("\n");
   }
   if (action === CANON_ACTION.claim) {
-    const lines = facts.claims.map((id) => `- [${id}](${claimLink(galaxyUrl, id)})`);
+    const lines2 = facts.claims.map((id) => `- [${id}](${claimLink(galaxyUrl, id)})`);
     const how = [];
     if (facts.claims.some(isConstituent2)) {
       how.push("To change the Statement or a Never line, open it on Settings \u203A Business: an owner of the workspace changes it on the Constituents panel; then re-run the inbox check.");
@@ -12420,7 +12438,7 @@ function canonComment(action, facts, { galaxyUrl }) {
     if (facts.claims.some((id) => !isConstituent2(id))) {
       how.push("To change the claim, open it on Settings \u203A Business. A new wording is saved as proposed and confirmed like any other; then re-run the inbox check.");
     }
-    return [commentMarker(action), ...how, "", ...lines].join("\n");
+    return [commentMarker(action), ...how, "", ...lines2].join("\n");
   }
   return null;
 }
@@ -13552,21 +13570,143 @@ function canonActionHandler({ octokitFor, galaxyUrl }) {
   };
 }
 
-// apps/omni-app/src/knowledge-pack/store.ts
+// apps/omni-app/src/knowledge-embed/embedder.ts
 import { z as z59 } from "zod";
-var KeptSchema = z59.object({
-  workspace: z59.string().min(1),
-  packId: z59.string().min(1),
-  created: z59.boolean(),
-  newest: z59.boolean(),
-  files: z59.number().int().nonnegative()
+var EMBED_MODEL = "gte-small";
+var EMBED_DIMENSIONS = 384;
+var EMBED_BATCH = 64;
+var EMBED_TIMEOUT_MS = 6e4;
+var AnswerSchema2 = z59.object({
+  model: z59.literal(EMBED_MODEL),
+  vectors: z59.array(z59.array(z59.number()).length(EMBED_DIMENSIONS))
 });
-var PutAnswerSchema = z59.object({
-  repository: z59.string().min(1),
-  sha: z59.string().regex(/^[0-9a-f]{40}$/),
-  packs: z59.array(KeptSchema)
+var embedUrl = (url) => `${url.replace(/\/+$/, "")}/functions/v1/embed`;
+async function post(fetch2, endpoint, key, texts, timeoutMs) {
+  try {
+    return await fetch2(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${key}`, apikey: key, "content-type": "application/json" },
+      body: JSON.stringify({ texts }),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (error) {
+    const late = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    throw new Error(`embed: ${late ? `no answer within ${String(timeoutMs)} ms` : "the call failed"}`);
+  }
+}
+async function vectorsOf(response, count2) {
+  if (!response.ok) throw new Error(`embed answered ${String(response.status)}`);
+  const parsed2 = AnswerSchema2.safeParse(await response.json().catch(() => null));
+  if (!parsed2.success) {
+    const [issue] = parsed2.error.issues;
+    throw new Error(`embed answered out of shape: ${issue?.path.join(".") || "(answer)"}: ${issue?.message ?? "malformed"}`);
+  }
+  const { vectors } = parsed2.data;
+  if (vectors.length !== count2) throw new Error(`embed answered ${String(vectors.length)} vectors for ${String(count2)} texts`);
+  return vectors;
+}
+function embedClient({ url, key, fetch: fetch2 = globalThis.fetch }, { timeoutMs = EMBED_TIMEOUT_MS } = {}) {
+  const endpoint = embedUrl(url);
+  return async (texts) => {
+    if (texts.length === 0) return [];
+    if (texts.length > EMBED_BATCH) throw new Error(`embed takes at most ${String(EMBED_BATCH)} texts a call, not ${String(texts.length)}`);
+    return vectorsOf(await post(fetch2, endpoint, key, texts, timeoutMs), texts.length);
+  };
+}
+
+// apps/omni-app/src/knowledge-embed/store.ts
+import { z as z60 } from "zod";
+var PAGE = 1e3;
+var PackRowSchema = z60.object({ id: z60.string().min(1), workspace_id: z60.string().min(1) });
+var FileRowSchema = z60.object({ path: z60.string(), content: z60.string() });
+var HolderRowSchema3 = z60.object({ product_id: z60.string().min(1), workspace_id: z60.string().min(1), repository: z60.string().min(1) });
+var ProductRowSchema = z60.object({ id: z60.string().min(1), workspace_id: z60.string().min(1), plan_repository: z60.string().nullable() });
+var LegalRowSchema = z60.object({ product_id: z60.string().min(1), code: z60.string().min(1), number: z60.number().int(), statement: z60.string(), source: z60.string() });
+var TermRowSchema = z60.object({ product_id: z60.string().min(1), term: z60.string(), meaning: z60.string(), avoid: z60.array(z60.string()) });
+var NeverRowSchema = z60.object({ product_id: z60.string().min(1), seq: z60.number().int(), body: z60.string() });
+async function paged(schema, page) {
+  const rows = [];
+  for (let start = 0; ; start += PAGE) {
+    const batch = rowsOf(schema, await page(start, start + PAGE - 1));
+    rows.push(...batch);
+    if (batch.length < PAGE) return rows;
+  }
+}
+function lawHomeOf(planRepository, repositories) {
+  if (planRepository !== null) return planRepository.toLowerCase();
+  return repositories.length === 1 ? repositories[0] ?? null : null;
+}
+function knowledgeEmbedStore(connection) {
+  const db = serviceDb(connection);
+  async function productRows(repository, ids) {
+    const byWorkspace = /* @__PURE__ */ new Map();
+    if (ids.length === 0) return byWorkspace;
+    const products = rowsOf(ProductRowSchema, await db.from("products").select("id, workspace_id, plan_repository").in("id", ids).is("archived_at", null));
+    const live = products.map((p) => p.id);
+    if (live.length === 0) return byWorkspace;
+    const [links, legal, glossary, never] = await Promise.all([
+      paged(HolderRowSchema3, (from, to) => db.from("product_repositories").select("product_id, workspace_id, repository").in("product_id", live).order("repository").range(from, to)),
+      paged(LegalRowSchema, (from, to) => db.from("product_legal").select("product_id, code, number, statement, source").in("product_id", live).is("retired_at", null).order("code").order("number").range(from, to)),
+      paged(TermRowSchema, (from, to) => db.from("product_glossary").select("product_id, term, meaning, avoid").in("product_id", live).is("removed_at", null).order("term").range(from, to)),
+      paged(NeverRowSchema, (from, to) => db.from("constituents").select("product_id, seq, body").in("product_id", live).eq("kind", "never").is("removed_at", null).order("seq").range(from, to))
+    ]);
+    for (const product of products) {
+      const home = lawHomeOf(product.plan_repository, links.filter((l) => l.product_id === product.id).map((l) => l.repository));
+      const rows = {
+        lawHome: home === repository,
+        legal: legal.filter((l) => l.product_id === product.id).map((l) => ({ id: `L-${l.code}-${String(l.number)}`, statement: l.statement, source: l.source, owner: null })),
+        glossary: glossary.filter((g) => g.product_id === product.id).map(({ term, meaning, avoid }) => ({ term, meaning, avoid })),
+        never: never.filter((n) => n.product_id === product.id).map(({ seq, body }) => ({ seq, body }))
+      };
+      byWorkspace.set(product.workspace_id, [...byWorkspace.get(product.workspace_id) ?? [], rows]);
+    }
+    return byWorkspace;
+  }
+  return {
+    sources: async (repo, sha) => {
+      const repository = repo.toLowerCase();
+      const packs = rowsOf(PackRowSchema, await db.from("knowledge_packs").select("id, workspace_id").eq("repository", repository).eq("sha", sha));
+      if (packs.length === 0) return [];
+      const workspaces = packs.map((p) => p.workspace_id);
+      const holders = rowsOf(HolderRowSchema3, await db.from("product_repositories").select("product_id, workspace_id, repository").eq("repository", repository).in("workspace_id", workspaces));
+      const products = await productRows(repository, [...new Set(holders.map((h) => h.product_id))]);
+      const kept3 = [];
+      for (const pack2 of packs) {
+        const files = await paged(FileRowSchema, (from, to) => db.from("knowledge_pack_files").select("path, content").eq("pack_id", pack2.id).order("path").range(from, to));
+        kept3.push({ workspace: pack2.workspace_id, files, products: products.get(pack2.workspace_id) ?? [] });
+      }
+      return kept3;
+    },
+    missing: async (workspace, model, hashes) => {
+      if (hashes.length === 0) return [];
+      const { data, error } = await db.rpc("knowledge_vectors_missing", { p_workspace: workspace, p_model: model, p_hashes: [...hashes] });
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return z60.array(z60.string()).parse(data);
+    },
+    put: async (workspace, model, rows) => {
+      if (rows.length === 0) return 0;
+      const { data, error } = await db.rpc("knowledge_vectors_put", { p_workspace: workspace, p_model: model, p_rows: rows.map(({ sha256: sha2562, vector }) => ({ sha256: sha2562, vector })) });
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return z60.number().int().nonnegative().parse(data);
+    }
+  };
+}
+
+// apps/omni-app/src/knowledge-pack/store.ts
+import { z as z61 } from "zod";
+var KeptSchema = z61.object({
+  workspace: z61.string().min(1),
+  packId: z61.string().min(1),
+  created: z61.boolean(),
+  newest: z61.boolean(),
+  files: z61.number().int().nonnegative()
 });
-var HolderSchema = z59.object({ product_id: z59.string().min(1) });
+var PutAnswerSchema = z61.object({
+  repository: z61.string().min(1),
+  sha: z61.string().regex(/^[0-9a-f]{40}$/),
+  packs: z61.array(KeptSchema)
+});
+var HolderSchema = z61.object({ product_id: z61.string().min(1) });
 var refused6 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function knowledgePackStore(connection) {
   const db = serviceDb(connection);
@@ -13727,15 +13867,15 @@ Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
 }
 
 // apps/omni-app/src/outbox-check/product-outbox.ts
-import { z as z60 } from "zod";
-var text12 = z60.string().min(1);
-var HolderRowSchema3 = z60.object({ product_id: text12, products: z60.object({ name: text12 }) });
-var DossierRowSchema3 = z60.object({ id: text12 });
-var ItemRowSchema2 = z60.object({ item: text12, rank: text12, outbox_settlements: z60.array(z60.unknown()) });
+import { z as z62 } from "zod";
+var text12 = z62.string().min(1);
+var HolderRowSchema4 = z62.object({ product_id: text12, products: z62.object({ name: text12 }) });
+var DossierRowSchema3 = z62.object({ id: text12 });
+var ItemRowSchema2 = z62.object({ item: text12, rank: text12, outbox_settlements: z62.array(z62.unknown()) });
 function productOutboxReader(connection) {
   const db = serviceDb(connection);
   return async (repository, prd) => {
-    const [holder] = rowsOf(HolderRowSchema3, await db.from("product_repositories").select("product_id, products!inner(key, name)").eq("repository", repository.toLowerCase()).eq("products.key", prd.key).limit(1));
+    const [holder] = rowsOf(HolderRowSchema4, await db.from("product_repositories").select("product_id, products!inner(key, name)").eq("repository", repository.toLowerCase()).eq("products.key", prd.key).limit(1));
     if (!holder) return null;
     const [dossier] = rowsOf(DossierRowSchema3, await db.from("dossiers").select("id").eq("product_id", holder.product_id).eq("product_seq", prd.seq).eq("kind", "prd").limit(1));
     if (!dossier) return null;
@@ -13988,20 +14128,20 @@ function outboxFailureHook({ octokitFor, log: log2 = noteTo("outbox-check") }) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-import { z as z62 } from "zod";
+import { z as z64 } from "zod";
 
 // kit/lib/plan-repo/gh-schema.ts
-import { z as z61 } from "zod";
-var GhRepositorySchema = z61.looseObject({ default_branch: z61.string() });
-var GhContentEntrySchema = z61.looseObject({ type: z61.string(), name: z61.string(), path: z61.string() });
-var GhCompareFileSchema = z61.looseObject({
-  filename: z61.string(),
-  previous_filename: z61.string().optional()
+import { z as z63 } from "zod";
+var GhRepositorySchema = z63.looseObject({ default_branch: z63.string() });
+var GhContentEntrySchema = z63.looseObject({ type: z63.string(), name: z63.string(), path: z63.string() });
+var GhCompareFileSchema = z63.looseObject({
+  filename: z63.string(),
+  previous_filename: z63.string().optional()
 });
-var GhCompareSchema = z61.looseObject({
-  ahead_by: z61.number().optional(),
-  status: z61.string().optional(),
-  files: z61.array(GhCompareFileSchema).optional()
+var GhCompareSchema = z63.looseObject({
+  ahead_by: z63.number().optional(),
+  status: z63.string().optional(),
+  files: z63.array(GhCompareFileSchema).optional()
 });
 function firstIssue(error) {
   const [issue] = error.issues;
@@ -14011,64 +14151,64 @@ function firstIssue(error) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z62.looseObject({
-  limit: z62.number(),
-  remaining: z62.number(),
-  resetAt: z62.string().nullish()
+var RateLimitSchema = z64.looseObject({
+  limit: z64.number(),
+  remaining: z64.number(),
+  resetAt: z64.string().nullish()
 });
-var RateLimited = z62.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z62.looseObject({
-  repository: z62.looseObject({
-    pullRequests: z62.looseObject({
-      pageInfo: z62.looseObject({ hasNextPage: z62.boolean(), endCursor: z62.string().nullish() }),
-      nodes: z62.array(z62.looseObject({ number: PrNumberSchema, updatedAt: z62.string() }))
+var RateLimited = z64.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z64.looseObject({
+  repository: z64.looseObject({
+    pullRequests: z64.looseObject({
+      pageInfo: z64.looseObject({ hasNextPage: z64.boolean(), endCursor: z64.string().nullish() }),
+      nodes: z64.array(z64.looseObject({ number: PrNumberSchema, updatedAt: z64.string() }))
     })
   })
 });
-var ActorSchema = z62.looseObject({ login: z62.string().nullish(), __typename: z62.string().nullish() }).nullish();
-var PullDetailSchema = z62.looseObject({
+var ActorSchema = z64.looseObject({ login: z64.string().nullish(), __typename: z64.string().nullish() }).nullish();
+var PullDetailSchema = z64.looseObject({
   number: PrNumberSchema,
   author: ActorSchema,
-  createdAt: z62.string(),
-  mergedAt: z62.string().nullish(),
-  closedAt: z62.string().nullish(),
+  createdAt: z64.string(),
+  mergedAt: z64.string().nullish(),
+  closedAt: z64.string().nullish(),
   mergedBy: ActorSchema,
-  baseRefName: z62.string().nullish(),
-  headRefName: z62.string().nullish(),
-  isDraft: z62.boolean().nullish(),
-  body: z62.string().nullish(),
-  additions: z62.number().nullish(),
-  deletions: z62.number().nullish(),
-  labels: z62.looseObject({ nodes: z62.array(z62.looseObject({ name: z62.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z62.looseObject({
-    totalCount: z62.number(),
-    nodes: z62.array(
-      z62.looseObject({
-        commit: z62.looseObject({ message: z62.string().nullish(), committedDate: z62.string().nullish() }).nullish()
+  baseRefName: z64.string().nullish(),
+  headRefName: z64.string().nullish(),
+  isDraft: z64.boolean().nullish(),
+  body: z64.string().nullish(),
+  additions: z64.number().nullish(),
+  deletions: z64.number().nullish(),
+  labels: z64.looseObject({ nodes: z64.array(z64.looseObject({ name: z64.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z64.looseObject({
+    totalCount: z64.number(),
+    nodes: z64.array(
+      z64.looseObject({
+        commit: z64.looseObject({ message: z64.string().nullish(), committedDate: z64.string().nullish() }).nullish()
       })
     )
   }).nullish(),
-  reviews: z62.looseObject({ nodes: z62.array(z62.looseObject({ author: ActorSchema, submittedAt: z62.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z62.looseObject({
-    nodes: z62.array(
-      z62.looseObject({ createdAt: z62.string().nullish(), label: z62.looseObject({ name: z62.string().nullish() }).nullish() }).nullish()
+  reviews: z64.looseObject({ nodes: z64.array(z64.looseObject({ author: ActorSchema, submittedAt: z64.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z64.looseObject({
+    nodes: z64.array(
+      z64.looseObject({ createdAt: z64.string().nullish(), label: z64.looseObject({ name: z64.string().nullish() }).nullish() }).nullish()
     ).nullish()
   }).nullish()
 });
-var PullDetailsSchema = z62.looseObject({ repository: z62.record(z62.string(), z62.unknown()) });
-var PullCommentsSchema = z62.looseObject({
-  comments: z62.looseObject({ nodes: z62.array(z62.looseObject({ body: z62.string().nullish() }).nullish()).nullish() }).nullish()
+var PullDetailsSchema = z64.looseObject({ repository: z64.record(z64.string(), z64.unknown()) });
+var PullCommentsSchema = z64.looseObject({
+  comments: z64.looseObject({ nodes: z64.array(z64.looseObject({ body: z64.string().nullish() }).nullish()).nullish() }).nullish()
 }).nullish();
-var TrackedRowSchema2 = z62.looseObject({
-  workspace_id: z62.string(),
-  full_name: z62.string(),
-  collected_until: z62.string().nullish(),
-  workspaces: z62.looseObject({ github_installation_id: z62.union([z62.number(), z62.string()]) })
+var TrackedRowSchema2 = z64.looseObject({
+  workspace_id: z64.string(),
+  full_name: z64.string(),
+  collected_until: z64.string().nullish(),
+  workspaces: z64.looseObject({ github_installation_id: z64.union([z64.number(), z64.string()]) })
 });
-var FailureSchema2 = z62.looseObject({
-  errors: z62.array(z62.looseObject({ type: z62.unknown().optional(), message: z62.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z62.unknown().optional(),
-  status: z62.unknown().optional()
+var FailureSchema2 = z64.looseObject({
+  errors: z64.array(z64.looseObject({ type: z64.unknown().optional(), message: z64.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z64.unknown().optional(),
+  status: z64.unknown().optional()
 });
 function parseAnswer(schema, value, what) {
   return parsedOr(schema, value, `GitHub answered ${what} unexpectedly`);
@@ -14078,24 +14218,24 @@ function parsedOr(schema, value, context) {
   if (parsed2.success) return parsed2.data;
   throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
 }
-var BudgetSchema = z62.object({
-  limit: z62.number().exactOptional(),
-  remaining: z62.number().exactOptional(),
-  resetAt: z62.string().nullable().exactOptional()
+var BudgetSchema = z64.object({
+  limit: z64.number().exactOptional(),
+  remaining: z64.number().exactOptional(),
+  resetAt: z64.string().nullable().exactOptional()
 });
-var TrackedRepositorySchema = z62.object({
-  workspaceId: z62.string(),
-  installationId: z62.number(),
-  fullName: z62.string(),
-  collectedUntil: z62.string().nullable()
+var TrackedRepositorySchema = z64.object({
+  workspaceId: z64.string(),
+  installationId: z64.number(),
+  fullName: z64.string(),
+  collectedUntil: z64.string().nullable()
 });
-var TrackedRepositoriesSchema = z62.array(TrackedRepositorySchema);
-var BatchOutSchema = z62.object({
-  saved: z62.number(),
-  cursor: z62.string(),
-  more: z62.boolean(),
-  paused: z62.literal(true).exactOptional(),
-  error: z62.string().exactOptional(),
+var TrackedRepositoriesSchema = z64.array(TrackedRepositorySchema);
+var BatchOutSchema = z64.object({
+  saved: z64.number(),
+  cursor: z64.string(),
+  more: z64.boolean(),
+  paused: z64.literal(true).exactOptional(),
+  error: z64.string().exactOptional(),
   budget: BudgetSchema
 });
 
@@ -14452,14 +14592,14 @@ function prStatsHandler({
 }
 
 // apps/omni-app/src/server-event/job.ts
-import { z as z63 } from "zod";
+import { z as z65 } from "zod";
 var SERVER_EVENT_KIND = "server-event";
 var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var ServerEventSchema = z63.object({
-  event: z63.enum(SERVER_EVENT_KINDS),
-  dossier: z63.string().regex(UUID2),
-  at: z63.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
+var ServerEventSchema = z65.object({
+  event: z65.enum(SERVER_EVENT_KINDS),
+  dossier: z65.string().regex(UUID2),
+  at: z65.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 var SERVER_EVENT_TRIGGER = "server-event";
 function refusalIn2(error, depth = 0) {
@@ -14503,19 +14643,19 @@ function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, lo
 }
 
 // apps/omni-app/src/server-event/targets.ts
-import { z as z64 } from "zod";
-var text13 = z64.string().min(1);
-var DossierRowSchema4 = z64.object({ workspace_id: text13, product_id: text13.nullable(), product_seq: z64.number().int().positive().nullable() });
-var ProductRowSchema = z64.object({ key: text13.nullable() });
-var WorkspaceRowSchema = z64.object({ github_installation_id: z64.number().int().positive().nullable() });
-var LinkRowSchema = z64.object({ repository: text13 });
-var PullRowSchema = z64.object({ repo: text13, number: z64.number().int().positive() });
+import { z as z66 } from "zod";
+var text13 = z66.string().min(1);
+var DossierRowSchema4 = z66.object({ workspace_id: text13, product_id: text13.nullable(), product_seq: z66.number().int().positive().nullable() });
+var ProductRowSchema2 = z66.object({ key: text13.nullable() });
+var WorkspaceRowSchema = z66.object({ github_installation_id: z66.number().int().positive().nullable() });
+var LinkRowSchema = z66.object({ repository: text13 });
+var PullRowSchema = z66.object({ repo: text13, number: z66.number().int().positive() });
 function targetsReader(connection) {
   const db = serviceDb(connection);
   return async (dossier) => {
     const [row] = rowsOf(DossierRowSchema4, await db.from("dossiers").select("workspace_id, product_id, product_seq").eq("id", dossier).eq("kind", "prd").limit(1));
     if (!row?.product_id || row.product_seq === null) return null;
-    const [product] = rowsOf(ProductRowSchema, await db.from("products").select("key").eq("id", row.product_id).limit(1));
+    const [product] = rowsOf(ProductRowSchema2, await db.from("products").select("key").eq("id", row.product_id).limit(1));
     if (!product?.key) return null;
     const [workspace] = rowsOf(WorkspaceRowSchema, await db.from("workspaces").select("github_installation_id").eq("id", row.workspace_id).limit(1));
     if (!workspace?.github_installation_id) return null;
@@ -14545,7 +14685,7 @@ import {
 } from "node:fs";
 import { tmpdir as tmpdir11 } from "node:os";
 import { dirname as dirname14, join as join65 } from "node:path";
-import { z as z67 } from "zod";
+import { z as z69 } from "zod";
 
 // kit/lib/delivery/ship.ts
 import { execFileSync as execFileSync7 } from "node:child_process";
@@ -14579,10 +14719,10 @@ var FORBIDDEN = [
 ];
 var characters = (text17) => Array.from(text17).length;
 function unquote(value) {
-  const trimmed2 = value.trim();
-  const first = trimmed2[0];
-  if (trimmed2.length >= 2 && (first === '"' || first === "'") && trimmed2.at(-1) === first) return trimmed2.slice(1, -1);
-  return trimmed2;
+  const trimmed3 = value.trim();
+  const first = trimmed3[0];
+  if (trimmed3.length >= 2 && (first === '"' || first === "'") && trimmed3.at(-1) === first) return trimmed3.slice(1, -1);
+  return trimmed3;
 }
 function readFields2(raw) {
   const fields = {};
@@ -14610,10 +14750,10 @@ function splitNote(text17) {
   return match2 ? { front: match2[1] ?? "", body: match2[2] ?? "" } : null;
 }
 function bodyLines(body) {
-  const lines = body.split("\n").map((line) => line.trim());
-  while (lines.length && lines[0] === "") lines.shift();
-  while (lines.length && lines.at(-1) === "") lines.pop();
-  return lines;
+  const lines2 = body.split("\n").map((line) => line.trim());
+  while (lines2.length && lines2[0] === "") lines2.shift();
+  while (lines2.length && lines2.at(-1) === "") lines2.pop();
+  return lines2;
 }
 function notePrd(fields, errors) {
   if (!Object.hasOwn(fields, "prd")) return null;
@@ -14655,14 +14795,14 @@ function titleViolations(title) {
   if (reference) out.push(`title names a PRD number ("${reference[0]}")`);
   return out;
 }
-function descriptionViolations(lines, description) {
+function descriptionViolations(lines2, description) {
   if (description === "") return [`description is empty \u2014 one paragraph of 1 to ${DESCRIPTION_MAX} characters`];
   const out = [];
   if (characters(description) > DESCRIPTION_MAX) out.push(`description is ${characters(description)} characters \u2014 ${DESCRIPTION_MAX} at most`);
-  if (lines.includes("")) out.push("description holds a blank line \u2014 one paragraph");
-  const heading = lines.find((line) => HEADING3.test(line));
+  if (lines2.includes("")) out.push("description holds a blank line \u2014 one paragraph");
+  const heading = lines2.find((line) => HEADING3.test(line));
   if (heading) out.push(`description holds a heading ("${heading}") \u2014 one paragraph of prose`);
-  const item = lines.find((line) => LIST_ITEM.test(line));
+  const item = lines2.find((line) => LIST_ITEM.test(line));
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
@@ -14735,18 +14875,18 @@ function movedPath(moves, file) {
 // kit/lib/outbox/settle-merge.ts
 import { existsSync as existsSync42 } from "node:fs";
 import { join as join59 } from "node:path";
-import { z as z65 } from "zod";
+import { z as z67 } from "zod";
 var MERGED_OVER_RED_BASIS = "merged-over-red";
 var MERGED_OVER_RED_REASON = "the feature pull request merged while this item was open; merging adopts what was built";
-var PrField = z65.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
-var MergeSchema = z65.object({
-  by: z65.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z65.string().min(1, "merge.by is required \u2014 who merged")),
-  at: z65.string().regex(
+var PrField = z67.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
+var MergeSchema = z67.object({
+  by: z67.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z67.string().min(1, "merge.by is required \u2014 who merged")),
+  at: z67.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
   ),
   pr: PrField,
-  url: z65.string().trim().min(1).optional()
+  url: z67.string().trim().min(1).optional()
 }).strict();
 function mergeAnswer(merge) {
   return {
@@ -15434,43 +15574,43 @@ function gradeKnowledge({
 // kit/lib/knowledge/classify.ts
 import { existsSync as existsSync45, readFileSync as readFileSync43 } from "node:fs";
 import { join as join62 } from "node:path";
-import { z as z66 } from "zod";
+import { z as z68 } from "zod";
 var CLASSIFICATION_KINDS = ["adr", "invariant", "rule", "covered", "stays-here"];
 var PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
 var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 var RECORD_ID = /^ADR-(\d{4})$/;
 function capped(field4, max) {
-  return z66.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
+  return z68.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
 }
-var text14 = (field4) => z66.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
+var text14 = (field4) => z68.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
 var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
-var enforcedBy = z66.array(text14("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
-var worthALaw = z66.boolean({ error: "worthALaw must be true or false" }).optional();
-var ClassificationSchema = z66.discriminatedUnion(
+var enforcedBy = z68.array(text14("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
+var worthALaw = z68.boolean({ error: "worthALaw must be true or false" }).optional();
+var ClassificationSchema = z68.discriminatedUnion(
   "kind",
   [
-    z66.object({
-      kind: z66.literal("adr"),
+    z68.object({
+      kind: z68.literal("adr"),
       title: text14("title").refine((value) => !value.includes("\n"), "title must be one line"),
       statement,
       reason
     }).strict(),
-    z66.object({ kind: z66.literal("invariant"), place: text14("place"), statement, enforcedBy, worthALaw, reason }).strict(),
-    z66.object({
-      kind: z66.literal("rule"),
+    z68.object({ kind: z68.literal("invariant"), place: text14("place"), statement, enforcedBy, worthALaw, reason }).strict(),
+    z68.object({
+      kind: z68.literal("rule"),
       place: text14("place"),
       statement,
       serves: text14("serves"),
-      principle: z66.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
+      principle: z68.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
       enforcedBy,
       worthALaw,
       reason
     }).strict(),
-    z66.object({ kind: z66.literal("covered"), covers: text14("covers"), reason }).strict(),
-    z66.object({ kind: z66.literal("stays-here"), statement, reason }).strict()
+    z68.object({ kind: z68.literal("covered"), covers: text14("covers"), reason }).strict(),
+    z68.object({ kind: z68.literal("stays-here"), statement, reason }).strict()
   ],
   { error: () => `kind must be one of: ${CLASSIFICATION_KINDS.join(", ")}` }
 ).superRefine((reply2, context) => {
@@ -15817,13 +15957,13 @@ function appendEntry(text17, entry, { heading }) {
   let base = text17 ?? `# ${heading}
 `;
   if (!/^## /m.test(base)) {
-    const lines = base.split("\n");
-    const start = lines.findIndex((line) => NONE_YET.test(line));
+    const lines2 = base.split("\n");
+    const start = lines2.findIndex((line) => NONE_YET.test(line));
     if (start !== -1) {
       let end = start;
-      while (end < lines.length && (lines[end] ?? "").trim() !== "") end += 1;
-      lines.splice(start, end - start);
-      base = lines.join("\n");
+      while (end < lines2.length && (lines2[end] ?? "").trim() !== "") end += 1;
+      lines2.splice(start, end - start);
+      base = lines2.join("\n");
     }
   }
   base = `${base.replace(/\s+$/, "")}
@@ -15874,19 +16014,19 @@ function renderRecord2({
   ].join("\n");
 }
 function addLedgerLine(text17, { id, line, markers }) {
-  const lines = text17.split("\n");
-  const open = lines.lastIndexOf(markers.settledOpen(id));
+  const lines2 = text17.split("\n");
+  const open = lines2.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
-  const close = lines.indexOf(markers.settledClose(id), open);
-  const end = close === -1 ? lines.length : close;
+  const close = lines2.indexOf(markers.settledClose(id), open);
+  const end = close === -1 ? lines2.length : close;
   let at4 = -1;
   for (let index = open + 1; index < end; index += 1) {
-    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index] ?? "")) at4 = index;
+    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines2[index] ?? "")) at4 = index;
     else if (at4 !== -1) break;
   }
   if (at4 === -1) return null;
-  lines.splice(at4 + 1, 0, line);
-  return lines.join("\n");
+  lines2.splice(at4 + 1, 0, line);
+  return lines2.join("\n");
 }
 function servedBy2(reply2, nextPrinciple) {
   if (reply2.kind !== "rule") return { serves: null, principleId: null };
@@ -16080,7 +16220,7 @@ function landLaw({
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
-var PullFilesSchema = z67.array(z67.looseObject({ filename: z67.string().min(1), status: z67.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
+var PullFilesSchema = z69.array(z69.looseObject({ filename: z69.string().min(1), status: z69.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
 function keptPaths(changed) {
   return changed.filter((file) => KEPT_STATUSES.includes(file.status)).map((file) => file.path);
 }
@@ -16476,23 +16616,23 @@ import { tmpdir as tmpdir12 } from "node:os";
 import { join as join66 } from "node:path";
 
 // apps/omni-app/src/knowledge-harvest/schema.ts
-import { z as z68 } from "zod";
-var HarvestEventSchema = z68.looseObject({
-  installationId: z68.number(),
-  owner: z68.string(),
-  repo: z68.string(),
+import { z as z70 } from "zod";
+var HarvestEventSchema = z70.looseObject({
+  installationId: z70.number(),
+  owner: z70.string(),
+  repo: z70.string(),
   prNumber: PrNumberSchema
 });
-var PullMergeSchema = z68.looseObject({
-  merged: z68.boolean().nullish(),
-  merged_at: z68.string().nullish(),
-  merged_by: z68.looseObject({ login: z68.string().nullish() }).nullish(),
-  merge_commit_sha: z68.string().nullish(),
-  html_url: z68.string().nullish()
+var PullMergeSchema = z70.looseObject({
+  merged: z70.boolean().nullish(),
+  merged_at: z70.string().nullish(),
+  merged_by: z70.looseObject({ login: z70.string().nullish() }).nullish(),
+  merge_commit_sha: z70.string().nullish(),
+  html_url: z70.string().nullish()
 });
-var RefSchema3 = z68.looseObject({ object: z68.looseObject({ sha: z68.string() }) });
-var OpenPullSchema = z68.looseObject({ head: z68.looseObject({ ref: z68.string().nullish() }).nullish() });
-var CommitSchema2 = z68.looseObject({ message: z68.string().nullish() });
+var RefSchema3 = z70.looseObject({ object: z70.looseObject({ sha: z70.string() }) });
+var OpenPullSchema = z70.looseObject({ head: z70.looseObject({ ref: z70.string().nullish() }).nullish() });
+var CommitSchema2 = z70.looseObject({ message: z70.string().nullish() });
 function parsedOr2(schema, value, context) {
   const parsed2 = schema.safeParse(value);
   if (parsed2.success) return parsed2.data;
@@ -16500,124 +16640,124 @@ function parsedOr2(schema, value, context) {
   const field4 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
   throw new Error(`${context}: ${field4}: ${issue?.message ?? parsed2.error.message}`);
 }
-var MergeSchema2 = z68.object({ by: z68.string(), at: z68.string(), pr: PrNumberSchema, url: z68.string().exactOptional() });
-var QualifiedSchema2 = z68.union([
-  z68.object({ skip: z68.string() }),
-  z68.object({
-    skip: z68.null(),
+var MergeSchema2 = z70.object({ by: z70.string(), at: z70.string(), pr: PrNumberSchema, url: z70.string().exactOptional() });
+var QualifiedSchema2 = z70.union([
+  z70.object({ skip: z70.string() }),
+  z70.object({
+    skip: z70.null(),
     config: ConfigSchema,
-    prd: z68.object({ number: PrdNumberSchema, topic: z68.string(), title: z68.string() }),
+    prd: z70.object({ number: PrdNumberSchema, topic: z70.string(), title: z70.string() }),
     merge: MergeSchema2
   })
 ]);
-var MoveSchema = z68.object({ from: z68.string(), to: z68.string() });
-var EditsSchema = z68.object({
-  deletes: z68.array(z68.string()),
-  moves: z68.array(MoveSchema),
-  writes: z68.array(z68.object({ path: z68.string(), text: z68.string() }))
+var MoveSchema = z70.object({ from: z70.string(), to: z70.string() });
+var EditsSchema = z70.object({
+  deletes: z70.array(z70.string()),
+  moves: z70.array(MoveSchema),
+  writes: z70.array(z70.object({ path: z70.string(), text: z70.string() }))
 });
-var ItemSectionsSchema = z68.object({
-  questionPlain: z68.string().nullable().exactOptional(),
-  decisionPlain: z68.string().nullable().exactOptional(),
-  options: z68.array(z68.object({ letter: z68.string(), text: z68.string() })).nullable().exactOptional(),
-  personSteps: z68.string().nullable().exactOptional(),
-  whatIHadToDecide: z68.string().nullable().exactOptional(),
-  whatIDidMeanwhile: z68.string().nullable().exactOptional(),
-  whatItCostsToChangeLater: z68.string().nullable().exactOptional()
+var ItemSectionsSchema = z70.object({
+  questionPlain: z70.string().nullable().exactOptional(),
+  decisionPlain: z70.string().nullable().exactOptional(),
+  options: z70.array(z70.object({ letter: z70.string(), text: z70.string() })).nullable().exactOptional(),
+  personSteps: z70.string().nullable().exactOptional(),
+  whatIHadToDecide: z70.string().nullable().exactOptional(),
+  whatIDidMeanwhile: z70.string().nullable().exactOptional(),
+  whatItCostsToChangeLater: z70.string().nullable().exactOptional()
 });
-var CandidateSchema = z68.object({
-  id: z68.string(),
-  verdict: z68.string().nullable(),
-  answer: z68.string(),
-  itemText: z68.string(),
-  item: z68.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
+var CandidateSchema = z70.object({
+  id: z70.string(),
+  verdict: z70.string().nullable(),
+  answer: z70.string(),
+  itemText: z70.string(),
+  item: z70.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
 });
-var SummarySchema = z68.object({
-  places: z68.object({ adr: z68.boolean(), knowledge: z68.boolean() }),
-  domains: z68.array(z68.object({ name: z68.string(), firstLine: z68.string().nullable() })),
-  principles: z68.array(z68.object({ id: z68.string(), place: z68.string(), statement: z68.string() })),
-  decisions: z68.array(z68.object({ number: z68.string(), title: z68.string().nullable() })),
-  laws: z68.array(
-    z68.object({ id: z68.string(), kind: z68.enum(["principle", "rule", "invariant"]).nullable(), place: z68.string(), statement: z68.string() })
+var SummarySchema = z70.object({
+  places: z70.object({ adr: z70.boolean(), knowledge: z70.boolean() }),
+  domains: z70.array(z70.object({ name: z70.string(), firstLine: z70.string().nullable() })),
+  principles: z70.array(z70.object({ id: z70.string(), place: z70.string(), statement: z70.string() })),
+  decisions: z70.array(z70.object({ number: z70.string(), title: z70.string().nullable() })),
+  laws: z70.array(
+    z70.object({ id: z70.string(), kind: z70.enum(["principle", "rule", "invariant"]).nullable(), place: z70.string(), statement: z70.string() })
   )
 });
-var SettledSchema = z68.object({
-  tip: z68.string(),
-  prepared: z68.object({
-    ok: z68.literal(true),
+var SettledSchema = z70.object({
+  tip: z70.string(),
+  prepared: z70.object({
+    ok: z70.literal(true),
     prd: PrdNumberSchema,
     edits: EditsSchema,
-    settled: z68.array(z68.object({ id: z68.string(), from: z68.enum(["open", "drift"]) })),
-    shipped: z68.array(MoveSchema),
-    candidates: z68.array(CandidateSchema),
+    settled: z70.array(z70.object({ id: z70.string(), from: z70.enum(["open", "drift"]) })),
+    shipped: z70.array(MoveSchema),
+    candidates: z70.array(CandidateSchema),
     summary: SummarySchema,
-    changed: z68.array(z68.object({ path: z68.string(), status: z68.string() }))
+    changed: z70.array(z70.object({ path: z70.string(), status: z70.string() }))
   })
 });
-var ClassificationOutSchema = z68.object({
-  id: z68.string(),
+var ClassificationOutSchema = z70.object({
+  id: z70.string(),
   reply: ClassificationSchema.nullable(),
-  reason: z68.string().nullable(),
-  error: z68.string().nullable()
+  reason: z70.string().nullable(),
+  error: z70.string().nullable()
 });
-var PlacedSchema = z68.object({
-  id: z68.string(),
-  kind: z68.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
-  landedAs: z68.array(z68.string()),
-  files: z68.array(z68.string()),
-  ledgerFile: z68.string(),
-  ledgerLine: z68.string(),
-  decided: z68.string(),
-  status: z68.string().nullable(),
-  proposed: z68.boolean(),
-  reason: z68.string(),
-  enforcedBy: z68.array(z68.string()).exactOptional(),
-  dropped: z68.array(z68.object({ path: z68.string(), reason: z68.string() })).exactOptional(),
-  law: z68.object({ worth: z68.boolean(), decidedBy: z68.string(), confidence: z68.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
+var PlacedSchema = z70.object({
+  id: z70.string(),
+  kind: z70.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
+  landedAs: z70.array(z70.string()),
+  files: z70.array(z70.string()),
+  ledgerFile: z70.string(),
+  ledgerLine: z70.string(),
+  decided: z70.string(),
+  status: z70.string().nullable(),
+  proposed: z70.boolean(),
+  reason: z70.string(),
+  enforcedBy: z70.array(z70.string()).exactOptional(),
+  dropped: z70.array(z70.object({ path: z70.string(), reason: z70.string() })).exactOptional(),
+  law: z70.object({ worth: z70.boolean(), decidedBy: z70.string(), confidence: z70.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
 });
-var LawIssueSchema = z68.object({
-  id: z68.string(),
-  entry: z68.string(),
-  register: z68.string(),
-  statement: z68.string(),
-  source: z68.string(),
-  title: z68.string(),
-  body: z68.string()
+var LawIssueSchema = z70.object({
+  id: z70.string(),
+  entry: z70.string(),
+  register: z70.string(),
+  statement: z70.string(),
+  source: z70.string(),
+  title: z70.string(),
+  body: z70.string()
 });
-var WrittenSchema = z68.object({
+var WrittenSchema = z70.object({
   edits: EditsSchema,
-  placed: z68.array(PlacedSchema),
-  notPlaced: z68.array(z68.object({ id: z68.string(), reason: z68.string() })),
-  checks: z68.object({ knowledge: z68.array(z68.string()), outbox: z68.array(z68.string()) }),
-  commit: z68.object({
-    files: z68.array(z68.object({ path: z68.string(), content: z68.string() })),
-    moves: z68.array(MoveSchema),
-    deletes: z68.array(z68.string())
+  placed: z70.array(PlacedSchema),
+  notPlaced: z70.array(z70.object({ id: z70.string(), reason: z70.string() })),
+  checks: z70.object({ knowledge: z70.array(z70.string()), outbox: z70.array(z70.string()) }),
+  commit: z70.object({
+    files: z70.array(z70.object({ path: z70.string(), content: z70.string() })),
+    moves: z70.array(MoveSchema),
+    deletes: z70.array(z70.string())
   }),
-  taken: z68.array(z68.string()),
-  lawIssues: z68.array(LawIssueSchema)
+  taken: z70.array(z70.string()),
+  lawIssues: z70.array(LawIssueSchema)
 });
-var LawWorthStateSchema = z68.object({
-  statement: z68.string(),
-  why: z68.string().nullable(),
-  principle: z68.string().nullable(),
-  domain: z68.string().nullable(),
-  prdTitle: z68.string().nullable()
+var LawWorthStateSchema = z70.object({
+  statement: z70.string(),
+  why: z70.string().nullable(),
+  principle: z70.string().nullable(),
+  domain: z70.string().nullable(),
+  prdTitle: z70.string().nullable()
 });
-var LawQuestionsSchema = z68.array(z68.object({ id: z68.string(), state: LawWorthStateSchema, old: z68.boolean() }));
-var LawJudgementSchema = z68.object({
-  worth: z68.object({ worth: z68.boolean(), decidedBy: z68.string(), confidence: z68.number().nullable() }).nullable(),
-  reason: z68.string().nullable()
+var LawQuestionsSchema = z70.array(z70.object({ id: z70.string(), state: LawWorthStateSchema, old: z70.boolean() }));
+var LawJudgementSchema = z70.object({
+  worth: z70.object({ worth: z70.boolean(), decidedBy: z70.string(), confidence: z70.number().nullable() }).nullable(),
+  reason: z70.string().nullable()
 });
-var LawIssueOpenedSchema = z68.object({ number: IssueNumberSchema, created: z68.boolean() });
-var ListedIssueSchema = z68.looseObject({ number: IssueNumberSchema, title: z68.string().nullish(), pull_request: z68.unknown().optional() });
-var PublishedSchema2 = z68.object({
-  branch: z68.string(),
-  commit: z68.string(),
-  committed: z68.boolean(),
-  pr: z68.object({ number: PrNumberSchema, url: z68.string(), created: z68.boolean() })
+var LawIssueOpenedSchema = z70.object({ number: IssueNumberSchema, created: z70.boolean() });
+var ListedIssueSchema = z70.looseObject({ number: IssueNumberSchema, title: z70.string().nullish(), pull_request: z70.unknown().optional() });
+var PublishedSchema2 = z70.object({
+  branch: z70.string(),
+  commit: z70.string(),
+  committed: z70.boolean(),
+  pr: z70.object({ number: PrNumberSchema, url: z70.string(), created: z70.boolean() })
 }).nullable();
-var CommentedSchema2 = z68.object({ commentId: CommentIdSchema, created: z68.boolean() });
+var CommentedSchema2 = z70.object({ commentId: CommentIdSchema, created: z70.boolean() });
 
 // apps/omni-app/src/knowledge-harvest/github.ts
 var OPEN_PULLS_UNEXPECTED = "GitHub answered the open pull requests unexpectedly";
@@ -16765,25 +16905,25 @@ function underDelivery(path, delivery2) {
 }
 function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks, delivery: delivery2 }) {
   const by = `@${bare2(merge.by)}`;
-  const lines = [`Refs #${prd.number} \xB7 Knowledge from #${merge.pr}, merged by ${by} on ${day2(merge.at)}`, ""];
+  const lines2 = [`Refs #${prd.number} \xB7 Knowledge from #${merge.pr}, merged by ${by} on ${day2(merge.at)}`, ""];
   const principles = placed.filter((entry) => entry.kind === "rule" && entry.landedAs.length > 1);
   if (principles.length > 0) {
     const list2 = principles.map((entry) => `${entry.landedAs.slice(1).join(", ")} (serves ${entry.landedAs[0]})`);
-    lines.push(`**Proposed principles \u2014 a person's call:** ${list2.join(" \xB7 ")}`, "");
+    lines2.push(`**Proposed principles \u2014 a person's call:** ${list2.join(" \xB7 ")}`, "");
   }
   if (placed.length > 0) {
-    lines.push("| Decision | Landed as | Decided | Why there |", "|---|---|---|---|");
+    lines2.push("| Decision | Landed as | Decided | Why there |", "|---|---|---|---|");
     for (const entry of placed) {
-      lines.push(`| ${cell(entry.id)} | ${cell(landedAs(entry))} | ${cell(decidedShort(entry.decided))} | ${cell(entry.reason)} |`);
+      lines2.push(`| ${cell(entry.id)} | ${cell(landedAs(entry))} | ${cell(decidedShort(entry.decided))} | ${cell(entry.reason)} |`);
     }
-    lines.push("");
+    lines2.push("");
   }
   const proofs = proofLines(placed);
-  if (proofs.length > 0) lines.push("**Proofs \u2014 confirmed with their entry:**", ...proofs, "");
+  if (proofs.length > 0) lines2.push("**Proofs \u2014 confirmed with their entry:**", ...proofs, "");
   if (notPlaced.length > 0) {
-    lines.push("**Not placed:**");
-    for (const entry of notPlaced) lines.push(`- [ ] ${entry.id} \u2014 ${entry.reason.split("\n")[0]}`);
-    lines.push("");
+    lines2.push("**Not placed:**");
+    for (const entry of notPlaced) lines2.push(`- [ ] ${entry.id} \u2014 ${entry.reason.split("\n")[0]}`);
+    lines2.push("");
   }
   const facts = [];
   if (settled.length > 0) {
@@ -16798,9 +16938,9 @@ function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks
     facts.push(`Shipped at merge: ${underDelivery(folder.from, delivery2)} \u2192 ${underDelivery(folder.to, delivery2)}`);
   }
   facts.push(`Checks: ${checkMark("knowledge", checks.knowledge)} \xB7 ${checkMark("outbox", checks.outbox)}`);
-  lines.push(...facts, "");
-  lines.push("Proposed entries resolve but bind nothing until a person deletes their `Proposed:` line.");
-  return `${lines.join("\n")}
+  lines2.push(...facts, "");
+  lines2.push("Proposed entries resolve but bind nothing until a person deletes their `Proposed:` line.");
+  return `${lines2.join("\n")}
 `;
 }
 function toCommit(edits, filesBefore) {
@@ -17010,22 +17150,22 @@ function harvestFailureHook({ octokitFor }) {
 }
 
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z69 } from "zod";
+import { z as z71 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS3 = 55e3;
-var VerdictSchema4 = z69.looseObject({
-  answer: z69.enum(["true", "false"]),
-  confidence: z69.number().nullable().catch(null),
-  decidedBy: z69.string().nullable().catch(null)
+var VerdictSchema4 = z71.looseObject({
+  answer: z71.enum(["true", "false"]),
+  confidence: z71.number().nullable().catch(null),
+  decidedBy: z71.string().nullable().catch(null)
 });
-var RefusalSchema3 = z69.looseObject({ error: z69.string().optional().catch(void 0) });
+var RefusalSchema3 = z71.looseObject({ error: z71.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
 var kept2 = (reason2) => ({ worth: null, reason: reason2 });
-function signedPost(post, { url, secret, body, timeoutMs }) {
+function signedPost(post2, { url, secret, body, timeoutMs }) {
   const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) };
-  return post(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) }).then(
+  return post2(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) }).then(
     async (response) => ({ status: response.status, ok: response.ok, reply: await response.json().catch(() => null) }),
     (error) => ({ unreached: error instanceof Error ? error.message : String(error) })
   );
@@ -17041,118 +17181,118 @@ function judgementOf({ status, ok, reply: reply2 }) {
   if (decidedBy !== "jev" || confidence === null) return kept2("galaxy kept the classifier's answer");
   return { worth: { worth: answer === "true", decidedBy: "Jev", confidence }, reason: null };
 }
-function lawJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS3 }) {
+function lawJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE_TIMEOUT_MS3 }) {
   return async ({ state, old }, { repo, ref }) => {
     if (!secret) return kept2(`${LAW_JUDGE_SECRET_VAR} is not set`);
     const { statement: statement2, why, principle, domain, prdTitle } = state;
     const body = JSON.stringify({ repo, state: { statement: statement2, why, principle, domain, prdTitle }, old: String(old), ref });
-    const answered = await signedPost(post, { url, secret, body, timeoutMs });
+    const answered = await signedPost(post2, { url, secret, body, timeoutMs });
     return "unreached" in answered ? kept2(`galaxy could not be reached: ${answered.unreached}`) : judgementOf(answered);
   };
 }
 
 // apps/omni-app/src/retro/retro.ts
-import { z as z74 } from "zod";
+import { z as z76 } from "zod";
 
 // apps/omni-app/src/retro/kinds/records.ts
-import { z as z70 } from "zod";
-var text15 = z70.string();
-var maybeText2 = z70.string().nullable();
-var BlockSchema = z70.tuple([z70.number(), z70.number(), z70.number(), z70.number()]);
-var TimelineRecordsSchema = z70.object({ readyAt: maybeText2 });
-var StuckCommentSchema = z70.object({ url: maybeText2, at: maybeText2, attempts: z70.number(), text: z70.string().nullish() });
-var ReviewRecordSchema = z70.object({
+import { z as z72 } from "zod";
+var text15 = z72.string();
+var maybeText2 = z72.string().nullable();
+var BlockSchema = z72.tuple([z72.number(), z72.number(), z72.number(), z72.number()]);
+var TimelineRecordsSchema = z72.object({ readyAt: maybeText2 });
+var StuckCommentSchema = z72.object({ url: maybeText2, at: maybeText2, attempts: z72.number(), text: z72.string().nullish() });
+var ReviewRecordSchema = z72.object({
   url: maybeText2,
   author: maybeText2,
-  bot: z70.boolean(),
+  bot: z72.boolean(),
   state: maybeText2,
-  red: z70.boolean(),
-  text: z70.string().nullish()
+  red: z72.boolean(),
+  text: z72.string().nullish()
 });
-var ThreadRecordSchema = z70.object({
+var ThreadRecordSchema = z72.object({
   url: maybeText2,
   author: maybeText2,
-  bot: z70.boolean(),
+  bot: z72.boolean(),
   path: maybeText2,
-  resolved: z70.boolean(),
-  outdated: z70.boolean(),
-  red: z70.boolean(),
+  resolved: z72.boolean(),
+  outdated: z72.boolean(),
+  red: z72.boolean(),
   text: maybeText2
 });
-var PullReadsSchema = z70.object({
-  files: z70.array(text15).nullable().exactOptional(),
-  stuck: z70.array(StuckCommentSchema).nullable().exactOptional(),
-  needsFix: z70.array(text15).nullable().exactOptional(),
-  reviews: z70.array(ReviewRecordSchema).nullable().exactOptional(),
-  threads: z70.array(ThreadRecordSchema).nullable().exactOptional()
+var PullReadsSchema = z72.object({
+  files: z72.array(text15).nullable().exactOptional(),
+  stuck: z72.array(StuckCommentSchema).nullable().exactOptional(),
+  needsFix: z72.array(text15).nullable().exactOptional(),
+  reviews: z72.array(ReviewRecordSchema).nullable().exactOptional(),
+  threads: z72.array(ThreadRecordSchema).nullable().exactOptional()
 });
-var DeliveryRecordsSchema = z70.object({ pulls: z70.record(z70.string(), PullReadsSchema.optional()) });
-var JobRecordSchema = z70.object({
-  id: z70.number(),
-  run: z70.number(),
+var DeliveryRecordsSchema = z72.object({ pulls: z72.record(z72.string(), PullReadsSchema.optional()) });
+var JobRecordSchema = z72.object({
+  id: z72.number(),
+  run: z72.number(),
   workflow: maybeText2,
   check: text15,
   slice: SliceIdSchema,
-  sha: z70.string().nullish(),
-  attempt: z70.number(),
-  status: z70.string().nullish(),
+  sha: z72.string().nullish(),
+  attempt: z72.number(),
+  status: z72.string().nullish(),
   conclusion: maybeText2,
   url: maybeText2,
   completedAt: maybeText2
 });
-var CiRecordsSchema = z70.object({
-  slices: z70.array(SliceIdSchema),
-  unread: z70.array(z70.object({ slice: SliceIdSchema, run: z70.number().exactOptional(), status: z70.number() })),
-  jobs: z70.array(JobRecordSchema),
-  logs: z70.record(z70.string(), z70.object({ tail: maybeText2, status: z70.number().exactOptional() }).optional())
+var CiRecordsSchema = z72.object({
+  slices: z72.array(SliceIdSchema),
+  unread: z72.array(z72.object({ slice: SliceIdSchema, run: z72.number().exactOptional(), status: z72.number() })),
+  jobs: z72.array(JobRecordSchema),
+  logs: z72.record(z72.string(), z72.object({ tail: maybeText2, status: z72.number().exactOptional() }).optional())
 });
-var CommitFileSchema = z70.object({
+var CommitFileSchema = z72.object({
   path: text15,
   previous: maybeText2,
-  status: z70.string().nullish(),
-  additions: z70.number(),
-  deletions: z70.number(),
-  blocks: z70.array(BlockSchema).nullable()
+  status: z72.string().nullish(),
+  additions: z72.number(),
+  deletions: z72.number(),
+  blocks: z72.array(BlockSchema).nullable()
 });
-var PullRecordSchema = z70.object({
+var PullRecordSchema = z72.object({
   number: PrNumberSchema,
   url: maybeText2,
   headRef: text15,
   mergedAt: maybeText2,
-  commits: z70.array(z70.object({ sha: text15, url: maybeText2, files: z70.array(CommitFileSchema).nullable() })).nullable()
+  commits: z72.array(z72.object({ sha: text15, url: maybeText2, files: z72.array(CommitFileSchema).nullable() })).nullable()
 });
-var ChurnRecordsSchema = z70.object({
+var ChurnRecordsSchema = z72.object({
   gitattributes: maybeText2,
-  final: z70.array(z70.object({ path: text15, additions: z70.number().nullish(), deletions: z70.number().nullish() })).nullable(),
-  pulls: z70.array(PullRecordSchema)
+  final: z72.array(z72.object({ path: text15, additions: z72.number().nullish(), deletions: z72.number().nullish() })).nullable(),
+  pulls: z72.array(PullRecordSchema)
 });
-var RangeSchema = z70.object({ path: text15, from: z70.number(), to: z70.number() });
-var AfterMergeRecordsSchema = z70.object({
-  window: z70.object({ from: text15, to: text15 }),
-  bugs: z70.array(z70.object({ number: IssueNumberSchema, url: text15, createdAt: text15, closedAt: maybeText2 })),
-  fixes: z70.array(
-    z70.object({
+var RangeSchema = z72.object({ path: text15, from: z72.number(), to: z72.number() });
+var AfterMergeRecordsSchema = z72.object({
+  window: z72.object({ from: text15, to: text15 }),
+  bugs: z72.array(z72.object({ number: IssueNumberSchema, url: text15, createdAt: text15, closedAt: maybeText2 })),
+  fixes: z72.array(
+    z72.object({
       number: PrNumberSchema,
       url: text15,
       mergedAt: text15,
-      closes: z70.array(IssueNumberSchema),
-      files: z70.array(z70.object({ path: text15, previous: maybeText2, blocks: z70.array(BlockSchema).nullable() })).nullable()
+      closes: z72.array(IssueNumberSchema),
+      files: z72.array(z72.object({ path: text15, previous: maybeText2, blocks: z72.array(BlockSchema).nullable() })).nullable()
     })
   ),
-  checks: z70.object({
+  checks: z72.object({
     commit: text15,
-    status: z70.number().nullable(),
-    jobs: z70.array(z70.object({ name: text15, workflow: maybeText2, conclusion: maybeText2, url: maybeText2 }))
+    status: z72.number().nullable(),
+    jobs: z72.array(z72.object({ name: text15, workflow: maybeText2, conclusion: maybeText2, url: maybeText2 }))
   }),
-  ranges: z70.array(RangeSchema),
-  unread: z70.array(
-    z70.object({ read: z70.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z70.number().exactOptional(), status: z70.number() })
+  ranges: z72.array(RangeSchema),
+  unread: z72.array(
+    z72.object({ read: z72.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z72.number().exactOptional(), status: z72.number() })
   )
 });
-var ChurnAtMergeSchema = z70.object({ ranges: z70.array(RangeSchema).exactOptional() }).nullish();
+var ChurnAtMergeSchema = z72.object({ ranges: z72.array(RangeSchema).exactOptional() }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-import { z as z71 } from "zod";
+import { z as z73 } from "zod";
 
 // kit/lib/care/list.ts
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
@@ -17178,29 +17318,29 @@ function fixPlanRows(body) {
 }
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-var text16 = z71.string();
-var BlockSchema2 = z71.tuple([z71.number(), z71.number(), z71.number(), z71.number()]);
-var RangeSchema2 = z71.object({ path: text16, from: z71.number(), to: z71.number() });
-var PlannedSchema = z71.object({
+var text16 = z73.string();
+var BlockSchema2 = z73.tuple([z73.number(), z73.number(), z73.number(), z73.number()]);
+var RangeSchema2 = z73.object({ path: text16, from: z73.number(), to: z73.number() });
+var PlannedSchema = z73.object({
   bug: IssueNumberSchema,
   repo: text16,
   number: PrNumberSchema,
   url: text16,
-  mergedAt: z71.string().nullable(),
-  files: z71.array(z71.object({ path: text16, previous: z71.string().nullable(), blocks: z71.array(BlockSchema2).nullable() })).nullable()
+  mergedAt: z73.string().nullable(),
+  files: z73.array(z73.object({ path: text16, previous: z73.string().nullable(), blocks: z73.array(BlockSchema2).nullable() })).nullable()
 });
-var MegaUnreadSchema = z71.object({
-  read: z71.enum(["bugs", "fix-plan", "fix", "files"]),
+var MegaUnreadSchema = z73.object({
+  read: z73.enum(["bugs", "fix-plan", "fix", "files"]),
   repo: text16,
-  number: z71.number().exactOptional(),
-  status: z71.number()
+  number: z73.number().exactOptional(),
+  status: z73.number()
 });
-var MegaRecordsSchema = z71.object({
+var MegaRecordsSchema = z73.object({
   plan: text16,
-  bugs: z71.array(IssueNumberSchema),
-  planned: z71.array(PlannedSchema),
-  targets: z71.array(z71.object({ repo: text16, name: text16, ranges: z71.array(RangeSchema2) })),
-  unread: z71.array(MegaUnreadSchema)
+  bugs: z73.array(IssueNumberSchema),
+  planned: z73.array(PlannedSchema),
+  targets: z73.array(z73.object({ repo: text16, name: text16, ranges: z73.array(RangeSchema2) })),
+  unread: z73.array(MegaUnreadSchema)
 });
 var ISSUES2 = "GET /repos/{owner}/{repo}/issues";
 var COMMENTS2 = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
@@ -17365,20 +17505,20 @@ var afterMerge = Object.freeze({
   describe(facts) {
     if (!facts) return null;
     const refused7 = (read) => facts.unread.find((entry) => entry.read === read);
-    const lines = [...bugLines(facts, refused7("bugs")), ...megaLine(facts)];
+    const lines2 = [...bugLines(facts, refused7("bugs")), ...megaLine(facts)];
     const fixUrl = new Map(facts.fixes.map((fix) => [fix.number, fix.url]));
-    for (const bug of facts.bugs) lines.push(bugLine(bug, fixUrl));
+    for (const bug of facts.bugs) lines2.push(bugLine(bug, fixUrl));
     const fixesUnread = refused7("fixes");
-    if (fixesUnread) lines.push(`- The pull requests merged after the merge were not read (GitHub answered ${fixesUnread.status}), so no fix is counted.`);
-    lines.push(...checkLines(facts.checks));
+    if (fixesUnread) lines2.push(`- The pull requests merged after the merge were not read (GitHub answered ${fixesUnread.status}), so no fix is counted.`);
+    lines2.push(...checkLines(facts.checks));
     for (const entry of facts.unread.filter((item) => item.read === "jobs")) {
-      lines.push(`- The jobs of workflow run ${entry.run} were not read (GitHub answered ${entry.status}).`);
+      lines2.push(`- The jobs of workflow run ${entry.run} were not read (GitHub answered ${entry.status}).`);
     }
     for (const entry of facts.unread.filter((item) => item.read === "files")) {
-      lines.push(`- The files of #${entry.pr} were not read (GitHub answered ${entry.status}), so it is not placed against the churn ranges.`);
+      lines2.push(`- The files of #${entry.pr} were not read (GitHub answered ${entry.status}), so it is not placed against the churn ranges.`);
     }
-    lines.push(...megaUnreadLines(facts.mega?.unread ?? []));
-    return lines;
+    lines2.push(...megaUnreadLines(facts.mega?.unread ?? []));
+    return lines2;
   }
 });
 function bugsNaming(listed, { window, names }) {
@@ -17745,32 +17885,32 @@ var churn = Object.freeze({
     if (!facts || facts.commits === 0) return null;
     const pulls = `${facts.pulls} merged pull request${facts.pulls === 1 ? "" : "s"}`;
     const commits = `${facts.commits} commit${facts.commits === 1 ? "" : "s"}`;
-    const lines = [
+    const lines2 = [
       facts.files === null ? `- ${commits} read across ${pulls}: ${facts.added} lines added; the final diff could not be read, so no file\u2019s churn is counted.` : `- ${commits} read across ${pulls}: ${facts.added} lines added, ${facts.finalAdded} in the final diff, ${facts.churn} lines of churn.`
     ];
     const paths = (list2) => list2.map((path) => `\`${path}\``).join(", ");
-    if (facts.leftOut.generated.length > 0) lines.push(`- Left out as generated, by \`.gitattributes\`: ${paths(facts.leftOut.generated)}.`);
-    if (facts.leftOut.lockfile.length > 0) lines.push(`- Left out as lockfiles: ${paths(facts.leftOut.lockfile)}.`);
+    if (facts.leftOut.generated.length > 0) lines2.push(`- Left out as generated, by \`.gitattributes\`: ${paths(facts.leftOut.generated)}.`);
+    if (facts.leftOut.lockfile.length > 0) lines2.push(`- Left out as lockfiles: ${paths(facts.leftOut.lockfile)}.`);
     const kept3 = facts.leftOut;
     const delivery2 = kept3.delivery ?? [];
-    if (delivery2.length > 0) lines.push(`- Left out as the loop's own delivery record: ${paths(delivery2)}.`);
+    if (delivery2.length > 0) lines2.push(`- Left out as the loop's own delivery record: ${paths(delivery2)}.`);
     for (const file of facts.noPatch) {
-      lines.push(
+      lines2.push(
         `- GitHub sent no patch for \`${file.path}\` in ${file.commit} (${file.slice}): counted by its totals, ${file.additions} added and ${file.deletions} removed, its lines not followed.`
       );
     }
     if (facts.unread.pulls.length > 0) {
-      lines.push(`- Not read: the commits of ${and2(facts.unread.pulls.map((n) => `#${n}`))}, which GitHub did not return.`);
+      lines2.push(`- Not read: the commits of ${and2(facts.unread.pulls.map((n) => `#${n}`))}, which GitHub did not return.`);
     }
-    for (const commit of facts.unread.commits) lines.push(`- Not read: commit ${commit}, whose diff GitHub did not return.`);
-    if (facts.notCounted.length > 0) lines.push(`- Not counted: ${and2(facts.notCounted.map((n) => `#${n}`))}, never merged.`);
-    return lines;
+    for (const commit of facts.unread.commits) lines2.push(`- Not read: commit ${commit}, whose diff GitHub did not return.`);
+    if (facts.notCounted.length > 0) lines2.push(`- Not counted: ${and2(facts.notCounted.map((n) => `#${n}`))}, never merged.`);
+    return lines2;
   }
 });
 function walk2(records, { sliceOf: sliceOf2, leftOut }) {
   const commits = /* @__PURE__ */ new Map();
   const files = /* @__PURE__ */ new Map();
-  const lines = /* @__PURE__ */ new Map();
+  const lines2 = /* @__PURE__ */ new Map();
   const left = { generated: /* @__PURE__ */ new Set(), lockfile: /* @__PURE__ */ new Set(), delivery: /* @__PURE__ */ new Set() };
   const noPatch = [];
   const unread = { pulls: [], commits: [] };
@@ -17799,23 +17939,23 @@ function walk2(records, { sliceOf: sliceOf2, leftOut }) {
           left[why].add(file.path);
           continue;
         }
-        if (file.previous && file.previous !== file.path) rename(files, lines, file.previous, file.path);
+        if (file.previous && file.previous !== file.path) rename(files, lines2, file.previous, file.path);
         const stats = files.get(file.path) ?? { added: 0, commits: /* @__PURE__ */ new Set() };
         stats.added += file.additions;
         stats.commits.add(commit.sha);
         files.set(file.path, stats);
-        if (file.status === "removed") lines.delete(file.path);
+        if (file.status === "removed") lines2.delete(file.path);
         else if (file.blocks !== null) {
-          const before2 = file.status === "added" ? [] : lines.get(file.path) ?? [];
-          lines.set(file.path, followLines(before2, file.blocks, commit.sha));
+          const before2 = file.status === "added" ? [] : lines2.get(file.path) ?? [];
+          lines2.set(file.path, followLines(before2, file.blocks, commit.sha));
         } else if (file.additions + file.deletions > 0) {
           noPatch.push({ path: file.path, commit: short2, slice, additions: file.additions, deletions: file.deletions });
-          lines.delete(file.path);
+          lines2.delete(file.path);
         }
       }
     }
   }
-  return { commits, files, lines, left, noPatch, unread, pulls, read };
+  return { commits, files, lines: lines2, left, noPatch, unread, pulls, read };
 }
 function churnPerFile(files, final) {
   return [...files.entries()].map(([path, stats]) => {
@@ -17831,11 +17971,11 @@ function churnPerFile(files, final) {
     };
   }).filter((file) => file.churn > 0).sort((a, b) => b.churn - a.churn || a.path.localeCompare(b.path));
 }
-function rewritten({ lines, commits }) {
+function rewritten({ lines: lines2, commits }) {
   const commitOf = (sha) => defined(commits.get(sha), `the walked commit ${sha}`);
   const indexOf = (sha) => commitOf(sha).index;
   const byIndex = (a, b) => indexOf(a) - indexOf(b);
-  return [...lines.entries()].flatMap(
+  return [...lines2.entries()].flatMap(
     ([path, followed]) => rewrittenRanges(followed, THRESHOLDS.churnRangeCommits).map((range) => {
       const shas = [...range.commits].sort(byIndex);
       return { path, from: range.from, to: range.to, shas, slices: unique4(shas.map((sha) => commitOf(sha).slice)) };
@@ -17865,17 +18005,17 @@ function fileHappened(file, noPatch) {
   for (const entry of noPatch) sentences.push(`GitHub sent no patch for it in ${entry.commit}, so that commit is counted by its totals.`);
   return sentences.join(" ");
 }
-function rename(files, lines, from, to) {
+function rename(files, lines2, from, to) {
   const moved = files.get(from);
   if (moved !== void 0) {
     const existing = files.get(to);
     files.set(to, existing ? { added: existing.added + moved.added, commits: /* @__PURE__ */ new Set([...existing.commits, ...moved.commits]) } : moved);
     files.delete(from);
   }
-  const followed = lines.get(from);
+  const followed = lines2.get(from);
   if (followed !== void 0) {
-    lines.set(to, followed);
-    lines.delete(from);
+    lines2.set(to, followed);
+    lines2.delete(from);
   }
 }
 function sliceReader(config, prd) {
@@ -17958,25 +18098,25 @@ function cleanLog(text17) {
   return plainText(text17).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
 function tailOf(text17, count2) {
-  const lines = plainText(text17).split("\n");
-  if (lines.at(-1) === "") lines.pop();
-  return lines.slice(-count2).join("\n");
+  const lines2 = plainText(text17).split("\n");
+  if (lines2.at(-1) === "") lines2.pop();
+  return lines2.slice(-count2).join("\n");
 }
 function readTestLog(text17) {
-  const lines = cleanLog(text17).split("\n");
+  const lines2 = cleanLog(text17).split("\n");
   for (const reader of READERS) {
-    if (!reader.detects(lines)) continue;
-    const { tests, counts } = reader.read(lines);
+    if (!reader.detects(lines2)) continue;
+    const { tests, counts } = reader.read(lines2);
     return { reporter: reader.id, tests: unique5(tests), counts };
   }
   return { reporter: null, tests: [], counts: null };
 }
 var pytest = {
   id: "pytest",
-  detects: (lines) => lines.some((line) => /^=+ (test session starts|short test summary info) =+$/.test(line) || PYTEST_SUMMARY.test(line)),
-  read(lines) {
-    const tests = present(lines.map((line) => /^FAILED (.+?)(?: - .*)?$/.exec(line.trim())?.[1]));
-    const summary2 = lines.filter((line) => PYTEST_SUMMARY.test(line)).at(-1);
+  detects: (lines2) => lines2.some((line) => /^=+ (test session starts|short test summary info) =+$/.test(line) || PYTEST_SUMMARY.test(line)),
+  read(lines2) {
+    const tests = present(lines2.map((line) => /^FAILED (.+?)(?: - .*)?$/.exec(line.trim())?.[1]));
+    const summary2 = lines2.filter((line) => PYTEST_SUMMARY.test(line)).at(-1);
     return { tests, counts: summary2 ? countsIn(PYTEST_SUMMARY.exec(summary2)?.[1] ?? "") : null };
   }
 };
@@ -17985,18 +18125,18 @@ var PLAYWRIGHT_HEADER = /^\s*\d+\) (.+? › .+?)\s*[─═=-]*\s*$/;
 var PLAYWRIGHT_COUNT = /^\s*(\d+) (failed|flaky|passed|skipped|interrupted|did not run)(?: \(.*\))?\s*$/;
 var playwright = {
   id: "playwright",
-  detects: (lines) => lines.some((line) => /^Running \d+ tests? using \d+ workers?/.test(line.trim()) || PLAYWRIGHT_HEADER.test(line)),
-  read(lines) {
-    const { counts, listed } = playwrightSummary(lines);
-    const failed3 = Object.keys(counts).length > 0 ? listed : present(lines.map((line) => PLAYWRIGHT_HEADER.exec(line)?.[1]));
+  detects: (lines2) => lines2.some((line) => /^Running \d+ tests? using \d+ workers?/.test(line.trim()) || PLAYWRIGHT_HEADER.test(line)),
+  read(lines2) {
+    const { counts, listed } = playwrightSummary(lines2);
+    const failed3 = Object.keys(counts).length > 0 ? listed : present(lines2.map((line) => PLAYWRIGHT_HEADER.exec(line)?.[1]));
     return { tests: failed3.map(playwrightName), counts: Object.keys(counts).length > 0 ? counts : null };
   }
 };
-function playwrightSummary(lines) {
+function playwrightSummary(lines2) {
   const counts = {};
   const listed = [];
   let section4 = null;
-  for (const line of lines) {
+  for (const line of lines2) {
     const count2 = PLAYWRIGHT_COUNT.exec(line);
     if (count2) {
       section4 = keptCount(counts, count2);
@@ -18020,16 +18160,16 @@ function playwrightName(title) {
 var JEST_SKIPPED = /^(Console|Validation Warning|Validation Error|Deprecation Warning)\b/;
 var jest = {
   id: "jest",
-  detects: (lines) => lines.some((line) => /^(Tests|Test Suites):\s+\d/.test(line.trim()) || /^\s*● \S/.test(line)),
-  read(lines) {
+  detects: (lines2) => lines2.some((line) => /^(Tests|Test Suites):\s+\d/.test(line.trim()) || /^\s*● \S/.test(line)),
+  read(lines2) {
     const tests = [];
     let file = null;
-    for (const line of lines) {
+    for (const line of lines2) {
       const fail = /^\s*FAIL\s+(\S+)/.exec(line);
       if (fail?.[1] !== void 0) file = fail[1];
       else tests.push(...jestFailed(line, file));
     }
-    const summary2 = present(lines.map((line) => /^\s*Tests:\s+(.+)$/.exec(line)?.[1])).at(-1);
+    const summary2 = present(lines2.map((line) => /^\s*Tests:\s+(.+)$/.exec(line)?.[1])).at(-1);
     return { tests, counts: summary2 ? countsIn(summary2) : null };
   }
 };
@@ -18042,18 +18182,18 @@ function jestFailed(line, file) {
 var VITEST_SUMMARY = /^\s*Tests\s{2,}(.+)$/;
 var vitest = {
   id: "vitest",
-  detects: (lines) => lines.some((line) => /^\s*Test Files\s{2,}\d/.test(line) || VITEST_SUMMARY.test(line) || /^\s*FAIL\s{2,}\S.* > /.test(line)),
-  read(lines) {
-    const failLines = present(lines.map((line) => /^\s*FAIL\s{2,}(\S.*?)\s*$/.exec(line)?.[1])).map((rest) => normalize3(rest.replace(/\s+\[\s*.+?\s*\]$/, "")));
-    const tests = failLines.length > 0 ? failLines : vitestCrosses(lines);
-    const summary2 = present(lines.map((line) => VITEST_SUMMARY.exec(line)?.[1])).at(-1);
+  detects: (lines2) => lines2.some((line) => /^\s*Test Files\s{2,}\d/.test(line) || VITEST_SUMMARY.test(line) || /^\s*FAIL\s{2,}\S.* > /.test(line)),
+  read(lines2) {
+    const failLines = present(lines2.map((line) => /^\s*FAIL\s{2,}(\S.*?)\s*$/.exec(line)?.[1])).map((rest) => normalize3(rest.replace(/\s+\[\s*.+?\s*\]$/, "")));
+    const tests = failLines.length > 0 ? failLines : vitestCrosses(lines2);
+    const summary2 = present(lines2.map((line) => VITEST_SUMMARY.exec(line)?.[1])).at(-1);
     return { tests, counts: summary2 ? countsIn(summary2) : null };
   }
 };
-function vitestCrosses(lines) {
+function vitestCrosses(lines2) {
   const tests = [];
   let file = null;
-  for (const line of lines) {
+  for (const line of lines2) {
     const header2 = /^\s*❯\s+(\S+)\s+\(\d+ tests?\b/.exec(line);
     if (header2?.[1] !== void 0) {
       file = header2[1];
@@ -18195,20 +18335,20 @@ var ci = Object.freeze({
   describe(facts) {
     if (!facts) return null;
     const { totals } = facts;
-    const lines = [];
+    const lines2 = [];
     if (totals.runs > 0) {
-      lines.push(
+      lines2.push(
         `- ${count(totals.runs, "run")} of ${count(totals.checks, "check")} on ${count(totals.commits, "commit")} in ${count(totals.slices, "slice")}, read from GitHub Actions: ${totals.red} red.`
       );
     }
     for (const miss of facts.unread) {
       const what = miss.run ? `the jobs of run ${miss.run} in ${miss.slice}` : `the runs of ${miss.slice}`;
       const why = miss.status === 403 ? " The app reads them with the `actions: read` permission." : "";
-      lines.push(`- Not read: ${what} (GitHub answered ${miss.status}).${why}`);
+      lines2.push(`- Not read: ${what} (GitHub answered ${miss.status}).${why}`);
     }
-    if (lines.length === 0) return null;
-    if (totals.runs === 0) return lines;
-    lines.push(
+    if (lines2.length === 0) return null;
+    if (totals.runs === 0) return lines2;
+    lines2.push(
       "",
       "| check | runs | red | commits red | slices red | red then green |",
       "| --- | --- | --- | --- | --- | --- |",
@@ -18217,7 +18357,7 @@ var ci = Object.freeze({
       )
     );
     if (facts.tests.length > 0) {
-      lines.push(
+      lines2.push(
         "",
         "Failing tests, as the red runs\u2019 logs name them:",
         "",
@@ -18227,7 +18367,7 @@ var ci = Object.freeze({
       );
     }
     if (facts.redRuns.length > 0) {
-      lines.push(
+      lines2.push(
         "",
         "Red runs:",
         "",
@@ -18238,7 +18378,7 @@ var ci = Object.freeze({
         )
       );
     }
-    return lines;
+    return lines2;
   }
 });
 function redRun(job, log2) {
@@ -18949,12 +19089,12 @@ var timeline = Object.freeze({
     if (!facts) return null;
     const { featurePr, waves } = facts;
     const planned = waves.planned === null ? "not known" : waves.planned;
-    const lines = [
+    const lines2 = [
       `- Feature PR [#${featurePr.number}](${featurePr.url}): opened \`${featurePr.openedAt}\`, ${featurePr.readyAt ? `ready \`${featurePr.readyAt}\`` : "ready: not known"}, merged \`${featurePr.mergedAt}\`, ${featurePr.minutes} minutes in all.`,
       `- ${facts.sliceCount} slices; waves: ${planned} planned, ${waves.merged} as merged; median slice: ${facts.medianMinutes === null ? "not known" : `${facts.medianMinutes} minutes`} from its claim to its merge.`
     ];
     if (facts.slices.length > 0) {
-      lines.push(
+      lines2.push(
         "",
         "| slice | sub-PR | claimed | merged | minutes | wave, planned | wave, as merged |",
         "| --- | --- | --- | --- | --- | --- | --- |",
@@ -18963,7 +19103,7 @@ var timeline = Object.freeze({
         )
       );
     }
-    return lines;
+    return lines2;
   }
 });
 function wavesAsMerged(pulls) {
@@ -19280,7 +19420,7 @@ function renderIssue({
   const words = prose?.findings[finding.id] ?? {};
   const refs = [`#${prd}`, `feature PR #${sheet.featurePr.number}`, retroPr ? `retro PR #${retroPr.number}` : null].filter(Boolean);
   const evidence = finding.evidence;
-  const lines = [
+  const lines2 = [
     issueMarker(prefix, prd, finding.id),
     `**Retro of PRD ${prd}** (${refs.join(" \xB7 ")}) \xB7 ${finding.ref}`,
     "",
@@ -19309,7 +19449,7 @@ function renderIssue({
     `evidence: [${evidence.map((item) => scalar(item.url)).join(", ")}]`,
     "```"
   ];
-  return { title: `retro(PRD ${prd}): ${namedFor(sheet, finding, titleOf2(finding, words))}`, body: `${lines.join("\n")}
+  return { title: `retro(PRD ${prd}): ${namedFor(sheet, finding, titleOf2(finding, words))}`, body: `${lines2.join("\n")}
 ` };
 }
 function lessonOf(finding, words, prose) {
@@ -19379,12 +19519,12 @@ function unsettledLessons(runs) {
 }
 
 // apps/omni-app/src/retro/render.ts
-import { z as z72 } from "zod";
+import { z as z74 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z72.object({
-  featurePr: z72.object({ minutes: z72.number().nullish() }).nullish(),
-  sliceCount: z72.number().exactOptional(),
-  waves: z72.object({ merged: z72.number(), planned: z72.number().nullable() })
+var TimelineFactsSchema = z74.object({
+  featurePr: z74.object({ minutes: z74.number().nullish() }).nullish(),
+  sliceCount: z74.number().exactOptional(),
+  waves: z74.object({ merged: z74.number(), planned: z74.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -19393,7 +19533,7 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z72.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z74.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? withOutcomes(record, run) : run);
@@ -19422,7 +19562,7 @@ function render({
   const repositories = [...runs].reverse().find((run) => run.repositories)?.repositories ?? null;
   const outcomes = outcomesOf(runs);
   const shown = { runs, findings, prose, issues, repositories, outcomes };
-  const lines = [
+  const lines2 = [
     "---",
     `prd: ${latest.prd.number}`,
     `feature-pr: ${latest.featurePr.number}`,
@@ -19449,11 +19589,11 @@ function render({
   const byRun = (run) => kinds.filter((kind) => kind.runs.includes(run));
   const sectionOf3 = (kind) => kindSection(kind, runs, findings, prose, issues);
   const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf3(kind);
-  lines.push(...byRun("merge").flatMap(mergeSectionOf));
-  lines.push(...rulesSection2(latest.rules));
-  lines.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf3));
+  lines2.push(...byRun("merge").flatMap(mergeSectionOf));
+  lines2.push(...rulesSection2(latest.rules));
+  lines2.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf3));
   return {
-    markdown: `${lines.join("\n").replace(/\n+$/, "")}
+    markdown: `${lines2.join("\n").replace(/\n+$/, "")}
 `,
     json: `${JSON.stringify(doc, null, 2)}
 `,
@@ -19488,20 +19628,20 @@ function findingBlock(finding, { prose, issues, outcomes }, level = "###") {
   const issue = issueLink(issues[finding.id]);
   const droppedTitle = typeof words.title === "object" ? field3(words.title) : null;
   const heading = [`${level} ${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issue].filter(Boolean).join(" \xB7 ");
-  const lines = [heading, ""];
-  if (droppedTitle) lines.push(`- **Title:** ${droppedTitle}`);
-  lines.push(`- **What happened:** ${finding.happened}`);
+  const lines2 = [heading, ""];
+  if (droppedTitle) lines2.push(`- **Title:** ${droppedTitle}`);
+  lines2.push(`- **What happened:** ${finding.happened}`);
   const why = field3(words.whyItMatters);
-  if (why) lines.push(`- **Why it matters:** ${why}`);
+  if (why) lines2.push(`- **Why it matters:** ${why}`);
   const lesson = field3(words.lesson);
-  if (lesson) lines.push(`- **Proposed lesson:** ${lesson}`);
-  if (words.keep === true) lines.push(`- **Kept:** ${typeof words.why === "string" && words.why ? words.why : "yes"}`);
+  if (lesson) lines2.push(`- **Proposed lesson:** ${lesson}`);
+  if (words.keep === true) lines2.push(`- **Kept:** ${typeof words.why === "string" && words.why ? words.why : "yes"}`);
   const outcome2 = outcomes[finding.id];
-  if (outcome2) lines.push(outcomeLine(outcome2));
+  if (outcome2) lines2.push(outcomeLine(outcome2));
   const kept3 = finding;
   const evidence = (kept3.evidence ?? []).map((item) => `[${item.label}](${item.url})`);
-  lines.push(`- **Evidence:** ${evidence.length > 0 ? evidence.join(", ") : "none recorded"}`, "");
-  return lines;
+  lines2.push(`- **Evidence:** ${evidence.length > 0 ? evidence.join(", ") : "none recorded"}`, "");
+  return lines2;
 }
 function lessons(prose, findings) {
   const given = (prose?.lessons ?? []).filter((lesson) => lesson.text);
@@ -19517,10 +19657,10 @@ function kindSection(kind, runs, findings, prose, issues) {
   const own = findings.filter((finding) => finding.source === kind.id);
   const described = facts === null ? null : kind.describe(facts);
   if ((!described || described.length === 0) && own.length === 0) return [];
-  const lines = [`## ${kind.section}`, ""];
-  if (described && described.length > 0) lines.push(...described, "");
-  lines.push(...findingsLine(own, prose, issues));
-  return lines;
+  const lines2 = [`## ${kind.section}`, ""];
+  if (described && described.length > 0) lines2.push(...described, "");
+  lines2.push(...findingsLine(own, prose, issues));
+  return lines2;
 }
 function repositoriesSection(repositories) {
   if (!repositories) return [];
@@ -19592,7 +19732,7 @@ function prBody(latest, { findings, prose, issues, outcomes }, apply) {
     const line = `- ${[`${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 ")}`;
     return outcome2 ? [line, `  ${outcomeLine(outcome2)}`] : [line];
   };
-  const lines = [
+  const lines2 = [
     `Refs #${latest.prd.number}`,
     "",
     `The retro of PRD ${latest.prd.number}, ${latest.prd.title}: how its delivery went, counted from GitHub and its folder, in \`${latest.prd.folder}/retro.md\`, with every number it shows kept in \`retro.json\` beside it.`,
@@ -19608,7 +19748,7 @@ function prBody(latest, { findings, prose, issues, outcomes }, apply) {
       ...settled.map((issue) => `Closes #${String(issue)}`)
     ]
   ];
-  return `${lines.join("\n")}
+  return `${lines2.join("\n")}
 `;
 }
 function applySection(apply) {
@@ -19634,7 +19774,7 @@ function verdictComment({
   const kept3 = runs.map((run) => keptFacts(run, "timeline")).find((facts) => facts) ?? null;
   const timeline2 = parseOrThrow(TimelineFactsSchema, kept3, "The timeline kind's facts are of an unexpected shape");
   const minutes = timeline2?.featurePr?.minutes ?? minutesBetween2(first.featurePr.openedAt, first.featurePr.mergedAt);
-  const lines = [
+  const lines2 = [
     `Retro: ${judged4 ? "no new lesson" : "not judged"} \u2014 ${oneLine3(reason2)}`,
     "",
     `- Feature PR #${first.featurePr.number}: ${minutes === null ? "time not known" : `${minutes} minutes`} from open to merge.`,
@@ -19642,7 +19782,7 @@ function verdictComment({
     "",
     ...findings.length === 0 ? ["No findings: nothing crossed a threshold of the rules."] : findings.map((finding) => `- ${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``)
   ];
-  return `${lines.join("\n")}
+  return `${lines2.join("\n")}
 `;
 }
 function minutesBetween2(from, to) {
@@ -19766,11 +19906,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z73 } from "zod";
+import { z as z75 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z73.union([
-  z73.object({ comments: z73.array(z73.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z73.boolean() })) }),
-  z73.object({ refused: z73.number() })
+var TargetCommentedSchema = z75.union([
+  z75.object({ comments: z75.array(z75.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z75.boolean() })) }),
+  z75.object({ refused: z75.number() })
 ]);
 function targetComment({
   prd,
@@ -19781,7 +19921,7 @@ function targetComment({
 }) {
   const own = findings.filter((finding) => finding.repo === repo);
   const where = link.url ? `[${link.label}](${link.url})` : link.label;
-  const lines = own.map((finding) => {
+  const lines2 = own.map((finding) => {
     const issue = issues[finding.id];
     const title = finding.title.startsWith(`${repo}: `) ? finding.title.slice(repo.length + 2) : finding.title;
     return `- ${finding.ref} \xB7 ${title}${issue ? ` \xB7 [#${issue.number}](${issue.url})` : ""}`;
@@ -19793,7 +19933,7 @@ function targetComment({
     "",
     `### Findings in ${repo}`,
     "",
-    ...lines.length > 0 ? lines : ["No finding for this repository."]
+    ...lines2.length > 0 ? lines2 : ["No finding for this repository."]
   ].join("\n");
 }
 async function commentTargets({ step, octokitFor, id, targets, prefix, ...text17 }) {
@@ -19840,14 +19980,14 @@ var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroPayloadSchema = z74.object({
-  installationId: z74.number(),
-  owner: z74.string(),
-  repo: z74.string(),
+var RetroPayloadSchema = z76.object({
+  installationId: z76.number(),
+  owner: z76.string(),
+  repo: z76.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z74.string(),
-  mergedAt: z74.string().nullish(),
-  owed: z74.boolean().optional()
+  mergeSha: z76.string(),
+  mergedAt: z76.string().nullish(),
+  owed: z76.boolean().optional()
 });
 function retroJob({ installationId, owner, repo, prNumber, mergeSha, mergedAt, owed = false }) {
   const subject = `${owner}/${repo}`.toLowerCase();
@@ -20095,14 +20235,230 @@ function retroFailureHook({ octokitFor }) {
   return failureCommentHook(octokitFor, { schema: RetroPayloadSchema, marker: FAILURE_MARKER2, what: "The retro" });
 }
 
+// apps/omni-app/src/jobs/embed.ts
+import { createHash as createHash4 } from "node:crypto";
+import { z as z77 } from "zod";
+
+// kit/lib/knowledge/entries.ts
+var DEFAULTS = parseConfig("kit: 1\n");
+var DEFAULT_KNOWLEDGE_ROOT = ".omni-loop/knowledge";
+var trimmed2 = (path) => path.replace(/^\.\/+/, "").replace(/\/+$/, "");
+function configOf(files) {
+  const file = files.find((f) => f.path === CONFIG_FILE);
+  if (file === void 0) return DEFAULTS;
+  try {
+    return parseConfig(file.content, CONFIG_FILE, { ignoreUnknownKeys: true });
+  } catch {
+    return DEFAULTS;
+  }
+}
+function lawsOfPackFiles(files, knowledgeRoot = DEFAULT_KNOWLEDGE_ROOT) {
+  const product = `${knowledgeRoot}/product/${BUSINESS_LAWS_FILE}`;
+  const domains = `${knowledgeRoot}/domains/`;
+  const shared = files.filter((file) => file.path === product).flatMap((file) => parseBusinessLaws(file.path, file.content, { scope: "product", domain: "product" }));
+  const domain = files.flatMap((file) => {
+    const key = file.path.startsWith(domains) && file.path.endsWith(`/${BUSINESS_LAWS_FILE}`) ? file.path.slice(domains.length, -(BUSINESS_LAWS_FILE.length + 1)) : "";
+    return key !== "" && !key.includes("/") ? [{ file, key }] : [];
+  }).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).flatMap(({ file, key }) => parseBusinessLaws(file.path, file.content, { scope: "domain", domain: key }));
+  return [...shared, ...domain];
+}
+function embedText(entry) {
+  const body = entry.body.split("\n").filter((line) => !/^\s*Owner:/.test(line)).join("\n");
+  return `${entry.title}
+${body}`;
+}
+var shortName5 = (repo) => repo.slice(repo.indexOf("/") + 1);
+var lines = (...parts) => parts.filter((part) => typeof part === "string" && part !== "").join("\n");
+function decisionEntries(repo, files, adrDir) {
+  if (adrDir === null || adrDir === "") return [];
+  const prefix = `${trimmed2(adrDir)}/`;
+  const records = files.flatMap((file) => {
+    const rest = file.path.startsWith(prefix) ? file.path.slice(prefix.length) : "";
+    if (rest === "" || rest.includes("/")) return [];
+    const record = parseDecisionRecord(file.path, file.content);
+    return record.number === "" ? [] : [{ file, rest, record }];
+  });
+  const shared = new Set(records.map((r) => r.record.number).filter((n, i, all) => all.indexOf(n) !== i));
+  return records.flatMap(({ file, rest, record }) => {
+    const id = `ADR-${record.number}`;
+    const name = shared.has(record.number) ? rest.replace(/\.md$/, "") : id;
+    return [{
+      id: `${shortName5(repo)}/${name}`,
+      kind: "adr",
+      title: record.title ?? id,
+      repo,
+      domain: record.domain ?? null,
+      body: record.text,
+      file: file.path,
+      status: record.status
+    }];
+  });
+}
+var kindWord2 = (entry) => isLaw(entry) ? "law" : entry.kind ?? "rule";
+var statusOf9 = (entry) => isLaw(entry) ? "law" : entry.proposed !== null ? "proposed" : "confirmed";
+function registerEntries(repo, files, knowledgeRoot) {
+  const texts = {};
+  for (const file of files) texts[file.path] = file.content;
+  const { entries } = readKnowledge({ ctx: { root: "", layout: { knowledgeRoot } }, source: memorySource(texts) });
+  return entries.map((entry) => ({
+    id: `${shortName5(repo)}/${entry.id}`,
+    kind: "rule",
+    title: entry.statement,
+    repo,
+    domain: entry.domain,
+    body: lines(
+      entry.statement,
+      entry.why !== null && `Why: ${entry.why}`,
+      `Kind: ${kindWord2(entry)}`,
+      `Status: ${statusOf9(entry)}`,
+      entry.enforcedBy !== null && `Enforced by: ${entry.enforcedBy}`
+    ),
+    file: entry.file,
+    status: statusOf9(entry)
+  }));
+}
+function lawEntries(home) {
+  const config = configOf(home.files);
+  const owners = config.laws.owners.map((owner) => lawOwnerParts(owner).owner);
+  return lawsOfPackFiles(home.files, trimmed2(config.paths.knowledge)).map((law) => ({
+    id: law.id,
+    kind: "business-law",
+    title: law.statement,
+    repo: null,
+    domain: law.domain,
+    body: lines(
+      law.statement,
+      law.why !== null && `Why: ${law.why}`,
+      `Domains: ${[law.domain, ...law.also].join(", ")}`,
+      owners.length > 0 && `Owner: ${owners.join(", ")}`
+    ),
+    file: law.file,
+    status: null
+  }));
+}
+function knowledgeEntries(sources) {
+  const fromRepositories = sources.repositories.flatMap(({ repo, files }) => {
+    if (files === null) return [];
+    const config = configOf(files);
+    return [...decisionEntries(repo, files, config.paths.adr), ...registerEntries(repo, files, trimmed2(config.paths.knowledge))];
+  });
+  const legal = sources.legal.map((row) => ({
+    id: row.id,
+    kind: "legal",
+    title: row.statement,
+    repo: null,
+    domain: null,
+    file: null,
+    status: null,
+    body: lines(row.statement, `Source: ${row.source}`, row.owner !== null && `Owner: ${row.owner}`)
+  }));
+  const terms = sources.glossary.map((row) => ({
+    id: `term:${row.term}`,
+    kind: "term",
+    title: row.term,
+    repo: null,
+    domain: null,
+    file: null,
+    status: null,
+    body: lines(row.meaning, row.avoid.length > 0 && `Avoid: ${row.avoid.join(", ")}`)
+  }));
+  const never = sources.never.map((row) => ({
+    id: `never#${String(row.seq)}`,
+    kind: "never",
+    title: row.body,
+    repo: null,
+    domain: null,
+    file: null,
+    status: null,
+    body: row.body
+  }));
+  const all = [...sources.lawHome ? lawEntries(sources.lawHome) : [], ...legal, ...fromRepositories, ...terms, ...never];
+  return all.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+// apps/omni-app/src/jobs/embed.ts
+var EMBED_KIND = "knowledge-embed";
+var EMBED_BUDGET_MS = 15e4;
+var AGAIN_MS = 6e4;
+var EmbedPayloadSchema = z77.object({
+  repository: z77.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z77.string().regex(/^[0-9a-f]{40}$/)
+});
+function embedJob({ repository, sha }) {
+  const subject = repository.toLowerCase();
+  return { kind: EMBED_KIND, key: `${subject}@${sha}`, subject, payload: { repository: subject, sha } };
+}
+var textHash = (text17) => createHash4("sha256").update(text17, "utf8").digest("hex");
+function packEntries(repository, pack2) {
+  const own = knowledgeEntries({ repositories: [{ repo: repository, files: pack2.files }], lawHome: null, legal: [], glossary: [], never: [] });
+  const products = pack2.products.flatMap(
+    (product) => knowledgeEntries({
+      repositories: [],
+      lawHome: product.lawHome ? { repo: repository, files: pack2.files } : null,
+      legal: product.legal,
+      glossary: product.glossary,
+      never: product.never
+    })
+  );
+  return [...own, ...products];
+}
+function textsByHash(entries) {
+  const texts = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const text17 = embedText(entry);
+    texts.set(textHash(text17), text17);
+  }
+  return texts;
+}
+function embedHandler({
+  store,
+  embed,
+  clock = Date.now,
+  budgetMs = EMBED_BUDGET_MS,
+  log: log2 = noteTo("knowledge-embed")
+}) {
+  return async (job) => {
+    const { repository, sha } = payloadOf2(job.payload);
+    const what = `${repository}@${sha.slice(0, 7)}`;
+    const packs = await store.sources(repository, sha);
+    if (packs.length === 0) return { outcome: "skipped", reason: "no workspace keeps its pack" };
+    const start = clock();
+    let embedded = 0;
+    let texts = 0;
+    for (const pack2 of packs) {
+      const byHash = textsByHash(packEntries(repository, pack2));
+      texts += byHash.size;
+      const missing = await store.missing(pack2.workspace, EMBED_MODEL, [...byHash.keys()]);
+      for (let at4 = 0; at4 < missing.length; at4 += EMBED_BATCH) {
+        if (clock() - start >= budgetMs) {
+          log2(`knowledge embed: ${what} embedded ${String(embedded)} texts, out of time: again in a minute`);
+          return { outcome: "later", at: new Date(clock() + AGAIN_MS), progress: { embedded } };
+        }
+        const hashes = missing.slice(at4, at4 + EMBED_BATCH);
+        const vectors = await embed(hashes.map((hash) => byHash.get(hash) ?? ""));
+        await store.put(pack2.workspace, EMBED_MODEL, hashes.map((sha2562, i) => ({ sha256: sha2562, vector: vectors[i] ?? [] })));
+        embedded += hashes.length;
+      }
+    }
+    log2(`knowledge embed: ${what} embedded ${String(embedded)} of ${String(texts)} texts in ${String(packs.length)} workspaces`);
+    return { outcome: "done" };
+  };
+}
+function payloadOf2(raw) {
+  const parsed2 = EmbedPayloadSchema.safeParse(raw);
+  if (parsed2.success) return parsed2.data;
+  const [issue] = parsed2.error.issues;
+  throw new Error(`The embed job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed2.error.message}`);
+}
+
 // apps/omni-app/src/jobs/pack.ts
-import { z as z76 } from "zod";
+import { z as z79 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
-import { createHash as createHash4 } from "node:crypto";
+import { createHash as createHash5 } from "node:crypto";
 var MAX_FILE_BYTES = 1024 * 1024;
 function sha256Of(bytes) {
-  return createHash4("sha256").update(bytes).digest("hex");
+  return createHash5("sha256").update(bytes).digest("hex");
 }
 var utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 function textOf(bytes) {
@@ -20131,12 +20487,12 @@ function packFiles(read) {
 import { mkdtempSync as mkdtempSync13, readdirSync as readdirSync21, readFileSync as readFileSync47, rmSync as rmSync17, statSync as statSync16 } from "node:fs";
 import { tmpdir as tmpdir13 } from "node:os";
 import { join as join67 } from "node:path";
-import { z as z75 } from "zod";
-var PullFileSchema = z75.looseObject({ filename: z75.string().min(1), previous_filename: z75.string().nullish() });
+import { z as z78 } from "zod";
+var PullFileSchema = z78.looseObject({ filename: z78.string().min(1), previous_filename: z78.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z75.array(PullFileSchema).parse(data);
+    return z78.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -20216,12 +20572,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z76.object({
-  installationId: z76.number(),
-  owner: z76.string().min(1),
-  repo: z76.string().min(1),
-  sha: z76.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z76.string().min(1),
+var PackPayloadSchema = z79.object({
+  installationId: z79.number(),
+  owner: z79.string().min(1),
+  repo: z79.string().min(1),
+  sha: z79.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z79.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -20232,10 +20588,11 @@ function packJob(input) {
 function packHandler({
   octokitFor,
   store,
+  addJob,
   log: log2 = noteTo("knowledge-pack")
 }) {
   return async (job) => {
-    const payload = payloadOf2(job.payload);
+    const payload = payloadOf3(job.payload);
     const { installationId, owner, repo } = payload;
     const repository = `${owner}/${repo}`;
     const what = labelOf(repository, payload);
@@ -20249,10 +20606,11 @@ function packHandler({
     const packed = await pack(octokit, store, { owner, repo, repository, sha: qualified.sha, committedAt: qualified.committedAt, paths: qualified.paths });
     if ("bound" in packed) return skipped2(`its knowledge is too large to pack: ${packed.bound}`);
     for (const line of packLines(what, qualified.sha, packed)) log2(line);
+    if (addJob && packed.packs.length > 0) await addJob(embedJob({ repository, sha: qualified.sha }));
     return { outcome: "done" };
   };
 }
-function payloadOf2(raw) {
+function payloadOf3(raw) {
   const parsed2 = PackPayloadSchema.safeParse(raw);
   if (parsed2.success) return parsed2.data;
   const [issue] = parsed2.error.issues;
@@ -20365,9 +20723,11 @@ function liveWorkers(env, octokitFor) {
     canon: liveCanon({ supabase, openrouter: env.openrouter ?? null, constituentJudge: env.constituentJudge ?? null, galaxyUrl }),
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret })
   });
+  const ledger = jobLedger(supabase);
   return {
     handlers: {
-      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }),
+      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase), addJob: ledger.add }),
+      [EMBED_KIND]: embedHandler({ store: knowledgeEmbedStore(supabase), embed: embedClient(supabase) }),
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
@@ -20392,7 +20752,7 @@ function liveWorkers(env, octokitFor) {
         store: mainWatchStore(supabase),
         queue: runnerQueue(supabase)
       }),
-      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(jobLedger(supabase)) })
+      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(ledger) })
     },
     failures: { ...checks.failures, [HARVEST_KIND]: harvestFailureHook({ octokitFor }), [RETRO_KIND]: retroFailureHook({ octokitFor }) }
   };
@@ -20491,22 +20851,22 @@ var later = (clock, minutes) => new Date(clock() + minutes * MINUTE2).toISOStrin
 
 // apps/omni-app/src/stage-forward/touch.ts
 import { posix as posix5 } from "node:path";
-import { z as z77 } from "zod";
+import { z as z80 } from "zod";
 var TOUCH_EVENTS = Object.freeze(["issues", "issue_comment", "pull_request", "pull_request_review", "check_suite", "push"]);
-var DEFAULTS = (() => {
+var DEFAULTS2 = (() => {
   const { paths, branches } = parseConfig("kit: 1");
   return Object.freeze({ delivery: posix5.normalize(paths.delivery).replace(/\/+$/, ""), branches });
 })();
-var Repository = z77.looseObject({ repository: z77.looseObject({ full_name: z77.string().min(1) }) });
-var IssueEvent = z77.looseObject({ issue: z77.looseObject({ number: IssueNumberSchema, pull_request: z77.unknown().optional() }) });
-var PullEvent = z77.looseObject({ pull_request: z77.looseObject({ number: PrNumberSchema, head: z77.looseObject({ ref: z77.string().min(1) }) }) });
-var CheckSuiteEvent = z77.looseObject({
-  check_suite: z77.looseObject({ head_branch: z77.string().min(1).nullish(), pull_requests: z77.array(z77.looseObject({ number: PrNumberSchema })).nullish() })
+var Repository = z80.looseObject({ repository: z80.looseObject({ full_name: z80.string().min(1) }) });
+var IssueEvent = z80.looseObject({ issue: z80.looseObject({ number: IssueNumberSchema, pull_request: z80.unknown().optional() }) });
+var PullEvent = z80.looseObject({ pull_request: z80.looseObject({ number: PrNumberSchema, head: z80.looseObject({ ref: z80.string().min(1) }) }) });
+var CheckSuiteEvent = z80.looseObject({
+  check_suite: z80.looseObject({ head_branch: z80.string().min(1).nullish(), pull_requests: z80.array(z80.looseObject({ number: PrNumberSchema })).nullish() })
 });
-var Files = z77.array(z77.string()).nullish();
-var PushEvent = z77.looseObject({
-  ref: z77.string(),
-  commits: z77.array(z77.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
+var Files = z80.array(z80.string()).nullish();
+var PushEvent = z80.looseObject({
+  ref: z80.string(),
+  commits: z80.array(z80.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
 });
 var issueTouches = (repository, payload) => {
   const read = IssueEvent.safeParse(payload);
@@ -20528,13 +20888,13 @@ var checkSuiteTouches = (repository, payload) => {
   return pulls.length === 0 ? [{ repository, branch }] : pulls.map(({ number }) => ({ repository, pr: number, branch }));
 };
 function isFeatureOrPhase0(branch) {
-  const { branches } = DEFAULTS;
+  const { branches } = DEFAULTS2;
   if (match(branches.slice, branch)) return false;
   return Boolean(match(branches.feature, branch) ?? match(branches.phase0, branch));
 }
 function prdsIn(paths) {
   const prds = paths.flatMap((path) => {
-    const [, folder, ...file] = path.slice(DEFAULTS.delivery.length + 1).split("/");
+    const [, folder, ...file] = path.slice(DEFAULTS2.delivery.length + 1).split("/");
     const prd = file.length > 0 ? parseFolderName(folder ?? "")?.prd : void 0;
     return prd === void 0 ? [] : [prd];
   });
@@ -20544,7 +20904,7 @@ var pushTouches = (repository, payload) => {
   const read = PushEvent.safeParse(payload);
   if (!read.success || !read.data.ref.startsWith("refs/heads/")) return [];
   const branch = read.data.ref.slice("refs/heads/".length);
-  const inDelivery = (read.data.commits ?? []).flatMap(({ added, modified, removed }) => [added, modified, removed].flatMap((files) => files ?? [])).filter((path) => path.startsWith(`${DEFAULTS.delivery}/`));
+  const inDelivery = (read.data.commits ?? []).flatMap(({ added, modified, removed }) => [added, modified, removed].flatMap((files) => files ?? [])).filter((path) => path.startsWith(`${DEFAULTS2.delivery}/`));
   const prds = prdsIn(inDelivery);
   if (prds.length > 0) return prds.map((issue) => ({ repository, issue, branch }));
   return inDelivery.length > 0 || isFeatureOrPhase0(branch) ? [{ repository, branch }] : [];
@@ -20566,15 +20926,15 @@ function toTouches(event, payload) {
 function touchedUrl(galaxyUrl) {
   return `${galaxyUrl.replace(/\/+$/, "")}/api/github/touched`;
 }
-function forwardTouch(touch, post) {
+function forwardTouch(touch, post2) {
   const what = `touch of ${touch.repository}${touch.issue ? ` #${touch.issue}` : ""}${touch.pr ? ` pull request #${touch.pr}` : ""}${touch.branch ? ` on ${touch.branch}` : ""}`;
-  return postSigned(touch, post, { name: "touch", what });
+  return postSigned(touch, post2, { name: "touch", what });
 }
 
 // apps/omni-app/src/webhook/webhook.ts
 import { randomUUID } from "node:crypto";
 import { Webhooks } from "@octokit/webhooks";
-import { z as z78 } from "zod";
+import { z as z81 } from "zod";
 var CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["opened", "synchronize", "reopened", "ready_for_review", "labeled", "unlabeled", "edited"]),
   pull_request_review: Object.freeze(["submitted", "dismissed"]),
@@ -20606,46 +20966,46 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z78.looseObject({
+var PullRefSchema = z81.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z78.looseObject({ sha: z78.string().nullish() }).nullish(),
-  base: z78.looseObject({ ref: z78.string().nullish() }).nullish()
+  head: z81.looseObject({ sha: z81.string().nullish() }).nullish(),
+  base: z81.looseObject({ ref: z81.string().nullish() }).nullish()
 });
-var PayloadSchema2 = z78.looseObject({
-  action: z78.unknown(),
+var PayloadSchema2 = z81.looseObject({
+  action: z81.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z78.looseObject({ id: z78.number().nullish() }).nullish(),
-  repository: z78.looseObject({
-    name: z78.string(),
-    full_name: z78.string().nullish(),
-    owner: z78.looseObject({ login: z78.string().nullish() }).nullish(),
-    default_branch: z78.string().nullish()
+  installation: z81.looseObject({ id: z81.number().nullish() }).nullish(),
+  repository: z81.looseObject({
+    name: z81.string(),
+    full_name: z81.string().nullish(),
+    owner: z81.looseObject({ login: z81.string().nullish() }).nullish(),
+    default_branch: z81.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    node_id: z78.string().nullish(),
-    html_url: z78.string().nullish(),
-    state: z78.string().nullish(),
-    user: z78.looseObject({ login: z78.string().nullish() }).nullish(),
-    body: z78.string().nullish(),
-    merged: z78.boolean().nullish(),
-    merge_commit_sha: z78.string().nullish(),
-    merged_at: z78.string().nullish(),
-    closed_at: z78.string().nullish(),
-    updated_at: z78.string().nullish()
+    node_id: z81.string().nullish(),
+    html_url: z81.string().nullish(),
+    state: z81.string().nullish(),
+    user: z81.looseObject({ login: z81.string().nullish() }).nullish(),
+    body: z81.string().nullish(),
+    merged: z81.boolean().nullish(),
+    merge_commit_sha: z81.string().nullish(),
+    merged_at: z81.string().nullish(),
+    closed_at: z81.string().nullish(),
+    updated_at: z81.string().nullish()
   }).nullish(),
-  check_run: z78.looseObject({
-    id: z78.number().nullish(),
-    external_id: z78.string().nullish(),
-    head_sha: z78.string().nullish(),
-    pull_requests: z78.array(PullRefSchema).nullish(),
-    output: z78.looseObject({ summary: z78.unknown() }).nullish()
+  check_run: z81.looseObject({
+    id: z81.number().nullish(),
+    external_id: z81.string().nullish(),
+    head_sha: z81.string().nullish(),
+    pull_requests: z81.array(PullRefSchema).nullish(),
+    output: z81.looseObject({ summary: z81.unknown() }).nullish()
   }).nullish(),
-  requested_action: z78.looseObject({ identifier: z78.unknown() }).nullish(),
-  check_suite: z78.looseObject({
-    id: z78.number().nullish(),
-    head_branch: z78.string().nullish(),
-    head_sha: z78.string().nullish(),
-    conclusion: z78.string().nullish()
+  requested_action: z81.looseObject({ identifier: z81.unknown() }).nullish(),
+  check_suite: z81.looseObject({
+    id: z81.number().nullish(),
+    head_branch: z81.string().nullish(),
+    head_sha: z81.string().nullish(),
+    conclusion: z81.string().nullish()
   }).nullish()
 });
 async function receiveWebhook({
@@ -20836,9 +21196,9 @@ function toFleetBoardRequests(event, delivery2) {
     }
   ];
 }
-var LabelEventSchema = z78.looseObject({
-  label: z78.looseObject({ name: z78.string() }),
-  issue: z78.looseObject({ number: PrdNumberSchema, pull_request: z78.unknown().optional() })
+var LabelEventSchema = z81.looseObject({
+  label: z81.looseObject({ name: z81.string() }),
+  issue: z81.looseObject({ number: PrdNumberSchema, pull_request: z81.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery2) {
   const payload = readPayload(delivery2);

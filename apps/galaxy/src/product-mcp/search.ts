@@ -1,5 +1,6 @@
-// The search of a product's knowledge (PRD 2707 s3, decision 7): words, with no model, so it is free and
-// gives the same answer every time. Pure.
+// The search of a product's knowledge (PRD 2707 s3, decision 7; PRD 2728 s5). Pure.
+//
+// By words (searchKnowledge), with no model, so it is free and gives the same answer every time:
 //
 // - The query is split into words, each compared without case and without accents, as a part of a word.
 // - Each word scores by the best place it is found: the id, then the title, then the body. An entry missing
@@ -8,7 +9,14 @@
 // - At most HIT_CAP hits; `total` says how many matched.
 // - The snippet is the body's first sentence that holds a word (its first sentence with no query), cut at
 //   200 characters.
-import { HIT_CAP, type KnowledgeEntry, type KnowledgeHit, type KnowledgeKind } from './product-mcp.contract';
+//
+// By meaning (rankByMeaning), once knowledge_nearest() has ranked the entries' vectors against the query's:
+// 1. exact matches: an entry whose id, or a term whose word, equals the query (case and accents ignored);
+// 2. the entries holding a vector, nearest first;
+// 3. the entries holding none yet (a pack minutes old), by their word match, as the word search ranks them.
+// With no vector at all among the entries, the answer is the word search's, with `mode: "words"`.
+import { HIT_CAP, type KnowledgeHit, type KnowledgeKind, type SearchMode } from './product-mcp.contract';
+import type { KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
 
 export type KnowledgeQuery = { query?: string | undefined; kind?: KnowledgeKind | undefined; domain?: string | undefined; repo?: string | undefined };
 
@@ -62,15 +70,59 @@ const hitOf = (entry: KnowledgeEntry, words: readonly string[]): KnowledgeHit =>
   id: entry.id, kind: entry.kind, title: entry.title, repo: entry.repo, domain: entry.domain, snippet: snippetOf(entry.body, words),
 });
 
-/** The hits of `query` among `entries`, the best first, and how many there are. */
-export function searchKnowledge(entries: readonly KnowledgeEntry[], query: KnowledgeQuery): { hits: KnowledgeHit[]; total: number } {
+/** The entries holding every word, the best first. */
+const byWords = (entries: readonly KnowledgeEntry[], words: readonly string[]): KnowledgeEntry[] =>
+  entries.map((entry) => ({ entry, score: scoreOf(entry, words) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || byId(a.entry, b.entry))
+    .map(({ entry }) => entry);
+
+/** The entries `query` filters to, in their order. */
+export const filtered = (entries: readonly KnowledgeEntry[], query: KnowledgeQuery): KnowledgeEntry[] =>
+  entries.filter((entry) => matchesFilters(entry, query));
+
+/** Whether `query` holds a word to search for. */
+export const hasWords = (query: string | undefined): boolean => wordsOf(query).length > 0;
+
+type Answer = { hits: KnowledgeHit[]; total: number };
+
+const answerOf = (ranked: readonly KnowledgeEntry[], words: readonly string[]): Answer =>
+  ({ hits: ranked.slice(0, HIT_CAP).map((entry) => hitOf(entry, words)), total: ranked.length });
+
+/** The hits of `query` among `entries` by words, the best first, and how many there are. */
+export function searchKnowledge(entries: readonly KnowledgeEntry[], query: KnowledgeQuery): Answer {
   const words = wordsOf(query.query);
-  const kept = entries.filter((entry) => matchesFilters(entry, query));
-  const ranked = words.length === 0
-    ? [...kept].sort(byId)
-    : kept.map((entry) => ({ entry, score: scoreOf(entry, words) }))
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score || byId(a.entry, b.entry))
-      .map(({ entry }) => entry);
-  return { hits: ranked.slice(0, HIT_CAP).map((entry) => hitOf(entry, words)), total: ranked.length };
+  const kept = filtered(entries, query);
+  return answerOf(words.length === 0 ? [...kept].sort(byId) : byWords(kept, words), words);
+}
+
+/** What knowledge_nearest() said of the entries: each one's hash, and the hashes holding a vector, nearest first. */
+export type Nearness = { hashOf: (entry: KnowledgeEntry) => string; nearest: readonly string[] };
+
+/** Whether the entry is named exactly by `query`: its id, or a term's word. */
+function isExact(entry: KnowledgeEntry, query: string): boolean {
+  const asked = fold(query.trim());
+  return fold(entry.id) === asked || (entry.kind === 'term' && fold(entry.title) === asked);
+}
+
+/**
+ * The hits of `query` among `entries` by meaning: exact matches, then the nearest, then the entries with no
+ * vector by words; `mode: "words"` and the word search's answer when no entry holds a vector. A query with no
+ * word answers the listing, with no mode.
+ */
+export function rankByMeaning(entries: readonly KnowledgeEntry[], query: KnowledgeQuery, { hashOf, nearest }: Nearness): Answer & { mode?: SearchMode } {
+  const words = wordsOf(query.query);
+  if (words.length === 0) return searchKnowledge(entries, query);
+  const kept = filtered(entries, query);
+  const place = new Map(nearest.map((hash, at) => [hash, at] as const));
+  const placeOf = (entry: KnowledgeEntry): number | undefined => place.get(hashOf(entry));
+  if (!kept.some((entry) => placeOf(entry) !== undefined)) return { ...searchKnowledge(entries, query), mode: 'words' };
+  const exact = kept.filter((entry) => isExact(entry, query.query ?? '')).sort(byId);
+  const rest = kept.filter((entry) => !exact.includes(entry));
+  const near = rest.flatMap((entry) => {
+    const at = placeOf(entry);
+    return at === undefined ? [] : [{ entry, at }];
+  }).sort((a, b) => a.at - b.at || byId(a.entry, b.entry)).map(({ entry }) => entry);
+  const unembedded = byWords(rest.filter((entry) => placeOf(entry) === undefined), words);
+  return { ...answerOf([...exact, ...near, ...unembedded], words), mode: 'meaning' };
 }
