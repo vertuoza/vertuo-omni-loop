@@ -6,16 +6,13 @@ import { ClassificationSchema } from 'omni-loop/kit/lib/knowledge/classify.ts';
 import { ConfigSchema } from 'omni-loop/kit/lib/schema/config.ts';
 import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
-/** `omni-loop/knowledge.harvest.requested`: where a pull request merged. */
+/** The `knowledge-harvest` job's payload: where a pull request merged. */
 export const HarvestEventSchema = z.looseObject({
   installationId: z.number(),
   owner: z.string(),
   repo: z.string(),
   prNumber: PrNumberSchema,
 });
-
-/** The same, as the failure handler reads it from the failed run's event: any field may be missing. */
-export const FailedHarvestEventSchema = HarvestEventSchema.partial();
 
 /** `GET /repos/{owner}/{repo}/pulls/{pull_number}`: the merge's facts. */
 export const PullMergeSchema = z.looseObject({

@@ -1,7 +1,7 @@
 // The three Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
-// needs (./env.ts): the retro with its day-14 run (PRD 72), queueing `/omni:retro-apply` as the service role (PRD 2338), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
-// and the main watch (below). The knowledge pack (PRD 2011) is no longer one of them: it is a job of the
+// needs (./env.ts): the retro with its day-14 run (PRD 72), queueing `/omni:retro-apply` as the service role (PRD 2338), and the main watch (below). The knowledge harvest (PRD 82, with its law judge, PRD 1342) is no longer one of them: it is a
+// job of the ledger (PRD omni-loop-4 s2, ./knowledge-harvest/knowledge-harvest.ts), which `/api/github` adds. The knowledge pack (PRD 2011) is no longer one of them: it is a job of the
 // ledger (PRD 2676, ./jobs/pack.ts), so it can never run on both. Nor are the four pull-request checks, the
 // outbox check (PRD 28), the inbox check (PRD 675), the approved check (PRD 1548) with its rerun on the approved
 // label (PRD 1612) and the budgets check (PRD 1679): they are jobs of the ledger too (PRD 2688,
@@ -26,8 +26,6 @@ import { githubClient } from '@omni/github';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from './env.ts';
 import { inngest as appInngest } from './inngest-client.ts';
-import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts';
-import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
 import { createRetro } from './retro/retro.ts';
 import { runnerQueue } from './retro/runner-queue.ts';
@@ -55,12 +53,6 @@ export function appFunctions(
       openrouter: env.openrouter,
       followUp: true,
       queue: env.supabase ? runnerQueue(env.supabase) : null,
-    }),
-    knowledgeHarvest: createKnowledgeHarvest({
-      client: inngest,
-      octokitFor,
-      openrouter: env.openrouter,
-      lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(env.galaxyUrl), secret: env.lawJudge.secret }) : null,
     }),
     mainWatch: createMainWatch({
       client: inngest,

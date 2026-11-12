@@ -1,12 +1,9 @@
 // Issue 2400: a repository whose delivery history passes the snapshot's 20 MB bound still gets its
 // knowledge PR. The harvest of PRD 42 reads PRD 42's own folders; another PRD's shipped folder is
 // listed, never fetched, and never counted against the bound.
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
-import { inngest } from '../inngest-client.ts';
 import { readEnv } from '../env.ts';
-import { D, FILES, KEY, fakeFetch, harvestEvent, harvestScenario } from '../../test/harvest-scenario.ts';
-import { createKnowledgeHarvest } from './knowledge-harvest.ts';
+import { D, FILES, KEY, fakeFetch, harvestRun, harvestScenario } from '../../test/harvest-scenario.ts';
 import type { RequestOctokit } from './github.ts';
 import { MAX_BYTES } from '../snapshot/snapshot.ts';
 
@@ -22,8 +19,8 @@ const noFiles = (octokit: RequestOctokit): RequestOctokit => ({
 function run() {
   const files: Record<string, string> = { ...FILES, [HISTORY]: BIG };
   const github = harvestScenario({ files: files as typeof FILES });
-  const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => noFiles(github.octokit), openrouter: readEnv({ OPENROUTER_API_KEY: KEY }).openrouter, fetch: fakeFetch(), now: () => '2026-09-27' });
-  return { github, engine: new InngestTestEngine({ function: fn, events: [harvestEvent()] }) };
+  const deps = { octokitFor: () => noFiles(github.octokit), openrouter: readEnv({ OPENROUTER_API_KEY: KEY }).openrouter, fetch: fakeFetch(), now: () => '2026-09-27' };
+  return { github, engine: harvestRun(deps) };
 }
 
 describe('knowledge-harvest — a delivery history past the snapshot bound (issue 2400)', () => {

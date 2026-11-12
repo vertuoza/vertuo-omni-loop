@@ -12,7 +12,6 @@ const octokitFor = () => {
 
 const ids = {
   retro: 'retro',
-  knowledgeHarvest: 'knowledge-harvest',
   mainWatch: 'main-watch',
 };
 
@@ -26,11 +25,11 @@ function startOf(fn: Fn) {
 }
 
 describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
-  it('serves the three functions by these ids, the retro, the knowledge harvest and the main watch: neither the knowledge pack, the pull-request checks, the pr-stats collector, the escalation, the fix row stamp, the fleet board, the canon buttons nor the server event, which are jobs of the ledger (PRD 2676, PRD 2688, PRD omni-loop-3)', () => {
+  it('serves the two functions by these ids, the retro and the main watch: neither the knowledge harvest, the knowledge pack, the pull-request checks, the pr-stats collector, the escalation, the fix row stamp, the fleet board, the canon buttons nor the server event, which are jobs of the ledger (PRD 2676, PRD 2688, PRD omni-loop-3)', () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     expect(Object.fromEntries(Object.entries(functions).map(([name, fn]) => [name, fn.opts.id]))).toEqual(ids);
     const served = Object.values(functions).map((fn) => fn.opts.id);
-    for (const gone of ['knowledge-pack', 'outbox-check', 'inbox-check', 'approved-check', 'approved-rerun', 'budgets-check', 'pr-stats', 'escalation', 'fix-row-stamp', 'fleet-board', 'canon-action', 'server-event']) expect(served).not.toContain(gone);
+    for (const gone of ['knowledge-pack', 'outbox-check', 'inbox-check', 'approved-check', 'approved-rerun', 'budgets-check', 'pr-stats', 'escalation', 'fix-row-stamp', 'fleet-board', 'canon-action', 'server-event', 'knowledge-harvest']) expect(served).not.toContain(gone);
   });
 
   for (const [name, id] of Object.entries(ids)) {
@@ -49,7 +48,7 @@ describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
   it('a failure handler’s run logs its own line, and fails or ends exactly as it did', async () => {
     const functions = appFunctions(readEnv({}), { octokitFor });
     const withFailure = Object.entries(functions).filter(([, fn]) => typeof fn.opts.onFailure === 'function');
-    expect(withFailure.map(([name]) => name).sort()).toEqual(['knowledgeHarvest', 'retro']);
+    expect(withFailure.map(([name]) => name).sort()).toEqual(['retro']);
     for (const [name] of withFailure) {
       const log = capture();
       const fn = appFunctions(readEnv({}), { octokitFor, logger: log.logger })[name as keyof typeof ids];

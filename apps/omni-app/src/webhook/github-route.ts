@@ -48,7 +48,7 @@ type RouteEvent = AppEvent | MainWatchRequest;
 
 /** The groups the route reads: its own, and those the checks' worker reads (../jobs/pr-checks.ts). */
 export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl'> &
-  Partial<Pick<AppEnv, 'supabase' | 'githubApp' | 'openrouter' | 'constituentJudge' | 'businessLawsJudge'>>;
+  Partial<Pick<AppEnv, 'supabase' | 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge'>>;
 
 /** The ledger as the route uses it: add a job (whether it did), refresh one, find an approval's jobs, run the jobs due. */
 export type RouteJobs = {

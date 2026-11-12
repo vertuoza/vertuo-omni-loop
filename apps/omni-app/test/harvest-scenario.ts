@@ -10,9 +10,11 @@ import { renderAdoptedEntry, renderSettledEntry, settledHeader } from 'omni-loop
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { vi } from 'vitest';
 import { z } from 'zod';
-import { HARVEST_EVENT } from '../src/inngest-client.ts';
+import { harvest, harvestJob, type HarvestDeps } from '../src/knowledge-harvest/knowledge-harvest.ts';
+import { jobSteps } from '../src/saved-step.ts';
+import { fakeStepLedger } from './saved-steps.ts';
 import { replayGitHub } from './github-replay.ts';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 export const OWNER = 'acme';
 export const REPO = 'widgets';
@@ -227,9 +229,29 @@ export function harvestScenario({ files = FILES, pulls = [FEATURE, GADGETS_FEATU
   return github;
 }
 
-export function harvestEvent(prNumber = FEATURE.number) {
+/** The harvest job of pull request `prNumber`, as `/api/github` adds it. */
+export function harvestJobOf(prNumber: number = FEATURE.number) {
+  return harvestJob({ installationId: 7, owner: OWNER, repo: REPO, prNumber: parsePr(prNumber) });
+}
+
+/**
+ * One run of the harvest of pull request `prNumber` as the worker runs a claimed job: its steps saved on a fake
+ * ledger under the job's claim (each value as JSON, as the table keeps it). `execute` gives the harvest's outcome
+ * or the error it threw, and `ids` the steps it saved, in order. Run it again on the same `ledger` for a retry.
+ */
+export function harvestRun(deps: HarvestDeps, { prNumber = FEATURE.number, ledger = fakeStepLedger() }: { prNumber?: number; ledger?: ReturnType<typeof fakeStepLedger> } = {}) {
+  const { key, payload } = harvestJobOf(prNumber);
+  const job = { id: key, claim: 'claim-1' };
   return {
-    name: HARVEST_EVENT,
-    data: { installationId: 7, owner: OWNER, repo: REPO, repository: `${OWNER}/${REPO}`, prNumber },
+    ledger,
+    async execute() {
+      const step = jobSteps({ ledger: ledger.ledger, job, renewEveryMs: 3_600_000 });
+      const ids = () => ledger.calls.saved.map((saved) => saved.slice(saved.indexOf(' ') + 1));
+      try {
+        return { result: await harvest(deps, payload, step), error: undefined, ids: ids() };
+      } catch (error) {
+        return { result: undefined, error, ids: ids() };
+      }
+    },
   };
 }
