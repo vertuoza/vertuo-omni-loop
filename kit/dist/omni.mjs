@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.612" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.613" };
   }
 });
 
@@ -29566,6 +29566,10 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * @returns {Promise<{ id: string, prdId: string, url: string, kind: string, version: number, sha256: string,
      *   content: string, createdAt: string }>} */
     getDossier: ({ key: key2, seq, kind: kind2, repo }) => call("GET", `/api/dossiers/get?${new URLSearchParams({ product: key2, prd: String(seq), kind: kind2, ...repo ? { repo } : {} })}`),
+    /** Bug #2758: product roadmap `<key>-R<seq>`'s latest roadmap.md, whole (PRD 2011); a 404 when there is none.
+     * @returns {Promise<{ id: string, roadmap: string, url: string, kind: 'roadmap', version: number, sha256: string,
+     *   content: string, createdAt: string }>} */
+    getRoadmap: ({ key: key2, seq, repo }) => call("GET", `/api/dossiers/get?${new URLSearchParams({ product: key2, roadmap: String(seq), kind: "roadmap", ...repo ? { repo } : {} })}`),
     /** PRD 1548 s7: product PRD `<key>-<seq>`'s outbox items, each with its settlement or none; a 404 when
      * there is no such PRD. `../outbox/server-store.ts` reads the reply. */
     readOutboxItems: ({ key: key2, seq, repo }) => call("GET", `/api/outbox/items?${new URLSearchParams({ product: key2, prd: String(seq), ...repo ? { repo } : {} })}`),
@@ -47890,6 +47894,25 @@ function writeScratch(prdId, latest, base = tmpdir2()) {
   writeFileSync31(path, latest.content);
   return path;
 }
+var LatestRoadmapSchema = external_exports.object({
+  id: text11,
+  roadmap: text11,
+  url: text11,
+  kind: external_exports.literal("roadmap"),
+  version: external_exports.number().int().positive(),
+  sha256: text11,
+  content: external_exports.string(),
+  createdAt: text11
+});
+function parseLatestRoadmap(body) {
+  const parsed2 = LatestRoadmapSchema.safeParse(body);
+  return parsed2.success ? parsed2.data : null;
+}
+function writeRoadmapScratch(id, content, base = tmpdir2()) {
+  const path = join79(mkdtempSync2(join79(base, `omni-${id}-`)), "roadmap.md");
+  writeFileSync31(path, content);
+  return path;
+}
 var LAST_READ_DIR = join79(LOCAL_DIR, "prd-cache");
 var LastReadSchema = LatestSchema.extend({ readAt: text11 });
 var lastReadPath = (root, prdId, kind2) => join79(root, LAST_READ_DIR, prdId, `${kind2}.json`);
@@ -47914,7 +47937,7 @@ function lastRead(root, prdId, kind2) {
 // kit/bin/commands/dossier-product.ts
 var VERDICT_EVERY_MS = 3e3;
 var VERDICT_WAITS = 20;
-var PRODUCT_USAGE = 'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"] | omni dossier push <key>-<n> [--from <dir>] [--title "<title>"] | omni dossier get <key>-<n> <kind>';
+var PRODUCT_USAGE = 'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"] | omni dossier push <key>-<n> [--from <dir>] [--title "<title>"] | omni dossier get <key>-<n> <kind> | omni dossier get <key>-R<n> roadmap';
 function productIdArg(value) {
   if (value === void 0 || /^\d+$/.test(value)) return null;
   let id;
@@ -47936,6 +47959,11 @@ function keyArg(value) {
 var productUsage = () => usageError(`usage: ${PRODUCT_USAGE}`);
 function getCallOf(rest) {
   const [first, kind2, ...more] = rest;
+  const roadmap2 = ProductRoadmapIdSchema.safeParse(first);
+  if (roadmap2.success) {
+    if (kind2 !== "roadmap" || more.length > 0) throw usageError("usage: omni dossier get <key>-R<n> roadmap");
+    return { verb: "get-roadmap", id: roadmap2.data };
+  }
   const id = productIdArg(first);
   if (!id || !isPrdKind(kind2) || more.length > 0) throw usageError(`usage: omni dossier get <key>-<n> <${PRD_KINDS.join("|")}>`);
   return { verb: "get", id, kind: kind2 };
@@ -48039,7 +48067,32 @@ async function get(call, { client, repo, home, scratch, stdout, stderr, now: now
   println(stdout, `sha256 ${hash2}`);
   return 0;
 }
+async function getRoadmap({ id }, { client, repo, scratch, stdout, stderr }) {
+  const { key: key2, seq } = productRoadmapParts(id);
+  let body;
+  try {
+    body = await client.getRoadmap({ key: key2, seq, repo });
+  } catch (error62) {
+    if (!(error62 instanceof AskCallError)) throw error62;
+    println(stderr, error62.status === null ? `held \xB7 ${UNREACHABLE_LINE}` : error62.status === 404 ? "none" : `refused (${error62.status})`);
+    return 1;
+  }
+  const latest = parseLatestRoadmap(body);
+  if (!latest) {
+    println(stderr, "refused (malformed reply)");
+    return 1;
+  }
+  const hash2 = sha2562(latest.content);
+  if (hash2 !== latest.sha256) {
+    println(stderr, "refused (the roadmap does not hash as the server says)");
+    return 1;
+  }
+  println(stdout, writeRoadmapScratch(id, latest.content, scratch));
+  println(stdout, `sha256 ${hash2}`);
+  return 0;
+}
 function runProductCall(call, io, addedLine2) {
+  if (call.verb === "get-roadmap") return getRoadmap(call, io);
   return call.verb === "get" ? get(call, io) : push(call, io, addedLine2);
 }
 
@@ -50791,11 +50844,12 @@ var ENTRIES = deepFreeze([
       "omni dossier status",
       'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]',
       "omni dossier push <key>-<n> [--from <dir>]",
-      "omni dossier get <key>-<n> <kind>"
+      "omni dossier get <key>-<n> <kind>",
+      "omni dossier get <key>-R<n> roadmap"
     ],
     label: "omni dossier \u2026",
     summary: "a PRD's dossier on the Omni page",
-    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea, tagged with the session id (OMNI_SESSION_ID, else Claude Code's, else one it generates and keeps for the checkout in .omni-loop/local/session.json), and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. With --product <name>, a PRD's push names the product the brainstorm asked for, for a repository in several products: the first push makes it the PRD's product, and a repository in one product or none decides alone. A product PRD, as mobile-12, lives on the Omni page and in no repository: push --product <key> --new creates the product's next PRD from the files of --from and prints its id; push <key>-<n> saves the edited files of --from as new versions; get <key>-<n> <kind> writes the latest spec, plan, before-after or voice to a scratch file and prints its path and its sha256, and holds while the server is down. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
+    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea, tagged with the session id (OMNI_SESSION_ID, else Claude Code's, else one it generates and keeps for the checkout in .omni-loop/local/session.json), and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. With --kind concept, they work on concept n, its issue's number: its page under Work \u203A Concepts, filled from its concept.md, vision tour, boards and debate. With --product <name>, a PRD's push names the product the brainstorm asked for, for a repository in several products: the first push makes it the PRD's product, and a repository in one product or none decides alone. A product PRD, as mobile-12, lives on the Omni page and in no repository: push --product <key> --new creates the product's next PRD from the files of --from and prints its id; push <key>-<n> saves the edited files of --from as new versions; get <key>-<n> <kind> writes the latest spec, plan, before-after or voice to a scratch file and prints its path and its sha256, and holds while the server is down; get <key>-R<n> roadmap does the same with a product roadmap's roadmap.md, which /omni:drive --roadmap reads its rows from. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
   },
   {
     name: "idea",

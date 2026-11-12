@@ -399,7 +399,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'you',
     usage: [
       'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
-      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>', 'omni dossier get <key>-R<n> roadmap',
     ],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
@@ -419,7 +419,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'lives on the Omni page and in no repository: push --product <key> --new creates the product\'s next ' +
       'PRD from the files of --from and prints its id; push <key>-<n> saves the edited files of --from as ' +
       'new versions; get <key>-<n> <kind> writes the latest spec, plan, before-after or voice to a scratch ' +
-      'file and prints its path and its sha256, and holds while the server is down. It never holds up the ' +
+      'file and prints its path and its sha256, and holds while the server is down; get <key>-R<n> roadmap ' +
+      'does the same with a product roadmap\'s roadmap.md, which /omni:drive --roadmap reads its rows from. ' +
+      'It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {

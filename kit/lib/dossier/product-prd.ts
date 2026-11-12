@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
-import type { ProductPrdId } from '../ids.ts';
+import type { ProductPrdId, ProductRoadmapId } from '../ids.ts';
 import { isOneOf } from '../narrow.ts';
 import { VOICE_FILE } from '../voice/voice.ts';
 import { ARTIFACT_MAX_BYTES, frontMatterTitle, sha256, TITLE_MAX } from './folder.ts';
@@ -68,6 +68,26 @@ export function parseLatest(body: unknown): Latest | null {
 export function writeScratch(prdId: ProductPrdId, latest: Pick<Latest, 'kind' | 'content'>, base: string = tmpdir()): string {
   const path = join(mkdtempSync(join(base, `omni-${prdId}-`)), PRD_FILES[latest.kind]);
   writeFileSync(path, latest.content);
+  return path;
+}
+
+const LatestRoadmapSchema = z.object({
+  id: text, roadmap: text, url: text, kind: z.literal('roadmap'), version: z.number().int().positive(), sha256: text, content: z.string(), createdAt: text,
+});
+
+/** A product roadmap's latest roadmap.md (bug #2758), as the get route answers it. */
+export type LatestRoadmap = z.infer<typeof LatestRoadmapSchema>;
+
+/** The get route's answer for a product roadmap, or null when it is not one. */
+export function parseLatestRoadmap(body: unknown): LatestRoadmap | null {
+  const parsed = LatestRoadmapSchema.safeParse(body);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Writes a product roadmap's `content` as roadmap.md in a new folder of `base`; its path. */
+export function writeRoadmapScratch(id: ProductRoadmapId, content: string, base: string = tmpdir()): string {
+  const path = join(mkdtempSync(join(base, `omni-${id}-`)), 'roadmap.md');
+  writeFileSync(path, content);
   return path;
 }
 

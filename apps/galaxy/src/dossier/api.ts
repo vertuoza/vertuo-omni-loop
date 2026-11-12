@@ -43,7 +43,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, callerOrigin as origin, withInstallLink, type TokenCheck } from '../ask/auth';
 import {
   ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isPulseKind, isPushedArtifactKind, isPushKind, isRoundKind, KIND_ARTIFACTS,
-  productPrdOf, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, type DossierArtifact, type DossierProduct, type PushKind,
+  productPrdOf, productRoadmapOf, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, type DossierArtifact, type DossierProduct, type PushKind,
 } from './store';
 import { type PrdNumber, PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 
@@ -376,10 +376,31 @@ async function findProductPrd(request: Request, client: DossierClient, query: UR
   });
 }
 
-/** PRD 1548: the latest version of one of a product PRD's kinds, whole, for `omni dossier get`. */
+/** Bug #2758: product roadmap `<key>-R<n>`'s latest roadmap.md (PRD 2011), whole, for `omni dossier get <key>-R<n>
+ * roadmap`; its url is the roadmap's page. */
+async function getRoadmap(request: Request, client: DossierClient, query: URLSearchParams): Promise<Response> {
+  const key = productKeyOf(query.get('product'));
+  if (!key) return refuse(400, `\`product\` ${KEY_PROBLEM}`);
+  const seq = prdOf(query.get('roadmap'));
+  if (seq === null) return refuse(400, '`roadmap` is the roadmap\'s number on its product.');
+  if (query.get('kind') !== 'roadmap') return refuse(400, 'A roadmap\'s `kind` is roadmap.');
+  const roadmap = `${key}-R${String(seq)}`;
+  const found = await productRoadmapOf(client, { key, seq });
+  if (!found) return refuse(404, `No roadmap ${roadmap}.`);
+  const latest = await dossierReader(client).latest(found, 'roadmap');
+  if (!latest) return refuse(404, `Roadmap ${roadmap} has no roadmap.md yet.`);
+  return reply(200, {
+    id: found, roadmap, url: `${origin(request)}/roadmaps/${found}`, kind: 'roadmap', version: latest.version,
+    sha256: latest.sha256, content: latest.content, createdAt: latest.created_at,
+  });
+}
+
+/** PRD 1548: the latest version of one of a product PRD's kinds, whole, for `omni dossier get`; since bug #2758, a
+ * product roadmap's roadmap.md when the query names `roadmap` instead of `prd`. */
 export function getDossier(request: Request, deps: DossierDeps): Promise<Response> {
   return handle(request, deps, async (client) => {
     const query = new URL(request.url).searchParams;
+    if (query.has('roadmap')) return getRoadmap(request, client, query);
     const kind = query.get('kind');
     if (!isPulseKind(kind)) return refuse(400, `\`kind\` is one of a PRD's: ${KIND_ARTIFACTS.prd.join(', ')}.`);
     const named = productQuery(query);
