@@ -9,6 +9,7 @@
 import { build } from 'esbuild';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readTemplates } from 'omni-loop/kit/lib/playbook/templates.ts';
 
 /** The functions Vercel serves, each from `entries/<name>.ts`. */
 export const FUNCTIONS = ['github', 'server-event', 'health', 'jobs-sweep'] as const;
@@ -39,6 +40,10 @@ export async function buildFunctions(outdir: string): Promise<void> {
       },
     }],
     legalComments: 'none',
+    // The kit's form templates travel inside the bundle, as in `kit/build.ts`: without them the kit's
+    // loader reads `kit/templates/` from beside the bundle, which Vercel does not ship, and the budgets
+    // check fails on every pull request (#2762). A string, parsed once where it is read.
+    define: { __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())) },
   });
 }
 

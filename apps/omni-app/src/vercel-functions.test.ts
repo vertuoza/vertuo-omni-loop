@@ -74,6 +74,15 @@ describe('the Vercel functions', () => {
     }
   });
 
+  // The guard of #2762: the kit reads its build-time constants (`__OMNI_TEMPLATES__`, `__OMNI_SKILLS__`, …)
+  // as `typeof __OMNI_X__ === 'undefined'`, falling back to files beside the bundle. A constant a build
+  // defines is replaced, so any `typeof __OMNI_` left in a function is one this build forgot to define.
+  it('leave no kit build constant undefined, so no kit module falls back to files Vercel does not ship', () => {
+    const undefinedConstants = FUNCTIONS.flatMap((name) =>
+      [...readFileSync(`${api}${name}.mjs`, 'utf8').matchAll(/typeof (__OMNI_[A-Z_]+__)/g)].map(([, constant]) => `api/${name}.mjs: ${constant ?? ''}`));
+    expect(undefinedConstants).toEqual([]);
+  });
+
   it.each(['github.mjs', 'health.mjs', 'jobs-sweep.mjs'])('%s loads in plain Node, every import found', (name) => {
     expect(load(`${api}${name}`)).toBe('loaded');
   });
