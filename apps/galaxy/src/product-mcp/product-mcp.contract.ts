@@ -28,7 +28,6 @@ const KnowledgeEntrySchema = z.object({
   file: z.string().nullable(),
   status: z.string().nullable(),
 });
-export type KnowledgeEntry = z.infer<typeof KnowledgeEntrySchema>;
 
 /** One search hit: an entry without its body, with the body's sentence that holds a word of the query. */
 const KnowledgeHitSchema = KnowledgeEntrySchema.pick({ id: true, kind: true, title: true, repo: true, domain: true }).extend({

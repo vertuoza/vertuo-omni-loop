@@ -1,14 +1,14 @@
 [
-  { "set": "natural", "expected": "BL-QUOTES-1", "question": "can a quote be sent without a payment term?" },
-  { "set": "natural", "expected": "BL-QUOTES-2", "question": "how long is a quote valid once it is sent?" },
-  { "set": "natural", "expected": "BL-INVOICES-1", "question": "can an invoice be changed after it was issued?" },
-  { "set": "natural", "expected": "BL-INVOICES-2", "question": "when is a late payment fee added to an invoice?" },
-  { "set": "natural", "expected": "BL-CUSTOMERS-1", "question": "what happens to a customer's data when they ask to leave?" },
-  { "set": "paraphrase", "expected": "BL-QUOTES-1", "question": "is it allowed to email a price offer that says nothing about when to pay?" },
-  { "set": "paraphrase", "expected": "BL-QUOTES-2", "question": "after how many days does an offer we sent stop counting?" },
-  { "set": "paraphrase", "expected": "BL-INVOICES-1", "question": "a bill already went out with a mistake, may we edit it?" },
-  { "set": "paraphrase", "expected": "BL-INVOICES-2", "question": "does a client who pays late owe us extra money?" },
-  { "set": "paraphrase", "expected": "BL-CUSTOMERS-1", "question": "a buyer wants every trace of them removed, what do we do?" },
-  { "set": "exact", "expected": "BL-QUOTES-1", "question": "BL-QUOTES-1" },
-  { "set": "exact", "expected": "term:SKU", "question": "SKU" }
+  {"set": "natural", "expected": "BL-ORDERS-1", "question": "can an order ship without a delivery address?"},
+  {"set": "natural", "expected": "BL-ORDERS-2", "question": "how long can a customer cancel an order after paying?"},
+  {"set": "natural", "expected": "BL-STOCK-1", "question": "may we sell more units than we hold in stock?"},
+  {"set": "natural", "expected": "BL-STOCK-2", "question": "when is a product marked as out of stock?"},
+  {"set": "natural", "expected": "BL-ACCOUNTS-1", "question": "what happens to a shopper's account when they ask to be forgotten?"},
+  {"set": "paraphrase", "expected": "BL-ORDERS-1", "question": "is it fine to dispatch a parcel when we do not know where it goes?"},
+  {"set": "paraphrase", "expected": "BL-ORDERS-2", "question": "a buyer changed their mind after checkout, can they still back out?"},
+  {"set": "paraphrase", "expected": "BL-STOCK-1", "question": "can the shop promise items the warehouse does not have?"},
+  {"set": "paraphrase", "expected": "BL-STOCK-2", "question": "at what point do we stop offering an item that ran out?"},
+  {"set": "paraphrase", "expected": "BL-ACCOUNTS-1", "question": "a customer wants every trace of them erased, what do we do?"},
+  {"set": "exact", "expected": "BL-ORDERS-1", "question": "BL-ORDERS-1"},
+  {"set": "exact", "expected": "term:SKU", "question": "SKU"}
 ]

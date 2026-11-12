@@ -64,9 +64,9 @@ The server offers two tools, both read-only:
 
 - `search_knowledge` finds entries by meaning. It takes an optional `query`, and optional `kind`,
   `domain` and `repo` filters. Without a `query` it lists the entries that match the filters. For
-  example, `{"query": "can a quote be sent without a payment term"}` answers the entries nearest to
+  example, `{"query": "can an order ship without a delivery address"}` answers the entries nearest to
   that question, each with an id to cite. See **How the search ranks** below.
-- `get_knowledge` reads one entry whole, by its id. For example, `{"id": "BL-QUOTES-1"}` answers that
+- `get_knowledge` reads one entry whole, by its id. For example, `{"id": "BL-ORDERS-1"}` answers that
   business law's statement, Why, domains and owner.
 
 Each answer also lists the product's repositories. A repository with no knowledge yet is named there
@@ -92,7 +92,7 @@ Ask in your own words: the search does not need the product's exact terms. With 
 come in this order, at most 20:
 
 1. **An exact match.** An entry whose id, or a term whose word, is the query (case and accents
-   ignored), like `BL-QUOTES-1` or `SIREN`.
+   ignored), like `BL-ORDERS-1` or `SKU`.
 2. **The nearest in meaning.** The question and every entry are turned into vectors, and the entries
    nearest to the question come next.
 3. **Entries not yet turned into vectors,** such as a pack minutes old, by the words they share with
@@ -113,7 +113,7 @@ helped. Write a JSON file with one entry per question: the `question` as an agen
 
 ```json file=questions.json
 [
-  { "set": "natural", "expected": "BL-QUOTES-1", "question": "can a quote be sent without a payment term?" }
+  { "set": "natural", "expected": "BL-ORDERS-1", "question": "can an order ship without a delivery address?" }
 ]
 ```
 
