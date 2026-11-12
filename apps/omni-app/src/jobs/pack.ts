@@ -1,5 +1,5 @@
 // The knowledge pack as a job of the ledger (PRD 2676 s2; PRD 2011 s11, spec "3. Knowledge is served as packs"):
-// what the `knowledge-pack` Inngest function did, moved over. A job snapshots a repository's knowledge into a
+// what the `knowledge-pack` function did, moved over. A job snapshots a repository's knowledge into a
 // pack at one commit:
 //
 //   qualify  a job with a pull request: the merge (its commit and date), the config at that commit (./paths.ts

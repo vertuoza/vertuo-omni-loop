@@ -2,7 +2,7 @@ import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID } from '../jobs/payloads.ts';
 import type { RefreshJob } from '../jobs/ledger.ts';
 import { PR_CHECK_KINDS } from '../jobs/pr-checks.ts';
 import { canonActionJob } from '../inbox-check/canon-action.ts';
@@ -717,7 +717,7 @@ describe('webhook — the fix stamp (PRD 2011 s7)', () => {
     expect(HANDLED.pull_request).toEqual(expect.arrayContaining([...FIX_STAMP_ACTIONS.pull_request]));
   });
 
-  it('a signed delivery hands its `fix-row-stamp` job to queueJobs, not to Inngest, beside the harvest’s and the retro’s jobs (PRD omni-loop-3 s3, omni-loop-4 s3)', async () => {
+  it('a signed delivery hands its `fix-row-stamp` job to queueJobs, beside the harvest’s and the retro’s jobs (PRD omni-loop-3 s3, omni-loop-4 s3)', async () => {
     const payload = mergedPayload({ body: FIXES });
     const body = JSON.stringify(payload);
     const queueJobs = vi.fn((jobs: NewJob[]) => Promise.resolve(jobs.length));

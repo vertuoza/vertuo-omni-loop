@@ -1,6 +1,7 @@
 # ADR-0001 — The outbox gate runs as a GitHub App, not a per-repository workflow
 
 **Status:** accepted · **Date:** 2026-09-25 · **PRD:** #28 · **Supersedes:** parts of PRD 3's spec
+**Jobs:** superseded in how the App runs its jobs by ADR-0123: they run on the App's own job ledger, not Inngest.
 (`.omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md`), named below · **Layers:** event · **Domain:** gate
 
 ## Context

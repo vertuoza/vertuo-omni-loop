@@ -2691,14 +2691,11 @@ async function askJudge(repo, prd, { galaxyUrl, secret, fetch: get = fetch, time
   return reply ? { reply } : { held: "galaxy answered no approval" };
 }
 
-// apps/omni-app/src/inngest-client.ts
-import { Inngest } from "inngest";
+// apps/omni-app/src/jobs/payloads.ts
 import { z as z18 } from "zod";
-var APP_ID = "omni-loop";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
 var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
-var inngest = new Inngest({ id: APP_ID });
 var SourceSchema = z18.looseObject({
   installationId: z18.number(),
   owner: z18.string(),

@@ -28,7 +28,7 @@ describe('the Vercel functions', () => {
 
   it('are plain JavaScript, never TypeScript Vercel would compile file by file', () => {
     expect(files.filter((name) => /\.[cm]?tsx?$/.test(name))).toEqual([]);
-    expect(files).toEqual(expect.arrayContaining(['github.mjs', 'inngest.mjs', 'server-event.mjs', 'health.mjs', 'jobs-sweep.mjs']));
+    expect(files).toEqual(expect.arrayContaining(['github.mjs', 'server-event.mjs', 'health.mjs', 'jobs-sweep.mjs']));
   });
 
   it('builds every function vercel.json configures, and configures every function it builds', () => {
@@ -57,7 +57,7 @@ describe('the Vercel functions', () => {
     }
   });
 
-  it.each(['github.mjs', 'inngest.mjs', 'health.mjs', 'jobs-sweep.mjs'])('%s loads in plain Node, every import found', (name) => {
+  it.each(['github.mjs', 'health.mjs', 'jobs-sweep.mjs'])('%s loads in plain Node, every import found', (name) => {
     expect(load(`${api}${name}`)).toBe('loaded');
   });
 });

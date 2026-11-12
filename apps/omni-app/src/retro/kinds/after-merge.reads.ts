@@ -1,7 +1,7 @@
 // The reads the after-merge kind shares between the plan repository's bugs and a multi-repository
 // PRD's fix plans (PRD 72, PRD 1130): a pull request's files reduced to change blocks, a read GitHub
 // may refuse, and the window a date falls within. What GitHub will not let the app read is named,
-// never guessed; any other failure is thrown, so Inngest retries the step.
+// never guessed; any other failure is thrown, so the ledger retries the job.
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { changeBlocks } from './churn-lines.ts';
@@ -46,7 +46,7 @@ export async function listFiles(octokit: Octokit, { owner, repo, number }: Repo 
   }));
 }
 
-/** What `read` returns, or the status when GitHub will not let the app read it. Anything else is thrown, so Inngest retries. */
+/** What `read` returns, or the status when GitHub will not let the app read it. Anything else is thrown, so the ledger retries. */
 export async function readOrRefused<T>(read: () => Promise<T>): Promise<Read<T>> {
   try {
     return { value: await read(), status: null };

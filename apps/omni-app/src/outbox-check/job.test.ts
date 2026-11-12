@@ -1,4 +1,4 @@
-// PRD 2688 s2: the `outbox` check as the `pr-outbox` job. The handler is the Inngest function's body, so the
+// PRD 2688 s2: the `outbox` check as the `pr-outbox` job. The handler is the function's body, so the
 // verdicts are the ones outbox-check.test.ts proves; here the same fixtures run through the worker.
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -64,7 +64,7 @@ function failingGitHub() {
 }
 
 describe('pr-outbox — the handler is the check, moved over', () => {
-  it('posts the verdict of the Inngest function on the same fixtures and ends the job done', async () => {
+  it('posts the verdict of the function on the same fixtures and ends the job done', async () => {
     const github = featureGitHub();
     const { summary, finished } = work(1, github.octokit);
     expect(await summary).toMatchObject({ ran: 1, done: 1 });

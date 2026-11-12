@@ -22,7 +22,7 @@ Nothing is added to an installed repository: no workflow, no file under `.github
 
 The four checks of a pull request, **outbox**, **inbox**, **omni/approved** and **omni / budgets**, run on
 the App's own job ledger (PRD 2688, [The checks on the job ledger](#the-checks-on-the-job-ledger-prd-2688)),
-never on Inngest: a vendor's allowance never decides whether a gate exists.
+never on a vendor's queue: a vendor's allowance never decides whether a gate exists.
 
 ### The checks on the job ledger (PRD 2688)
 
@@ -47,7 +47,7 @@ delivery: the next event, or **Re-run**, refreshes the jobs again.
 
 ### The App's other jobs on the ledger (PRD omni-loop-3)
 
-Six more kinds run on the same ledger, no longer on Inngest (`src/jobs/pr-checks.ts` wires their
+Six more kinds run on the same ledger (`src/jobs/pr-checks.ts` wires their
 handlers). A job may wait without failing: it ends `later`, due at a date, keeps a small `progress` for
 its next run and gets its try back; the 21st `later` fails it. A job in a **lane** never runs beside
 another job of its kind and lane. Each kind sets its own tries.
@@ -78,9 +78,8 @@ To read a job, or replay a failed one, see [The job ledger — the sweep, human 
 
 ### Long jobs on the ledger (PRD omni-loop-4)
 
-Three jobs run for days on the same ledger: the retro, the knowledge harvest and the main watch. They
-were Inngest functions until PRD omni-loop-4. `/api/inngest` serves no function now, and `/api/github`
-sends no event to Inngest. The route, the package and the client stay until PRD omni-loop-5 removes them.
+Three jobs run for days on the same ledger: the retro, the knowledge harvest and the main watch. `/api/github`
+adds them to the ledger and wakes the worker; no event goes to any other service.
 
 A long job is a ledger job with three more things:
 
@@ -361,7 +360,7 @@ comes from the body's `prLinks` line (`Closes #7`, `Part of #7`, `Refs #7`); wit
 the PRD by its topic. The branch shapes and link lines are the kit's defaults: the webhook reads no
 GitHub API, so a repository with its own shapes gets its stages from the sync alone. A missing secret
 or a failed POST is logged and never changes the webhook's reply, and nothing is retried: the sync
-repairs a missed event. No Inngest function is involved.
+repairs a missed event.
 
 ## The Engineering board's collector (PRD 612)
 
@@ -475,9 +474,8 @@ Ledger ──▶ job "escalation", in the lane escalation, 3 tries
 Ledger ──▶ jobs "fix-row-stamp", "fleet-board", "canon-action", "server-event", 4 tries each
 ```
 
-Vercel serves five entries from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`,
-`api/jobs-sweep.mjs` and `api/health.mjs` ([Health](#health-prd-1723)); `api/inngest.mjs` serves no function
-since PRD omni-loop-4. They are committed bundles of their entries under
+Vercel serves four entries from `api/github.mjs`, `api/server-event.mjs`,
+`api/jobs-sweep.mjs` and `api/health.mjs` ([Health](#health-prd-1723)). They are committed bundles of their entries under
 `entries/` with the app's code, the kit and the workspace packages inside, npm packages left as
 imports. Vercel compiles a TypeScript function file by file and keeps
 every `import './x.ts'` as written, so a function served from TypeScript fails to start (#1084).
@@ -531,7 +529,7 @@ replay PRD 50 as GitHub returned it (`test/fixtures/prd-50/`), offline.
 
 `GET /api/health` says whether this deployment is alive, which commit it runs and whether its
 environment parses (`src/health/`). It is public: its body never holds a variable's value, an error's
-text or anything about a person, and it calls nothing outside (no GitHub, no Inngest, no OpenRouter).
+text or anything about a person, and it calls nothing outside (no GitHub, no OpenRouter).
 Every answer carries `Cache-Control: no-store`.
 
 | Situation | Status | Body |
@@ -568,8 +566,6 @@ None of these is taken by the code; a person does each once.
    - `GITHUB_APP_ID`
    - `GITHUB_APP_PRIVATE_KEY` — the PEM; a value pasted with literal `\n` sequences is accepted
    - `GITHUB_WEBHOOK_SECRET` — the same secret as in the app's settings
-   - `INNGEST_EVENT_KEY`
-   - `INNGEST_SIGNING_KEY`
    - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — the same project and service key as galaxy's,
      for the pr-stats collector (PRD 612), the inbox check's canon gate (PRD 839) and a product PRD's
      two checks (PRD 1548, [below](#a-product-prds-checks-prd-1548)). With either unset the collector
@@ -595,8 +591,6 @@ None of these is taken by the code; a person does each once.
      server events to `/api/server-event` with it too (PRD 1548); unset, every server event is refused.
    - `GALAXY_URL`, optional — galaxy's host for the stage events and the judge, when it is not
      `https://www.omni-loop.xyz`.
-   - `INNGEST_DEV`, locally only — `1` points the Inngest SDK at the Inngest dev server; never set
-     on Vercel.
    <!-- /omni:env-variables -->
 
    The app reads these once, when a function starts (`src/env.ts`, PRD 1059). A pair half set (one
@@ -608,21 +602,14 @@ None of these is taken by the code; a person does each once.
 
    The private key lives only there. To rotate it, generate a new key in the app's settings, replace
    the Vercel variable, redeploy, then delete the old key.
-3. **Inngest.** Create (or reuse) the Inngest account and sync the app at
-   `https://<production domain>/api/inngest`. A deploy does not resync it: after a deploy that adds a
-   function or removes one (the four checks' functions and `approved-rerun`, PRD 2688; `pr-stats`,
-   `escalation`, `fix-row-stamp`, `fleet-board`, `canon-action` and `server-event`, PRD omni-loop-3),
-   press **Resync** on the app in Inngest, or the new function never runs and the removed one stays
-   listed. Since PRD omni-loop-4 Inngest serves no function: the retro, the knowledge harvest and the
-   main watch run on the job ledger, so there is nothing to resync for them.
-4. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
+3. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
    default branch.
 
    > **Warning.** A required check that is never posted blocks every pull request in that repository:
    > if the app is uninstalled, its deploy is broken or its database is down, nothing can merge. The
    > remedy is to remove the requirement in branch protection — never to fake a status. The check's
    > job and its tries (`background_jobs`, `background_job_attempts`, below) show whether it ran.
-5. **Labels.** Run `npx github:vertuoza/vertuo-omni-loop init` in the repository: it creates the missing `omni:*` labels.
+4. **Labels.** Run `npx github:vertuoza/vertuo-omni-loop init` in the repository: it creates the missing `omni:*` labels.
 6. **The hourly health check.** In `vertuoza/vertuo-omni-loop`, set the repository variable
    `OMNI_APP_URL` to this app's production host, so the health workflow probes its `/api/health`
    ([Health](#health-prd-1723)).
@@ -672,7 +659,7 @@ None of these is taken by the code. Until they are done, stages come from galaxy
    README says where). Optionally set `GALAXY_URL` when galaxy is not at
    `https://www.omni-loop.xyz`.
 2. **Redeploy this project.** A merge is not live here until it redeploys, and a new variable is read
-   only by a new deployment. No Inngest Resync is needed.
+   only by a new deployment.
 
 ### The job ledger — the sweep, human steps (PRD 2676)
 

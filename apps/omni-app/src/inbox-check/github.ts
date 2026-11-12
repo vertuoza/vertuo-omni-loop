@@ -3,7 +3,7 @@
 // the inbox's `external_id`; the compare's changed paths and commits; and the PRD issue. Every call
 // goes through `octokit.request(route, params)`, so a test stubs one function.
 import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
-import { INBOX_EXTERNAL_ID } from '../inngest-client.ts';
+import { INBOX_EXTERNAL_ID } from '../jobs/payloads.ts';
 import { completeAsFailure } from '../outbox-check/github.ts';
 import {
   ComparePageSchema,

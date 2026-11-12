@@ -384,7 +384,7 @@ async function readCommit(octokit: Octokit, { owner, repo, sha }: Repo & { sha: 
   };
 }
 
-/** What `read` returns, or `null` when GitHub answers one of `statuses`: it does not have it. Anything else is thrown, so Inngest retries. */
+/** What `read` returns, or `null` when GitHub answers one of `statuses`: it does not have it. Anything else is thrown, so the ledger retries. */
 async function unlessMissing<T>(statuses: readonly unknown[], read: () => Promise<T>): Promise<T | null> {
   try {
     return await read();

@@ -1,6 +1,7 @@
 # ADR-0054 — TypeScript with erasable syntax only, run natively by Node, imports naming `.ts`
 
 **Status:** accepted · **Date:** 2026-10-01 · **PRD:** #725
+**Jobs:** superseded in how the App runs its jobs by ADR-0123: they run on the App's own job ledger, not Inngest.
 
 ## Context
 

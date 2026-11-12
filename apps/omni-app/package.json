@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The omni-loop GitHub App: posts the outbox check on every pull request, through Inngest, deployed on Vercel.",
+  "description": "The omni-loop GitHub App: posts the outbox check on every pull request, run on its own job ledger, deployed on Vercel.",
   "engines": {
     "node": "24.x"
   },
@@ -13,13 +13,11 @@
     "@omni/github": "workspace:*",
     "@supabase/supabase-js": "^2.117.1",
     "@vercel/functions": "^3.11.0",
-    "inngest": "^4.21.0",
     "omni-loop": "workspace:*",
     "yaml": "^2.5.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@inngest/test": "^1.0.0",
     "esbuild": "^0.28.1"
   }
 }

@@ -1,4 +1,4 @@
-// The escalation sweep as a job of the ledger (PRD omni-loop-3 s2; PRD 1794): what the `escalation` Inngest
+// The escalation sweep as a job of the ledger (PRD omni-loop-3 s2; PRD 1794): what the `escalation`
 // function did, moved over. The schedule (../jobs/schedule.ts) adds one `escalation` job every hour, keyed
 // `escalation@<slot start>`, in the lane `escalation` (one sweep at a time: two never race to post the same ask),
 // with 3 tries. A run lists the App's installations as the App itself, then sweeps each repository they hold

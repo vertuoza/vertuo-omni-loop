@@ -1,5 +1,5 @@
 // What each kind's `gather` returns (PRD 1030, s19-01 of PRD 976), as zod schemas: the records of a
-// step "gather-<kind>", which Inngest saves as JSON and the run reads back before `detect` is given
+// step "gather-<kind>", which the ledger saves as JSON and the run reads back before `detect` is given
 // them. Each kind's `Records` type is the one its schema parses to, so the two cannot drift; a saved
 // record of another shape, as after a deploy between the merge run and the day-14 run, fails the run,
 // naming the step and the field. A field a kind may leave undefined is optional here, as JSON has no
