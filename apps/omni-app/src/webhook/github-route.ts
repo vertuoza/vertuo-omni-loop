@@ -13,7 +13,8 @@
 //
 // The fix row stamp (PRD 2011 s7) and the fleet board (PRD 2530), PRD omni-loop-3 s3: a pull request merged, closed or
 // reopened adds its `fix-row-stamp` job, and a loop pull request into the default branch its `fleet-board` job, on
-// any repository the App is installed on, before anything goes to Inngest. A database that refuses answers 500, so
+// any repository the App is installed on, before anything goes to Inngest; so does a click of a canon button (PRD
+// 839) its `canon-action` job (PRD omni-loop-3 s4). A database that refuses answers 500, so
 // GitHub's redelivery adds the job then; once the delivery is answered, the jobs due run in `waitUntil`.
 //
 // The checks (PRD 2688 s7): a pull request event refreshes its checks' jobs before anything else is called,
@@ -53,7 +54,7 @@ export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl
 export type RouteJobs = {
   /** Adds the job when a product holds its repository; whether one was added. */
   add: (job: NewJob) => Promise<boolean>;
-  /** Adds the job on any repository (the fix row stamp's, the fleet board's); whether one was added. A refusal is thrown. */
+  /** Adds the job on any repository (the fix row stamp's, the fleet board's, a canon click's); whether one was added. A refusal is thrown. */
   queue: (job: NewJob) => Promise<boolean>;
   /** Refreshes a check's job, on any repository: the latest event wins. */
   refresh: (job: RefreshJob) => Promise<unknown>;

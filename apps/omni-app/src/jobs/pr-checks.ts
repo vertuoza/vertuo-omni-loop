@@ -13,8 +13,11 @@
 //                    open pull request of that PRD, read from GitHub (../approved-check/github.ts)
 //   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts), and
-//                    the two the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3): the webhook, the server event's recheck and the sweep all run the same jobs, so each runs every
-//                    kind, and none spends a try on a job it has no handler for
+//                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
+//                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
+//                    refreshes the four checks' jobs of a product PRD's target pull requests: the webhook, the
+//                    server event and the sweep all run the same jobs, so each runs every kind, and none spends a
+//                    try on a job it has no handler for
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { askJudge } from '../approved-check/judge-client.ts';
 import { APPROVED_KIND, approvedFailure, approvedHandler } from '../approved-check/approved-job.ts';
@@ -31,6 +34,7 @@ import { fixRowStamper } from '../fix-rows/stamp.ts';
 import { FLEET_BOARD_KIND, fleetBoardHandler } from '../fleet-board/job.ts';
 import { fleetBoardStore } from '../fleet-board/store.ts';
 import { businessLawsJudge, businessLawsJudgeUrl } from '../inbox-check/business-laws-judge.ts';
+import { CANON_ACTION_KIND, canonActionHandler } from '../inbox-check/canon-action.ts';
 import type { CanonGrader, LawsGrader } from '../inbox-check/evaluate-inbox.ts';
 import { PR_INBOX_KIND, inboxFailureHook, inboxHandler } from '../inbox-check/inbox-check.ts';
 import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from '../inngest-client.ts';
@@ -41,7 +45,9 @@ import { OUTBOX_KIND, outboxFailureHook, outboxHandler } from '../outbox-check/j
 import { productOutboxReader, type ProductOutboxReader } from '../outbox-check/product-outbox.ts';
 import type { GraphqlOctokit } from '../pr-stats/github.ts';
 import { PR_STATS_KIND, prStatsHandler } from '../pr-stats/job.ts';
-import { REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
+import { SERVER_EVENT_KIND, serverEventHandler } from '../server-event/job.ts';
+import { targetsReader } from '../server-event/targets.ts';
+import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
 import type { FailureHook, JobHandler } from './worker.ts';
 
@@ -103,6 +109,13 @@ export type PrCheckDeps = {
   laws?: LawsGrader | null;
 };
 
+/** The server event's recheck: the four checks' jobs of a pull request refreshed on `ledger`, due at once. */
+export function serverEventRecheck(ledger: { refresh: (job: RefreshJob) => Promise<unknown> }): (request: CheckRequestData) => Promise<void> {
+  return async (request) => {
+    for (const job of prCheckJobs(request, 0)) await ledger.refresh(job);
+  };
+}
+
 /** A worker's handlers and failure hooks, by kind. */
 export type Workers = { handlers: Record<string, JobHandler>; failures: Record<string, FailureHook> };
 
@@ -132,7 +145,8 @@ export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'github
 
 /**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the four checks',
- * the Engineering board's collector's, the escalation's, the fix row stamp's and the fleet board's.
+ * the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet board's, the canon buttons'
+ * and the server event's.
  */
 export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient & GraphqlOctokit>): Workers {
   const { supabase } = env;
@@ -155,6 +169,8 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
+      [CANON_ACTION_KIND]: canonActionHandler({ octokitFor, galaxyUrl }),
+      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(jobLedger(supabase)) }),
     },
     failures: checks.failures,
   };
