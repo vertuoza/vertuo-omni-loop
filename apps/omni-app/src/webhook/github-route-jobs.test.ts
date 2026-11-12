@@ -8,7 +8,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { readEnv } from '../env.ts';
-import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID } from '../jobs/payloads.ts';
 import type { ClaimedJob, Finish, FinishAnswer, JobLedger, NewJob, RefreshJob, Refreshed } from '../jobs/ledger.ts';
 import { PR_CHECK_KINDS, prCheckJob, type ApprovedRerun } from '../jobs/pr-checks.ts';
 import { runDue, type JobHandler } from '../jobs/worker.ts';

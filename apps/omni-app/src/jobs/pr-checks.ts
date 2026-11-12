@@ -40,7 +40,7 @@ import { businessLawsJudge, businessLawsJudgeUrl } from '../inbox-check/business
 import { CANON_ACTION_KIND, canonActionHandler } from '../inbox-check/canon-action.ts';
 import type { CanonGrader, LawsGrader } from '../inbox-check/evaluate-inbox.ts';
 import { PR_INBOX_KIND, inboxFailureHook, inboxHandler } from '../inbox-check/inbox-check.ts';
-import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from './payloads.ts';
 import { knowledgePackStore } from '../knowledge-pack/store.ts';
 import { appOctokitFor, type OctokitFor } from '../octokit-for.ts';
 import type { GitHubClient } from '../outbox-check/github.ts';

@@ -145,7 +145,7 @@ describe('after-merge — gather', () => {
     expect(records.unread).toEqual([{ read: 'jobs', run: 7002, status: 404 }]);
   });
 
-  it('lets any other GitHub failure fail the step, so Inngest retries it', async () => {
+  it('lets any other GitHub failure fail the step, so the ledger retries it', async () => {
     const stub = github();
     const broken = failing(stub.octokit, 'GET /repos/{owner}/{repo}/issues');
     await expect(gather(broken, scope())).rejects.toThrow('GitHub is down');

@@ -2,7 +2,7 @@
 // and the wakes it asks for. It touches no GitHub API: it verifies GitHub's signature itself
 // (PRD 28, decision 8) before anything becomes a job or a wake, routes by event and action, and hands
 // the jobs to `refreshJobs`, `addJobs` and `queueJobs` and the wakes to `wakeWatch`. Nothing is written or woken
-// unless the signature is valid. No event goes to Inngest any more (PRD omni-loop-4 s4).
+// unless the signature is valid. No event goes to another service (PRD omni-loop-4 s4).
 //
 // The checks (PRD 2688): every handled pull request action into the default branch refreshes the four
 // jobs of that pull request, `pr-outbox`, `pr-inbox`, `pr-approved` and `pr-budgets` (../jobs/pr-checks.ts),
@@ -69,7 +69,7 @@ import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { INBOX_EXTERNAL_ID, RETRO_EVENT, type CanonActionRequestData, type RetroRequest } from '../inngest-client.ts';
+import { INBOX_EXTERNAL_ID, RETRO_EVENT, type CanonActionRequestData, type RetroRequest } from '../jobs/payloads.ts';
 import { isSignedBody } from 'omni-loop/kit/lib/signature.ts';
 import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
 import { fixRowStampJob } from '../fix-rows/job.ts';
@@ -371,7 +371,7 @@ export function toCheckJobs(event: string, delivery: unknown): RefreshJob[] {
  * The merged pull requests' filter, pure: a pull request closed by its merge into the repository's default branch
  * becomes one request carrying the merge SHA and time; an unmerged one, or one merged into another branch (a sub-PR
  * into its feature branch), becomes none (#1409: every sub-PR's merge used to start a retro and a harvest, which
- * spent the Inngest account). A delivery naming no default branch counts as before. The retro, the harvest, the pack
+ * spent the allowance of the runner it used then). A delivery naming no default branch counts as before. The retro, the harvest, the pack
  * and the main watch each read it. Whether it is a feature PR is not decided here: the retro reads the config at the
  * merge SHA to decide (its step "qualify").
  */

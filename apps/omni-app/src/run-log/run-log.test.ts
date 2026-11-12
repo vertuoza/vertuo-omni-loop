@@ -1,8 +1,6 @@
-import { InngestTestEngine } from '@inngest/test';
-import { Inngest } from 'inngest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { capture, throwing } from './capture.ts';
-import { loggedClient, loggedHandler, loggedRun, noteTo, outcomeOfStatus } from './run-log.ts';
+import { loggedHandler, loggedRun, noteTo, outcomeOfStatus } from './run-log.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -78,84 +76,5 @@ describe('noteTo', () => {
     expect(() => {
       noteTo('webhook', throwing)('x');
     }).not.toThrow();
-  });
-});
-
-describe('loggedClient', () => {
-  const inngest = new Inngest({ id: 'run-log-test' });
-  const event = { name: 'test/run', data: {} };
-
-  it('logs one inngest line per run, ok, with the function id and the run id, through every step', async () => {
-    const { logger, lines } = capture();
-    const fn = loggedClient(inngest, logger).createFunction({ id: 'two-steps', triggers: [{ event: 'test/run' }] }, async ({ step }) => {
-      const a = await step.run('a', () => 1);
-      const b = await step.run('b', () => 2);
-      return a + b;
-    });
-    const { result } = await new InngestTestEngine({ function: fn, events: [event] }).execute();
-    expect(result).toBe(3);
-    expect(lines()).toHaveLength(1);
-    expect(lines()[0]).toMatchObject({ level: 'info', event: 'inngest', outcome: 'ok', fn: 'two-steps' });
-    expect(typeof lines()[0]?.runId).toBe('string');
-    expect(typeof lines()[0]?.ms).toBe('number');
-  });
-
-  it('logs failed on a thrown error, which still fails the run', async () => {
-    const { logger, lines } = capture();
-    const fn = loggedClient(inngest, logger).createFunction({ id: 'throws', triggers: [{ event: 'test/run' }] }, () => {
-      throw new Error('nope');
-    });
-    const { error } = await new InngestTestEngine({ function: fn, events: [event] }).execute();
-    expect(error).toBeDefined();
-    expect(lines()).toHaveLength(1);
-    expect(lines()[0]).toMatchObject({ level: 'error', event: 'inngest', outcome: 'failed', fn: 'throws', error: { name: 'Error', message: 'nope' } });
-  });
-
-  it('keeps every option as given, retries and the failure handler included, and logs the failure handler’s run', async () => {
-    const { logger, lines } = capture();
-    const failed: unknown[] = [];
-    const fn = loggedClient(inngest, logger).createFunction(
-      {
-        id: 'with-failure',
-        triggers: [{ event: 'test/run' }],
-        retries: 2,
-        onFailure: ({ error }) => {
-          failed.push(error.message);
-          return 'handled';
-        },
-      },
-      () => 'done',
-    );
-    expect(fn.opts.retries).toBe(2);
-    expect(fn.opts.id).toBe('with-failure');
-    const onFailure = fn.opts.onFailure as unknown as (ctx: object) => Promise<unknown>;
-    await expect(onFailure({ runId: 'run-9', error: new Error('final') })).resolves.toBe('handled');
-    expect(failed).toEqual(['final']);
-    expect(lines()).toEqual([expect.objectContaining({ event: 'inngest', outcome: 'ok', fn: 'with-failure-failure', runId: 'run-9' })]);
-  });
-
-  it('a failure handler that throws logs failed and throws the same error', async () => {
-    const { logger, lines } = capture();
-    const thrown = new Error('handler down');
-    const fn = loggedClient(inngest, logger).createFunction(
-      { id: 'bad-failure', triggers: [{ event: 'test/run' }], onFailure: () => { throw thrown; } },
-      () => 'done',
-    );
-    const onFailure = fn.opts.onFailure as unknown as (ctx: object) => Promise<unknown>;
-    await expect(onFailure({ runId: 'r' })).rejects.toBe(thrown);
-    expect(lines()[0]).toMatchObject({ outcome: 'failed', fn: 'bad-failure-failure' });
-  });
-
-  it('a logger that throws changes no result and no error', async () => {
-    const ok = loggedClient(inngest, throwing).createFunction({ id: 'ok-quiet', triggers: [{ event: 'test/run' }] }, () => 'fine');
-    expect((await new InngestTestEngine({ function: ok, events: [event] }).execute()).result).toBe('fine');
-    const bad = loggedClient(inngest, throwing).createFunction({ id: 'bad-quiet', triggers: [{ event: 'test/run' }] }, () => {
-      throw new Error('still thrown');
-    });
-    expect((await new InngestTestEngine({ function: bad, events: [event] }).execute()).error).toMatchObject({ message: 'still thrown' });
-  });
-
-  it('hands anything but createFunction to the client itself', () => {
-    expect(loggedClient(inngest, throwing).id).toBe('run-log-test');
   });
 });

@@ -1,5 +1,5 @@
 // The Engineering board's collector as a job of the ledger (PRD omni-loop-3 s2; PRD 612): what the `prStats`
-// Inngest function did, moved over. The schedule (../jobs/schedule.ts) adds one `pr-stats` job every 15 minutes,
+// function did, moved over. The schedule (../jobs/schedule.ts) adds one `pr-stats` job every 15 minutes,
 // keyed `pr-stats@<slot start>`, in the lane `pr-stats` (one collection at a time: a run still backfilling is
 // never raced by the next slot), with 3 tries. A run collects every tracked repository of every workspace with an
 // installation of the app (./collect.ts), through that installation, into the database (./supabase-store.ts).

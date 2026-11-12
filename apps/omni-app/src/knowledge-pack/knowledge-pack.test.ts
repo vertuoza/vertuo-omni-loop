@@ -1,7 +1,7 @@
 // The knowledge pack as a job end to end against a stubbed GitHub (PRD 2011 s11 acceptance 7, moved to the ledger
 // by PRD 2676 s2): a signed delivery of a merged pull request in, the webhook's job out, and the pack handler run
 // on it against a GitHub holding the repository at its merge commit and a database that keeps packs as
-// knowledge_pack_put() does. No test calls GitHub, Inngest or Supabase.
+// knowledge_pack_put() does. No test calls GitHub or Supabase.
 import { createHash, createHmac } from 'node:crypto';
 import { GithubDeferred } from '@omni/github';
 import { describe, expect, it } from 'vitest';

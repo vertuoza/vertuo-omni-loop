@@ -1,13 +1,11 @@
-// The App's run lines (PRD 1723 s6): every GitHub webhook delivery, `server-event` call and Inngest
-// function run, its failure handler's included, writes exactly one `kit/lib/log` line at its end, with
-// its `event`, `outcome`, `ms` and its ids. What was thrown is logged as `failed` and rethrown
-// unchanged, so Vercel's 5xx answers and Inngest's retries and failure handlers behave as before; a
-// logger that throws changes nothing either.
+// The App's run lines (PRD 1723 s6): every GitHub webhook delivery, `server-event` call and job run
+// writes exactly one `kit/lib/log` line at its end, with its `event`, `outcome`, `ms` and its ids. What
+// was thrown is logged as `failed` and rethrown unchanged, so Vercel's 5xx answers and the ledger's
+// retries behave as before; a logger that throws changes nothing either.
 //
 // Beside the run lines, the App's other sentences (a stage event not forwarded, a budget waited on…)
 // go through `noteTo`: one `note` line at `warn`, the sentence as `message`, the module that said it as
 // `fn`. So the App's whole output is JSON lines.
-import type { Inngest } from 'inngest';
 import { log, type LogEntry, type Logger, type LogOutcome } from 'omni-loop/kit/lib/log/log.ts';
 
 /** The ids a run line may carry, beside its event, outcome and duration; one left undefined is not written. */
@@ -116,54 +114,4 @@ export function noteTo(fn: string, logger: Logger = log): (line: string) => void
       // A log line never changes a run.
     }
   };
-}
-
-/** What a function's handler, or its failure handler, is handed: only what a run line reads. */
-type RunContext = { runId?: unknown };
-type AnyHandler = (ctx: RunContext, ...rest: unknown[]) => unknown;
-type AnyOptions = { id?: unknown; onFailure?: unknown };
-
-/** `handler`, its every run that ends writing one `inngest` line naming `fn` and the run. */
-function loggedFunctionHandler(logger: Logger, fn: string, handler: (...args: unknown[]) => unknown): AnyHandler {
-  return (ctx, ...rest) =>
-    loggedRun(
-      logger,
-      'inngest',
-      async (note) => {
-        note({ fn, runId: typeof ctx.runId === 'string' ? ctx.runId : undefined });
-        return await handler(ctx, ...rest);
-      },
-      () => 'ok',
-    );
-}
-
-/** `value` as a function of unknown arguments, called on nothing; `undefined` when it is no function. */
-function callable(value: unknown): ((...args: unknown[]) => unknown) | undefined {
-  if (typeof value !== 'function') return undefined;
-  return (...args) => {
-    const result: unknown = Reflect.apply(value, undefined, args);
-    return result;
-  };
-}
-
-/**
- * `client`, whose `createFunction` makes functions whose every run writes one `inngest` line: the
- * function's id in `fn`, the run id, `ok` or `failed`. A failure handler's run writes its own line, its
- * function's id with Inngest's `-failure` suffix in `fn`. Every option, retries and failure handler
- * included, reaches Inngest as given; anything else of the client is the client's own.
- */
-export function loggedClient<C extends Inngest.Any>(client: C, logger: Logger = log): C {
-  const createLogged = (options: AnyOptions, handler: unknown): unknown => {
-    const fn = typeof options.id === 'string' ? options.id : 'unknown';
-    const onFailure = callable(options.onFailure);
-    const run = callable(handler);
-    const created: unknown = Reflect.apply(client.createFunction, client, [
-      onFailure ? { ...options, onFailure: loggedFunctionHandler(logger, `${fn}-failure`, onFailure) } : options,
-      run ? loggedFunctionHandler(logger, fn, run) : handler,
-    ]);
-    return created;
-  };
-  return new Proxy(client, {
-    get: (target, property, receiver): unknown => (property === 'createFunction' ? createLogged : Reflect.get(target, property, receiver)),
-  });
 }

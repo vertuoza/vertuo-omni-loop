@@ -35,7 +35,7 @@ describe('timeline — gather', () => {
     expect(await gather(unreadable.octokit, { owner: OWNER, repo: REPO, pr })).toEqual({ readyAt: null });
   });
 
-  it('lets any other GitHub failure fail the step, so Inngest retries it', async () => {
+  it('lets any other GitHub failure fail the step, so the ledger retries it', async () => {
     const github = replay({ events: { 12: FEATURE_EVENTS } });
     const broken = failing(github.octokit, 'GET /repos/{owner}/{repo}/issues/{issue_number}/events');
     await expect(gather(broken, { owner: OWNER, repo: REPO, pr })).rejects.toThrow('GitHub is down');

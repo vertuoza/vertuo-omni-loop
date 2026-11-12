@@ -1,4 +1,4 @@
-// `canon-action` as a job of the ledger (PRD omni-loop-3 s4; PRD 839): what the `canonAction` Inngest function did,
+// `canon-action` as a job of the ledger (PRD omni-loop-3 s4; PRD 839): what the `canonAction` function did,
 // moved over. `/api/github` adds one job for a click of a canon button (../webhook/webhook.ts), keyed by the
 // delivery's id, so a delivery GitHub sends twice is one job and two clicks are two; in the lane
 // `<owner/name>#<pr>`, lower case, so two clicks on one pull request never run together and a double click cannot
@@ -13,7 +13,7 @@
 // It adds its own comment and edits only that one: never a comment a person wrote (BL-ASK-1). Galaxy's host is the
 // app's `galaxyUrl` (`GALAXY_URL` or its default, ../env.ts), as for the stage events. A GitHub error throws, and
 // the worker retries the job (../jobs/worker.ts).
-import { CanonActionRequestDataSchema, type CanonActionRequestData } from '../inngest-client.ts';
+import { CanonActionRequestDataSchema, type CanonActionRequestData } from '../jobs/payloads.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';

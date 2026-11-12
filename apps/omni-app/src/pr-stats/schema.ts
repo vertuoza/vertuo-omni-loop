@@ -115,7 +115,7 @@ export function parsedOr<S extends z.ZodType>(schema: S, value: unknown, context
   throw new Error(`${context}: ${firstIssue(parsed.error)}`);
 }
 
-// What the collector's steps return, read back through these once Inngest has saved them as JSON
+// What the collector's steps return, read back through these once the ledger has saved them as JSON
 // (PRD 1030): a deploy between two replays of a run cannot hand the collector a value of another shape.
 
 /** An installation's GraphQL budget, as the collector carries it from one batch to the next; `{}` before its first query. */
