@@ -1,4 +1,4 @@
-// The no-Inngest guard (PRD omni-loop-5, s3): the code base names the removed background-job service
+// The removed-service guard (PRD omni-loop-5, s3): the code base names the removed background-job service
 // nowhere, so a copied comment or a restored file is refused in a pull request. Any tracked file
 // (`git ls-files`) whose text names it, case-insensitively, fails here, naming the file and the line.
 // The history folders are left out: the delivery folder (PRDs, plans, outbox items) and the decision
@@ -22,7 +22,7 @@ const HISTORY: readonly string[] = ['.omni-loop/delivery/', '.omni-loop/knowledg
 type Violation = { path: string; line: number; text: string };
 type File = { path: string; text: string };
 
-describe('the no-Inngest guard, on a fixture', () => {
+describe('the removed-service guard, on a fixture', () => {
   it('refuses a file that names the service, naming the file and the line', () => {
     const text = `export const a = 1;\n// runs on ${NAME.toUpperCase()} jobs\n`;
     expect(findViolations([{ path: 'apps/omni-app/src/a.ts', text }])).toEqual([
@@ -45,7 +45,7 @@ describe('the no-Inngest guard, on a fixture', () => {
   });
 });
 
-describe('the no-Inngest guard, on the whole repository', () => {
+describe('the removed-service guard, on the whole repository', () => {
   it('finds no tracked file outside the history folders that names the service', () => {
     const paths = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' }).split('\0').filter(Boolean);
     const files = paths.filter((path) => !isHistory(path)).flatMap((path) => readText(path));
