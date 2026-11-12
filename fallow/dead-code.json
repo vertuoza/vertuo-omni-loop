@@ -106,7 +106,6 @@
     "apps/galaxy/src/waiting/documents.ts:DOCUMENT_KINDS",
     "apps/galaxy/src/waiting/outbox.ts:OUTBOX_ROUTE",
     "apps/omni-app/src/evaluate/evaluate.ts:NOT_ACTIVE_ON_PR",
-    "apps/omni-app/src/inngest-client.ts:APP_ID",
     "apps/omni-app/src/knowledge-harvest/github.ts:loopPaths",
     "apps/omni-app/src/knowledge-harvest/render.ts:landedAs",
     "apps/omni-app/src/knowledge-harvest/render.ts:decidedShort",
