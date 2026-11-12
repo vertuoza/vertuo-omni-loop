@@ -9905,6 +9905,76 @@ function readAsk(body) {
   );
 }
 
+// apps/omni-app/src/saved-step.ts
+var RENEW_EVERY_MS = 6e4;
+async function savedStep(step, id, schema, fn) {
+  return parseSaved(schema, await step.run(id, fn), id);
+}
+function parseSaved(schema, value, id) {
+  return parseOrThrow(schema, value, `The step "${id}" came back in an unexpected shape`);
+}
+function asSaved(value) {
+  return value === void 0 ? null : JSON.parse(JSON.stringify(value));
+}
+function jobSteps({
+  ledger,
+  job,
+  leaseSeconds,
+  renewEveryMs = RENEW_EVERY_MS,
+  log: log2 = () => void 0
+}) {
+  const name = `job ${job.id}`;
+  const held = leaseSeconds === void 0 ? job : { ...job, leaseSeconds };
+  let saved = null;
+  const read = async (id) => {
+    const steps = await ledger.stepsOf(job);
+    if (steps === "stale") throw new Error(`${name}: its claim was taken over before the step "${id}"`);
+    return new Map(steps);
+  };
+  const renewing = async (id, fn) => {
+    const timer = setInterval(() => {
+      void ledger.renew(held).then(
+        (answer) => {
+          if (answer === "stale") log2(`${name}: its claim was taken over while the step "${id}" ran`);
+        },
+        (error) => {
+          log2(`${name}: its claim was not renewed: ${firstLine2(error)}`);
+        }
+      );
+    }, renewEveryMs);
+    try {
+      return await fn();
+    } finally {
+      clearInterval(timer);
+    }
+  };
+  return {
+    run: async (id, fn) => {
+      saved ??= read(id);
+      const steps = await saved;
+      if (steps.has(id)) return steps.get(id);
+      const value = asSaved(await renewing(id, fn));
+      if (await ledger.save({ ...job, step: id, value }) === "stale") throw new Error(`${name}: its claim was taken over before the step "${id}" was saved`);
+      steps.set(id, value);
+      if (await ledger.renew(held) === "stale") throw new Error(`${name}: its claim was taken over after the step "${id}" was saved`);
+      return value;
+    }
+  };
+}
+function memorySteps() {
+  const steps = /* @__PURE__ */ new Map();
+  return {
+    run: async (id, fn) => {
+      if (!steps.has(id)) steps.set(id, asSaved(await fn()));
+      return steps.get(id);
+    }
+  };
+}
+function firstLine2(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.split("\n")[0]?.trim() ?? "";
+}
+
 // apps/omni-app/src/escalation/held.ts
 import { join as join47 } from "node:path";
 var WAITING_RANKS = /* @__PURE__ */ new Set(["high", "human-action"]);
@@ -9934,6 +10004,7 @@ var RepositoriesSchema = z38.looseObject({
   repositories: z38.array(z38.looseObject({ name: z38.string(), owner: z38.looseObject({ login: z38.string() }) }))
 });
 var OpenPullsSchema = z38.array(z38.looseObject({ number: z38.number(), base: z38.looseObject({ sha: z38.string() }) }));
+var RepositorySweptSchema = z38.object({ pulls: z38.number(), asked: z38.number(), failed: z38.number() });
 var lower = (login) => login.toLowerCase();
 function moveDue(lines2, settings, now, posted) {
   const decisions = decide(lines2.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
@@ -10018,12 +10089,18 @@ async function repositoriesOf(octokit) {
   );
   return repositories.map(({ name, owner }) => ({ owner: owner.login, repo: name }));
 }
-async function sweepAll({ app, octokitFor, now, log: log2 }) {
+async function sweepAll({
+  app,
+  octokitFor,
+  now,
+  log: log2,
+  step = memorySteps()
+}) {
   const total = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
   for (const installation of await installationsOf(app)) {
     const octokit = await octokitFor(installation);
     for (const { owner, repo } of await repositoriesOf(octokit)) {
-      const swept = await sweepRepository(octokit, { owner, repo, now, log: log2 });
+      const swept = await savedStep(step, `repository ${owner}/${repo}`, RepositorySweptSchema, () => sweepRepository(octokit, { owner, repo, now, log: log2 }));
       total.repositories += 1;
       total.pulls += swept.pulls;
       total.asked += swept.asked;
@@ -10044,12 +10121,12 @@ function escalationHandler({
   log: log2 = noteTo("escalation"),
   clock = Date.now
 }) {
-  return async () => {
+  return async (_job, run) => {
     if (appOctokit === null) {
       log2("escalation: the App cannot list its installations here, so nobody is asked.");
       return { outcome: "skipped", reason: "no app: the App cannot list its installations here" };
     }
-    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2 });
+    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2, ...run ? { step: run.step } : {} });
     log2(sweptLine(swept));
     return { outcome: "done" };
   };
@@ -12628,76 +12705,6 @@ function firstReviews(pull, author) {
     if (!at4 || Date.parse(review.submittedAt) < Date.parse(at4)) first.set(reviewer, review.submittedAt);
   }
   return [...first].sort(([a], [b]) => a.localeCompare(b));
-}
-
-// apps/omni-app/src/saved-step.ts
-var RENEW_EVERY_MS = 6e4;
-async function savedStep(step, id, schema, fn) {
-  return parseSaved(schema, await step.run(id, fn), id);
-}
-function parseSaved(schema, value, id) {
-  return parseOrThrow(schema, value, `The step "${id}" came back in an unexpected shape`);
-}
-function asSaved(value) {
-  return value === void 0 ? null : JSON.parse(JSON.stringify(value));
-}
-function jobSteps({
-  ledger,
-  job,
-  leaseSeconds,
-  renewEveryMs = RENEW_EVERY_MS,
-  log: log2 = () => void 0
-}) {
-  const name = `job ${job.id}`;
-  const held = leaseSeconds === void 0 ? job : { ...job, leaseSeconds };
-  let saved = null;
-  const read = async (id) => {
-    const steps = await ledger.stepsOf(job);
-    if (steps === "stale") throw new Error(`${name}: its claim was taken over before the step "${id}"`);
-    return new Map(steps);
-  };
-  const renewing = async (id, fn) => {
-    const timer = setInterval(() => {
-      void ledger.renew(held).then(
-        (answer) => {
-          if (answer === "stale") log2(`${name}: its claim was taken over while the step "${id}" ran`);
-        },
-        (error) => {
-          log2(`${name}: its claim was not renewed: ${firstLine2(error)}`);
-        }
-      );
-    }, renewEveryMs);
-    try {
-      return await fn();
-    } finally {
-      clearInterval(timer);
-    }
-  };
-  return {
-    run: async (id, fn) => {
-      saved ??= read(id);
-      const steps = await saved;
-      if (steps.has(id)) return steps.get(id);
-      const value = asSaved(await renewing(id, fn));
-      if (await ledger.save({ ...job, step: id, value }) === "stale") throw new Error(`${name}: its claim was taken over before the step "${id}" was saved`);
-      steps.set(id, value);
-      if (await ledger.renew(held) === "stale") throw new Error(`${name}: its claim was taken over after the step "${id}" was saved`);
-      return value;
-    }
-  };
-}
-function memorySteps() {
-  const steps = /* @__PURE__ */ new Map();
-  return {
-    run: async (id, fn) => {
-      if (!steps.has(id)) steps.set(id, asSaved(await fn()));
-      return steps.get(id);
-    }
-  };
-}
-function firstLine2(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.split("\n")[0]?.trim() ?? "";
 }
 
 // apps/omni-app/src/pr-stats/collect.ts
@@ -20513,9 +20520,13 @@ function liveWorkers(env, octokitFor) {
 // apps/omni-app/src/jobs/worker.ts
 var TIME_BUDGET_MS = 24e4;
 var LEASE_SECONDS = 300;
+var FINISH_MARGIN_MS = 5e3;
+var CLAIM_LEFT_MS = 2e4;
+var CUT_SHORT = "its run was cut short: the function running it was about to stop, so its try was given back";
 var MAX_TRIES2 = 5;
 var RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 var WAIT_MINUTES = 15;
+var CUT_SHORT_WAIT_MINUTES = 1;
 var MINUTE2 = 6e4;
 var MAX_REASON = 500;
 var TOO_MANY_LATERS = "it asked to run later more than 20 times";
@@ -20526,23 +20537,45 @@ async function runDue({
   clock = Date.now,
   budgetMs = TIME_BUDGET_MS,
   leaseSeconds = LEASE_SECONDS,
+  endsAt = Number.POSITIVE_INFINITY,
   log: log2 = noteTo("jobs")
 }) {
   const summary2 = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
+  const run = { ledger, handlers, failures, clock, leaseSeconds, endsAt, log: log2, summary: summary2 };
   const start = clock();
-  while (clock() - start < budgetMs) {
+  while (clock() - start < budgetMs && endsAt - clock() >= CLAIM_LEFT_MS) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
     if (!job) break;
-    const settled = await settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
-    summary2.ran += 1;
-    const kept3 = await keep(ledger, job, settled, log2);
-    const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
-    if (kept3 === "stale") summary2.stale += 1;
-    else if (kept3 !== null) summary2[ended.outcome] += 1;
-    if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
-    if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
+    if (await runOne(job, run) === "cut short") break;
   }
   return summary2;
+}
+async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt, log: log2, summary: summary2 }) {
+  const settling = settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
+  const settled = await within4(settling, endsAt - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
+  summary2.ran += 1;
+  const kept3 = await keep(ledger, job, settled, log2);
+  const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
+  if (kept3 === "stale") summary2.stale += 1;
+  else if (kept3 !== null) summary2[ended.outcome] += 1;
+  if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+  if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
+  return settled.reason === CUT_SHORT ? "cut short" : "ran";
+}
+var cutShort = (clock) => ({ outcome: "waiting", reason: CUT_SHORT, retryAt: later(clock, CUT_SHORT_WAIT_MINUTES) });
+async function within4(settling, ms2) {
+  if (ms2 === Number.POSITIVE_INFINITY) return settling;
+  let timer;
+  const cut2 = new Promise((resolve3) => {
+    timer = setTimeout(() => {
+      resolve3(null);
+    }, Math.max(0, ms2));
+  });
+  try {
+    return await Promise.race([settling, cut2]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 async function failed2(job, reason2, hook, log2) {
   if (!hook) return;
@@ -20629,12 +20662,14 @@ async function receiveServerEvent(request, { secret, queue, log: log2 = noteTo("
   }
   return { status: 202, body: "accepted" };
 }
+var SERVER_EVENT_MAX_DURATION_SECONDS = 60;
 function liveJobs(env, logger) {
   const { supabase } = env;
   if (!supabase) return null;
   const ledger = jobLedger(supabase);
   const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo("github", logger) }));
-  return { refresh: (job) => ledger.refresh(job), run: () => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor) }) };
+  const workers = liveWorkers({ ...env, supabase }, octokitFor);
+  return { refresh: (job) => ledger.refresh(job), run: (endsAt) => runDue({ ledger, ...workers, endsAt }) };
 }
 var RUN_AFTER_REFRESH_MS = (REFRESH_DELAY_SECONDS + 1) * 1e3;
 var sleep = (ms2) => new Promise((resolve3) => setTimeout(resolve3, ms2));
@@ -20646,22 +20681,24 @@ function serverEventRoute(env, {
   logger = log,
   jobs = liveJobs(env, logger),
   keepAlive = waitUntil,
-  pause = sleep
+  pause = sleep,
+  clock = Date.now
 } = {}) {
   const ledger = jobs ?? NO_DATABASE;
   const say = noteTo("jobs", logger);
-  const runAfter = async () => {
+  const runAfter = async (endsAt) => {
     try {
       await pause(RUN_AFTER_REFRESH_MS);
-      await ledger.run();
+      await ledger.run(endsAt);
     } catch (error) {
       say(`the run failed \u2014 ${error instanceof Error ? error.message : String(error)}`);
     }
   };
   return {
     POST: loggedHandler(logger, "server-event", async (request) => {
+      const endsAt = clock() + SERVER_EVENT_MAX_DURATION_SECONDS * 1e3;
       const { status, body } = await receiveServerEvent({ body: await request.text(), headers: request.headers }, { secret: env.stageEvents?.secret, queue: ledger.refresh });
-      if (status === 202 && jobs) keepAlive(runAfter());
+      if (status === 202 && jobs) keepAlive(runAfter(endsAt));
       return new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8" } });
     }),
     GET: loggedHandler(logger, "server-event", () => new Response("method not allowed", { status: 405, headers: { allow: "POST" } }))

@@ -13,7 +13,8 @@
 // with another is 401, and with no `CRON_SECRET` set every call is (fail closed). Any other method is 405. The
 // body holds counts and the job's id the caller named, never a repository, a key or an error's text. The jobs run
 // inside the request, within the worker's own time budget (./worker.ts), not in `waitUntil`: a cron has the whole
-// function to itself.
+// function to itself, and the worker is told when it ends (300 seconds from the call, bug #2756), so a job still
+// running then is given back, never cut off.
 import { timingSafeEqual } from 'node:crypto';
 import { githubClient } from '@omni/github';
 import { z } from 'zod';
@@ -34,13 +35,17 @@ export type SweepEnv = Pick<AppEnv, 'cron'> &
 
 /** What the route does on the ledger. */
 export type SweepJobs = {
-  run: () => Promise<RunSummary>;
+  /** Runs the jobs due, until `endsAt`, when the function is stopped (ms since the epoch). */
+  run: (endsAt: number) => Promise<RunSummary>;
   delayed: () => Promise<DelayedSummary>;
   schedule: () => Promise<ScheduleSummary>;
   gaps: () => Promise<GapsSummary>;
   replay: (id: string) => Promise<Replayed>;
   forget: () => Promise<number>;
 };
+
+/** How long Vercel lets `/api/jobs-sweep` run, its `maxDuration` in ../../vercel.json (bug #2756): the jobs run within it. */
+export const SWEEP_MAX_DURATION_SECONDS = 300;
 
 /** The hour (UTC) the daily forgetting runs in: the first hourly call of the day's third hour. */
 export const FORGET_HOUR_UTC = 3;
@@ -52,7 +57,7 @@ function liveJobs(env: SweepEnv, logger: Logger): SweepJobs | null {
   const ledger = jobLedger(supabase);
   const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo('github', logger) }));
   return {
-    run: () => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor) }),
+    run: (endsAt) => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor), endsAt }),
     delayed: () => postDelayed({ store: delayedStore(supabase), octokitFor }),
     schedule: () => addScheduled({ ledger }),
     gaps: () => compareGaps({ store: gapsStore(supabase), ledger, appOctokit: appOctokitFor(env.githubApp ?? null), octokitFor }),
@@ -78,15 +83,16 @@ export function jobsSweepRoute(
   env: SweepEnv,
   { logger = log, jobs = liveJobs(env, logger), clock = Date.now }: { logger?: Logger; jobs?: SweepJobs | null; clock?: () => number } = {},
 ) {
-  const guarded = (handle: (request: Request, ledger: SweepJobs) => Promise<Response>) =>
+  const guarded = (handle: (request: Request, ledger: SweepJobs, endsAt: number) => Promise<Response>) =>
     loggedHandler(logger, 'jobs-sweep', async (request) => {
+      const endsAt = clock() + SWEEP_MAX_DURATION_SECONDS * 1000;
       if (!authorized(request.headers.get('authorization'), env.cron?.secret)) return json(401, { error: 'unauthorized' });
       if (!jobs) return json(503, { error: 'no database here' });
-      return handle(request, jobs);
+      return handle(request, jobs, endsAt);
     });
 
   return {
-    GET: guarded(async (request, ledger) => {
+    GET: guarded(async (request, ledger, endsAt) => {
       const body: { delayed?: DelayedSummary; scheduled?: ScheduleSummary; run?: RunSummary; gaps?: GapsSummary; forgotten?: number } = {};
       if (new URL(request.url).searchParams.get('gaps') === '1') {
         body.gaps = await ledger.gaps();
@@ -94,16 +100,16 @@ export function jobsSweepRoute(
       }
       body.delayed = await ledger.delayed();
       body.scheduled = await ledger.schedule();
-      body.run = await ledger.run();
+      body.run = await ledger.run(endsAt);
       return json(200, { ok: true, ...body });
     }),
 
-    POST: guarded(async (request, ledger) => {
+    POST: guarded(async (request, ledger, endsAt) => {
       const parsed = ReplayBodySchema.safeParse(await request.json().catch(() => null));
       if (!parsed.success) return json(400, { error: 'expected {"replay": "<job id>"}' });
       const replayed = await ledger.replay(parsed.data.replay);
       if (!replayed.replayed) return json(409, { ok: false, replayed: false, reason: replayed.reason });
-      return json(200, { ok: true, replayed: true, id: replayed.id, run: await ledger.run() });
+      return json(200, { ok: true, replayed: true, id: replayed.id, run: await ledger.run(endsAt) });
     }),
 
     PUT: methodNotAllowed(logger),

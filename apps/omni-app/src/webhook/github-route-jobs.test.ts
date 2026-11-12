@@ -13,7 +13,7 @@ import type { ClaimedJob, Finish, FinishAnswer, JobLedger, NewJob, RefreshJob, R
 import { PR_CHECK_KINDS, prCheckJob, type ApprovedRerun } from '../jobs/pr-checks.ts';
 import { runDue, type JobHandler } from '../jobs/worker.ts';
 import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
-import { githubRoute, RUN_AFTER_REFRESH_MS, type RouteJobs } from './github-route.ts';
+import { githubRoute, GITHUB_MAX_DURATION_SECONDS, RUN_AFTER_REFRESH_MS, type RouteJobs } from './github-route.ts';
 
 const SECRET = 'route-secret';
 const SHA = 'a'.repeat(40);
@@ -450,5 +450,24 @@ describe('/api/github — the latest state wins, on a ledger that keeps the refr
     run.at(run.now() + 2 * RUN_AFTER_REFRESH_MS);
     await run.settle();
     expect(run.ran.filter((line) => line.startsWith('pr-outbox'))).toEqual(['pr-outbox@head1', 'pr-outbox@head3']);
+  });
+});
+
+describe('/api/github — the jobs run within the function (bug #2756)', () => {
+  it('tells the run the function ends 60 seconds after the delivery came in', async () => {
+    const T = Date.UTC(2026, 10, 12, 15, 31, 57);
+    const ends: number[] = [];
+    const kept: Promise<unknown>[] = [];
+    const jobs = recording([], {
+      run: (endsAt) => {
+        ends.push(endsAt);
+        return Promise.resolve();
+      },
+    });
+    const { POST } = githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { jobs, keepAlive: (work) => kept.push(work), pause: () => Promise.resolve(), clock: () => T });
+    await POST(new Request('https://omni-loop.example/api/github', { method: 'POST', body: merged, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(merged) } }));
+    await Promise.all(kept);
+    expect(GITHUB_MAX_DURATION_SECONDS).toBe(60);
+    expect(ends).toEqual([T + 60_000]);
   });
 });
