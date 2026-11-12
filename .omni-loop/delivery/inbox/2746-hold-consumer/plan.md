@@ -28,7 +28,7 @@ two slices share a test. The generated `kit/dist/` is rebuilt by the wave, never
   exit 1: the test that would have caught the kit-gaps review's item 5 cases (a consumer merged before
   its provider).
 - #41 merged, with no probe read yet, prints `clear`, exit 0; #41 closed unmerged prints `fail`, exit
-  1; a `gh` that fails prints `held: demo-org/api#41 could not read: <why>`, exit 1, never clear.
+  1; a `gh` that fails prints `not judged: could not read demo-org/api#41: <why>`, exit 1, never clear.
 - A body with no `Merge after` line prints `clear · no Merge after line`, exit 0; several lines give
   one row each, in the body's order; a line with no `owner/repo` means the consumer's own repository.
 - `--json` prints the rows and the verdict as one object; `omni help hold` describes the command.
@@ -47,7 +47,7 @@ two slices share a test. The generated `kit/dist/` is rebuilt by the wave, never
   `fail <why>`, and every other point still refuses `wait`.
 - `omni hold`, for a merged provider whose default-branch config (read through `gh api`, injected in
   the test) declares the point, prints `probe` naming `<owner/repo>:<hook path>`, exit 0, and runs
-  nothing; a hook file it cannot read is `held: the probe <path> of <owner/repo> cannot be read`.
+  nothing; a hook file it cannot read is `not judged: the probe <path> of <owner/repo> cannot be read: <why>`.
 - `/omni:pr` (its Done row), `/omni:ultra-yolo`'s finish, `/omni:mega-bug-fix` and
   `/omni:mega-pr-care` run `omni hold` before `gh pr ready`, follow each named probe with its inputs
   filled and hand its output to `omni flow verdict`, and mark ready only when every row is clear or

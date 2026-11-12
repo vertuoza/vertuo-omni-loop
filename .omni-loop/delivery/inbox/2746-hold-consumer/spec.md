@@ -52,7 +52,7 @@ ready asks it first; the drive loops ask it again each tick.
   demo-org/api#41   merged · no probe          clear
   demo-org/api#41   merged · probe demo-org/api:.omni-loop/flow/served.md   probe
   demo-org/api#41   closed, not merged         fail
-  demo-org/api#41   could not read: <why>      held
+  demo-org/api#41   could not read: <why>      not judged
   ```
 
 - **The probe.** For a merged provider, it reads the provider repository's `.omni-loop/config.yml`
@@ -95,15 +95,16 @@ needs nothing more than merged. `wait` is new to this point: it means "not yet, 
 
 ### C. What goes wrong
 
-- `gh` cannot read a provider (no sign-in, no access, no answer) → `held: could not read …`. It is
-  never counted as clear.
+- `gh` cannot read a provider (no sign-in, no access, no answer) → `not judged: could not read
+  <owner/repo>#<n>: <why>`, exit 1 (BL-GATE-1). It is never counted as clear: the consumer stays a
+  draft.
 - A provider closed without merging → `fail`: the consumer cannot be served as planned, which is a
   person's decision. The skill raises one **high** outbox item naming both pull requests, and the
   consumer stays a draft.
 - A probe that keeps answering `wait` past `limits.stallDays` → the consumer is reported stuck on its
   status comment, naming the provider and the probe's last reason. Nothing else notifies anyone.
-- A hook file the provider's config names but that cannot be read → `held: the probe <path> of
-  <owner/repo> cannot be read`.
+- A hook file the provider's config names but that cannot be read → `not judged: the probe <path>
+  of <owner/repo> cannot be read: <why>`, exit 1; the consumer stays a draft.
 
 ### What it never does
 
@@ -123,6 +124,10 @@ the outbox the loop already keeps.
 
 ## Decisions
 
+- **Rules check (2026-11-12, after the person flagged PRD 2739).** A provider or a probe that cannot
+  be read prints `not judged: <why>`, not `held` (BL-GATE-1), and still keeps the consumer a draft.
+  Words use the glossary's terms. No decision is taken by an agent alone (never#2): holding and
+  marking ready follow the rule written here, and a provider closed unmerged is a high outbox item.
 - **A CLI and a hook point, not an App status or a CI template.** The person chose approach 1. An
   Omni App commit status needs branch protection to block anything and cannot run a target's probe,
   so it covers merged, never served. A CI workflow template must be installed in every target and
@@ -203,7 +208,7 @@ Rollback: revert the feature PR and release.
   needs @pierrederval or @dervalp to approve the pull request on GitHub.
 - BL-APPROVALS-1 — An approval covers exactly the files the approver read; a later change voids it. Kept: the hold reads pull request states and never changes an approved file.
 - BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: the hold writes only the agent's own status comment and outbox item.
-- BL-GATE-1 — A check that ends without deciding says so, never a pass. Kept: a provider `gh` cannot read, or a hook file that cannot be read, is `held` with its reason, never `clear`; a probe on `wait` is not finished, never passed.
+- BL-GATE-1 — A check that ends without deciding says so, never a pass. Kept: a provider `gh` cannot read, or a hook file that cannot be read, prints `not judged: <why>`, never `clear`, and the consumer stays a draft; a probe on `wait` is not finished, never passed.
 
 ## Acceptance criteria
 
@@ -214,7 +219,7 @@ Rollback: revert the feature PR and release.
 3. Once #41 is merged and its config declares the hook, it prints `probe` naming the hook file, exit 0,
    and never runs it.
 4. A provider closed without merging prints `fail`, exit 1; a provider `gh` cannot read prints
-   `held: … could not read`, exit 1.
+   `not judged: could not read …`, exit 1, and the consumer stays a draft.
 5. A body with no `Merge after` line prints `clear · no Merge after line`, exit 0.
 6. `merge-after.served` is a point of the catalog (`replace`, `after`; inputs `provider`, `pr`,
    `merge-sha`, `consumer`) and its verdict may be `pass`, `wait <why>` or `fail <why>`.
