@@ -26,7 +26,7 @@ const isServiceRole = (authorization: string | null): boolean => {
   if (payload === undefined) return false;
   try {
     const claims: unknown = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    return typeof claims === 'object' && claims !== null && (claims as { role?: unknown }).role === 'service_role';
+    return typeof claims === 'object' && claims !== null && 'role' in claims && claims.role === 'service_role';
   } catch {
     return false;
   }
@@ -39,8 +39,8 @@ const readTexts = async (request: Request): Promise<string[] | null> => {
   } catch {
     return null;
   }
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
-  const texts = (body as { texts?: unknown }).texts;
+  if (typeof body !== 'object' || body === null || Array.isArray(body) || !('texts' in body)) return null;
+  const texts = body.texts;
   if (!Array.isArray(texts) || !texts.every((text): text is string => typeof text === 'string')) return null;
   return texts;
 };
