@@ -57,6 +57,32 @@ describe('the Vercel functions', () => {
     }
   });
 
+  // #2762: the budgets check measures the briefing through the kit's template loader, which reads
+  // `kit/templates/playbook/<form>.md` from beside the bundle unless the build defined
+  // `__OMNI_TEMPLATES__`. Vercel ships no `kit/templates/` beside `api/`, so every `pr-budgets` job
+  // failed with ENOENT on '/var/task/apps/templates/playbook/briefing.md'.
+  it('carry the kit\'s form templates, never reading them from a folder Vercel does not ship (#2762)', async () => {
+    const fresh = mkdtempSync(join(tmpdir(), 'omni-app-api-'));
+    try {
+      await buildFunctions(fresh);
+      const text = (name: string): string => readFileSync(join(fresh, `${name}.mjs`), 'utf8');
+      const loaders = FUNCTIONS.filter((name) => text(name).includes('kit/lib/playbook/templates.ts'));
+      expect(loaders).toContain('jobs-sweep');
+      expect(loaders.filter((name) => text(name).includes('typeof __OMNI_TEMPLATES__')), 'functions that read the templates from disk').toEqual([]);
+    } finally {
+      rmSync(fresh, { recursive: true, force: true });
+    }
+  });
+
+  // The guard of #2762: the kit reads its build-time constants (`__OMNI_TEMPLATES__`, `__OMNI_SKILLS__`, …)
+  // as `typeof __OMNI_X__ === 'undefined'`, falling back to files beside the bundle. A constant a build
+  // defines is replaced, so any `typeof __OMNI_` left in a function is one this build forgot to define.
+  it('leave no kit build constant undefined, so no kit module falls back to files Vercel does not ship', () => {
+    const undefinedConstants = FUNCTIONS.flatMap((name) =>
+      [...readFileSync(`${api}${name}.mjs`, 'utf8').matchAll(/typeof (__OMNI_[A-Z_]+__)/g)].map(([, constant]) => `api/${name}.mjs: ${constant ?? ''}`));
+    expect(undefinedConstants).toEqual([]);
+  });
+
   it.each(['github.mjs', 'health.mjs', 'jobs-sweep.mjs'])('%s loads in plain Node, every import found', (name) => {
     expect(load(`${api}${name}`)).toBe('loaded');
   });
