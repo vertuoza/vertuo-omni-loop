@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EMBED_DIMENSIONS, EMBED_MODEL, embedClient } from './client';
+import { EMBED_DIMENSIONS, EMBED_MODEL } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
+import { queryEmbedClient as embedClient } from './client';
 
 // The galaxy's client of the `embed` Edge Function (PRD 2728 s5), against a fake fetch that plays the
 // function as the spec writes it: POST {texts} → {model: "gte-small", vectors}, the service role's JWT alone.

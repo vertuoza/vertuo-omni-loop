@@ -3,7 +3,7 @@ import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { serverEnv } from '../env';
-import { embedClient } from './embed/client';
+import { queryEmbedClient } from './embed/client';
 import type { ProductMcpDeps } from './product-mcp.controller';
 import { knowledgeVectorsRepository, productMcpRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
@@ -26,6 +26,6 @@ export function productMcpDeps(): ProductMcpDeps {
   return {
     service: productMcpService(productMcpRepository(db)),
     log: (message) => { log.error({ event: 'product-mcp', outcome: 'failed', message }); },
-    meaning: { embedder: embedClient({ url: supabase.url, serviceRoleKey: serviceRole.key }), vectors: knowledgeVectorsRepository(db) },
+    meaning: { embedder: queryEmbedClient({ url: supabase.url, serviceRoleKey: serviceRole.key }), vectors: knowledgeVectorsRepository(db) },
   };
 }
