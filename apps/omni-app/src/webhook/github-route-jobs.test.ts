@@ -104,7 +104,8 @@ describe('/api/github — the knowledge pack job (PRD 2676 s2)', () => {
     expect(order[0]).toBe('add knowledge-pack');
     expect(order.at(-1)).toBe('run');
     expect(order.indexOf('queue fix-row-stamp')).toBe(1);
-    expect(order.indexOf('send')).toBe(2);
+    expect(order.indexOf('queue knowledge-harvest')).toBe(2);
+    expect(order.indexOf('send')).toBe(3);
     expect(kept).toHaveLength(1);
   });
 
@@ -114,6 +115,14 @@ describe('/api/github — the knowledge pack job (PRD 2676 s2)', () => {
     await deliver(recording(order, { add: (job) => Promise.resolve(added.push(job) > 0) }), () => Promise.resolve());
     expect(added.map((job) => job.key)).toEqual([`o/r@${SHA}`]);
     expect(order.filter((line) => line.startsWith('refresh'))).toEqual([]);
+  });
+
+  it('queues one knowledge-harvest job for the merge, keyed by repository and pull request, in the lane of the repository', async () => {
+    const queued: NewJob[] = [];
+    await deliver(recording([], { queue: (job) => Promise.resolve(queued.push(job) > 0) }), () => Promise.resolve());
+    const harvest = queued.find((job) => job.kind === 'knowledge-harvest');
+    expect(harvest).toMatchObject({ subject: 'o/r', lane: 'o/r', maxTries: 4 });
+    expect(queued.filter((job) => job.kind === 'knowledge-harvest')).toHaveLength(1);
   });
 
   it('keeps the job when Inngest refuses the event', async () => {

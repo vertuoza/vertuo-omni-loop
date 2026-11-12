@@ -11,9 +11,10 @@
 // (PRD 1548), the budgets check's (PRD 1679); any other is the outbox check's. A refresh that fails is
 // logged and the delivery goes on: the next event, or GitHub's Re-run button, refreshes the jobs again.
 //
-// Beside the checks, a merged `pull_request.closed` becomes the retro event (PRD 72) and the knowledge
-// harvest event (PRD 82), and refreshes no check. An unmerged `closed` becomes nothing on either; beside
-// them, a `closed` or `reopened` may also become a fix stamp (below).
+// Beside the checks, a merged `pull_request.closed` becomes the retro event (PRD 72) and the `knowledge-harvest`
+// job of the ledger (PRD 82, PRD omni-loop-4 s2: `toHarvestJobs`, handed to `queueJobs`), and refreshes no check.
+// An unmerged `closed` becomes nothing on either; beside them, a `closed` or `reopened` may also become a fix
+// stamp (below).
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
 // run, becomes one `canon-action` job of the ledger alone (PRD omni-loop-3 s4), keyed by the delivery's id
@@ -37,7 +38,7 @@
 // branch names no record, and becomes none.
 //
 // The main watch (PRD 2410): a pull request merged into the default branch also becomes one main watch
-// event, beside the retro's and the harvest's, and a check suite of the default branch that completed red
+// event, beside the retro's, and a check suite of the default branch that completed red
 // becomes one main watch CI event, which wakes the watch of the commit it ran on (../main-watch/events.ts).
 // Both are handed to `sendWatch`, each with an id, so a delivery GitHub sends twice is one event.
 //
@@ -69,12 +70,10 @@ import { z } from 'zod';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  HARVEST_EVENT,
   INBOX_EXTERNAL_ID,
   RETRO_EVENT,
   type AppEvent,
   type CanonActionRequestData,
-  type HarvestRequest,
   type RetroRequest,
 } from '../inngest-client.ts';
 import { isSignedBody } from 'omni-loop/kit/lib/signature.ts';
@@ -82,6 +81,7 @@ import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type Fix
 import { fixRowStampJob } from '../fix-rows/job.ts';
 import { FLEET_BOARD_EVENT, fleetBoardId, type FleetBoardRequest } from '../fleet-board/events.ts';
 import { fleetBoardJob } from '../fleet-board/job.ts';
+import { harvestJob } from '../knowledge-harvest/knowledge-harvest.ts';
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type MainWatchRequest } from '../main-watch/events.ts';
 import { canonActionJob } from '../inbox-check/canon-action.ts';
@@ -341,13 +341,13 @@ async function addPackJobs(addJobs: (jobs: NewJob[]) => Promise<unknown>, jobs: 
 }
 
 /**
- * The router alone, pure: a retro action goes to the retro and the knowledge harvest. The checks are jobs, never
- * events (`toCheckJobs`), and so are a canon button's clicks (`toQueuedJobs`).
+ * The router alone, pure: a retro action goes to the retro. The checks are jobs, never events (`toCheckJobs`), and
+ * so are the knowledge harvest and a canon button's clicks (`toQueuedJobs`).
  */
 export function toEvents(event: string, payload: unknown): AppEvent[] {
   const action = readPayload(payload)?.action;
   if (handles(RETRO_ACTIONS, event, action)) {
-    return [...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
+    return toRetroRequests(event, payload);
   }
   return [];
 }
@@ -415,15 +415,12 @@ export function toRetroRequests(event: string, delivery: unknown): RetroRequest[
 }
 
 /**
- * The knowledge harvest's filter, pure: the same merged pull requests the retro gets, one harvest
- * request each, carrying only where it merged. The function reads the merge's facts from the pull
- * request itself, and decides in its step "qualify" whether it is a feature PR.
+ * The knowledge harvest's filter, pure: the same merged pull requests the retro gets, one `knowledge-harvest` job
+ * each, carrying only where it merged (./../knowledge-harvest/knowledge-harvest.ts). The job reads the merge's
+ * facts from the pull request itself, and decides in its step "qualify" whether it is a feature PR.
  */
-export function toHarvestRequests(event: string, payload: unknown): HarvestRequest[] {
-  return toRetroRequests(event, payload).map(({ data: { installationId, owner, repo, repository, prNumber } }) => ({
-    name: HARVEST_EVENT,
-    data: { installationId, owner, repo, repository, prNumber },
-  }));
+export function toHarvestJobs(event: string, payload: unknown): NewJob[] {
+  return toRetroRequests(event, payload).map(({ data: { installationId, owner, repo, prNumber } }) => harvestJob({ installationId, owner, repo, prNumber }));
 }
 
 /**
@@ -439,12 +436,17 @@ function toPackJobs(event: string, delivery: unknown): NewJob[] {
 
 /**
  * The jobs the delivery adds beside the pack's (PRD omni-loop-3 s3, s4): its fix stamp's `fix-row-stamp` job, its
- * fleet board's `fleet-board` job, then its canon click's `canon-action` job, keyed by `deliveryId` (one per pull
+ * fleet board's `fleet-board` job, its merged pull request's `knowledge-harvest` job, then its canon click's `canon-action` job, keyed by `deliveryId` (one per pull
  * request the click names: the first keyed by it, each next one `<delivery>#<n>`), each read by its filter below.
  */
 export function toQueuedJobs(event: string, delivery: unknown, deliveryId: string): NewJob[] {
   const clicks = toCanonActionRequests(event, delivery).map((data, n) => canonActionJob(n === 0 ? deliveryId : `${deliveryId}#${String(n)}`, data));
-  return [...toFixStampRequests(event, delivery).map(({ data }) => fixRowStampJob(data)), ...toFleetBoardRequests(event, delivery).map(({ data }) => fleetBoardJob(data)), ...clicks];
+  return [
+    ...toFixStampRequests(event, delivery).map(({ data }) => fixRowStampJob(data)),
+    ...toFleetBoardRequests(event, delivery).map(({ data }) => fleetBoardJob(data)),
+    ...toHarvestJobs(event, delivery),
+    ...clicks,
+  ];
 }
 
 /**
