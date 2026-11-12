@@ -295,6 +295,22 @@ describe('An agent records instead of stopping', () => {
     });
   });
 
+  describe("Postponing a person's review comment is a person's call (PRD 2739)", () => {
+    it('ranks a later reply high even when the agent proposes medium, and records it', () => {
+      expect(proposeRank({ laws })).toBe('medium');
+      expect(proposeRank({ postponesReview: true, laws })).toBe('high');
+      const decision = decideRecording({ hardToRevert: false, postponesReview: true, laws });
+      expect(decision.outcome).toBe('record');
+      expect(decision.rank).toBe('high');
+      expect(decision.settleAsAdopted).toBe(false);
+    });
+
+    it('never adopts it, whatever else the decision bears on', () => {
+      expect(decideRecording({ bearsOn: 'none', postponesReview: false, laws }).settleAsAdopted).toBe(true);
+      expect(decideRecording({ bearsOn: 'none', postponesReview: true, laws }).settleAsAdopted).toBe(false);
+    });
+  });
+
   describe('The agent does not invent a reason', () => {
     it('the gap is stated and attributed to the author', () => {
       const note = unknowable(['the PRD names no country for a contact that carries none']);
