@@ -248,7 +248,7 @@ Low: one function names the url; if the Omni page's contract later carries comme
 - Channel: feature pull request #2740
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2740#issuecomment-6829457936
 - Basis: contradiction-marker — the answer says "no", "not", "never", which reads as a change to the recorded choice
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2761, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: N-PRODUCT-12
 - Raised: 2026-11-12
