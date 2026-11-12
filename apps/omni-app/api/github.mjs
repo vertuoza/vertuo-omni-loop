@@ -8804,15 +8804,12 @@ async function askJudge(repo, prd, { galaxyUrl, secret, fetch: get = fetch, time
   return reply2 ? { reply: reply2 } : { held: "galaxy answered no approval" };
 }
 
-// apps/omni-app/src/inngest-client.ts
-import { Inngest } from "inngest";
+// apps/omni-app/src/jobs/payloads.ts
 import { z as z34 } from "zod";
-var APP_ID = "omni-loop";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
 var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
 var RETRO_EVENT = "omni-loop/retro.requested";
-var inngest = new Inngest({ id: APP_ID });
 var SourceSchema = z34.looseObject({
   installationId: z34.number(),
   owner: z34.string(),

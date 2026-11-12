@@ -52654,7 +52654,7 @@ function closingSteps({ slug, defaultBranch: defaultBranch2, configPath, outboxC
     `(Optional) Require the \`${outboxCheck}\` check on ${defaultBranch2}:`,
     `     ${GITHUB}/${repo}/settings/branches`,
     "   Warning: a required check that is never posted blocks every pull request in this repository.",
-    "   If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy",
+    "   If the app is uninstalled, its deploy is broken or its database is down, nothing can merge. The remedy",
     "   is to remove the requirement, never to fake a status."
   ]);
   steps.push(fillStep(forms));
