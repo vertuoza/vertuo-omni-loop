@@ -307,3 +307,39 @@ describe('githubFetch: what a read writes (#1851)', () => {
     expect((await store.etag(42, ISSUE))?.body).toHaveLength(512 * 1024);
   });
 });
+
+// Bug #2766: every answer GitHub sends counts against the installation's hour, a 304 included, and its ETag is bound
+// to the token that read it, which each function run mints anew: the stored ETag saved no call. A snapshot (the
+// outbox, budgets, inbox and approved checks, the pack, the harvest) reads hundreds of Git objects per run, the same
+// ones again on every push. A blob or a tree named by its sha never changes: once stored, it is answered from the
+// store, and nothing is sent.
+describe('githubFetch: Git objects named by their sha never change (#2766)', () => {
+  const SHA = 'a'.repeat(40);
+  const BLOB = `https://api.github.com/repos/acme/widgets/git/blobs/${SHA}`;
+  const TREE = `https://api.github.com/repos/acme/widgets/git/trees/${SHA}?recursive=1`;
+  const BRANCH_TREE = 'https://api.github.com/repos/acme/widgets/git/trees/main';
+
+  it('answers a blob read before from the store, sending nothing, whatever the token', async () => {
+    const { client, sent } = setup(ok({ content: 'aGk=', encoding: 'base64' }, { etag: 'W/"t1"' }));
+    await call(client, BLOB, 'background');
+    const again = await client.fetch(BLOB, { headers: { authorization: 'Bearer another-run' }, installation: 42, priority: 'background' });
+    expect(again.status).toBe(200);
+    expect(await again.json()).toEqual({ content: 'aGk=', encoding: 'base64' });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('answers a tree named by its sha from the store, its query included', async () => {
+    const tree = { sha: SHA, tree: [{ path: 'a.md', mode: '100644', type: 'blob', sha: 'b'.repeat(40), size: 2 }], truncated: false };
+    const { client, sent } = setup(ok(tree, { etag: 'W/"t1"' }));
+    await call(client, TREE, 'background');
+    expect(await (await call(client, TREE, 'background')).json()).toEqual(tree);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('still asks GitHub for a tree named by a branch, which moves', async () => {
+    const { client, sent } = setup(ok({ sha: 'x', tree: [] }, { etag: 'W/"t1"' }), ok({ sha: 'y', tree: [] }, { etag: 'W/"t2"' }));
+    await call(client, BRANCH_TREE, 'background');
+    expect(await (await call(client, BRANCH_TREE, 'background')).json()).toEqual({ sha: 'y', tree: [] });
+    expect(sent).toHaveLength(2);
+  });
+});
