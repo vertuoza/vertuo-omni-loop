@@ -465,6 +465,13 @@ jobs:
         # naming it by key or id is refused (P0002); nothing under it is erased, and restore brings it all
         # back (PRD 2232).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_archive.sql
+      - name: Who switches a product's MCP server, and what an API key reads through it
+        # Only a workspace's owner turns a product's server on or off, and an archived product refuses; off
+        # by default. product_mcp_for_key() runs for the service role only and answers a product only for a
+        # live API key of its own workspace whose maker is still a member, while the server is on: nothing
+        # for another workspace's key, a revoked key or one whose maker left; an allow-list naming none of
+        # the product's repositories reads nothing, one naming some reads only those (PRD 2707).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_mcp.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

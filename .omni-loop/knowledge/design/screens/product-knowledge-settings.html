@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>product-knowledge-settings</title>
+<style>
+body { margin:0; padding:24px 16px; background:#03020f; color:#f2f4ff; font:15px/1.5 system-ui, sans-serif; }
+.wrap { max-width: 900px; margin: 0 auto; display: grid; gap: 20px; }
+pre { margin:0; border:1px solid; border-radius:6px; font: 13px ui-monospace, Menlo, monospace; }
+.screen { --ask-ground:#07061c; --ask-surface:#120f3a; --ask-line:#1a2170; --ask-line-strong:#5a60c4; --ask-ink:#f2f4ff; --ask-muted:#8a90d6; --ask-plasma:#ffd84a; --ask-on-plasma:#07061c; --ask-cyan:#5ee7ff;
+  background: var(--ask-ground); color: var(--ask-ink); border: 1px solid var(--ask-line); border-radius: 12px; padding: 14px; display: grid; gap: 12px; font: 14px/1.55 "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+.screen .card { padding: 14px 16px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; display: grid; gap: 8px; }
+.screen h5 { margin: 0; font-size: 17px; }
+.screen p { margin: 0; }
+.screen .muted { color: var(--ask-muted); }
+.screen .sub { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--ask-muted); }
+.screen .sub b { color: var(--ask-plasma); border-bottom: 2px solid var(--ask-plasma); font-weight: 400; }
+.screen .url { display: flex; gap: 8px; align-items: center; }
+.screen .url code { flex: 1; padding: 6px 10px; border: 1px solid var(--ask-line-strong); border-radius: 8px; color: var(--ask-cyan); background: var(--ask-ground); overflow-x: auto; white-space: nowrap; }
+.screen pre { background: var(--ask-ground); border-color: var(--ask-line); color: var(--ask-ink); padding: 8px 10px; white-space: pre-wrap; }
+.screen a { color: var(--ask-cyan); }
+.screen button { padding: 5px 12px; border: 1px solid var(--ask-line-strong); border-radius: 8px; background: transparent; color: var(--ask-ink); font: inherit; font-size: 13px; justify-self: start; }
+.screen button.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); font-weight: 700; }
+.screen .state { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-muted); }
+.screen .state.on { border-color: var(--ask-cyan); color: var(--ask-cyan); }
+
+</style></head><body><div class="wrap">
+<h1 style="font-size:20px;margin:0">Product settings · MCP server (draft, PRD 2707)</h1>
+<p style="color:#8a90d6;margin:0">Off, as an owner sees it</p>
+<div class="screen" data-screen="product-knowledge-settings">
+<div class="sub"><span>Constituents</span><span>Personas</span><span>Legal</span><span>Glossary</span><span>Domains</span><span>Business laws</span><span>Pitch</span><span>Repositories</span><b>Settings</b></div>
+<p class="muted">Region is shared by every product: a change here changes it for all. The rest is this product’s.</p>
+<div class="card"><h5>Region</h5><p class="muted">Belgium · France · Netherlands</p></div>
+<div class="card"><h5>Offering, size, trade, rivals</h5><p class="muted">Picks and claims.</p></div>
+<div class="card"><h5>MCP server <span class="state">Off</span></h5>
+<p class="muted">Agents can’t read this product’s knowledge yet.</p>
+<p class="muted">Then every API key reads it.</p>
+<button class="primary" data-primary>Turn on</button></div>
+</div>
+<p style="color:#8a90d6;margin:0">On, as an owner sees it</p>
+<div class="screen" data-screen="product-knowledge-settings">
+<div class="card"><h5>MCP server <span class="state on">On</span></h5>
+<p>Any workspace API key reads its knowledge.</p>
+<div class="url"><code>https://www.omni-loop.xyz/api/products/acme/mcp</code><button data-primary>Copy</button></div>
+<p><button>Copy for Claude Code</button> <button>Copy for Cursor</button></p>
+<p class="muted">Keys: <a href="#">Settings › API keys</a></p>
+<p class="muted">No knowledge yet from acme/mobile.</p>
+<button>Turn off</button>
+<p class="muted">Stops agents on their next call.</p></div>
+</div>
+</div></body></html>

@@ -1,7 +1,7 @@
 // The job ledger (PRD 2676 s1, spec "The ledger"), as the service role (`SUPABASE_URL`,
 // `SUPABASE_SERVICE_ROLE_KEY`, the approved check's own pair): the App has no person's session. Every call is
 // one of the seven functions of `supabase/migrations/20270113090000_background_jobs.sql`,
-// `20270114090000_pr_check_jobs.sql` and `20270115090000_background_job_later.sql`, the service role's alone, and
+// `20270114090000_pr_check_jobs.sql` and `20270116090000_background_job_later.sql`, the service role's alone, and
 // every answer is parsed where it comes in:
 //
 //   add      background_job_add(): a job, nothing for a key the kind already holds; whether it added one. Its

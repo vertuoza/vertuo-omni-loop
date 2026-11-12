@@ -3787,19 +3787,37 @@ function tagsOf(text9) {
   const domain = headerDomain(text9);
   return { ...layers.length > 0 ? { layers } : {}, ...domain === null ? {} : { domain } };
 }
+var STATUS_HEADER = /\*\*Status:\*\*[ \t]*([^·\n]*)/;
+function headerStatus(text9) {
+  const value = (STATUS_HEADER.exec(headerOf(text9))?.[1] ?? "").replace(/`/g, "").trim();
+  return value === "" ? null : value;
+}
+function parseDecisionRecord(file, text9) {
+  const name = file.split("/").pop() ?? file;
+  return {
+    number: name.match(RECORD)?.[1] ?? "",
+    file,
+    title: text9.match(TITLE2)?.[1] ?? null,
+    status: headerStatus(text9),
+    text: text9,
+    prd: headerPrd(text9),
+    ...tagsOf(text9)
+  };
+}
 function readFolder(root, dir, level) {
   const absolute = join17(root, dir);
   const names = existsSync18(absolute) ? readdirSync7(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text9 = readFileSync11(join17(root, file), "utf8");
+    const parsed = parseDecisionRecord(file, readFileSync11(join17(root, file), "utf8"));
     return {
       ...level === "repo" ? {} : { level },
-      number: name.match(RECORD)?.[1] ?? "",
-      file,
-      title: text9.match(TITLE2)?.[1] ?? null,
-      prd: headerPrd(text9),
-      ...tagsOf(text9)
+      number: parsed.number,
+      file: parsed.file,
+      title: parsed.title,
+      prd: parsed.prd,
+      ...parsed.layers === void 0 ? {} : { layers: parsed.layers },
+      ...parsed.domain === void 0 ? {} : { domain: parsed.domain }
     };
   });
 }

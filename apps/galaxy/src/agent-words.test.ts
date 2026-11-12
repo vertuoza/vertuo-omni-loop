@@ -37,6 +37,14 @@ const ALLOWED: readonly Allowed[] = [
     reason: 'the Connect agent hint names the editors the setup has a row for, Cursor and any MCP client beside Claude Code',
   },
   {
+    file: 'apps/galaxy/src/product-knowledge/settings/McpServerCard.tsx', literal: /^Copy for Claude Code$/, sample: 'Copy for Claude Code',
+    reason: 'the MCP server card\'s button copies the setup line Claude Code takes, beside Cursor\'s (PRD 2707)',
+  },
+  {
+    file: 'apps/galaxy/src/product-knowledge/settings/mcp-server.ts', literal: /^claude mcp add --transport http/, sample: 'claude mcp add --transport http',
+    reason: 'the MCP server card\'s setup line is Claude Code\'s own command, `claude mcp add` (PRD 2707)',
+  },
+  {
     file: 'apps/galaxy/src/repositories/skills.ts', literal: /^\.claude\/skills$/, sample: '.claude/skills',
     reason: 'the folder a repository keeps its own skills in, read from its default branch: a path on GitHub, never the app\'s voice (PRD 2313)',
   },

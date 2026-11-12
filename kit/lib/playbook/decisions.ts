@@ -92,6 +92,35 @@ function tagsOf(text: string): Pick<DecisionRecord, 'layers' | 'domain'> {
 /** The level a record is read from: `repo` for the repository's own. */
 export const levelOf = (record: Pick<DecisionRecord, 'level'>): Level => record.level ?? 'repo';
 
+const STATUS_HEADER = /\*\*Status:\*\*[ \t]*([^·\n]*)/;
+
+/** The status a record's header names, `null` with none. */
+function headerStatus(text: string): string | null {
+  const value = (STATUS_HEADER.exec(headerOf(text))?.[1] ?? '').replace(/`/g, '').trim();
+  return value === '' ? null : value;
+}
+
+/** One record read from its file name and its text alone: a {@link DecisionRecord} plus its status and whole text. */
+export type ParsedDecisionRecord = DecisionRecord & { status: string | null; text: string };
+
+/**
+ * One decision record read from its file name (`NNNN-<slug>.md`, under any folder) and its text alone,
+ * touching no disk: its number, file, title (`null` with no `# ` heading), status (`null` with no
+ * `**Status:**` on the header line), PRD, tags and whole text.
+ */
+export function parseDecisionRecord(file: string, text: string): ParsedDecisionRecord {
+  const name = file.split('/').pop() ?? file;
+  return {
+    number: name.match(RECORD)?.[1] ?? '',
+    file,
+    title: text.match(TITLE)?.[1] ?? null,
+    status: headerStatus(text),
+    text,
+    prd: headerPrd(text),
+    ...tagsOf(text),
+  };
+}
+
 /** The records of one folder, in number order (a shared number's files by name), each tagged with `level`. */
 function readFolder(root: string, dir: string, level: Level): DecisionRecord[] {
   const absolute = join(root, dir);
@@ -103,14 +132,15 @@ function readFolder(root: string, dir: string, level: Level): DecisionRecord[] {
     : [];
   return names.map((name): DecisionRecord => {
     const file = `${dir}/${name}`;
-    const text = readFileSync(join(root, file), 'utf8');
+    const parsed = parseDecisionRecord(file, readFileSync(join(root, file), 'utf8'));
     return {
       ...(level === 'repo' ? {} : { level }),
-      number: name.match(RECORD)?.[1] ?? '',
-      file,
-      title: text.match(TITLE)?.[1] ?? null,
-      prd: headerPrd(text),
-      ...tagsOf(text),
+      number: parsed.number,
+      file: parsed.file,
+      title: parsed.title,
+      prd: parsed.prd,
+      ...(parsed.layers === undefined ? {} : { layers: parsed.layers }),
+      ...(parsed.domain === undefined ? {} : { domain: parsed.domain }),
     };
   });
 }

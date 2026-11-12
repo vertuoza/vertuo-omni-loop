@@ -4,6 +4,8 @@ import { DEMO_CLAIMS, DEMO_PRODUCTS } from '../../business/BusinessScreen';
 import { loadBusinessPage } from '../../business/load';
 import { Section } from '../KnowledgeLists';
 import { Unreadable } from '../constituents/Unreadable';
+import { McpServerCard } from './McpServerCard';
+import { loadMcpCard } from './mcp-server-load';
 
 // The Settings section of the Knowledge home (PRD 2240 s6): what Settings › Business held per product,
 // moved whole (BusinessPage.tsx, part `settings`): Region, marked shared by every product, the picks, the
@@ -18,6 +20,7 @@ export function SettingsPanel({ id }: { id: string }) {
     <>
       <p className="ask-muted">{SETTINGS_LEDE}</p>
       <Settings id={id} />
+      <McpServer id={id} />
     </>
   );
 }
@@ -35,6 +38,11 @@ async function Settings({ id }: { id: string }) {
       claims={load.claims} products={load.products} draft={load.draft} pages={load.pages}
     />
   );
+}
+
+async function McpServer({ id }: { id: string }) {
+  const read = await loadMcpCard(id);
+  return read === null ? null : <McpServerCard card={read.card} product={id} source={read.source} />;
 }
 
 function Unavailable() {

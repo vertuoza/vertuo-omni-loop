@@ -1,6 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
-import { readDecisions } from './decisions.ts';
+import { parseDecisionRecord, readDecisions } from './decisions.ts';
+
+describe('parseDecisionRecord', () => {
+  const FILE = '.omni-loop/knowledge/adr/0067-a-link.md';
+
+  it('reads the number, file, title, status and whole text from the file name and text alone', () => {
+    const text = '# ADR-0067 — A link\n\n**Status:** adopted · **Date:** 2026-10-01 · **PRD:** #855 · **Layers:** api · **Domain:** access\n\n## Context\n\nx\n';
+    expect(parseDecisionRecord(FILE, text)).toEqual({
+      number: '0067',
+      file: FILE,
+      title: 'ADR-0067 — A link',
+      status: 'adopted',
+      text,
+      prd: 855,
+      layers: ['api'],
+      domain: 'access',
+    });
+  });
+
+  it('gives title null with no # heading, and status null with no Status header', () => {
+    const record = parseDecisionRecord('records/0003-c.md', 'no heading here\n');
+    expect(record.title).toBeNull();
+    expect(record.status).toBeNull();
+    expect(record.number).toBe('0003');
+    expect(record.prd).toBeNull();
+    expect(record.text).toBe('no heading here\n');
+  });
+
+  it('reads the status only from the header above the first section', () => {
+    expect(parseDecisionRecord(FILE, '# T\n\n## Context\n\n**Status:** accepted\n').status).toBeNull();
+  });
+});
 
 describe('readDecisions', () => {
   it('reads only NNNN-<slug>.md files directly in the folder, whatever the spelling of paths.adr', () => {
