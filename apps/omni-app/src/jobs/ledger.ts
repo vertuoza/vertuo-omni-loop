@@ -239,8 +239,8 @@ export function jobLedger(connection: Connection): Ledger {
     forget: async () => z.number().int().nonnegative().parse(dataOf(await db.rpc('background_jobs_forget'))),
 
     save: async ({ id, claim, step, value }) => {
-      // The value is JSON already: what `asSaved` made of the step's return, so it reads back as it was saved.
-      const answer = await db.rpc('background_job_save', { p_id: id, p_claim: claim, p_step: step, p_value: value as Json });
+      // The value is JSON already (what `asSaved` made of the step's return), so it reads back as it was saved.
+      const answer = await db.rpc('background_job_save', { p_id: id, p_claim: claim, p_step: step, p_value: z.json().parse(value) });
       if (answer.error?.code === STALE) return 'stale';
       dataOf(answer);
       return 'saved';
