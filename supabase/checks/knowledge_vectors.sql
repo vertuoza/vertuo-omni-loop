@@ -1,5 +1,5 @@
 -- A product's MCP finds knowledge by meaning: who reads and writes the vectors (PRD 2728 s2,
--- 20270117090000_knowledge_vectors.sql). The supabase workflow runs it on every pull request, after
+-- 20270118090000_knowledge_vectors.sql). The supabase workflow runs it on every pull request, after
 -- `supabase db start` has applied the migrations and the demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_vectors.sql
 -- Nobody signed in, and anon, reads or writes public.knowledge_vectors or calls any of its four functions;

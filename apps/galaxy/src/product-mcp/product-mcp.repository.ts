@@ -9,7 +9,7 @@
 // It holds no rule.
 //
 // The knowledge's vectors (PRD 2728 s5) are read and written through knowledge_vectors_missing(),
-// knowledge_vectors_put() and knowledge_nearest() (supabase/migrations/20270117090000_knowledge_vectors.sql),
+// knowledge_vectors_put() and knowledge_nearest() (supabase/migrations/20270118090000_knowledge_vectors.sql),
 // the service role's alone, each taking the workspace and reading only its rows (BR-PRODUCT-63). They are
 // asked only once the key check has served the request.
 import type { SupabaseClient } from '@supabase/supabase-js';
