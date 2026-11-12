@@ -17675,6 +17675,7 @@ var RepositoriesSchema = z59.looseObject({
   repositories: z59.array(z59.looseObject({ name: z59.string(), owner: z59.looseObject({ login: z59.string() }) }))
 });
 var OpenPullsSchema = z59.array(z59.looseObject({ number: z59.number(), base: z59.looseObject({ sha: z59.string() }) }));
+var RepositorySweptSchema = z59.object({ pulls: z59.number(), asked: z59.number(), failed: z59.number() });
 var lower = (login) => login.toLowerCase();
 function moveDue(lines2, settings, now, posted) {
   const decisions = decide(lines2.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
@@ -17759,12 +17760,18 @@ async function repositoriesOf(octokit) {
   );
   return repositories.map(({ name, owner }) => ({ owner: owner.login, repo: name }));
 }
-async function sweepAll({ app, octokitFor, now, log: log2 }) {
+async function sweepAll({
+  app,
+  octokitFor,
+  now,
+  log: log2,
+  step = memorySteps()
+}) {
   const total = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
   for (const installation of await installationsOf(app)) {
     const octokit = await octokitFor(installation);
     for (const { owner, repo } of await repositoriesOf(octokit)) {
-      const swept = await sweepRepository(octokit, { owner, repo, now, log: log2 });
+      const swept = await savedStep(step, `repository ${owner}/${repo}`, RepositorySweptSchema, () => sweepRepository(octokit, { owner, repo, now, log: log2 }));
       total.repositories += 1;
       total.pulls += swept.pulls;
       total.asked += swept.asked;
@@ -17785,12 +17792,12 @@ function escalationHandler({
   log: log2 = noteTo("escalation"),
   clock = Date.now
 }) {
-  return async () => {
+  return async (_job, run) => {
     if (appOctokit === null) {
       log2("escalation: the App cannot list its installations here, so nobody is asked.");
       return { outcome: "skipped", reason: "no app: the App cannot list its installations here" };
     }
-    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2 });
+    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2, ...run ? { step: run.step } : {} });
     log2(sweptLine(swept));
     return { outcome: "done" };
   };
@@ -20838,9 +20845,13 @@ function liveWorkers(env, octokitFor) {
 // apps/omni-app/src/jobs/worker.ts
 var TIME_BUDGET_MS = 24e4;
 var LEASE_SECONDS = 300;
+var FINISH_MARGIN_MS = 5e3;
+var CLAIM_LEFT_MS = 2e4;
+var CUT_SHORT = "its run was cut short: the function running it was about to stop, so its try was given back";
 var MAX_TRIES3 = 5;
 var RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 var WAIT_MINUTES = 15;
+var CUT_SHORT_WAIT_MINUTES = 1;
 var MINUTE3 = 6e4;
 var MAX_REASON = 500;
 var TOO_MANY_LATERS = "it asked to run later more than 20 times";
@@ -20851,23 +20862,45 @@ async function runDue({
   clock = Date.now,
   budgetMs = TIME_BUDGET_MS,
   leaseSeconds = LEASE_SECONDS,
+  endsAt = Number.POSITIVE_INFINITY,
   log: log2 = noteTo("jobs")
 }) {
   const summary2 = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
+  const run = { ledger, handlers, failures, clock, leaseSeconds, endsAt, log: log2, summary: summary2 };
   const start = clock();
-  while (clock() - start < budgetMs) {
+  while (clock() - start < budgetMs && endsAt - clock() >= CLAIM_LEFT_MS) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
     if (!job) break;
-    const settled = await settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
-    summary2.ran += 1;
-    const kept3 = await keep(ledger, job, settled, log2);
-    const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
-    if (kept3 === "stale") summary2.stale += 1;
-    else if (kept3 !== null) summary2[ended.outcome] += 1;
-    if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
-    if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
+    if (await runOne(job, run) === "cut short") break;
   }
   return summary2;
+}
+async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt, log: log2, summary: summary2 }) {
+  const settling = settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
+  const settled = await within4(settling, endsAt - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
+  summary2.ran += 1;
+  const kept3 = await keep(ledger, job, settled, log2);
+  const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
+  if (kept3 === "stale") summary2.stale += 1;
+  else if (kept3 !== null) summary2[ended.outcome] += 1;
+  if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+  if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
+  return settled.reason === CUT_SHORT ? "cut short" : "ran";
+}
+var cutShort = (clock) => ({ outcome: "waiting", reason: CUT_SHORT, retryAt: later(clock, CUT_SHORT_WAIT_MINUTES) });
+async function within4(settling, ms2) {
+  if (ms2 === Number.POSITIVE_INFINITY) return settling;
+  let timer;
+  const cut2 = new Promise((resolve3) => {
+    timer = setTimeout(() => {
+      resolve3(null);
+    }, Math.max(0, ms2));
+  });
+  try {
+    return await Promise.race([settling, cut2]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 async function failed2(job, reason2, hook, log2) {
   if (!hook) return;
@@ -20927,6 +20960,7 @@ function firstLine6(message) {
 var later = (clock, minutes) => new Date(clock() + minutes * MINUTE3).toISOString();
 
 // apps/omni-app/src/jobs/sweep.ts
+var SWEEP_MAX_DURATION_SECONDS = 300;
 var FORGET_HOUR_UTC = 3;
 function liveJobs(env, logger) {
   const { supabase } = env;
@@ -20934,7 +20968,7 @@ function liveJobs(env, logger) {
   const ledger = jobLedger(supabase);
   const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo("github", logger) }));
   return {
-    run: () => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor) }),
+    run: (endsAt) => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor), endsAt }),
     delayed: () => postDelayed({ store: delayedStore(supabase), octokitFor }),
     schedule: () => addScheduled({ ledger }),
     gaps: () => compareGaps({ store: gapsStore(supabase), ledger, appOctokit: appOctokitFor(env.githubApp ?? null), octokitFor }),
@@ -20952,12 +20986,13 @@ function authorized(header, secret) {
 }
 function jobsSweepRoute(env, { logger = log, jobs = liveJobs(env, logger), clock = Date.now } = {}) {
   const guarded = (handle2) => loggedHandler(logger, "jobs-sweep", async (request) => {
+    const endsAt = clock() + SWEEP_MAX_DURATION_SECONDS * 1e3;
     if (!authorized(request.headers.get("authorization"), env.cron?.secret)) return json(401, { error: "unauthorized" });
     if (!jobs) return json(503, { error: "no database here" });
-    return handle2(request, jobs);
+    return handle2(request, jobs, endsAt);
   });
   return {
-    GET: guarded(async (request, ledger) => {
+    GET: guarded(async (request, ledger, endsAt) => {
       const body = {};
       if (new URL(request.url).searchParams.get("gaps") === "1") {
         body.gaps = await ledger.gaps();
@@ -20965,15 +21000,15 @@ function jobsSweepRoute(env, { logger = log, jobs = liveJobs(env, logger), clock
       }
       body.delayed = await ledger.delayed();
       body.scheduled = await ledger.schedule();
-      body.run = await ledger.run();
+      body.run = await ledger.run(endsAt);
       return json(200, { ok: true, ...body });
     }),
-    POST: guarded(async (request, ledger) => {
+    POST: guarded(async (request, ledger, endsAt) => {
       const parsed2 = ReplayBodySchema.safeParse(await request.json().catch(() => null));
       if (!parsed2.success) return json(400, { error: 'expected {"replay": "<job id>"}' });
       const replayed = await ledger.replay(parsed2.data.replay);
       if (!replayed.replayed) return json(409, { ok: false, replayed: false, reason: replayed.reason });
-      return json(200, { ok: true, replayed: true, id: replayed.id, run: await ledger.run() });
+      return json(200, { ok: true, replayed: true, id: replayed.id, run: await ledger.run(endsAt) });
     }),
     PUT: methodNotAllowed(logger),
     PATCH: methodNotAllowed(logger),

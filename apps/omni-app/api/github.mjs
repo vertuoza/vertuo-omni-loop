@@ -11876,6 +11876,7 @@ var RepositoriesSchema = z47.looseObject({
   repositories: z47.array(z47.looseObject({ name: z47.string(), owner: z47.looseObject({ login: z47.string() }) }))
 });
 var OpenPullsSchema = z47.array(z47.looseObject({ number: z47.number(), base: z47.looseObject({ sha: z47.string() }) }));
+var RepositorySweptSchema = z47.object({ pulls: z47.number(), asked: z47.number(), failed: z47.number() });
 var lower = (login) => login.toLowerCase();
 function moveDue(lines2, settings, now2, posted) {
   const decisions = decide(lines2.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now2, settings);
@@ -11960,12 +11961,18 @@ async function repositoriesOf(octokit) {
   );
   return repositories.map(({ name, owner }) => ({ owner: owner.login, repo: name }));
 }
-async function sweepAll({ app, octokitFor, now: now2, log: log2 }) {
+async function sweepAll({
+  app,
+  octokitFor,
+  now: now2,
+  log: log2,
+  step = memorySteps()
+}) {
   const total = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
   for (const installation of await installationsOf(app)) {
     const octokit = await octokitFor(installation);
     for (const { owner, repo } of await repositoriesOf(octokit)) {
-      const swept = await sweepRepository(octokit, { owner, repo, now: now2, log: log2 });
+      const swept = await savedStep(step, `repository ${owner}/${repo}`, RepositorySweptSchema, () => sweepRepository(octokit, { owner, repo, now: now2, log: log2 }));
       total.repositories += 1;
       total.pulls += swept.pulls;
       total.asked += swept.asked;
@@ -11986,12 +11993,12 @@ function escalationHandler({
   log: log2 = noteTo("escalation"),
   clock = Date.now
 }) {
-  return async () => {
+  return async (_job, run) => {
     if (appOctokit === null) {
       log2("escalation: the App cannot list its installations here, so nobody is asked.");
       return { outcome: "skipped", reason: "no app: the App cannot list its installations here" };
     }
-    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2 });
+    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2, ...run ? { step: run.step } : {} });
     log2(sweptLine(swept));
     return { outcome: "done" };
   };
@@ -20771,9 +20778,13 @@ function liveWorkers(env, octokitFor) {
 // apps/omni-app/src/jobs/worker.ts
 var TIME_BUDGET_MS = 24e4;
 var LEASE_SECONDS = 300;
+var FINISH_MARGIN_MS = 5e3;
+var CLAIM_LEFT_MS = 2e4;
+var CUT_SHORT = "its run was cut short: the function running it was about to stop, so its try was given back";
 var MAX_TRIES7 = 5;
 var RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 var WAIT_MINUTES = 15;
+var CUT_SHORT_WAIT_MINUTES = 1;
 var MINUTE2 = 6e4;
 var MAX_REASON = 500;
 var TOO_MANY_LATERS = "it asked to run later more than 20 times";
@@ -20784,23 +20795,45 @@ async function runDue({
   clock = Date.now,
   budgetMs = TIME_BUDGET_MS,
   leaseSeconds = LEASE_SECONDS,
+  endsAt = Number.POSITIVE_INFINITY,
   log: log2 = noteTo("jobs")
 }) {
   const summary2 = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
+  const run = { ledger, handlers, failures, clock, leaseSeconds, endsAt, log: log2, summary: summary2 };
   const start = clock();
-  while (clock() - start < budgetMs) {
+  while (clock() - start < budgetMs && endsAt - clock() >= CLAIM_LEFT_MS) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
     if (!job) break;
-    const settled = await settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
-    summary2.ran += 1;
-    const kept3 = await keep(ledger, job, settled, log2);
-    const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
-    if (kept3 === "stale") summary2.stale += 1;
-    else if (kept3 !== null) summary2[ended.outcome] += 1;
-    if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
-    if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
+    if (await runOne(job, run) === "cut short") break;
   }
   return summary2;
+}
+async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt, log: log2, summary: summary2 }) {
+  const settling = settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
+  const settled = await within4(settling, endsAt - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
+  summary2.ran += 1;
+  const kept3 = await keep(ledger, job, settled, log2);
+  const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
+  if (kept3 === "stale") summary2.stale += 1;
+  else if (kept3 !== null) summary2[ended.outcome] += 1;
+  if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+  if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
+  return settled.reason === CUT_SHORT ? "cut short" : "ran";
+}
+var cutShort = (clock) => ({ outcome: "waiting", reason: CUT_SHORT, retryAt: later(clock, CUT_SHORT_WAIT_MINUTES) });
+async function within4(settling, ms2) {
+  if (ms2 === Number.POSITIVE_INFINITY) return settling;
+  let timer;
+  const cut2 = new Promise((resolve3) => {
+    timer = setTimeout(() => {
+      resolve3(null);
+    }, Math.max(0, ms2));
+  });
+  try {
+    return await Promise.race([settling, cut2]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 async function failed2(job, reason2, hook, log2) {
   if (!hook) return;
@@ -21272,6 +21305,7 @@ function reply(status, body) {
 }
 
 // apps/omni-app/src/webhook/github-route.ts
+var GITHUB_MAX_DURATION_SECONDS = 60;
 var RUN_AFTER_REFRESH_MS = (REFRESH_DELAY_SECONDS + 1) * 1e3;
 function liveJobs(env, logger) {
   const { supabase } = env;
@@ -21291,7 +21325,7 @@ function liveJobs(env, logger) {
       for (const key of await watchingKeys(sha)) woke = await ledger.wake({ kind: MAIN_WATCH_KIND, key }) || woke;
       return woke;
     },
-    run: () => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor) })
+    run: (endsAt) => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor), endsAt })
   };
 }
 var sleep = (ms2) => new Promise((resolve3) => setTimeout(resolve3, ms2));
@@ -21325,14 +21359,14 @@ function deliveryJobs(jobs) {
         for (const sha of shas) added = await jobs.wake(sha) || added;
       }
     },
-    after: ({ pause, say }) => {
+    after: ({ pause, say, endsAt }) => {
       const wait2 = refreshed || reruns.length > 0;
       if (!jobs || !(added || wait2)) return null;
-      return afterAnswer(jobs, { reruns, wait: wait2, pause, say });
+      return afterAnswer(jobs, { reruns, wait: wait2, pause, say, endsAt });
     }
   };
 }
-async function afterAnswer(jobs, { reruns, wait: wait2, pause, say }) {
+async function afterAnswer(jobs, { reruns, wait: wait2, pause, say, endsAt }) {
   const why = (error) => error instanceof Error ? error.message : String(error);
   for (const rerun of reruns) {
     try {
@@ -21343,7 +21377,7 @@ async function afterAnswer(jobs, { reruns, wait: wait2, pause, say }) {
   }
   try {
     if (wait2) await pause(RUN_AFTER_REFRESH_MS);
-    await jobs.run();
+    await jobs.run(endsAt);
   } catch (error) {
     say(`the run failed \u2014 ${why(error)}`);
   }
@@ -21363,13 +21397,15 @@ function githubRoute(env, {
   logger = log,
   jobs = liveJobs(env, logger),
   keepAlive = waitUntil,
-  pause = sleep
+  pause = sleep,
+  clock = Date.now
 } = {}) {
   const stage = { url: stageEventUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   const touched2 = { url: touchedUrl(env.galaxyUrl), secret: env.stageEvents?.secret };
   const say = noteTo("jobs", logger);
   return {
     POST: loggedHandler(logger, "webhook", async (request, note) => {
+      const endsAt = clock() + GITHUB_MAX_DURATION_SECONDS * 1e3;
       note({ deliveryId: request.headers.get("x-github-delivery") ?? void 0, fn: request.headers.get("x-github-event") ?? void 0 });
       const text17 = await request.text();
       const delivery2 = deliveryJobs(jobs);
@@ -21382,7 +21418,7 @@ function githubRoute(env, {
         touch: (touch) => forwardTouch(touch, touched2)
       });
       if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text17) });
-      const after = delivery2.after({ pause, say });
+      const after = delivery2.after({ pause, say, endsAt });
       if (after) keepAlive(after);
       return new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8" } });
     }),

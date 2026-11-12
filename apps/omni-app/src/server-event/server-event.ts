@@ -80,7 +80,10 @@ export type ServerEventRouteEnv = Pick<AppEnv, 'stageEvents'> &
   Partial<Pick<AppEnv, 'supabase' | 'githubApp' | 'openrouter' | 'constituentJudge' | 'businessLawsJudge' | 'galaxyUrl'>>;
 
 /** The ledger as the route uses it: refresh the event's job, then run the jobs due. */
-export type ServerEventJobs = { refresh: (job: RefreshJob) => Promise<unknown>; run: () => Promise<unknown> };
+export type ServerEventJobs = { refresh: (job: RefreshJob) => Promise<unknown>; run: (endsAt: number) => Promise<unknown> };
+
+/** How long Vercel lets `/api/server-event` run, its `maxDuration` in ../../vercel.json (bug #2756): the run after the answer runs within it. */
+export const SERVER_EVENT_MAX_DURATION_SECONDS = 60;
 
 /** The ledger on the database as the service role, every kind's handler wired; none where the App has no database. */
 function liveJobs(env: ServerEventRouteEnv, logger: Logger): ServerEventJobs | null {
@@ -88,7 +91,8 @@ function liveJobs(env: ServerEventRouteEnv, logger: Logger): ServerEventJobs | n
   if (!supabase) return null;
   const ledger = jobLedger(supabase);
   const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo('github', logger) }));
-  return { refresh: (job) => ledger.refresh(job), run: () => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor) }) };
+  const workers = liveWorkers({ ...env, supabase }, octokitFor);
+  return { refresh: (job) => ledger.refresh(job), run: (endsAt) => runDue({ ledger, ...workers, endsAt }) };
 }
 
 /** How long after the refresh the route runs the jobs due: the job's delay, and a second for the clocks. */
@@ -114,9 +118,12 @@ export function serverEventRoute(
     jobs = liveJobs(env, logger),
     keepAlive = waitUntil,
     pause = sleep,
+    clock = Date.now,
   }: {
     logger?: Logger;
     jobs?: ServerEventJobs | null;
+    /** The time, to know when the function is stopped: `Date.now` unless given. */
+    clock?: () => number;
     /** Keeps the function alive for the run after the answer: `waitUntil` of `@vercel/functions` unless given. */
     keepAlive?: (work: Promise<unknown>) => void;
     /** Waits for the refreshed job to fall due before the run: a timer unless given. */
@@ -125,18 +132,19 @@ export function serverEventRoute(
 ) {
   const ledger = jobs ?? NO_DATABASE;
   const say = noteTo('jobs', logger);
-  const runAfter = async () => {
+  const runAfter = async (endsAt: number) => {
     try {
       await pause(RUN_AFTER_REFRESH_MS);
-      await ledger.run();
+      await ledger.run(endsAt);
     } catch (error) {
       say(`the run failed — ${error instanceof Error ? error.message : String(error)}`);
     }
   };
   return {
     POST: loggedHandler(logger, 'server-event', async (request) => {
+      const endsAt = clock() + SERVER_EVENT_MAX_DURATION_SECONDS * 1000;
       const { status, body } = await receiveServerEvent({ body: await request.text(), headers: request.headers }, { secret: env.stageEvents?.secret, queue: ledger.refresh });
-      if (status === 202 && jobs) keepAlive(runAfter());
+      if (status === 202 && jobs) keepAlive(runAfter(endsAt));
       return new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     }),
     GET: loggedHandler(logger, 'server-event', () => new Response('method not allowed', { status: 405, headers: { allow: 'POST' } })),
