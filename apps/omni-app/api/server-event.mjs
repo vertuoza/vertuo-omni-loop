@@ -11761,9 +11761,13 @@ function canonActionHandler({ octokitFor, galaxyUrl }) {
 
 // apps/omni-app/src/knowledge-embed/embedder.ts
 import { z as z50 } from "zod";
+
+// kit/lib/knowledge/embed-contract.ts
 var EMBED_MODEL = "gte-small";
 var EMBED_DIMENSIONS = 384;
 var EMBED_BATCH = 8;
+
+// apps/omni-app/src/knowledge-embed/embedder.ts
 var EMBED_TIMEOUT_MS = 6e4;
 var AnswerSchema2 = z50.object({
   model: z50.literal(EMBED_MODEL),

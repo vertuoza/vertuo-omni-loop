@@ -3,7 +3,8 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { embedText, knowledgeEntries } from 'omni-loop/kit/lib/knowledge/entries.ts';
-import { EMBED_BATCH, EMBED_DIMENSIONS, type Embedder } from '../knowledge-embed/embedder.ts';
+import { EMBED_BATCH, EMBED_DIMENSIONS } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
+import type { Embedder } from '../knowledge-embed/embedder.ts';
 import type { EmbedStore, ProductRows, VectorRow, WorkspacePack } from '../knowledge-embed/store.ts';
 import { EMBED_KIND, embedHandler, embedJob, packEntries, textHash, textsByHash } from './embed.ts';
 import type { ClaimedJob, Finish, JobLedger } from './ledger.ts';

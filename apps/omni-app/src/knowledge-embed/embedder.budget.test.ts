@@ -2,7 +2,8 @@
 // knowledge-embed job threw and tried the same batch again, and no vector was ever stored. A batch the function
 // cannot take within its budget is split in halves until each part fits.
 import { describe, expect, it } from 'vitest';
-import { EMBED_DIMENSIONS, embedClient } from './embedder.ts';
+import { EMBED_DIMENSIONS } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
+import { embedClient } from './embedder.ts';
 
 const vector = (seed: number) => Array.from({ length: EMBED_DIMENSIONS }, (_, i) => (i === seed % EMBED_DIMENSIONS ? 1 : 0));
 

@@ -21,7 +21,8 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { embedText, knowledgeEntries, type KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
-import { EMBED_BATCH, EMBED_MODEL, type Embedder } from '../knowledge-embed/embedder.ts';
+import { EMBED_BATCH, EMBED_MODEL } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
+import type { Embedder } from '../knowledge-embed/embedder.ts';
 import type { EmbedStore, WorkspacePack } from '../knowledge-embed/store.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { NewJob } from './ledger.ts';

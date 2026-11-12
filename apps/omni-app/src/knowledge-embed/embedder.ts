@@ -12,14 +12,9 @@
 // A batch the function cannot embed within its budget (546, its worker limit, or 503) is split in halves and each
 // half sent again, down to one text: a single text that still does not fit is thrown (bug 2748).
 import { z } from 'zod';
+import { EMBED_BATCH, EMBED_DIMENSIONS, EMBED_MODEL } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
 import type { Connection } from '../approved-check/record.ts';
 
-/** The model every vector is made with, and the name the vectors are kept under. */
-export const EMBED_MODEL = 'gte-small';
-/** How many numbers a gte-small vector holds. */
-export const EMBED_DIMENSIONS = 384;
-/** The most texts one call to `embed` takes. */
-export const EMBED_BATCH = 8;
 /** How long one call may take before it is given up: a cold edge runtime loads the model first. */
 const EMBED_TIMEOUT_MS = 60_000;
 

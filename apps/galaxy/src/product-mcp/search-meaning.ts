@@ -16,7 +16,8 @@ import { embedText } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import type { KnowledgeHit, SearchMode } from './product-mcp.contract';
 import type { KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import type { KnowledgeVectorsRepository } from './product-mcp.repository';
-import { EMBED_BATCH, EMBED_MODEL, type Embedder } from './embed/client';
+import { EMBED_BATCH, EMBED_MODEL } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
+import type { QueryEmbedder as Embedder } from './embed/client';
 import { filtered, hasWords, rankByMeaning, searchKnowledge, type KnowledgeQuery } from './search';
 
 /** How long a search waits on the model, in milliseconds. */
