@@ -62,8 +62,12 @@ export type RouteJobs = {
   approved: (rerun: ApprovedRerun) => Promise<RefreshJob[]>;
   /** Wakes the main watches waiting on the merge commit `sha` (a red check suite ran on it); whether one was woken. */
   wake: (sha: string) => Promise<boolean>;
-  run: () => Promise<unknown>;
+  /** Runs the jobs due, until `endsAt`, when the function is stopped (ms since the epoch). */
+  run: (endsAt: number) => Promise<unknown>;
 };
+
+/** How long Vercel lets `/api/github` run, its `maxDuration` in ../../vercel.json (bug #2756): the jobs after the answer run within it. */
+export const GITHUB_MAX_DURATION_SECONDS = 60;
 
 /** How long after a refresh the route runs the jobs due: the refresh's delay, and a second for the clocks. */
 export const RUN_AFTER_REFRESH_MS = (REFRESH_DELAY_SECONDS + 1) * 1000;
@@ -87,7 +91,7 @@ function liveJobs(env: GithubRouteEnv, logger: Logger): RouteJobs | null {
       for (const key of await watchingKeys(sha)) woke = (await ledger.wake({ kind: MAIN_WATCH_KIND, key })) || woke;
       return woke;
     },
-    run: () => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor) }),
+    run: (endsAt) => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor), endsAt }),
   };
 }
 
@@ -129,10 +133,10 @@ function deliveryJobs(jobs: RouteJobs | null) {
         for (const sha of shas) added = (await jobs.wake(sha)) || added;
       },
     },
-    after: ({ pause, say }: { pause: (ms: number) => Promise<void>; say: (line: string) => void }): Promise<void> | null => {
+    after: ({ pause, say, endsAt }: { pause: (ms: number) => Promise<void>; say: (line: string) => void; endsAt: number }): Promise<void> | null => {
       const wait = refreshed || reruns.length > 0;
       if (!jobs || !(added || wait)) return null;
-      return afterAnswer(jobs, { reruns, wait, pause, say });
+      return afterAnswer(jobs, { reruns, wait, pause, say, endsAt });
     },
   };
 }
@@ -144,7 +148,7 @@ function deliveryJobs(jobs: RouteJobs | null) {
  */
 async function afterAnswer(
   jobs: RouteJobs,
-  { reruns, wait, pause, say }: { reruns: ApprovedRerun[]; wait: boolean; pause: (ms: number) => Promise<void>; say: (line: string) => void },
+  { reruns, wait, pause, say, endsAt }: { reruns: ApprovedRerun[]; wait: boolean; pause: (ms: number) => Promise<void>; say: (line: string) => void; endsAt: number },
 ): Promise<void> {
   const why = (error: unknown) => (error instanceof Error ? error.message : String(error));
   for (const rerun of reruns) {
@@ -156,7 +160,7 @@ async function afterAnswer(
   }
   try {
     if (wait) await pause(RUN_AFTER_REFRESH_MS);
-    await jobs.run();
+    await jobs.run(endsAt);
   } catch (error) {
     say(`the run failed — ${why(error)}`);
   }
@@ -185,9 +189,12 @@ export function githubRoute(
     jobs = liveJobs(env, logger),
     keepAlive = waitUntil,
     pause = sleep,
+    clock = Date.now,
   }: {
     logger?: Logger;
     jobs?: RouteJobs | null;
+    /** The time, to know when the function is stopped: `Date.now` unless given. */
+    clock?: () => number;
     /** Keeps the function alive for the jobs after the answer: `waitUntil` of `@vercel/functions` unless given. */
     keepAlive?: (work: Promise<unknown>) => void;
     /** Waits for a refreshed job to fall due before the run: a timer unless given. */
@@ -199,6 +206,7 @@ export function githubRoute(
   const say = noteTo('jobs', logger);
   return {
     POST: loggedHandler(logger, 'webhook', async (request, note) => {
+      const endsAt = clock() + GITHUB_MAX_DURATION_SECONDS * 1000;
       note({ deliveryId: request.headers.get('x-github-delivery') ?? undefined, fn: request.headers.get('x-github-event') ?? undefined });
       const text = await request.text();
       const delivery = deliveryJobs(jobs);
@@ -212,7 +220,7 @@ export function githubRoute(
       });
       // A delivery whose signature was not checked names no repository in the log.
       if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text) });
-      const after = delivery.after({ pause, say });
+      const after = delivery.after({ pause, say, endsAt });
       if (after) keepAlive(after);
       return new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     }),

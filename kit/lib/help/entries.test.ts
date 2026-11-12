@@ -484,7 +484,7 @@ describe('the help table in this repository', () => {
     assertDefined(dossier, 'dossier');
     expect(dossier.usage).toEqual([
       'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
-      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>', 'omni dossier get <key>-R<n> roadmap',
     ]);
     expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
   });

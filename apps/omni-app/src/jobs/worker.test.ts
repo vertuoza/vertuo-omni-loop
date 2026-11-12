@@ -4,7 +4,7 @@ import { GithubDeferred, GithubPaused } from '@omni/github';
 import { fakeStepLedger } from '../../test/saved-steps.ts';
 import { savedStep } from '../saved-step.ts';
 import type { ClaimedJob, Finish, FinishAnswer, JobLedger } from './ledger.ts';
-import { LEASE_SECONDS, runDue, TIME_BUDGET_MS, type FailureHook, type JobHandler, type JobResult } from './worker.ts';
+import { CLAIM_LEFT_MS, CUT_SHORT, FINISH_MARGIN_MS, LEASE_SECONDS, runDue, TIME_BUDGET_MS, type FailureHook, type JobHandler, type JobResult } from './worker.ts';
 
 const START = Date.parse('2027-01-13T09:00:00Z');
 const MINUTE = 60_000;
@@ -409,5 +409,71 @@ describe('runDue — a job\'s saved steps (PRD omni-loop-4 s1)', () => {
     const summary = await run(ledger, handler);
     expect(summary.done).toBe(2);
     expect(ran).toEqual(['first', 'second', 'first', 'second']);
+  });
+});
+
+describe('runDue — inside a function that ends (bug #2756)', () => {
+  const runIn = (ledger: JobLedger, handler: JobHandler, endsAt: number, extra: { clock?: () => number; log?: (line: string) => void } = {}) =>
+    runDue({ ledger, handlers: { 'knowledge-pack': handler }, clock: extra.clock ?? (() => START), endsAt, log: extra.log ?? (() => undefined) });
+
+  it('keeps 5 seconds for a finish and claims only with 20 seconds left', () => {
+    expect(FINISH_MARGIN_MS).toBe(5_000);
+    expect(CLAIM_LEFT_MS).toBe(20_000);
+  });
+
+  it('claims with exactly 20 seconds left, and not with less', async () => {
+    const enough = fakeLedger([{}]);
+    expect((await runIn(enough.ledger, done, START + CLAIM_LEFT_MS)).done).toBe(1);
+    const short = fakeLedger([{}]);
+    expect((await runIn(short.ledger, done, START + CLAIM_LEFT_MS - 1)).ran).toBe(0);
+    expect(short.claims).toEqual([]);
+  });
+
+  it('gives back a job still running 5 seconds before the end: waiting a minute, said why, counted, logged, and claims nothing more', async () => {
+    vi.useFakeTimers();
+    try {
+      const lines: string[] = [];
+      const { ledger, finished, claims } = fakeLedger([{ tries: 3 }, {}]);
+      const running = runIn(ledger, () => new Promise(() => undefined), START + 60_000, { log: (line) => lines.push(line) });
+      await vi.advanceTimersByTimeAsync(55_000);
+      const summary = await running;
+      expect(finished).toEqual([{ id: 'job-1', claim: 'claim-1', outcome: 'waiting', reason: CUT_SHORT, retryAt: at(START + MINUTE) }]);
+      expect(summary).toEqual({ ran: 1, done: 0, skipped: 0, retry: 0, waiting: 1, later: 0, failed: 0, stale: 0 });
+      expect(claims).toHaveLength(1);
+      expect(lines).toEqual([`job knowledge-pack initech/pack-api@${'1'.repeat(40)}: waiting on try 3: ${CUT_SHORT}`]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a job that ends in time is kept as it ended, and the run goes on', async () => {
+    const { clock, read } = clockAt(START);
+    const { ledger, finished } = fakeLedger([{}, {}]);
+    const summary = await runIn(ledger, () => {
+      clock.now += 10_000;
+      return Promise.resolve({ outcome: 'done' });
+    }, START + 60_000, { clock: read });
+    expect(summary.done).toBe(2);
+    expect(finished.map(({ outcome }) => outcome)).toEqual(['done', 'done']);
+  });
+
+  it('a job that throws in time is retried as before, never given back', async () => {
+    const { ledger, finished } = fakeLedger([{}]);
+    await runIn(ledger, throws(new Error('GitHub answered 502')), START + 60_000);
+    expect(finished[0]).toMatchObject({ outcome: 'retry', reason: 'GitHub answered 502' });
+  });
+
+  it('with less than 5 seconds left once claimed, the job is given back at once', async () => {
+    const { clock, read } = clockAt(START);
+    const { ledger, finished } = fakeLedger([{}]);
+    const slowClaim: JobLedger = {
+      ...ledger,
+      claim: async (input) => {
+        clock.now += 18_000;
+        return ledger.claim(input);
+      },
+    };
+    await runIn(slowClaim, () => new Promise(() => undefined), START + 20_000, { clock: read });
+    expect(finished[0]).toMatchObject({ outcome: 'waiting', reason: CUT_SHORT });
   });
 });

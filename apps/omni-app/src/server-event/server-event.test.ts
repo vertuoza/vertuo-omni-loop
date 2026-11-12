@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RefreshJob } from '../jobs/ledger.ts';
 import { capture, throwing } from '../run-log/capture.ts';
 import { serverEventJob } from './job.ts';
-import { receiveServerEvent, SERVER_SIGNATURE_HEADER, serverEventRoute, verifyServerEvent, type ServerEventJobs } from './server-event.ts';
+import { SERVER_EVENT_MAX_DURATION_SECONDS, receiveServerEvent, SERVER_SIGNATURE_HEADER, serverEventRoute, verifyServerEvent, type ServerEventJobs } from './server-event.ts';
 
 const SECRET = 'shared-secret';
 const DOSSIER = '0b9f8a1e-3c4d-4e5f-8a9b-0c1d2e3f4a5b';
@@ -224,5 +224,23 @@ describe('serverEventRoute — one server-event line per call (PRD 1723 s6)', ()
     } finally {
       write.mockRestore();
     }
+  });
+});
+
+describe('serverEventRoute — the run within the function (bug #2756)', () => {
+  it('tells the run the function ends 60 seconds after the call came in', async () => {
+    const T = Date.UTC(2026, 10, 12, 15, 31, 57);
+    const ends: number[] = [];
+    const after = afterAnswers();
+    const jobs: ServerEventJobs = {
+      refresh: () => Promise.resolve(),
+      run: (endsAt) => Promise.resolve(ends.push(endsAt)),
+    };
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs, keepAlive: after.keepAlive, pause: after.pause, clock: () => T });
+    const body = JSON.stringify(EVENT);
+    await route.POST(new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: sign(body) } }));
+    await Promise.all(after.kept);
+    expect(SERVER_EVENT_MAX_DURATION_SECONDS).toBe(60);
+    expect(ends).toEqual([T + 60_000]);
   });
 });
