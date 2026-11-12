@@ -69,8 +69,9 @@ every push it makes to a bug-fix pull request.
   `--pr <owner/repo>#<n>`, the fix pull request whose body was given, and grades the cited sha
   against that pull request's head. With `--body-file` and no `--pr`, it is a usage error, exit 2:
   `omni bug check: --body-file needs --pr <owner/repo>#<n>, the fix pull request it belongs to`.
-- `gh` that cannot read a head (no sign-in, no such pull request) is one fault naming the pull
-  request and what to run, never a pass.
+- `gh` that cannot read a head (no sign-in, no such pull request) is one fault that says so and
+  never a pass (BL-GATE-1):
+  `not judged: could not read the head of <owner/repo>#<n>: <why>`, then what to run.
 
 ### `/omni:pr-care` after a push
 
@@ -98,6 +99,10 @@ one sentence saying that the After line cites the head at the moment the body is
 
 ## Decisions
 
+- **Rules check (2026-11-12, after the person flagged PRD 2739).** Words use the glossary's terms;
+  a head `gh` cannot read says `not judged: …` (BL-GATE-1); no new decision is taken by an agent
+  alone (never#2): re-proving and putting the pull request back to draft follow the person's
+  answer and the rule written here, so no outbox item is added.
 - **Exactly the head.** The person chose that the cited green commit is the head itself, with no
   exception for later commits that change only the bug's record folder. Any later commit means
   running the reproduction again.
@@ -119,7 +124,7 @@ one sentence saying that the After line cites the head at the moment the body is
 
 - As the person who merges a bug fix, I want the proof I read to be of the commit I merge, so a
   green proof means the merged code is green.
-- As a reviewer whose comment an agent fixed after the proof, I want the proof taken again, so the
+- As a person whose review comment an agent fixed after the proof, I want the proof taken again, so the
   fix of my comment did not quietly break the bug fix.
 - As a developer running `/omni:bug-fix`, I want `omni bug` to tell me which commit to prove at, so I
   never guess.
@@ -167,7 +172,7 @@ other's lines on rebase. `blocked-by` stays `none`.
 
 - The Legal entries: none touched.
 - N-PRODUCT-14: the terminal checks always compare with the base branch. If broken, a rule quietly
-  loses its test and the team learns it only when the server refuses the pull request. Kept:
+  loses its test and the workspace learns it only when the server refuses the pull request. Kept:
   `omni bug`'s range stays `<base>..HEAD`; the head check is an extra fault. Changing it needs
   @pierrederval or @dervalp to approve the pull request on GitHub.
 - N-PRODUCT-15: only a person merges into the main branch. If broken, unreviewed work reaches every
@@ -190,7 +195,7 @@ other's lines on rebase. `blocked-by` stays `none`.
    naming each row's head; the head of one row passes.
 7. `omni bug check --product <key> <file> --body-file <b>` without `--pr` exits 2 with its usage line;
    with `--pr <owner/repo>#<n>` it refuses a sha that is not that pull request's head.
-8. A head `gh` cannot read is a fault naming the pull request, never a pass.
+8. A head `gh` cannot read prints `not judged: could not read the head of <owner/repo>#<n>: <why>`, a fault, never a pass.
 9. `/omni:pr-care`'s text says: after each push to a bug-fix pull request, run `omni bug <n>`; on a
    stale green, run the reproduction at the head and rewrite the After line, else put the pull
    request back to draft and say why in the status comment.

@@ -30,7 +30,7 @@ generated `kit/dist/` is rebuilt by the wave, never listed.
 - A produced proof whose After line cites no commit prints its own fault; a not-produced proof is
   graded as today.
 - `--body-file` with no open pull request compares with `git rev-parse HEAD`.
-- A head `gh` cannot read is one fault naming the pull request, never a pass.
+- A head `gh` cannot read is one fault, `not judged: could not read the head of <owner/repo>#<n>: <why>`, never a pass.
 
 ### s2
 - A `## Fixes` record whose proof cites a sha that is the head of none of its rows' pull requests
