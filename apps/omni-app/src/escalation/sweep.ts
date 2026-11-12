@@ -15,8 +15,9 @@
 // - **Asking never decides.** It reads and writes comments only: no review, answer, adoption, label,
 //   check run or verdict. The gate stays red until a person answers.
 //
-// It runs as a job of the ledger (./job.ts, PRD omni-loop-3 s2), re-run whole: a pull request GitHub refuses to
-// read is logged and swept again the next hour. A call the shared GitHub client refuses unsent (the
+// It runs as a job of the ledger (./job.ts, PRD omni-loop-3 s2): each repository swept is a saved step (bug #2756),
+// so a try cut short or refused carries on from the next repository; a pull request GitHub refuses to read is logged
+// and swept again the next hour. A call the shared GitHub client refuses unsent (the
 // installation's budget below its background floor, or paused: PRD 902) ends the sweep there, the refusal
 // thrown, so the job waits and sweeps again; what it already asked is never asked twice.
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -30,6 +31,7 @@ import { refusalIn } from '../approved-check/approved-check.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { listComments, readBaseConfig, type Comment, type GitHubClient } from '../outbox-check/github.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';
+import { memorySteps, savedStep, type StepRun } from '../saved-step.ts';
 import { settingsOf } from './held.ts';
 
 /** The App's own client, signed with its JWT: it lists the installations. */
@@ -49,6 +51,7 @@ const RepositoriesSchema = z.looseObject({
   repositories: z.array(z.looseObject({ name: z.string(), owner: z.looseObject({ login: z.string() }) })),
 });
 const OpenPullsSchema = z.array(z.looseObject({ number: z.number(), base: z.looseObject({ sha: z.string() }) }));
+const RepositorySweptSchema = z.object({ pulls: z.number(), asked: z.number(), failed: z.number() });
 
 const lower = (login: string): string => login.toLowerCase();
 
@@ -160,13 +163,28 @@ async function repositoriesOf(octokit: GitHubClient): Promise<Repository[]> {
 /** What one sweep did: the repositories swept, the open pull requests read, the asks posted, the pull requests left for the next hour. */
 export type Swept = RepositorySwept & { repositories: number };
 
-/** Sweeps every repository of every installation of the App, at `now`. */
-export async function sweepAll({ app, octokitFor, now, log }: { app: GitHubClient; octokitFor: OctokitFor<GitHubClient>; now: Date; log: (line: string) => void }): Promise<Swept> {
+/**
+ * Sweeps every repository of every installation of the App, at `now`; each repository a step of `step` (a run of its
+ * own unless given), so a repository a cut-short try already swept is not swept again.
+ */
+export async function sweepAll({
+  app,
+  octokitFor,
+  now,
+  log,
+  step = memorySteps(),
+}: {
+  app: GitHubClient;
+  octokitFor: OctokitFor<GitHubClient>;
+  now: Date;
+  log: (line: string) => void;
+  step?: StepRun;
+}): Promise<Swept> {
   const total: Swept = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
   for (const installation of await installationsOf(app)) {
     const octokit = await octokitFor(installation);
     for (const { owner, repo } of await repositoriesOf(octokit)) {
-      const swept = await sweepRepository(octokit, { owner, repo, now, log });
+      const swept = await savedStep(step, `repository ${owner}/${repo}`, RepositorySweptSchema, () => sweepRepository(octokit, { owner, repo, now, log }));
       total.repositories += 1;
       total.pulls += swept.pulls;
       total.asked += swept.asked;

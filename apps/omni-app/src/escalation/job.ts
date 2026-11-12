@@ -4,8 +4,9 @@
 // with 3 tries. A run lists the App's installations as the App itself, then sweeps each repository they hold
 // (./sweep.ts).
 //
-// A job re-runs whole: no step is saved, and a second run asks nobody twice (an ask already posted on a pull
-// request is never posted again). A slot the sweep missed is not added later: the next one moves every step that
+// Each repository swept is a saved step (bug #2756): a try its function cut short, or a refusal ended, carries on
+// from the next repository, and a second run asks nobody twice (an ask already posted on a pull request is never
+// posted again). A slot the sweep missed is not added later: the next one moves every step that
 // fell due since. A call the shared GitHub client refuses unsent ends the run `waiting` (../jobs/worker.ts).
 // Asking never decides: it reads and writes comments only. The payload holds the slot only, never a token
 // (L-GDPR-2).
@@ -34,12 +35,12 @@ export function escalationHandler({
   log?: (line: string) => void;
   clock?: () => number;
 }): JobHandler {
-  return async (): Promise<JobResult> => {
+  return async (_job, run): Promise<JobResult> => {
     if (appOctokit === null) {
       log('escalation: the App cannot list its installations here, so nobody is asked.');
       return { outcome: 'skipped', reason: 'no app: the App cannot list its installations here' };
     }
-    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log });
+    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log, ...(run ? { step: run.step } : {}) });
     log(sweptLine(swept));
     return { outcome: 'done' };
   };

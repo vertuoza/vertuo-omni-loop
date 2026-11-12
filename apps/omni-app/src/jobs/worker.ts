@@ -22,6 +22,12 @@
 // threw and the ledger kept the job `failed`, never on a finish refused, overtaken (`stale`) or queued again by a
 // refresh that came while it ran. A hook that throws is logged, and the run goes on.
 //
+// A run lives inside a function the host stops at its own time (bug #2756): `endsAt` says when. It claims no job
+// once less than 20 seconds of the function are left, and a job still running 5 seconds before the end is given
+// back, `waiting` a minute with its try kept, so the finish lands before the function is stopped and the job is
+// never lost to a claim that runs out. A job given back is run whole again, or from its saved steps: the handler
+// left behind is never awaited, and its later saves are refused as `stale`.
+//
 // A handler is given the job's saved steps (PRD omni-loop-4 s1, ../saved-step.ts `jobSteps`): a step that
 // finished on an earlier try, or an earlier run, gives its saved value back without running; any other is
 // saved once it ends, and the worker renews the job's claim, for its lease, after each saved step and every
@@ -35,12 +41,20 @@ import type { ClaimedJob, FinishAnswer, JobFields, JobLedger, JobOutcome } from 
 export const TIME_BUDGET_MS = 240_000;
 /** How long a claim holds a job: past it, the try is lost and the job due again. */
 export const LEASE_SECONDS = 300;
+/** How much of its function a run keeps for a job's finish: a job still running then is given back. */
+export const FINISH_MARGIN_MS = 5_000;
+/** How much of its function must be left for a run to claim a job. */
+export const CLAIM_LEFT_MS = 20_000;
+/** Why a job still running near its function's end was given back. */
+export const CUT_SHORT = 'its run was cut short: the function running it was about to stop, so its try was given back';
 /** A job's tries when it carries none: the 5th that throws is failed. */
 const MAX_TRIES = 5;
 /** The wait after the 1st, 2nd, 3rd and 4th try that threw. */
 const RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 /** The wait when GitHub's budget is low. */
 const WAIT_MINUTES = 15;
+/** The wait of a job given back because its function was about to stop. */
+const CUT_SHORT_WAIT_MINUTES = 1;
 
 const MINUTE = 60_000;
 const MAX_REASON = 500;
@@ -77,6 +91,7 @@ export async function runDue({
   clock = Date.now,
   budgetMs = TIME_BUDGET_MS,
   leaseSeconds = LEASE_SECONDS,
+  endsAt = Number.POSITIVE_INFINITY,
   log = noteTo('jobs'),
 }: {
   ledger: JobLedger;
@@ -85,24 +100,65 @@ export async function runDue({
   clock?: () => number;
   budgetMs?: number;
   leaseSeconds?: number;
+  /** When the function running this run is stopped, in ms since the epoch; none: it is never stopped (a test's). */
+  endsAt?: number;
   log?: (line: string) => void;
 }): Promise<RunSummary> {
   const summary: RunSummary = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
+  const run: RunOf = { ledger, handlers, failures, clock, leaseSeconds, endsAt, log, summary };
   const start = clock();
-  while (clock() - start < budgetMs) {
+  while (clock() - start < budgetMs && endsAt - clock() >= CLAIM_LEFT_MS) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
     if (!job) break;
-    const settled = await settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log) }, clock);
-    summary.ran += 1;
-    const kept = await keep(ledger, job, settled, log);
-    // A `later` the ledger failed (its 21st) counts, and is hooked, as the failure it became.
-    const ended = settled.outcome === 'later' && kept === 'failed' ? { ...settled, outcome: 'failed' as const, reason: TOO_MANY_LATERS } : settled;
-    if (kept === 'stale') summary.stale += 1;
-    else if (kept !== null) summary[ended.outcome] += 1;
-    if (ended !== settled) log(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
-    if (kept === 'failed') await failed(job, ended.reason, failures[job.kind], log);
+    if ((await runOne(job, run)) === 'cut short') break;
   }
   return summary;
+}
+
+/** What a run runs each job with, and the summary it counts it in. */
+type RunOf = {
+  ledger: JobLedger;
+  handlers: Readonly<Partial<Record<string, JobHandler>>>;
+  failures: Readonly<Partial<Record<string, FailureHook>>>;
+  clock: () => number;
+  leaseSeconds: number;
+  endsAt: number;
+  log: (line: string) => void;
+  summary: RunSummary;
+};
+
+/** Runs one claimed job and records how its try ended; `cut short` when its function was about to stop first. */
+async function runOne(job: ClaimedJob, { ledger, handlers, failures, clock, leaseSeconds, endsAt, log, summary }: RunOf): Promise<'ran' | 'cut short'> {
+  const settling = settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log) }, clock);
+  const settled = (await within(settling, endsAt - FINISH_MARGIN_MS - clock())) ?? cutShort(clock);
+  summary.ran += 1;
+  const kept = await keep(ledger, job, settled, log);
+  // A `later` the ledger failed (its 21st) counts, and is hooked, as the failure it became.
+  const ended = settled.outcome === 'later' && kept === 'failed' ? { ...settled, outcome: 'failed' as const, reason: TOO_MANY_LATERS } : settled;
+  if (kept === 'stale') summary.stale += 1;
+  else if (kept !== null) summary[ended.outcome] += 1;
+  if (ended !== settled) log(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+  if (kept === 'failed') await failed(job, ended.reason, failures[job.kind], log);
+  return settled.reason === CUT_SHORT ? 'cut short' : 'ran';
+}
+
+/** A job given back because its function was about to stop: waiting a minute, its try kept. */
+const cutShort = (clock: () => number): Settled => ({ outcome: 'waiting', reason: CUT_SHORT, retryAt: later(clock, CUT_SHORT_WAIT_MINUTES) });
+
+/** What `settling` settles to, or null when it has not within `ms` (none left: at once; unbounded: always awaited). */
+async function within(settling: Promise<Settled>, ms: number): Promise<Settled | null> {
+  if (ms === Number.POSITIVE_INFINITY) return settling;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cut = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(null);
+    }, Math.max(0, ms));
+  });
+  try {
+    return await Promise.race([settling, cut]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Runs the kind's failure hook, if it has one; a hook that throws is logged. */
