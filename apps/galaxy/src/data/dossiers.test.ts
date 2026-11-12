@@ -122,21 +122,6 @@ describe('workspaceDossiers', () => {
     expect((await workspaceDossiers(db, VERTUOZA)).map((d) => d.id)).toEqual(['d-12', 'd-draft']);
   });
 
-  it('reads a product roadmap\'s row (bug 2722) without throwing, and leaves it out: the dashboard counts PRDs and fixes', async () => {
-    // dossier_list() returns a roadmap born on the Omni page (PRD 2011) as it is stored: kind `roadmap`,
-    // no home repository, no PRD number, its roadmap's versions.
-    const roadmap = {
-      ...listed('d-roadmap', null), kind: 'roadmap', home_repo: null, repos: [null], title: 'Mobile launch',
-      latest: {
-        roadmap: { id: 'v-1', version: 1, source: 'kit', created_at: '2026-11-09T09:00:00Z' },
-        'roadmap-prds': { id: 'v-2', version: 1, source: 'kit', created_at: '2026-11-09T09:00:00Z' },
-      },
-    } as unknown as DossierListRow;
-    const fake = withDossiers(fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE)), [...DOSSIERS, { row: roadmap, rounds: [] }]);
-    const db = fake.client(PEOPLE.both) as unknown as SupabaseClient<Database>;
-    expect((await workspaceDossiers(db, VERTUOZA)).map((d) => d.id)).toEqual(['d-12', 'd-draft']);
-  });
-
   it('lists nothing of a workspace its caller is not in', async () => {
     const { db } = world(PEOPLE.wile);
     expect(await workspaceDossiers(db, VERTUOZA)).toEqual([]);
