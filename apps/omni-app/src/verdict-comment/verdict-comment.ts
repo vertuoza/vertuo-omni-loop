@@ -2,13 +2,12 @@
 // each say "nothing worth a PR" in a comment of their own on the merged feature PR. The comment is
 // found by its marker and edited in place, or created when there is none, so a replay rewrites it
 // and never adds a second. Each caller keeps its own marker: two functions finishing at once never
-// edit each other's comment.
-import { CommentIdSchema, type CommentId, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+// edit each other's comment. Their failure hooks (`failureCommentHook`) keep the "could not run" comment the same way.
+import type { CommentId, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { CommentWrittenSchema, type GitHubClient } from '../outbox-check/github-schema.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { savedStep, type StepRun } from '../saved-step.ts';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 /**
  * Creates or rewrites the comment carrying `marker` on pull request `prNumber`. Its body is the
@@ -39,31 +38,19 @@ export async function upsertComment(
   return { commentId: CommentWrittenSchema.parse(data).id, created: true };
 }
 
-/** What a failed run's event names of its merged PR: the installation and the repository. */
-type FailedMerge = { installationId: number; owner?: string | undefined; repo?: string | undefined };
-
-/** What a failure handler's comment step returns: the comment, the reason it gives, and whether it is new. */
-export const FailureCommentSchema = z.object({ commentId: CommentIdSchema, reason: z.string(), created: z.boolean() });
-
-/** The step a failure handler comments in. */
-const COMMENT_FAILURE_STEP = 'comment-failure';
-
 /**
- * A failure handler's comment on the merged PR: `comment` runs with the installation's GitHub and the
- * PR's repository, in the step "comment-failure" (or directly, when it is called without steps), and
- * what it returns is read back through `schema`. A failure event that names no repository fails, as
- * the GitHub call it would have made always has.
+ * A kind's failure hook that comments on the merged PR its job's payload names (PRD omni-loop-4: the knowledge
+ * harvest's and the retro's): once the job ended failed, one comment, "<what> could not run: <reason>", under
+ * `marker`, rewritten in place on a later failure, never a second one. A payload `schema` does not read leaves none.
  */
-export function commentOnFailure<Client, T>(
-  octokitFor: OctokitFor<Client>,
-  step: Partial<StepRun> | null | undefined,
-  { installationId, owner, repo }: FailedMerge,
-  schema: z.ZodType<T>,
-  comment: (octokit: Client, where: { owner: string; repo: string }) => Promise<T>,
-): Promise<T> {
-  const run = async (): Promise<T> => {
-    if (!owner || !repo) throw new Error('The failed run names no repository to comment on');
-    return comment(await octokitFor(installationId), { owner, repo });
+export function failureCommentHook(
+  octokitFor: OctokitFor<GitHubClient>,
+  { schema, marker, what }: { schema: z.ZodType<{ installationId: number; owner: string; repo: string; prNumber: PrNumber }>; marker: string; what: string },
+): (job: { payload: unknown }, reason: string) => Promise<void> {
+  return async (job, reason) => {
+    const failed = schema.safeParse(job.payload);
+    if (!failed.success) return;
+    const { installationId, owner, repo, prNumber } = failed.data;
+    await upsertComment(await octokitFor(installationId), { owner, repo, prNumber, marker, text: `${what} could not run: ${reason}` });
   };
-  return step?.run ? savedStep({ run: step.run }, COMMENT_FAILURE_STEP, schema, run) : run();
 }

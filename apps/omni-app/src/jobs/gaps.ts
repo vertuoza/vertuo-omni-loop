@@ -14,6 +14,15 @@
 // low budget stops the whole comparison, the repositories left for the next hour. A repository GitHub otherwise
 // refuses is logged and the others go on. Nothing is written on GitHub; the lookup of the installation is the
 // App's own call.
+//
+// A retro owed at the switch (PRD omni-loop-4 s3, spec "What is owed at the switch"): then, unless the pack's rule
+// stopped, for each repository of each installation of the App (the App's own call lists them) it reads one page of
+// the pull requests closed into the default branch, the latest updated first, and adds a `retro` job, `owed`, for
+// each feature PR (its head matching `branches.feature` of the config at the default branch) merged in the last
+// `THRESHOLDS.afterMergeDays` days. The config is read only when one merged in that window. The ledger keys the job
+// as `/api/github` does, so a retro already added, done or waiting for its day 14, is never added twice; the job
+// itself publishes nothing again when its retro PR or verdict comment exists (../retro/retro.ts). The same budget
+// stops it; a repository GitHub otherwise refuses is counted and logged, and the others go on.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { z } from 'zod';
 import { CONFIG_FILE } from 'omni-loop/kit/lib/config.ts';
@@ -22,6 +31,10 @@ import type { RequestOctokit } from '../knowledge-harvest/github.ts';
 import { configAt } from '../knowledge-pack/github.ts';
 import { packPaths } from '../knowledge-pack/paths.ts';
 import type { OctokitFor } from '../octokit-for.ts';
+import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { THRESHOLDS } from '../retro/rules.ts';
+import { topicOf } from '../retro/qualify.ts';
+import { retroJob } from '../retro/retro.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import type { Ledger } from './ledger.ts';
@@ -43,7 +56,15 @@ export type GapsSummary = {
   failed: number;
   /** GitHub's budget was low: the comparison stopped there. */
   stopped: boolean;
+  /**
+   * The retro's rule (PRD omni-loop-4 s3): the repositories it read, the owed `retro` jobs it added, and the
+   * repositories (or the App's list of installations) GitHub refused. Absent when the pack's rule stopped first.
+   */
+  retros?: RetrosSummary;
 };
+
+/** What the retro's rule did. */
+type RetrosSummary = { read: number; added: number; failed: number };
 
 const HeldRowSchema = z.object({ repository: z.string().min(1) });
 const PackRowSchema = z.object({ repository: z.string().min(1), sha: z.string().min(1), committed_at: z.string().min(1) });
@@ -108,12 +129,15 @@ export async function compareGaps({
   ledger,
   appOctokit,
   octokitFor,
+  now = Date.now,
   log = noteTo('jobs'),
 }: {
   store: GapsStore;
   ledger: Pick<Ledger, 'add'>;
   appOctokit: () => Promise<RequestOctokit> | RequestOctokit;
   octokitFor: OctokitFor<RequestOctokit>;
+  /** The clock the retro's window is read on. */
+  now?: () => number;
   log?: (line: string) => void;
 }): Promise<GapsSummary> {
   const summary: GapsSummary = { read: 0, added: 0, skipped: 0, failed: 0, stopped: false };
@@ -124,16 +148,110 @@ export async function compareGaps({
       if (outcome === 'added') summary.added += 1;
       else if (outcome === 'skipped') summary.skipped += 1;
     } catch (error) {
-      if (budgetRefused(error)) {
-        summary.stopped = true;
-        log('the comparison stopped: GitHub\'s budget is low, the rest waits for the next hour');
-        break;
-      }
+      if (budgetRefused(error)) return stoppedBy(summary, log);
       summary.failed += 1;
-      log(`the comparison could not read ${held.repository}: ${(error instanceof Error ? error.message : String(error)).split('\n')[0] ?? ''}`);
+      log(`the comparison could not read ${held.repository}: ${firstLine(error)}`);
     }
   }
+  summary.retros = { read: 0, added: 0, failed: 0 };
+  try {
+    await addOwedRetros(summary.retros, { ledger, appOctokit, octokitFor, now, log });
+  } catch (error) {
+    if (!budgetRefused(error)) throw error;
+    return stoppedBy(summary, log);
+  }
   return summary;
+}
+
+/** The summary of a comparison GitHub's budget stopped, said in the log. */
+function stoppedBy(summary: GapsSummary, log: (line: string) => void): GapsSummary {
+  log('the comparison stopped: GitHub\'s budget is low, the rest waits for the next hour');
+  return { ...summary, stopped: true };
+}
+
+/** An error's first line. */
+const firstLine = (error: unknown): string => (error instanceof Error ? error.message : String(error)).split('\n')[0] ?? '';
+
+const InstallationsSchema = z.array(z.looseObject({ id: z.number().int().positive() }));
+const InstalledSchema = z.looseObject({
+  repositories: z.array(z.looseObject({ name: z.string().min(1), owner: z.looseObject({ login: z.string().min(1) }), default_branch: z.string().min(1) })),
+});
+const ClosedPullsSchema = z.array(
+  z.looseObject({
+    number: PrNumberSchema,
+    merged_at: z.string().nullish(),
+    merge_commit_sha: z.string().nullish(),
+    head: z.looseObject({ ref: z.string() }),
+  }),
+);
+
+const PER_PAGE = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Every item of a paginated list, `page(n)` giving one page's items, 30 pages at most. */
+async function everyPage<T>(page: (n: number) => Promise<readonly T[]>): Promise<T[]> {
+  const all: T[] = [];
+  for (let n = 1; n <= 30; n += 1) {
+    const items = await page(n);
+    all.push(...items);
+    if (items.length < PER_PAGE) break;
+  }
+  return all;
+}
+
+/**
+ * The retro's rule: an owed `retro` job for each feature PR merged in the window, in each repository of each
+ * installation of the App. A refusal for a low budget is thrown to the caller; any other is counted in `summary`.
+ */
+async function addOwedRetros(
+  summary: RetrosSummary,
+  { ledger, appOctokit, octokitFor, now, log }: { ledger: Pick<Ledger, 'add'>; appOctokit: () => Promise<RequestOctokit> | RequestOctokit; octokitFor: OctokitFor<RequestOctokit>; now: () => number; log: (line: string) => void },
+): Promise<void> {
+  let installations: number[];
+  try {
+    const app = await appOctokit();
+    installations = (await everyPage(async (page) => InstallationsSchema.parse((await app.request('GET /app/installations', { per_page: PER_PAGE, page })).data))).map(({ id }) => id);
+  } catch (error) {
+    if (budgetRefused(error)) throw error;
+    summary.failed += 1;
+    log(`the comparison could not list the App's installations for the retros owed: ${firstLine(error)}`);
+    return;
+  }
+  for (const installationId of installations) {
+    const octokit = await octokitFor(installationId);
+    const repositories = await everyPage(async (page) => InstalledSchema.parse((await octokit.request('GET /installation/repositories', { per_page: PER_PAGE, page })).data).repositories);
+    for (const { name: repo, owner: { login: owner }, default_branch: branch } of repositories) {
+      try {
+        summary.added += await owedIn(octokit, { installationId, owner, repo, branch, since: now() - THRESHOLDS.afterMergeDays * DAY_MS, ledger, log });
+        summary.read += 1;
+      } catch (error) {
+        if (budgetRefused(error)) throw error;
+        summary.failed += 1;
+        log(`the comparison could not read the retros owed in ${owner}/${repo}: ${firstLine(error)}`);
+      }
+    }
+  }
+}
+
+/** The owed `retro` jobs added in one repository: its feature PRs merged into `branch` since `since`. */
+async function owedIn(
+  octokit: RequestOctokit,
+  { installationId, owner, repo, branch, since, ledger, log }: { installationId: number; owner: string; repo: string; branch: string; since: number; ledger: Pick<Ledger, 'add'>; log: (line: string) => void },
+): Promise<number> {
+  const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls', { owner, repo, state: 'closed', base: branch, sort: 'updated', direction: 'desc', per_page: PER_PAGE, page: 1 });
+  const merged = ClosedPullsSchema.parse(data).filter((pull) => pull.merge_commit_sha && pull.merged_at && Date.parse(pull.merged_at) >= since);
+  if (merged.length === 0) return 0;
+  const read = await configAt(octokit, { owner, repo, sha: branch });
+  if ('none' in read) {
+    log(`the comparison leaves the retros of ${owner}/${repo} alone: ${read.none}`);
+    return 0;
+  }
+  let added = 0;
+  for (const pull of merged.filter(({ head }) => topicOf(head.ref, read.config.branches.feature) !== null)) {
+    const job = retroJob({ installationId, owner, repo, prNumber: pull.number, mergeSha: pull.merge_commit_sha ?? '', mergedAt: pull.merged_at ?? null, owed: true });
+    if (await ledger.add(job)) added += 1;
+  }
+  return added;
 }
 
 async function compareOne(

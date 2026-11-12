@@ -1,7 +1,7 @@
 // `/api/github`'s handlers (PRD 1059): a Vercel function in the web-standard shape (a `Request` in, a
 // `Response` out), bound to the groups of the app's environment it needs (../env.ts). It reads the raw
 // body — the signature is over the exact bytes — lets `receiveWebhook` verify and filter it, sends the
-// resulting events, the main watch's (PRD 2410) among them, on the app's Inngest client, and forwards
+// resulting events, the main watch's (PRD 2410), the only ones left, on the app's Inngest client, and forwards
 // a stage event to galaxy, signed with `STAGE_EVENT_SECRET`, and each touch to galaxy's
 // `/api/github/touched`, signed the same way (PRD 902, s3). The webhook secret is `GITHUB_WEBHOOK_SECRET`, required in production; unset
 // elsewhere, every delivery is refused (fail closed).
@@ -12,7 +12,8 @@
 // failure is logged and the delivery goes on (the sweep's comparison repairs it).
 //
 // The fix row stamp (PRD 2011 s7) and the fleet board (PRD 2530), PRD omni-loop-3 s3: a pull request merged, closed or
-// reopened adds its `fix-row-stamp` job, and a loop pull request into the default branch its `fleet-board` job, on
+// reopened adds its `fix-row-stamp` job, a merge into the default branch its `knowledge-harvest` and `retro` jobs
+// (PRD omni-loop-4 s2, s3), and a loop pull request into the default branch its `fleet-board` job, on
 // any repository the App is installed on, before anything goes to Inngest; so does a click of a canon button (PRD
 // 839) its `canon-action` job (PRD omni-loop-3 s4). A database that refuses answers 500, so
 // GitHub's redelivery adds the job then; once the delivery is answered, the jobs due run in `waitUntil`.
@@ -197,7 +198,6 @@ export function githubRoute(
         body: text,
         headers: request.headers,
         secret: env.webhook?.secret,
-        send,
         ...delivery.hooks,
         sendWatch: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),

@@ -1,16 +1,14 @@
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { failing } from '../../../test/github-replay.ts';
 import { JUDGE_ENV, MERGE_SHA, judge, mergeFiles } from '../../../test/retro-scenario.ts';
-import { inngest } from '../../inngest-client.ts';
 import { listPullsInto } from '../github.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { churn } from './churn.ts';
 import type { RetroPull } from './index.ts';
-import { handles, replay, retroFunction, scenario } from './test/handles.ts';
+import { handles, replay, retroRun, scenario } from './test/handles.ts';
 import {
   FEATURE,
   GET_COMMIT,
@@ -350,8 +348,7 @@ describe('churn — in the retro', () => {
       subPulls: [UNMERGED, ...SUB_PULLS],
       recording,
     });
-    const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge() });
-    const { result, error } = await new InngestTestEngine({ function: fn, events: [widget.event] }).execute();
+    const { result, error } = await retroRun({ octokitFor: () => widget.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge() }, widget);
     expect(error).toBeUndefined();
     expect((result as { findings: number }).findings).toBe(4);
 

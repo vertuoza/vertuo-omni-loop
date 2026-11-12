@@ -44,7 +44,7 @@ import type { NewJob } from '../jobs/ledger.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { qualify } from '../retro/qualify.ts';
-import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
+import { failureCommentHook, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import type { Classification, LawQuestion } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
 import type { ChangedFile, LawIssue, LawWorth } from 'omni-loop/kit/lib/knowledge/write.ts';
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
@@ -356,14 +356,5 @@ export async function harvest(
  * "The knowledge harvest could not run: <reason>", rewritten in place on a later failure, never a second one.
  */
 export function harvestFailureHook({ octokitFor }: { octokitFor: OctokitFor<RequestOctokit> }): FailureHook {
-  return async (job, reason) => {
-    const failed = HarvestEventSchema.safeParse(job.payload);
-    if (!failed.success) return;
-    const { installationId, owner, repo, prNumber } = failed.data;
-    const text = `The knowledge harvest could not run: ${reason}`;
-    await commentOnFailure(octokitFor, null, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
-      const posted = await upsertComment(octokit, { ...where, prNumber, marker: FAILURE_MARKER, text });
-      return { ...posted, reason };
-    });
-  };
+  return failureCommentHook(octokitFor, { schema: HarvestEventSchema, marker: FAILURE_MARKER, what: 'The knowledge harvest' });
 }

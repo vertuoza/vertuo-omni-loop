@@ -1,10 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { inngest } from '../inngest-client.ts';
-import { widgetScenario } from '../../test/retro-scenario.ts';
+import { retroRunner, widgetScenario } from '../../test/retro-scenario.ts';
 import { dig } from 'omni-loop/kit/bin/dig.ts';
 import { LOOK_RULE } from 'omni-loop/kit/lib/knowledge/look-rule.ts';
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
@@ -21,7 +19,6 @@ import {
   modelInput,
   narrate,
 } from './narrate.ts';
-import { createRetro } from './retro.ts';
 import type { NarrateInput, NarrateSheet } from './narrate.ts';
 import { LIMITS } from './rules.ts';
 import { readEnv } from '../env.ts';
@@ -452,9 +449,9 @@ describe('narrate — what the model is given', () => {
 });
 
 describe('the function’s time limit', () => {
-  it('gives api/inngest.mjs a maxDuration above a minute, with room for the model’s whole budget', () => {
+  it('gives api/jobs-sweep.mjs, which runs the retro jobs the webhook leaves, a maxDuration above a minute, with room for the model’s whole budget', () => {
     const vercel = vercelJson(new URL('../../vercel.json', import.meta.url));
-    const seconds = defined(vercel.functions['api/inngest.mjs'], 'api/inngest.mjs in vercel.json').maxDuration;
+    const seconds = defined(vercel.functions['api/jobs-sweep.mjs'], 'api/jobs-sweep.mjs in vercel.json').maxDuration;
     expect(seconds).toBeGreaterThan(60);
     expect(MODEL_CALL.budgetMs).toBeLessThan(seconds * 1000);
   });
@@ -468,20 +465,20 @@ describe('the function’s time limit', () => {
   });
 });
 
-describe('narrate and guard in the retro function', () => {
+describe('narrate and guard in the retro job', () => {
   const FOLDER = '.omni-loop/delivery/shipped/0007-widget';
   const BRANCH = 'docs/retro-widget';
 
-  /** Runs the real function against the stubbed GitHub, with `fetch` stubbed; the pauses between tries skipped. */
+  /** Runs the real retro job against the stubbed GitHub, with `fetch` stubbed; the pauses between tries skipped. */
   async function runRetro(fetch: typeof globalThis.fetch) {
     const scenario = widgetScenario();
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(KEY).openrouter });
+    const runner = retroRunner({ octokitFor: () => scenario.github.octokit, openrouter: readEnv(KEY).openrouter }, scenario.job);
     vi.stubGlobal('fetch', fetch);
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     try {
       // Set from the promise's callback: an object, so the loop reads it afresh on each turn.
       const progress = { settled: false };
-      const run = new InngestTestEngine({ function: fn, events: [scenario.event] }).execute().finally(() => {
+      const run = runner.execute().finally(() => {
         progress.settled = true;
       });
       while (!progress.settled) await vi.advanceTimersByTimeAsync(1000);

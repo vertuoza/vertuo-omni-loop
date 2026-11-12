@@ -1,7 +1,6 @@
 import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { z } from 'zod';
@@ -9,13 +8,11 @@ import { dig } from 'omni-loop/kit/bin/dig.ts';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { at, group } from 'omni-loop/kit/lib/narrow.ts';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { inngest } from '../inngest-client.ts';
 import { replayGitHub } from '../../test/github-replay.ts';
-import { FEATURE, JUDGE_ENV, OWNER, REPO, judge, widgetScenario } from '../../test/retro-scenario.ts';
+import { FEATURE, JUDGE_ENV, OWNER, REPO, judge, retroRunner, widgetScenario } from '../../test/retro-scenario.ts';
 import { detect } from './detect.ts';
 import { issueMarker, publishIssues, renderIssue } from './issues.ts';
 import { timeline } from './kinds/timeline.ts';
-import { createRetro } from './retro.ts';
 import { ISSUES_PER_RUN, refusedWordsIn } from './rules.ts';
 import type { Config, FactSheet, FeaturePull, Finding, PrdFacts, Prose } from './retro.types.ts';
 import type { Kind } from './kinds/index.ts';
@@ -396,12 +393,11 @@ describe('renderIssue', () => {
   });
 });
 
-describe('the retro function — its issues', () => {
+describe('the retro job — its issues', () => {
   /** The widget scenario, its timeline plus the seven findings above: eight findings, the slow slice once. */
   function engine(scenario: Scenario) {
     const kinds = [timeline as unknown as Kind, found(FOUND)];
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge(), kinds });
-    return new InngestTestEngine({ function: fn, events: [scenario.event] });
+    return retroRunner({ octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge(), kinds }, scenario.job);
   }
   const markdown = (github: Stub) => github.filesAt(BRANCH, [RETRO_PATH])[RETRO_PATH];
 

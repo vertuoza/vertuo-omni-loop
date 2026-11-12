@@ -2,11 +2,19 @@
 // built in three slices over two waves and merged through feature PR #12. Each part can be swapped:
 // the config, where the PRD folder sits, the feature PR, its sub-PRs and its issue events. Test
 // support only; nothing in the app imports it.
+//
+// `retroRunner` runs the retro's job as the worker runs it (PRD omni-loop-4 s3): each run under a fresh claim, its
+// steps saved on a fake ledger, on a clock the test sets, so the merge run, fourteen days, and the day-14 run are
+// two runs of one job.
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { z } from 'zod';
-import { RETRO_EVENT } from '../src/inngest-client.ts';
+import type { NewJob } from '../src/jobs/ledger.ts';
+import type { JobResult } from '../src/jobs/worker.ts';
+import { jobResultOf, retro, retroJob, RetroPayloadSchema, type RetroDeps } from '../src/retro/retro.ts';
+import { jobSteps, type StepRun } from '../src/saved-step.ts';
 import { type Recorded, replayGitHub } from './github-replay.ts';
+import { fakeStepLedger } from './saved-steps.ts';
 
 export const OWNER = 'acme';
 export const REPO = 'widgets';
@@ -141,7 +149,7 @@ export type ScenarioOptions = {
   recording?: readonly Recorded[];
 };
 
-/** The stubbed GitHub and the retro event for one scenario. */
+/** The stubbed GitHub and the retro job for one scenario. */
 export function widgetScenario({ files = mergeFiles(), feature = FEATURE, subPulls = SUB_PULLS, events = FEATURE_EVENTS, recording = [] }: ScenarioOptions = {}) {
   const github = replayGitHub({
     commits: { [MERGE_SHA]: files },
@@ -149,23 +157,93 @@ export function widgetScenario({ files = mergeFiles(), feature = FEATURE, subPul
     events: events ? { [feature.number]: events } : {},
     recording,
   });
-  return { github, event: retroEvent({ prNumber: parsePr(feature.number), mergeSha: feature.merge_commit_sha ?? MERGE_SHA, mergedAt: feature.merged_at ?? MERGED_AT }) };
+  return { github, job: retroJobOf({ prNumber: parsePr(feature.number), mergeSha: feature.merge_commit_sha ?? MERGE_SHA, mergedAt: feature.merged_at ?? MERGED_AT }) };
 }
 
-export function retroEvent(over = {}) {
+/** Where and when the scenario's feature PR merged, as `/api/github` reads it from the delivery: `over` changes it. */
+export function retroPayload(over = {}) {
   return {
-    name: RETRO_EVENT,
-    data: {
-      installationId: 7,
-      owner: OWNER,
-      repo: REPO,
-      repository: `${OWNER}/${REPO}`,
-      prNumber: parsePr(12),
-      mergeSha: MERGE_SHA,
-      mergedAt: MERGED_AT,
-      ...over,
+    installationId: 7,
+    owner: OWNER,
+    repo: REPO,
+    repository: `${OWNER}/${REPO}`,
+    prNumber: parsePr(12),
+    mergeSha: MERGE_SHA,
+    mergedAt: MERGED_AT,
+    ...over,
+  };
+}
+
+/** The retro job of the merge `retroPayload(over)` says, as `/api/github` adds it. */
+export function retroJobOf(over = {}): NewJob {
+  return retroJob(RetroPayloadSchema.parse(retroPayload(over)));
+}
+
+const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
+
+/** A minute after the merge, when the merge run runs. */
+const AT_MERGE = Date.parse(MERGED_AT) + MINUTE;
+
+/** `days` days after the merge, on the clock a run reads. */
+export const daysAfter = (days: number) => Date.parse(MERGED_AT) + days * DAY;
+
+/**
+ * One run of a retro job: what the retro returned, or the error it threw; how its job ended (`outcome`); the id of
+ * every step it went through, in order, whether it ran or gave back its saved value (`ran`); and the steps it saved
+ * (`saved`).
+ */
+export type RetroRan = { result: unknown; error: unknown; outcome: JobResult | null; ran: string[]; saved: string[] };
+
+/**
+ * The retro's job, run as the worker runs it: each `execute` is one run under a fresh claim, its steps saved on
+ * `ledger`, on a clock reading `at` (a minute after the merge unless given). `alter` changes a saved value as it is
+ * read back, as a deploy between two runs would.
+ */
+export function retroRunner(
+  deps: RetroDeps,
+  job: NewJob,
+  { ledger = fakeStepLedger(), alter = (_id: string, value: unknown) => value }: { ledger?: ReturnType<typeof fakeStepLedger>; alter?: (id: string, value: unknown) => unknown } = {},
+) {
+  let claims = 0;
+  return {
+    ledger,
+    async execute({ at = AT_MERGE }: { at?: number } = {}): Promise<RetroRan> {
+      claims += 1;
+      const steps = jobSteps({ ledger: ledger.ledger, job: { id: job.key, claim: `claim-${String(claims)}` }, renewEveryMs: 3_600_000 });
+      const ran: string[] = [];
+      const before = ledger.calls.saved.length;
+      const step: StepRun = {
+        run: async (id, fn) => {
+          ran.push(id);
+          return alter(id, await steps.run(id, fn));
+        },
+      };
+      const saved = () => ledger.calls.saved.slice(before).map((line) => line.slice(line.indexOf(' ') + 1));
+      try {
+        const result = await retro({ ...deps, now: () => at }, job.payload, step);
+        return { result, error: undefined, outcome: jobResultOf(result), ran, saved: saved() };
+      } catch (error) {
+        return { result: undefined, error, outcome: null, ran, saved: saved() };
+      }
     },
   };
+}
+
+/**
+ * A retro with its day-14 run, through its fourteen days: the merge run, which ends `later`; `onWake`, to change
+ * what GitHub holds in between; then the run at `day` days after the merge (14 unless given). Both runs are given.
+ */
+export async function fourteenDays(
+  deps: RetroDeps,
+  job: NewJob,
+  { onWake = () => undefined, day = 14, ledger }: { onWake?: () => void; day?: number; ledger?: ReturnType<typeof fakeStepLedger> } = {},
+): Promise<{ merge: RetroRan; later: RetroRan }> {
+  const runner = retroRunner({ ...deps, followUp: true }, job, ledger ? { ledger } : {});
+  const merge = await runner.execute();
+  onWake();
+  const later = await runner.execute({ at: daysAfter(day) });
+  return { merge, later };
 }
 
 /** The environment that lets the retro ask its judge: a model key, never sent anywhere (see `judge`). */
@@ -183,7 +261,7 @@ const JudgeRequest = z.object({ messages: z.array(z.object({ content: z.string()
 const JudgeInput = z.object({ findings: z.array(z.object({ id: z.string() })) });
 
 /**
- * A stubbed model for the retro's judge (PRD 487), handed to `createRetro` as its `fetch`: it
+ * A stubbed model for the retro's judge (PRD 487), handed to the retro as its `fetch`: it
  * answers every request with a reply about exactly the findings it was asked about, keeping those
  * `keep(id)` accepts, and says the retro is worth a pull request when `worthIt` and one is kept.
  * Each request's user message is kept in `fetch.asked`, parsed. Nothing reaches OpenRouter.

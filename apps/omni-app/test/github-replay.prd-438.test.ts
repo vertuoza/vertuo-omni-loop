@@ -1,17 +1,16 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { inngest, RETRO_EVENT } from '../src/inngest-client.ts';
-import { VERDICT_MARKER, createRetro } from '../src/retro/retro.ts';
+import { VERDICT_MARKER, retroJob, type RetroDeps } from '../src/retro/retro.ts';
 import { Recording, replayGitHub } from './github-replay.ts';
-import { JUDGE_ENV, judge } from './retro-scenario.ts';
+import { JUDGE_ENV, judge, retroRunner } from './retro-scenario.ts';
 import { readEnv } from '../src/env.ts';
 
 // PRD 438, recorded (PRD 487, "Test seams"): feature PR #440 and its sub-PRs as GitHub returned them,
-// replayed offline through the real retro function with a model reply that keeps nothing. Its retro
+// replayed offline through the real retro job (PRD omni-loop-4 s3) with a model reply that keeps nothing. Its retro
 // PR (#467) was closed unmerged: every finding repeated a known pattern. Replayed today, the same
 // findings end in one comment on #440, and no branch, no PR and no issue.
 const FIXTURE = fileURLToPath(new URL('./fixtures/prd-438/', import.meta.url));
@@ -19,22 +18,14 @@ const recording = Recording.parse(JSON.parse(readFileSync(`${FIXTURE}recording.j
 
 const BRANCH = 'docs/retro-app-sidebar';
 
+const JOB = retroJob({ installationId: 1, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(440), mergeSha: recording.mergeSha, mergedAt: recording.mergedAt });
+
+/** One run of the retro job of #440 over `deps`, its steps saved for that run alone. */
+const runOnce = (deps: RetroDeps) => retroRunner(deps, JOB).execute();
+
 async function replay(fetch = judge({ worthIt: false, reason: 'Every finding repeats a pattern the knowledge already names.' })) {
   const github = replayGitHub({ recording: recording.requests });
-  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch });
-  const event = {
-    name: RETRO_EVENT,
-    data: {
-      installationId: 1,
-      owner: 'vertuoza',
-      repo: 'vertuo-omni-loop',
-      repository: 'vertuoza/vertuo-omni-loop',
-      prNumber: 440,
-      mergeSha: recording.mergeSha,
-      mergedAt: recording.mergedAt,
-    },
-  };
-  const { result, error } = await new InngestTestEngine({ function: fn, events: [event] }).execute();
+  const { result, error } = await runOnce({ octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch });
   return { github, result, error, fetch, comments: github.state.comments.filter((comment) => comment.issue === 440) };
 }
 
@@ -87,8 +78,7 @@ describe('the PRD 438 recording, replayed offline with a reply that keeps nothin
   it('queues no runner job: the retro keeps no lesson, so nothing waits to be settled (PRD 2338)', async () => {
     const github = replayGitHub({ recording: recording.requests });
     const queued: unknown[] = [];
-    const fn = createRetro({
-      client: inngest,
+    const { result, error } = await runOnce({
       octokitFor: () => github.octokit,
       openrouter: readEnv(JUDGE_ENV).openrouter,
       fetch: judge({ worthIt: false }),
@@ -97,8 +87,6 @@ describe('the PRD 438 recording, replayed offline with a reply that keeps nothin
         return Promise.resolve({ job: 'job-1', created: true, reason: null });
       },
     });
-    const event = { name: RETRO_EVENT, data: { installationId: 1, owner: 'vertuoza', repo: 'vertuo-omni-loop', repository: 'vertuoza/vertuo-omni-loop', prNumber: 440, mergeSha: recording.mergeSha, mergedAt: recording.mergedAt } };
-    const { result, error } = await new InngestTestEngine({ function: fn, events: [event] }).execute();
     expect(error).toBeUndefined();
     expect(result).toMatchObject({ prd: 438, verdict: 'no new lesson' });
     expect(queued).toEqual([]);
@@ -106,24 +94,7 @@ describe('the PRD 438 recording, replayed offline with a reply that keeps nothin
 
   it('a replay of the replay rewrites the one comment in place', async () => {
     const github = replayGitHub({ recording: recording.requests });
-    const run = () =>
-      new InngestTestEngine({
-        function: createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge({ worthIt: false }) }),
-        events: [
-          {
-            name: RETRO_EVENT,
-            data: {
-              installationId: 1,
-              owner: 'vertuoza',
-              repo: 'vertuo-omni-loop',
-              repository: 'vertuoza/vertuo-omni-loop',
-              prNumber: 440,
-              mergeSha: recording.mergeSha,
-              mergedAt: recording.mergedAt,
-            },
-          },
-        ],
-      }).execute();
+    const run = () => runOnce({ octokitFor: () => github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge({ worthIt: false }) });
     await run();
     await run();
     expect(github.state.comments.filter((comment) => comment.issue === 440)).toHaveLength(1);

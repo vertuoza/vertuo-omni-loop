@@ -1,18 +1,13 @@
-import { InngestTestEngine, mockCtx } from '@inngest/test';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { inngest } from '../inngest-client.ts';
-import { savingRun } from '../../test/saved-steps.ts';
-import { JUDGE_ENV, SUB_PULLS, judge, mergeFiles, widgetScenario } from '../../test/retro-scenario.ts';
-import { DAY_14, FIX_PULLS, ISSUES, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.ts';
+import { JUDGE_ENV, SUB_PULLS, daysAfter, judge, mergeFiles, retroRunner, widgetScenario } from '../../test/retro-scenario.ts';
+import { FIX_PULLS, ISSUES, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.ts';
 import { GITATTRIBUTES, UNMERGED, churnRecording } from './kinds/churn.fixtures/delivery.ts';
 import { KINDS } from './kinds/index.ts';
 import { ChurnAtMergeSchema } from './kinds/records.ts';
 import { ModelReplySchema } from './narrate.ts';
-import { CLOCK_STEP, DAY_EVENT, FOLLOW_UP_STEP, createRetro } from './retro.ts';
 import {
-  ClockSchema,
   CommentedSchema,
   FactSheetSchema,
   GuardedSchema,
@@ -26,10 +21,10 @@ import {
 } from './retro.schema.ts';
 import { readEnv } from '../env.ts';
 
-/** Every value a retro's steps saved, by step id, as Inngest reads them back: JSON, and back. */
+/** Every value a retro's steps saved, by step id, as the ledger reads them back: JSON, and back. */
 type Saved = Map<string, unknown>;
 
-/** A run of the retro, both its runs, every step's value kept as it was saved. */
+/** A retro job, both its runs, every step's value kept as it was saved and read back. */
 async function savedValues({ env = JUDGE_ENV }: { env?: Record<string, string | undefined> } = {}): Promise<Saved> {
   const scenario = widgetScenario({
     files: { ...mergeFiles(), '.gitattributes': GITATTRIBUTES },
@@ -39,18 +34,13 @@ async function savedValues({ env = JUDGE_ENV }: { env?: Record<string, string | 
   scenario.github.state.issues.push(...structuredClone(ISSUES));
   const values: Saved = new Map();
   const keep = (id: string, value: unknown) => (values.set(id, value), value);
-  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(env).openrouter, fetch: judge(), followUp: true });
-  // A wait, if the clock asks for one, ends on the tick of the fourteenth day.
-  const tick = { name: DAY_EVENT, data: {}, id: 'tick', ts: Date.parse(DAY_14) };
-  const transformCtx = (ctx: Parameters<typeof mockCtx>[0]) => {
-    const mocked = mockCtx(savingRun(ctx, [], keep));
-    const waitForEvent = mocked.step.waitForEvent as unknown as { mockImplementation(fn: (id: string) => Promise<unknown>): void };
-    waitForEvent.mockImplementation((id) => (id.startsWith(FOLLOW_UP_STEP) ? Promise.resolve(tick) : Promise.reject(new Error(id))));
-    return mocked;
-  };
-  const engine = new InngestTestEngine({ function: fn, events: [scenario.event], transformCtx });
-  const { error } = await engine.execute();
-  expect(error).toBeUndefined();
+  const runner = retroRunner(
+    { octokitFor: () => scenario.github.octokit, openrouter: readEnv(env).openrouter, fetch: judge(), followUp: true },
+    scenario.job,
+    { alter: keep },
+  );
+  expect((await runner.execute()).error).toBeUndefined();
+  expect((await runner.execute({ at: daysAfter(14) })).error).toBeUndefined();
   return values;
 }
 
@@ -74,7 +64,7 @@ function expectStrict(schema: z.ZodType, value: unknown, key: string, wrongType:
   expect(schema.safeParse(changed(value, key, null)).success, `${key} null`).toBe(false);
 }
 
-describe('retro.schema — each step’s value, as Inngest saved it', () => {
+describe('retro.schema — each step’s value, as the ledger saved it', () => {
   let judged: Saved;
   let notJudged: Saved;
   beforeAll(async () => {
@@ -143,9 +133,7 @@ describe('retro.schema — each step’s value, as Inngest saved it', () => {
     expectStrict(CommentedSchema, valueOf(notJudged, 'verdict'), 'commentId', '1');
   });
 
-  it('the clock, and the day-14 run’s steps, read back the same way', () => {
-    expect(ClockSchema.safeParse(valueOf(judged, CLOCK_STEP)).success).toBe(true);
-    expect(ClockSchema.safeParse(String(valueOf(judged, CLOCK_STEP))).success).toBe(false);
+  it('the day-14 run’s steps, read back the same way', () => {
     expect(FactSheetSchema.safeParse(valueOf(judged, 'facts-day-14')).success).toBe(true);
     expect(PublishedSchema.safeParse(valueOf(judged, 'publish-day-14')).success).toBe(true);
   });
