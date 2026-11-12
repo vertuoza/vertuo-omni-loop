@@ -163,6 +163,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unless the verdict is asked. Needs gh logged in.',
   },
   {
+    name: 'follow-up',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni follow-up add --source <source> --text <text> [--repos <owner/name>,…]',
+      'omni follow-up list [--json]',
+    ],
+    summary: 'keep the open points a fix or a review leaves, one file each',
+    detail:
+      "add writes one file in the delivery folder's follow-ups/, named <date>-<first words>.md, with " +
+      "its source (bug #<n>, <key>-B<n> or PRD #<n> · <thread url>), the day and the point's text " +
+      '(at most 300 characters), and prints its path. It exits 1 naming the file when the same ' +
+      'source and text are already filed, and 2 for an empty or over-long text or a source of no ' +
+      'known shape. --repos names the repositories the point lives in, at most ten. list prints each ' +
+      "point's date, source and first line, oldest first, or none; --json prints the same as JSON. " +
+      'A person closes a point by deleting its file. Neither verb touches the network, opens an ' +
+      'issue or notifies anyone.',
+  },
+  {
     name: 'next',
     kind: 'command',
     who: 'you',
