@@ -105,7 +105,7 @@ layers:
   auth: ['^apps/galaxy/app/auth/', '^apps/galaxy/src/ask/(auth|kit-token)', '^apps/galaxy/src/profile/terminal-tokens\.', '^apps/galaxy/src/agent-connect/tokens/', '^kit/bin/commands/signin\.ts$']
   event: ['^apps/omni-app/src/webhook/', '^apps/(galaxy|omni-app)/src/server-event/']
   cli: ['^kit/bin/', '^game/cli/']
-  job: ['^apps/omni-app/src/(functions|inngest-client)\.ts$', '^apps/galaxy/src/releases/sync']
+  job: ['^apps/omni-app/src/jobs/', '^apps/galaxy/src/releases/sync']
   infra: ['^apps/[^/]+/vercel\.json$', '^supabase/config\.toml$']
   ci: ['^\.github/workflows/', '^\.githooks/', '^scripts/']
 flow:

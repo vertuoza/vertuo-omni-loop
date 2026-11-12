@@ -9,7 +9,7 @@
 //           entries, Glossary terms and Never lines
 //   hash    each entry's embedText() (no `Owner:` line: no person in a vector), as lower-case hex sha256 of
 //           its UTF-8 bytes; the same text in two entries or two products is one hash
-//   embed   only the hashes the workspace holds no vector for (knowledge_vectors_missing()), 64 a call
+//   embed   only the hashes the workspace holds no vector for (knowledge_vectors_missing()), 8 a call
 //           through the `embed` Edge Function (../knowledge-embed/embedder.ts), each batch kept at once
 //           (knowledge_vectors_put()), so a try that stops halfway loses nothing
 //
@@ -21,7 +21,8 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { embedText, knowledgeEntries, type KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
-import { EMBED_BATCH, EMBED_MODEL, type Embedder } from '../knowledge-embed/embedder.ts';
+import { EMBED_BATCH, EMBED_MODEL } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
+import type { Embedder } from '../knowledge-embed/embedder.ts';
 import type { EmbedStore, WorkspacePack } from '../knowledge-embed/store.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { NewJob } from './ledger.ts';

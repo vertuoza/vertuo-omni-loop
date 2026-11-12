@@ -1,7 +1,7 @@
 // `/api/github`'s handlers (PRD 1059): a Vercel function in the web-standard shape (a `Request` in, a
 // `Response` out), bound to the groups of the app's environment it needs (../env.ts). It reads the raw
 // body — the signature is over the exact bytes — lets `receiveWebhook` verify and filter it, sends the
-// resulting jobs and wakes (no event goes to Inngest any more, PRD omni-loop-4 s4), and forwards
+// resulting jobs and wakes (no event goes to another service, PRD omni-loop-4 s4), and forwards
 // a stage event to galaxy, signed with `STAGE_EVENT_SECRET`, and each touch to galaxy's
 // `/api/github/touched`, signed the same way (PRD 902, s3). The webhook secret is `GITHUB_WEBHOOK_SECRET`, required in production; unset
 // elsewhere, every delivery is refused (fail closed).

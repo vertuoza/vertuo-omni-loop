@@ -280,7 +280,7 @@ describe('generated outputs (PRD 1138)', () => {
   const slice = (id: string, territory: string[], wave = 1) => ({ id: parseWorkSliceId(id), territory, wave });
 
   it('breaches drops every path a generated entry covers and keeps every other breach', () => {
-    const changed = ['kit/lib/a.ts', 'kit/dist/omni.mjs', 'apps/omni-app/api/inngest.mjs', 'README.md'];
+    const changed = ['kit/lib/a.ts', 'kit/dist/omni.mjs', 'apps/omni-app/api/github.mjs', 'README.md'];
     expect(breaches(changed, ['kit/lib/'], GENERATED)).toEqual(['README.md']);
   });
 

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { fakeStepLedger } from '../test/saved-steps.ts';
 import { asSaved, jobSteps, memorySteps, RENEW_EVERY_MS, savedStep, type StepRun } from './saved-step.ts';
 
-/** Inngest's step, as a replay reads it: the value saved as JSON, then read back. */
+/** A saved step, as a replay reads it: the value saved as JSON, then read back. */
 const replayed: StepRun = { run: async (_id, fn) => asSaved(await fn()) };
 /** A step whose saved value is not what the function returns today, as after a deploy between two replays. */
 const savedBefore = (value: unknown): StepRun => ({ run: () => Promise.resolve(value) });

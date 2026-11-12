@@ -1,4 +1,4 @@
-// `retro`: the job of the ledger wiring the retro's units (PRD 72, "Flow"; moved off Inngest by PRD omni-loop-4
+// `retro`: the job of the ledger wiring the retro's units (PRD 72, "Flow"; moved to the ledger by PRD omni-loop-4
 // s3). `/api/github` adds one job for a pull request merged into the default branch, keyed `<owner/name>#<pr>`,
 // lower case, in the lane `<owner/name>`: one retro at a time per repository, so two runs never number the same
 // ids, and a retro waiting for its day 14 holds nothing up (a lane holds only a running job). Its payload is
@@ -53,7 +53,7 @@
 // when the merge run opened none. Not worth it, it rewrites the verdict comment.
 //
 // A retro owed at the switch (PRD omni-loop-4 s3, spec "What is owed at the switch"): a feature PR merged in the
-// last fourteen days with no `retro` job gets one from the hourly comparison, `owed`. Inngest may already have
+// last fourteen days with no `retro` job gets one from the hourly comparison, `owed`. The earlier runner may already have
 // published its merge run: when its retro PR or its verdict comment exists, the merge run reads its facts and
 // words again but publishes nothing, comments on no target, and goes straight to its day-14 wait.
 //
@@ -130,7 +130,7 @@ export const RETRO_KIND = 'retro';
 export const MERGE_RUN = 'merge';
 export const FOLLOW_UP_RUN = 'day-14';
 
-/** A retro's tries (Inngest's 3 retries, and the first): the 4th that throws fails it. */
+/** A retro's tries (3 retries, and the first): the 4th that throws fails it. */
 const MAX_TRIES = 4;
 
 /** The prefix of the failure comment's marker. The config may be what failed to read, so the kit's default. */
@@ -344,7 +344,7 @@ async function publishedBefore({ step, github, owner, repo, pr, prd, config }: R
 }
 
 /**
- * The merge run of a retro Inngest already published: its facts and words, and what it published then, kept as
+ * The merge run of a retro the earlier runner already published: its facts and words, and what it published then, kept as
  * found. Nothing is written again: no issue, no commit, no comment, none on a target.
  */
 function keptRun(sheet: FactSheet, { prose, known, verdict, base }: Judged, { pr, comment }: Before): RunResult {

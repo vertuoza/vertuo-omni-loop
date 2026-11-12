@@ -1,5 +1,5 @@
 // The Engineering board's collector as a job of the ledger (PRD omni-loop-3 s2): the schedule adds it every 15
-// minutes, in its own lane, with 3 tries; a claimed job collects as the `prStats` Inngest function did.
+// minutes, in its own lane, with 3 tries; a claimed job collects as the `prStats` function did.
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { readEnv } from '../env.ts';

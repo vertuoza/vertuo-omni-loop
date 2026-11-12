@@ -872,7 +872,7 @@ const FIRST_RUN = [
   '  3. (Optional) Require the `outbox` check on trunk:',
   '       https://github.com/acme/widgets/settings/branches',
   '     Warning: a required check that is never posted blocks every pull request in this repository.',
-  '     If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy',
+  '     If the app is uninstalled, its deploy is broken or its database is down, nothing can merge. The remedy',
   '     is to remove the requirement, never to fake a status.',
   '  4. Fill the forms in .omni-loop/knowledge/ with what the repository can prove, in Claude Code:',
   '       /omni:invade',

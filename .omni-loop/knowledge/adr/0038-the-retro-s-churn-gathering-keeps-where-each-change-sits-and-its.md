@@ -1,6 +1,7 @@
 # ADR-0038 — The retro's churn gathering keeps where each change sits and its size, never the code text
 
 **Status:** adopted · **Date:** 2026-09-26 · **PRD:** #72 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #75
+**Jobs:** superseded in how the App runs its jobs by ADR-0123: they run on the App's own job ledger, not Inngest.
 
 ## Context
 

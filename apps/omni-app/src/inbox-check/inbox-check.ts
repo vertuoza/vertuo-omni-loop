@@ -27,7 +27,7 @@ import { ConfigSchema } from 'omni-loop/kit/lib/config.ts';
 import { createContext } from 'omni-loop/kit/lib/context.ts';
 import { domainsDir } from 'omni-loop/kit/lib/knowledge/registers.ts';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { checkPayloadOf, PullAtSchema } from '../inngest-client.ts';
+import { checkPayloadOf, PullAtSchema } from '../jobs/payloads.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readBaseConfig, readPull, type GitHubClient } from '../outbox-check/github.ts';
@@ -81,7 +81,7 @@ async function addActionsAt(octokit: GitHubClient, { owner, repo }: At, checkRun
 const payloadOf = (raw: unknown): InboxPayload => checkPayloadOf(PullAtSchema, PR_INBOX_KIND, raw);
 
 /**
- * The handler of the `pr-inbox` kind (PRD 2688 s3): the Inngest function's steps run in order in one try. A pull
+ * The handler of the `pr-inbox` kind (PRD 2688 s3): the function's steps run in order in one try. A pull
  * request that is not a phase-0 PR of a repository with the loop gets nothing and the job ends `skipped`. A job may
  * run twice: a second run posts a newer check run on the same head commit.
  */

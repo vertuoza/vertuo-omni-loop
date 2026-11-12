@@ -60,7 +60,7 @@ describe('the collector answer schemas', () => {
     expect(FailureSchema.safeParse('a string').success).toBe(false);
   });
 
-  it('read back a step "list-repositories" as Inngest saved it, and refuse a repository missing its installation, of another type or null', () => {
+  it('read back a step "list-repositories" as the ledger saved it, and refuse a repository missing its installation, of another type or null', () => {
     const repositories = [{ workspaceId: 'ws', installationId: 7, fullName: 'acme/widgets', collectedUntil: null }];
     expect(TrackedRepositoriesSchema.parse(asSaved(repositories))).toEqual(repositories);
     expect(TrackedRepositoriesSchema.safeParse([{ ...repositories[0], installationId: undefined }]).error?.issues[0]?.path).toEqual([0, 'installationId']);
@@ -68,7 +68,7 @@ describe('the collector answer schemas', () => {
     expect(TrackedRepositoriesSchema.safeParse([{ ...repositories[0], fullName: null }]).success).toBe(false);
   });
 
-  it('read back a step "collect" as Inngest saved it, and refuse a batch missing its cursor, of another type or null', () => {
+  it('read back a step "collect" as the ledger saved it, and refuse a batch missing its cursor, of another type or null', () => {
     const out = { saved: 2, cursor: '2026-09-28T10:00:00Z', more: false, error: undefined, budget: { limit: 5000, remaining: 4000, resetAt: null } };
     expect(BatchOutSchema.parse(asSaved(out))).toEqual({ saved: 2, cursor: '2026-09-28T10:00:00Z', more: false, budget: out.budget });
     expect(BatchOutSchema.parse(asSaved({ ...out, paused: true, budget: {} }))).toMatchObject({ paused: true, budget: {} });

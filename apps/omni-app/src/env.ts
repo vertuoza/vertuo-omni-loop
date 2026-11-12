@@ -1,18 +1,14 @@
 /**
  * **The GitHub App's environment** (PRD 1059): the one module of `apps/omni-app` that reads
  * `process.env`. `readEnv(source)` gives its feature groups, each complete or `null` (the feature is
- * off); `entries/github.ts` and `entries/inngest.ts` read them once, when they load, and hand each group to the
+ * off); `entries/github.ts` reads them once, when it loads, and hands each group to the
  * code that needs it. A half-set group, a malformed value, or in production a missing webhook secret
  * or GitHub App, throws one `EnvError` there, naming every variable and never a value.
  *
  * **Production** is `VERCEL_ENV=production`: the app is deployed on Vercel, whose previews run with
  * `NODE_ENV=production` too, and the README's setup never says a preview holds the app's secrets
- * (GitHub and Inngest call the production domain only). A preview, a development server and a test
+ * (GitHub calls the production domain only). A preview, a development server and a test
  * require nothing.
- *
- * **Not read here:** `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` and `INNGEST_DEV`. The Inngest SDK
- * reads them from the process itself, in `new Inngest()` and `serve()` (`src/inngest-client.ts`,
- * `entries/inngest.ts`); passing them would duplicate the SDK's own reading and its rules for each.
  */
 import { z } from 'zod';
 import { envGroup, envReader, variablesOf, type EnvSource } from 'omni-loop/kit/lib/env/group.ts';
@@ -86,9 +82,6 @@ const GALAXY = envGroup({
 
 /** The variables a person sets for the app and `readEnv` reads: the README's list names these (`src/env-docs.test.ts`). */
 export const VARIABLES: readonly string[] = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, CRON, GALAXY]);
-
-/** The variables the Inngest SDK reads itself (above): set by a person, so the README's list names them too. */
-export const SDK_VARIABLES: readonly string[] = ['INNGEST_EVENT_KEY', 'INNGEST_SIGNING_KEY', 'INNGEST_DEV'];
 
 /** The variables Vercel sets, read here but never set by a person, so no docs list names them. */
 export const PLATFORM_VARIABLES: readonly string[] = variablesOf([VERCEL]);

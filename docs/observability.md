@@ -43,7 +43,7 @@ what ran and how it ended.
 | `ms` | how long the run took, in milliseconds |
 | `repo` | the repository the run was about, when it had one |
 | `prd` | the PRD the run was about, when it had one |
-| `deliveryId`, `runId`, `fn` | the GitHub delivery id; the Inngest run id (no run has one since PRD omni-loop-4); the GitHub event's name, or, on a `note`, who said it (`jobs`) |
+| `deliveryId`, `runId`, `fn` | the GitHub delivery id; the run id, when a run has one (none does since PRD omni-loop-5); the GitHub event's name, or, on a `note`, who said it (`jobs`) |
 | `level` | `info`, `warn` or `error` |
 | `error` | `{ name, message }`: the message cut to 500 characters, any token, key or bearer value in it shown as `***`, never a stack |
 
@@ -56,7 +56,7 @@ days; add a repository's name to narrow it to that repository, or `"fn":"jobs"` 
 notes on the long jobs: the retro, the knowledge harvest and the main watch, each named by its kind
 in its line (`job retro <owner/name>#<pr>`). Each line's `ms` tells a slow run from a quick one.
 
-The App's background jobs run on its own job ledger, and no run writes an `inngest` line any more.
+The App's background jobs run on its own job ledger, and their runs write a `jobs` line. Lines written before PRD omni-loop-5 keep the name they had then, until Vercel's log retention drops them.
 That holds for the four pull-request checks and the knowledge pack, for the six kinds of PRD
 omni-loop-3 (`pr-stats`, `escalation`, `fix-row-stamp`, `fleet-board`, `canon-action` and
 `server-event`), and for the three long kinds of PRD omni-loop-4: `retro`, `knowledge-harvest` and

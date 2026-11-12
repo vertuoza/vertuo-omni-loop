@@ -41,7 +41,6 @@ import { businessLawsJudge, businessLawsJudgeUrl } from '../inbox-check/business
 import { CANON_ACTION_KIND, canonActionHandler } from '../inbox-check/canon-action.ts';
 import type { CanonGrader, LawsGrader } from '../inbox-check/evaluate-inbox.ts';
 import { PR_INBOX_KIND, inboxFailureHook, inboxHandler } from '../inbox-check/inbox-check.ts';
-import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from '../inngest-client.ts';
 import { embedClient } from '../knowledge-embed/embedder.ts';
 import { knowledgeEmbedStore } from '../knowledge-embed/store.ts';
 import { knowledgePackStore } from '../knowledge-pack/store.ts';
@@ -62,6 +61,7 @@ import { runnerQueue } from '../retro/runner-queue.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { embedHandler, EMBED_KIND } from './embed.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
+import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from './payloads.ts';
 import type { FailureHook, JobHandler } from './worker.ts';
 
 /** The four kinds, in the order a pull request's jobs are refreshed. */

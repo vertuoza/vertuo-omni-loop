@@ -8829,15 +8829,12 @@ async function askJudge(repo, prd, { galaxyUrl, secret, fetch: get = fetch, time
   return reply2 ? { reply: reply2 } : { held: "galaxy answered no approval" };
 }
 
-// apps/omni-app/src/inngest-client.ts
-import { Inngest } from "inngest";
+// apps/omni-app/src/jobs/payloads.ts
 import { z as z34 } from "zod";
-var APP_ID = "omni-loop";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
 var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
 var RETRO_EVENT = "omni-loop/retro.requested";
-var inngest = new Inngest({ id: APP_ID });
 var SourceSchema = z34.looseObject({
   installationId: z34.number(),
   owner: z34.string(),
@@ -13579,9 +13576,13 @@ function canonActionHandler({ octokitFor, galaxyUrl }) {
 
 // apps/omni-app/src/knowledge-embed/embedder.ts
 import { z as z59 } from "zod";
+
+// kit/lib/knowledge/embed-contract.ts
 var EMBED_MODEL = "gte-small";
 var EMBED_DIMENSIONS = 384;
-var EMBED_BATCH = 64;
+var EMBED_BATCH = 8;
+
+// apps/omni-app/src/knowledge-embed/embedder.ts
 var EMBED_TIMEOUT_MS = 6e4;
 var AnswerSchema2 = z59.object({
   model: z59.literal(EMBED_MODEL),
@@ -13612,12 +13613,21 @@ async function vectorsOf(response, count2) {
   if (vectors.length !== count2) throw new Error(`embed answered ${String(vectors.length)} vectors for ${String(count2)} texts`);
   return vectors;
 }
+var OVER_BUDGET = /* @__PURE__ */ new Set([503, 546]);
 function embedClient({ url, key, fetch: fetch2 = globalThis.fetch }, { timeoutMs = EMBED_TIMEOUT_MS } = {}) {
   const endpoint = embedUrl(url);
+  const embed = async (texts) => {
+    const response = await post(fetch2, endpoint, key, texts, timeoutMs);
+    if (OVER_BUDGET.has(response.status) && texts.length > 1) {
+      const half = Math.ceil(texts.length / 2);
+      return [...await embed(texts.slice(0, half)), ...await embed(texts.slice(half))];
+    }
+    return vectorsOf(response, texts.length);
+  };
   return async (texts) => {
     if (texts.length === 0) return [];
     if (texts.length > EMBED_BATCH) throw new Error(`embed takes at most ${String(EMBED_BATCH)} texts a call, not ${String(texts.length)}`);
-    return vectorsOf(await post(fetch2, endpoint, key, texts, timeoutMs), texts.length);
+    return embed(texts);
   };
 }
 

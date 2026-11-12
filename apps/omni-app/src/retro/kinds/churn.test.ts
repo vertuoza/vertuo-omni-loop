@@ -112,7 +112,7 @@ describe('churn — gather', () => {
     expect(records.gitattributes).toBeNull();
   });
 
-  it('lets any other GitHub failure fail the step, so Inngest retries it', async () => {
+  it('lets any other GitHub failure fail the step, so the ledger retries it', async () => {
     const stub = github();
     const scope = await scopeOf(stub);
     await expect(gather(failing(stub.octokit, GET_COMMIT), scope)).rejects.toThrow('GitHub is down');
