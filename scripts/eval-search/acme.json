@@ -1,0 +1,14 @@
+[
+  { "set": "natural", "expected": "BL-QUOTES-1", "question": "can a quote be sent without a payment term?" },
+  { "set": "natural", "expected": "BL-QUOTES-2", "question": "how long is a quote valid once it is sent?" },
+  { "set": "natural", "expected": "BL-INVOICES-1", "question": "can an invoice be changed after it was issued?" },
+  { "set": "natural", "expected": "BL-INVOICES-2", "question": "when is a late payment fee added to an invoice?" },
+  { "set": "natural", "expected": "BL-CUSTOMERS-1", "question": "what happens to a customer's data when they ask to leave?" },
+  { "set": "paraphrase", "expected": "BL-QUOTES-1", "question": "is it allowed to email a price offer that says nothing about when to pay?" },
+  { "set": "paraphrase", "expected": "BL-QUOTES-2", "question": "after how many days does an offer we sent stop counting?" },
+  { "set": "paraphrase", "expected": "BL-INVOICES-1", "question": "a bill already went out with a mistake, may we edit it?" },
+  { "set": "paraphrase", "expected": "BL-INVOICES-2", "question": "does a client who pays late owe us extra money?" },
+  { "set": "paraphrase", "expected": "BL-CUSTOMERS-1", "question": "a buyer wants every trace of them removed, what do we do?" },
+  { "set": "exact", "expected": "BL-QUOTES-1", "question": "BL-QUOTES-1" },
+  { "set": "exact", "expected": "term:SKU", "question": "SKU" }
+]
