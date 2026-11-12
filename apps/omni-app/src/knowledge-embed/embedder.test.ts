@@ -4,18 +4,20 @@ import { EMBED_DIMENSIONS, embedClient, embedUrl } from './embedder.ts';
 
 const vector = (seed: number) => Array.from({ length: EMBED_DIMENSIONS }, (_, i) => (i === seed ? 1 : 0));
 
-type Sent = { url: string; init: RequestInit };
+type Sent = { url: string; init: RequestInit; body: string };
 
 /** A fetch that answers `status` and `body` to every call, recording what was sent. */
 function stub(answer: (texts: string[]) => { status?: number; body: unknown }) {
   const sent: Sent[] = [];
-  const fetch = (input: string | URL | Request, init: RequestInit = {}) => {
-    sent.push({ url: String(input), init });
-    const texts = (JSON.parse(String(init.body)) as { texts: string[] }).texts;
+  const fetch: typeof globalThis.fetch = (input, init = {}) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    const sentBody = typeof init.body === 'string' ? init.body : '';
+    sent.push({ url, init, body: sentBody });
+    const texts = (JSON.parse(sentBody) as { texts: string[] }).texts;
     const { status = 200, body } = answer(texts);
     return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }));
   };
-  return { fetch: fetch as typeof globalThis.fetch, sent };
+  return { fetch, sent };
 }
 
 const connection = (fetch: typeof globalThis.fetch) => ({ url: 'https://acme.supabase.example/', key: 'service-role-fixture', fetch });
@@ -28,7 +30,7 @@ describe('embedClient', () => {
     expect(sent[0]?.url).toBe('https://acme.supabase.example/functions/v1/embed');
     expect(sent[0]?.init.method).toBe('POST');
     expect(sent[0]?.init.headers).toMatchObject({ authorization: 'Bearer service-role-fixture', 'content-type': 'application/json' });
-    expect(JSON.parse(String(sent[0]?.init.body))).toEqual({ texts: ['a rule', 'a term'] });
+    expect(JSON.parse(sent[0]?.body ?? '')).toEqual({ texts: ['a rule', 'a term'] });
   });
 
   it('calls nothing for no text', async () => {
