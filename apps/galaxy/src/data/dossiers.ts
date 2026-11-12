@@ -18,7 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { readQuestions, shownLabel } from '../ask/answer-model';
 import { dossierPath } from '../dossier/page/view';
-import { ARTIFACT_KINDS, dossierList, dossierRounds, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
+import { ARTIFACT_KINDS, dossierList, dossierRounds, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
 import type { DossierAnswer, DossierLatest, PlanetDossier, PlanetDossierRead } from '../arcade/types';
 import { z } from 'zod';
 import { type PrdNumber, PrdNumberSchema, parsePrd } from 'omni-loop/kit/lib/ids.ts';
@@ -60,13 +60,14 @@ export const DossierListEntry: z.ZodType<DossierListRow> = z.strictObject({
   latest: z.partialRecord(z.enum(ARTIFACT_KINDS), LatestVersionEntry),
 });
 
-/** Any row dossier_list() returns: since PRD 1272 (supabase/migrations/20261119090000_concept_dossiers.sql)
- * a concept's too, with its own version kinds. Read so that a concept never breaks the read of the rest. */
-const AnyListEntry = z.strictObject({
-  ...LIST_SHAPE,
-  kind: z.enum(PUSH_KINDS).optional(),
-  latest: z.partialRecord(z.enum(PUSHED_ARTIFACT_KINDS), LatestVersionEntry),
-});
+/** Any row dossier_list() returns, read for its kind alone: a kind the dashboard does not count (a concept,
+ * PRD 1272; a roadmap made on the Omni page, PRD 2011) has fields of its own, and never breaks the read of
+ * the rest (bug 2722). */
+const KindOnly = z.looseObject({ kind: z.string().optional() });
+
+/** The kinds the dashboard counts: a row with no kind is a PRD. */
+const COUNTED: ReadonlySet<string> = new Set(WORK_KINDS);
+const counted = (row: { kind?: string | undefined }): boolean => row.kind === undefined || COUNTED.has(row.kind);
 
 /** A round's first question with its answer, as one line of the tab; null when it has no answer to show. */
 function answerOf(row: DossierRoundRow): DossierAnswer | null {
@@ -151,14 +152,14 @@ export async function readPlanetDossier(db: Db, workspace: string, prd: PrdNumbe
  * Every dossier of `workspace` the caller may read, newest activity first, as dossier_list(p_workspace)
  * lists them (supabase/migrations/20261012100000_dossier_list_workspace.sql): the database keeps the one
  * workspace, set-based, so a dashboard never reads every workspace of its viewer to keep one. A concept
- * (PRD 1272) is left out: the dashboard counts PRDs and fixes, and concepts have their own list. Rejects
+ * (PRD 1272) and a roadmap (PRD 2011) are left out: the dashboard counts PRDs and fixes, and concepts have their own list. Rejects
  * when the list cannot be read.
  */
 export async function workspaceDossiers(db: Pick<SupabaseClient<Database>, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
   const { data, error } = await db.rpc('dossier_list', { p_workspace: workspace });
   if (error) throw new Error(`Supabase: could not read the workspace's dossiers (${error.message})`);
-  const rows = orThrow(parseRows(AnyListEntry, data, 'data/dossiers: dossier_list'));
-  return orThrow(parseRows(DossierListEntry, rows.filter((row) => row.kind !== 'concept'), 'data/dossiers: dossier_list'));
+  const rows = orThrow(parseRows(KindOnly, data, 'data/dossiers: dossier_list'));
+  return orThrow(parseRows(DossierListEntry, rows.filter(counted), 'data/dossiers: dossier_list'));
 }
 
 // ── The demo's dossiers ─────────────────────────────────────────────────────────

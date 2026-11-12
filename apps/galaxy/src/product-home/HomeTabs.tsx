@@ -75,7 +75,7 @@ function Roadmap({ roadmap }: { roadmap: HomeRoadmap }) {
       data="roadmap"
       mark={roadmap.number}
       title={<Link className="product-home-title" href={`/roadmaps/${encodeURIComponent(roadmap.id)}`}>{roadmap.title}</Link>}
-      meta={<><span className="products-chip">{roadmap.repo}</span><span className="product-home-question">{roadmap.milestone}</span></>}
+      meta={<>{roadmap.repo !== null && <span className="products-chip">{roadmap.repo}</span>}<span className="product-home-question">{roadmap.milestone}</span></>}
       end={roadmap.targetDate ?? 'no date'}
     />
   );

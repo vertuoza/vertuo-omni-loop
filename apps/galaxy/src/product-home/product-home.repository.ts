@@ -142,11 +142,12 @@ export const StoredIdea = z.object({
 export type StoredIdea = z.infer<typeof StoredIdea>;
 
 const ROADMAP_COLUMNS = 'id, number, repo, title, milestone, target_date, created_at';
-/** A roadmap of the product (PRD 1364 s10). */
+/** A roadmap of the product (PRD 1364 s10). One made on the Omni page for the product (PRD 2011) has no
+ * issue, so no number and no repository (bug 2722). */
 export const StoredRoadmap = z.object({
   id: z.string(),
-  number: z.number().int(),
-  repo: z.string(),
+  number: z.number().int().nullable(),
+  repo: z.string().nullable(),
   title: z.string(),
   milestone: z.string(),
   target_date: z.string().nullable(),
