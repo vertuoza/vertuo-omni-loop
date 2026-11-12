@@ -298,7 +298,6 @@ describe('inbox-check — from a signed webhook', () => {
       body,
       headers: { 'x-github-event': event, 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
       secret: SECRET,
-      send: () => Promise.resolve(),
       refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs)),
       forward: () => Promise.resolve(),
     });

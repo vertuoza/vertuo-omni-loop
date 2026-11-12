@@ -1,7 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { InngestTestEngine } from '@inngest/test';
 import { createContext } from 'omni-loop/kit/lib/context.ts';
 import { loadConfig } from 'omni-loop/kit/lib/config.ts';
 import { gradeKnowledge } from 'omni-loop/kit/lib/knowledge/check-knowledge.ts';
@@ -13,9 +12,11 @@ import { parseSettledEntries, type SettledEntry } from 'omni-loop/kit/lib/outbox
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { inngest, HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { failing } from '../../test/github-replay.ts';
-import { savingSteps } from '../../test/saved-steps.ts';
+import { fakeStepLedger } from '../../test/saved-steps.ts';
+import { jobSteps } from '../saved-step.ts';
+import { runDue } from '../jobs/worker.ts';
+import type { ClaimedJob, JobLedger } from '../jobs/ledger.ts';
 import {
   FEATURE,
   FILES,
@@ -33,26 +34,23 @@ import {
   SHIPPED,
   TIP,
   fakeFetch,
-  harvestEvent,
+  harvestJobOf,
+  harvestRun,
   harvestScenario,
 } from '../../test/harvest-scenario.ts';
 import {
-  CONCURRENCY,
   FAILURE_MARKER,
-  HARVEST_FUNCTION_ID,
+  HARVEST_KIND,
   VERDICT_MARKER,
-  createHarvestFailureHandler,
-  createKnowledgeHarvest,
+  harvestFailureHook,
+  harvestHandler,
+  harvestJob,
   nothingNewText,
   verdictMarker,
 } from './knowledge-harvest.ts';
 import type { RequestOctokit } from './github.ts';
 import { parsePr, parsePrd } from '../../../../kit/lib/ids.ts';
 import { readEnv } from '../env.ts';
-import { appFunctions } from '../functions.ts';
-
-/** The functions the app serves, bound to an empty environment. */
-const { knowledgeHarvest } = appFunctions(readEnv({}));
 
 type Octokit = RequestOctokit;
 type Replies = Record<string, unknown>;
@@ -74,8 +72,8 @@ type Outcome = {
   verdict: { created: boolean } | null;
 };
 
-/** A run of the engine, its result read as the harvest's outcome. */
-async function execute(run: InngestTestEngine) {
+/** A run of a claimed harvest job, its result read as the harvest's outcome. */
+async function execute(run: ReturnType<typeof harvestRun>) {
   const out = await run.execute();
   return { ...out, result: out.result as Outcome };
 }
@@ -108,26 +106,26 @@ const TODAY = '2026-09-27';
 function engine(
   github: Scenario,
   {
-    event = harvestEvent(),
+    prNumber = FEATURE.number,
     env = { OPENROUTER_API_KEY: KEY },
     fetch = fetchReplying(),
     octokit = github.octokit,
     files = [],
-    saved,
+    ledger,
   }: {
-    event?: ReturnType<typeof harvestEvent>;
+    prNumber?: number;
     env?: Record<string, string | undefined>;
     fetch?: ReturnType<typeof fakeFetch>;
     octokit?: Octokit;
     /** The files the merged pull request changed, as GitHub lists them. */
     files?: readonly PullFile[];
-    /** Each step's value saved as JSON and read back, as Inngest does, the ids of the steps that were added here. */
-    saved?: string[];
+    /** The ledger the job's steps are saved on: give a run's ledger to the next to retry it. */
+    ledger?: ReturnType<typeof fakeStepLedger>;
   } = {},
 ) {
   const asked: Record<string, unknown>[] = [];
-  const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => answeringFiles(octokit, files, asked), openrouter: readEnv(env).openrouter, fetch, now: () => TODAY });
-  return { run: new InngestTestEngine({ function: fn, events: [event], ...(saved ? { transformCtx: savingSteps(saved) } : {}) }), fetch, asked };
+  const deps = { octokitFor: () => answeringFiles(octokit, files, asked), openrouter: readEnv(env).openrouter, fetch, now: () => TODAY };
+  return { run: harvestRun(deps, { prNumber, ...(ledger ? { ledger } : {}) }), deps, fetch, asked };
 }
 
 /** A fixture pull request's number. */
@@ -207,9 +205,8 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
   it('runs qualify, settle, one classify step per candidate, write, then publish', async () => {
     const github = scenario();
     const { run } = engine(github);
-    const { ctx, error } = await execute(run);
+    const { ids, error } = await execute(run);
     expect(error).toBeUndefined();
-    const ids = ctx.step.run.mock.calls.map(([id]) => id);
     expect(ids[0]).toBe('qualify');
     expect(ids[1]).toBe('settle');
     expect(ids.slice(2, -2).sort()).toEqual(
@@ -327,11 +324,11 @@ describe('knowledge-harvest — a feature PR merged over red', () => {
 describe('knowledge-harvest — what never starts a harvest', () => {
   it.each(Object.entries(NOT_HARVESTED))('%s ends at qualify, asks no model and writes nothing', async (_name, pull) => {
     const github = scenario();
-    const { run, fetch } = engine(github, { event: harvestEvent(pull.number) });
-    const { ctx, result, error } = await execute(run);
+    const { run, fetch } = engine(github, { prNumber: numberOf(pull) });
+    const { ids, result, error } = await execute(run);
     expect(error).toBeUndefined();
     expect(result.skipped).toBeTruthy();
-    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['qualify']);
+    expect(ids).toEqual(['qualify']);
     expect(fetch).not.toHaveBeenCalled();
     expect(writes(github)).toEqual([]);
   });
@@ -364,7 +361,7 @@ describe('knowledge-harvest — replays and ids', () => {
   it('a second harvest while the first PR is open shares no record number and no register id', async () => {
     const github = scenario();
     await execute(engine(github).run);
-    const { error } = await execute(engine(github, { event: harvestEvent(GADGETS_FEATURE.number) }).run);
+    const { error } = await execute(engine(github, { prNumber: numberOf(GADGETS_FEATURE) }).run);
     expect(error).toBeUndefined();
     expect(knowledgePulls(github, 'docs/knowledge-gadgets')).toHaveLength(1);
     const second = github.filesAt('docs/knowledge-gadgets', [`${K}/adr/0002-gadgets-are-numbered.md`, `${K}/adr/0003-gadgets-are-numbered.md`, `${K}/product/rules.md`]);
@@ -392,36 +389,53 @@ describe('knowledge-harvest — replays and ids', () => {
   });
 });
 
-describe('knowledge-harvest — every step read back as Inngest saved it (PRD 1030)', () => {
+describe('knowledge-harvest — every step read back as the ledger saved it (PRD 1030)', () => {
   const CLASSIFIED = ['s0-01-local-name', 's0-02-cited', 's0-03-refused', 's0-04-drift', 's1-01-high-one', 's1-02-set-secret'].map((id) => `classify:${id}`);
 
-  it('parses every step, once saved, and opens the same knowledge PR as before', async () => {
+  it('saves every step, and opens the same knowledge PR whatever ledger the steps were read back from', async () => {
     const plain = scenario();
     await execute(engine(plain).run);
     const github = scenario();
-    const saved: string[] = [];
-    const { error } = await execute(engine(github, { saved }).run);
+    const { ids, error } = await execute(engine(github).run);
     expect(error).toBeUndefined();
-    expect(saved[0]).toBe('qualify');
-    expect(saved[1]).toBe('settle');
-    expect(saved.slice(2, -2).sort()).toEqual(CLASSIFIED);
-    expect(saved.slice(-2)).toEqual(['write', 'publish']);
+    expect(ids[0]).toBe('qualify');
+    expect(ids[1]).toBe('settle');
+    expect(ids.slice(2, -2).sort()).toEqual(CLASSIFIED);
+    expect(ids.slice(-2)).toEqual(['write', 'publish']);
     expect(bodyOf(knowledgePull(github))).toBe(bodyOf(knowledgePull(plain)));
     expect(github.filesAt(BRANCH, BRANCH_PATHS)).toEqual(plain.filesAt(BRANCH, BRANCH_PATHS));
   });
 
-  it('parses the verdict step, once saved, when there is nothing to publish', async () => {
+  it('saves the verdict step when there is nothing to publish', async () => {
     const github = scenario();
-    const saved: string[] = [];
     const local = {
       ...REPLIES,
       's1-01-gadget-record': { kind: 'stays-here', statement: 'A local numbering choice.', reason: 'a local choice' },
       's1-02-gadget-rule': { kind: 'covered', covers: 'ADR-0001', reason: 'the record says it' },
     };
-    const { result, error } = await execute(engine(github, { event: harvestEvent(GADGETS_FEATURE.number), fetch: fetchReplying(local), saved }).run);
+    const { ids, result, error } = await execute(engine(github, { prNumber: numberOf(GADGETS_FEATURE), fetch: fetchReplying(local) }).run);
     expect(error).toBeUndefined();
-    expect(saved.slice(-3)).toEqual(['write', 'publish', 'verdict']);
+    expect(ids.slice(-3)).toEqual(['write', 'publish', 'verdict']);
     expect(result.verdict).toMatchObject({ created: true });
+  });
+
+  it('a run stopped after a step carries on from the next one on its retry, and the model is called once per candidate', async () => {
+    const github = scenario();
+    const ledger = fakeStepLedger();
+    const first = engine(github, { ledger, octokit: failing(github.octokit, 'POST /repos/{owner}/{repo}/git/commits') });
+    const stopped = await execute(first.run);
+    expect(stopped.error).toBeTruthy();
+    expect(stopped.ids.slice(-1)).toEqual(['write']);
+    const asked = first.fetch.mock.calls.length;
+    expect(asked).toBeGreaterThanOrEqual(6);
+
+    const second = engine(github, { ledger });
+    const retried = await execute(second.run);
+    expect(retried.error).toBeUndefined();
+    expect(second.fetch).not.toHaveBeenCalled();
+    expect(retried.ids.slice(-1)).toEqual(['publish']);
+    expect(retried.result.published).toMatchObject({ committed: true });
+    expect(Object.keys(ledger.stepsOf(harvestJobOf().key))).toEqual(expect.arrayContaining(['qualify', 'settle', 'write', 'publish']));
   });
 });
 
@@ -433,7 +447,7 @@ describe('knowledge-harvest — no promotion, no PR (PRD 487)', () => {
     's1-01-gadget-record': { kind: 'stays-here', statement: 'A local numbering choice.', reason: 'a local choice' },
     's1-02-gadget-rule': { kind: 'covered', covers: 'ADR-0001', reason: 'the record says it' },
   };
-  const gadgets = (github: Scenario, fetch = fetchReplying(LOCAL)) => execute(engine(github, { event: harvestEvent(GADGETS_FEATURE.number), fetch }).run);
+  const gadgets = (github: Scenario, fetch = fetchReplying(LOCAL)) => execute(engine(github, { prNumber: numberOf(GADGETS_FEATURE), fetch }).run);
   const verdicts = (github: Scenario) => github.state.comments.filter((comment) => comment.body.includes(VERDICT_MARKER));
   /** The verdict comment: the test fails when there is none. */
   function verdict(github: Scenario) {
@@ -515,31 +529,55 @@ describe('knowledge-harvest — failures', () => {
     expect(files[ADR]).toBeNull();
   });
 
-  it('a GitHub failure after the retries leaves one comment on the merged feature PR', async () => {
+  it('a GitHub failure on the last try leaves one comment on the merged feature PR, through the failure hook', async () => {
     const github = scenario();
     const broken = failing(github.octokit, 'POST /repos/{owner}/{repo}/git/commits');
-    const { error } = await execute(engine(github, { octokit: broken }).run);
-    expect(error).toBeTruthy();
+    const { deps } = engine(github, { octokit: broken });
+    const ledger = fakeStepLedger();
+    const claimed = (tries: number): ClaimedJob => ({ ...harvestJobOf(), id: 'job-1', tries, claim: 'claim-1', claimedUntil: '2027-01-17T09:05:00.000Z', lane: harvestJobOf().lane ?? null, maxTries: 4 });
+    const finished: unknown[] = [];
+    const queue = [claimed(4)];
+    const jobs: JobLedger = {
+      ...ledger.ledger,
+      claim: () => Promise.resolve(queue.splice(0, 1)),
+      finish: (input) => {
+        finished.push(input);
+        return Promise.resolve(input.outcome === 'failed' ? 'failed' : 'queued');
+      },
+    };
+    await runDue({ ledger: jobs, handlers: { [HARVEST_KIND]: harvestHandler(deps) }, failures: { [HARVEST_KIND]: harvestFailureHook({ octokitFor: () => github.octokit }) }, log: () => undefined });
+    expect(finished).toMatchObject([{ outcome: 'failed' }]);
 
-    const handler = createHarvestFailureHandler({ octokitFor: () => github.octokit });
-    const failed = { name: 'inngest/function.failed', data: { event: harvestEvent(), error: { message: 'GitHub is down' } } };
-    await handler({ event: failed, error: new Error('GitHub is down\nat stack') });
-    await handler({ event: failed, error: new Error('GitHub is still down') });
-
+    // A second failure rewrites the comment in place.
+    await harvestFailureHook({ octokitFor: () => github.octokit })(claimed(4), 'GitHub is still down');
     const comments = github.state.comments.filter((comment) => comment.issue === FEATURE.number);
     expect(comments).toHaveLength(1);
     expect(comments[0]?.body).toBe(`${FAILURE_MARKER}\nThe knowledge harvest could not run: GitHub is still down\n`);
   });
 });
 
-describe('knowledge-harvest — the function’s configuration', () => {
-  it('is its own function, triggered by the harvest event only, one run at a time per repository', () => {
-    expect(knowledgeHarvest.id()).toBe(HARVEST_FUNCTION_ID);
-    expect(knowledgeHarvest.opts.triggers).toEqual([{ event: HARVEST_EVENT }]);
-    expect(knowledgeHarvest.opts.triggers).not.toContainEqual({ event: RETRO_EVENT });
-    expect(knowledgeHarvest.opts.triggers).not.toContainEqual({ event: OUTBOX_CHECK_EVENT });
-    expect(knowledgeHarvest.opts.concurrency).toEqual(CONCURRENCY);
-    expect(CONCURRENCY).toEqual({ key: 'event.data.repository', limit: 1 });
+describe('knowledge-harvest — the job', () => {
+  it('is keyed by repository and pull request, lower case, in the lane of the repository: one harvest at a time', () => {
+    const job = harvestJob({ installationId: 7, owner: 'Acme', repo: 'Widgets', prNumber: parsePr(43) });
+    expect(job).toMatchObject({ kind: HARVEST_KIND, key: 'acme/widgets#43', subject: 'acme/widgets', lane: 'acme/widgets', maxTries: 4 });
+    expect(JSON.stringify(job.payload)).not.toMatch(/token/i);
+  });
+
+  it('ends skipped, with why, for a pull request that is no feature PR', async () => {
+    const github = scenario();
+    const { deps } = engine(github);
+    const ledger = fakeStepLedger();
+    const { key, payload } = harvestJobOf(numberOf(NOT_HARVESTED['a merged sub-PR']));
+    const job = { ...harvestJobOf(), key, payload, id: 'job-2', tries: 1, claim: 'claim-1', claimedUntil: '2027-01-17T09:05:00.000Z' };
+    const step = jobSteps({ ledger: ledger.ledger, job: { id: job.id, claim: job.claim } });
+    expect(await harvestHandler(deps)(job, { step })).toMatchObject({ outcome: 'skipped' });
+  });
+
+  it('fails by name on a payload that names no pull request', async () => {
+    const github = scenario();
+    const { deps } = engine(github);
+    const job = { ...harvestJobOf(), payload: { owner: 'acme' }, id: 'job-3', tries: 1, claim: 'claim-1', claimedUntil: '2027-01-17T09:05:00.000Z' };
+    await expect(harvestHandler(deps)(job)).rejects.toThrow(/The harvest job is malformed: installationId/);
   });
 });
 
@@ -618,13 +656,12 @@ describe('knowledge-harvest — the proof the feature PR changed (PRD 1171)', ()
     expect(body).toContain(`  - dropped ${GONE} — no longer in the tree`);
   });
 
-  it('writes the same Enforced by: lines as omni harvest, every step read back as Inngest saved it', async () => {
+  it('writes the same Enforced by: lines as omni harvest, every step read back as the ledger saved it', async () => {
     const github = scenario({ files: TREE });
-    const saved: string[] = [];
-    const { error } = await execute(engine(github, { files: CHANGED, fetch: fetchReplying(PROVING), saved }).run);
+    const { ids, error } = await execute(engine(github, { files: CHANGED, fetch: fetchReplying(PROVING) }).run);
     expect(error).toBeUndefined();
-    expect(saved).toContain('settle');
-    expect(saved).toContain('write');
+    expect(ids).toContain('settle');
+    expect(ids).toContain('write');
     const app = enforcedLines(github.filesAt(BRANCH, PROOF_PATHS));
     expect(app).toEqual([`Enforced by: ${PROOF}`, 'Enforced by: unenforced']);
     expect(app).toEqual(enforcedLines(await locally()));

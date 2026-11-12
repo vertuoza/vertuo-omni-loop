@@ -121,7 +121,6 @@ async function eventsOf(event: string, payload: Record<string, unknown>): Promis
     headers: { 'x-github-event': event, 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: () => Promise.resolve(),
     refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs)),
   });
   expect(response.status).toBe(200);

@@ -2,21 +2,17 @@
 // `/omni:retro-apply --retro <retro PR>` in its body, and the retro queues that line once, as a job the
 // app sends; a replay, or the day-14 run on the same retro PR, finds the job again; the day-14 run keeps
 // every outcome the branch holds.
-import { InngestTestEngine, mockCtx } from '@inngest/test';
-import { type Mock, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { inngest } from '../inngest-client.ts';
 import { readEnv } from '../env.ts';
 import { addCommit } from '../git-write/git-write.ts';
-import { JUDGE_ENV, OWNER, REPO, SUB_PULLS, judge, widgetScenario } from '../../test/retro-scenario.ts';
-import { DAY_14, FIX_PULLS, ISSUES, MERGED_AT, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.ts';
-import { CLOCK_STEP, DAY_EVENT, FOLLOW_UP_STEP, createRetro } from './retro.ts';
+import { JUDGE_ENV, OWNER, REPO, SUB_PULLS, daysAfter, judge, retroRunner, widgetScenario, type RetroRan } from '../../test/retro-scenario.ts';
+import { FIX_PULLS, ISSUES, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.ts';
 import type { ApplyJob, ApplyQueue } from './runner-queue.ts';
 
 type Scenario = ReturnType<typeof widgetScenario>;
 type Stub = Scenario['github'];
-type Ran = { ctx: { step: { run: Mock<(id: string) => unknown> } }; result: unknown; error: unknown };
 
 const BRANCH = 'docs/retro-widget';
 const JSON_PATH = '.omni-loop/delivery/shipped/0007-widget/retro.json';
@@ -37,13 +33,11 @@ function fakeQueue() {
   return { queue, jobs, calls };
 }
 
-const execute = (options: InngestTestEngine.Options) => new InngestTestEngine(options).execute() as unknown as Promise<Ran>;
-const ranSteps = (ran: Ran) => ran.ctx.step.run.mock.calls.map(([id]) => id);
+const ranSteps = (ran: RetroRan) => ran.ran;
 
 /** The merge run of the widget scenario, its judge keeping every finding unless told otherwise. */
 function mergeRun(scenario: Scenario, { queue = null, fetch = judge() }: { queue?: ApplyQueue | null; fetch?: typeof globalThis.fetch } = {}) {
-  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch, queue });
-  return execute({ function: fn, events: [scenario.event] });
+  return retroRunner({ octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch, queue }, scenario.job).execute();
 }
 
 /** The open retro PR from the retro branch: the test fails when there is none. */
@@ -152,27 +146,12 @@ describe('retro — the day-14 run and the outcomes (PRD 2338)', () => {
     return scenario;
   }
 
-  /** The retro with its day-14 run: the clock reads the merge, and the first wait wakes on day 14, after `onWake`. */
-  function followUp(scenario: Scenario, queue: ApplyQueue, onWake: () => Promise<void>) {
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge(), followUp: true, queue });
-    const given = new Map<string, Promise<unknown>>();
-    const wake = `${FOLLOW_UP_STEP}-1`;
-    const tick = { name: DAY_EVENT, data: {}, id: 'tick-14', ts: Date.parse(DAY_14) };
-    return execute({
-      function: fn,
-      events: [scenario.event],
-      steps: [{ id: CLOCK_STEP, handler: () => Date.parse(MERGED_AT) }],
-      transformCtx: (ctx) => {
-        const mocked = mockCtx(ctx);
-        const waitForEvent = mocked.step.waitForEvent as unknown as Mock<(id: string) => Promise<unknown>>;
-        waitForEvent.mockImplementation((id: string) => {
-          if (id !== wake) return Promise.reject(new Error(`nobody answers the wait ${id}`));
-          if (!given.has(id)) given.set(id, onWake().then(() => tick));
-          return given.get(id) ?? Promise.reject(new Error('no answer'));
-        });
-        return mocked;
-      },
-    });
+  /** The retro with its day-14 run: the merge run, `onWake` in the fourteen days, then the run on day 14. */
+  async function followUp(scenario: Scenario, queue: ApplyQueue, onWake: () => Promise<void>) {
+    const runner = retroRunner({ octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge(), followUp: true, queue }, scenario.job);
+    await runner.execute();
+    await onWake();
+    return runner.execute({ at: daysAfter(14) });
   }
 
   it('keeps every outcome the branch holds, renders it, and finds the one job again for the same retro PR', async () => {

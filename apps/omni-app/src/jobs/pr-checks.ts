@@ -16,7 +16,10 @@
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
-//                    refreshes the four checks' jobs of a product PRD's target pull requests: the webhook, the
+//                    refreshes the four checks' jobs of a product PRD's target pull requests, and the
+//                    `knowledge-harvest` and the `retro` the webhook adds for a merged pull request (PRD omni-loop-4 s2,
+//                    s3), the retro's also added by the hourly comparison when owed (./gaps.ts), and the `main-watch`
+//                    the webhook adds too (s4), its own also added by the comparison for a watch still open: the webhook, the
 //                    server event and the sweep all run the same jobs, so each runs every kind, and none spends a
 //                    try on a job it has no handler for
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
@@ -50,6 +53,12 @@ import type { GraphqlOctokit } from '../pr-stats/github.ts';
 import { PR_STATS_KIND, prStatsHandler } from '../pr-stats/job.ts';
 import { SERVER_EVENT_KIND, serverEventHandler } from '../server-event/job.ts';
 import { targetsReader } from '../server-event/targets.ts';
+import { HARVEST_KIND, harvestFailureHook, harvestHandler } from '../knowledge-harvest/knowledge-harvest.ts';
+import { lawJudge, lawJudgeUrl } from '../knowledge-harvest/law-judge.ts';
+import { MAIN_WATCH_KIND, mainWatchHandler } from '../main-watch/main-watch.ts';
+import { mainWatchStore } from '../main-watch/store.ts';
+import { RETRO_KIND, retroFailureHook, retroHandler } from '../retro/retro.ts';
+import { runnerQueue } from '../retro/runner-queue.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { embedHandler, EMBED_KIND } from './embed.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
@@ -145,13 +154,12 @@ export function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecor
  * The groups the live worker reads: the database it runs on, what the checks ask beside GitHub, and the App's own
  * key, with which the escalation lists its installations.
  */
-export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
+export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
 
 /**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the knowledge
- * embed's, the four checks',
- * the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet board's, the canon buttons'
- * and the server event's.
+ * embed's, the four checks', the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet
+ * board's, the canon buttons', the knowledge harvest's, the retro's, the main watch's and the server event's.
  */
 export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient & GraphqlOctokit>): Workers {
   const { supabase } = env;
@@ -177,8 +185,26 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
       [CANON_ACTION_KIND]: canonActionHandler({ octokitFor, galaxyUrl }),
+      [HARVEST_KIND]: harvestHandler({
+        octokitFor,
+        openrouter: env.openrouter ?? null,
+        lawJudge: env.lawJudge ? lawJudge({ url: lawJudgeUrl(galaxyUrl), secret: env.lawJudge.secret }) : null,
+      }),
+      [RETRO_KIND]: retroHandler({
+        octokitFor,
+        appOctokit: appOctokitFor(env.githubApp ?? null),
+        openrouter: env.openrouter ?? null,
+        followUp: true,
+        queue: runnerQueue(supabase),
+      }),
+      [MAIN_WATCH_KIND]: mainWatchHandler({
+        octokitFor,
+        appOctokit: appOctokitFor(env.githubApp ?? null),
+        store: mainWatchStore(supabase),
+        queue: runnerQueue(supabase),
+      }),
       [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(ledger) }),
     },
-    failures: checks.failures,
+    failures: { ...checks.failures, [HARVEST_KIND]: harvestFailureHook({ octokitFor }), [RETRO_KIND]: retroFailureHook({ octokitFor }) },
   };
 }

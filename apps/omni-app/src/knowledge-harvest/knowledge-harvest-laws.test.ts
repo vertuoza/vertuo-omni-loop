@@ -2,13 +2,10 @@
 // rule no changed test proves asks galaxy's law judge, a "yes" opens one law issue labelled `labels.law`
 // and the knowledge PR holds the law `Enforced by: pending #<that issue>`, a "no" opens none and stays
 // in the PRD's settled.md. A judge that refuses or fails leaves the classifier's answer to count.
-import { InngestTestEngine } from '@inngest/test';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { describe, expect, it, vi } from 'vitest';
-import { inngest } from '../inngest-client.ts';
-import { FILES, K, KEY, LEDGER, REPLIES, fakeFetch, harvestEvent, harvestScenario } from '../../test/harvest-scenario.ts';
+import { FILES, K, KEY, LEDGER, REPLIES, fakeFetch, harvestRun, harvestScenario } from '../../test/harvest-scenario.ts';
 import { readEnv } from '../env.ts';
-import { createKnowledgeHarvest } from './knowledge-harvest.ts';
 import type { LawJudge, LawJudgement } from './law-judge.ts';
 
 const RULES = `${K}/product/rules.md`;
@@ -27,8 +24,7 @@ function run({ worthALaw, judge = null, config = KNOWLEDGE_CONFIG, github = harv
   config?: string;
   github?: Scenario;
 }) {
-  const fn = createKnowledgeHarvest({
-    client: inngest,
+  const deps = {
     // The merged pull request changed no file: no test proves the rule.
     octokitFor: () => ({
       request: async (route: string, params?: Record<string, unknown>) =>
@@ -38,8 +34,8 @@ function run({ worthALaw, judge = null, config = KNOWLEDGE_CONFIG, github = harv
     fetch: fakeFetch(replies(worthALaw)),
     now: () => '2026-09-27',
     lawJudge: judge,
-  });
-  return { github, engine: new InngestTestEngine({ function: fn, events: [harvestEvent()] }) };
+  };
+  return { github, engine: harvestRun(deps) };
 }
 
 /** A judge answering `judgement` every time, recording what it was asked. */
@@ -64,7 +60,7 @@ function ledgerOn(github: Scenario): string {
 describe('knowledge-harvest — worth a law?', () => {
   it('a yes opens one law issue labelled omni:law, and the knowledge PR holds the law pending that issue', async () => {
     const { github, engine } = run({ worthALaw: true });
-    const { error, ctx } = await engine.execute();
+    const { error, ids } = await engine.execute();
     expect(error).toBeUndefined();
     const issues = lawIssues(github);
     expect(issues).toHaveLength(1);
@@ -77,7 +73,6 @@ describe('knowledge-harvest — worth a law?', () => {
     expect(rules).toContain(`Enforced by: pending #${issue.number}`);
     const pull = github.state.pulls.find((candidate) => candidate.head.ref === BRANCH && candidate.state === 'open');
     expect(String(pull?.body)).toContain(`Enforced by: pending #${issue.number}`);
-    const ids = ctx.step.run.mock.calls.map(([id]) => id);
     expect(ids.slice(-4)).toEqual(['write', 'law-issue:s1-02-set-secret', 'write:laws', 'publish']);
   });
 
@@ -93,7 +88,7 @@ describe('knowledge-harvest — worth a law?', () => {
   it("asks galaxy's judge with the five-field state, and Jev's no counts over the classifier's yes", async () => {
     const judge = judging({ worth: { worth: false, decidedBy: 'Jev', confidence: 0.9 }, reason: null });
     const { github, engine } = run({ worthALaw: true, judge });
-    const { error, ctx } = await engine.execute();
+    const { error, ids } = await engine.execute();
     expect(error).toBeUndefined();
     expect(judge).toHaveBeenCalledTimes(1);
     const [question, asked] = judge.mock.calls[0] ?? [];
@@ -102,7 +97,7 @@ describe('knowledge-harvest — worth a law?', () => {
     expect(Object.keys(question?.state ?? {}).sort()).toEqual(['domain', 'prdTitle', 'principle', 'statement', 'why']);
     expect(lawIssues(github)).toEqual([]);
     expect(ledgerOn(github)).toContain('not worth a law (Jev 0.90)');
-    expect(ctx.step.run.mock.calls.map(([id]) => id)).toContain('law-worth:s1-02-set-secret');
+    expect(ids).toContain('law-worth:s1-02-set-secret');
   });
 
   it("Jev's yes counts over the classifier's no", async () => {

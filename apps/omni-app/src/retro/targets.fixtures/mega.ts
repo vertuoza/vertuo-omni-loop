@@ -6,7 +6,7 @@
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { type Recorded, httpError, replayGitHub } from '../../../test/github-replay.ts';
 import { addedPatch, hunkPatch } from '../kinds/churn.fixtures/delivery.ts';
-import { MERGE_SHA, MERGED_AT, SPEC, retroEvent } from '../../../test/retro-scenario.ts';
+import { MERGE_SHA, MERGED_AT, SPEC, retroJobOf, retroPayload } from '../../../test/retro-scenario.ts';
 import type { Octokit } from '../retro.types.ts';
 
 const PLAN_CONFIG = [
@@ -154,6 +154,7 @@ const PLAN_PR = { ...pull('acme/plan', 12, 'feat/widget', 'main', '2026-09-20T09
 
 /** Each stubbed repository's GitHub, by the installation the App has there: the plan repository's is 7. */
 export function megaScenario() {
+  const merge = { owner: 'acme', repo: 'plan', repository: 'acme/plan', prNumber: parsePr(12) };
   const plan = replayGitHub({
     commits: { [MERGE_SHA]: { '.omni-loop/config.yml': PLAN_CONFIG, [`${FOLDER}/spec.md`]: SPEC, [`${FOLDER}/plan.md`]: MEGA_PLAN } },
     pulls: [PLAN_PR],
@@ -199,6 +200,8 @@ export function megaScenario() {
     app,
     appCalls,
     octokitFor,
-    event: retroEvent({ owner: 'acme', repo: 'plan', repository: 'acme/plan', prNumber: parsePr(12) }),
+    job: retroJobOf(merge),
+    /** The merge as the main watch's event carries it (../../main-watch/main-watch.test.ts). */
+    event: { data: retroPayload(merge) },
   };
 }

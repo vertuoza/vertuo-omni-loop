@@ -6,7 +6,6 @@ import { asSaved } from '../saved-step.ts';
 import {
   ClassificationOutSchema,
   CommitSchema,
-  FailedHarvestEventSchema,
   HarvestEventSchema,
   OpenPullSchema,
   parsedOr,
@@ -19,10 +18,9 @@ import {
 const EVENT = { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 43 };
 
 describe('the knowledge harvest schemas', () => {
-  it('read the harvest event, and refuse one without its pull request', () => {
+  it('read the harvest job payload, and refuse one without its pull request', () => {
     expect(HarvestEventSchema.parse(EVENT)).toEqual(EVENT);
     expect(HarvestEventSchema.safeParse({ ...EVENT, prNumber: undefined }).error?.issues[0]?.path).toEqual(['prNumber']);
-    expect(FailedHarvestEventSchema.parse({ owner: 'acme' })).toEqual({ owner: 'acme' });
   });
 
   it('read a merged pull request, and a closed one with nothing merged', () => {
