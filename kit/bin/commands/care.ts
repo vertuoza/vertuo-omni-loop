@@ -25,13 +25,20 @@
 // A read that cannot be made at all (no sign-in, no answer, a page without the loop's routes) prints
 // its one line on stderr and exits 1 (PRD 1665).
 //
-// `omni care reply --verdict <fixed|pushed-back|asked> (--body <text> | --file <path>) [--thread <id>]
-// [--repo <owner/name>]` — the reply's body, ending with the care marker. Without --thread it only
-// prints the body; with --thread it posts it on that review thread and, for fixed and pushed-back,
-// resolves the thread (an asked thread stays open for the PM), then prints what it did as JSON. Its
-// writes go through `gh` as before.
+// `omni care reply --verdict <fixed|pushed-back|asked|later> (--body <text> | --file <path>) [--thread <id>]
+// [--repo <owner/name>] [--prd <n>]` — the reply's body, ending with the care marker. Without --thread it
+// only prints the body; with --thread it posts it on that review thread and, but for asked, resolves the
+// thread (an asked thread stays open for the PM), then prints what it did as JSON. Its writes go through
+// `gh` as before.
+//
+// PRD 2739, s3: `later` promises the point for a follow-up, and takes `--prd <n>`. Before posting, it
+// reads the thread's first comment without a care marker through `gh` (unreadable: `not judged`, exit 1,
+// nothing posted or written) and prepares the follow-up file (`## Asked`, that comment word for word;
+// `## Agent's note`, the reply) and one outbox item of PRD n, ranked high, asking a person to agree. Once
+// the reply is posted and the thread resolved, it writes both in this checkout; it commits nothing.
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
+import { z } from 'zod';
 import { landingChain, landingPrToWatch } from '../../lib/care/chain.ts';
 import { decideRound, decideSubPrRound } from '../../lib/care/decide.ts';
 import type { Waiting } from '../../lib/care/decide.ts';
@@ -45,6 +52,9 @@ import { parsePlanLandings, parsePlanRepositories, parsePlanSlices } from '../..
 import { landingPlan } from '../../lib/landings/landing-plan.ts';
 import type { Slice } from '../../lib/types.ts';
 import { CARE_VERDICTS, careReplyBody } from '../../lib/care/marker.ts';
+import { askedComment, planReviewPoint, replyText, reviewSource, writeReviewPoint } from '../../lib/care/later.ts';
+import { preparePostpone } from '../../lib/care/postpone.ts';
+import { FOLLOW_UPS_DIR } from '../../lib/follow-ups/follow-ups.ts';
 import { careState } from '../../lib/care/state.ts';
 import type { Context } from '../../lib/context.ts';
 import { targetsOf } from '../../lib/plan-repo/target-list.ts';
@@ -65,7 +75,7 @@ import type { IssueNumber, PrNumber, PrdNumber, WorkSliceId } from '../../lib/id
 const USAGE =
   'usage: omni care state <prd> [--pr <n>] [--repo <owner/name>]\n' +
   '       omni care list <prd> [--json]\n' +
-  '       omni care reply --verdict <fixed|pushed-back|asked> (--body <text> | --file <path>) [--thread <id>] [--repo <owner/name>]';
+  '       omni care reply --verdict <fixed|pushed-back|asked|later> (--body <text> | --file <path>) [--thread <id>] [--repo <owner/name>] [--prd <n>]';
 
 /** What every `gh` call of this file needs: its writes, and a target's default branch. */
 type Gh = { exec: Exec; env: Env | undefined };
@@ -84,6 +94,20 @@ const REPLY_MUTATION = `mutation($thread: ID!, $body: String!) {
 const RESOLVE_MUTATION = `mutation($thread: ID!) {
   resolveReviewThread(input: { threadId: $thread }) { thread { isResolved } }
 }`;
+const THREAD_QUERY = `query($thread: ID!) {
+  node(id: $thread) { ... on PullRequestReviewThread { comments(first: 100) { nodes { body url } } } }
+}`;
+
+/** The answer to the thread's read: its comments, or no node when GitHub knows no such thread. */
+const ThreadReadSchema = z.looseObject({
+  data: z
+    .looseObject({
+      node: z
+        .looseObject({ comments: z.looseObject({ nodes: z.array(z.looseObject({ body: z.string(), url: z.string() })) }) })
+        .nullish(),
+    })
+    .nullish(),
+});
 
 /** One GraphQL write through `gh api graphql`, the request fed on stdin. Throws GitHub's first error. */
 function graphql({ query, variables }: { query: string; variables: Record<string, unknown> }, { exec, env }: { exec: Exec; env: Env | undefined }): unknown {
@@ -389,7 +413,7 @@ async function runList(args: string[], { ctx, stdout, reads }: Io): Promise<numb
 }
 
 /** The flags `omni care reply` takes. */
-type ReplyFlags = { verdict?: string; body?: string; file?: string; thread?: string; repo?: string };
+type ReplyFlags = { verdict?: string; body?: string; file?: string; thread?: string; repo?: string; prd?: string };
 
 /** The reply's body from `--verdict` and `--body` or `--file`, ending with the care marker. */
 function replyBodyOf(flags: ReplyFlags, ctx: Context): string {
@@ -404,33 +428,88 @@ function replyBodyOf(flags: ReplyFlags, ctx: Context): string {
   return careReplyBody(text, flags.verdict ?? '');
 }
 
-function runReply(args: string[], io: CommandIo): number {
+async function runReply(args: string[], io: CommandIo): Promise<number> {
   const { ctx, stdout } = io;
-  const { positional, flags } = parseArgs('care', args, { values: ['verdict', 'body', 'file', 'thread', 'repo'] });
+  const { positional, flags } = parseArgs('care', args, { values: ['verdict', 'body', 'file', 'thread', 'repo', 'prd'] });
   if (positional.length) throw usageError(USAGE);
   const body = replyBodyOf(flags, ctx);
   if (flags.thread === undefined) {
     println(stdout, body);
     return 0;
   }
+  if (flags.verdict === 'later') return postLater({ thread: flags.thread, body, prd: flags.prd }, io);
   return postReply({ thread: flags.thread, verdict: flags.verdict ?? '', body }, io);
+}
+
+/** Posts `body` on `thread` and resolves it when `resolve`; the reply's url. Throws GitHub's refusal. */
+function post({ thread, body, resolve }: { thread: string; body: string; resolve: boolean }, gh: Gh): string | null {
+  const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, gh));
+  if (resolve) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, gh);
+  return posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
+}
+
+/** Exit 1, one line, when `error` is GitHub refusing a GraphQL call; any other error is thrown on. */
+function refused(error: unknown, stderr: CommandIo['stderr']): number {
+  if (!(error instanceof Error) || error.name !== 'GitHubError') throw error;
+  println(stderr, `omni care reply: GitHub refused it: ${error.message}`);
+  return 1;
 }
 
 /** Posts the reply on its thread and resolves it unless asked; prints what it did as JSON. */
 function postReply({ thread, verdict, body }: { thread: string; verdict: string; body: string }, { ctx, stdout, stderr, exec, env }: CommandIo): number {
-  const ghEnv = githubEnv(ctx, { exec, env });
+  const resolve = verdict !== 'asked';
   try {
-    const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, { exec, env: ghEnv }));
-    const resolve = verdict !== 'asked';
-    if (resolve) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, { exec, env: ghEnv });
-    const url = posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
+    const url = post({ thread, body, resolve }, { exec, env: githubEnv(ctx, { exec, env }) });
     println(stdout, JSON.stringify({ thread, verdict, url, resolved: resolve }));
     return 0;
   } catch (error) {
-    if (!(error instanceof Error) || error.name !== 'GitHubError') throw error;
-    println(stderr, `omni care reply: GitHub refused it: ${error.message}`);
+    return refused(error, stderr);
+  }
+}
+
+/** The comment `thread` asks with, its body as GitHub returns it and its url; `null` when it cannot be read. */
+function readAsked(thread: string, gh: Gh): { body: string; url: string } | null {
+  try {
+    const read = ThreadReadSchema.safeParse(graphql({ query: THREAD_QUERY, variables: { thread } }, gh));
+    return read.success ? askedComment(read.data.data?.node?.comments.nodes ?? []) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** PRD 2739: reads the thread, prepares the point and its high item, posts the `later` reply, resolves
+ * the thread, then writes both; a thread it cannot read, or an item the outbox check refuses, posts nothing. */
+async function postLater({ thread, body, prd: prdFlag }: { thread: string; body: string; prd: string | undefined }, io: CommandIo): Promise<number> {
+  const { ctx, stdout, stderr, exec, env } = io;
+  if (prdFlag === undefined) throw usageError('omni care reply: a later reply keeps its point for PRD n: pass --prd <n>.');
+  const prd = prdArg('care', '--prd', prdFlag);
+  if (ctx.layout.outboxDir(prd) === null) throw usageError(`omni care reply: PRD ${prd} has no inbox or shipped folder.`);
+  const gh: Gh = { exec, env: githubEnv(ctx, { exec, env }) };
+  const asked = readAsked(thread, gh);
+  if (asked === null) {
+    println(stderr, `omni care reply: not judged: could not read thread ${thread}`);
     return 1;
   }
+  const note = replyText(body);
+  const dir = join(ctx.root, ctx.config.paths.delivery, FOLLOW_UPS_DIR);
+  const point = planReviewPoint(dir, { source: reviewSource(prd, asked.url), date: new Date().toISOString().slice(0, 10), asked: asked.body, note });
+  const followUp = relative(ctx.root, point.file);
+  const item = await preparePostpone(ctx, prd, { threadId: thread, url: asked.url, followUp, asked: asked.body, note });
+  if (!item.ok) {
+    println(stderr, 'omni care reply: the item it would record fails "check outbox", so nothing was posted:');
+    for (const violation of item.violations) println(stderr, `  - ${violation}`);
+    return 2;
+  }
+  let url: string | null;
+  try {
+    url = post({ thread, body, resolve: true }, gh);
+  } catch (error) {
+    return refused(error, stderr);
+  }
+  writeReviewPoint(point);
+  const file = await item.write();
+  println(stdout, JSON.stringify({ thread, verdict: 'later', url, resolved: true, followUp, item: { id: item.id, rank: item.rank, file } }));
+  return 0;
 }
 
 /** `run`, reading the loop through the free io's `LoopReads`: a read that cannot be made prints its one
