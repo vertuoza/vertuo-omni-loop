@@ -58,18 +58,17 @@ function octokitOver(store: GithubStore, send: (url: string) => Promise<Response
   const fetch = githubClient({ store, fetch: send, log: () => undefined }).bound({ installation: INSTALLATION, priority: 'interactive' });
   return {
     request: async (route: string, params: Record<string, unknown> = {}) => {
-      const rest = { ...params };
+      const inPath = new Set<string>();
       const path = route.replace(/^GET /, '').replace(/\{(\w+)\}/g, (_, name: string) => {
-        const value = String(rest[name]);
-        delete rest[name];
-        return value;
+        inPath.add(name);
+        return String(params[name]);
       });
-      const query = new URLSearchParams(Object.entries(rest).map(([key, value]) => [key, String(value)])).toString();
+      const query = new URLSearchParams(Object.entries(params).filter(([key]) => !inPath.has(key)).map(([key, value]) => [key, String(value)])).toString();
       const res = await fetch(`https://api.github.com${path}${query ? `?${query}` : ''}`, { headers: { authorization: `Bearer run-${String(Math.random())}` } });
       if (!res.ok) throw Object.assign(new Error('Not Found'), { status: res.status });
       return { data: await res.json() };
     },
-  } as GitHubClient;
+  };
 }
 
 const folders: string[] = [];
