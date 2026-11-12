@@ -11,7 +11,7 @@
 //   `pack: null` with the line telling the agent to tell its person (BL-PRODUCTKNOWLEDGE-4); it never fails
 //   the call. The Legal entries (with each owner's login) and the Glossary come with the access itself, as
 //   the agent link reads them.
-import { knowledgeEntries, type PackText } from './entries';
+import { knowledgeEntries, type PackText } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import { NO_PACK_LINE, type KnowledgeEntry, type RepositoryState } from './product-mcp.contract';
 import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
 

@@ -11,12 +11,28 @@
 //
 // A repository entry's id carries the repository's short name, as the knowledge graph names it (PRD 1798),
 // so two repositories that both hold an ADR-0012 never collide. The product's own entries carry none.
-import { CONFIG_FILE, lawOwnerParts, parseConfig } from 'omni-loop/kit/lib/config.ts';
-import type { Config } from 'omni-loop/kit/lib/types.ts';
-import { parseDecisionRecord } from 'omni-loop/kit/lib/playbook/decisions.ts';
-import { isLaw, memorySource, readKnowledge, type KnowledgeEntry as RegisterEntry } from 'omni-loop/kit/lib/knowledge/registers.ts';
-import { lawsOfPackFiles } from '../business-laws/law-home';
-import type { KnowledgeEntry } from './product-mcp.contract';
+import { CONFIG_FILE, lawOwnerParts, parseConfig } from '../config.ts';
+import type { Config } from '../types.ts';
+import { parseDecisionRecord } from '../playbook/decisions.ts';
+import { BUSINESS_LAWS_FILE, parseBusinessLaws, type BusinessLaw } from './business-laws.ts';
+import { isLaw, memorySource, readKnowledge, type KnowledgeEntry as RegisterEntry } from './registers.ts';
+
+/** The kinds of knowledge an entry is. */
+export type EntryKind = 'business-law' | 'adr' | 'rule' | 'legal' | 'term' | 'never';
+
+/** One entry of a product's knowledge, its body whole. */
+export type KnowledgeEntry = {
+  id: string;
+  kind: EntryKind;
+  title: string;
+  /** The repository (owner/name) the entry comes from; null for the product's own rows and its business laws. */
+  repo: string | null;
+  domain: string | null;
+  body: string;
+  /** The file in the repository it was read from; null for the product's own rows. */
+  file: string | null;
+  status: string | null;
+};
 
 /** One file of a knowledge pack, by its repository path. */
 export type PackText = { path: string; content: string };
@@ -33,6 +49,9 @@ export type EntrySources = {
 /** The kit's own config: what a pack with no config, or one that does not read, is read by. */
 const DEFAULTS = parseConfig('kit: 1\n');
 
+/** Where a pack keeps the knowledge folder, unless the repository moved it. */
+const DEFAULT_KNOWLEDGE_ROOT = '.omni-loop/knowledge';
+
 const trimmed = (path: string): string => path.replace(/^\.\/+/, '').replace(/\/+$/, '');
 
 /** The pack's own config, or the kit's defaults. */
@@ -46,6 +65,27 @@ function configOf(files: readonly PackText[]): Config {
   }
 }
 
+/** The business laws of a pack's files: `product/` and each domain folder of the knowledge root, never a copy under `repos/`. */
+export function lawsOfPackFiles(files: readonly PackText[], knowledgeRoot: string = DEFAULT_KNOWLEDGE_ROOT): BusinessLaw[] {
+  const product = `${knowledgeRoot}/product/${BUSINESS_LAWS_FILE}`;
+  const domains = `${knowledgeRoot}/domains/`;
+  const shared = files.filter((file) => file.path === product).flatMap((file) => parseBusinessLaws(file.path, file.content, { scope: 'product', domain: 'product' }));
+  const domain = files
+    .flatMap((file) => {
+      const key = file.path.startsWith(domains) && file.path.endsWith(`/${BUSINESS_LAWS_FILE}`) ? file.path.slice(domains.length, -(BUSINESS_LAWS_FILE.length + 1)) : '';
+      return key !== '' && !key.includes('/') ? [{ file, key }] : [];
+    })
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .flatMap(({ file, key }) => parseBusinessLaws(file.path, file.content, { scope: 'domain', domain: key }));
+  return [...shared, ...domain];
+}
+
+/** The text a vector is made from: the entry's title, then its body without its `Owner:` line (a login is personal data). */
+export function embedText(entry: Pick<KnowledgeEntry, 'title' | 'body'>): string {
+  const body = entry.body.split('\n').filter((line) => !/^\s*Owner:/.test(line)).join('\n');
+  return `${entry.title}\n${body}`;
+}
+
 /** The short name of an `owner/name` slug. */
 const shortName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);
 
@@ -55,14 +95,19 @@ const lines = (...parts: (string | null | false)[]): string => parts.filter((par
 function decisionEntries(repo: string, files: readonly PackText[], adrDir: string | null): KnowledgeEntry[] {
   if (adrDir === null || adrDir === '') return [];
   const prefix = `${trimmed(adrDir)}/`;
-  return files.flatMap((file) => {
+  const records = files.flatMap((file) => {
     const rest = file.path.startsWith(prefix) ? file.path.slice(prefix.length) : '';
     if (rest === '' || rest.includes('/')) return [];
     const record = parseDecisionRecord(file.path, file.content);
-    if (record.number === '') return [];
+    return record.number === '' ? [] : [{ file, rest, record }];
+  });
+  const shared = new Set(records.map((r) => r.record.number).filter((n, i, all) => all.indexOf(n) !== i));
+  return records.flatMap(({ file, rest, record }) => {
     const id = `ADR-${record.number}`;
+    // Two records of one repository sharing a number take their file names, so each stays addressable.
+    const name = shared.has(record.number) ? rest.replace(/\.md$/, '') : id;
     return [{
-      id: `${shortName(repo)}/${id}`,
+      id: `${shortName(repo)}/${name}`,
       kind: 'adr' as const,
       title: record.title ?? id,
       repo,
