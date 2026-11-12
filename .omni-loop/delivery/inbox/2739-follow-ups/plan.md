@@ -9,7 +9,7 @@ PRD #2739 · spec: `spec.md` beside this plan · feature branch `feat/follow-ups
 | --- | --- | --- | --- | --- | --- |
 | s1 | `omni follow-up add` writes one file per open point in `<paths.delivery>/follow-ups/`, refuses a duplicate or a bad source, and `omni follow-up list` prints them oldest first | `kit/lib/follow-ups/` `kit/bin/commands/follow-up.ts` `kit/bin/follow-up.test.ts` `kit/bin/commands/index.ts` `kit/lib/help/` `.omni-loop/delivery/README.md` | — | 1 | build |
 | s2 | `omni bug` and `omni bug check --product` refuse a `## Still open` point with no follow-up file, and the bug-fix skills write the points | `kit/lib/bug/` `kit/bin/bug.test.ts` `kit/bin/bug-product.test.ts` `kit/plugin/skills/bug-fix/` `kit/plugin/skills/mega-bug-fix/` | s1 | 2 | build |
-| s3 | `omni care reply --verdict later` posts, resolves and writes the follow-up, and `omni ship` refuses a `later` reply with no file | `kit/lib/care/` `kit/bin/commands/care.ts` `kit/bin/care.test.ts` `kit/lib/delivery/ship` `kit/bin/commands/ship.ts` `kit/plugin/skills/pr-care/` | s1 | 2 | deep |
+| s3 | `omni care reply --verdict later` posts, resolves and writes the follow-up, and `omni ship` refuses a `later` reply with no file | `kit/lib/care/` `kit/bin/commands/care.ts` `kit/bin/care.test.ts` `kit/lib/delivery/ship` `kit/bin/commands/ship.ts` `kit/lib/policy/outbox-policy.ts` `kit/lib/policy/outbox-policy.test.ts` `kit/plugin/skills/pr-care/` | s1 | 2 | deep |
 | s4 | `omni status` shows `follow-ups  N open · oldest <date> → omni follow-up list` when points exist | `kit/lib/status/` `kit/bin/commands/status.ts` `kit/bin/status.test.ts` | s1 | 2 | build |
 | s5 | the guide says where open points go and how a person closes one | `docs/guide/loop.md` | s2, s3, s4 | 3 | light |
 
@@ -43,10 +43,14 @@ generated `kit/dist/` is rebuilt by the wave, never listed.
 ### s3
 - `omni care reply --verdict later --prd 7 --thread <id> --file <f>` posts a reply ending with
   `<!-- omni-care: later -->`, resolves the thread and writes the follow-up of source
-  `PRD #7 · <thread url>`; `--point <text>` sets its text.
+  `PRD #7 · <thread url>`; `--point <text>` sets its text; it also records one outbox item ranked
+  high in PRD 7's outbox (via the `omni item new` writer) asking a person to agree to postpone it,
+  high even when the agent proposes medium (never#2).
 - `omni ship <n>` refuses while a `later` reply on the feature PR or a merged sub-PR has no file,
   naming the PR and the reply's first words (the test that would have caught the review's item 1
-  review promises); ships once the file exists; refuses with one line when GitHub cannot be read.
+  review promises); refuses a `later` reply with no outbox item of its thread; ships once both exist;
+  when GitHub cannot be read prints `not judged: could not read the review threads of PRD <n>'s pull
+  requests: <why>` and exits 1, never a pass (BL-GATE-1).
 - `/omni:pr-care` replies `later` whenever it offers to do the point afterwards, then commits the
   file alone as `docs(follow-up): <slug>`.
 

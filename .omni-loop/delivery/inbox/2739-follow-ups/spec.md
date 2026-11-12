@@ -33,7 +33,7 @@ features were never filed. Cases are cited by the review's item number only (Dec
 
 The loop keeps every open point in the repository, one file each, and two gates refuse to close a
 bug or ship a PRD while a point it named has no file. It never opens an issue and never notifies
-anyone: the team reads the list and decides what deserves an issue.
+anyone: the workspace's members read the list and decide what deserves an issue.
 
 ### Where the points live
 
@@ -91,14 +91,25 @@ The export job retries a 4xx forever: 312 retries in the last run's log.
   `--prd <n>`, writes the follow-up in the worktree it runs in, source `PRD #<n> · <thread url>`,
   text the reply's first sentence after the marker's verdict word, or `--point <text>` when given.
   `/omni:pr-care` then commits it alone (`docs(follow-up): <slug>`) and pushes with its round.
+- **A person agrees to postpone it** (never#2). Putting a person's review comment off is a decision
+  the agent takes alone, so the same `later` reply also records **one outbox item ranked high** in
+  the PRD's outbox, through the writer `omni item new` uses: what the comment asked, why the agent
+  proposes to postpone it, the thread's url and the follow-up file's path, and the question
+  *"Postpone this to a follow-up, or fix it in this PRD?"*. The kit ranks a `later` decision high,
+  whatever rank the agent proposes, so it is never adopted silently. `omni ship`'s existing outbox
+  gate then holds the PRD until a person answers it; an answer "fix it now" goes to
+  `/omni:yolo-fix` like any other, and the follow-up file is deleted in that rework.
 - `/omni:pr-care` replies `later`, never `pushed-back`, whenever the reply offers to do the point
   afterwards. A plain push-back with no promise stays `pushed-back`.
 - `omni ship <n>` reads the feature PR's review threads, and those of its merged sub-PRs, through
   the reader `omni care` already uses, and refuses while a `later` reply has no follow-up file of
   source `PRD #<n> · <that thread's url>`:
   `PR #<pr>: the reply "<first words>" promised a follow-up that has no file: omni follow-up add --source 'PRD #<n> · <url>' --text '…'`.
-  When GitHub cannot be read, `omni ship` refuses with the one line
-  `could not read the review threads of PRD <n>'s pull requests: <why>`; it never ships unchecked.
+  It also refuses a `later` reply with no outbox item of its thread url:
+  `PR #<pr>: the reply "<first words>" postpones a person's comment with no outbox item: a person must agree to it`.
+- When GitHub cannot be read, `omni ship` prints the one line
+  `not judged: could not read the review threads of PRD <n>'s pull requests: <why>` and exits 1: a
+  check that cannot decide says so and never shows a pass (BL-GATE-1); it never ships unchecked.
 
 ### `omni status`
 
@@ -133,8 +144,15 @@ own script over `omni follow-up list --json`.
 - **The evidence is cited by the review's item number only.** The source review is of a private
   delivery; this repository is open source, and never#11 keeps that delivery out of it. The person
   chose item numbers and anonymised shapes; the test fixtures are fictional (`demo-org`).
-- **`omni ship` refuses when GitHub cannot be read.** Shipping unchecked would let the promise slip
-  again; the line says what to fix.
+- **`omni ship` says `not judged` when GitHub cannot be read.** Shipping unchecked would let the
+  promise slip again, and BL-GATE-1 says a check that cannot decide says so, never a pass: the line
+  starts `not judged:` and names why. Settled after the person flagged the rules on 2026-11-12.
+- **A `later` reply also records one high outbox item.** Postponing a person's review comment is a
+  decision the agent takes alone; never#2 says every such choice is written down for a person to
+  answer, and a follow-up file nobody must answer is not that. Settled after the person flagged
+  never#2 on 2026-11-12: the follow-up file keeps the point, the high item asks the person to agree.
+- **Words.** The spec uses the glossary's own terms (workspace, member), never the words it avoids
+  (fixed on 2026-11-12 after the person flagged it).
 - **The voice.** persona:B-E DEv objected: *"Another folder of markdown nobody opens. I'd rather see
   it where I already look."* Settled `accepted`: the count line in `omni status`.
 
@@ -142,9 +160,10 @@ own script over `omni follow-up list --json`.
 
 - As a developer who fixed one cause of a bug, I want the other problem I saw kept in the
   repository, so the next person finds it without reading a closed issue.
-- As a reviewer who accepted "later" for a comment, I want that promise listed, so it is not lost
+- As a person whose review comment was answered "later", I want to agree to it first and then see
+  that promise listed, so it is not lost
   when the thread resolves.
-- As a lead, I want one count in `omni status`, so I decide with the team which points deserve an
+- As a lead, I want one count in `omni status`, so I decide with the workspace's members which points deserve an
   issue.
 
 ## Scope
@@ -169,8 +188,9 @@ temporary repository and an injected `exec`, never a call to GitHub.
   `## Still open` holds a bullet with no follow-up file → `not ok` naming the bullet; with the file →
   `ok`; no section → `ok`.
 - `kit/lib/bug/product.test.ts`: the same for `bug check --product`.
-- `kit/bin/care.test.ts`: `reply --verdict later --prd 7` posts the marker, resolves the thread and
-  writes the file.
+- `kit/bin/care.test.ts`: `reply --verdict later --prd 7` posts the marker, resolves the thread,
+  writes the file and records one outbox item ranked high naming the thread, even when the agent
+  proposes medium.
 - `kit/lib/delivery/ship.test.ts`: **the test that would have caught item 1's review promises**: a
   feature PR thread with a `later` reply and no file → refused naming the PR and the reply; with the
   file → ships; threads unreadable → refused with its line.
@@ -192,6 +212,14 @@ harmless.
   request on GitHub.
 - BL-APPROVALS-1 — An approval covers exactly the files the approver read; a later change voids it. Kept: a follow-up file is added on the fix or feature branch before the person approves the PR, and `omni ship` refuses before the feature PR is marked ready, never after.
 - BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: the follow-up text is the agent's own reply, never a person's answer, and a person's review comment is only linked by its thread url.
+- BL-GATE-1 — A check that ends without deciding says so in its result: "not judged", with the reason; it never shows a pass. Kept: `omni ship` prints `not judged: could not read the review threads …` and exits 1 when GitHub cannot be read.
+- The `later` reply's outbox item touches the gate's laws (owners for each: @pierrederval or @dervalp approve the pull request that changes it):
+  - BR-PRODUCT-3: an agent never applies the override label itself. If broken, an agent waves its own postponement through. Kept: nothing here applies a label.
+  - BR-PRODUCT-5: a feature stays a draft while any question is open. If broken, a person merges a PRD whose postponed comment nobody agreed to. Kept: the high item holds the feature PR draft.
+  - BR-PRODUCT-6: the live check always reads the changed files. If broken, a risky change nobody explained reaches main. Kept: untouched.
+  - N-PRODUCT-3: a question an agent raises is graded by the gate's own check before it is written. If broken, a badly ranked postponement slips past. Kept: the item goes through the `omni item new` writer and its check.
+  - N-PRODUCT-4: a pull request never changes the rules it is judged by. If broken, a change switches its own gate off. Kept: the gate's rules are not changed, only a new item kind is ranked.
+  - N-PRODUCT-14: the terminal checks always compare with the base branch. If broken, a rule loses its test unnoticed. Kept: untouched.
 
 ## Acceptance criteria
 
@@ -202,9 +230,13 @@ harmless.
    holds a point with no follow-up file; `ok` once the file exists.
 3. `omni bug check --product <key> <file>` refuses the same way for source `<key>-B<n>`.
 4. `omni care reply --verdict later --prd <n> --thread <id> --file <f>` posts a reply ending with
-   `<!-- omni-care: later -->`, resolves the thread and writes the follow-up file.
+   `<!-- omni-care: later -->`, resolves the thread, writes the follow-up file and records one
+   outbox item ranked high in PRD n's outbox asking a person to agree to postpone it.
 5. `omni ship <n>` refuses while a `later` reply on the PRD's pull requests has no follow-up file,
-   naming the PR; it ships once the file exists; it refuses with one line when GitHub cannot be read.
+   naming the PR; it refuses a `later` reply with no outbox item of its thread; it ships once both
+   exist and the item is answered; when GitHub cannot be read it prints
+   `not judged: could not read the review threads of PRD <n>'s pull requests: <why>`, exits 1 and
+   never shows a pass.
 6. `omni status` shows `follow-ups  N open · oldest <date> → omni follow-up list` when points exist,
    and no follow-ups line when none do.
 7. No command of this PRD calls GitHub to write, opens an issue or sends a notification

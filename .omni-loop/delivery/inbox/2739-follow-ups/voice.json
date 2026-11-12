@@ -35,7 +35,7 @@
           "name": "Paul - Product Manager",
           "stance": "excited",
           "score": 4,
-          "reaction": "I decide what becomes an issue, and nothing pings the team behind my back.",
+          "reaction": "I decide what becomes an issue, and nothing pings the workspace behind my back.",
           "citations": [
             "persona:Paul - Product Manager"
           ]
@@ -95,7 +95,7 @@
           "name": "Paul - Product Manager",
           "stance": "excited",
           "score": 4,
-          "reaction": "I decide what becomes an issue, and nothing pings the team behind my back.",
+          "reaction": "I decide what becomes an issue, and nothing pings the workspace behind my back.",
           "citations": [
             "persona:Paul - Product Manager"
           ]

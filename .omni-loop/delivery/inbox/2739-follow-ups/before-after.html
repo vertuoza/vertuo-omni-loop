@@ -80,7 +80,7 @@ details > summary { cursor: pointer; color: var(--muted); }
 </div>
 <div><div class="label">After</div>
 <p>Each open point is one file in <code>.omni-loop/delivery/follow-ups/</code>: the point, its source and the date. The fix or feature PR that saw it carries the file, so it merges with the fix.</p>
-<p><code>omni bug</code> refuses a record whose <strong>Still open</strong> point has no file. <code>omni ship</code> refuses a PRD whose "later" reply has no file. Nothing opens an issue or notifies anyone: the team decides.</p>
+<p><code>omni bug</code> refuses a record whose <strong>Still open</strong> point has no file. <code>omni ship</code> refuses a PRD whose "later" reply has no file. Nothing opens an issue or notifies anyone: the workspace's members decide. A <code>later</code> reply also asks a person, as a high outbox item, to agree to postpone it.</p>
 <pre>$ omni status
   delivered  █████████████████████████████░  245 of 252 · 97%
   follow-ups  4 open · oldest 2026-10-02 → omni follow-up list</pre>
@@ -127,7 +127,7 @@ details > summary { cursor: pointer; color: var(--muted); }
 <h4>Behaviour</h4>
 <div class="compare">
 <div><div class="label">Today</div><p><code>omni bug &lt;n&gt;</code> grades five sections. <code>omni ship &lt;n&gt;</code> reads the folder offline. <code>omni status</code> has no follow-ups line.</p></div>
-<div><div class="label">After</div><p><code>omni bug</code> also refuses an unfiled <strong>Still open</strong> point. <code>omni ship</code> also reads the PRD's review threads and refuses an unfiled <code>later</code> reply, or one line when GitHub cannot be read. <code>omni status</code> shows the count.</p></div>
+<div><div class="label">After</div><p><code>omni bug</code> also refuses an unfiled <strong>Still open</strong> point. <code>omni ship</code> also reads the PRD's review threads and refuses an unfiled <code>later</code> reply, or one with no high outbox item, and says <code>not judged</code> when GitHub cannot be read. <code>omni status</code> shows the count.</p></div>
 </div>
 </div>
 </div>
