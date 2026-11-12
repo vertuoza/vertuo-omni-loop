@@ -1,0 +1,116 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-12",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A vector store and an edge function is a lot of machinery for a search box. It's fluff to me unless the plain search still answers when that machinery is down.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "If every agent finds the same law from its own words, the teams stop drifting from the rules.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "An agent that finds the right rule writes less slop, as long as it can still be checked against the id it cites.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Agents finding laws from plain questions means my ideas get built the way the product works.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I ask in customer words, not the law's words: meaning search is what makes it useful to me.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A vector store and an edge function is a lot of machinery for a search box. It's fluff to me unless the plain search still answers when that machinery is down.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "Fits the PMs and the lead engineer best, the skeptical back-end developer worst, until the word-search fallback was made explicit."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-12",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The word search stays as the fallback and the mode says which ran: the machinery earns its keep if the eval holds.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A measured eval as the acceptance test, and duplicate ids fixed: I can trust the answers.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Exact ids first is good; I'll believe the rest when agents cite the right law.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Eleven of twelve natural questions in the top five is the bar I wanted.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Paraphrases count in the eval, which is how I actually ask.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "Every persona at 3 or more; the skeptical developers wait on the eval's numbers."
+    }
+  ]
+}
