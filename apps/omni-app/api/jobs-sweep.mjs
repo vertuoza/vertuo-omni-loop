@@ -698,7 +698,7 @@ function supabaseGithubStore(db) {
 }
 
 // apps/omni-app/src/jobs/sweep.ts
-import { z as z64 } from "zod";
+import { z as z67 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -1818,7 +1818,7 @@ async function postDelayed({
 }
 
 // apps/omni-app/src/jobs/gaps.ts
-import { z as z27 } from "zod";
+import { z as z29 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/github.ts
 import { mkdtempSync as mkdtempSync3, readdirSync, readFileSync as readFileSync3, rmSync as rmSync2, statSync as statSync2 } from "node:fs";
@@ -2215,7 +2215,7 @@ function touchesPack(changed, { folders, files }) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z26 } from "zod";
+import { z as z28 } from "zod";
 
 // apps/omni-app/src/knowledge-harvest/github.ts
 import { mkdtempSync as mkdtempSync7, readdirSync as readdirSync14, rmSync as rmSync8, statSync as statSync9 } from "node:fs";
@@ -2321,12 +2321,12 @@ function readFrontMatter(raw) {
     })
   };
 }
-function splitSections(lines) {
+function splitSections(lines2) {
   const head = [];
   const sections = [];
   let current = null;
   let fenced = false;
-  for (const line of lines) {
+  for (const line of lines2) {
     const heading = fenced ? null : line.match(HEADING);
     if (FENCE.test(line)) fenced = !fenced;
     if (heading) {
@@ -2346,17 +2346,17 @@ function readHead(head) {
 }
 function readBody(raw) {
   const text13 = raw.replace(COMMENT, "").trim();
-  const lines = text13.split("\n").map((line) => line.trim()).filter(Boolean);
-  const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
-  if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text13, see: null, questions };
-  const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
+  const lines2 = text13.split("\n").map((line) => line.trim()).filter(Boolean);
+  const questions = lines2.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
+  if (lines2.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
+  if (questions.length === lines2.length) return { kind: "holes", text: text13, see: null, questions };
+  const see = lines2.length === 1 ? lines2[0]?.match(SEE) ?? null : null;
   if (see) return { kind: "pointer", text: text13, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
   return { kind: "text", text: text13, see: null, questions };
 }
-function readSection(heading, lines) {
-  const at4 = lines.findIndex((line) => line.trim() !== "");
-  const first = at4 === -1 ? "" : (lines[at4] ?? "").trim();
+function readSection(heading, lines2) {
+  const at4 = lines2.findIndex((line) => line.trim() !== "");
+  const first = at4 === -1 ? "" : (lines2[at4] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
   const marker = first.match(MARKER);
   if (!marker) return { kind: "malformed", first };
@@ -2367,15 +2367,15 @@ function readSection(heading, lines) {
     required: need === "required",
     by: by === OLD_BY ? "invade" : by ?? null,
     verified: verified ?? null,
-    body: readBody(lines.slice(at4 + 1).join("\n"))
+    body: readBody(lines2.slice(at4 + 1).join("\n"))
   };
   return { kind: "slot", slot, oldBy: by === OLD_BY };
 }
 function readSlots(sections, { file, errors, oldSpellings }) {
   const slots = [];
   const unmarked = [];
-  for (const { heading, lines } of sections) {
-    const read = readSection(heading, lines);
+  for (const { heading, lines: lines2 } of sections) {
+    const read = readSection(heading, lines2);
     if (read.kind === "unmarked") {
       unmarked.push(heading);
       continue;
@@ -2602,15 +2602,15 @@ function withFile2(file, message) {
   return file ? `${file}: ${message}` : message;
 }
 function stripQuotes(value) {
-  const trimmed2 = value.trim();
-  if (trimmed2.length >= 2) {
-    const first = trimmed2[0];
-    const last = trimmed2[trimmed2.length - 1];
+  const trimmed3 = value.trim();
+  if (trimmed3.length >= 2) {
+    const first = trimmed3[0];
+    const last = trimmed3[trimmed3.length - 1];
     if (first === '"' && last === '"' || first === "'" && last === "'") {
-      return trimmed2.slice(1, -1);
+      return trimmed3.slice(1, -1);
     }
   }
-  return trimmed2;
+  return trimmed3;
 }
 function parseFrontMatterLines(rawFrontMatter) {
   const data = {};
@@ -2874,23 +2874,23 @@ function readFrontMatterBlock(text13, file, schema) {
     return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
   const [, rawFrontMatter = "", body = ""] = blockMatch;
-  const lines = parseFrontMatterLines(rawFrontMatter);
-  const checked2 = schema.safeParse(lines.data, { error: KIT_MESSAGES });
+  const lines2 = parseFrontMatterLines(rawFrontMatter);
+  const checked2 = schema.safeParse(lines2.data, { error: KIT_MESSAGES });
   const refusals = checked2.success ? [] : checked2.error.issues.map(
     (issue) => `${issue.path.length > 0 ? issue.path.join(".") : "(front matter)"}: ${issue.message}`
   );
   return {
     body,
-    errors: [...lines.errors, ...refusals].map((message) => withFile2(file, message)),
+    errors: [...lines2.errors, ...refusals].map((message) => withFile2(file, message)),
     data: checked2.success ? checked2.data : null
   };
 }
 var OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
 function parseOutboxOptions(content) {
-  const lines = (content ?? "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  const lines2 = (content ?? "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   const options = [];
   const errors = [];
-  for (const line of lines) {
+  for (const line of lines2) {
     const match = line.match(OPTION_LINE);
     if (!match) {
       errors.push(`option line is not "<letter>. <sentence>": "${line}"`);
@@ -2926,9 +2926,9 @@ var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
 function countSentences(text13) {
-  const trimmed2 = (text13 ?? "").trim();
-  if (!trimmed2) return 0;
-  const matches = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
+  const trimmed3 = (text13 ?? "").trim();
+  if (!trimmed3) return 0;
+  const matches = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
 function uniqueMatches(text13, pattern) {
@@ -3200,7 +3200,7 @@ function renderSettledEntry({
   markers,
   closed = null
 }) {
-  const lines = [
+  const lines2 = [
     markers.settledOpen(item.id),
     "",
     `## ${item.id} \u2014 ${judgement.verdict}`,
@@ -3210,10 +3210,10 @@ function renderSettledEntry({
     `- Approved at: ${answer.approvedAt}`
   ];
   if (answer.channel) {
-    lines.push(`- Channel: ${channelLabel(answer.channel)}`);
-    if (answer.channel.url) lines.push(`- Channel URL: ${answer.channel.url}`);
+    lines2.push(`- Channel: ${channelLabel(answer.channel)}`);
+    if (answer.channel.url) lines2.push(`- Channel URL: ${answer.channel.url}`);
   }
-  lines.push(
+  lines2.push(
     `- Basis: ${judgement.basis} \u2014 ${judgement.reason}`,
     `- Closed: ${closed ?? closedLine(judgement.verdict)}`,
     `- Rank: ${item.rank}`,
@@ -3233,7 +3233,7 @@ function renderSettledEntry({
     markers.settledClose(item.id),
     ""
   );
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function parseSettledEntries(text13, markers) {
   return latestPerId(rawSettledEntries(text13, markers));
@@ -3253,11 +3253,11 @@ function closedEntry({ id, fields, blocks: blocks2 }) {
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
 function rawSettledEntries(text13, markers) {
-  const lines = text13.split("\n");
+  const lines2 = text13.split("\n");
   const entries = [];
   let current = null;
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
+  for (let index = 0; index < lines2.length; index += 1) {
+    const line = lines2[index] ?? "";
     const openMatch = line.match(markers.settledOpenRe);
     if (openMatch) {
       current = openedEntry(openMatch[1]);
@@ -3274,8 +3274,8 @@ function rawSettledEntries(text13, markers) {
       const fence = fenceMatch[1];
       const start = index + 1;
       let end = start;
-      while (end < lines.length && lines[end] !== fence) end += 1;
-      current.blocks.push(lines.slice(start, end).join("\n"));
+      while (end < lines2.length && lines2[end] !== fence) end += 1;
+      current.blocks.push(lines2.slice(start, end).join("\n"));
       index = end;
       continue;
     }
@@ -3526,12 +3526,12 @@ var FIELD_NAMES = keysOf(FIELD_KEY);
 function codeOf(name) {
   return name.replace(/-/g, "").toUpperCase();
 }
-function readFields(lines) {
+function readFields(lines2) {
   const fields = {};
   const counts = {};
   let fieldAt = -1;
   let open = null;
-  lines.forEach((line, index) => {
+  lines2.forEach((line, index) => {
     const match = line.match(FIELD_LINE);
     if (match) {
       if (fieldAt === -1) fieldAt = index;
@@ -3645,9 +3645,9 @@ function splitEntries(text13) {
   return entries;
 }
 function parseEntryFile(file, text13, place) {
-  return splitEntries(text13).map(({ id, lines }) => {
-    const { fields, counts, fieldAt } = readFields(lines);
-    const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
+  return splitEntries(text13).map(({ id, lines: lines2 }) => {
+    const { fields, counts, fieldAt } = readFields(lines2);
+    const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
     const { proposed, problems: proposedProblems } = readProposed(file, id, fields.proposedLine);
@@ -3696,6 +3696,24 @@ function diskSource(root) {
     files: (dir) => listDir(root, dir, (entry) => entry.isFile()),
     dirs: (dir) => listDir(root, dir, (entry) => entry.isDirectory()),
     read: (file) => readFileSync8(join12(root, file), "utf8")
+  };
+}
+function memorySource(texts) {
+  const paths = Object.keys(texts);
+  const under = (dir) => {
+    const prefix = `${dir}/`;
+    return paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
+  };
+  return {
+    files: (dir) => under(dir).filter((rest) => !rest.includes("/")).sort(),
+    dirs: (dir) => {
+      const nested = under(dir).filter((rest) => rest.includes("/"));
+      return [...new Set(nested.map((rest) => rest.split("/")[0] ?? ""))].sort();
+    },
+    read: (file) => {
+      if (!Object.hasOwn(texts, file)) throw new Error(`${file} is not among the files read`);
+      return texts[file] ?? "";
+    }
   };
 }
 function glossaryTermOf(text13) {
@@ -3795,18 +3813,18 @@ function blocks(text13) {
   return found;
 }
 function readBody2(raw) {
-  const lines = raw.map((line) => line.trim());
-  const fieldAt = lines.findIndex((line) => FIELD.test(line));
-  const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter(Boolean).join(" ");
-  return { statement: statement2, why: fieldValue(lines, "Why") || null, also: fieldValue(lines, "Also") };
+  const lines2 = raw.map((line) => line.trim());
+  const fieldAt = lines2.findIndex((line) => FIELD.test(line));
+  const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter(Boolean).join(" ");
+  return { statement: statement2, why: fieldValue(lines2, "Why") || null, also: fieldValue(lines2, "Also") };
 }
-function fieldValue(lines, name) {
-  const at4 = lines.findIndex((line) => line.match(FIELD)?.[1] === name);
+function fieldValue(lines2, name) {
+  const at4 = lines2.findIndex((line) => line.match(FIELD)?.[1] === name);
   if (at4 === -1) return null;
-  const rest = lines.slice(at4 + 1);
+  const rest = lines2.slice(at4 + 1);
   const end = rest.findIndex((line) => line === "" || FIELD.test(line));
   const continued = end === -1 ? rest : rest.slice(0, end);
-  return [lines[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
+  return [lines2[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
 }
 function idProblem(file, id, place) {
   const code = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
@@ -3816,8 +3834,8 @@ function idProblem(file, id, place) {
   return null;
 }
 function parseBusinessLaws(file, text13, place) {
-  return blocks(text13).map(({ heading, lines }) => {
-    const { statement: statement2, why, also } = readBody2(lines);
+  return blocks(text13).map(({ heading, lines: lines2 }) => {
+    const { statement: statement2, why, also } = readBody2(lines2);
     const problems = [
       idProblem(file, heading, place),
       statement2 === "" ? `${file}: ${heading} \u2014 has no statement.` : null,
@@ -3993,17 +4011,17 @@ var ENTRY_ACCOUNT_LINE = /^(item|spec)\s+(.+)$/;
 function captured(match, index) {
   return match[index] ?? "";
 }
-function groupsOfThree(lines) {
+function groupsOfThree(lines2) {
   const groups = [];
-  for (let i = 0; i + 2 < lines.length; i += 3) {
-    groups.push([lines[i] ?? "", lines[i + 1] ?? "", lines[i + 2] ?? ""]);
+  for (let i = 0; i + 2 < lines2.length; i += 3) {
+    groups.push([lines2[i] ?? "", lines2[i + 1] ?? "", lines2[i + 2] ?? ""]);
   }
   return groups;
 }
 function parseEntries(content) {
-  const lines = content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-  if (lines.length === 0) return { errors: [], entries: [] };
-  if (lines.length % 3 !== 0) {
+  const lines2 = content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  if (lines2.length === 0) return { errors: [], entries: [] };
+  if (lines2.length % 3 !== 0) {
     return {
       errors: [
         "risky change entries must come in groups of three lines: a backticked path, a rule id, and an account"
@@ -4013,7 +4031,7 @@ function parseEntries(content) {
   }
   const errors = [];
   const entries = [];
-  for (const [pathLine, ruleLine, accountLine] of groupsOfThree(lines)) {
+  for (const [pathLine, ruleLine, accountLine] of groupsOfThree(lines2)) {
     const pathMatch = pathLine.match(ENTRY_PATH_LINE);
     if (!pathMatch) {
       errors.push(`risky change entry must start with a backticked path: "${pathLine}"`);
@@ -4286,33 +4304,33 @@ function formatUnreworked(entry) {
   return `  - ${entry.id}`;
 }
 function formatReport(prd, result, { subject = isProductPrdId(prd) ? `PRD ${prd}` : `PRD #${prd}` } = {}) {
-  const lines = [];
+  const lines2 = [];
   if (result.items.length === 0) {
-    lines.push(`outbox-status \u2014 ${subject}: no open item.`);
+    lines2.push(`outbox-status \u2014 ${subject}: no open item.`);
   } else {
-    lines.push(`outbox-status \u2014 ${subject}: ${result.items.length} open item(s):`);
-    lines.push(...result.items.map(formatItem));
+    lines2.push(`outbox-status \u2014 ${subject}: ${result.items.length} open item(s):`);
+    lines2.push(...result.items.map(formatItem));
   }
   const unreworked = result.unreworked ?? [];
   if (unreworked.length > 0) {
     const n = unreworked.length;
-    lines.push(
+    lines2.push(
       `${n} drifted decision${n === 1 ? "" : "s"} not yet reworked \u2014 run ${COMMANDS.yoloFix} #${prd}`
     );
-    lines.push(...unreworked.map(formatUnreworked));
+    lines2.push(...unreworked.map(formatUnreworked));
   }
   if (result.unaccounted !== void 0) {
     if (result.unaccounted.length === 0) {
-      lines.push("outbox-status \u2014 no unaccounted risky change.");
+      lines2.push("outbox-status \u2014 no unaccounted risky change.");
     } else {
-      lines.push(`outbox-status \u2014 ${result.unaccounted.length} unaccounted risky change(s):`);
-      lines.push(...result.unaccounted.map(formatUnaccounted));
+      lines2.push(`outbox-status \u2014 ${result.unaccounted.length} unaccounted risky change(s):`);
+      lines2.push(...result.unaccounted.map(formatUnaccounted));
     }
   }
   if (result.overridden) {
-    lines.push(`${result.overrideLabel} \u2014 override in effect; waved through.`);
+    lines2.push(`${result.overrideLabel} \u2014 override in effect; waved through.`);
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 
 // kit/lib/releases/check-releases.ts
@@ -4338,12 +4356,12 @@ import { existsSync as existsSync13, readdirSync as readdirSync6, readFileSync a
 import { join as join15 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
 function invariantAdrs(text13, heading) {
-  const lines = text13.split("\n");
-  const start = lines.findIndex((line) => line.trim() === heading.trim());
+  const lines2 = text13.split("\n");
+  const start = lines2.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
   const ids = /* @__PURE__ */ new Set();
-  for (const line of lines.slice(start + 1)) {
+  for (const line of lines2.slice(start + 1)) {
     const next = line.match(/^(#+)\s/);
     if (next?.[1] !== void 0 && next[1].length <= level) break;
     for (const match of line.matchAll(/ADR-\d{4}/g)) ids.add(match[0]);
@@ -4862,10 +4880,10 @@ function thesisPath(ctx) {
   return `${productDir(ctx)}/${THESIS_FILE}`;
 }
 function parseThesis(file, text13) {
-  const lines = text13.split("\n");
-  const start = lines.findIndex((line) => LAWS_HEADING.test(line.trim()));
+  const lines2 = text13.split("\n");
+  const start = lines2.findIndex((line) => LAWS_HEADING.test(line.trim()));
   if (start === -1) return { file, lawsSection: null, laws: [] };
-  const rest = lines.slice(start + 1);
+  const rest = lines2.slice(start + 1);
   const end = rest.findIndex((line) => ANY_H22.test(line));
   const body = end === -1 ? rest : rest.slice(0, end);
   const laws = body.flatMap((raw) => {
@@ -5086,15 +5104,15 @@ function stableHash(text13) {
   }
   return hash >>> 0;
 }
-function serveLines(ids, lines, salt) {
+function serveLines(ids, lines2, salt) {
   const taken = /* @__PURE__ */ new Set();
   const served = /* @__PURE__ */ new Map();
   for (const id of ids) {
-    if (taken.size === lines.length) taken.clear();
-    let index = stableHash(`${salt}:${id}`) % lines.length;
-    while (taken.has(index)) index = (index + 1) % lines.length;
+    if (taken.size === lines2.length) taken.clear();
+    let index = stableHash(`${salt}:${id}`) % lines2.length;
+    while (taken.has(index)) index = (index + 1) % lines2.length;
     taken.add(index);
-    served.set(id, lines[index]);
+    served.set(id, lines2[index]);
   }
   return served;
 }
@@ -5168,50 +5186,50 @@ function formatOutboxComment({
   ctx
 }) {
   const sorted = sortItems(items);
-  const lines = [ctx.markers.comment, "", `**Outbox \u2014 open items for PRD #${prd}**`, ""];
+  const lines2 = [ctx.markers.comment, "", `**Outbox \u2014 open items for PRD #${prd}**`, ""];
   if (sorted.length === 0) {
-    lines.push("No open items.");
+    lines2.push("No open items.");
   } else {
     for (const item of sorted) {
       const url = fileUrl({ owner, repo, ref, file: item.file });
-      lines.push(`- \`${item.rank}\` \u2014 [${item.id}](${url})`);
+      lines2.push(`- \`${item.rank}\` \u2014 [${item.id}](${url})`);
     }
   }
-  lines.push("");
+  lines2.push("");
   if (sorted.length > 0) {
-    lines.push(
+    lines2.push(
       `_${sorted.length} open item(s) on \`${branch}\`. Settled items move to \`${ctx.layout.outboxDir(prd)}/settled.md\`._`
     );
   } else if (unreworked.length > 0) {
-    lines.push(
+    lines2.push(
       `_No open item on \`${branch}\`, but drifted and not yet reworked: ${unreworked.map((entry) => entry.id).join(", ")} \u2014 run \`${COMMANDS.yoloFix}\`._`
     );
   } else {
-    lines.push(`_Nothing open on \`${branch}\`._`);
+    lines2.push(`_Nothing open on \`${branch}\`._`);
   }
   if (sorted.length > 0 && labels.includes(ctx.config.labels.outboxGo)) {
-    lines.push("");
-    lines.push(
+    lines2.push("");
+    lines2.push(
       `_These items were waved through with \`${ctx.config.labels.outboxGo}\` \u2014 waved through, not answered._`
     );
   }
   const sortedUnaccounted = sortUnaccountedChanges(unaccounted);
   if (sortedUnaccounted.length > 0) {
-    lines.push("");
-    lines.push(`**Unaccounted changes \u2014 PRD #${prd}**`);
-    lines.push("");
+    lines2.push("");
+    lines2.push(`**Unaccounted changes \u2014 PRD #${prd}**`);
+    lines2.push("");
     for (const change2 of sortedUnaccounted) {
-      lines.push(`- \`${change2.rule}\` \u2014 \`${change2.path}\``);
+      lines2.push(`- \`${change2.rule}\` \u2014 \`${change2.path}\``);
     }
   }
-  lines.push("");
-  lines.push(
+  lines2.push("");
+  lines2.push(
     formatAnnouncedMarker(
       announcedKeys({ items: sorted, unaccounted: sortedUnaccounted }),
       ctx.markers
     )
   );
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function findCommentByMarker(comments, marker) {
   if (!isList(comments)) return null;
@@ -5283,9 +5301,9 @@ function adoptedEntriesForPrd(prd, { ctx }) {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
 function firstSentence(text13) {
-  const trimmed2 = (text13 ?? "").trim();
-  const match = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/);
-  return (match ? match[0] : trimmed2).trim();
+  const trimmed3 = (text13 ?? "").trim();
+  const match = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/);
+  return (match ? match[0] : trimmed3).trim();
 }
 function answeredQuestionText(entry) {
   const parsed2 = parseOutboxItem(entry.itemText, { file: null });
@@ -5381,13 +5399,13 @@ function questionBanter({
       fromPool.push(id);
     }
   }
-  for (const [id, lines] of assignBanter(fromPool)) banter.set(id, lines);
+  for (const [id, lines2] of assignBanter(fromPool)) banter.set(id, lines2);
   return banter;
 }
 function openQuestionLines(item, { number, round, banter }) {
   const humanAction = item.rank === "human-action";
   const options = offeredOptions(item);
-  const lines = [
+  const lines2 = [
     "---",
     "",
     `### Question ${number} \xB7 ${item.rank} \u2014 ${humanAction ? "needs a person" : "needs your decision"}`,
@@ -5400,7 +5418,7 @@ function openQuestionLines(item, { number, round, banter }) {
     ""
   ];
   if (humanAction && item.sections.personSteps) {
-    lines.push(
+    lines2.push(
       "**What a person must do:**",
       "",
       item.sections.personSteps.trim(),
@@ -5408,21 +5426,21 @@ function openQuestionLines(item, { number, round, banter }) {
       `Reply \`${number}: ok\` once it is done, or \`${number}: no, because \u2026\``
     );
   } else if (options.length > 0) {
-    lines.push(
+    lines2.push(
       ...formatOptionsTable(options, "recommended \xB7 built"),
       "",
       `Reply \`${number}: A\`, \`${number}: ${otherLetter(options)} because \u2026\`, or \`go with recommendation\``
     );
   } else {
-    lines.push(
+    lines2.push(
       `**Decision taken:** ${item.sections.decisionPlain}`,
       "",
       `Reply \`${number}: ok\` to keep it, or \`${number}: no, because \u2026\``
     );
   }
-  if (round) lines.push("", `_Asked again in round ${round}._`);
-  lines.push("");
-  return lines;
+  if (round) lines2.push("", `_Asked again in round ${round}._`);
+  lines2.push("");
+  return lines2;
 }
 function adoptedItem(entry) {
   const parsed2 = parseOutboxItem(entry.itemText, { file: null });
@@ -5432,7 +5450,7 @@ function adoptedQuestionLines(entry, { number, round, banter }) {
   const item = adoptedItem(entry);
   const question = item?.sections.questionPlain ?? answeredQuestionText(entry);
   const options = item ? offeredOptions(item) : [];
-  const lines = [
+  const lines2 = [
     `### Question ${number} \xB7 medium \u2014 adopted`,
     "",
     funLine(banter.intro),
@@ -5443,20 +5461,20 @@ function adoptedQuestionLines(entry, { number, round, banter }) {
     ""
   ];
   if (options.length > 0) {
-    lines.push(
+    lines2.push(
       ...formatOptionsTable(options, "adopted \xB7 built"),
       "",
       `To object, reply \`${number}: ${otherLetter(options)} because \u2026\``
     );
   } else {
     if (item?.sections.decisionPlain) {
-      lines.push(`**Decision taken:** ${item.sections.decisionPlain}`, "");
+      lines2.push(`**Decision taken:** ${item.sections.decisionPlain}`, "");
     }
-    lines.push(`To object, reply \`${number}: no, because \u2026\``);
+    lines2.push(`To object, reply \`${number}: no, because \u2026\``);
   }
-  if (round) lines.push("", `_Asked again in round ${round}._`);
-  lines.push("");
-  return lines;
+  if (round) lines2.push("", `_Asked again in round ${round}._`);
+  lines2.push("");
+  return lines2;
 }
 function formatOutboxPrComment({
   items,
@@ -5472,11 +5490,11 @@ function formatOutboxPrComment({
   const byNumber = (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
   const banter = questionBanter({ items: sorted, adopted, numberById });
   const facts = { numberById, roundMarkers, banter };
-  const lines = [ctx.markers.prComment, ""];
+  const lines2 = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
     const count = sorted.length;
     const example = exampleNumber(sorted, numberById);
-    lines.push(
+    lines2.push(
       `**${count} question${count === 1 ? "" : "s"} need${count === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
@@ -5484,43 +5502,43 @@ function formatOutboxPrComment({
       `_A reply settles nothing on its own \u2014 \`${COMMANDS.yoloFix}\` reads the replies and settles them._`,
       ""
     );
-    for (const item of sorted) lines.push(...openQuestionLines(item, questionFacts(item.id, facts)));
+    for (const item of sorted) lines2.push(...openQuestionLines(item, questionFacts(item.id, facts)));
   } else if (adopted.length > 0) {
-    lines.push("**Nothing needs your decision**", "");
+    lines2.push("**Nothing needs your decision**", "");
   } else if (answered.length > 0) {
-    lines.push("**Every question is answered**", "");
+    lines2.push("**Every question is answered**", "");
   } else {
-    lines.push("No open items.", "");
+    lines2.push("No open items.", "");
   }
   const page = omniPageLink(prd, ctx);
-  if (page) lines.splice(4, 0, `Answer here, or on the Omni page: ${page}`, "");
+  if (page) lines2.splice(4, 0, `Answer here, or on the Omni page: ${page}`, "");
   if (adopted.length > 0) {
-    lines.push(
+    lines2.push(
       "---",
       "",
       `<details><summary>Adopted unless you object \xB7 ${adopted.length} medium</summary>`,
       ""
     );
     for (const entry of [...adopted].sort(byNumber)) {
-      lines.push(...adoptedQuestionLines(entry, questionFacts(entry.id, facts)));
+      lines2.push(...adoptedQuestionLines(entry, questionFacts(entry.id, facts)));
     }
-    lines.push("</details>", "");
+    lines2.push("</details>", "");
   }
   if (answered.length > 0) {
-    lines.push("**Answered**", "");
+    lines2.push("**Answered**", "");
     for (const entry of [...answered].sort(byNumber)) {
       const number = numberById.get(entry.id);
       const question = answeredQuestionText(entry);
-      lines.push(`**Question ${number}**`, "");
-      if (question) lines.push(question, "");
-      lines.push(
+      lines2.push(`**Question ${number}**`, "");
+      if (question) lines2.push(question, "");
+      lines2.push(
         `Reply: ${quoteReply(entry.answerText)} \u2014 @${entry.fields["Approved by"] ?? ""}, ${formatApprovedAt(entry.fields["Approved at"])} \xB7 ${answeredOutcome(entry)}`,
         ""
       );
     }
   }
-  lines.push(formatNumbersMarker(numbering, ctx.markers));
-  return lines.join("\n");
+  lines2.push(formatNumbersMarker(numbering, ctx.markers));
+  return lines2.join("\n");
 }
 function omniPageLink(prd, ctx) {
   const { answers, ask: ask3, repo } = ctx.config;
@@ -6003,11 +6021,11 @@ function cells(line) {
   if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
   return inner.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, "|"));
 }
-function firstTable(lines) {
-  const start = lines.findIndex((line) => line.trim().startsWith("|"));
+function firstTable(lines2) {
+  const start = lines2.findIndex((line) => line.trim().startsWith("|"));
   if (start === -1) return null;
   const block = [];
-  for (const line of lines.slice(start)) {
+  for (const line of lines2.slice(start)) {
     if (!line.trim().startsWith("|")) break;
     block.push(line.trim());
   }
@@ -6160,10 +6178,10 @@ function cardField(label2) {
   const wanted = label2.trim().toLowerCase();
   return CARD_LINES.find(([, name]) => name.toLowerCase() === wanted)?.[0] ?? null;
 }
-function cardOf(lines) {
+function cardOf(lines2) {
   const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
   let field2 = null;
-  for (const line of lines) {
+  for (const line of lines2) {
     const labelled = CARD_LINE.exec(line);
     if (labelled) {
       field2 = cardField(group(labelled, 1));
@@ -6176,9 +6194,9 @@ function cardOf(lines) {
   }
   return { ...card, command: card.command === null ? null : codeCell(card.command) };
 }
-function cardsOf(lines) {
+function cardsOf(lines2) {
   const blocks2 = [];
-  for (const line of lines) {
+  for (const line of lines2) {
     const heading = CARD_HEADING.exec(line);
     if (heading) blocks2.push({ id: group(heading, 1), lines: [] });
     else blocks2.at(-1)?.lines.push(line);
@@ -6934,7 +6952,7 @@ function approvedVerdict(prd, reading) {
     return { state: "unknown", conclusion: "failure", title, summary, dossierId: null, drift: [] };
   }
   const { dossierId, approval, latest } = record;
-  const verdict = (state, conclusion, title, lines, drift2 = []) => ({ state, conclusion, title, summary: lines.join("\n"), dossierId, drift: drift2 });
+  const verdict = (state, conclusion, title, lines2, drift2 = []) => ({ state, conclusion, title, summary: lines2.join("\n"), dossierId, drift: drift2 });
   if (!approval) return verdict("pending", "failure", `pending \xB7 ${prd.id} waits for approval`, [`Nobody approved ${prd.id} yet.`]);
   const { login, member } = approval.approver;
   const attestation = [
@@ -6944,8 +6962,8 @@ function approvedVerdict(prd, reading) {
   ];
   const drift = driftsOf(approval, latest);
   if (drift.length > 0) {
-    const lines = drift.map(driftLine);
-    return verdict("drifted", "failure", `drifted \xB7 ${lines[0] ?? ""}`, [...lines, "", "Restore the file, or approve again on the PRD page.", "", ...attestation], drift);
+    const lines2 = drift.map(driftLine);
+    return verdict("drifted", "failure", `drifted \xB7 ${lines2[0] ?? ""}`, [...lines2, "", "Restore the file, or approve again on the PRD page.", "", ...attestation], drift);
   }
   if (!member) return verdict("refused", "failure", `refused \xB7 approver ${login} is not a workspace member`, attestation);
   const pinned = approval.files.length;
@@ -7399,14 +7417,274 @@ function packFiles(read) {
   return { files, left };
 }
 
+// apps/omni-app/src/jobs/embed.ts
+import { createHash as createHash2 } from "node:crypto";
+import { z as z27 } from "zod";
+
+// kit/lib/knowledge/entries.ts
+var DEFAULTS2 = parseConfig("kit: 1\n");
+var DEFAULT_KNOWLEDGE_ROOT = ".omni-loop/knowledge";
+var trimmed = (path) => path.replace(/^\.\/+/, "").replace(/\/+$/, "");
+function configOf(files) {
+  const file = files.find((f) => f.path === CONFIG_FILE);
+  if (file === void 0) return DEFAULTS2;
+  try {
+    return parseConfig(file.content, CONFIG_FILE, { ignoreUnknownKeys: true });
+  } catch {
+    return DEFAULTS2;
+  }
+}
+function lawsOfPackFiles(files, knowledgeRoot = DEFAULT_KNOWLEDGE_ROOT) {
+  const product = `${knowledgeRoot}/product/${BUSINESS_LAWS_FILE}`;
+  const domains = `${knowledgeRoot}/domains/`;
+  const shared = files.filter((file) => file.path === product).flatMap((file) => parseBusinessLaws(file.path, file.content, { scope: "product", domain: "product" }));
+  const domain = files.flatMap((file) => {
+    const key = file.path.startsWith(domains) && file.path.endsWith(`/${BUSINESS_LAWS_FILE}`) ? file.path.slice(domains.length, -(BUSINESS_LAWS_FILE.length + 1)) : "";
+    return key !== "" && !key.includes("/") ? [{ file, key }] : [];
+  }).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).flatMap(({ file, key }) => parseBusinessLaws(file.path, file.content, { scope: "domain", domain: key }));
+  return [...shared, ...domain];
+}
+function embedText(entry) {
+  const body = entry.body.split("\n").filter((line) => !/^\s*Owner:/.test(line)).join("\n");
+  return `${entry.title}
+${body}`;
+}
+var shortName2 = (repo) => repo.slice(repo.indexOf("/") + 1);
+var lines = (...parts) => parts.filter((part) => typeof part === "string" && part !== "").join("\n");
+function decisionEntries(repo, files, adrDir) {
+  if (adrDir === null || adrDir === "") return [];
+  const prefix = `${trimmed(adrDir)}/`;
+  const records = files.flatMap((file) => {
+    const rest = file.path.startsWith(prefix) ? file.path.slice(prefix.length) : "";
+    if (rest === "" || rest.includes("/")) return [];
+    const record = parseDecisionRecord(file.path, file.content);
+    return record.number === "" ? [] : [{ file, rest, record }];
+  });
+  const shared = new Set(records.map((r) => r.record.number).filter((n, i, all) => all.indexOf(n) !== i));
+  return records.flatMap(({ file, rest, record }) => {
+    const id = `ADR-${record.number}`;
+    const name = shared.has(record.number) ? rest.replace(/\.md$/, "") : id;
+    return [{
+      id: `${shortName2(repo)}/${name}`,
+      kind: "adr",
+      title: record.title ?? id,
+      repo,
+      domain: record.domain ?? null,
+      body: record.text,
+      file: file.path,
+      status: record.status
+    }];
+  });
+}
+var kindWord = (entry) => isLaw(entry) ? "law" : entry.kind ?? "rule";
+var statusOf3 = (entry) => isLaw(entry) ? "law" : entry.proposed !== null ? "proposed" : "confirmed";
+function registerEntries(repo, files, knowledgeRoot) {
+  const texts = {};
+  for (const file of files) texts[file.path] = file.content;
+  const { entries } = readKnowledge({ ctx: { root: "", layout: { knowledgeRoot } }, source: memorySource(texts) });
+  return entries.map((entry) => ({
+    id: `${shortName2(repo)}/${entry.id}`,
+    kind: "rule",
+    title: entry.statement,
+    repo,
+    domain: entry.domain,
+    body: lines(
+      entry.statement,
+      entry.why !== null && `Why: ${entry.why}`,
+      `Kind: ${kindWord(entry)}`,
+      `Status: ${statusOf3(entry)}`,
+      entry.enforcedBy !== null && `Enforced by: ${entry.enforcedBy}`
+    ),
+    file: entry.file,
+    status: statusOf3(entry)
+  }));
+}
+function lawEntries(home) {
+  const config = configOf(home.files);
+  const owners = config.laws.owners.map((owner) => lawOwnerParts(owner).owner);
+  return lawsOfPackFiles(home.files, trimmed(config.paths.knowledge)).map((law) => ({
+    id: law.id,
+    kind: "business-law",
+    title: law.statement,
+    repo: null,
+    domain: law.domain,
+    body: lines(
+      law.statement,
+      law.why !== null && `Why: ${law.why}`,
+      `Domains: ${[law.domain, ...law.also].join(", ")}`,
+      owners.length > 0 && `Owner: ${owners.join(", ")}`
+    ),
+    file: law.file,
+    status: null
+  }));
+}
+function knowledgeEntries(sources) {
+  const fromRepositories = sources.repositories.flatMap(({ repo, files }) => {
+    if (files === null) return [];
+    const config = configOf(files);
+    return [...decisionEntries(repo, files, config.paths.adr), ...registerEntries(repo, files, trimmed(config.paths.knowledge))];
+  });
+  const legal = sources.legal.map((row) => ({
+    id: row.id,
+    kind: "legal",
+    title: row.statement,
+    repo: null,
+    domain: null,
+    file: null,
+    status: null,
+    body: lines(row.statement, `Source: ${row.source}`, row.owner !== null && `Owner: ${row.owner}`)
+  }));
+  const terms = sources.glossary.map((row) => ({
+    id: `term:${row.term}`,
+    kind: "term",
+    title: row.term,
+    repo: null,
+    domain: null,
+    file: null,
+    status: null,
+    body: lines(row.meaning, row.avoid.length > 0 && `Avoid: ${row.avoid.join(", ")}`)
+  }));
+  const never = sources.never.map((row) => ({
+    id: `never#${String(row.seq)}`,
+    kind: "never",
+    title: row.body,
+    repo: null,
+    domain: null,
+    file: null,
+    status: null,
+    body: row.body
+  }));
+  const all = [...sources.lawHome ? lawEntries(sources.lawHome) : [], ...legal, ...fromRepositories, ...terms, ...never];
+  return all.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+// apps/omni-app/src/knowledge-embed/embedder.ts
+import { z as z26 } from "zod";
+var EMBED_MODEL = "gte-small";
+var EMBED_DIMENSIONS = 384;
+var EMBED_BATCH = 64;
+var EMBED_TIMEOUT_MS = 6e4;
+var AnswerSchema2 = z26.object({
+  model: z26.literal(EMBED_MODEL),
+  vectors: z26.array(z26.array(z26.number()).length(EMBED_DIMENSIONS))
+});
+var embedUrl = (url) => `${url.replace(/\/+$/, "")}/functions/v1/embed`;
+async function post(fetch2, endpoint, key, texts, timeoutMs) {
+  try {
+    return await fetch2(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${key}`, apikey: key, "content-type": "application/json" },
+      body: JSON.stringify({ texts }),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (error) {
+    const late = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    throw new Error(`embed: ${late ? `no answer within ${String(timeoutMs)} ms` : "the call failed"}`);
+  }
+}
+async function vectorsOf(response, count) {
+  if (!response.ok) throw new Error(`embed answered ${String(response.status)}`);
+  const parsed2 = AnswerSchema2.safeParse(await response.json().catch(() => null));
+  if (!parsed2.success) {
+    const [issue] = parsed2.error.issues;
+    throw new Error(`embed answered out of shape: ${issue?.path.join(".") || "(answer)"}: ${issue?.message ?? "malformed"}`);
+  }
+  const { vectors } = parsed2.data;
+  if (vectors.length !== count) throw new Error(`embed answered ${String(vectors.length)} vectors for ${String(count)} texts`);
+  return vectors;
+}
+function embedClient({ url, key, fetch: fetch2 = globalThis.fetch }, { timeoutMs = EMBED_TIMEOUT_MS } = {}) {
+  const endpoint = embedUrl(url);
+  return async (texts) => {
+    if (texts.length === 0) return [];
+    if (texts.length > EMBED_BATCH) throw new Error(`embed takes at most ${String(EMBED_BATCH)} texts a call, not ${String(texts.length)}`);
+    return vectorsOf(await post(fetch2, endpoint, key, texts, timeoutMs), texts.length);
+  };
+}
+
+// apps/omni-app/src/jobs/embed.ts
+var EMBED_KIND = "knowledge-embed";
+var EMBED_BUDGET_MS = 15e4;
+var AGAIN_MS = 6e4;
+var EmbedPayloadSchema = z27.object({
+  repository: z27.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z27.string().regex(/^[0-9a-f]{40}$/)
+});
+function embedJob({ repository, sha }) {
+  const subject = repository.toLowerCase();
+  return { kind: EMBED_KIND, key: `${subject}@${sha}`, subject, payload: { repository: subject, sha } };
+}
+var textHash = (text13) => createHash2("sha256").update(text13, "utf8").digest("hex");
+function packEntries(repository, pack2) {
+  const own = knowledgeEntries({ repositories: [{ repo: repository, files: pack2.files }], lawHome: null, legal: [], glossary: [], never: [] });
+  const products = pack2.products.flatMap(
+    (product) => knowledgeEntries({
+      repositories: [],
+      lawHome: product.lawHome ? { repo: repository, files: pack2.files } : null,
+      legal: product.legal,
+      glossary: product.glossary,
+      never: product.never
+    })
+  );
+  return [...own, ...products];
+}
+function textsByHash(entries) {
+  const texts = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const text13 = embedText(entry);
+    texts.set(textHash(text13), text13);
+  }
+  return texts;
+}
+function embedHandler({
+  store,
+  embed,
+  clock = Date.now,
+  budgetMs = EMBED_BUDGET_MS,
+  log: log2 = noteTo("knowledge-embed")
+}) {
+  return async (job) => {
+    const { repository, sha } = payloadOf(job.payload);
+    const what = `${repository}@${sha.slice(0, 7)}`;
+    const packs = await store.sources(repository, sha);
+    if (packs.length === 0) return { outcome: "skipped", reason: "no workspace keeps its pack" };
+    const start = clock();
+    let embedded = 0;
+    let texts = 0;
+    for (const pack2 of packs) {
+      const byHash = textsByHash(packEntries(repository, pack2));
+      texts += byHash.size;
+      const missing = await store.missing(pack2.workspace, EMBED_MODEL, [...byHash.keys()]);
+      for (let at4 = 0; at4 < missing.length; at4 += EMBED_BATCH) {
+        if (clock() - start >= budgetMs) {
+          log2(`knowledge embed: ${what} embedded ${String(embedded)} texts, out of time: again in a minute`);
+          return { outcome: "later", at: new Date(clock() + AGAIN_MS), progress: { embedded } };
+        }
+        const hashes = missing.slice(at4, at4 + EMBED_BATCH);
+        const vectors = await embed(hashes.map((hash) => byHash.get(hash) ?? ""));
+        await store.put(pack2.workspace, EMBED_MODEL, hashes.map((sha2562, i) => ({ sha256: sha2562, vector: vectors[i] ?? [] })));
+        embedded += hashes.length;
+      }
+    }
+    log2(`knowledge embed: ${what} embedded ${String(embedded)} of ${String(texts)} texts in ${String(packs.length)} workspaces`);
+    return { outcome: "done" };
+  };
+}
+function payloadOf(raw) {
+  const parsed2 = EmbedPayloadSchema.safeParse(raw);
+  if (parsed2.success) return parsed2.data;
+  const [issue] = parsed2.error.issues;
+  throw new Error(`The embed job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed2.error.message}`);
+}
+
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z26.object({
-  installationId: z26.number(),
-  owner: z26.string().min(1),
-  repo: z26.string().min(1),
-  sha: z26.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z26.string().min(1),
+var PackPayloadSchema = z28.object({
+  installationId: z28.number(),
+  owner: z28.string().min(1),
+  repo: z28.string().min(1),
+  sha: z28.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z28.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -7417,10 +7695,11 @@ function packJob(input) {
 function packHandler({
   octokitFor,
   store,
+  addJob,
   log: log2 = noteTo("knowledge-pack")
 }) {
   return async (job) => {
-    const payload = payloadOf(job.payload);
+    const payload = payloadOf2(job.payload);
     const { installationId, owner, repo } = payload;
     const repository = `${owner}/${repo}`;
     const what = labelOf(repository, payload);
@@ -7434,10 +7713,11 @@ function packHandler({
     const packed = await pack(octokit, store, { owner, repo, repository, sha: qualified.sha, committedAt: qualified.committedAt, paths: qualified.paths });
     if ("bound" in packed) return skipped2(`its knowledge is too large to pack: ${packed.bound}`);
     for (const line of packLines(what, qualified.sha, packed)) log2(line);
+    if (addJob && packed.packs.length > 0) await addJob(embedJob({ repository, sha: qualified.sha }));
     return { outcome: "done" };
   };
 }
-function payloadOf(raw) {
+function payloadOf2(raw) {
   const parsed2 = PackPayloadSchema.safeParse(raw);
   if (parsed2.success) return parsed2.data;
   const [issue] = parsed2.error.issues;
@@ -7486,8 +7766,8 @@ function packLines(what, sha, packed) {
 }
 
 // apps/omni-app/src/jobs/gaps.ts
-var HeldRowSchema = z27.object({ repository: z27.string().min(1) });
-var PackRowSchema = z27.object({ repository: z27.string().min(1), sha: z27.string().min(1), committed_at: z27.string().min(1) });
+var HeldRowSchema = z29.object({ repository: z29.string().min(1) });
+var PackRowSchema = z29.object({ repository: z29.string().min(1), sha: z29.string().min(1), committed_at: z29.string().min(1) });
 function gapsStore(connection) {
   const db = serviceDb(connection);
   return {
@@ -7503,11 +7783,11 @@ function gapsStore(connection) {
     }
   };
 }
-var InstallationSchema2 = z27.looseObject({ id: z27.number().int().positive() });
-var RepositorySchema = z27.looseObject({ default_branch: z27.string().min(1) });
-var CommitsSchema = z27.array(z27.looseObject({ sha: z27.string().regex(/^[0-9a-f]{40}$/), commit: z27.looseObject({ committer: z27.looseObject({ date: z27.string().min(1) }).nullish() }) }));
+var InstallationSchema2 = z29.looseObject({ id: z29.number().int().positive() });
+var RepositorySchema = z29.looseObject({ default_branch: z29.string().min(1) });
+var CommitsSchema = z29.array(z29.looseObject({ sha: z29.string().regex(/^[0-9a-f]{40}$/), commit: z29.looseObject({ committer: z29.looseObject({ date: z29.string().min(1) }).nullish() }) }));
 var INSTALLATION = "GET /repos/{owner}/{repo}/installation";
-var statusOf3 = (error) => {
+var statusOf4 = (error) => {
   if (typeof error !== "object" || error === null || !("status" in error)) return null;
   return typeof error.status === "number" ? error.status : null;
 };
@@ -7560,7 +7840,7 @@ async function compareOne({ repository, pack: pack2 }, { ledger, appOctokit, oct
     const { data: data2 } = await (await appOctokit()).request(INSTALLATION, { owner, repo });
     installationId = InstallationSchema2.parse(data2).id;
   } catch (error) {
-    if (statusOf3(error) === 404) return "skipped";
+    if (statusOf4(error) === 404) return "skipped";
     throw error;
   }
   const octokit = await octokitFor(installationId);
@@ -7580,7 +7860,7 @@ async function compareOne({ repository, pack: pack2 }, { ledger, appOctokit, oct
 }
 
 // apps/omni-app/src/jobs/ledger.ts
-import { z as z28 } from "zod";
+import { z as z30 } from "zod";
 
 // apps/omni-app/src/jobs/schedule.ts
 var SCHEDULES = Object.freeze([
@@ -7612,35 +7892,35 @@ async function addScheduled({
 
 // apps/omni-app/src/jobs/ledger.ts
 var REFRESH_DELAY_SECONDS = 5;
-var RefreshedSchema = z28.enum(["added", "updated", "again", "requeued"]);
-var PayloadSchema = z28.record(z28.string(), z28.unknown());
-var ClaimedRowSchema = z28.object({
-  id: z28.string().min(1),
-  kind: z28.string().min(1),
-  key: z28.string().min(1),
-  subject: z28.string().min(1),
+var RefreshedSchema = z30.enum(["added", "updated", "again", "requeued"]);
+var PayloadSchema = z30.record(z30.string(), z30.unknown());
+var ClaimedRowSchema = z30.object({
+  id: z30.string().min(1),
+  kind: z30.string().min(1),
+  key: z30.string().min(1),
+  subject: z30.string().min(1),
   payload: PayloadSchema,
   progress: PayloadSchema.default({}),
-  lane: z28.string().min(1).nullable().default(null),
-  tries: z28.number().int().min(1).max(5),
-  max_tries: z28.number().int().min(1).max(5).default(5),
-  claim: z28.string().min(1),
-  claimed_until: z28.string().min(1)
+  lane: z30.string().min(1).nullable().default(null),
+  tries: z30.number().int().min(1).max(5),
+  max_tries: z30.number().int().min(1).max(5).default(5),
+  claim: z30.string().min(1),
+  claimed_until: z30.string().min(1)
 });
-var JobStateSchema = z28.enum(["queued", "done", "skipped", "failed"]);
-var ReplayedRowSchema = z28.object({
-  id: z28.string().min(1),
-  kind: z28.string().min(1),
-  key: z28.string().min(1),
-  state: z28.literal("queued"),
-  tries: z28.literal(0)
+var JobStateSchema = z30.enum(["queued", "done", "skipped", "failed"]);
+var ReplayedRowSchema = z30.object({
+  id: z30.string().min(1),
+  kind: z30.string().min(1),
+  key: z30.string().min(1),
+  state: z30.literal("queued"),
+  tries: z30.literal(0)
 });
-var HealthSchema = z28.object({
-  state: z28.enum(["ok", "late"]),
-  late: z28.number().int().nonnegative(),
-  failed: z28.number().int().nonnegative(),
+var HealthSchema = z30.object({
+  state: z30.enum(["ok", "late"]),
+  late: z30.number().int().nonnegative(),
+  failed: z30.number().int().nonnegative(),
   /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
-  scheduled: z28.number().int().nonnegative().optional()
+  scheduled: z30.number().int().nonnegative().optional()
 });
 var refused2 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
@@ -7657,7 +7937,7 @@ function healthArgs(schedules) {
 function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
-    add: async ({ kind, key, subject, payload, lane, maxTries }) => z28.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane, maxTries) }))),
+    add: async ({ kind, key, subject, payload, lane, maxTries }) => z30.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane, maxTries) }))),
     refresh: async ({ kind, key, subject, payload, delaySeconds, lane, maxTries }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
       p_kind: kind,
       p_key: key,
@@ -7667,7 +7947,7 @@ function jobLedger(connection) {
       ...paced(lane, maxTries)
     }))),
     claim: async ({ limit, leaseSeconds }) => {
-      const rows = z28.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
+      const rows = z30.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
       return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
     finish: async ({ id, claim, outcome, reason: reason2, retryAt, progress }) => {
@@ -7689,7 +7969,7 @@ function jobLedger(connection) {
       return { replayed: true, ...job };
     },
     health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
-    forget: async () => z28.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
+    forget: async () => z30.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
   };
 }
 
@@ -7699,22 +7979,22 @@ import { createHmac as createHmac2 } from "node:crypto";
 // kit/lib/approval/approval.ts
 import { existsSync as existsSync34, readFileSync as readFileSync29 } from "node:fs";
 import { basename as basename7, join as join41 } from "node:path";
-import { z as z31 } from "zod";
+import { z as z33 } from "zod";
 
 // kit/lib/dossier/folder.ts
-import { createHash as createHash2 } from "node:crypto";
+import { createHash as createHash3 } from "node:crypto";
 import { existsSync as existsSync33, readdirSync as readdirSync15, readFileSync as readFileSync28 } from "node:fs";
 import { join as join40 } from "node:path";
 
 // kit/lib/concept/parse.ts
-import { z as z29 } from "zod";
+import { z as z31 } from "zod";
 var CONCEPT_KINDS = ["product", "identity", "platform"];
 var CONCEPT_SCALES = ["vast", "lite"];
-var FrontMatterSchema3 = z29.object({
-  concept: z29.string().regex(/^[1-9]\d*$/).transform(Number),
-  title: z29.string().trim().min(1),
-  kind: z29.enum(CONCEPT_KINDS),
-  scale: z29.enum(CONCEPT_SCALES)
+var FrontMatterSchema3 = z31.object({
+  concept: z31.string().regex(/^[1-9]\d*$/).transform(Number),
+  title: z31.string().trim().min(1),
+  kind: z31.enum(CONCEPT_KINDS),
+  scale: z31.enum(CONCEPT_SCALES)
 }).strict();
 
 // kit/lib/dossier/folder.ts
@@ -7726,16 +8006,16 @@ var ARTIFACT_KINDS = Object.freeze([
   // A PRD with no folder throws here, as it always has; `readDossierFolder` asks only once it has one.
   { kind: "voice", pathOf: (layout, prd) => `${defined(layout.whereIs(prd), `the folder of PRD ${Number(prd)}`).dir}/${VOICE_FILE}` }
 ]);
-var sha256 = (content) => createHash2("sha256").update(content, "utf8").digest("hex");
+var sha256 = (content) => createHash3("sha256").update(content, "utf8").digest("hex");
 var FIX_ROOTS = Object.freeze({ visual: "visual", bug: "bugs" });
 
 // kit/lib/approval/laws.ts
-import { z as z30 } from "zod";
-var text5 = z30.string().min(1);
-var FindingSchema = z30.object({ law: text5, statement: z30.string().optional(), quote: text5, broken: z30.string().optional() });
-var LawsSchema = z30.union([
-  z30.object({ state: z30.literal("pending") }),
-  z30.object({ state: z30.enum(["green", "red", "neutral"]), reason: text5, judgedAt: z30.string().optional(), findings: z30.array(FindingSchema).catch([]) })
+import { z as z32 } from "zod";
+var text5 = z32.string().min(1);
+var FindingSchema = z32.object({ law: text5, statement: z32.string().optional(), quote: text5, broken: z32.string().optional() });
+var LawsSchema = z32.union([
+  z32.object({ state: z32.literal("pending") }),
+  z32.object({ state: z32.enum(["green", "red", "neutral"]), reason: text5, judgedAt: z32.string().optional(), findings: z32.array(FindingSchema).catch([]) })
 ]);
 function parseLaws(value) {
   const parsed2 = LawsSchema.safeParse(value);
@@ -7743,17 +8023,17 @@ function parseLaws(value) {
 }
 
 // kit/lib/approval/approval.ts
-var text6 = z31.string().min(1);
-var PinnedFileSchema = z31.object({ kind: text6, path: text6, sha256: text6, versionId: text6, content: z31.string().optional() });
-var VoidSchema = z31.object({ pusher: text6, kind: text6, from: text6, to: text6, voidedAt: text6 });
-var ApprovalSchema = z31.object({
-  approver: z31.object({ login: text6, member: z31.boolean() }),
+var text6 = z33.string().min(1);
+var PinnedFileSchema = z33.object({ kind: text6, path: text6, sha256: text6, versionId: text6, content: z33.string().optional() });
+var VoidSchema = z33.object({ pusher: text6, kind: text6, from: text6, to: text6, voidedAt: text6 });
+var ApprovalSchema = z33.object({
+  approver: z33.object({ login: text6, member: z33.boolean() }),
   approvedAt: text6,
-  files: z31.array(PinnedFileSchema),
-  voids: z31.array(VoidSchema).optional()
+  files: z33.array(PinnedFileSchema),
+  voids: z33.array(VoidSchema).optional()
 });
-var TechSchema = z31.object({ login: text6, state: z31.enum(["asked", "approved", "voided"]) });
-var ApprovalReplySchema = z31.object({ url: text6, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(void 0), laws: z31.unknown().optional() });
+var TechSchema = z33.object({ login: text6, state: z33.enum(["asked", "approved", "voided"]) });
+var ApprovalReplySchema = z33.object({ url: text6, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(void 0), laws: z33.unknown().optional() });
 var techWaitsOn = (tech) => tech && tech.state !== "approved" ? tech.login : null;
 var waitingForTech = (login) => `waiting for ${login}'s tech approval`;
 var UNREACHABLE_LINE = "server unreachable \xB7 held, not failed";
@@ -7779,7 +8059,7 @@ function driftOf2(ctx, prd, file) {
 function judged(reply, { named, fileOf, drift: driftIn }) {
   const { url, approval, tech } = reply;
   const laws = parseLaws(reply.laws);
-  const reading = (state, lines, drift2 = []) => ({ state, lines, url, approval, drift: drift2, ...tech ? { tech } : {}, ...laws ? { laws } : {} });
+  const reading = (state, lines2, drift2 = []) => ({ state, lines: lines2, url, approval, drift: drift2, ...tech ? { tech } : {}, ...laws ? { laws } : {} });
   const waitsOn = techWaitsOn(tech);
   const techLine = waitsOn === null ? [] : [`${named} \xB7 ${waitingForTech(waitsOn)}: ${url}`];
   if (!approval) return reading("pending", techLine.length > 0 ? techLine : [`${named} waits for approval: ${url}`]);
@@ -7789,8 +8069,8 @@ function judged(reply, { named, fileOf, drift: driftIn }) {
       const file = approval.files.find((f) => f.kind === kind);
       return file ? fileOf(file) : kind;
     };
-    const lines = voids.map((v) => `\u2260 ${basename7(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url}`);
-    return reading("drifted", [...lines, ...techLine], voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
+    const lines2 = voids.map((v) => `\u2260 ${basename7(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url}`);
+    return reading("drifted", [...lines2, ...techLine], voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
   }
   const { login, member } = approval.approver;
   if (!member) return reading("refused", [`approver ${login} is not a workspace member`]);
@@ -7810,30 +8090,30 @@ function judgeApproval(ctx, prd, reply) {
 
 // apps/omni-app/src/stage-forward/stage-forward.ts
 import { createHmac } from "node:crypto";
-import { z as z32 } from "zod";
+import { z as z34 } from "zod";
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
 var DEFAULT_SHAPES = (() => {
   const { branches, prLinks, labels } = parseConfig("kit: 1");
   return Object.freeze({ branches, prLinks, approved: labels.approved });
 })();
-var PullEventSchema = z32.looseObject({
-  action: z32.unknown(),
-  repository: z32.looseObject({ full_name: z32.string().min(1), default_branch: z32.string().nullish() }),
-  pull_request: z32.looseObject({
-    head: z32.looseObject({ ref: z32.string() }),
-    base: z32.looseObject({ ref: z32.string() }),
-    merged: z32.unknown(),
-    merged_at: z32.string().nullish(),
-    created_at: z32.string().nullish(),
-    updated_at: z32.string().nullish(),
-    body: z32.unknown()
+var PullEventSchema = z34.looseObject({
+  action: z34.unknown(),
+  repository: z34.looseObject({ full_name: z34.string().min(1), default_branch: z34.string().nullish() }),
+  pull_request: z34.looseObject({
+    head: z34.looseObject({ ref: z34.string() }),
+    base: z34.looseObject({ ref: z34.string() }),
+    merged: z34.unknown(),
+    merged_at: z34.string().nullish(),
+    created_at: z34.string().nullish(),
+    updated_at: z34.string().nullish(),
+    body: z34.unknown()
   })
 });
-var LabeledEventSchema = z32.looseObject({
-  action: z32.literal("labeled"),
-  repository: z32.looseObject({ full_name: z32.string().min(1) }),
-  label: z32.looseObject({ name: z32.string() }),
-  issue: z32.looseObject({ number: PrdNumberSchema, updated_at: z32.string().min(1), pull_request: z32.unknown().optional() })
+var LabeledEventSchema = z34.looseObject({
+  action: z34.literal("labeled"),
+  repository: z34.looseObject({ full_name: z34.string().min(1) }),
+  label: z34.looseObject({ name: z34.string() }),
+  issue: z34.looseObject({ number: PrdNumberSchema, updated_at: z34.string().min(1), pull_request: z34.unknown().optional() })
 });
 function signStageEvent(secret, body) {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
@@ -7878,29 +8158,29 @@ async function askJudge(repo, prd, { galaxyUrl, secret, fetch: get = fetch, time
 
 // apps/omni-app/src/inngest-client.ts
 import { Inngest } from "inngest";
-import { z as z33 } from "zod";
+import { z as z35 } from "zod";
 var APP_ID = "omni-loop";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
 var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
 var inngest = new Inngest({ id: APP_ID });
-var SourceSchema = z33.looseObject({
-  installationId: z33.number(),
-  owner: z33.string(),
-  repo: z33.string(),
-  repository: z33.string()
+var SourceSchema = z35.looseObject({
+  installationId: z35.number(),
+  owner: z35.string(),
+  repo: z35.string(),
+  repository: z35.string()
 });
 var CheckRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
-  headSha: z33.string(),
-  trigger: z33.string().optional()
+  headSha: z35.string(),
+  trigger: z35.string().optional()
 });
-var PullAtSchema = z33.object({
-  installationId: z33.number(),
-  owner: z33.string().min(1),
-  repo: z33.string().min(1),
+var PullAtSchema = z35.object({
+  installationId: z35.number(),
+  owner: z35.string().min(1),
+  repo: z35.string().min(1),
   prNumber: PrNumberSchema,
-  headSha: z33.string().min(1)
+  headSha: z35.string().min(1)
 });
 function checkPayloadOf(schema, kind, raw) {
   const parsed2 = schema.safeParse(raw);
@@ -7908,16 +8188,16 @@ function checkPayloadOf(schema, kind, raw) {
   const [issue] = parsed2.error.issues;
   throw new Error(`The ${kind} job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed2.error.message}`);
 }
-var CanonFactsSchema = z33.object({
+var CanonFactsSchema = z35.object({
   prd: PrdNumberSchema,
-  persona: z33.string().nullable(),
-  claims: z33.array(z33.string())
+  persona: z35.string().nullable(),
+  claims: z35.array(z35.string())
 });
 var CanonActionRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
-  headSha: z33.string().optional(),
-  checkRunId: z33.number().optional(),
-  action: z33.string(),
+  headSha: z35.string().optional(),
+  checkRunId: z35.number().optional(),
+  action: z35.string(),
   facts: CanonFactsSchema
 });
 
@@ -7925,7 +8205,7 @@ var CanonActionRequestDataSchema = SourceSchema.extend({
 import { mkdtempSync as mkdtempSync8, rmSync as rmSync9 } from "node:fs";
 import { tmpdir as tmpdir8 } from "node:os";
 import { join as join42 } from "node:path";
-import { z as z34 } from "zod";
+import { z as z36 } from "zod";
 
 // apps/omni-app/src/approved-check/subject.ts
 function partOf(body, slug) {
@@ -7994,8 +8274,8 @@ async function featurePullOf(octokit, { slug, prd }) {
   }
   return { held: `${slug} has no open feature PR for PRD ${Number(prd)}` };
 }
-var SearchSchema = z34.looseObject({
-  items: z34.array(z34.looseObject({ number: z34.number(), body: z34.string().nullish(), repository_url: z34.string(), pull_request: z34.unknown().optional() }))
+var SearchSchema = z36.looseObject({
+  items: z36.array(z36.looseObject({ number: z36.number(), body: z36.string().nullish(), repository_url: z36.string(), pull_request: z36.unknown().optional() }))
 });
 
 // apps/omni-app/src/approved-check/repo-reading.ts
@@ -8013,62 +8293,62 @@ import { homedir } from "node:os";
 import { dirname as dirname11, join as join43 } from "node:path";
 
 // kit/lib/env/read.ts
-import { z as z35 } from "zod";
+import { z as z37 } from "zod";
 var OMNI_SESSION = envGroup({
   label: "the agent session",
-  schema: z35.object({ id: z35.string() }),
+  schema: z37.object({ id: z37.string() }),
   variables: { id: "OMNI_SESSION_ID" }
 });
 var CLAUDE_SESSION = envGroup({
   label: "the Claude session",
-  schema: z35.object({ id: z35.string() }),
+  schema: z37.object({ id: z37.string() }),
   variables: { id: "CLAUDE_CODE_SESSION_ID" }
 });
 var OPENROUTER2 = envGroup({
   label: "OpenRouter",
-  schema: z35.object({ key: z35.string(), model: z35.string().optional() }),
+  schema: z37.object({ key: z37.string(), model: z37.string().optional() }),
   variables: { key: "OPENROUTER_API_KEY", model: "OPENROUTER_MODEL" }
 });
 var PROOF = envGroup({
   label: "the proof",
-  schema: z35.object({ url: z35.url().optional(), storageState: z35.string().optional() }),
+  schema: z37.object({ url: z37.url().optional(), storageState: z37.string().optional() }),
   variables: { url: "PROOF_URL", storageState: "PROOF_STORAGE_STATE" }
 });
 var TERMINAL = envGroup({
   label: "the terminal",
-  schema: z35.object({ columns: z35.string().optional(), noColor: z35.string().optional() }),
+  schema: z37.object({ columns: z37.string().optional(), noColor: z37.string().optional() }),
   variables: { columns: "COLUMNS", noColor: "NO_COLOR" }
 });
 var GITHUB_ACTIONS = envGroup({
   label: "the GitHub Actions step",
-  schema: z35.object({ output: z35.string().optional(), summary: z35.string().optional() }),
+  schema: z37.object({ output: z37.string().optional(), summary: z37.string().optional() }),
   variables: { output: "GITHUB_OUTPUT", summary: "GITHUB_STEP_SUMMARY" }
 });
 var WORKSPACE = envGroup({
   label: "the workspace",
-  schema: z35.object({ slug: z35.string().trim().min(1, "a workspace slug") }),
+  schema: z37.object({ slug: z37.string().trim().min(1, "a workspace slug") }),
   variables: { slug: "OMNI_LOOP_WORKSPACE" }
 });
 var SUPABASE2 = envGroup({
   label: "the Supabase pair",
-  schema: z35.object({ url: z35.url(), key: z35.string() }),
+  schema: z37.object({ url: z37.url(), key: z37.string() }),
   variables: { url: ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"], key: "SUPABASE_SERVICE_ROLE_KEY" }
 });
 var OMNI_TOKEN_PATTERN = /^omk_[A-Za-z0-9_-]{43}$/;
 var OMNI_TOKEN = envGroup({
   label: "the kit token",
-  schema: z35.object({ token: z35.string().regex(OMNI_TOKEN_PATTERN, "it is not a kit token: make one with omni setup-token") }),
+  schema: z37.object({ token: z37.string().regex(OMNI_TOKEN_PATTERN, "it is not a kit token: make one with omni setup-token") }),
   variables: { token: "OMNI_TOKEN" }
 });
 var SESSION = envGroup({
   label: "the session",
-  schema: z35.object({
-    claudeCodeRemote: z35.string().optional(),
-    sshConnection: z35.string().optional(),
-    sshTty: z35.string().optional(),
-    codespaces: z35.string().optional(),
-    display: z35.string().optional(),
-    waylandDisplay: z35.string().optional()
+  schema: z37.object({
+    claudeCodeRemote: z37.string().optional(),
+    sshConnection: z37.string().optional(),
+    sshTty: z37.string().optional(),
+    codespaces: z37.string().optional(),
+    display: z37.string().optional(),
+    waylandDisplay: z37.string().optional()
   }),
   variables: {
     claudeCodeRemote: "CLAUDE_CODE_REMOTE",
@@ -8081,47 +8361,47 @@ var SESSION = envGroup({
 });
 var RUNNER_SENDER = envGroup({
   label: "the runner job's sender",
-  schema: z35.object({ sentBy: z35.string().optional(), sentByKey: z35.string().optional(), runner: z35.string().optional() }),
+  schema: z37.object({ sentBy: z37.string().optional(), sentByKey: z37.string().optional(), runner: z37.string().optional() }),
   variables: { sentBy: "OMNI_SENT_BY", sentByKey: "OMNI_SENT_BY_KEY", runner: "OMNI_RUNNER" }
 });
 var GITHUB_APP2 = envGroup({
   label: "the GitHub App a job runs as",
-  schema: z35.object({ login: z35.string() }),
+  schema: z37.object({ login: z37.string() }),
   variables: { login: "OMNI_GITHUB_APP" }
 });
 var CLAUDE_TOKEN = envGroup({
   label: "the Claude token",
-  schema: z35.object({ token: z35.string() }),
+  schema: z37.object({ token: z37.string() }),
   variables: { token: "CLAUDE_CODE_OAUTH_TOKEN" }
 });
 var HEARTBEAT = envGroup({
   label: "the heartbeat",
-  schema: z35.object({ switch: z35.enum(["on", "off"], "on or off") }),
+  schema: z37.object({ switch: z37.enum(["on", "off"], "on or off") }),
   variables: { switch: "OMNI_HEARTBEAT" }
 });
 var ASK = envGroup({
   label: "ask mode",
-  schema: z35.object({ switch: z35.enum(["on", "off"], "on or off") }),
+  schema: z37.object({ switch: z37.enum(["on", "off"], "on or off") }),
   variables: { switch: "OMNI_ASK" }
 });
 var UNATTENDED = envGroup({
   label: "an unattended run",
-  schema: z35.object({ flag: z35.string() }),
+  schema: z37.object({ flag: z37.string() }),
   variables: { flag: "OMNI_UNATTENDED" }
 });
 var RUNNER_JOB = envGroup({
   label: "the runner job",
-  schema: z35.object({ job: z35.string() }),
+  schema: z37.object({ job: z37.string() }),
   variables: { job: "OMNI_JOB" }
 });
 var TEST_RUNNER = envGroup({
   label: "the test runner",
-  schema: z35.object({ vitest: z35.string() }),
+  schema: z37.object({ vitest: z37.string() }),
   variables: { vitest: "VITEST" }
 });
 var PACKAGE_MANAGER = envGroup({
   label: "the package manager",
-  schema: z35.object({ execPath: z35.string() }),
+  schema: z37.object({ execPath: z37.string() }),
   variables: { execPath: "npm_execpath" }
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
@@ -8191,7 +8471,7 @@ function lineOf2({ file, how, where }) {
 function repoApprovedVerdict(prd, reading, head) {
   const n = Number(prd);
   const dossierId = dossierOf(reading.url);
-  const verdict = (state, conclusion, title, lines, drift = []) => ({ state, conclusion, title, summary: [...lines, "", `Read against ${head}.`].join("\n"), dossierId, drift });
+  const verdict = (state, conclusion, title, lines2, drift = []) => ({ state, conclusion, title, summary: [...lines2, "", `Read against ${head}.`].join("\n"), dossierId, drift });
   const { approval } = reading;
   const held = () => verdict("held", "neutral", `held \xB7 ${UNREACHABLE}`, reading.lines);
   switch (reading.state) {
@@ -8203,9 +8483,9 @@ function repoApprovedVerdict(prd, reading, head) {
       return verdict("pending", "failure", `pending \xB7 PRD ${n} waits for approval`, reading.lines);
     case "drifted": {
       const drift = reading.drift.map((d) => headDrift(d, reading, head));
-      const lines = drift.map(lineOf2);
+      const lines2 = drift.map(lineOf2);
       const restore = `Run \`omni approval restore ${n}\` to write each drifted file back to its approved content, or approve again on the PRD page.`;
-      return verdict("drifted", "failure", `drifted \xB7 ${lines[0] ?? ""}`, [...lines, "", restore], drift);
+      return verdict("drifted", "failure", `drifted \xB7 ${lines2[0] ?? ""}`, [...lines2, "", restore], drift);
     }
     case "refused":
       return approval && !approval.approver.member ? verdict("refused", "failure", `refused \xB7 approver ${approval.approver.login} is not a workspace member`, reading.lines) : held();
@@ -8341,21 +8621,21 @@ var requestOf = (raw) => checkPayloadOf(CheckRequestDataSchema, APPROVED_KIND, r
 
 // apps/omni-app/src/approved-check/record.ts
 import { createClient as createClient3 } from "@supabase/supabase-js";
-import { z as z36 } from "zod";
-var text7 = z36.string().min(1);
-var at2 = z36.string().refine((value) => !Number.isNaN(Date.parse(value)));
-var HolderRowSchema = z36.object({ product_id: text7, workspace_id: text7 });
-var DossierRowSchema = z36.object({ id: text7 });
-var ApprovalRowSchema = z36.object({
+import { z as z38 } from "zod";
+var text7 = z38.string().min(1);
+var at2 = z38.string().refine((value) => !Number.isNaN(Date.parse(value)));
+var HolderRowSchema = z38.object({ product_id: text7, workspace_id: text7 });
+var DossierRowSchema = z38.object({ id: text7 });
+var ApprovalRowSchema = z38.object({
   id: text7,
   approved_by: text7,
   approver_login: text7,
   approved_at: at2,
-  files: z36.array(z36.object({ kind: text7, path: text7, sha256: text7, version_id: text7 }))
+  files: z38.array(z38.object({ kind: text7, path: text7, sha256: text7, version_id: text7 }))
 });
-var VoidRowSchema = z36.object({ kind: text7, from_sha256: text7, to_sha256: text7, pusher_login: text7, voided_at: at2 });
-var VersionRowSchema = z36.object({ id: text7, kind: text7, sha256: text7, commit_sha: z36.string().nullable(), created_at: at2 });
-var ContentRowSchema = z36.object({ id: text7, content: z36.string() });
+var VoidRowSchema = z38.object({ kind: text7, from_sha256: text7, to_sha256: text7, pusher_login: text7, voided_at: at2 });
+var VersionRowSchema = z38.object({ id: text7, kind: text7, sha256: text7, commit_sha: z38.string().nullable(), created_at: at2 });
+var ContentRowSchema = z38.object({ id: text7, content: z38.string() });
 var HOLDER = "product_id, workspace_id, products!inner(key)";
 var APPROVAL = "id, approved_by, approver_login, approved_at, files";
 var VOID2 = "kind, from_sha256, to_sha256, pusher_login, voided_at";
@@ -8363,7 +8643,7 @@ var VERSION = "id, kind, sha256, commit_sha, created_at";
 var refused3 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function rowsOf2(schema, answer) {
   if (answer.error) throw refused3(answer.error);
-  return z36.array(schema).parse(answer.data ?? []);
+  return z38.array(schema).parse(answer.data ?? []);
 }
 function latestByKind(rows) {
   const seen = /* @__PURE__ */ new Map();
@@ -8386,7 +8666,7 @@ function recordReader({ url, key, fetch: fetch2 }) {
     const [approved] = rowsOf2(ApprovalRowSchema, await db.from("approvals").select(APPROVAL).eq("dossier_id", dossier.id).order("approved_at", { ascending: false }).order("id", { ascending: false }).limit(1));
     const latestWithout = versions.map((row) => ({ kind: row.kind, sha256: row.sha256, versionId: row.id, commitSha: row.commit_sha, content: null }));
     if (!approved) return { dossierId: dossier.id, approval: null, latest: latestWithout };
-    const members2 = rowsOf2(z36.object({ user_id: text7 }), await db.from("workspace_members").select("user_id").eq("workspace_id", holder.workspace_id).eq("user_id", approved.approved_by).limit(1));
+    const members2 = rowsOf2(z38.object({ user_id: text7 }), await db.from("workspace_members").select("user_id").eq("workspace_id", holder.workspace_id).eq("user_id", approved.approved_by).limit(1));
     const voids = rowsOf2(VoidRowSchema, await db.from("approval_voids").select(VOID2).eq("approval_id", approved.id).order("voided_at", { ascending: true }));
     const pinnedSha = new Map(approved.files.map((file) => [file.kind, file.sha256]));
     const differing = versions.filter((row) => pinnedSha.has(row.kind) && pinnedSha.get(row.kind) !== row.sha256).map((row) => row.id);
@@ -8413,8 +8693,8 @@ import { join as join58 } from "node:path";
 // kit/lib/budgets/ceilings.ts
 import { existsSync as existsSync36, mkdirSync as mkdirSync9, readFileSync as readFileSync33, writeFileSync as writeFileSync12 } from "node:fs";
 import { dirname as dirname12, join as join47 } from "node:path";
-import { z as z37 } from "zod";
-var CeilingsSchema = z37.record(z37.string().min(1), z37.number().int().nonnegative());
+import { z as z39 } from "zod";
+var CeilingsSchema = z39.record(z39.string().min(1), z39.number().int().nonnegative());
 function parseCeilings(text13, file) {
   let raw;
   try {
@@ -8494,10 +8774,10 @@ function readTarget(path, index, { ctx }) {
 function headingAnchor(heading) {
   return heading.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
 }
-function headingsOf(lines) {
+function headingsOf(lines2) {
   const headings = [];
   let fenced = false;
-  for (const [index, line] of lines.entries()) {
+  for (const [index, line] of lines2.entries()) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const heading = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
     if (heading) headings.push({ index, depth: heading[1]?.length ?? 0, anchor: headingAnchor(heading[2] ?? "") });
@@ -8505,12 +8785,12 @@ function headingsOf(lines) {
   return headings;
 }
 function sectionOf(text13, anchor) {
-  const lines = text13.split("\n");
-  const headings = headingsOf(lines);
+  const lines2 = text13.split("\n");
+  const headings = headingsOf(lines2);
   const start = headings.find((heading) => heading.anchor === anchor);
   if (!start) return null;
   const end = headings.find((heading) => heading.index > start.index && heading.depth <= start.depth);
-  return lines.slice(start.index, end?.index).join("\n").trim();
+  return lines2.slice(start.index, end?.index).join("\n").trim();
 }
 function resolvePointer(base, see, { ctx, heading, file, problems }) {
   const { path, anchor } = see;
@@ -8614,8 +8894,8 @@ ${kit.errors.join("\n")}`);
 import { readdirSync as readdirSync17, readFileSync as readFileSync35 } from "node:fs";
 import { join as join49, posix as posix3 } from "node:path";
 import { fileURLToPath } from "node:url";
-import { z as z38 } from "zod";
-var BundledTemplatesSchema = z38.record(z38.string(), z38.string());
+import { z as z40 } from "zod";
+var BundledTemplatesSchema = z40.record(z40.string(), z40.string());
 var BUNDLED = typeof __OMNI_TEMPLATES__ === "undefined" ? null : BundledTemplatesSchema.parse(JSON.parse(__OMNI_TEMPLATES__));
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -8640,32 +8920,32 @@ var BRIEFING = "briefing";
 var SESSION2 = "session";
 var LATEST_RECORDS = 20;
 function recordLines({ dir, records, shared, next }, all) {
-  const lines = [`## Records  [read live from ${dir}]`];
-  if (records.length === 0) lines.push("No decision records yet.");
+  const lines2 = [`## Records  [read live from ${dir}]`];
+  if (records.length === 0) lines2.push("No decision records yet.");
   const tagged = records.some((record) => levelOf(record) !== "repo");
   const own = records.filter((record) => levelOf(record) === "repo");
   const inherited = records.filter((record) => levelOf(record) !== "repo");
   const older = all ? 0 : Math.max(0, own.length - LATEST_RECORDS);
-  lines.push(
+  lines2.push(
     ...[...own.slice(older), ...inherited].map(
       (record) => `${record.number}  ${record.title ?? record.file}${tagged ? `  [${levelOf(record)}]` : ""}`
     )
   );
-  if (older > 0) lines.push(`\u2026 ${older} older records: omni kb show decisions --all`);
-  lines.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(", ")}`));
-  lines.push(`Next free number: ${next}`);
-  return lines;
+  if (older > 0) lines2.push(`\u2026 ${older} older records: omni kb show decisions --all`);
+  lines2.push(...shared.map(({ number, files }) => `! ${number} is used by ${files.length} records: ${files.join(", ")}`));
+  lines2.push(`Next free number: ${next}`);
+  return lines2;
 }
 function formShowText(resolved, records, laws = null, { all = false } = {}) {
-  const lines = [`# ${resolved.title}`, `${resolved.file} \xB7 ${resolved.state}`];
+  const lines2 = [`# ${resolved.title}`, `${resolved.file} \xB7 ${resolved.state}`];
   for (const section2 of resolved.sections) {
-    lines.push("", section2.slot === null ? section2.label : `## ${section2.heading}  ${section2.label}`);
-    if (section2.text) lines.push(section2.text);
-    if (section2.source === "hole") lines.push(...section2.questions.map((question) => `TODO(human): ${question}`));
+    lines2.push("", section2.slot === null ? section2.label : `## ${section2.heading}  ${section2.label}`);
+    if (section2.text) lines2.push(section2.text);
+    if (section2.source === "hole") lines2.push(...section2.questions.map((question) => `TODO(human): ${question}`));
   }
-  if (records) lines.push("", ...recordLines(records, all));
-  if (laws) lines.push("", ...laws);
-  return lines.join("\n");
+  if (records) lines2.push("", ...recordLines(records, all));
+  if (laws) lines2.push("", ...laws);
+  return lines2.join("\n");
 }
 var harmless = (problem) => problem.startsWith("kit default ");
 function measureForm(ctx, form2) {
@@ -8817,7 +9097,7 @@ function prdOfBranch(branch, { branches, folders }) {
 }
 
 // apps/omni-app/src/budgets-check/measure-pull.ts
-import { z as z42 } from "zod";
+import { z as z44 } from "zod";
 
 // kit/lib/budgets/message.ts
 var KIB = 1024;
@@ -8852,12 +9132,12 @@ function grewLines(growth) {
   const commits = growth.commits.map(({ sha, subject }) => `  - ${sha} ${subject}`);
   return ["What grew:", ...files, ...commits.length > 0 ? ["  by the commits:", ...commits] : ["  no commit of this range changed them."]];
 }
-function trimmed(target2, growth) {
+function trimmed2(target2, growth) {
   const paths = growth?.files.map(({ path }) => `\`${path}\``) ?? [];
   return paths.length > 0 ? paths.join(", ") : `\`${target2}\``;
 }
 function fixLines(verdict, { prd, growth, ceilingsFile }) {
-  const files = trimmed(verdict.target, growth[verdict.target]);
+  const files = trimmed2(verdict.target, growth[verdict.target]);
   const trim = (under) => `trim ${files} back under ${kb(under)} without losing a rule; move detail into a linked file`;
   const prompt = verdict.verdict === "needs-yes" && verdict.baseCeiling !== null ? `"Put the ceiling of \`${verdict.target}\` in \`${ceilingsFile}\` back to ${verdict.baseCeiling}, and ${trim(verdict.baseCeiling)}."` : `"${capitalised(trim(verdict.ceiling ?? 0))}."`;
   const skill = prd === null ? "" : `\`/omni:pr-care\` (or \`/omni:yolo-fix ${prd}\`) handles it by itself. Or `;
@@ -8908,13 +9188,13 @@ function redTitle(verdicts) {
     ...waiting > 0 ? [`${counted(waiting, "ceiling")} raised, waiting on a person's yes`] : []
   ].join(" \xB7 ");
 }
-var summaryOf = (lines) => lines.join("\n").slice(0, MAX_SUMMARY);
+var summaryOf = (lines2) => lines2.join("\n").slice(0, MAX_SUMMARY);
 function budgetsOutput(verdicts, context) {
   const state = overall(verdicts);
   if (state === "red") {
     const red = verdicts.filter(({ verdict }) => verdict === "over-budget" || verdict === "needs-yes");
-    const lines = red.flatMap((verdict, index) => [...index > 0 ? [""] : [], ...redMessage(verdict, context)]);
-    return { conclusion: "failure", title: redTitle(verdicts), summary: summaryOf([...lines, "", ...budgetTable(verdicts)]) };
+    const lines2 = red.flatMap((verdict, index) => [...index > 0 ? [""] : [], ...redMessage(verdict, context)]);
+    return { conclusion: "failure", title: redTitle(verdicts), summary: summaryOf([...lines2, "", ...budgetTable(verdicts)]) };
   }
   if (state === "neutral") {
     return { conclusion: "neutral", title: "not measured", summary: summaryOf([...neutralLines(verdicts), "", ...budgetTable(verdicts)]) };
@@ -9044,23 +9324,23 @@ function relayFolder({
 // kit/lib/outbox/replies.ts
 import { existsSync as existsSync42, readFileSync as readFileSync39, writeFileSync as writeFileSync15 } from "node:fs";
 import { join as join55 } from "node:path";
-import { z as z39 } from "zod";
-var ReplyCommentSchema = z39.object({
+import { z as z41 } from "zod";
+var ReplyCommentSchema = z41.object({
   id: CommentIdSchema,
-  body: z39.string().nullish(),
-  created_at: z39.string().optional(),
-  user: z39.object({ login: z39.string().optional(), type: z39.string().optional() }).nullish(),
-  author_association: z39.string().optional(),
-  html_url: z39.string().optional()
+  body: z41.string().nullish(),
+  created_at: z41.string().optional(),
+  user: z41.object({ login: z41.string().optional(), type: z41.string().optional() }).nullish(),
+  author_association: z41.string().optional(),
+  html_url: z41.string().optional()
 });
-var RepliedItemSchema = z39.looseObject({
+var RepliedItemSchema = z41.looseObject({
   id: OutboxItemIdSchema,
-  rank: z39.enum(RANK_VALUES),
-  sections: z39.looseObject({
-    options: z39.array(z39.object({ letter: z39.string(), text: z39.string() })).optional(),
-    questionPlain: z39.string().optional(),
-    whatIHadToDecide: z39.string().optional(),
-    whatIDidMeanwhile: z39.string().optional()
+  rank: z41.enum(RANK_VALUES),
+  sections: z41.looseObject({
+    options: z41.array(z41.object({ letter: z41.string(), text: z41.string() })).optional(),
+    questionPlain: z41.string().optional(),
+    whatIHadToDecide: z41.string().optional(),
+    whatIDidMeanwhile: z41.string().optional()
   })
 });
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
@@ -9072,34 +9352,34 @@ var RECOMMENDATION_TEXT = "go with recommendation";
 var LETTER_ANSWER = /^([A-Za-z])(?:\s*[.,:;)\-—–]?\s*because\b\s*(.*?))?[\s.!]*$/is;
 var RANK_PLAIN_LABEL = { "human-action": "needs a person", high: "high", medium: "medium" };
 function parseReplyLines(body) {
-  const lines = [];
+  const lines2 = [];
   for (const line of plainText(body).split(/\r?\n/)) {
     if (APPROVE_ALL_LINE.test(line)) {
-      lines.push({ kind: "approve-all", text: APPROVE_ALL_TEXT });
+      lines2.push({ kind: "approve-all", text: APPROVE_ALL_TEXT });
       continue;
     }
     if (RECOMMENDATION_RE.test(line)) {
-      lines.push({ kind: "approve-all", text: RECOMMENDATION_TEXT });
+      lines2.push({ kind: "approve-all", text: RECOMMENDATION_TEXT });
       continue;
     }
     const match = line.match(NUMBERED_LINE);
-    if (match) lines.push({ kind: "numbered", number: Number(match[1]), text: (match[2] ?? "").trim() });
+    if (match) lines2.push({ kind: "numbered", number: Number(match[1]), text: (match[2] ?? "").trim() });
   }
-  return lines;
+  return lines2;
 }
 function interpretAnswer({
   text: text13,
   options
 }) {
-  const trimmed2 = plainText(text13).trim();
-  if (RECOMMENDATION_RE.test(trimmed2)) {
+  const trimmed3 = plainText(text13).trim();
+  if (RECOMMENDATION_RE.test(trimmed3)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
-  const match = trimmed2.match(LETTER_ANSWER);
-  if (!match) return { statedVerdict: null, recorded: trimmed2 };
+  const match = trimmed3.match(LETTER_ANSWER);
+  if (!match) return { statedVerdict: null, recorded: trimmed3 };
   const letter = (match[1] ?? "").toUpperCase();
   const option = (options ?? []).find((candidate) => candidate.letter === letter);
-  if (!option) return { undetermined: true, recorded: trimmed2 };
+  if (!option) return { undetermined: true, recorded: trimmed3 };
   const reason2 = (match[2] ?? "").trim();
   return {
     statedVerdict: letter === "A" ? "agreed" : "drifted",
@@ -9167,7 +9447,7 @@ function answerableQuestions(numbering, items, adopted) {
   return questions.sort((a, b) => a.number - b.number);
 }
 function replyComments(comments) {
-  return Array.isArray(comments) ? z39.array(ReplyCommentSchema).parse(comments) : [];
+  return Array.isArray(comments) ? z41.array(ReplyCommentSchema).parse(comments) : [];
 }
 function planFor({ comments: all, items, adopted, markers }) {
   const prComment = findPrMarkerComment(all, markers);
@@ -9255,14 +9535,14 @@ function formatRoundComment({
   markers
 }) {
   const ordered = [...questions].sort((a, b) => a.number - b.number);
-  const lines = [
+  const lines2 = [
     markers.round(round, ordered.map((question) => question.number)),
     "",
     `**Outbox round ${round}**`,
     ""
   ];
   for (const question of ordered) {
-    lines.push(
+    lines2.push(
       `**Question ${question.number}** \xB7 ${RANK_PLAIN_LABEL[question.rank] ?? question.rank}`,
       "",
       question.questionPlain,
@@ -9275,7 +9555,7 @@ function formatRoundComment({
       ""
     );
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function appendObjection({
   ctx,
@@ -9304,7 +9584,7 @@ function appendObjection({
   writeFileSync15(absoluteSettled, `${existing}${separator}${entry}`);
   return { ok: true, settledFile };
 }
-function readReplies({ ctx, prd, pr, post = false }, client) {
+function readReplies({ ctx, prd, pr, post: post2 = false }, client) {
   const comments = client.listComments();
   const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
@@ -9345,7 +9625,7 @@ function readReplies({ ctx, prd, pr, post = false }, client) {
       questions: plan.round.questions,
       markers: ctx.markers
     });
-    const posted = post ? client.createComment(body) : null;
+    const posted = post2 ? client.createComment(body) : null;
     round = { number: plan.round.number, body, posted: posted ?? null };
   }
   return {
@@ -9435,7 +9715,7 @@ function gitOutboxStore(ctx) {
 // kit/lib/outbox/server-store.ts
 import { readFileSync as readFileSync41, unlinkSync as unlinkSync2 } from "node:fs";
 import { join as join57 } from "node:path";
-import { z as z40 } from "zod";
+import { z as z42 } from "zod";
 var OutboxServerError = class extends Error {
   status;
   constructor(message, status) {
@@ -9446,18 +9726,18 @@ var OutboxServerError = class extends Error {
 };
 var heldLine = (at4) => `held \xB7 server unreachable since ${at4} \xB7 held, not failed`;
 var ANSWERED_REFUSALS = /* @__PURE__ */ new Set([400, 409, 422]);
-var SettlementSchema = z40.object({
-  verdict: z40.enum(["agreed", "drifted", ADOPTED_VERDICT]),
-  basis: z40.string(),
-  settledAt: z40.string()
+var SettlementSchema = z42.object({
+  verdict: z42.enum(["agreed", "drifted", ADOPTED_VERDICT]),
+  basis: z42.string(),
+  settledAt: z42.string()
 });
-var RowSchema = z40.object({
+var RowSchema = z42.object({
   item: OutboxItemIdSchema,
-  rank: z40.enum(RANK_VALUES),
-  body: z40.string(),
+  rank: z42.enum(RANK_VALUES),
+  body: z42.string(),
   settlement: SettlementSchema.nullable()
 });
-var ItemsReplySchema = z40.object({ prdId: ProductPrdIdSchema, items: z40.array(RowSchema) });
+var ItemsReplySchema = z42.object({ prdId: ProductPrdIdSchema, items: z42.array(RowSchema) });
 var ServerAnswerSchema = AnswerSchema.partial({ approvedBy: true, approvedAt: true, channel: true });
 var refOf = (prd, id) => `${prd}/${id}`;
 var ledgerOf2 = (prd) => `PRD ${prd}'s ledger on the Omni page`;
@@ -9631,12 +9911,12 @@ function serverOutboxStore({ ctx, connect, now }) {
 }
 
 // apps/omni-app/src/budgets-check/raises.ts
-import { z as z41 } from "zod";
-var text8 = z41.string().min(1);
-var HolderRowSchema2 = z41.object({ product_id: text8 });
-var DossierRowSchema2 = z41.object({ id: text8 });
-var SettlementRowSchema = z41.object({ verdict: text8, basis: z41.string(), settled_at: text8 });
-var ItemRowSchema = z41.object({ item: text8, rank: text8, body: z41.string(), outbox_settlements: z41.array(SettlementRowSchema) });
+import { z as z43 } from "zod";
+var text8 = z43.string().min(1);
+var HolderRowSchema2 = z43.object({ product_id: text8 });
+var DossierRowSchema2 = z43.object({ id: text8 });
+var SettlementRowSchema = z43.object({ verdict: text8, basis: z43.string(), settled_at: text8 });
+var ItemRowSchema = z43.object({ item: text8, rank: text8, body: z43.string(), outbox_settlements: z43.array(SettlementRowSchema) });
 function latestSettlement(settlements) {
   const [latest] = [...settlements].sort((a, b) => b.settled_at.localeCompare(a.settled_at));
   return latest ? { verdict: latest.verdict, basis: latest.basis, settledAt: latest.settled_at } : null;
@@ -9683,8 +9963,8 @@ async function raisesFor({
 
 // apps/omni-app/src/budgets-check/measure-pull.ts
 var MAX_COMMITS2 = 10;
-var CompareSchema = ComparePageSchema.extend({ merge_base_commit: z42.looseObject({ sha: z42.string() }).nullish() });
-var CommitsSchema2 = z42.array(z42.looseObject({ sha: z42.string() }));
+var CompareSchema = ComparePageSchema.extend({ merge_base_commit: z44.looseObject({ sha: z44.string() }).nullish() });
+var CommitsSchema2 = z44.array(z44.looseObject({ sha: z44.string() }));
 var unique = (paths) => [...new Set(paths.filter((path) => path !== null && path !== ""))];
 function sessionPaths(ctx, ceilingsFile) {
   const { layout, config } = ctx;
@@ -9871,37 +10151,37 @@ function budgetsFailureHook({ octokitFor }) {
 import { createClient as createClient4 } from "@supabase/supabase-js";
 
 // apps/omni-app/src/canon/canon.ts
-import { createHash as createHash3 } from "node:crypto";
-import { z as z44 } from "zod";
+import { createHash as createHash4 } from "node:crypto";
+import { z as z46 } from "zod";
 
 // apps/omni-app/src/canon/schema.ts
-import { z as z43 } from "zod";
-var ClaimSchema = z43.looseObject({ id: z43.string(), kind: z43.string(), value: z43.string().nullish() });
-var PersonaSchema2 = z43.looseObject({
-  name: z43.string(),
-  who: z43.string().nullish(),
-  trade: z43.string().nullish(),
-  stance: z43.string().nullish(),
-  usage: z43.string().nullish()
+import { z as z45 } from "zod";
+var ClaimSchema = z45.looseObject({ id: z45.string(), kind: z45.string(), value: z45.string().nullish() });
+var PersonaSchema2 = z45.looseObject({
+  name: z45.string(),
+  who: z45.string().nullish(),
+  trade: z45.string().nullish(),
+  stance: z45.string().nullish(),
+  usage: z45.string().nullish()
 });
-var LegalSchema2 = z43.looseObject({ id: z43.string(), statement: z43.string(), source: z43.string().nullish(), owner: z43.string().nullish() });
-var BusinessSchema = z43.looseObject({
-  business: z43.unknown().optional(),
-  claims: z43.array(ClaimSchema).nullish(),
-  personas: z43.array(PersonaSchema2).nullish(),
-  updatedAt: z43.string().nullish(),
-  legal: z43.array(LegalSchema2).nullish(),
-  knowledgeEventId: z43.string().nullish()
+var LegalSchema2 = z45.looseObject({ id: z45.string(), statement: z45.string(), source: z45.string().nullish(), owner: z45.string().nullish() });
+var BusinessSchema = z45.looseObject({
+  business: z45.unknown().optional(),
+  claims: z45.array(ClaimSchema).nullish(),
+  personas: z45.array(PersonaSchema2).nullish(),
+  updatedAt: z45.string().nullish(),
+  legal: z45.array(LegalSchema2).nullish(),
+  knowledgeEventId: z45.string().nullish()
 });
-var ConstituentSchema = z43.looseObject({ id: z43.string(), text: z43.string() });
-var ConstituentsSchema = z43.looseObject({
-  state: z43.string().nullish(),
+var ConstituentSchema = z45.looseObject({ id: z45.string(), text: z45.string() });
+var ConstituentsSchema = z45.looseObject({
+  state: z45.string().nullish(),
   statement: ConstituentSchema.nullish(),
-  never: z43.array(ConstituentSchema).nullish(),
-  latestEventId: z43.string().nullish()
+  never: z45.array(ConstituentSchema).nullish(),
+  latestEventId: z45.string().nullish()
 });
-var FindingSchema2 = z43.looseObject({ quote: z43.string(), claims: z43.array(z43.string()), why: z43.unknown().optional() });
-var ReplyPersonaSchema = z43.looseObject({ name: z43.unknown().optional(), line: z43.unknown().optional() });
+var FindingSchema2 = z45.looseObject({ quote: z45.string(), claims: z45.array(z45.string()), why: z45.unknown().optional() });
+var ReplyPersonaSchema = z45.looseObject({ name: z45.unknown().optional(), line: z45.unknown().optional() });
 function parsed(schema, what, value) {
   const result = schema.safeParse(value);
   if (result.success) return result.data;
@@ -9913,9 +10193,9 @@ var parseBusiness = (value) => parsed(BusinessSchema, "business", value);
 var parseConstituents = (value) => parsed(ConstituentsSchema, "constituents", value);
 
 // apps/omni-app/src/canon/canon.ts
-var CheckedReplySchema = z44.object({
-  findings: z44.array(z44.object({ quote: z44.string(), claims: z44.array(z44.string()), why: z44.string() })),
-  persona: z44.object({ name: z44.string(), line: z44.string() })
+var CheckedReplySchema = z46.object({
+  findings: z46.array(z46.object({ quote: z46.string(), claims: z46.array(z46.string()), why: z46.string() })),
+  persona: z46.object({ name: z46.string(), line: z46.string() })
 });
 var CANON_GATE = "canon";
 var CANON_SPEC_LIMIT = 4e4;
@@ -10094,7 +10374,7 @@ var NO_JUDGE2 = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, 
 function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge2 = NO_JUDGE2, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
   async function modelVerdict({ repo, spec, read }) {
     const { business, claims, constituents, legal, personas, version } = read;
-    const key = [repo, createHash3("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
+    const key = [repo, createHash4("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
     const hit = cache.get(key);
     if (hit) return hit;
     const answer = await ask3({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, legal, personas }), check: checkReply, schema: SCHEMA });
@@ -10129,26 +10409,26 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
 }
 
 // apps/omni-app/src/canon/judge.ts
-import { z as z45 } from "zod";
+import { z as z47 } from "zod";
 var JUDGE_SECRET_VAR = "CONSTITUENT_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS2 = 55e3;
-var VerdictSchema = z45.looseObject({
-  answer: z45.enum(["true", "false"]),
-  confidence: z45.number().nullable().catch(null),
-  decidedBy: z45.string().nullable().catch(null)
+var VerdictSchema = z47.looseObject({
+  answer: z47.enum(["true", "false"]),
+  confidence: z47.number().nullable().catch(null),
+  decidedBy: z47.string().nullable().catch(null)
 });
-var RefusalSchema = z45.looseObject({ error: z45.unknown().optional() });
+var RefusalSchema = z47.looseObject({ error: z47.unknown().optional() });
 function judgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/constituents/judge`;
 }
 var failed = (error, reason2) => ({ ok: false, error, answer: null, confidence: null, decidedBy: null, reason: reason2 });
-function constituentJudge({ url, secret, fetch: post = fetch, timeoutMs = JUDGE_TIMEOUT_MS2 }) {
+function constituentJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE_TIMEOUT_MS2 }) {
   return async ({ repo, state, old, ref }) => {
     if (!secret) return failed(JUDGE_NOT_CONFIGURED, `${JUDGE_SECRET_VAR} is not set`);
     const body = JSON.stringify({ repo, state, old, ref });
     let response;
     try {
-      response = await post(url, {
+      response = await post2(url, {
         method: "POST",
         body,
         headers: { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) },
@@ -10210,7 +10490,7 @@ function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
 import { mkdtempSync as mkdtempSync11, rmSync as rmSync14 } from "node:fs";
 import { tmpdir as tmpdir11 } from "node:os";
 import { join as join60 } from "node:path";
-import { z as z46 } from "zod";
+import { z as z48 } from "zod";
 
 // kit/lib/escalation/escalation.ts
 var DAY_MS = 24 * 60 * 60 * 1e3;
@@ -10322,14 +10602,14 @@ function readRecord(body) {
     return one === null ? [] : [one];
   });
 }
-var kindWord = (kind) => kind === "law" ? "The change to the locked law" : "The open question";
+var kindWord2 = (kind) => kind === "law" ? "The change to the locked law" : "The open question";
 function renderAsk(due) {
   const people = [...new Set(due.flatMap((one) => one.newlyAsked))];
   return [
     ...due.map((one) => ASK_MARKER(one.thing, one.step)),
     `${people.map((login) => `@${login}`).join(" ")}: this pull request waits on a person.`,
     "",
-    ...due.map((one) => `- ${kindWord(one.kind)} \`${one.thing}\` has waited since ${one.firstHeld}.`),
+    ...due.map((one) => `- ${kindWord2(one.kind)} \`${one.thing}\` has waited since ${one.firstHeld}.`),
     "",
     "Only a login CODEOWNERS lists clears a law by approving, and only a writer of the repository answers a question. Nothing has been approved or adopted for you."
   ].join("\n");
@@ -10364,16 +10644,16 @@ function heldAt({ config, head, pr, gate }) {
 }
 
 // apps/omni-app/src/escalation/sweep.ts
-var InstallationsSchema = z46.array(z46.looseObject({ id: z46.number() }));
-var RepositoriesSchema = z46.looseObject({
-  repositories: z46.array(z46.looseObject({ name: z46.string(), owner: z46.looseObject({ login: z46.string() }) }))
+var InstallationsSchema = z48.array(z48.looseObject({ id: z48.number() }));
+var RepositoriesSchema = z48.looseObject({
+  repositories: z48.array(z48.looseObject({ name: z48.string(), owner: z48.looseObject({ login: z48.string() }) }))
 });
-var OpenPullsSchema = z46.array(z46.looseObject({ number: z46.number(), base: z46.looseObject({ sha: z46.string() }) }));
+var OpenPullsSchema = z48.array(z48.looseObject({ number: z48.number(), base: z48.looseObject({ sha: z48.string() }) }));
 var lower = (login) => login.toLowerCase();
-function moveDue(lines, settings, now, posted) {
-  const decisions = decide(lines.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
+function moveDue(lines2, settings, now, posted) {
+  const decisions = decide(lines2.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
   const due = [];
-  const moved = lines.map((line, index) => {
+  const moved = lines2.map((line, index) => {
     const decision = decisions[index];
     if (decision === void 0 || decision.step <= line.step) return line;
     const already = new Set(line.asked.map(lower));
@@ -10396,8 +10676,8 @@ async function settingsAt(octokit, { owner, repo, baseSha }) {
 }
 function recordIn(comments) {
   for (const comment of comments) {
-    const lines = readRecord(comment.body);
-    if (lines !== null) return lines.length > 0 ? { record: comment, lines } : null;
+    const lines2 = readRecord(comment.body);
+    if (lines2 !== null) return lines2.length > 0 ? { record: comment, lines: lines2 } : null;
   }
   return null;
 }
@@ -10491,12 +10771,12 @@ function escalationHandler({
 }
 
 // apps/omni-app/src/fix-rows/fix-stamp.ts
-import { z as z47 } from "zod";
-var FixStampKindSchema = z47.enum(["merged", "closed", "reopened"]);
-var at3 = z47.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
-var FixStampDataSchema = z47.looseObject({
-  installationId: z47.number(),
-  repository: z47.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+import { z as z49 } from "zod";
+var FixStampKindSchema = z49.enum(["merged", "closed", "reopened"]);
+var at3 = z49.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
+var FixStampDataSchema = z49.looseObject({
+  installationId: z49.number(),
+  repository: z49.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
   prNumber: PrNumberSchema,
   kind: FixStampKindSchema,
   at: at3,
@@ -10521,16 +10801,16 @@ function fixRowStampHandler({ stamp, log: log2 = noteTo("fix-row-stamp") }) {
 }
 
 // apps/omni-app/src/fix-rows/stamp.ts
-import { z as z48 } from "zod";
-var StampedRowSchema = z48.object({
+import { z as z50 } from "zod";
+var StampedRowSchema = z50.object({
   bug: ProductBugIdSchema,
-  dossierId: z48.string().min(1),
-  position: z48.number().int().positive(),
-  state: z48.enum(["open", "merged", "closed"])
+  dossierId: z50.string().min(1),
+  position: z50.number().int().positive(),
+  state: z50.enum(["open", "merged", "closed"])
 });
-var StampAnswerSchema = z48.object({
-  rows: z48.array(StampedRowSchema),
-  shipped: z48.array(ProductBugIdSchema),
+var StampAnswerSchema = z50.object({
+  rows: z50.array(StampedRowSchema),
+  shipped: z50.array(ProductBugIdSchema),
   unmatched: ProductBugIdSchema.nullable()
 });
 function fixRowStamper(connection) {
@@ -10549,26 +10829,26 @@ function fixRowStamper(connection) {
 }
 
 // apps/omni-app/src/fleet-board/job.ts
-import { z as z52 } from "zod";
+import { z as z54 } from "zod";
 
 // apps/omni-app/src/fleet-board/events.ts
-import { z as z49 } from "zod";
-var FleetBoardDataSchema = z49.looseObject({
-  installationId: z49.number(),
-  owner: z49.string().min(1),
-  repo: z49.string().min(1),
-  repository: z49.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+import { z as z51 } from "zod";
+var FleetBoardDataSchema = z51.looseObject({
+  installationId: z51.number(),
+  owner: z51.string().min(1),
+  repo: z51.string().min(1),
+  repository: z51.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
   prNumber: PrNumberSchema,
   /** The pull request's GraphQL node id, the card's content. */
-  nodeId: z49.string().min(1),
+  nodeId: z51.string().min(1),
   /** The pull request's link, as a runner's job lists it. */
-  url: z49.string().min(1),
+  url: z51.string().min(1),
   /** The GitHub login of its author. */
-  author: z49.string().min(1)
+  author: z51.string().min(1)
 });
 
 // apps/omni-app/src/fleet-board/github.ts
-import { z as z50 } from "zod";
+import { z as z52 } from "zod";
 var BOARD = /^https:\/\/github\.com\/orgs\/([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/projects\/([1-9][0-9]{0,9})\/?$/;
 function boardOf(url) {
   const match = BOARD.exec(url.trim());
@@ -10581,11 +10861,11 @@ var PROJECT = `query FleetBoardProject($org: String!, $number: Int!) {
 var ADD = `mutation FleetBoardAdd($project: ID!, $content: ID!) {
   addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
 }`;
-var ProjectAnswerSchema = z50.looseObject({
-  organization: z50.looseObject({ projectV2: z50.looseObject({ id: z50.string().min(1) }).nullish() }).nullish()
+var ProjectAnswerSchema = z52.looseObject({
+  organization: z52.looseObject({ projectV2: z52.looseObject({ id: z52.string().min(1) }).nullish() }).nullish()
 });
-var AddAnswerSchema = z50.looseObject({
-  addProjectV2ItemById: z50.looseObject({ item: z50.looseObject({ id: z50.string().min(1) }).nullish() }).nullish()
+var AddAnswerSchema = z52.looseObject({
+  addProjectV2ItemById: z52.looseObject({ item: z52.looseObject({ id: z52.string().min(1) }).nullish() }).nullish()
 });
 async function addToBoard(octokit, { url, contentId }) {
   const board = boardOf(url);
@@ -10606,8 +10886,8 @@ function refused5(reason2) {
   return { outcome: "refused", reason: reason2 };
 }
 var NOT_ALLOWED = /* @__PURE__ */ new Set(["FORBIDDEN", "INSUFFICIENT_SCOPES"]);
-var GraphqlErrorsSchema = z50.looseObject({ errors: z50.array(z50.looseObject({ type: z50.unknown().optional() })).min(1) });
-var HttpErrorSchema = z50.looseObject({ status: z50.number(), message: z50.string().optional() });
+var GraphqlErrorsSchema = z52.looseObject({ errors: z52.array(z52.looseObject({ type: z52.unknown().optional() })).min(1) });
+var HttpErrorSchema = z52.looseObject({ status: z52.number(), message: z52.string().optional() });
 function refusalOf(error) {
   const graphql = GraphqlErrorsSchema.safeParse(error);
   if (graphql.success) {
@@ -10625,17 +10905,17 @@ function refusalOf(error) {
 }
 
 // apps/omni-app/src/fleet-board/store.ts
-import { z as z51 } from "zod";
+import { z as z53 } from "zod";
 var NOTE_MAX = 200;
 var LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 var TRACKED = "workspace_id, workspaces!inner(github_installation_id)";
 var PLAYER = "team";
 var JOB = "sent_by, sent_by_key";
 var TEAM = "name, project_url";
-var TrackedRowSchema = z51.object({ workspace_id: z51.string().min(1), workspaces: z51.object({ github_installation_id: z51.union([z51.number(), z51.string()]).nullable() }) });
-var PlayerRowSchema = z51.object({ team: z51.string().nullable() });
-var JobRowSchema = z51.object({ sent_by: z51.string().nullable(), sent_by_key: z51.string().nullable() });
-var TeamRowSchema = z51.object({ name: z51.string().min(1), project_url: z51.string().nullable() });
+var TrackedRowSchema = z53.object({ workspace_id: z53.string().min(1), workspaces: z53.object({ github_installation_id: z53.union([z53.number(), z53.string()]).nullable() }) });
+var PlayerRowSchema = z53.object({ team: z53.string().nullable() });
+var JobRowSchema = z53.object({ sent_by: z53.string().nullable(), sent_by_key: z53.string().nullable() });
+var TeamRowSchema = z53.object({ name: z53.string().min(1), project_url: z53.string().nullable() });
 function fleetBoardStore(connection) {
   const db = serviceDb(connection);
   async function activeFleet(workspace, name) {
@@ -10680,7 +10960,7 @@ function fleetBoardStore(connection) {
 var FLEET_BOARD_KIND = "fleet-board";
 var LOOKS = 10;
 var WAIT_MS = 6e4;
-var ProgressSchema = z52.looseObject({ look: z52.number().int().min(1).max(LOOKS).optional() });
+var ProgressSchema = z54.looseObject({ look: z54.number().int().min(1).max(LOOKS).optional() });
 function fleetBoardHandler({ octokitFor, store, now = () => /* @__PURE__ */ new Date(), log: log2 = noteTo("fleet-board") }) {
   return async (job) => {
     const data = parseOrThrow(FleetBoardDataSchema, job.payload, `The ${FLEET_BOARD_KIND} job carries an unexpected shape`);
@@ -10747,27 +11027,27 @@ function noteOf(added, { owner, repo, prNumber }) {
 }
 
 // apps/omni-app/src/inbox-check/business-laws-judge.ts
-import { z as z53 } from "zod";
+import { z as z55 } from "zod";
 var SECRET_VAR = "BUSINESS_LAWS_JUDGE_SECRET";
 var GATE = "business laws";
 var TIMEOUT_MS = 55e3;
-var FindingSchema3 = z53.looseObject({
-  law: z53.string(),
-  statement: z53.string(),
-  why: z53.string(),
-  quote: z53.string(),
+var FindingSchema3 = z55.looseObject({
+  law: z55.string(),
+  statement: z55.string(),
+  why: z55.string(),
+  quote: z55.string(),
   // What the judge found broken, in its own words (bug #2696); an older galaxy sends none.
-  broken: z53.string().optional().catch(void 0),
-  owners: z53.array(z53.string()).catch([])
+  broken: z55.string().optional().catch(void 0),
+  owners: z55.array(z55.string()).catch([])
 });
-var VerdictSchema2 = z53.looseObject({
-  state: z53.enum(["green", "red", "neutral"]),
-  reason: z53.string(),
-  laws: z53.array(z53.string()),
-  domains: z53.array(z53.looseObject({ key: z53.string(), name: z53.string().optional() })).catch([]),
-  findings: z53.array(FindingSchema3).catch([])
+var VerdictSchema2 = z55.looseObject({
+  state: z55.enum(["green", "red", "neutral"]),
+  reason: z55.string(),
+  laws: z55.array(z55.string()),
+  domains: z55.array(z55.looseObject({ key: z55.string(), name: z55.string().optional() })).catch([]),
+  findings: z55.array(FindingSchema3).catch([])
 });
-var RefusalSchema2 = z53.looseObject({ error: z53.string().optional().catch(void 0) });
+var RefusalSchema2 = z55.looseObject({ error: z55.string().optional().catch(void 0) });
 function businessLawsJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/business-laws/judge`;
 }
@@ -10792,10 +11072,10 @@ function gateOf(verdict) {
   const reason2 = `${verdict.reason}: ${verdict.findings.map((finding) => finding.law).join(", ")}`;
   return { name: GATE, ok: false, title: `${GATE} \u2717 ${verdict.findings.length}`, reason: reason2, details: verdict.findings.flatMap(detailsOf) };
 }
-async function signedCall(post, { url, secret, body, timeoutMs }) {
+async function signedCall(post2, { url, secret, body, timeoutMs }) {
   const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, body) };
   try {
-    const response = await post(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await post2(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
     const reply = await response.json().catch(() => null);
     return response.ok ? { reply } : { why: `galaxy answered ${response.status}${refusalOf2(reply)}` };
   } catch (error) {
@@ -10812,21 +11092,21 @@ function gateOfReply(reply) {
   if (verdict.data.state === "red" && verdict.data.findings.length === 0) return notJudged("galaxy answered a red with no finding");
   return gateOf(verdict.data);
 }
-function businessLawsJudge({ url, secret, fetch: post = fetch, timeoutMs = TIMEOUT_MS }) {
+function businessLawsJudge({ url, secret, fetch: post2 = fetch, timeoutMs = TIMEOUT_MS }) {
   return {
     async grade({ repo, spec }) {
       if (!secret) return notJudged(`judge not configured (${SECRET_VAR} is not set)`);
-      const called = await signedCall(post, { url, secret, body: JSON.stringify({ repo, spec }), timeoutMs });
+      const called = await signedCall(post2, { url, secret, body: JSON.stringify({ repo, spec }), timeoutMs });
       return "why" in called ? notJudged(called.why) : gateOfReply(called.reply);
     }
   };
 }
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z54 } from "zod";
+import { z as z56 } from "zod";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var MAX_LABEL = 20;
-var MarkerSchema = z54.looseObject({ prd: z54.unknown(), persona: z54.unknown(), claims: z54.unknown() });
+var MarkerSchema = z56.looseObject({ prd: z56.unknown(), persona: z56.unknown(), claims: z56.unknown() });
 function canonActions(canon) {
   if (canon?.state !== "red") return [];
   const persona = canon.persona?.name;
@@ -10858,7 +11138,7 @@ function canonComment(action, facts, { galaxyUrl }) {
     return [commentMarker(action), `To rewrite the spec${whom}, run \`/omni:brainstorm --rework ${facts.prd}\`.`].join("\n");
   }
   if (action === CANON_ACTION.claim) {
-    const lines = facts.claims.map((id) => `- [${id}](${claimLink(galaxyUrl, id)})`);
+    const lines2 = facts.claims.map((id) => `- [${id}](${claimLink(galaxyUrl, id)})`);
     const how = [];
     if (facts.claims.some(isConstituent2)) {
       how.push("To change the Statement or a Never line, open it on Settings \u203A Business: an owner of the workspace changes it on the Constituents panel; then re-run the inbox check.");
@@ -10866,7 +11146,7 @@ function canonComment(action, facts, { galaxyUrl }) {
     if (facts.claims.some((id) => !isConstituent2(id))) {
       how.push("To change the claim, open it on Settings \u203A Business. A new wording is saved as proposed and confirmed like any other; then re-run the inbox check.");
     }
-    return [commentMarker(action), ...how, "", ...lines].join("\n");
+    return [commentMarker(action), ...how, "", ...lines2].join("\n");
   }
   return null;
 }
@@ -11006,11 +11286,11 @@ import { parse as parse3, stringify } from "yaml";
 import { execFileSync as execFileSync7 } from "node:child_process";
 import { readFileSync as readFileSync43, realpathSync as realpathSync2, writeFileSync as writeFileSync16 } from "node:fs";
 import { basename as basename12, dirname as dirname13, join as join61, resolve as resolve2 } from "node:path";
-import { z as z55 } from "zod";
+import { z as z57 } from "zod";
 var DOSSIERS_FILE = join61(LOCAL_DIR, "dossiers.json");
 var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
-var text10 = z55.string().min(1);
-var DossierEntrySchema = z55.object({
+var text10 = z57.string().min(1);
+var DossierEntrySchema = z57.object({
   id: text10,
   url: text10,
   claudeSessionId: text10.nullable(),
@@ -11034,22 +11314,22 @@ function mainCheckout(cwd, exec = execFileSync7) {
 }
 
 // kit/lib/knowledge/packs/store.ts
-import { createHash as createHash4 } from "node:crypto";
+import { createHash as createHash5 } from "node:crypto";
 import { chmodSync as chmodSync3, existsSync as existsSync45, mkdirSync as mkdirSync12, readdirSync as readdirSync20, readFileSync as readFileSync44, renameSync as renameSync3, rmSync as rmSync15, statSync as statSync15, writeFileSync as writeFileSync17 } from "node:fs";
 import { dirname as dirname14, join as join62, posix as posix4 } from "node:path";
-import { z as z56 } from "zod";
+import { z as z58 } from "zod";
 var PACKS_DIR = join62(LOCAL_DIR, "packs");
 var PACK_FILE = "pack.json";
-var FileSchema = z56.object({ path: z56.string().min(1), sha256: z56.string().regex(/^[0-9a-f]{64}$/) });
-var MetaSchema = z56.object({
-  repository: z56.string().min(1),
-  sha: z56.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z56.string().min(1),
-  madeAt: z56.string().min(1),
-  files: z56.array(FileSchema)
+var FileSchema = z58.object({ path: z58.string().min(1), sha256: z58.string().regex(/^[0-9a-f]{64}$/) });
+var MetaSchema = z58.object({
+  repository: z58.string().min(1),
+  sha: z58.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z58.string().min(1),
+  madeAt: z58.string().min(1),
+  files: z58.array(FileSchema)
 });
 var PackReplySchema = MetaSchema.omit({ files: true }).extend({
-  files: z56.array(FileSchema.extend({ content: z56.string() }))
+  files: z58.array(FileSchema.extend({ content: z58.string() }))
 });
 var packName = (repo) => repo.slice(repo.indexOf("/") + 1);
 function localPacks(root, repo) {
@@ -11137,15 +11417,15 @@ function readFolderFlow(repo, { root, config }) {
   };
   return { folder, config: flow, readHook };
 }
-var shortName2 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName3 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetFlows({ root, config }) {
   const flows = /* @__PURE__ */ new Map();
   for (const { repo } of config.plan?.targets ?? []) {
     try {
       const copy = readCopyFlow(repo, { root, config });
-      if (copy) flows.set(shortName2(repo), { ok: true, config: copy.config });
+      if (copy) flows.set(shortName3(repo), { ok: true, config: copy.config });
     } catch (error) {
-      flows.set(shortName2(repo), { ok: false, file: join63(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
+      flows.set(shortName3(repo), { ok: false, file: join63(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
     }
   }
   return flows;
@@ -11180,10 +11460,10 @@ function isTableRow(line) {
 function isSeparatorRow(line) {
   return /^\|[\s:|-]+\|$/.test(line.trim());
 }
-function bodyRows(lines, headerIndex) {
+function bodyRows(lines2, headerIndex) {
   const rows = [];
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
+  for (let index = headerIndex + 1; index < lines2.length; index += 1) {
+    const line = lines2[index];
     if (!isTableRow(line)) break;
     if (isSeparatorRow(line)) continue;
     rows.push(cells2(line));
@@ -11214,11 +11494,11 @@ function parsePlanSlices(markdown) {
   return slices;
 }
 function sliceTable(markdown) {
-  const lines = markdown.split("\n");
+  const lines2 = markdown.split("\n");
   let headerIndex = -1;
   let foundAnyIdTable = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
+  for (let i = 0; i < lines2.length; i += 1) {
+    const line = lines2[i];
     if (isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim())) {
       foundAnyIdTable = true;
       const header2 = cells2(line).map((name) => name.toLowerCase());
@@ -11236,8 +11516,8 @@ function sliceTable(markdown) {
     }
     throw new Error("No slice table was found in this plan; its slices declare no territory.");
   }
-  const header = cells2(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  return { column: (name) => header.indexOf(name), rows: bodyRows(lines, headerIndex) };
+  const header = cells2(lines2[headerIndex] ?? "").map((name) => name.toLowerCase());
+  return { column: (name) => header.indexOf(name), rows: bodyRows(lines2, headerIndex) };
 }
 var TIERS2 = ["deep", "build", "light"];
 function isTier(text13) {
@@ -11298,12 +11578,12 @@ function parsePlanLandings(markdown) {
   return rows;
 }
 function sectionTable(markdown, heading) {
-  const lines = markdown.split("\n");
-  const start = lines.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  const lines2 = markdown.split("\n");
+  const start = lines2.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
   if (start === -1) return [];
   let headerIndex = -1;
-  for (let i = start + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
+  for (let i = start + 1; i < lines2.length; i += 1) {
+    const line = lines2[i] ?? "";
     if (/^#{1,2}\s/.test(line.trim())) break;
     if (isTableRow(line)) {
       headerIndex = i;
@@ -11311,8 +11591,8 @@ function sectionTable(markdown, heading) {
     }
   }
   if (headerIndex === -1) return [];
-  const header = cells2(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  return bodyRows(lines, headerIndex).map(
+  const header = cells2(lines2[headerIndex] ?? "").map((name) => name.toLowerCase());
+  return bodyRows(lines2, headerIndex).map(
     (row) => (name) => header.indexOf(name) === -1 ? "" : plainCell(row[header.indexOf(name)])
   );
 }
@@ -11447,7 +11727,7 @@ function gradedLandings(slices, rows) {
   });
 }
 function repositoryFlowViolations(slices, { config, targets }) {
-  const planName = config.repo.slug === null ? null : shortName3(config.repo.slug);
+  const planName = config.repo.slug === null ? null : shortName4(config.repo.slug);
   return [...byRepository(slices)].flatMap(([repo, group2]) => {
     const found = repo === null ? void 0 : targets.get(repo);
     const unreadable = found !== void 0 && !found.ok ? [`flow: ${repo}'s imported flow at ${found.file} cannot be read \u2014 ${found.reason}`] : [];
@@ -11456,7 +11736,7 @@ function repositoryFlowViolations(slices, { config, targets }) {
     return [...unreadable, ...named];
   });
 }
-function shortName3(slug) {
+function shortName4(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
 function repositoryViolations(slices, repositories, { planSlug, targets }) {
@@ -11468,13 +11748,13 @@ function repositoryViolations(slices, repositories, { planSlug, targets }) {
     ...shortNameClashes(owners),
     ...unknownRepoViolations(slices, owners),
     ...missingRowViolations(slices, repositories, owners),
-    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName3(planSlug) })
+    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName4(planSlug) })
   ];
 }
 function ownersByShortName(slugs) {
   const owners = /* @__PURE__ */ new Map();
   for (const slug of slugs) {
-    const name = shortName3(slug);
+    const name = shortName4(slug);
     owners.set(name, [...owners.get(name) ?? [], slug]);
   }
   return owners;
@@ -11513,8 +11793,8 @@ function rowViolation(row, slices, { owners, planName }) {
   return null;
 }
 function targetReachViolations(slices, targets) {
-  const readOnly = new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName3(target2.repo)));
-  const consumes = new Map(targets.map((target2) => [shortName3(target2.repo), new Set(target2.consumes ?? [])]));
+  const readOnly = new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName4(target2.repo)));
+  const consumes = new Map(targets.map((target2) => [shortName4(target2.repo), new Set(target2.consumes ?? [])]));
   const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const violations = slices.filter((slice) => slice.repo !== null && readOnly.has(slice.repo)).map((slice) => `readOnly: ${slice.id} lands in ${slice.repo}, a read-only target \u2014 no slice may name it.`);
   for (const slice of slices) {
@@ -12096,10 +12376,10 @@ async function addActionsAt(octokit, { owner, repo }, checkRunId, actions) {
   await addCheckActions(octokit, { owner, repo, checkRunId, actions });
   return actions.map((action) => action.identifier);
 }
-var payloadOf2 = (raw) => checkPayloadOf(PullAtSchema, PR_INBOX_KIND, raw);
+var payloadOf3 = (raw) => checkPayloadOf(PullAtSchema, PR_INBOX_KIND, raw);
 function inboxHandler({ octokitFor, canon = null, laws = null }) {
   return async (job) => {
-    const { installationId, ...where } = payloadOf2(job.payload);
+    const { installationId, ...where } = payloadOf3(job.payload);
     const at4 = where;
     const octokit = await octokitFor(installationId);
     const started = await startAt(octokit, at4);
@@ -12114,7 +12394,7 @@ function inboxHandler({ octokitFor, canon = null, laws = null }) {
 }
 function inboxFailureHook({ octokitFor }) {
   return async (job, reason2) => {
-    const { installationId, ...at4 } = payloadOf2(job.payload);
+    const { installationId, ...at4 } = payloadOf3(job.payload);
     await failInbox(await octokitFor(installationId), at4, reason2);
   };
 }
@@ -12187,21 +12467,99 @@ function canonActionHandler({ octokitFor, galaxyUrl }) {
   };
 }
 
+// apps/omni-app/src/knowledge-embed/store.ts
+import { z as z60 } from "zod";
+var PAGE = 1e3;
+var PackRowSchema2 = z60.object({ id: z60.string().min(1), workspace_id: z60.string().min(1) });
+var FileRowSchema = z60.object({ path: z60.string(), content: z60.string() });
+var HolderRowSchema3 = z60.object({ product_id: z60.string().min(1), workspace_id: z60.string().min(1), repository: z60.string().min(1) });
+var ProductRowSchema = z60.object({ id: z60.string().min(1), workspace_id: z60.string().min(1), plan_repository: z60.string().nullable() });
+var LegalRowSchema = z60.object({ product_id: z60.string().min(1), code: z60.string().min(1), number: z60.number().int(), statement: z60.string(), source: z60.string() });
+var TermRowSchema = z60.object({ product_id: z60.string().min(1), term: z60.string(), meaning: z60.string(), avoid: z60.array(z60.string()) });
+var NeverRowSchema = z60.object({ product_id: z60.string().min(1), seq: z60.number().int(), body: z60.string() });
+async function paged(schema, page) {
+  const rows = [];
+  for (let start = 0; ; start += PAGE) {
+    const batch = rowsOf(schema, await page(start, start + PAGE - 1));
+    rows.push(...batch);
+    if (batch.length < PAGE) return rows;
+  }
+}
+function lawHomeOf(planRepository, repositories) {
+  if (planRepository !== null) return planRepository.toLowerCase();
+  return repositories.length === 1 ? repositories[0] ?? null : null;
+}
+function knowledgeEmbedStore(connection) {
+  const db = serviceDb(connection);
+  async function productRows(repository, ids) {
+    const byWorkspace = /* @__PURE__ */ new Map();
+    if (ids.length === 0) return byWorkspace;
+    const products = rowsOf(ProductRowSchema, await db.from("products").select("id, workspace_id, plan_repository").in("id", ids).is("archived_at", null));
+    const live = products.map((p) => p.id);
+    if (live.length === 0) return byWorkspace;
+    const [links, legal, glossary, never] = await Promise.all([
+      paged(HolderRowSchema3, (from, to) => db.from("product_repositories").select("product_id, workspace_id, repository").in("product_id", live).order("repository").range(from, to)),
+      paged(LegalRowSchema, (from, to) => db.from("product_legal").select("product_id, code, number, statement, source").in("product_id", live).is("retired_at", null).order("code").order("number").range(from, to)),
+      paged(TermRowSchema, (from, to) => db.from("product_glossary").select("product_id, term, meaning, avoid").in("product_id", live).is("removed_at", null).order("term").range(from, to)),
+      paged(NeverRowSchema, (from, to) => db.from("constituents").select("product_id, seq, body").in("product_id", live).eq("kind", "never").is("removed_at", null).order("seq").range(from, to))
+    ]);
+    for (const product of products) {
+      const home = lawHomeOf(product.plan_repository, links.filter((l) => l.product_id === product.id).map((l) => l.repository));
+      const rows = {
+        lawHome: home === repository,
+        legal: legal.filter((l) => l.product_id === product.id).map((l) => ({ id: `L-${l.code}-${String(l.number)}`, statement: l.statement, source: l.source, owner: null })),
+        glossary: glossary.filter((g) => g.product_id === product.id).map(({ term, meaning, avoid }) => ({ term, meaning, avoid })),
+        never: never.filter((n) => n.product_id === product.id).map(({ seq, body }) => ({ seq, body }))
+      };
+      byWorkspace.set(product.workspace_id, [...byWorkspace.get(product.workspace_id) ?? [], rows]);
+    }
+    return byWorkspace;
+  }
+  return {
+    sources: async (repo, sha) => {
+      const repository = repo.toLowerCase();
+      const packs = rowsOf(PackRowSchema2, await db.from("knowledge_packs").select("id, workspace_id").eq("repository", repository).eq("sha", sha));
+      if (packs.length === 0) return [];
+      const workspaces = packs.map((p) => p.workspace_id);
+      const holders = rowsOf(HolderRowSchema3, await db.from("product_repositories").select("product_id, workspace_id, repository").eq("repository", repository).in("workspace_id", workspaces));
+      const products = await productRows(repository, [...new Set(holders.map((h) => h.product_id))]);
+      const kept2 = [];
+      for (const pack2 of packs) {
+        const files = await paged(FileRowSchema, (from, to) => db.from("knowledge_pack_files").select("path, content").eq("pack_id", pack2.id).order("path").range(from, to));
+        kept2.push({ workspace: pack2.workspace_id, files, products: products.get(pack2.workspace_id) ?? [] });
+      }
+      return kept2;
+    },
+    missing: async (workspace, model, hashes) => {
+      if (hashes.length === 0) return [];
+      const { data, error } = await db.rpc("knowledge_vectors_missing", { p_workspace: workspace, p_model: model, p_hashes: [...hashes] });
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return z60.array(z60.string()).parse(data);
+    },
+    put: async (workspace, model, rows) => {
+      if (rows.length === 0) return 0;
+      const { data, error } = await db.rpc("knowledge_vectors_put", { p_workspace: workspace, p_model: model, p_rows: rows.map(({ sha256: sha2562, vector }) => ({ sha256: sha2562, vector })) });
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return z60.number().int().nonnegative().parse(data);
+    }
+  };
+}
+
 // apps/omni-app/src/knowledge-pack/store.ts
-import { z as z58 } from "zod";
-var KeptSchema = z58.object({
-  workspace: z58.string().min(1),
-  packId: z58.string().min(1),
-  created: z58.boolean(),
-  newest: z58.boolean(),
-  files: z58.number().int().nonnegative()
+import { z as z61 } from "zod";
+var KeptSchema = z61.object({
+  workspace: z61.string().min(1),
+  packId: z61.string().min(1),
+  created: z61.boolean(),
+  newest: z61.boolean(),
+  files: z61.number().int().nonnegative()
 });
-var PutAnswerSchema = z58.object({
-  repository: z58.string().min(1),
-  sha: z58.string().regex(/^[0-9a-f]{40}$/),
-  packs: z58.array(KeptSchema)
+var PutAnswerSchema = z61.object({
+  repository: z61.string().min(1),
+  sha: z61.string().regex(/^[0-9a-f]{40}$/),
+  packs: z61.array(KeptSchema)
 });
-var HolderSchema = z58.object({ product_id: z58.string().min(1) });
+var HolderSchema = z61.object({ product_id: z61.string().min(1) });
 var refused6 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function knowledgePackStore(connection) {
   const db = serviceDb(connection);
@@ -12328,15 +12686,15 @@ Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
 }
 
 // apps/omni-app/src/outbox-check/product-outbox.ts
-import { z as z59 } from "zod";
-var text11 = z59.string().min(1);
-var HolderRowSchema3 = z59.object({ product_id: text11, products: z59.object({ name: text11 }) });
-var DossierRowSchema3 = z59.object({ id: text11 });
-var ItemRowSchema2 = z59.object({ item: text11, rank: text11, outbox_settlements: z59.array(z59.unknown()) });
+import { z as z62 } from "zod";
+var text11 = z62.string().min(1);
+var HolderRowSchema4 = z62.object({ product_id: text11, products: z62.object({ name: text11 }) });
+var DossierRowSchema3 = z62.object({ id: text11 });
+var ItemRowSchema2 = z62.object({ item: text11, rank: text11, outbox_settlements: z62.array(z62.unknown()) });
 function productOutboxReader(connection) {
   const db = serviceDb(connection);
   return async (repository, prd) => {
-    const [holder] = rowsOf(HolderRowSchema3, await db.from("product_repositories").select("product_id, products!inner(key, name)").eq("repository", repository.toLowerCase()).eq("products.key", prd.key).limit(1));
+    const [holder] = rowsOf(HolderRowSchema4, await db.from("product_repositories").select("product_id, products!inner(key, name)").eq("repository", repository.toLowerCase()).eq("products.key", prd.key).limit(1));
     if (!holder) return null;
     const [dossier] = rowsOf(DossierRowSchema3, await db.from("dossiers").select("id").eq("product_id", holder.product_id).eq("product_seq", prd.seq).eq("kind", "prd").limit(1));
     if (!dossier) return null;
@@ -12589,20 +12947,20 @@ function outboxFailureHook({ octokitFor, log: log2 = noteTo("outbox-check") }) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-import { z as z61 } from "zod";
+import { z as z64 } from "zod";
 
 // kit/lib/plan-repo/gh-schema.ts
-import { z as z60 } from "zod";
-var GhRepositorySchema = z60.looseObject({ default_branch: z60.string() });
-var GhContentEntrySchema = z60.looseObject({ type: z60.string(), name: z60.string(), path: z60.string() });
-var GhCompareFileSchema = z60.looseObject({
-  filename: z60.string(),
-  previous_filename: z60.string().optional()
+import { z as z63 } from "zod";
+var GhRepositorySchema = z63.looseObject({ default_branch: z63.string() });
+var GhContentEntrySchema = z63.looseObject({ type: z63.string(), name: z63.string(), path: z63.string() });
+var GhCompareFileSchema = z63.looseObject({
+  filename: z63.string(),
+  previous_filename: z63.string().optional()
 });
-var GhCompareSchema = z60.looseObject({
-  ahead_by: z60.number().optional(),
-  status: z60.string().optional(),
-  files: z60.array(GhCompareFileSchema).optional()
+var GhCompareSchema = z63.looseObject({
+  ahead_by: z63.number().optional(),
+  status: z63.string().optional(),
+  files: z63.array(GhCompareFileSchema).optional()
 });
 function firstIssue(error) {
   const [issue] = error.issues;
@@ -12612,64 +12970,64 @@ function firstIssue(error) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z61.looseObject({
-  limit: z61.number(),
-  remaining: z61.number(),
-  resetAt: z61.string().nullish()
+var RateLimitSchema = z64.looseObject({
+  limit: z64.number(),
+  remaining: z64.number(),
+  resetAt: z64.string().nullish()
 });
-var RateLimited = z61.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z61.looseObject({
-  repository: z61.looseObject({
-    pullRequests: z61.looseObject({
-      pageInfo: z61.looseObject({ hasNextPage: z61.boolean(), endCursor: z61.string().nullish() }),
-      nodes: z61.array(z61.looseObject({ number: PrNumberSchema, updatedAt: z61.string() }))
+var RateLimited = z64.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z64.looseObject({
+  repository: z64.looseObject({
+    pullRequests: z64.looseObject({
+      pageInfo: z64.looseObject({ hasNextPage: z64.boolean(), endCursor: z64.string().nullish() }),
+      nodes: z64.array(z64.looseObject({ number: PrNumberSchema, updatedAt: z64.string() }))
     })
   })
 });
-var ActorSchema = z61.looseObject({ login: z61.string().nullish(), __typename: z61.string().nullish() }).nullish();
-var PullDetailSchema = z61.looseObject({
+var ActorSchema = z64.looseObject({ login: z64.string().nullish(), __typename: z64.string().nullish() }).nullish();
+var PullDetailSchema = z64.looseObject({
   number: PrNumberSchema,
   author: ActorSchema,
-  createdAt: z61.string(),
-  mergedAt: z61.string().nullish(),
-  closedAt: z61.string().nullish(),
+  createdAt: z64.string(),
+  mergedAt: z64.string().nullish(),
+  closedAt: z64.string().nullish(),
   mergedBy: ActorSchema,
-  baseRefName: z61.string().nullish(),
-  headRefName: z61.string().nullish(),
-  isDraft: z61.boolean().nullish(),
-  body: z61.string().nullish(),
-  additions: z61.number().nullish(),
-  deletions: z61.number().nullish(),
-  labels: z61.looseObject({ nodes: z61.array(z61.looseObject({ name: z61.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z61.looseObject({
-    totalCount: z61.number(),
-    nodes: z61.array(
-      z61.looseObject({
-        commit: z61.looseObject({ message: z61.string().nullish(), committedDate: z61.string().nullish() }).nullish()
+  baseRefName: z64.string().nullish(),
+  headRefName: z64.string().nullish(),
+  isDraft: z64.boolean().nullish(),
+  body: z64.string().nullish(),
+  additions: z64.number().nullish(),
+  deletions: z64.number().nullish(),
+  labels: z64.looseObject({ nodes: z64.array(z64.looseObject({ name: z64.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z64.looseObject({
+    totalCount: z64.number(),
+    nodes: z64.array(
+      z64.looseObject({
+        commit: z64.looseObject({ message: z64.string().nullish(), committedDate: z64.string().nullish() }).nullish()
       })
     )
   }).nullish(),
-  reviews: z61.looseObject({ nodes: z61.array(z61.looseObject({ author: ActorSchema, submittedAt: z61.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z61.looseObject({
-    nodes: z61.array(
-      z61.looseObject({ createdAt: z61.string().nullish(), label: z61.looseObject({ name: z61.string().nullish() }).nullish() }).nullish()
+  reviews: z64.looseObject({ nodes: z64.array(z64.looseObject({ author: ActorSchema, submittedAt: z64.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z64.looseObject({
+    nodes: z64.array(
+      z64.looseObject({ createdAt: z64.string().nullish(), label: z64.looseObject({ name: z64.string().nullish() }).nullish() }).nullish()
     ).nullish()
   }).nullish()
 });
-var PullDetailsSchema = z61.looseObject({ repository: z61.record(z61.string(), z61.unknown()) });
-var PullCommentsSchema = z61.looseObject({
-  comments: z61.looseObject({ nodes: z61.array(z61.looseObject({ body: z61.string().nullish() }).nullish()).nullish() }).nullish()
+var PullDetailsSchema = z64.looseObject({ repository: z64.record(z64.string(), z64.unknown()) });
+var PullCommentsSchema = z64.looseObject({
+  comments: z64.looseObject({ nodes: z64.array(z64.looseObject({ body: z64.string().nullish() }).nullish()).nullish() }).nullish()
 }).nullish();
-var TrackedRowSchema2 = z61.looseObject({
-  workspace_id: z61.string(),
-  full_name: z61.string(),
-  collected_until: z61.string().nullish(),
-  workspaces: z61.looseObject({ github_installation_id: z61.union([z61.number(), z61.string()]) })
+var TrackedRowSchema2 = z64.looseObject({
+  workspace_id: z64.string(),
+  full_name: z64.string(),
+  collected_until: z64.string().nullish(),
+  workspaces: z64.looseObject({ github_installation_id: z64.union([z64.number(), z64.string()]) })
 });
-var FailureSchema2 = z61.looseObject({
-  errors: z61.array(z61.looseObject({ type: z61.unknown().optional(), message: z61.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z61.unknown().optional(),
-  status: z61.unknown().optional()
+var FailureSchema2 = z64.looseObject({
+  errors: z64.array(z64.looseObject({ type: z64.unknown().optional(), message: z64.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z64.unknown().optional(),
+  status: z64.unknown().optional()
 });
 function parseAnswer(schema, value, what) {
   return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
@@ -12679,24 +13037,24 @@ function parsedOr2(schema, value, context) {
   if (parsed2.success) return parsed2.data;
   throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
 }
-var BudgetSchema = z61.object({
-  limit: z61.number().exactOptional(),
-  remaining: z61.number().exactOptional(),
-  resetAt: z61.string().nullable().exactOptional()
+var BudgetSchema = z64.object({
+  limit: z64.number().exactOptional(),
+  remaining: z64.number().exactOptional(),
+  resetAt: z64.string().nullable().exactOptional()
 });
-var TrackedRepositorySchema = z61.object({
-  workspaceId: z61.string(),
-  installationId: z61.number(),
-  fullName: z61.string(),
-  collectedUntil: z61.string().nullable()
+var TrackedRepositorySchema = z64.object({
+  workspaceId: z64.string(),
+  installationId: z64.number(),
+  fullName: z64.string(),
+  collectedUntil: z64.string().nullable()
 });
-var TrackedRepositoriesSchema = z61.array(TrackedRepositorySchema);
-var BatchOutSchema = z61.object({
-  saved: z61.number(),
-  cursor: z61.string(),
-  more: z61.boolean(),
-  paused: z61.literal(true).exactOptional(),
-  error: z61.string().exactOptional(),
+var TrackedRepositoriesSchema = z64.array(TrackedRepositorySchema);
+var BatchOutSchema = z64.object({
+  saved: z64.number(),
+  cursor: z64.string(),
+  more: z64.boolean(),
+  paused: z64.literal(true).exactOptional(),
+  error: z64.string().exactOptional(),
   budget: BudgetSchema
 });
 
@@ -13061,14 +13419,14 @@ function prStatsHandler({
 }
 
 // apps/omni-app/src/server-event/job.ts
-import { z as z62 } from "zod";
+import { z as z65 } from "zod";
 var SERVER_EVENT_KIND = "server-event";
 var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var ServerEventSchema = z62.object({
-  event: z62.enum(SERVER_EVENT_KINDS),
-  dossier: z62.string().regex(UUID2),
-  at: z62.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
+var ServerEventSchema = z65.object({
+  event: z65.enum(SERVER_EVENT_KINDS),
+  dossier: z65.string().regex(UUID2),
+  at: z65.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 var SERVER_EVENT_TRIGGER = "server-event";
 function refusalIn2(error, depth = 0) {
@@ -13112,19 +13470,19 @@ function serverEventHandler({ octokitFor, readTargets, recheck, log: log2 = note
 }
 
 // apps/omni-app/src/server-event/targets.ts
-import { z as z63 } from "zod";
-var text12 = z63.string().min(1);
-var DossierRowSchema4 = z63.object({ workspace_id: text12, product_id: text12.nullable(), product_seq: z63.number().int().positive().nullable() });
-var ProductRowSchema = z63.object({ key: text12.nullable() });
-var WorkspaceRowSchema = z63.object({ github_installation_id: z63.number().int().positive().nullable() });
-var LinkRowSchema = z63.object({ repository: text12 });
-var PullRowSchema = z63.object({ repo: text12, number: z63.number().int().positive() });
+import { z as z66 } from "zod";
+var text12 = z66.string().min(1);
+var DossierRowSchema4 = z66.object({ workspace_id: text12, product_id: text12.nullable(), product_seq: z66.number().int().positive().nullable() });
+var ProductRowSchema2 = z66.object({ key: text12.nullable() });
+var WorkspaceRowSchema = z66.object({ github_installation_id: z66.number().int().positive().nullable() });
+var LinkRowSchema = z66.object({ repository: text12 });
+var PullRowSchema = z66.object({ repo: text12, number: z66.number().int().positive() });
 function targetsReader(connection) {
   const db = serviceDb(connection);
   return async (dossier) => {
     const [row] = rowsOf(DossierRowSchema4, await db.from("dossiers").select("workspace_id, product_id, product_seq").eq("id", dossier).eq("kind", "prd").limit(1));
     if (!row?.product_id || row.product_seq === null) return null;
-    const [product] = rowsOf(ProductRowSchema, await db.from("products").select("key").eq("id", row.product_id).limit(1));
+    const [product] = rowsOf(ProductRowSchema2, await db.from("products").select("key").eq("id", row.product_id).limit(1));
     if (!product?.key) return null;
     const [workspace] = rowsOf(WorkspaceRowSchema, await db.from("workspaces").select("github_installation_id").eq("id", row.workspace_id).limit(1));
     if (!workspace?.github_installation_id) return null;
@@ -13183,16 +13541,18 @@ function liveWorkers(env, octokitFor) {
     canon: liveCanon({ supabase, openrouter: env.openrouter ?? null, constituentJudge: env.constituentJudge ?? null, galaxyUrl }),
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret })
   });
+  const ledger = jobLedger(supabase);
   return {
     handlers: {
-      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }),
+      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase), addJob: ledger.add }),
+      [EMBED_KIND]: embedHandler({ store: knowledgeEmbedStore(supabase), embed: embedClient(supabase) }),
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
       [CANON_ACTION_KIND]: canonActionHandler({ octokitFor, galaxyUrl }),
-      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(jobLedger(supabase)) })
+      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(ledger) })
     },
     failures: checks.failures
   };
@@ -13300,7 +13660,7 @@ function liveJobs(env, logger) {
     forget: () => ledger.forget()
   };
 }
-var ReplayBodySchema = z64.object({ replay: z64.string().min(1) });
+var ReplayBodySchema = z67.object({ replay: z67.string().min(1) });
 var json = (status, body) => Response.json(body, { status, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;

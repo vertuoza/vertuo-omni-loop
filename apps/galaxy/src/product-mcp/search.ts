@@ -15,7 +15,8 @@
 // 2. the entries holding a vector, nearest first;
 // 3. the entries holding none yet (a pack minutes old), by their word match, as the word search ranks them.
 // With no vector at all among the entries, the answer is the word search's, with `mode: "words"`.
-import { HIT_CAP, type KnowledgeEntry, type KnowledgeHit, type KnowledgeKind, type SearchMode } from './product-mcp.contract';
+import { HIT_CAP, type KnowledgeHit, type KnowledgeKind, type SearchMode } from './product-mcp.contract';
+import type { KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
 
 export type KnowledgeQuery = { query?: string | undefined; kind?: KnowledgeKind | undefined; domain?: string | undefined; repo?: string | undefined };
 

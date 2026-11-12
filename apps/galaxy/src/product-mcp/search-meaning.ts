@@ -13,7 +13,8 @@
 //   word search's answer with `mode: "words"`, never an error. Each fallback is one log line, with no text of
 //   the query or the knowledge.
 import { embedText } from 'omni-loop/kit/lib/knowledge/entries.ts';
-import type { KnowledgeEntry, KnowledgeHit, SearchMode } from './product-mcp.contract';
+import type { KnowledgeHit, SearchMode } from './product-mcp.contract';
+import type { KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import type { KnowledgeVectorsRepository } from './product-mcp.repository';
 import { EMBED_BATCH, EMBED_MODEL, type Embedder } from './embed/client';
 import { filtered, hasWords, rankByMeaning, searchKnowledge, type KnowledgeQuery } from './search';

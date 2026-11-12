@@ -12,7 +12,8 @@
 //   the call. The Legal entries (with each owner's login) and the Glossary come with the access itself, as
 //   the agent link reads them.
 import { knowledgeEntries, type PackText } from 'omni-loop/kit/lib/knowledge/entries.ts';
-import { NO_PACK_LINE, type KnowledgeEntry, type RepositoryState } from './product-mcp.contract';
+import { NO_PACK_LINE, type RepositoryState } from './product-mcp.contract';
+import type { KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
 
 /** Who a request is: a key served for the product, a key that does not work, or a product not here for it. */

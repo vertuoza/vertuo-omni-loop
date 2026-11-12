@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { KnowledgeEntry } from './product-mcp.contract';
+import type { KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import { rankByMeaning, searchKnowledge, type Nearness } from './search';
 
 // The search (PRD 2707 s3): words, with no model, over a fictional product's entries.
