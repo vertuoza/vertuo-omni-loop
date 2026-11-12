@@ -91,6 +91,12 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }: Pick<Ov
  * knowledge folder (PRD 1171). */
 const rulesLine = ({ rules }: Pick<Overview, 'rules'>): string[] => (rules === null ? [] : [`${INDENT}rules enforced  ${rules.enforced} of ${rules.total}`]);
 
+/** The open points of the follow-ups folder (PRD 2739): `follow-ups  N open · oldest <date> → omni
+ * follow-up list` under the bar; no line when it holds none. */
+export type FollowUpsCount = { count: number; oldest: string };
+const followUpsLine = (followUps: FollowUpsCount | null | undefined): string[] =>
+  followUps === undefined || followUps === null || followUps.count === 0 ? [] : [`${INDENT}follow-ups  ${followUps.count} open · oldest ${followUps.oldest} → omni follow-up list`];
+
 /** Each row of yours starts with its stage, in a column as wide as the widest stage and a gap: the
  * rows' own columns then start under the line under the bar. */
 /** The gap between a row's PRD number and its topic, and between its topic and what it says. */
@@ -186,7 +192,7 @@ function heldLines(held: readonly HeldPrd[]): string[] {
 }
 
 /** The overview `overviewFor` returns, as the lines `omni status` prints. */
-export function formatOverview(overview: Overview, { now }: { now: number }): string {
+export function formatOverview(overview: Overview, { now, followUps }: { now: number; followUps?: FollowUpsCount | null }): string {
   return [
     header(overview, now),
     '',
@@ -194,6 +200,7 @@ export function formatOverview(overview: Overview, { now }: { now: number }): st
     '',
     ...bar(overview),
     ...rulesLine(overview),
+    ...followUpsLine(followUps),
     ...(overview.held.length ? ['', ...heldLines(overview.held)] : []),
     '',
     ...yours(overview.yours),
