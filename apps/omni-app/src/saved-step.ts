@@ -33,7 +33,7 @@ export async function savedStep<T>(step: StepRun, id: string, schema: z.ZodType<
 }
 
 /** A value read back from the saved step `id`, parsed by `schema`. */
-export function parseSaved<T>(schema: z.ZodType<T>, value: unknown, id: string): T {
+function parseSaved<T>(schema: z.ZodType<T>, value: unknown, id: string): T {
   return parseOrThrow(schema, value, `The step "${id}" came back in an unexpected shape`);
 }
 
