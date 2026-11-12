@@ -472,6 +472,12 @@ jobs:
         # for another workspace's key, a revoked key or one whose maker left; an allow-list naming none of
         # the product's repositories reads nothing, one naming some reads only those (PRD 2707).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_mcp.sql
+      - name: Who reads and writes the knowledge vectors, and what a search reads of them
+        # Nobody signed in, and anon, reads or writes knowledge_vectors or calls its functions; the service role
+        # does. A call that keeps vectors refuses anything malformed whole (a vector not 384 long); `missing`
+        # names only the absent hashes; `nearest` orders the hashes given by cosine distance within one
+        # workspace's vectors alone; `forget` deletes only the vectors unused for 90 days (PRD 2728).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_vectors.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
