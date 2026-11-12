@@ -24,4 +24,4 @@ The reproductions stay as guards: each check kind must run below the floor while
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (46545cd5): nothing to mutate
