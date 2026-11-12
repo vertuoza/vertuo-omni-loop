@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { KnowledgeEntry } from './product-mcp.contract';
-import { searchKnowledge } from './search';
+import { rankByMeaning, searchKnowledge, type Nearness } from './search';
 
 // The search (PRD 2707 s3): words, with no model, over a fictional product's entries.
 
@@ -63,5 +63,62 @@ describe('searchKnowledge', () => {
   it('never carries the body whole in a hit', () => {
     const [hit] = searchKnowledge(ENTRIES, { query: 'api key' }).hits;
     expect(Object.keys(hit ?? {}).sort()).toEqual(['domain', 'id', 'kind', 'repo', 'snippet', 'title']);
+  });
+});
+
+// The meaning ranking (PRD 2728 s5), over fake vectors: each entry's hash is its id, and `nearest` plays
+// knowledge_nearest()'s order.
+const nearness = (nearest: string[]): Nearness => ({ hashOf: (e) => `h:${e.id}`, nearest: nearest.map((id) => `h:${id}`) });
+const MORE: KnowledgeEntry[] = [
+  ...ENTRIES,
+  entry('BL-QUOTES-2', { kind: 'business-law', domain: 'quotes', title: 'A quote names its payment term.', body: 'A quote names its payment term.' }),
+  entry('acme-api/0043-retries', { kind: 'adr', repo: 'acme/api', title: 'Retries', body: 'A payment call is retried.' }),
+];
+
+describe('rankByMeaning', () => {
+  it('puts the entries holding a vector in the nearest order, with mode meaning', () => {
+    const answer = rankByMeaning(MORE, { query: 'can a quote go out without a term' }, nearness(['BL-QUOTES-2', 'BL-QUOTES-1', 'L-GDPR-2']));
+    expect(answer.mode).toBe('meaning');
+    expect(answer.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-2', 'BL-QUOTES-1', 'L-GDPR-2']);
+    expect(answer.total).toBe(3);
+  });
+
+  it('puts an exact id, then an exact term, first, whatever the vectors say', () => {
+    const byId = rankByMeaning(MORE, { query: 'bl-quotes-1' }, nearness(['BL-QUOTES-2', 'BL-QUOTES-1']));
+    expect(byId.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-1', 'BL-QUOTES-2']);
+    const byTerm = rankByMeaning(MORE, { query: 'Api Key' }, nearness(['L-GDPR-2', 'term:API key']));
+    expect(byTerm.hits.map((hit) => hit.id).slice(0, 2)).toEqual(['term:API key', 'L-GDPR-2']);
+  });
+
+  it('puts the entries with no vector after, by their word match, leaving out those holding no word', () => {
+    const answer = rankByMeaning(MORE, { query: 'payment' }, nearness(['L-GDPR-2']));
+    expect(answer.hits.map((hit) => hit.id)).toEqual(['L-GDPR-2', 'BL-QUOTES-2', 'acme-api/0043-retries']);
+    expect(answer.total).toBe(3);
+  });
+
+  it('applies the filters before ranking', () => {
+    const answer = rankByMeaning(MORE, { query: 'quote', kind: 'business-law' }, nearness(['L-GDPR-2', 'BL-QUOTES-2', 'widgets/ADR-0067']));
+    expect(answer.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-2', 'BL-QUOTES-1']);
+  });
+
+  it('with no vector among the entries, answers the word search with mode words', () => {
+    for (const nearest of [[], ['widgets/ADR-0067']]) {
+      const answer = rankByMeaning(MORE, { query: 'payment', kind: 'business-law' }, nearness(nearest));
+      expect(answer).toEqual({ ...searchKnowledge(MORE, { query: 'payment', kind: 'business-law' }), mode: 'words' });
+    }
+  });
+
+  it('with no query, answers the listing with no mode', () => {
+    const answer = rankByMeaning(MORE, { query: ' ' }, nearness(['BL-QUOTES-2']));
+    expect(answer).toEqual(searchKnowledge(MORE, {}));
+    expect('mode' in answer).toBe(false);
+  });
+
+  it('caps the hits at 20, total counting every entry ranked', () => {
+    const many = Array.from({ length: 25 }, (_, n) => entry(`BL-QUOTES-${String(n + 1).padStart(2, '0')}`, { kind: 'business-law', body: 'A quote rule.' }));
+    const answer = rankByMeaning(many, { query: 'anything' }, nearness(many.map((e) => e.id).reverse()));
+    expect(answer.hits).toHaveLength(20);
+    expect(answer.hits[0]?.id).toBe('BL-QUOTES-25');
+    expect(answer.total).toBe(25);
   });
 });

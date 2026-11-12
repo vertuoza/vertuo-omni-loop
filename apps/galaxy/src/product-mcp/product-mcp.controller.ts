@@ -2,7 +2,8 @@
 // workspace API key (`Authorization: Bearer oma_…`). Stateless Streamable HTTP with JSON answers, a fresh
 // server per request, as `/api/mcp` is built (src/agent-connect/mcp/server.ts). Read-only, two tools:
 //
-//   search_knowledge {query?, kind?, domain?, repo?}  the hits, the best first, at most 20, and `total`
+//   search_knowledge {query?, kind?, domain?, repo?}  the hits, the best first, at most 20, `total`, and with a
+//                                                     query its `mode`: by meaning, or by words (PRD 2728 s5)
 //   get_knowledge    {id}                             one entry, its body whole
 //
 // Before any MCP is spoken, the request is resolved (product-mcp.service.ts), every time:
@@ -12,7 +13,8 @@
 //   a missing, malformed, wrong or revoked key      connects, lists the tools, each call answers KEY_REFUSED
 //   the database failing                            500 {error}, logged
 // Nothing is kept between requests: the next call after a person leaves, or the server is turned off, reads
-// nothing, and the first call after a merge reads its pack.
+// nothing, and the first call after a merge reads its pack. The workspace's vectors are read only after the
+// key check served the request, and only that workspace's (search-meaning.ts).
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
@@ -21,13 +23,15 @@ import {
   KEY_REFUSED, KNOWLEDGE_KINDS, NO_DATABASE, NOT_HERE, NOT_READ, noEntryLine, GetAnswerSchema, SearchAnswerSchema,
 } from './product-mcp.contract';
 import type { KnowledgeRead, ProductMcpService, Resolution } from './product-mcp.service';
-import { searchKnowledge } from './search';
+import { searchByMeaning, type Meaning } from './search-meaning';
 
 export type ProductMcpDeps = {
   /** The rules over the service role's client, or null when this deployment has no database. */
   service: ProductMcpService | null;
   /** One line for a failure: never a key, never a row. */
   log: (message: string) => void;
+  /** The model and the workspace's vectors, or null when this deployment has none: every search is then by words. */
+  meaning?: Meaning | null;
 };
 
 const INSTRUCTIONS = [
@@ -52,7 +56,7 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
   const mcp = new McpServer({ name: 'omni-product-knowledge', version: '1.0.0' }, { instructions: INSTRUCTIONS });
 
   /** The tool's answer over the knowledge read now, or the one line of a key that does not work or a read that failed. */
-  const answered = async (work: (read: KnowledgeRead) => { body: string; isError?: boolean }) => {
+  const answered = async (work: (read: KnowledgeRead, workspace: string) => { body: string; isError?: boolean } | Promise<{ body: string; isError?: boolean }>) => {
     if (resolution.kind === 'refused') return text(KEY_REFUSED, true);
     let read: KnowledgeRead;
     try {
@@ -61,27 +65,29 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
       deps.log(`product mcp: ${error instanceof Error ? error.message : String(error)}`);
       return text(NOT_READ, true);
     }
-    const { body, isError = false } = work(read);
+    const { body, isError = false } = await work(read, resolution.access.product.workspace_id);
     return text(body, isError);
   };
 
   mcp.registerTool('search_knowledge', {
     title: 'Search the product\'s knowledge',
-    description: 'Searches the product\'s knowledge by words: its business laws, ADRs, rules and invariants, Legal entries, '
-      + 'terms and Never lines, in every repository of the product the key reads. Filter by kind, domain or repository; with '
-      + 'no query it lists the entries that match the filters, in id order. At most 20 hits, the best first, and `total` says how '
-      + 'many matched. Read an entry whole with get_knowledge, and cite the ids you rely on, like BL-QUOTES-1 or '
-      + 'vertuo-omni-loop/ADR-0067.',
+    description: 'Searches the product\'s knowledge by meaning: its business laws, ADRs, rules and invariants, Legal entries, '
+      + 'terms and Never lines, in every repository of the product the key reads. Ask in your own words: an exact id or term '
+      + 'comes first, then the entries nearest in meaning. `mode` says how it ranked: "meaning", or "words" when only the '
+      + 'word search could answer. Filter by kind, domain or repository; with no query it lists the entries that match the '
+      + 'filters, in id order. At most 20 hits, the best first, and `total` says how many were ranked. Read an entry whole '
+      + 'with get_knowledge, and cite the ids you rely on, like BL-QUOTES-1 or vertuo-omni-loop/ADR-0067.',
     inputSchema: {
-      query: z.string().max(300).optional().describe('Plain words, like "api key". Leave it out to list.'),
+      query: z.string().max(300).optional().describe('A question or plain words, like "can a quote be sent without a payment term". Leave it out to list.'),
       kind: z.enum(KNOWLEDGE_KINDS).optional().describe('Only entries of this kind.'),
       domain: z.string().max(80).optional().describe('Only entries of this domain, like quotes.'),
       repo: z.string().max(200).optional().describe('Only entries of this repository, as owner/name or its short name.'),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },
-  }, async (query) => answered((read) => ({
-    body: JSON.stringify(SearchAnswerSchema.parse({ ...searchKnowledge(read.entries, query), repositories: read.repositories })),
-  })));
+  }, async (query) => answered(async (read, workspace) => {
+    const found = await searchByMeaning(read.entries, query, workspace, deps.meaning ?? null, deps.log);
+    return { body: JSON.stringify(SearchAnswerSchema.parse({ ...found, repositories: read.repositories })) };
+  }));
 
   mcp.registerTool('get_knowledge', {
     title: 'Read one entry of the product\'s knowledge',
