@@ -539,10 +539,10 @@ async function saysSpent(res) {
   if (res.headers.get("x-ratelimit-remaining") === "0" || res.status === 429) return true;
   return SECONDARY.test(await res.clone().text().catch(() => ""));
 }
-function worthWriting(known, reported, at3) {
+function worthWriting(known, reported, at4) {
   if (!known || known.limit !== reported.limit || known.resetAt !== reported.resetAt) return true;
   const step = reported.limit * BUDGET_STEP;
-  return at3 - known.updatedAt >= BUDGET_FRESH_MS || Math.abs(known.remaining - reported.remaining) >= step || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
+  return at4 - known.updatedAt >= BUDGET_FRESH_MS || Math.abs(known.remaining - reported.remaining) >= step || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
 }
 function refusal(budget, priority, now) {
   if (!budget) return null;
@@ -572,14 +572,14 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
       return null;
     }
   }
-  async function record(installation, resource, known, res, at3) {
+  async function record(installation, resource, known, res, at4) {
     const reported = budgetOf(res.headers);
     const answeredResource = res.headers.get("x-ratelimit-resource") || resource;
     const stale = answeredResource === resource ? known : null;
-    if (reported?.limit && worthWriting(stale, reported, at3)) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at: at3 }));
-    const pauseUntil = await pauseOf(res, at3);
+    if (reported?.limit && worthWriting(stale, reported, at4)) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at: at4 }));
+    const pauseUntil = await pauseOf(res, at4);
     if (pauseUntil === null) return;
-    await stored((s) => s.pause(installation, answeredResource, pauseUntil, at3));
+    await stored((s) => s.pause(installation, answeredResource, pauseUntil, at4));
     log2(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
     throw new GithubPaused(pauseUntil);
   }
@@ -587,16 +587,16 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const conditional = (method ?? "GET").toUpperCase() === "GET" && resource === "core";
     return { conditional, kept: conditional ? await stored((s) => s.etag(installation, url)) : null };
   }
-  async function answerOf(installation, url, res, { conditional, kept: kept2 }, at3) {
+  async function answerOf(installation, url, res, { conditional, kept: kept2 }, at4) {
     if (res.status === 304 && kept2) {
-      if (at3 - kept2.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at3));
+      if (at4 - kept2.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at4));
       return fromStore(res, kept2);
     }
     const etag = res.headers.get("etag");
     if (!conditional || res.status !== 200 || !etag) return res;
     const body = await res.clone().text();
     if (body.length > MAX_STORED_BODY) return res;
-    await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get("content-type"), at: at3 }));
+    await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get("content-type"), at: at4 }));
     return res;
   }
   async function githubFetch(url, init) {
@@ -604,8 +604,8 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
     const known = await stored((s) => s.budget(installation, resource));
-    const refused6 = refusal(known, priority, clock());
-    if (refused6) throw refused6;
+    const refused7 = refusal(known, priority, clock());
+    if (refused7) throw refused7;
     const etag = await conditionalOf(installation, url, resource, rest.method);
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
@@ -659,15 +659,15 @@ function supabaseGithubStore(db) {
       const row = rowOf(StoredEtagRow, data, "github_etags");
       return row ? { etag: row.etag, body: row.body, contentType: row.content_type, readAt: ms(row.read_at) } : null;
     },
-    async saveEtag(installation, url, { etag, body, contentType = null, at: at3 }) {
+    async saveEtag(installation, url, { etag, body, contentType = null, at: at4 }) {
       const { error } = await db.etags().upsert(
-        { installation_id: installation, url, etag, body, content_type: contentType, read_at: iso(at3) },
+        { installation_id: installation, url, etag, body, content_type: contentType, read_at: iso(at4) },
         { onConflict: "installation_id,url" }
       );
       refused("store an ETag", error);
     },
-    async touchEtag(installation, url, at3) {
-      const { error } = await db.etags().update({ read_at: iso(at3) }).eq("installation_id", installation).eq("url", url).select("url");
+    async touchEtag(installation, url, at4) {
+      const { error } = await db.etags().update({ read_at: iso(at4) }).eq("installation_id", installation).eq("url", url).select("url");
       refused("mark an ETag read", error);
     },
     async budget(installation, resource) {
@@ -677,19 +677,19 @@ function supabaseGithubStore(db) {
       return row ? { limit: row.limit, remaining: row.remaining, resetAt: ms(row.reset_at), pausedUntil: row.paused_until === null ? null : ms(row.paused_until), updatedAt: ms(row.updated_at) } : null;
     },
     /** What an answer reported; the columns it leaves out (paused_until) keep their value. */
-    async saveBudget(installation, resource, { limit, remaining, resetAt, at: at3 }) {
+    async saveBudget(installation, resource, { limit, remaining, resetAt, at: at4 }) {
       const { error } = await db.budget().upsert(
-        { installation_id: installation, resource, limit, remaining, reset_at: iso(resetAt), updated_at: iso(at3) },
+        { installation_id: installation, resource, limit, remaining, reset_at: iso(resetAt), updated_at: iso(at4) },
         { onConflict: "installation_id,resource" }
       );
       refused("store the GitHub budget", error);
     },
-    async pause(installation, resource, until, at3) {
-      const { data, error } = await db.budget().update({ paused_until: iso(until), updated_at: iso(at3) }).eq("installation_id", installation).eq("resource", resource).select("resource");
+    async pause(installation, resource, until, at4) {
+      const { data, error } = await db.budget().update({ paused_until: iso(until), updated_at: iso(at4) }).eq("installation_id", installation).eq("resource", resource).select("resource");
       refused("pause the GitHub budget", error);
       if ((rowOf(PausedRows, data, "github_budget") ?? []).length > 0) return;
       const inserted = await db.budget().upsert(
-        { installation_id: installation, resource, limit: 0, remaining: 0, reset_at: iso(until), paused_until: iso(until), updated_at: iso(at3) },
+        { installation_id: installation, resource, limit: 0, remaining: 0, reset_at: iso(until), paused_until: iso(until), updated_at: iso(at4) },
         { onConflict: "installation_id,resource" }
       );
       refused("pause the GitHub budget", inserted.error);
@@ -698,7 +698,7 @@ function supabaseGithubStore(db) {
 }
 
 // apps/omni-app/src/jobs/sweep.ts
-import { z as z56 } from "zod";
+import { z as z62 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -1283,8 +1283,8 @@ function checkTargets(targets, issues) {
   targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
     const own = targetShortName(repo);
     const others = names.filter((name) => name !== own);
-    consumes.forEach((name, at3) => {
-      const path = ["targets", index, "consumes", at3];
+    consumes.forEach((name, at4) => {
+      const path = ["targets", index, "consumes", at4];
       if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
       else if (!others.includes(name)) {
         issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
@@ -1691,12 +1691,12 @@ function dropUnrecognized(raw, issues) {
   let dropped = false;
   for (const issue of issues) {
     if (issue.code !== "unrecognized_keys") continue;
-    let at3 = raw;
-    for (const step of issue.path) at3 = isRecord(at3) ? at3[String(step)] : void 0;
-    if (!isRecord(at3)) continue;
+    let at4 = raw;
+    for (const step of issue.path) at4 = isRecord(at4) ? at4[String(step)] : void 0;
+    if (!isRecord(at4)) continue;
     for (const key of issue.keys) {
-      if (Object.hasOwn(at3, key)) {
-        Reflect.deleteProperty(at3, key);
+      if (Object.hasOwn(at4, key)) {
+        Reflect.deleteProperty(at4, key);
         dropped = true;
       }
     }
@@ -2339,10 +2339,10 @@ function splitSections(lines) {
   return { head, sections };
 }
 function readHead(head) {
-  const at3 = head.findIndex((line) => TITLE.test(line));
-  if (at3 === -1) return { title: null, opener: null };
-  const opener = head.slice(at3 + 1).map((line) => line.trim()).find((line) => line !== "" && !line.startsWith("<!--"));
-  return { title: head[at3]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
+  const at4 = head.findIndex((line) => TITLE.test(line));
+  if (at4 === -1) return { title: null, opener: null };
+  const opener = head.slice(at4 + 1).map((line) => line.trim()).find((line) => line !== "" && !line.startsWith("<!--"));
+  return { title: head[at4]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
   const text12 = raw.replace(COMMENT, "").trim();
@@ -2355,8 +2355,8 @@ function readBody(raw) {
   return { kind: "text", text: text12, see: null, questions };
 }
 function readSection(heading, lines) {
-  const at3 = lines.findIndex((line) => line.trim() !== "");
-  const first = at3 === -1 ? "" : (lines[at3] ?? "").trim();
+  const at4 = lines.findIndex((line) => line.trim() !== "");
+  const first = at4 === -1 ? "" : (lines[at4] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
   const marker = first.match(MARKER);
   if (!marker) return { kind: "malformed", first };
@@ -2367,7 +2367,7 @@ function readSection(heading, lines) {
     required: need === "required",
     by: by === OLD_BY ? "invade" : by ?? null,
     verified: verified ?? null,
-    body: readBody(lines.slice(at3 + 1).join("\n"))
+    body: readBody(lines.slice(at4 + 1).join("\n"))
   };
   return { kind: "slot", slot, oldBy: by === OLD_BY };
 }
@@ -3801,12 +3801,12 @@ function readBody2(raw) {
   return { statement: statement2, why: fieldValue(lines, "Why") || null, also: fieldValue(lines, "Also") };
 }
 function fieldValue(lines, name) {
-  const at3 = lines.findIndex((line) => line.match(FIELD)?.[1] === name);
-  if (at3 === -1) return null;
-  const rest = lines.slice(at3 + 1);
+  const at4 = lines.findIndex((line) => line.match(FIELD)?.[1] === name);
+  if (at4 === -1) return null;
+  const rest = lines.slice(at4 + 1);
   const end = rest.findIndex((line) => line === "" || FIELD.test(line));
   const continued = end === -1 ? rest : rest.slice(0, end);
-  return [lines[at3]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
+  return [lines[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
 }
 function idProblem(file, id, place) {
   const code = place.scope === "product" ? PRODUCT_CODE : codeOf(place.domain);
@@ -4144,16 +4144,16 @@ function compare(risky, accounts) {
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
   const accepted = /* @__PURE__ */ new Set();
-  const refused6 = /* @__PURE__ */ new Map();
+  const refused7 = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     const why = refusal2(entry);
     if (why === null) accepted.add(entryKey(entry));
-    else refused6.set(entryKey(entry), why);
+    else refused7.set(entryKey(entry), why);
   }
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change2) => accepted.has(entryKey(change2)));
   const unaccounted = risky.filter((change2) => !accepted.has(entryKey(change2))).map((change2) => {
-    const why = refused6.get(entryKey(change2));
+    const why = refused7.get(entryKey(change2));
     return why === void 0 ? change2 : { ...change2, refused: why };
   });
   const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
@@ -4759,9 +4759,9 @@ function resolveTerritory(flow, territory) {
   const hooks = {};
   const replace = [];
   for (const { point } of FLOW_POINTS) {
-    const at3 = hooksAt(touched2, point);
-    hooks[point] = at3.hooks;
-    if (at3.conflict.length > 0) replace.push({ point, hooks: at3.conflict });
+    const at4 = hooksAt(touched2, point);
+    hooks[point] = at4.hooks;
+    if (at4.conflict.length > 0) replace.push({ point, hooks: at4.conflict });
   }
   return {
     areas,
@@ -4778,14 +4778,14 @@ function combinedRules(touched2) {
 }
 var uniqueHooks = (hooks) => hooks.filter((hook, index) => hooks.findIndex(({ area: area2, path }) => area2 === hook.area && path === hook.path) === index);
 function hooksAt(touched2, point) {
-  const at3 = touched2.flatMap(({ hooks }) => hooks[point] ?? []);
-  const replaces = uniqueHooks(at3.flatMap(({ replace }) => replace ? [replace] : []));
+  const at4 = touched2.flatMap(({ hooks }) => hooks[point] ?? []);
+  const replaces = uniqueHooks(at4.flatMap(({ replace }) => replace ? [replace] : []));
   const own = replaces.filter(({ area: area2 }) => area2 !== DEFAULT_AREA);
   return {
     hooks: {
-      before: uniqueHooks(at3.flatMap(({ before: before2 }) => before2)),
+      before: uniqueHooks(at4.flatMap(({ before: before2 }) => before2)),
       replace: own[0] ?? replaces[0] ?? null,
-      after: uniqueHooks(at3.flatMap(({ after }) => after))
+      after: uniqueHooks(at4.flatMap(({ after }) => after))
     },
     conflict: new Set(own.map(({ path }) => path)).size > 1 ? own : []
   };
@@ -5217,9 +5217,9 @@ function parseNumbersMarker(body, markers) {
   if (value === "") return [];
   return value.split(",").flatMap((entry) => {
     const [numberPart, rest = ""] = entry.split(/=(.*)/s);
-    const at3 = rest.lastIndexOf("@");
-    const id = OutboxItemIdSchema.safeParse(rest.slice(0, at3));
-    return id.success ? [{ number: Number(numberPart), id: id.data, since: rest.slice(at3 + 1) }] : [];
+    const at4 = rest.lastIndexOf("@");
+    const id = OutboxItemIdSchema.safeParse(rest.slice(0, at4));
+    return id.success ? [{ number: Number(numberPart), id: id.data, since: rest.slice(at4 + 1) }] : [];
   });
 }
 function assignNumbers({
@@ -5757,8 +5757,8 @@ function decodeEntities(text12) {
   return text12.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
 }
 function past(html, marker, from) {
-  const at3 = html.indexOf(marker, from);
-  return at3 === -1 ? html.length : at3 + marker.length;
+  const at4 = html.indexOf(marker, from);
+  return at4 === -1 ? html.length : at4 + marker.length;
 }
 var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
 function addText(reader, text12) {
@@ -5778,15 +5778,15 @@ function readEndTag(reader, lt) {
 }
 function readAttributes(html, cursor) {
   const attributes = /* @__PURE__ */ new Map();
-  let at3 = cursor;
-  let attribute = ATTRIBUTE.exec(html.slice(at3));
+  let at4 = cursor;
+  let attribute = ATTRIBUTE.exec(html.slice(at4));
   while (attribute?.[1]) {
     const name = attribute[1].toLowerCase();
     if (!attributes.has(name)) attributes.set(name, decodeEntities(attribute[2] ?? attribute[3] ?? attribute[4] ?? ""));
-    at3 += attribute[0].length;
-    attribute = ATTRIBUTE.exec(html.slice(at3));
+    at4 += attribute[0].length;
+    attribute = ATTRIBUTE.exec(html.slice(at4));
   }
-  return { attributes, end: at3 };
+  return { attributes, end: at4 };
 }
 function readRawBody(reader, element, from) {
   const closeAt = reader.html.toLowerCase().indexOf(`</${element.tag}`, from);
@@ -5815,11 +5815,11 @@ function readMarkup(reader, lt) {
 function parseHtml(html) {
   const root = { kind: "element", tag: "#document", attributes: /* @__PURE__ */ new Map(), children: [] };
   const reader = { html, root, stack: [] };
-  let at3 = 0;
-  while (at3 < html.length) {
-    const lt = html.indexOf("<", at3);
-    addText(reader, html.slice(at3, lt === -1 ? void 0 : lt));
-    at3 = lt === -1 ? html.length : readMarkup(reader, lt);
+  let at4 = 0;
+  while (at4 < html.length) {
+    const lt = html.indexOf("<", at4);
+    addText(reader, html.slice(at4, lt === -1 ? void 0 : lt));
+    at4 = lt === -1 ? html.length : readMarkup(reader, lt);
   }
   return root;
 }
@@ -6430,10 +6430,10 @@ function prdFacts(ctx, prd) {
   return parsed2.ok ? { blockedBy: parsed2.record.blockedBy } : "unreadable";
 }
 function gradeRoadmapFile(ctx, entry) {
-  const at3 = (message) => `${entry.file}: ${message}`;
-  if (!existsSync29(join33(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at3("roadmap.md is missing.")] };
+  const at4 = (message) => `${entry.file}: ${message}`;
+  if (!existsSync29(join33(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at4("roadmap.md is missing.")] };
   const parsed2 = parseRoadmap(readRepoFile(ctx, entry.file));
-  if (!parsed2.ok) return { ...entry, roadmap: null, violations: parsed2.errors.map(at3) };
+  if (!parsed2.ok) return { ...entry, roadmap: null, violations: parsed2.errors.map(at4) };
   const { roadmap } = parsed2;
   const violations = [];
   if (roadmap.roadmap !== entry.number) {
@@ -6441,7 +6441,7 @@ function gradeRoadmapFile(ctx, entry) {
   }
   const targets = ctx.config.plan?.targets ?? null;
   violations.push(...gradeRoadmap(roadmap, { prdFacts: (prd) => prdFacts(ctx, prd), targets }));
-  return { ...entry, roadmap, violations: violations.map(at3) };
+  return { ...entry, roadmap, violations: violations.map(at4) };
 }
 function gradeRoadmaps(ctx) {
   return roadmapFiles(ctx).map((entry) => gradeRoadmapFile(ctx, entry));
@@ -6496,17 +6496,17 @@ function lineProblems(text12, field2) {
   return count > MAX_SENTENCES ? [`${field2} holds ${count} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
-  const at3 = `personas[${i}]`;
-  if (!isRecord2(persona)) return [`${at3} must be an object.`];
+  const at4 = `personas[${i}]`;
+  if (!isRecord2(persona)) return [`${at4} must be an object.`];
   const problems = [];
-  if (!isText(persona.name)) problems.push(`${at3}.name must be a name.`);
-  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at3}.stance must be one of ${STANCES.join(", ")}.`);
+  if (!isText(persona.name)) problems.push(`${at4}.name must be a name.`);
+  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at4}.stance must be one of ${STANCES.join(", ")}.`);
   const { score } = persona;
   if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || score > 5) {
-    problems.push(`${at3}.score must be a whole number from 1 to 5.`);
+    problems.push(`${at4}.score must be a whole number from 1 to 5.`);
   }
-  problems.push(...lineProblems(persona.reaction, `${at3}.reaction`));
-  problems.push(...citationProblems(persona.citations, `${at3}.citations`));
+  problems.push(...lineProblems(persona.reaction, `${at4}.reaction`));
+  problems.push(...citationProblems(persona.citations, `${at4}.citations`));
   return problems;
 }
 function objectionProblems(objection, names) {
@@ -8227,21 +8227,21 @@ async function targetOf(octokit, { owner, repo, prNumber }) {
   if (product) return { kind: "product", name, prd: product };
   const subject = subjectOf(pr, config, `${owner}/${repo}`);
   if ("skip" in subject) return null;
-  let at3;
+  let at4;
   let which;
   if (subject.kind === "feature") {
-    at3 = { owner, repo, ref: pr.headSha, config };
+    at4 = { owner, repo, ref: pr.headSha, config };
     which = (folder2) => folder2.topic === subject.topic;
   } else {
     const feature = await featurePullOf(octokit, { slug: subject.repo, prd: subject.prd });
     if ("held" in feature) return { kind: "repo", name, prd: subject.prd, held: feature.held, head: pr.headSha };
     const [planOwner = "", planRepo = ""] = subject.repo.split("/");
-    at3 = { owner: planOwner, repo: planRepo, ref: feature.pull.headSha, config: feature.config };
+    at4 = { owner: planOwner, repo: planRepo, ref: feature.pull.headSha, config: feature.config };
     which = (folder2) => folder2.prd === subject.prd;
   }
-  const folder = await prdFolderAt(octokit, { ...at3, which });
+  const folder = await prdFolderAt(octokit, { ...at4, which });
   if (!folder) return null;
-  const source = { owner: at3.owner, repo: at3.repo, ref: at3.ref, paths: at3.config.paths };
+  const source = { owner: at4.owner, repo: at4.repo, ref: at4.ref, paths: at4.config.paths };
   return { kind: "repo", name, prd: folder.prd, source, dir: folder.dir };
 }
 async function checkNameOf(octokit, { owner, repo, prNumber }) {
@@ -8310,9 +8310,9 @@ function approvedFailure({ octokitFor }) {
     await completeAsFailure(octokit, { owner, repo, headSha, name, reason: reason2, externalId: APPROVED_EXTERNAL_ID });
   };
 }
-async function mayBeChecked(octokit, at3) {
+async function mayBeChecked(octokit, at4) {
   try {
-    return await targetOf(octokit, at3) !== null;
+    return await targetOf(octokit, at4) !== null;
   } catch (error) {
     if (refusalIn(error)) throw error;
     return true;
@@ -8990,14 +8990,14 @@ function relayFolder({
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   const moved = [];
-  const refused6 = [];
+  const refused7 = [];
   const taken = settledIds(ctx, outboxDir);
   for (const name of markdownFiles(join54(ctx.root, outboxDir))) taken.add(basename10(name, ".md"));
   for (const name of markdownFiles(dir)) {
     const from = join54(dir, name);
     const reason2 = itemRefusal({ laws, prd, file: `${outboxDir}/${name}`, name, text: readFileSync38(from, "utf8"), taken });
     if (reason2 !== null) {
-      refused6.push({ file: from, reason: reason2 });
+      refused7.push({ file: from, reason: reason2 });
       continue;
     }
     const to = `${outboxDir}/${name}`;
@@ -9012,14 +9012,14 @@ function relayFolder({
     const to = `${outboxDir}/${ACCOUNTS_DIR}/${name}`;
     const reason2 = accountRefusal({ prd, destination: join54(ctx.root, to), name: from, text: readFileSync38(from, "utf8") });
     if (reason2 !== null) {
-      refused6.push({ file: from, reason: reason2 });
+      refused7.push({ file: from, reason: reason2 });
       continue;
     }
     mkdirSync11(join54(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
     move(from, join54(ctx.root, to));
     moved.push({ from, to });
   }
-  return { moved, refused: refused6 };
+  return { moved, refused: refused7 };
 }
 
 // kit/lib/outbox/replies.ts
@@ -9114,18 +9114,18 @@ function chronological(comments) {
   return [...comments].sort((a, b) => time(a.created_at) - time(b.created_at) || a.id - b.id);
 }
 function lastReaskedAt(comments, markers) {
-  const at3 = /* @__PURE__ */ new Map();
+  const at4 = /* @__PURE__ */ new Map();
   let highestRound = 0;
   for (const comment of comments) {
     const rounds = parseRoundMarkers([comment], markers);
     for (const [number, round] of rounds) {
       highestRound = Math.max(highestRound, round);
       const when = time(comment.created_at);
-      const previous2 = at3.get(number);
-      if (previous2 === void 0 || when > previous2) at3.set(number, when);
+      const previous2 = at4.get(number);
+      if (previous2 === void 0 || when > previous2) at4.set(number, when);
     }
   }
-  return { at: at3, highestRound };
+  return { at: at4, highestRound };
 }
 function answerableQuestions(numbering, items, adopted) {
   const itemsById = new Map(items.map((item) => [item.id, item]));
@@ -9425,7 +9425,7 @@ var OutboxServerError = class extends Error {
     this.status = status;
   }
 };
-var heldLine = (at3) => `held \xB7 server unreachable since ${at3} \xB7 held, not failed`;
+var heldLine = (at4) => `held \xB7 server unreachable since ${at4} \xB7 held, not failed`;
 var ANSWERED_REFUSALS = /* @__PURE__ */ new Set([400, 409, 422]);
 var SettlementSchema = z40.object({
   verdict: z40.enum(["agreed", "drifted", ADOPTED_VERDICT]),
@@ -9553,14 +9553,14 @@ function serverOutboxStore({ ctx, connect, now }) {
       if (!isFolder(dir)) return null;
       const taken = new Set((await rows(product)).map((row) => row.item));
       const moved = [];
-      const refused6 = [];
+      const refused7 = [];
       for (const name of markdownFiles(dir)) {
         const from = join57(dir, name);
         const text12 = readFileSync41(from, "utf8");
         const id = name.slice(0, -".md".length);
         const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text12, taken });
         if (reason2 !== null) {
-          refused6.push({ file: from, reason: reason2 });
+          refused7.push({ file: from, reason: reason2 });
           continue;
         }
         await put(product, text12, false);
@@ -9569,9 +9569,9 @@ function serverOutboxStore({ ctx, connect, now }) {
         moved.push({ from, to: refOf(product, id) });
       }
       for (const name of markdownFiles(join57(dir, ACCOUNTS_DIR))) {
-        refused6.push({ file: join57(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
+        refused7.push({ file: join57(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
       }
-      return { moved, refused: refused6 };
+      return { moved, refused: refused7 };
     },
     async gate(prd, { labels = [] }) {
       const product = productPrd(prd);
@@ -10204,12 +10204,12 @@ function workingStart(date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 }
 function addWorkingDays(start, days) {
-  let at3 = workingStart(start);
+  let at4 = workingStart(start);
   for (let left = days; left > 0; ) {
-    at3 = new Date(at3.getTime() + DAY_MS);
-    if (!isWeekend(at3)) left -= 1;
+    at4 = new Date(at4.getTime() + DAY_MS);
+    if (!isWeekend(at4)) left -= 1;
   }
-  return at3;
+  return at4;
 }
 var bare = (login) => login.replace(/^@/, "");
 var loginOf = (owner) => bare(typeof owner === "string" ? owner : owner.login);
@@ -10471,28 +10471,284 @@ function escalationHandler({
   };
 }
 
-// apps/omni-app/src/inbox-check/business-laws-judge.ts
+// apps/omni-app/src/fix-rows/fix-stamp.ts
 import { z as z47 } from "zod";
+var FixStampKindSchema = z47.enum(["merged", "closed", "reopened"]);
+var at3 = z47.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
+var FixStampDataSchema = z47.looseObject({
+  installationId: z47.number(),
+  repository: z47.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  kind: FixStampKindSchema,
+  at: at3,
+  bug: ProductBugIdSchema.nullable()
+});
+
+// apps/omni-app/src/fix-rows/job.ts
+var FIX_ROW_STAMP_KIND = "fix-row-stamp";
+function fixRowStampHandler({ stamp, log: log2 = noteTo("fix-row-stamp") }) {
+  return async (job) => {
+    const { repository, prNumber, kind, at: at4, bug } = FixStampDataSchema.parse(job.payload);
+    const pull = `${repository}#${String(prNumber)}`;
+    if (!stamp) {
+      log2(`fix stamp: ${pull} ${kind} stamps nothing: the App cannot reach the server here`);
+      return { outcome: "skipped", reason: "the App cannot reach the server here" };
+    }
+    const answer = await stamp({ repository, prNumber, kind, at: at4, bug });
+    for (const shipped of answer.shipped) log2(`fix stamp: ${pull} merged, the last fix of ${shipped}: it ships`);
+    if (answer.unmatched !== null) log2(`fix stamp: ${pull} merged, matching no row of ${answer.unmatched}: kept as unmatched merge ${pull.toLowerCase()}`);
+    return { outcome: "done" };
+  };
+}
+
+// apps/omni-app/src/fix-rows/stamp.ts
+import { z as z48 } from "zod";
+var StampedRowSchema = z48.object({
+  bug: ProductBugIdSchema,
+  dossierId: z48.string().min(1),
+  position: z48.number().int().positive(),
+  state: z48.enum(["open", "merged", "closed"])
+});
+var StampAnswerSchema = z48.object({
+  rows: z48.array(StampedRowSchema),
+  shipped: z48.array(ProductBugIdSchema),
+  unmatched: ProductBugIdSchema.nullable()
+});
+function fixRowStamper(connection) {
+  const db = serviceDb(connection);
+  return async ({ repository, prNumber, kind, at: at4, bug }) => {
+    const { data, error } = await db.rpc("fix_row_stamp", {
+      p_repo: repository,
+      p_pull: prNumber,
+      p_event: kind,
+      p_at: at4,
+      ...bug === null ? {} : { p_bug: bug }
+    });
+    if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+    return StampAnswerSchema.parse(data);
+  };
+}
+
+// apps/omni-app/src/fleet-board/job.ts
+import { z as z52 } from "zod";
+
+// apps/omni-app/src/fleet-board/events.ts
+import { z as z49 } from "zod";
+var FleetBoardDataSchema = z49.looseObject({
+  installationId: z49.number(),
+  owner: z49.string().min(1),
+  repo: z49.string().min(1),
+  repository: z49.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  /** The pull request's GraphQL node id, the card's content. */
+  nodeId: z49.string().min(1),
+  /** The pull request's link, as a runner's job lists it. */
+  url: z49.string().min(1),
+  /** The GitHub login of its author. */
+  author: z49.string().min(1)
+});
+
+// apps/omni-app/src/fleet-board/github.ts
+import { z as z50 } from "zod";
+var BOARD = /^https:\/\/github\.com\/orgs\/([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/projects\/([1-9][0-9]{0,9})\/?$/;
+function boardOf(url) {
+  const match = BOARD.exec(url.trim());
+  if (!match?.[1] || !match[2]) return null;
+  return { org: match[1], number: Number(match[2]) };
+}
+var PROJECT = `query FleetBoardProject($org: String!, $number: Int!) {
+  organization(login: $org) { projectV2(number: $number) { id } }
+}`;
+var ADD = `mutation FleetBoardAdd($project: ID!, $content: ID!) {
+  addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
+}`;
+var ProjectAnswerSchema = z50.looseObject({
+  organization: z50.looseObject({ projectV2: z50.looseObject({ id: z50.string().min(1) }).nullish() }).nullish()
+});
+var AddAnswerSchema = z50.looseObject({
+  addProjectV2ItemById: z50.looseObject({ item: z50.looseObject({ id: z50.string().min(1) }).nullish() }).nullish()
+});
+async function addToBoard(octokit, { url, contentId }) {
+  const board = boardOf(url);
+  if (!board) return refused5("missing");
+  try {
+    const project = ProjectAnswerSchema.parse(await octokit.graphql(PROJECT, { org: board.org, number: board.number })).organization?.projectV2?.id;
+    if (!project) return refused5("missing");
+    const card = AddAnswerSchema.parse(await octokit.graphql(ADD, { project, content: contentId })).addProjectV2ItemById?.item?.id;
+    if (!card) throw new Error("GitHub answered addProjectV2ItemById with no card");
+    return { outcome: "added" };
+  } catch (error) {
+    const reason2 = refusalOf(error);
+    if (reason2 === null) throw error;
+    return refused5(reason2);
+  }
+}
+function refused5(reason2) {
+  return { outcome: "refused", reason: reason2 };
+}
+var NOT_ALLOWED = /* @__PURE__ */ new Set(["FORBIDDEN", "INSUFFICIENT_SCOPES"]);
+var GraphqlErrorsSchema = z50.looseObject({ errors: z50.array(z50.looseObject({ type: z50.unknown().optional() })).min(1) });
+var HttpErrorSchema = z50.looseObject({ status: z50.number(), message: z50.string().optional() });
+function refusalOf(error) {
+  const graphql = GraphqlErrorsSchema.safeParse(error);
+  if (graphql.success) {
+    const types = graphql.data.errors.map((one) => one.type);
+    if (types.some((type) => NOT_ALLOWED.has(type))) return "permission";
+    if (types.every((type) => type === "NOT_FOUND")) return "missing";
+    return null;
+  }
+  const http = HttpErrorSchema.safeParse(error);
+  if (!http.success) return null;
+  const { status, message = "" } = http.data;
+  if ((status === 401 || status === 403) && !/rate limit/i.test(message)) return "permission";
+  if (status === 404) return "missing";
+  return null;
+}
+
+// apps/omni-app/src/fleet-board/store.ts
+import { z as z51 } from "zod";
+var NOTE_MAX = 200;
+var LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+var TRACKED = "workspace_id, workspaces!inner(github_installation_id)";
+var PLAYER = "team";
+var JOB = "sent_by, sent_by_key";
+var TEAM = "name, project_url";
+var TrackedRowSchema = z51.object({ workspace_id: z51.string().min(1), workspaces: z51.object({ github_installation_id: z51.union([z51.number(), z51.string()]).nullable() }) });
+var PlayerRowSchema = z51.object({ team: z51.string().nullable() });
+var JobRowSchema = z51.object({ sent_by: z51.string().nullable(), sent_by_key: z51.string().nullable() });
+var TeamRowSchema = z51.object({ name: z51.string().min(1), project_url: z51.string().nullable() });
+function fleetBoardStore(connection) {
+  const db = serviceDb(connection);
+  async function activeFleet(workspace, name) {
+    const [team] = rowsOf(TeamRowSchema, await db.from("teams").select(TEAM).eq("workspace_id", workspace).eq("name", name).is("retired_at", null).limit(1));
+    return team ? { name: team.name, projectUrl: team.project_url } : null;
+  }
+  return {
+    async workspaces({ installationId, repository }) {
+      const rows = rowsOf(
+        TrackedRowSchema,
+        await db.from("repositories").select(TRACKED).eq("full_name", repository.toLowerCase()).eq("tracked", true).is("removed_at", null).eq("workspaces.github_installation_id", installationId).order("workspace_id")
+      );
+      return [...new Set(rows.filter((row) => Number(row.workspaces.github_installation_id) === installationId).map((row) => row.workspace_id))];
+    },
+    async fleetOf({ workspace, login }) {
+      if (!LOGIN.test(login)) return null;
+      const [player] = rowsOf(PlayerRowSchema, await db.from("players").select(PLAYER).eq("workspace_id", workspace).ilike("github_login", login).not("team", "is", null).limit(1));
+      if (!player?.team) return null;
+      return activeFleet(workspace, player.team);
+    },
+    async jobFleet({ workspace, url }) {
+      const [job] = rowsOf(
+        JobRowSchema,
+        await db.from("runner_jobs").select(JOB).eq("workspace_id", workspace).contains("prs", JSON.stringify([url])).order("queued_at", { ascending: false }).limit(1)
+      );
+      if (!job) return { found: false, fleet: null };
+      if (!job.sent_by || job.sent_by_key) return { found: true, fleet: null };
+      const [player] = rowsOf(PlayerRowSchema, await db.from("players").select(PLAYER).eq("workspace_id", workspace).eq("user_id", job.sent_by).not("team", "is", null).limit(1));
+      return { found: true, fleet: player?.team ? await activeFleet(workspace, player.team) : null };
+    },
+    async note({ workspace, fleet, projectUrl, note, at: at4 }) {
+      const written = rowsOf(
+        TeamRowSchema,
+        await db.from("teams").update({ project_note: note.slice(0, NOTE_MAX), project_noted_at: at4 }).eq("workspace_id", workspace).eq("name", fleet).eq("project_url", projectUrl).select(TEAM)
+      );
+      return { noted: written.length > 0 };
+    }
+  };
+}
+
+// apps/omni-app/src/fleet-board/job.ts
+var FLEET_BOARD_KIND = "fleet-board";
+var LOOKS = 10;
+var WAIT_MS = 6e4;
+var ProgressSchema = z52.looseObject({ look: z52.number().int().min(1).max(LOOKS).optional() });
+function fleetBoardHandler({ octokitFor, store, now = () => /* @__PURE__ */ new Date(), log: log2 = noteTo("fleet-board") }) {
+  return async (job) => {
+    const data = parseOrThrow(FleetBoardDataSchema, job.payload, `The ${FLEET_BOARD_KIND} job carries an unexpected shape`);
+    const pull = `${data.repository}#${String(data.prNumber)}`;
+    if (!store) return { outcome: "skipped", reason: "no database to read the fleets from" };
+    const look = (ProgressSchema.parse(job.progress ?? {}).look ?? 0) + 1;
+    const workspaces = await store.workspaces({ installationId: data.installationId, repository: data.repository });
+    const fleets = await fleetsOf({ store, workspaces, data, look });
+    if (fleets === null) {
+      log2(`fleet board: ${pull}: no runner job holds it yet, look ${String(look)} of ${String(LOOKS)}: looking again in a minute`);
+      const progress = { look };
+      return { outcome: "later", at: new Date(now().getTime() + WAIT_MS), progress };
+    }
+    const outcomes = [];
+    for (const workspace of workspaces) outcomes.push(await addCard({ octokitFor, store, now, data, workspace, fleet: fleets.get(workspace) ?? null }));
+    const said = `${pull}: ${outcomes.length > 0 ? outcomes.map(outcomeLine).join("; ") : "no workspace tracks it on this installation"}`;
+    log2(`fleet board: ${said}`);
+    return outcomes.some((outcome) => "note" in outcome) ? { outcome: "done" } : { outcome: "skipped", reason: said };
+  };
+}
+async function addCard({
+  octokitFor,
+  store,
+  now,
+  data,
+  workspace,
+  fleet
+}) {
+  if (!fleet) return { workspace, skipped: "the author, and the sender of a runner job holding the pull request, are in no active fleet" };
+  const board = fleet.projectUrl;
+  if (!board) return { workspace, fleet: fleet.name, skipped: "the fleet has no board" };
+  const added = await addToBoard(await octokitFor(data.installationId), { url: board, contentId: data.nodeId });
+  const note = noteOf(added, data);
+  await store.note({ workspace, fleet: fleet.name, projectUrl: board, note, at: now().toISOString() });
+  return { workspace, fleet: fleet.name, note };
+}
+function outcomeLine(outcome) {
+  const where = "fleet" in outcome ? `${outcome.workspace} ${outcome.fleet}` : outcome.workspace;
+  return `${where}: ${"note" in outcome ? outcome.note : outcome.skipped}`;
+}
+async function fleetsOf({ store, workspaces, data, look }) {
+  const fleets = /* @__PURE__ */ new Map();
+  const pending = [];
+  for (const workspace of workspaces) {
+    const fleet = await store.fleetOf({ workspace, login: data.author });
+    fleets.set(workspace, fleet);
+    if (!fleet) pending.push(workspace);
+  }
+  if (pending.length === 0) return fleets;
+  const answers = /* @__PURE__ */ new Map();
+  let found = false;
+  for (const workspace of pending) {
+    const answer = await store.jobFleet({ workspace, url: data.url });
+    answers.set(workspace, answer.fleet);
+    found ||= answer.found;
+  }
+  if (found) for (const [workspace, fleet] of answers) fleets.set(workspace, fleet);
+  else if (look < LOOKS) return null;
+  return fleets;
+}
+function noteOf(added, { owner, repo, prNumber }) {
+  if (added.outcome === "added") return `Added #${String(prNumber)} \xB7 ${owner}/${repo}`.slice(0, NOTE_MAX);
+  return added.reason === "permission" ? "Not added: ask an org admin" : "Not added: no such project";
+}
+
+// apps/omni-app/src/inbox-check/business-laws-judge.ts
+import { z as z53 } from "zod";
 var SECRET_VAR = "BUSINESS_LAWS_JUDGE_SECRET";
 var GATE = "business laws";
 var TIMEOUT_MS = 55e3;
-var FindingSchema3 = z47.looseObject({
-  law: z47.string(),
-  statement: z47.string(),
-  why: z47.string(),
-  quote: z47.string(),
+var FindingSchema3 = z53.looseObject({
+  law: z53.string(),
+  statement: z53.string(),
+  why: z53.string(),
+  quote: z53.string(),
   // What the judge found broken, in its own words (bug #2696); an older galaxy sends none.
-  broken: z47.string().optional().catch(void 0),
-  owners: z47.array(z47.string()).catch([])
+  broken: z53.string().optional().catch(void 0),
+  owners: z53.array(z53.string()).catch([])
 });
-var VerdictSchema2 = z47.looseObject({
-  state: z47.enum(["green", "red", "neutral"]),
-  reason: z47.string(),
-  laws: z47.array(z47.string()),
-  domains: z47.array(z47.looseObject({ key: z47.string(), name: z47.string().optional() })).catch([]),
-  findings: z47.array(FindingSchema3).catch([])
+var VerdictSchema2 = z53.looseObject({
+  state: z53.enum(["green", "red", "neutral"]),
+  reason: z53.string(),
+  laws: z53.array(z53.string()),
+  domains: z53.array(z53.looseObject({ key: z53.string(), name: z53.string().optional() })).catch([]),
+  findings: z53.array(FindingSchema3).catch([])
 });
-var RefusalSchema2 = z47.looseObject({ error: z47.string().optional().catch(void 0) });
+var RefusalSchema2 = z53.looseObject({ error: z53.string().optional().catch(void 0) });
 function businessLawsJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/business-laws/judge`;
 }
@@ -10522,12 +10778,12 @@ async function signedCall(post, { url, secret, body, timeoutMs }) {
   try {
     const response = await post(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
     const reply = await response.json().catch(() => null);
-    return response.ok ? { reply } : { why: `galaxy answered ${response.status}${refusalOf(reply)}` };
+    return response.ok ? { reply } : { why: `galaxy answered ${response.status}${refusalOf2(reply)}` };
   } catch (error) {
     return { why: `galaxy could not be reached: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-function refusalOf(reply) {
+function refusalOf2(reply) {
   const refusal3 = RefusalSchema2.safeParse(reply);
   return refusal3.success && refusal3.data.error ? `: ${refusal3.data.error}` : "";
 }
@@ -10682,11 +10938,11 @@ import { parse as parse3, stringify } from "yaml";
 import { execFileSync as execFileSync7 } from "node:child_process";
 import { readFileSync as readFileSync43, realpathSync as realpathSync2, writeFileSync as writeFileSync16 } from "node:fs";
 import { basename as basename12, dirname as dirname13, join as join61, resolve as resolve2 } from "node:path";
-import { z as z48 } from "zod";
+import { z as z54 } from "zod";
 var DOSSIERS_FILE = join61(LOCAL_DIR, "dossiers.json");
 var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
-var text10 = z48.string().min(1);
-var DossierEntrySchema = z48.object({
+var text10 = z54.string().min(1);
+var DossierEntrySchema = z54.object({
   id: text10,
   url: text10,
   claudeSessionId: text10.nullable(),
@@ -10713,19 +10969,19 @@ function mainCheckout(cwd, exec = execFileSync7) {
 import { createHash as createHash4 } from "node:crypto";
 import { chmodSync as chmodSync3, existsSync as existsSync45, mkdirSync as mkdirSync12, readdirSync as readdirSync20, readFileSync as readFileSync44, renameSync as renameSync3, rmSync as rmSync15, statSync as statSync15, writeFileSync as writeFileSync17 } from "node:fs";
 import { dirname as dirname14, join as join62, posix as posix4 } from "node:path";
-import { z as z49 } from "zod";
+import { z as z55 } from "zod";
 var PACKS_DIR = join62(LOCAL_DIR, "packs");
 var PACK_FILE = "pack.json";
-var FileSchema = z49.object({ path: z49.string().min(1), sha256: z49.string().regex(/^[0-9a-f]{64}$/) });
-var MetaSchema = z49.object({
-  repository: z49.string().min(1),
-  sha: z49.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z49.string().min(1),
-  madeAt: z49.string().min(1),
-  files: z49.array(FileSchema)
+var FileSchema = z55.object({ path: z55.string().min(1), sha256: z55.string().regex(/^[0-9a-f]{64}$/) });
+var MetaSchema = z55.object({
+  repository: z55.string().min(1),
+  sha: z55.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z55.string().min(1),
+  madeAt: z55.string().min(1),
+  files: z55.array(FileSchema)
 });
 var PackReplySchema = MetaSchema.omit({ files: true }).extend({
-  files: z49.array(FileSchema.extend({ content: z49.string() }))
+  files: z55.array(FileSchema.extend({ content: z55.string() }))
 });
 var packName = (repo) => repo.slice(repo.indexOf("/") + 1);
 function localPacks(root, repo) {
@@ -10956,20 +11212,20 @@ function plainCell(cell) {
 }
 function parsePlanRepositories(markdown) {
   const rows = [];
-  for (const at3 of sectionTable(markdown, "repositories")) {
-    const repo = at3("repo");
+  for (const at4 of sectionTable(markdown, "repositories")) {
+    const repo = at4("repo");
     if (!repo) continue;
-    rows.push({ repo, role: at3("role"), readAt: at3("read at"), knowledge: at3("knowledge") });
+    rows.push({ repo, role: at4("role"), readAt: at4("read at"), knowledge: at4("knowledge") });
   }
   return rows;
 }
 function parsePlanLandings(markdown) {
   const rows = [];
-  for (const at3 of sectionTable(markdown, "landings")) {
-    const landing = at3("landing");
+  for (const at4 of sectionTable(markdown, "landings")) {
+    const landing = at4("landing");
     if (!landing) continue;
-    const mergeWhen = at3("merge when");
-    rows.push({ landing: Number(landing), name: at3("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
+    const mergeWhen = at4("merge when");
+    rows.push({ landing: Number(landing), name: at4("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
   }
   return rows;
 }
@@ -11031,11 +11287,11 @@ function collisionRows(slices, generated = []) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
-  const at3 = (id) => `${landed ? `l${landingOf.get(id)}` : ""}w${waveOf.get(id)}`;
+  const at4 = (id) => `${landed ? `l${landingOf.get(id)}` : ""}w${waveOf.get(id)}`;
   return collisions(slices, generated).map(({ left, right, shared }) => ({
     pair: `${left} \xB7 ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(", "),
-    resolved: `${left} ${at3(left)} \xB7 ${right} ${at3(right)}`
+    resolved: `${left} ${at4(left)} \xB7 ${right} ${at4(right)}`
   }));
 }
 
@@ -11396,10 +11652,10 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, nee
 }
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z50 } from "zod";
+import { z as z56 } from "zod";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var MAX_LABEL = 20;
-var MarkerSchema = z50.looseObject({ prd: z50.unknown(), persona: z50.unknown(), claims: z50.unknown() });
+var MarkerSchema = z56.looseObject({ prd: z56.unknown(), persona: z56.unknown(), claims: z56.unknown() });
 function canonActions(canon) {
   if (canon?.state !== "red") return [];
   const persona = canon.persona?.name;
@@ -11799,22 +12055,22 @@ var payloadOf2 = (raw) => checkPayloadOf(PullAtSchema, PR_INBOX_KIND, raw);
 function inboxHandler({ octokitFor, canon = null, laws = null }) {
   return async (job) => {
     const { installationId, ...where } = payloadOf2(job.payload);
-    const at3 = where;
+    const at4 = where;
     const octokit = await octokitFor(installationId);
-    const started = await startAt(octokit, at3);
+    const started = await startAt(octokit, at4);
     if (!started) return { outcome: "skipped", reason: SILENT_REASON };
-    const verdict = await evaluateAt(octokit, { ...at3, canon, laws });
+    const verdict = await evaluateAt(octokit, { ...at4, canon, laws });
     if (!verdict) return { outcome: "skipped", reason: "the pull request is no longer a phase-0 PR of this repository" };
-    await publishAt(octokit, at3, started.checkRunId, verdict);
+    await publishAt(octokit, at4, started.checkRunId, verdict);
     const actions = canonActions(verdict.canon);
-    if (actions.length > 0) await addActionsAt(octokit, at3, started.checkRunId, actions);
+    if (actions.length > 0) await addActionsAt(octokit, at4, started.checkRunId, actions);
     return { outcome: "done" };
   };
 }
 function inboxFailureHook({ octokitFor }) {
   return async (job, reason2) => {
-    const { installationId, ...at3 } = payloadOf2(job.payload);
-    await failInbox(await octokitFor(installationId), at3, reason2);
+    const { installationId, ...at4 } = payloadOf2(job.payload);
+    await failInbox(await octokitFor(installationId), at4, reason2);
   };
 }
 async function phase0CheckName(octokit, { owner, repo, prNumber }) {
@@ -11865,21 +12121,21 @@ async function failInbox(octokit, { owner, repo, prNumber, headSha }, reason2) {
 }
 
 // apps/omni-app/src/knowledge-pack/store.ts
-import { z as z52 } from "zod";
-var KeptSchema = z52.object({
-  workspace: z52.string().min(1),
-  packId: z52.string().min(1),
-  created: z52.boolean(),
-  newest: z52.boolean(),
-  files: z52.number().int().nonnegative()
+import { z as z58 } from "zod";
+var KeptSchema = z58.object({
+  workspace: z58.string().min(1),
+  packId: z58.string().min(1),
+  created: z58.boolean(),
+  newest: z58.boolean(),
+  files: z58.number().int().nonnegative()
 });
-var PutAnswerSchema = z52.object({
-  repository: z52.string().min(1),
-  sha: z52.string().regex(/^[0-9a-f]{40}$/),
-  packs: z52.array(KeptSchema)
+var PutAnswerSchema = z58.object({
+  repository: z58.string().min(1),
+  sha: z58.string().regex(/^[0-9a-f]{40}$/),
+  packs: z58.array(KeptSchema)
 });
-var HolderSchema = z52.object({ product_id: z52.string().min(1) });
-var refused5 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+var HolderSchema = z58.object({ product_id: z58.string().min(1) });
+var refused6 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function knowledgePackStore(connection) {
   const db = serviceDb(connection);
   return {
@@ -11894,7 +12150,7 @@ function knowledgePackStore(connection) {
         p_committed_at: committedAt,
         p_files: files.map(({ path, content, sha256: sha2562 }) => ({ path, content, sha256: sha2562 }))
       });
-      if (error) throw refused5(error);
+      if (error) throw refused6(error);
       return PutAnswerSchema.parse(data);
     }
   };
@@ -12005,11 +12261,11 @@ Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
 }
 
 // apps/omni-app/src/outbox-check/product-outbox.ts
-import { z as z53 } from "zod";
-var text11 = z53.string().min(1);
-var HolderRowSchema3 = z53.object({ product_id: text11, products: z53.object({ name: text11 }) });
-var DossierRowSchema3 = z53.object({ id: text11 });
-var ItemRowSchema2 = z53.object({ item: text11, rank: text11, outbox_settlements: z53.array(z53.unknown()) });
+import { z as z59 } from "zod";
+var text11 = z59.string().min(1);
+var HolderRowSchema3 = z59.object({ product_id: text11, products: z59.object({ name: text11 }) });
+var DossierRowSchema3 = z59.object({ id: text11 });
+var ItemRowSchema2 = z59.object({ item: text11, rank: text11, outbox_settlements: z59.array(z59.unknown()) });
 function productOutboxReader(connection) {
   const db = serviceDb(connection);
   return async (repository, prd) => {
@@ -12166,8 +12422,8 @@ async function sayingBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
-    const refused6 = budgetRefusal(error);
-    if (refused6) log2(`outbox check of ${where} waits for the GitHub budget: ${refused6.message}`);
+    const refused7 = budgetRefusal(error);
+    if (refused7) log2(`outbox check of ${where} waits for the GitHub budget: ${refused7.message}`);
     throw error;
   }
 }
@@ -12219,17 +12475,17 @@ function failOutboxCheck(octokit, { owner, repo, prNumber, headSha }, reason2, l
     return { checkRunIds, name, reason: reason2 };
   });
 }
-async function targetOrUnknown(octokit, at3) {
+async function targetOrUnknown(octokit, at4) {
   try {
-    return await checkTarget(octokit, at3);
+    return await checkTarget(octokit, at4);
   } catch (error) {
     if (budgetRefusal(error)) throw error;
     return null;
   }
 }
-async function openRunsFailed(octokit, at3) {
+async function openRunsFailed(octokit, at4) {
   try {
-    return await completeAsFailure(octokit, { ...at3, create: false });
+    return await completeAsFailure(octokit, { ...at4, create: false });
   } catch (error) {
     if (budgetRefusal(error)) throw error;
     return [];
@@ -12266,20 +12522,20 @@ function outboxFailureHook({ octokitFor, log: log2 = noteTo("outbox-check") }) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-import { z as z55 } from "zod";
+import { z as z61 } from "zod";
 
 // kit/lib/plan-repo/gh-schema.ts
-import { z as z54 } from "zod";
-var GhRepositorySchema = z54.looseObject({ default_branch: z54.string() });
-var GhContentEntrySchema = z54.looseObject({ type: z54.string(), name: z54.string(), path: z54.string() });
-var GhCompareFileSchema = z54.looseObject({
-  filename: z54.string(),
-  previous_filename: z54.string().optional()
+import { z as z60 } from "zod";
+var GhRepositorySchema = z60.looseObject({ default_branch: z60.string() });
+var GhContentEntrySchema = z60.looseObject({ type: z60.string(), name: z60.string(), path: z60.string() });
+var GhCompareFileSchema = z60.looseObject({
+  filename: z60.string(),
+  previous_filename: z60.string().optional()
 });
-var GhCompareSchema = z54.looseObject({
-  ahead_by: z54.number().optional(),
-  status: z54.string().optional(),
-  files: z54.array(GhCompareFileSchema).optional()
+var GhCompareSchema = z60.looseObject({
+  ahead_by: z60.number().optional(),
+  status: z60.string().optional(),
+  files: z60.array(GhCompareFileSchema).optional()
 });
 function firstIssue(error) {
   const [issue] = error.issues;
@@ -12289,64 +12545,64 @@ function firstIssue(error) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z55.looseObject({
-  limit: z55.number(),
-  remaining: z55.number(),
-  resetAt: z55.string().nullish()
+var RateLimitSchema = z61.looseObject({
+  limit: z61.number(),
+  remaining: z61.number(),
+  resetAt: z61.string().nullish()
 });
-var RateLimited = z55.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z55.looseObject({
-  repository: z55.looseObject({
-    pullRequests: z55.looseObject({
-      pageInfo: z55.looseObject({ hasNextPage: z55.boolean(), endCursor: z55.string().nullish() }),
-      nodes: z55.array(z55.looseObject({ number: PrNumberSchema, updatedAt: z55.string() }))
+var RateLimited = z61.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z61.looseObject({
+  repository: z61.looseObject({
+    pullRequests: z61.looseObject({
+      pageInfo: z61.looseObject({ hasNextPage: z61.boolean(), endCursor: z61.string().nullish() }),
+      nodes: z61.array(z61.looseObject({ number: PrNumberSchema, updatedAt: z61.string() }))
     })
   })
 });
-var ActorSchema = z55.looseObject({ login: z55.string().nullish(), __typename: z55.string().nullish() }).nullish();
-var PullDetailSchema = z55.looseObject({
+var ActorSchema = z61.looseObject({ login: z61.string().nullish(), __typename: z61.string().nullish() }).nullish();
+var PullDetailSchema = z61.looseObject({
   number: PrNumberSchema,
   author: ActorSchema,
-  createdAt: z55.string(),
-  mergedAt: z55.string().nullish(),
-  closedAt: z55.string().nullish(),
+  createdAt: z61.string(),
+  mergedAt: z61.string().nullish(),
+  closedAt: z61.string().nullish(),
   mergedBy: ActorSchema,
-  baseRefName: z55.string().nullish(),
-  headRefName: z55.string().nullish(),
-  isDraft: z55.boolean().nullish(),
-  body: z55.string().nullish(),
-  additions: z55.number().nullish(),
-  deletions: z55.number().nullish(),
-  labels: z55.looseObject({ nodes: z55.array(z55.looseObject({ name: z55.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z55.looseObject({
-    totalCount: z55.number(),
-    nodes: z55.array(
-      z55.looseObject({
-        commit: z55.looseObject({ message: z55.string().nullish(), committedDate: z55.string().nullish() }).nullish()
+  baseRefName: z61.string().nullish(),
+  headRefName: z61.string().nullish(),
+  isDraft: z61.boolean().nullish(),
+  body: z61.string().nullish(),
+  additions: z61.number().nullish(),
+  deletions: z61.number().nullish(),
+  labels: z61.looseObject({ nodes: z61.array(z61.looseObject({ name: z61.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z61.looseObject({
+    totalCount: z61.number(),
+    nodes: z61.array(
+      z61.looseObject({
+        commit: z61.looseObject({ message: z61.string().nullish(), committedDate: z61.string().nullish() }).nullish()
       })
     )
   }).nullish(),
-  reviews: z55.looseObject({ nodes: z55.array(z55.looseObject({ author: ActorSchema, submittedAt: z55.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z55.looseObject({
-    nodes: z55.array(
-      z55.looseObject({ createdAt: z55.string().nullish(), label: z55.looseObject({ name: z55.string().nullish() }).nullish() }).nullish()
+  reviews: z61.looseObject({ nodes: z61.array(z61.looseObject({ author: ActorSchema, submittedAt: z61.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z61.looseObject({
+    nodes: z61.array(
+      z61.looseObject({ createdAt: z61.string().nullish(), label: z61.looseObject({ name: z61.string().nullish() }).nullish() }).nullish()
     ).nullish()
   }).nullish()
 });
-var PullDetailsSchema = z55.looseObject({ repository: z55.record(z55.string(), z55.unknown()) });
-var PullCommentsSchema = z55.looseObject({
-  comments: z55.looseObject({ nodes: z55.array(z55.looseObject({ body: z55.string().nullish() }).nullish()).nullish() }).nullish()
+var PullDetailsSchema = z61.looseObject({ repository: z61.record(z61.string(), z61.unknown()) });
+var PullCommentsSchema = z61.looseObject({
+  comments: z61.looseObject({ nodes: z61.array(z61.looseObject({ body: z61.string().nullish() }).nullish()).nullish() }).nullish()
 }).nullish();
-var TrackedRowSchema = z55.looseObject({
-  workspace_id: z55.string(),
-  full_name: z55.string(),
-  collected_until: z55.string().nullish(),
-  workspaces: z55.looseObject({ github_installation_id: z55.union([z55.number(), z55.string()]) })
+var TrackedRowSchema2 = z61.looseObject({
+  workspace_id: z61.string(),
+  full_name: z61.string(),
+  collected_until: z61.string().nullish(),
+  workspaces: z61.looseObject({ github_installation_id: z61.union([z61.number(), z61.string()]) })
 });
-var FailureSchema2 = z55.looseObject({
-  errors: z55.array(z55.looseObject({ type: z55.unknown().optional(), message: z55.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z55.unknown().optional(),
-  status: z55.unknown().optional()
+var FailureSchema2 = z61.looseObject({
+  errors: z61.array(z61.looseObject({ type: z61.unknown().optional(), message: z61.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z61.unknown().optional(),
+  status: z61.unknown().optional()
 });
 function parseAnswer(schema, value, what) {
   return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
@@ -12356,24 +12612,24 @@ function parsedOr2(schema, value, context) {
   if (parsed2.success) return parsed2.data;
   throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
 }
-var BudgetSchema = z55.object({
-  limit: z55.number().exactOptional(),
-  remaining: z55.number().exactOptional(),
-  resetAt: z55.string().nullable().exactOptional()
+var BudgetSchema = z61.object({
+  limit: z61.number().exactOptional(),
+  remaining: z61.number().exactOptional(),
+  resetAt: z61.string().nullable().exactOptional()
 });
-var TrackedRepositorySchema = z55.object({
-  workspaceId: z55.string(),
-  installationId: z55.number(),
-  fullName: z55.string(),
-  collectedUntil: z55.string().nullable()
+var TrackedRepositorySchema = z61.object({
+  workspaceId: z61.string(),
+  installationId: z61.number(),
+  fullName: z61.string(),
+  collectedUntil: z61.string().nullable()
 });
-var TrackedRepositoriesSchema = z55.array(TrackedRepositorySchema);
-var BatchOutSchema = z55.object({
-  saved: z55.number(),
-  cursor: z55.string(),
-  more: z55.boolean(),
-  paused: z55.literal(true).exactOptional(),
-  error: z55.string().exactOptional(),
+var TrackedRepositoriesSchema = z61.array(TrackedRepositorySchema);
+var BatchOutSchema = z61.object({
+  saved: z61.number(),
+  cursor: z61.string(),
+  more: z61.boolean(),
+  paused: z61.literal(true).exactOptional(),
+  error: z61.string().exactOptional(),
   budget: BudgetSchema
 });
 
@@ -12563,8 +12819,8 @@ function firstReviews(pull, author) {
   for (const review of pull.reviews?.nodes ?? []) {
     const reviewer = loginOf2(review.author);
     if (!reviewer || !review.submittedAt || reviewer === author) continue;
-    const at3 = first.get(reviewer);
-    if (!at3 || Date.parse(review.submittedAt) < Date.parse(at3)) first.set(reviewer, review.submittedAt);
+    const at4 = first.get(reviewer);
+    if (!at4 || Date.parse(review.submittedAt) < Date.parse(at4)) first.set(reviewer, review.submittedAt);
   }
   return [...first].sort(([a], [b]) => a.localeCompare(b));
 }
@@ -12680,7 +12936,7 @@ var printed2 = (value) => String(value);
 
 // apps/omni-app/src/pr-stats/supabase-store.ts
 import { createClient as createClient5 } from "@supabase/supabase-js";
-var TRACKED = "workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)";
+var TRACKED2 = "workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)";
 function supabaseStore({ url, key, fetch: fetch2 }) {
   const db = createClient5(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -12689,9 +12945,9 @@ function supabaseStore({ url, key, fetch: fetch2 }) {
   return {
     async trackedRepositories() {
       const rows = checked(
-        await db.from("repositories").select(TRACKED).eq("tracked", true).not("workspaces.github_installation_id", "is", null).order("workspace_id").order("full_name")
+        await db.from("repositories").select(TRACKED2).eq("tracked", true).not("workspaces.github_installation_id", "is", null).order("workspace_id").order("full_name")
       );
-      return parsedOr2(TrackedRowSchema.array(), rows, "The database answered the tracked repositories unexpectedly").map((row) => ({
+      return parsedOr2(TrackedRowSchema2.array(), rows, "The database answered the tracked repositories unexpectedly").map((row) => ({
         workspaceId: row.workspace_id,
         installationId: Number(row.workspaces.github_installation_id),
         fullName: row.full_name,
@@ -12773,7 +13029,9 @@ function liveWorkers(env, octokitFor) {
       [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }),
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
-      [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) })
+      [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
+      [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
+      [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) })
     },
     failures: checks.failures
   };
@@ -12881,7 +13139,7 @@ function liveJobs(env, logger) {
     forget: () => ledger.forget()
   };
 }
-var ReplayBodySchema = z56.object({ replay: z56.string().min(1) });
+var ReplayBodySchema = z62.object({ replay: z62.string().min(1) });
 var json = (status, body) => Response.json(body, { status, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;
