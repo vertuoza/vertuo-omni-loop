@@ -1,10 +1,9 @@
-// `/api/github` and the ledger. The knowledge pack (PRD 2676 s2): a merge adds its job before Inngest is called, the
-// jobs due run after the answer, Inngest refusing an event never loses the job, and a database failure never fails
-// the delivery. The checks (PRD 2688 s7): a pull request event refreshes the four checks' jobs before anything else,
+// `/api/github` and the ledger. The knowledge pack (PRD 2676 s2): a merge adds its job, the jobs due run after the
+// answer, and a database failure never fails the delivery. The checks (PRD 2688 s7): a pull request event refreshes the four checks' jobs before anything else,
 // a re-run only its own, the approved label its PRD's pull requests' `pr-approved` jobs, and the jobs due run once
 // the refresh's delay has gone by, on a ledger that keeps the refresh table of the spec. The fix row stamp and the
 // fleet board (PRD omni-loop-3 s3): a merged pull request adds its `fix-row-stamp` job, a loop pull request its
-// `fleet-board` job, none goes to Inngest, a refused add answers 500, and the jobs due run after the answer.
+// `fleet-board` job, a refused add answers 500, and the jobs due run after the answer.
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
@@ -61,6 +60,7 @@ function recording(order: string[], over: Partial<RouteJobs> = {}): RouteJobs {
       return Promise.resolve('added');
     },
     approved: () => Promise.resolve([]),
+    wake: () => Promise.resolve(false),
     run: () => {
       order.push('run');
       return Promise.resolve();
@@ -70,11 +70,11 @@ function recording(order: string[], over: Partial<RouteJobs> = {}): RouteJobs {
 }
 
 /** The route over `jobs`; each delivery signed; the work kept alive after each answer, and the pauses it waits on. */
-function route(jobs: RouteJobs | null, send: () => Promise<unknown> = () => Promise.resolve()) {
+function route(jobs: RouteJobs | null) {
   const kept: Promise<unknown>[] = [];
   const paused: { ms: number; go: () => void }[] = [];
   const pause = (ms: number) => new Promise<void>((go) => paused.push({ ms, go }));
-  const { POST } = githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { send, jobs, keepAlive: (work) => kept.push(work), pause });
+  const { POST } = githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { jobs, keepAlive: (work) => kept.push(work), pause });
   const post = (event: string, body: string) =>
     POST(new Request('https://omni-loop.example/api/github', { method: 'POST', body, headers: { 'x-github-event': event, 'x-hub-signature-256': sign(body) } }));
   /** Lets every pause go by, then waits for the work after every answer. */
@@ -86,90 +86,84 @@ function route(jobs: RouteJobs | null, send: () => Promise<unknown> = () => Prom
 }
 
 /** One delivery of `body`, its work after the answer let through: the answer, and the work kept. */
-async function deliver(jobs: RouteJobs | null, send: () => Promise<unknown>, body = merged, event = 'pull_request') {
-  const one = route(jobs, send);
+async function deliver(jobs: RouteJobs | null, body = merged, event = 'pull_request') {
+  const one = route(jobs);
   const response = await one.post(event, body);
   await one.settle();
   return { response, kept: one.kept, paused: one.paused };
 }
 
 describe('/api/github — the knowledge pack job (PRD 2676 s2)', () => {
-  it('adds the job before Inngest is called, then runs the jobs due after the answer', async () => {
+  it('adds the pack’s job first, then the queued jobs, then runs the jobs due after the answer', async () => {
     const order: string[] = [];
-    const { response, kept } = await deliver(recording(order), () => {
-      order.push('send');
-      return Promise.resolve();
-    });
+    const { response, kept } = await deliver(recording(order));
     expect(response.status).toBe(200);
     expect(order[0]).toBe('add knowledge-pack');
     expect(order.at(-1)).toBe('run');
     expect(order.indexOf('queue fix-row-stamp')).toBe(1);
     expect(order.indexOf('queue knowledge-harvest')).toBe(2);
     expect(order.indexOf('queue retro')).toBe(3);
-    expect(order.indexOf('send')).toBe(4);
+    expect(order.indexOf('queue main-watch')).toBe(4);
     expect(kept).toHaveLength(1);
   });
 
   it('adds one job for the merge, keyed by repository and commit, and refreshes no check', async () => {
     const added: NewJob[] = [];
     const order: string[] = [];
-    await deliver(recording(order, { add: (job) => Promise.resolve(added.push(job) > 0) }), () => Promise.resolve());
+    await deliver(recording(order, { add: (job) => Promise.resolve(added.push(job) > 0) }));
     expect(added.map((job) => job.key)).toEqual([`o/r@${SHA}`]);
     expect(order.filter((line) => line.startsWith('refresh'))).toEqual([]);
   });
 
   it('queues one knowledge-harvest job for the merge, keyed by repository and pull request, in the lane of the repository', async () => {
     const queued: NewJob[] = [];
-    await deliver(recording([], { queue: (job) => Promise.resolve(queued.push(job) > 0) }), () => Promise.resolve());
+    await deliver(recording([], { queue: (job) => Promise.resolve(queued.push(job) > 0) }));
     const harvest = queued.find((job) => job.kind === 'knowledge-harvest');
     expect(harvest).toMatchObject({ subject: 'o/r', lane: 'o/r', maxTries: 4 });
     expect(queued.filter((job) => job.kind === 'knowledge-harvest')).toHaveLength(1);
   });
 
-  it('queues one retro job for the merge, keyed by repository and pull request, in the lane of the repository, and sends Inngest no retro event (PRD omni-loop-4 s3)', async () => {
+  it('queues one retro job for the merge, keyed by repository and pull request, in the lane of the repository, (PRD omni-loop-4 s3)', async () => {
     const queued: NewJob[] = [];
-    const sent: unknown[] = [];
-    await deliver(recording([], { queue: (job) => Promise.resolve(queued.push(job) > 0) }), (events?: unknown) => Promise.resolve(sent.push(events)));
+    await deliver(recording([], { queue: (job) => Promise.resolve(queued.push(job) > 0) }));
     const retros = queued.filter((job) => job.kind === 'retro');
     expect(retros).toHaveLength(1);
     expect(retros[0]).toMatchObject({ key: 'o/r#9', subject: 'o/r', lane: 'o/r', maxTries: 4, payload: { mergeSha: SHA, mergedAt: '2026-10-16T09:00:00Z' } });
-    expect(JSON.stringify(sent)).not.toContain('retro.requested');
   });
 
-  it('keeps the job when Inngest refuses the event', async () => {
-    const added: NewJob[] = [];
-    const { response } = await deliver(recording([], { add: (job) => Promise.resolve(added.push(job) > 0) }), () => Promise.reject(new Error('inngest is out')));
-    expect(response.status).toBe(502);
-    expect(added).toHaveLength(1);
+  it('queues one main-watch job for the merge, keyed by repository and pull request, in no lane (PRD omni-loop-4 s4)', async () => {
+    const queued: NewJob[] = [];
+    await deliver(recording([], { queue: (job) => Promise.resolve(queued.push(job) > 0) }));
+    const watches = queued.filter((job) => job.kind === 'main-watch');
+    expect(watches).toHaveLength(1);
+    expect(watches[0]).toMatchObject({ key: 'o/r#9', subject: 'o/r', maxTries: 4, payload: { installationId: 7, mergeSha: SHA, mergedAt: '2026-10-16T09:00:00Z', prNumber: 9 } });
+    expect(watches[0]?.lane).toBeUndefined();
   });
 
   // The merge's fix stamp job is already held in the two below (PRD omni-loop-3 s3), so only the pack's add decides.
   it('does not fail the delivery when the database fails, and runs nothing', async () => {
-    const { response, kept } = await deliver(recording([], { add: () => Promise.reject(new Error('the database refused: down')), queue: () => Promise.resolve(false) }), () => Promise.resolve());
+    const { response, kept } = await deliver(recording([], { add: () => Promise.reject(new Error('the database refused: down')), queue: () => Promise.resolve(false) }));
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
 
   it('runs nothing when no job was added, as for a repository no product holds', async () => {
-    const { response, kept } = await deliver(recording([], { add: () => Promise.resolve(false), queue: () => Promise.resolve(false) }), () => Promise.resolve());
+    const { response, kept } = await deliver(recording([], { add: () => Promise.resolve(false), queue: () => Promise.resolve(false) }));
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
 
   it('adds nothing and runs nothing where the App has no database', async () => {
-    const { response, kept } = await deliver(null, () => Promise.resolve());
+    const { response, kept } = await deliver(null);
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
 });
 
 describe('/api/github — the checks refresh their jobs (PRD 2688 s7)', () => {
-  it('a pull request event into the default branch refreshes one job of each of the four kinds before anything is sent, then runs the jobs once they are due (acceptance 1)', async () => {
+  it('a pull request event into the default branch refreshes one job of each of the four kinds then runs the jobs once they are due (acceptance 1)', async () => {
     const order: string[] = [];
-    const { response } = await deliver(recording(order), () => {
-      order.push('send');
-      return Promise.resolve();
-    }, pushed('head1'));
+    const { response } = await deliver(recording(order), pushed('head1'));
     expect(response.status).toBe(200);
     expect(order).toEqual([...PR_CHECK_KINDS.map((kind) => `refresh ${kind}`), 'run']);
   });
@@ -189,19 +183,19 @@ describe('/api/github — the checks refresh their jobs (PRD 2688 s7)', () => {
     const asked: [string | null, string][] = [[INBOX_EXTERNAL_ID, 'pr-inbox'], [APPROVED_EXTERNAL_ID, 'pr-approved'], [BUDGETS_EXTERNAL_ID, 'pr-budgets'], [null, 'pr-outbox']];
     for (const [externalId, kind] of asked) {
       const refreshed: RefreshJob[] = [];
-      await deliver(recording([], { refresh: (job) => Promise.resolve(refreshed.push(job)) }), () => Promise.resolve(), rerun(externalId), 'check_run');
+      await deliver(recording([], { refresh: (job) => Promise.resolve(refreshed.push(job)) }), rerun(externalId), 'check_run');
       expect(refreshed.map((job) => [job.kind, job.key, job.payload.headSha])).toEqual([[kind, 'o/r#9', 'head1']]);
     }
   });
 
   it('a database failure does not fail the delivery, and runs nothing', async () => {
-    const { response, kept } = await deliver(recording([], { refresh: () => Promise.reject(new Error('the database refused: down')) }), () => Promise.resolve(), pushed('head1'));
+    const { response, kept } = await deliver(recording([], { refresh: () => Promise.reject(new Error('the database refused: down')) }), pushed('head1'));
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
 
   it('refreshes nothing and runs nothing where the App has no database', async () => {
-    const { response, kept } = await deliver(null, () => Promise.resolve(), pushed('head1'));
+    const { response, kept } = await deliver(null, pushed('head1'));
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
@@ -218,7 +212,7 @@ describe('/api/github — the checks refresh their jobs (PRD 2688 s7)', () => {
         return Promise.resolve([found('h1', 9), found('h2', 10)]);
       },
     });
-    const { response } = await deliver(jobs, () => Promise.resolve(), labelled, 'issues');
+    const { response } = await deliver(jobs, labelled, 'issues');
     expect(response.status).toBe(200);
     expect(asked).toEqual([{ installationId: 7, owner: 'o', repo: 'r', repository: 'o/r', prd: parsePrd(12), trigger: 'issues.labeled' }]);
     expect(order).toEqual(['approved', 'refresh pr-approved', 'refresh pr-approved', 'run']);
@@ -227,7 +221,7 @@ describe('/api/github — the checks refresh their jobs (PRD 2688 s7)', () => {
   it('an approval whose pull requests cannot be read is logged, and the jobs due still run', async () => {
     const order: string[] = [];
     const jobs = recording(order, { approved: () => Promise.reject(new Error('GitHub is down')) });
-    const { response } = await deliver(jobs, () => Promise.resolve(), labelled, 'issues');
+    const { response } = await deliver(jobs, labelled, 'issues');
     expect(response.status).toBe(200);
     expect(order).toEqual(['run']);
   });
@@ -305,19 +299,18 @@ describe('/api/github — the fix row stamp and the fleet board are jobs of the 
     pull_request: { number: 9, node_id: 'PR_9', html_url: 'https://github.com/o/r/pull/9', state: 'open', user: { login: 'ada' }, body: `Closes #3\n\n${SIGNED_MARKER}`, updated_at: '2026-10-16T09:00:00Z', head: { sha: 'h' }, base: { ref: 'main' } },
   });
 
-  /** The route over a fake ledger whose handlers say what they ran; `send` records what went to Inngest. */
+  /** The route over a fake ledger whose handlers say what they ran;  */
   function onLedger() {
     const { refresh, add, ledger, states } = fakeLedger(() => 0);
     const ran: string[] = [];
-    const sent: unknown[] = [];
     const handler: JobHandler = (job) => {
       ran.push(`${job.kind} ${job.key}`);
       return Promise.resolve({ outcome: 'done' });
     };
     const handlers = { 'fix-row-stamp': handler, 'fleet-board': handler };
-    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue: add, refresh, approved: () => Promise.resolve([]), run: () => runDue({ ledger, handlers, log: () => undefined }) };
-    const one = route(jobs, (events?: unknown) => Promise.resolve(sent.push(events)));
-    return { ran, sent, states, post: one.post, settle: one.settle };
+    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue: add, refresh, approved: () => Promise.resolve([]), wake: () => Promise.resolve(false), run: () => runDue({ ledger, handlers, log: () => undefined }) };
+    const one = route(jobs);
+    return { ran, states, post: one.post, settle: one.settle };
   }
 
   it('a merged pull request adds its `fix-row-stamp` job, run once the delivery is answered; a redelivery adds none', async () => {
@@ -327,28 +320,24 @@ describe('/api/github — the fix row stamp and the fleet board are jobs of the 
     await run.settle();
     expect(run.ran).toEqual(['fix-row-stamp o/r#9@merged@2026-10-16T09:00:00Z']);
     expect(run.states()).toMatchObject({ 'fix-row-stamp o/r#9@merged@2026-10-16T09:00:00Z': 'done' });
-    expect(JSON.stringify(run.sent)).not.toContain('fix.stamp');
   });
 
-  it('a loop pull request into the default branch adds its `fleet-board` job, and sends Inngest nothing', async () => {
+  it('a loop pull request into the default branch adds its `fleet-board` job', async () => {
     const run = onLedger();
     expect((await run.post('pull_request', opened)).status).toBe(200);
     await run.settle();
     expect(run.ran).toEqual(['fleet-board o/r#9']);
-    expect(run.sent).toEqual([]);
   });
 
-  it('answers 500 when the database refuses the add, so GitHub delivers it again, and sends Inngest nothing', async () => {
+  it('answers 500 when the database refuses the add, so GitHub delivers it again', async () => {
     const order: string[] = [];
-    const sent: string[] = [];
-    const { response } = await deliver(recording(order, { queue: () => Promise.reject(new Error('the database refused: down')) }), () => Promise.resolve(sent.push('send')), merged);
+    const { response } = await deliver(recording(order, { queue: () => Promise.reject(new Error('the database refused: down')) }), merged);
     expect(response.status).toBe(500);
     expect(await response.text()).toBe('could not add the job: the database refused: down');
-    expect(sent).toEqual([]);
   });
 
   it('adds nothing where the App has no database, and the delivery is answered', async () => {
-    const { response, kept } = await deliver(null, () => Promise.resolve(), opened);
+    const { response, kept } = await deliver(null, opened);
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
@@ -370,11 +359,10 @@ describe('/api/github — a canon button\'s click is a job of the ledger (PRD om
     },
   });
 
-  it('each click adds its own `canon-action` job, in the pull request\'s lane, run once the delivery is answered; nothing goes to Inngest', async () => {
+  it('each click adds its own `canon-action` job, in the pull request\'s lane, run once the delivery is answered', async () => {
     const { add, ledger } = fakeLedger(() => 0);
     const queued: NewJob[] = [];
     const ran: string[] = [];
-    const sent: unknown[] = [];
     const handlers: Record<string, JobHandler> = {
       'canon-action': (job) => {
         ran.push(`${job.kind} ${String(job.payload.action)}`);
@@ -385,8 +373,8 @@ describe('/api/github — a canon button\'s click is a job of the ledger (PRD om
       queued.push(job);
       return add(job);
     };
-    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue, refresh: () => Promise.resolve('added'), approved: () => Promise.resolve([]), run: () => runDue({ ledger, handlers, log: () => undefined }) };
-    const one = route(jobs, (events?: unknown) => Promise.resolve(sent.push(events)));
+    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue, refresh: () => Promise.resolve('added'), approved: () => Promise.resolve([]), wake: () => Promise.resolve(false), run: () => runDue({ ledger, handlers, log: () => undefined }) };
+    const one = route(jobs);
     expect((await one.post('check_run', clicked)).status).toBe(200);
     expect((await one.post('check_run', clicked)).status).toBe(200);
     await one.settle();
@@ -396,11 +384,10 @@ describe('/api/github — a canon button\'s click is a job of the ledger (PRD om
     ]);
     expect(new Set(queued.map(({ key }) => key)).size).toBe(2);
     expect(ran).toEqual(['canon-action canon-rewrite', 'canon-action canon-rewrite']);
-    expect(sent).toEqual([]);
   });
 
   it('answers 500 when the database refuses the click\'s job, so GitHub delivers it again', async () => {
-    const { response } = await deliver(recording([], { queue: () => Promise.reject(new Error('the database refused: down')) }), () => Promise.resolve(), clicked, 'check_run');
+    const { response } = await deliver(recording([], { queue: () => Promise.reject(new Error('the database refused: down')) }), clicked, 'check_run');
     expect(response.status).toBe(500);
   });
 });
@@ -420,7 +407,7 @@ describe('/api/github — the latest state wins, on a ledger that keeps the refr
       }
       return { outcome: 'done' };
     }]));
-    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue: () => Promise.resolve(false), refresh, approved: () => Promise.resolve([]), run: () => runDue({ ledger, handlers, log: () => undefined }) };
+    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue: () => Promise.resolve(false), refresh, approved: () => Promise.resolve([]), wake: () => Promise.resolve(false), run: () => runDue({ ledger, handlers, log: () => undefined }) };
     const one = route(jobs);
     const post = (body: string) => one.post('pull_request', body);
     const at = (ms: number) => {

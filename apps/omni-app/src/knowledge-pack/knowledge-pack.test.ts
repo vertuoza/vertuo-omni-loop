@@ -141,7 +141,6 @@ async function deliver({ number = 12, merged = true, base = 'main' }: { number?:
     body: text,
     headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(text).digest('hex')}` },
     secret: SECRET,
-    send: () => Promise.resolve(),
     addJobs: (jobs) => Promise.resolve(added.push(...jobs)),
     forward: () => Promise.resolve(),
   });

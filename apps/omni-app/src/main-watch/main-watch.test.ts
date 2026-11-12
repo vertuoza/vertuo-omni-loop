@@ -1,15 +1,15 @@
-import { InngestTestEngine, mockCtx } from '@inngest/test';
-import { type Mock, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { inngest } from '../inngest-client.ts';
 import { httpError, replayGitHub } from '../../test/github-replay.ts';
 import { CONFIG, FEATURE, SUB_PULLS, mergeFiles } from '../../test/retro-scenario.ts';
-import { DAY_EVENT, DAY_WAIT } from '../retro/retro.ts';
+import type { ClaimedJob } from '../jobs/ledger.ts';
+import { liveWorkers } from '../jobs/pr-checks.ts';
+import type { JobResult } from '../jobs/worker.ts';
 import type { ApplyQueue } from '../retro/runner-queue.ts';
 import type { Octokit } from '../retro/retro.types.ts';
 import { megaScenario } from '../retro/targets.fixtures/mega.ts';
-import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT } from './events.ts';
-import { CI_STEP, CI_WAIT, CLOCK_STEP, MAIN_WATCH_FUNCTION_ID, REWIND_STEP, WAIT_STEP, createMainWatch } from './main-watch.ts';
+import { asSaved, type StepRun } from '../saved-step.ts';
+import { MAIN_WATCH_KIND, MAX_LOOKS, REWIND_STEP, mainWatchHandler, mainWatchJob } from './main-watch.ts';
 import type { Break } from './signals.ts';
 import type { MainWatchStore } from './store.ts';
 
@@ -68,10 +68,7 @@ const green = (id: number, name: string): Job => ({ ...red(id, name), conclusion
 /** PRD 7 of `acme/widgets`, merged through #12 at `SHA`, its signals `signals`. */
 function widgets({ config = CONFIG, signals = noSignals() }: { config?: string; signals?: Signals } = {}) {
   const github = replayGitHub({ commits: { [SHA]: mergeFiles({ config }) }, pulls: [{ ...FEATURE, merge_commit_sha: SHA, merged_at: MERGED_AT }, ...SUB_PULLS] });
-  const event = {
-    name: MAIN_WATCH_EVENT,
-    data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: parsePr(12), mergeSha: SHA, mergedAt: MERGED_AT },
-  };
+  const event = { installationId: 7, owner: 'acme', repo: 'widgets', prNumber: parsePr(12), mergeSha: SHA, mergedAt: MERGED_AT };
   return { octokit: withSignals(github.octokit, signals), signals, event };
 }
 
@@ -137,70 +134,90 @@ function memoryQueue() {
   return { queue, calls, jobs };
 }
 
-// ---- The engine: the waits answered by id, the days passed as a test says ------------------------
+// ---- The job: runs of the handler on saved steps, the clock moved a day between them ------------
 
-type Ctx = { step: { run: Mock<(id: string) => unknown>; waitForEvent: Mock<(id: string, options: { event: string; timeout: number; if?: string }) => unknown> } };
-type Ran = { ctx: Ctx; result: unknown; error: unknown };
+type Payload = Parameters<typeof mainWatchJob>[0];
+type Deps = { octokitFor: (id: number) => Octokit; appOctokit?: Octokit | null; store: MainWatchStore | null; queue?: ApplyQueue | null };
+type Ran = { results: JobResult[]; ran: string[]; times: number[] };
 
-/** Answers the run's waits by step id, each once however often the run replays; a wait nobody answers fails the run. */
-function answering(waits: Record<string, () => unknown>) {
-  const given = new Map<string, unknown>();
-  return (ctx: Parameters<typeof mockCtx>[0]): ReturnType<typeof mockCtx> => {
-    const mocked = mockCtx(ctx);
-    const waitForEvent = mocked.step.waitForEvent as unknown as Mock<(id: string) => Promise<unknown>>;
-    waitForEvent.mockImplementation((id: string) => {
-      const answer = waits[id];
-      if (answer === undefined) return Promise.reject(new Error(`nobody answers the wait ${id}`));
-      if (!given.has(id)) given.set(id, answer());
-      return Promise.resolve(given.get(id));
-    });
-    return mocked;
-  };
+/** The job of `payload`, claimed with `progress`: what the worker hands the handler. */
+function claimed(payload: Payload, progress: Record<string, unknown> = {}): ClaimedJob {
+  return { id: 'job-1', ...mainWatchJob(payload), tries: 1, claim: 'claim-1', claimedUntil: '2026-09-20T12:05:00Z', progress };
 }
-
-const tick = (ts: number) => ({ name: DAY_EVENT, data: {}, id: `tick-${String(ts)}`, ts });
 
 /**
- * The seven days: the CI wait ends after `ciAt` minutes (on a red suite, or its timeout), then a tick
- * each day; `on[day]` runs when that day's tick comes, to change what GitHub holds.
+ * The runs of one job, as the worker makes them: the steps saved across runs (`ran` lists those that ran, never one
+ * read back), the progress each `later` keeps, the clock at the date it asks for. `before[n]` runs before run `n`,
+ * to change what GitHub holds; run 0 opens the watch, run `n` is the look of day `n`.
  */
-function week({ on = {}, ciAt = 30 }: { on?: Record<number, () => void>; ciAt?: number } = {}) {
-  const waits: Record<string, () => unknown> = { [CI_STEP]: () => (on[0]?.(), null) };
-  for (let day = 1; day <= 7; day += 1) waits[`${WAIT_STEP}-${String(day)}`] = () => (on[day]?.(), tick(at(day, 1)));
-  return { steps: [{ id: `${CLOCK_STEP}-0`, handler: () => at(0, ciAt) }], waits };
+async function run(deps: Deps, payload: Payload, { before = {}, start = at(0, 30), runs = 20 }: { before?: Record<number, () => void>; start?: number; runs?: number } = {}): Promise<Ran> {
+  let now = start;
+  const handler = mainWatchHandler({ octokitFor: deps.octokitFor, appOctokit: deps.appOctokit ? () => deps.appOctokit as Octokit : null, store: deps.store, queue: deps.queue ?? null, now: () => now });
+  const saved = new Map<string, unknown>();
+  const ran: string[] = [];
+  const step: StepRun = {
+    run: async (id, fn) => {
+      if (!saved.has(id)) {
+        ran.push(id);
+        saved.set(id, asSaved(await fn()));
+      }
+      return saved.get(id);
+    },
+  };
+  const results: JobResult[] = [];
+  const times: number[] = [];
+  let progress: Record<string, unknown> = {};
+  for (let n = 0; n < runs; n += 1) {
+    before[n]?.();
+    times.push(now);
+    const result = await handler(claimed(payload, progress), { step });
+    results.push(result);
+    if (result.outcome !== 'later') break;
+    progress = result.progress;
+    now = result.at.getTime();
+  }
+  return { results, ran, times };
 }
 
-type Deps = { octokitFor: (id: number) => Octokit; appOctokit?: Octokit | null; store: MainWatchStore | null; queue?: ApplyQueue | null };
-
-async function run(deps: Deps, event: unknown, days = week()): Promise<Ran> {
-  const fn = createMainWatch({ client: inngest, octokitFor: deps.octokitFor, appOctokit: deps.appOctokit ? () => deps.appOctokit as Octokit : null, store: deps.store, queue: deps.queue ?? null });
-  const engine = new InngestTestEngine({ function: fn, events: [event as never], steps: days.steps, transformCtx: answering(days.waits) }) as unknown as { execute(): Promise<Ran> };
-  return engine.execute();
-}
-
-const ranSteps = (ctx: Ctx) => ctx.step.run.mock.calls.map(([id]) => id);
+const last = (ran: Ran): JobResult | undefined => ran.results.at(-1);
 const statusOf = (rows: Map<string, Row>) => Object.fromEntries([...rows.values()].map((row) => [row.lane, { status: row.status, unread: row.unread }]));
 
-describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub (PRD 2410)', () => {
-  it('opens one watch for the PRD’s repository, and seven quiet days on the daily tick make it clean', async () => {
+describe('main-watch — a PRD’s seven days on main, a job of the ledger, against a stubbed GitHub (PRD 2410, PRD omni-loop-4 s4)', () => {
+  it('opens one watch for the PRD’s repository in its first run and ends later a day on, with no look yet', async () => {
     const { octokit, event } = widgets();
     const db = memoryStore();
-    const { ctx, result, error } = await run({ octokitFor: () => octokit, store: db.store, queue: memoryQueue().queue }, event);
+    const ended = await run({ octokitFor: () => octokit, store: db.store, queue: memoryQueue().queue }, event, { runs: 1 });
 
-    expect(error).toBeUndefined();
-    expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'clean', unread: [] } });
+    expect(ended.results).toEqual([{ outcome: 'later', at: new Date(at(1, 30)), progress: { turn: 0, done: [], broke: [] } }]);
+    expect(ended.ran).toEqual(['qualify', 'gather-pulls', 'open']);
+    expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'watching', unread: [] } });
     expect([...db.watches.values()][0]).toMatchObject({ workspace: 'ws-1', repository: 'acme/widgets', prd: 7, mergeSha: SHA, watchUntil: iso(7) });
-    expect(result).toEqual({ prd: 7, lanes: [{ lane: 'acme/widgets', status: 'clean', unread: [] }], queued: null });
-    expect(ranSteps(ctx)).toEqual(['qualify', 'gather-pulls', 'open', `${CLOCK_STEP}-0`, ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((turn) => [`read-${String(turn)}-acme/widgets`, `record-${String(turn)}`]), 'close-acme/widgets']);
   });
 
-  it('waits first for a red check suite on its merge commit, a day at most, then on the retro’s daily tick', async () => {
+  it('seven quiet days, one look a day, make it clean and end the job done', async () => {
     const { octokit, event } = widgets();
-    const { ctx } = await run({ octokitFor: () => octokit, store: memoryStore().store }, event);
-    const waits = ctx.step.waitForEvent.mock.calls;
-    expect(waits[0]).toEqual([CI_STEP, { event: MAIN_WATCH_CI_EVENT, timeout: CI_WAIT, if: `async.data.sha == '${SHA}'` }]);
-    expect(waits.slice(1).map(([id, options]) => [id, options])).toEqual([1, 2, 3, 4, 5, 6, 7].map((day) => [`${WAIT_STEP}-${String(day)}`, { event: DAY_EVENT, timeout: DAY_WAIT }]));
-    expect(waits.every(([, options]) => options.timeout <= 7 * DAY_MS)).toBe(true);
+    const db = memoryStore();
+    const ended = await run({ octokitFor: () => octokit, store: db.store, queue: memoryQueue().queue }, event);
+
+    expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'clean', unread: [] } });
+    expect(last(ended)).toEqual({ outcome: 'done' });
+    expect(ended.results.slice(0, -1).every((result) => result.outcome === 'later')).toBe(true);
+    expect(ended.results).toHaveLength(8);
+    expect(ended.ran).toEqual(['qualify', 'gather-pulls', 'open', ...[0, 1, 2, 3, 4, 5, 6].flatMap((turn) => [`read-${String(turn)}-acme/widgets`, `record-${String(turn)}`]), 'close-acme/widgets']);
+    // Each run asks for the day after the clock it read, never a longer wait: the ledger takes 20 of them.
+    expect(ended.results.slice(0, -1).map((result, n) => (result.outcome === 'later' ? result.at.getTime() - (ended.times[n] ?? 0) : 0))).toEqual(Array.from({ length: 7 }, () => DAY_MS));
+  });
+
+  it('a run woken before its day has passed still looks, and asks for the day after the wake', async () => {
+    const signals = noSignals();
+    signals.runs[SHA] = [{ id: 1, name: 'CI' }];
+    signals.jobs[1] = [red(10, 'unit')];
+    const { octokit, event } = widgets({ signals });
+    const db = memoryStore();
+    const rewind = memoryQueue();
+    const ended = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event, { runs: 2 });
+    expect(ended.results[1]).toMatchObject({ outcome: 'later', progress: { turn: 1, done: [], broke: ['acme/widgets'] } });
+    expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'broke', unread: [] } });
   });
 
   it('a red job on the merge commit, a red a re-run turned green too, makes it broke at the first look, the parent’s result kept', async () => {
@@ -212,14 +229,14 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
     const { octokit, event } = widgets({ signals });
     const db = memoryStore();
     const rewind = memoryQueue();
-    const { result } = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
+    const ended = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
 
     expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'broke', unread: [] } });
     expect([...db.breaks.values()]).toEqual([
       { lane: 'acme/widgets', kind: 'ci-red', source: '1/unit', url: 'https://github.com/acme/widgets/actions/runs/1/job/10', title: 'CI › unit', parent: 'green', at: iso(0, 20) },
     ]);
     expect(rewind.calls).toEqual([{ installationId: 7, repository: 'acme/widgets', line: '/omni:rewind 7' }]);
-    expect(result).toMatchObject({ lanes: [{ lane: 'acme/widgets', status: 'broke' }], queued: { job: 'job-1', created: true } });
+    expect(last(ended)).toEqual({ outcome: 'done' });
   });
 
   it('a revert naming a sub-PR on day three makes it broke then, and queues the rewind once whatever breaks after', async () => {
@@ -228,13 +245,11 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
     const db = memoryStore();
     const rewind = memoryQueue();
     const revert = (sha: string, message: string, day: number) => ({ sha, html_url: `https://github.com/acme/widgets/commit/${sha}`, commit: { message, committer: { date: iso(day) } } });
-    const days = week({
-      on: {
-        3: () => signals.commits.push(revert('c'.repeat(40), `Revert "${SUB_PULLS[0]?.title ?? ''} (#13)" (#30)\n\nReverts acme/widgets#13`, 3)),
-        5: () => signals.issues.push({ number: 41, title: 'The colour is lost', body: 'Since #7.', html_url: 'https://github.com/acme/widgets/issues/41', created_at: iso(5), user: { type: 'User' }, labels: [] }),
-      },
-    });
-    const { ctx } = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event, days);
+    const before = {
+      3: () => signals.commits.push(revert('c'.repeat(40), `Revert "${SUB_PULLS[0]?.title ?? ''} (#13)" (#30)\n\nReverts acme/widgets#13`, 3)),
+      5: () => signals.issues.push({ number: 41, title: 'The colour is lost', body: 'Since #7.', html_url: 'https://github.com/acme/widgets/issues/41', created_at: iso(5), user: { type: 'User' }, labels: [] }),
+    };
+    const ended = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event, { before });
 
     expect([...db.breaks.values()].map(({ kind, source }) => [kind, source])).toEqual([
       ['revert', 'c'.repeat(40)],
@@ -242,9 +257,9 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
     ]);
     expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'broke', unread: [] } });
     expect(rewind.calls).toHaveLength(1);
-    expect(ranSteps(ctx).filter((id) => id === REWIND_STEP)).toEqual([REWIND_STEP]);
-    expect(ranSteps(ctx).indexOf(REWIND_STEP)).toBe(ranSteps(ctx).indexOf('record-3') + 1);
-    expect(ranSteps(ctx)).not.toContain('close-acme/widgets');
+    expect(ended.ran.filter((id) => id === REWIND_STEP)).toEqual([REWIND_STEP]);
+    expect(ended.ran.indexOf(REWIND_STEP)).toBe(ended.ran.indexOf('record-2') + 1);
+    expect(ended.ran).not.toContain('close-acme/widgets');
   });
 
   it('an issue naming the PRD opened on day eight changes nothing: the watch ends clean', async () => {
@@ -264,13 +279,13 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
     signals.refused.add(RUNS);
     const { octokit, event } = widgets({ signals });
     const db = memoryStore();
-    const { ctx, result } = await run({ octokitFor: () => octokit, store: db.store }, event);
+    const ended = await run({ octokitFor: () => octokit, store: db.store }, event);
     expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'watching', unread: ['ci'] } });
-    expect(result).toMatchObject({ lanes: [{ lane: 'acme/widgets', status: 'watching', unread: ['ci'] }] });
-    expect(ranSteps(ctx)).not.toContain('close-acme/widgets');
+    expect(last(ended)).toEqual({ outcome: 'done' });
+    expect(ended.ran).not.toContain('close-acme/widgets');
   });
 
-  it('a replayed event writes nothing new and queues no second rewind', async () => {
+  it('a replayed job writes nothing new and queues no second rewind', async () => {
     const signals = noSignals();
     signals.runs[SHA] = [{ id: 1, name: 'CI' }];
     signals.jobs[1] = [red(10, 'unit')];
@@ -280,11 +295,21 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
     await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
     const [watches, breaks] = [structuredClone([...db.watches.values()]), structuredClone([...db.breaks.values()])];
 
-    const { result } = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
+    const replayed = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
     expect([...db.watches.values()]).toEqual(watches);
     expect([...db.breaks.values()]).toEqual(breaks);
     expect(rewind.jobs.size).toBe(1);
-    expect(result).toMatchObject({ queued: { job: 'job-1', created: false } });
+    expect(last(replayed)).toEqual({ outcome: 'done' });
+  });
+
+  it('takes the looks it has left and no more: at its last look it ends done, its lanes still watching', async () => {
+    const { octokit, event } = widgets();
+    const db = memoryStore();
+    const step: StepRun = { run: async (_id, fn) => asSaved(await fn()) };
+    const handler = mainWatchHandler({ octokitFor: () => octokit, store: db.store, queue: null, now: () => at(2, 30) });
+    expect(await handler(claimed(event, { turn: MAX_LOOKS - 2, done: [], broke: [] }), { step })).toMatchObject({ outcome: 'later' });
+    expect(await handler(claimed(event, { turn: MAX_LOOKS - 1, done: [], broke: [] }), { step })).toEqual({ outcome: 'done' });
+    expect(statusOf(db.watches)).toEqual({ 'acme/widgets': { status: 'watching', unread: [] } });
   });
 
   it('queues the rewind for the installation’s workspace only: no workspace, no watch and no job', async () => {
@@ -294,8 +319,8 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
     const { octokit, event } = widgets({ signals });
     const db = memoryStore({ 9: 'ws-other' });
     const rewind = memoryQueue();
-    const { result } = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
-    expect(result).toEqual({ prd: 7, skipped: 'no workspace holds the installation 7' });
+    const ended = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
+    expect(last(ended)).toEqual({ outcome: 'skipped', reason: 'no workspace holds the installation 7' });
     expect(db.watches.size).toBe(0);
     expect(rewind.calls).toEqual([]);
   });
@@ -307,9 +332,9 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
     const { octokit, event } = widgets({ config: `${CONFIG}mainWatch:\n  enabled: false\n`, signals });
     const db = memoryStore();
     const rewind = memoryQueue();
-    const { ctx, result } = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
-    expect(result).toEqual({ prd: 7, skipped: 'mainWatch.enabled is false at the merge' });
-    expect(ranSteps(ctx)).toEqual(['qualify']);
+    const ended = await run({ octokitFor: () => octokit, store: db.store, queue: rewind.queue }, event);
+    expect(ended.results).toEqual([{ outcome: 'skipped', reason: 'mainWatch.enabled is false at the merge' }]);
+    expect(ended.ran).toEqual(['qualify']);
     expect(db.watches.size).toBe(0);
     expect(rewind.calls).toEqual([]);
   });
@@ -317,23 +342,23 @@ describe('main-watch — a PRD’s seven days on main, against a stubbed GitHub 
   it('a merge that is not a feature PR, or no database, watches nothing', async () => {
     const { octokit, event } = widgets();
     const db = memoryStore();
-    const notFeature = { ...event, data: { ...event.data, prNumber: parsePr(13) } };
-    const { result } = await run({ octokitFor: () => octokit, store: db.store }, notFeature);
-    expect(result).toEqual({ skipped: 'The base `feat/widget` is not the default branch `main`.' });
+    const notFeature = { ...event, prNumber: parsePr(13) };
+    expect(last(await run({ octokitFor: () => octokit, store: db.store }, notFeature))).toEqual({ outcome: 'skipped', reason: 'The base `feat/widget` is not the default branch `main`.' });
     expect(db.watches.size).toBe(0);
-    expect((await run({ octokitFor: () => octokit, store: null }, event)).result).toEqual({ skipped: 'no database to keep the watch in' });
+    expect(last(await run({ octokitFor: () => octokit, store: null }, event))).toEqual({ outcome: 'skipped', reason: 'no database to keep the watch in' });
   });
 
-  it('refuses an event of another shape, naming its field', async () => {
+  it('refuses a payload of another shape, naming its field', async () => {
     const { octokit } = widgets();
-    const { error } = await run({ octokitFor: () => octokit, store: memoryStore().store }, { name: MAIN_WATCH_EVENT, data: { installationId: 7 } });
-    expect(String((error as Error | undefined)?.message)).toMatch(/main-watch\.requested.*owner/s);
+    const handler = mainWatchHandler({ octokitFor: () => octokit, store: memoryStore().store, queue: null });
+    const job: ClaimedJob = { id: 'job-1', kind: MAIN_WATCH_KIND, key: 'acme/widgets#12', subject: 'acme/widgets', payload: { installationId: 7 }, tries: 1, claim: 'c', claimedUntil: iso(0, 5) };
+    await expect(handler(job)).rejects.toThrow(/main-watch job carries an unexpected payload.*owner/s);
   });
 
-  it('is its own function, on its own event', () => {
-    const fn = createMainWatch({ client: inngest, octokitFor: () => widgets().octokit, store: null, queue: null });
-    expect(fn.id()).toBe(MAIN_WATCH_FUNCTION_ID);
-    expect(fn.opts.triggers).toEqual([{ event: MAIN_WATCH_EVENT }]);
+  it('is a job of its own kind, keyed by repository and pull request, in no lane', () => {
+    const job = mainWatchJob({ installationId: 7, owner: 'Acme', repo: 'Widgets', prNumber: parsePr(12), mergeSha: SHA, mergedAt: MERGED_AT });
+    expect(job).toMatchObject({ kind: 'main-watch', key: 'acme/widgets#12', subject: 'acme/widgets', maxTries: 4 });
+    expect(job.lane).toBeUndefined();
   });
 });
 
@@ -343,7 +368,7 @@ describe('main-watch — a multi-repository PRD (PRD 2410, PRD 1130)', () => {
     const scenario = megaScenario();
     const repoOf: Record<number, string> = { 7: 'plan', 21: 'backend', 22: 'frontend' };
     const octokitFor = (id: number) => withSignals(scenario.octokitFor(id), signalsOf[repoOf[id] ?? ''] ?? noSignals());
-    return { scenario, octokitFor, event: { name: MAIN_WATCH_EVENT, data: scenario.event.data } };
+    return { scenario, octokitFor, event: scenario.event.data as Payload };
   }
 
   it('opens one watch per repository it merged into; one broken target makes the PRD broke, and a target not read keeps its own lane watching', async () => {
@@ -353,9 +378,8 @@ describe('main-watch — a multi-repository PRD (PRD 2410, PRD 1130)', () => {
     const { scenario, octokitFor, event } = mega({ backend });
     const db = memoryStore();
     const rewind = memoryQueue();
-    const { result, error } = await run({ octokitFor, appOctokit: scenario.app, store: db.store, queue: rewind.queue }, event);
+    const ended = await run({ octokitFor, appOctokit: scenario.app, store: db.store, queue: rewind.queue }, event);
 
-    expect(error).toBeUndefined();
     expect(statusOf(db.watches)).toEqual({
       'acme/plan': { status: 'watching', unread: ['target mobile'] },
       'acme/backend': { status: 'broke', unread: [] },
@@ -367,6 +391,14 @@ describe('main-watch — a multi-repository PRD (PRD 2410, PRD 1130)', () => {
       ['acme/frontend', 'acme/plan', 'm50'],
     ]);
     expect(rewind.calls).toEqual([{ installationId: 7, repository: 'acme/plan', line: '/omni:rewind 7' }]);
-    expect(result).toMatchObject({ prd: 7 });
+    expect(last(ended)).toEqual({ outcome: 'done' });
+  });
+});
+
+describe('main-watch — registered on the worker (PRD omni-loop-4 s4)', () => {
+  it('is a kind of the live worker, with no failure hook, so a job never runs on Inngest and the ledger both', () => {
+    const { handlers, failures } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
+    expect(typeof handlers[MAIN_WATCH_KIND]).toBe('function');
+    expect(failures[MAIN_WATCH_KIND]).toBeUndefined();
   });
 });

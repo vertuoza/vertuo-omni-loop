@@ -134,17 +134,14 @@ describe('canon-action — from a signed webhook', () => {
       check_run: { id: 5, external_id: INBOX_EXTERNAL_ID, head_sha: 'head1', output: { summary }, pull_requests: [{ number: 12, head: { sha: 'head1' } }] },
     });
     const queued: NewJob[] = [];
-    const sent: unknown[] = [];
     const response = await receiveWebhook({
       body,
       headers: { 'x-github-event': 'check_run', 'x-github-delivery': 'delivery-1', 'x-hub-signature-256': `sha256=${createHmac('sha256', 's').update(body).digest('hex')}` },
       secret: 's',
-      send: (events) => Promise.resolve(sent.push(...events)),
       queueJobs: (jobs) => Promise.resolve(queued.push(...jobs)),
       forward: () => Promise.resolve(),
     });
     expect(response).toEqual({ status: 200, body: 'sent 0 · 1 jobs' });
-    expect(sent).toEqual([]);
     expect(queued).toEqual([canonActionJob('delivery-1', clickOf(CANON_ACTION.claim))]);
     const [first] = queued;
     assertDefined(first, 'the job the click added');

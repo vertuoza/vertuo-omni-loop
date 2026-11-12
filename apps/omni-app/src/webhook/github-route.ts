@@ -1,22 +1,24 @@
 // `/api/github`'s handlers (PRD 1059): a Vercel function in the web-standard shape (a `Request` in, a
 // `Response` out), bound to the groups of the app's environment it needs (../env.ts). It reads the raw
 // body — the signature is over the exact bytes — lets `receiveWebhook` verify and filter it, sends the
-// resulting events, the main watch's (PRD 2410), the only ones left, on the app's Inngest client, and forwards
+// resulting jobs and wakes (no event goes to Inngest any more, PRD omni-loop-4 s4), and forwards
 // a stage event to galaxy, signed with `STAGE_EVENT_SECRET`, and each touch to galaxy's
 // `/api/github/touched`, signed the same way (PRD 902, s3). The webhook secret is `GITHUB_WEBHOOK_SECRET`, required in production; unset
 // elsewhere, every delivery is refused (fail closed).
 //
-// The knowledge pack (PRD 2676 s2): a merge into a repository a product holds adds a job to the ledger before
-// anything goes to Inngest; once the delivery is answered, the jobs due run in `waitUntil` (GitHub gives a
+// The knowledge pack (PRD 2676 s2): a merge into a repository a product holds adds a job to the ledger; once the delivery is answered, the jobs due run in `waitUntil` (GitHub gives a
 // webhook 10 seconds). A repository no product holds adds nothing and reads nothing on GitHub; a database
 // failure is logged and the delivery goes on (the sweep's comparison repairs it).
 //
 // The fix row stamp (PRD 2011 s7) and the fleet board (PRD 2530), PRD omni-loop-3 s3: a pull request merged, closed or
-// reopened adds its `fix-row-stamp` job, a merge into the default branch its `knowledge-harvest` and `retro` jobs
-// (PRD omni-loop-4 s2, s3), and a loop pull request into the default branch its `fleet-board` job, on
-// any repository the App is installed on, before anything goes to Inngest; so does a click of a canon button (PRD
+// reopened adds its `fix-row-stamp` job, a merge into the default branch its `knowledge-harvest`, `retro` and `main-watch` jobs
+// (PRD omni-loop-4 s2, s3, s4), and a loop pull request into the default branch its `fleet-board` job, on
+// any repository the App is installed on; so does a click of a canon button (PRD
 // 839) its `canon-action` job (PRD omni-loop-3 s4). A database that refuses answers 500, so
 // GitHub's redelivery adds the job then; once the delivery is answered, the jobs due run in `waitUntil`.
+//
+// A red check suite on a watched merge commit (PRD omni-loop-4 s4) wakes the `main-watch` jobs waiting on it, and the
+// jobs due run in `waitUntil` at once.
 //
 // The checks (PRD 2688 s7): a pull request event refreshes its checks' jobs before anything else is called,
 // on any repository the App is installed on; the approved label's re-run finds its PRD's open pull requests
@@ -32,8 +34,8 @@ import { githubClient } from '@omni/github';
 import { waitUntil } from '@vercel/functions';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
-import type { MainWatchRequest } from '../main-watch/events.ts';
-import { type AppEvent, inngest } from '../inngest-client.ts';
+import { MAIN_WATCH_KIND } from '../main-watch/main-watch.ts';
+import { watchingJobKeys } from '../main-watch/store.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type NewJob, type RefreshJob } from '../jobs/ledger.ts';
 import { approvedRerunJobs, liveWorkers, type ApprovedRerun, type WorkerEnv } from '../jobs/pr-checks.ts';
 import { runDue } from '../jobs/worker.ts';
@@ -43,9 +45,6 @@ import { forwardStageEvent, stageEventUrl } from '../stage-forward/stage-forward
 import { forwardTouch, touchedUrl } from '../stage-forward/touch.ts';
 import { loggedHandler, noteTo } from '../run-log/run-log.ts';
 import { receiveWebhook } from './webhook.ts';
-
-/** Every event the route sends on the app's Inngest client. */
-type RouteEvent = AppEvent | MainWatchRequest;
 
 /** The groups the route reads: its own, and those the checks' worker reads (../jobs/pr-checks.ts). */
 export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl'> &
@@ -61,6 +60,8 @@ export type RouteJobs = {
   refresh: (job: RefreshJob) => Promise<unknown>;
   /** The `pr-approved` jobs of the open pull requests of the PRD whose approved label changed, read from GitHub. */
   approved: (rerun: ApprovedRerun) => Promise<RefreshJob[]>;
+  /** Wakes the main watches waiting on the merge commit `sha` (a red check suite ran on it); whether one was woken. */
+  wake: (sha: string) => Promise<boolean>;
   run: () => Promise<unknown>;
 };
 
@@ -72,6 +73,7 @@ function liveJobs(env: GithubRouteEnv, logger: Logger): RouteJobs | null {
   const { supabase } = env;
   if (!supabase) return null;
   const ledger = jobLedger(supabase);
+  const watchingKeys = watchingJobKeys(supabase);
   const store = knowledgePackStore(supabase);
   const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo('github', logger) }));
   const workerEnv: WorkerEnv = { ...env, supabase };
@@ -80,6 +82,11 @@ function liveJobs(env: GithubRouteEnv, logger: Logger): RouteJobs | null {
     queue: (job) => ledger.add(job),
     refresh: (job) => ledger.refresh(job),
     approved: async (rerun) => approvedRerunJobs(await octokitFor(rerun.installationId), rerun),
+    wake: async (sha) => {
+      let woke = false;
+      for (const key of await watchingKeys(sha)) woke = (await ledger.wake({ kind: MAIN_WATCH_KIND, key })) || woke;
+      return woke;
+    },
     run: () => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor) }),
   };
 }
@@ -116,6 +123,10 @@ function deliveryJobs(jobs: RouteJobs | null) {
       queueJobs: async (newJobs: NewJob[]) => {
         if (!jobs) return;
         for (const job of newJobs) added = (await jobs.queue(job)) || added;
+      },
+      wakeWatch: async (shas: string[]) => {
+        if (!jobs) return;
+        for (const sha of shas) added = (await jobs.wake(sha)) || added;
       },
     },
     after: ({ pause, say }: { pause: (ms: number) => Promise<void>; say: (line: string) => void }): Promise<void> | null => {
@@ -165,19 +176,16 @@ function repositoryOf(body: string): string | undefined {
 }
 
 /**
- * `POST` and `GET` of `/api/github`, bound to `env`; `send` is the app's Inngest client's unless given,
- * `logger` the structured logger's.
+ * `POST` and `GET` of `/api/github`, bound to `env`; `logger` is the structured logger's.
  */
 export function githubRoute(
   env: GithubRouteEnv,
   {
-    send = (events: RouteEvent[]) => inngest.send(events),
     logger = log,
     jobs = liveJobs(env, logger),
     keepAlive = waitUntil,
     pause = sleep,
   }: {
-    send?: (events: RouteEvent[]) => Promise<unknown>;
     logger?: Logger;
     jobs?: RouteJobs | null;
     /** Keeps the function alive for the jobs after the answer: `waitUntil` of `@vercel/functions` unless given. */
@@ -199,7 +207,6 @@ export function githubRoute(
         headers: request.headers,
         secret: env.webhook?.secret,
         ...delivery.hooks,
-        sendWatch: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched),
       });

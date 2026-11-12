@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { mainWatchStore } from './store.ts';
+import { mainWatchStore, watchingJobKeys } from './store.ts';
 
 type Recorded = { method: string; path: string; query: URLSearchParams; body: unknown; headers: Headers };
 
@@ -95,5 +95,23 @@ describe('mainWatchStore — the watch as the service role, never calling Supaba
     const refusal = new Response(JSON.stringify({ message: 'new row violates check constraint', code: '23514' }), { status: 400, headers: { 'content-type': 'application/json' } });
     const db = recordingFetch([refusal]);
     await expect(storeOn(db.fetch).mark({ ...KEY, breaks: [BREAK], unread: [] })).rejects.toThrow('the database refused: new row violates check constraint (23514)');
+  });
+});
+
+describe('watchingJobKeys — the jobs a red check suite wakes (PRD omni-loop-4 s4)', () => {
+  const keysOn = (fetch: typeof globalThis.fetch) => watchingJobKeys({ url: 'https://db.example', key: 'service-key', fetch });
+
+  it('finds the queued main-watch jobs of the repositories whose lane merged at the commit, still watching', async () => {
+    const db = recordingFetch([[{ repository: 'acme/plan' }, { repository: 'acme/plan' }], [{ key: 'acme/plan#12' }]]);
+    expect(await keysOn(db.fetch)('A'.repeat(40))).toEqual(['acme/plan#12']);
+    const [watch, jobs] = [nth(db.requests, 0), nth(db.requests, 1)];
+    expect([watch.path, watch.query.get('merge_sha'), watch.query.get('status')]).toEqual(['/rest/v1/prd_main_watch', `eq.${'a'.repeat(40)}`, 'eq.watching']);
+    expect([jobs.path, jobs.query.get('kind'), jobs.query.get('state'), jobs.query.get('subject')]).toEqual(['/rest/v1/background_jobs', 'eq.main-watch', 'eq.queued', 'in.(acme/plan)']);
+  });
+
+  it('reads no job when no watch holds the commit', async () => {
+    const db = recordingFetch([[]]);
+    expect(await keysOn(db.fetch)(SHA)).toEqual([]);
+    expect(db.requests).toHaveLength(1);
   });
 });
