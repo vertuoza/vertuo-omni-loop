@@ -1,0 +1,29 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-12",
+      "personas": [
+        {"name": "Lead Engineer", "stance": "neutral", "score": 3, "reaction": "If a docs-only commit forces a full re-proof, people will learn to skip it.", "citations": ["persona:Lead Engineer"]},
+        {"name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A proof tied to the head I merge is the one thing that keeps a green check from lying to me in production.", "citations": ["persona:F-E Developer"]},
+        {"name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Fine, as long as it is the agent that reruns the test after a review fix, not me.", "citations": ["persona:B-E DEv"]},
+        {"name": "Paul - Product Manager", "stance": "excited", "score": 3, "reaction": "One more rerun after review slows a fix a little, but a fix that ships broken costs me more.", "citations": ["persona:Paul - Product Manager"]},
+        {"name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A refusal that names the two commits tells me what to do without knowing the harness.", "citations": ["persona:Irisa"]}
+      ],
+      "objection": {"persona": "Lead Engineer", "text": "If a docs-only commit forces a full re-proof, people will learn to skip it.", "citations": ["persona:Lead Engineer"], "settled": "none"},
+      "fit": "Fits the skeptical developers best; the lead engineer worries the strict rule invites skipping."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-12",
+      "personas": [
+        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Strict, but pr-care does the rerun, so nobody has a reason to skip it.", "citations": ["persona:Lead Engineer"]},
+        {"name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A proof tied to the head I merge is the one thing that keeps a green check from lying to me in production.", "citations": ["persona:F-E Developer"]},
+        {"name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "The agent reruns the test after its own review fix; I only see a draft when it really failed.", "citations": ["persona:B-E DEv"]},
+        {"name": "Paul - Product Manager", "stance": "excited", "score": 3, "reaction": "One more rerun after review slows a fix a little, but a fix that ships broken costs me more.", "citations": ["persona:Paul - Product Manager"]},
+        {"name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A refusal that names the two commits tells me what to do without knowing the harness.", "citations": ["persona:Irisa"]}
+      ],
+      "fit": "Fits every persona once pr-care carries the rerun."
+    }
+  ]
+}
