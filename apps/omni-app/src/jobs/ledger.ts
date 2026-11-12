@@ -19,7 +19,17 @@
 //            job (P0002) or one not failed (55000) is answered in words
 //   health   background_jobs_health(): ok or late, with counts and no name; given the schedules (./schedule.ts),
 //            late too when a schedule's kind has had no done job for three of its periods
-//   forget   background_jobs_forget(): the jobs finished over 90 days ago deleted; how many
+//   forget   background_jobs_forget(): the jobs finished over 90 days ago deleted, with their saved steps; how many
+//
+// A job that lives for days (PRD omni-loop-4 s1, `20270117090000_background_job_steps.sql`):
+//
+//   save     background_job_save(): one finished step of the job, its value as JSON (at most 1 MB, else
+//            thrown naming the step), under the job's claim; `stale` when the claim is no longer the job's
+//   stepsOf  background_job_steps_of(): the job's saved steps, by id, under its claim; `stale` as above
+//   renew    background_job_renew(): the claim held a lease more from now (5 minutes when not given); `until`
+//            it now runs out, or `stale` as above
+//   wake     background_job_wake(): the queued job of that kind and key due now; whether there was one. A job
+//            running or finished is left as it is
 //
 // Throws on any other refusal, or an answer out of shape.
 import { z } from 'zod';
@@ -122,6 +132,18 @@ export const HealthSchema = z.object({
 });
 export type JobsHealth = z.infer<typeof HealthSchema>;
 
+/** A job held under its claim: what saving, reading and renewing are done under. */
+export type Held = { id: string; claim: string };
+
+/** A step to save: its id, and its value as JSON (what `asSaved` makes of what the step returned). */
+export type SaveStep = Held & { step: string; value: unknown };
+
+/** A job's saved steps: each step's value, by the step's id. */
+export type SavedSteps = ReadonlyMap<string, unknown>;
+
+/** A row as background_job_steps_of() answers it. */
+const StepRowSchema = z.object({ step: z.string().min(1), value: z.unknown(), saved_at: z.string().min(1) });
+
 export type Ledger = {
   add: (job: NewJob) => Promise<boolean>;
   refresh: (job: RefreshJob) => Promise<Refreshed>;
@@ -130,12 +152,25 @@ export type Ledger = {
   replay: (id: string) => Promise<Replayed>;
   health: (schedules?: readonly Schedule[]) => Promise<JobsHealth>;
   forget: () => Promise<number>;
+  save: (input: SaveStep) => Promise<'saved' | 'stale'>;
+  stepsOf: (job: Held) => Promise<SavedSteps | 'stale'>;
+  renew: (job: Held & { leaseSeconds?: number }) => Promise<{ until: string } | 'stale'>;
+  wake: (job: { kind: string; key: string }) => Promise<boolean>;
 };
 
-/** What the worker needs of the ledger. */
-export type JobLedger = Pick<Ledger, 'claim' | 'finish'>;
+/** What a job's saved steps need of the ledger (PRD omni-loop-4 s1). */
+export type StepLedger = Pick<Ledger, 'save' | 'stepsOf' | 'renew'>;
+
+/**
+ * What the worker needs of the ledger: its claims and finishes, and the saved steps of the jobs it runs. A
+ * ledger without the steps (a test's) keeps each job's steps for its one run only.
+ */
+export type JobLedger = Pick<Ledger, 'claim' | 'finish'> & Partial<StepLedger>;
 
 type Refusal = { message: string; code?: string };
+
+/** The database's refusal of a claim that is no longer the job's. */
+const STALE = '55000';
 
 const refused = (error: Refusal) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ''}`);
 
@@ -202,5 +237,28 @@ export function jobLedger(connection: Connection): Ledger {
       HealthSchema.parse(dataOf(await db.rpc('background_jobs_health', healthArgs(schedules), { get: true }))),
 
     forget: async () => z.number().int().nonnegative().parse(dataOf(await db.rpc('background_jobs_forget'))),
+
+    save: async ({ id, claim, step, value }) => {
+      // The value is JSON already: what `asSaved` made of the step's return, so it reads back as it was saved.
+      const answer = await db.rpc('background_job_save', { p_id: id, p_claim: claim, p_step: step, p_value: value as Json });
+      if (answer.error?.code === STALE) return 'stale';
+      dataOf(answer);
+      return 'saved';
+    },
+
+    stepsOf: async ({ id, claim }) => {
+      const answer = await db.rpc('background_job_steps_of', { p_id: id, p_claim: claim });
+      if (answer.error?.code === STALE) return 'stale';
+      const rows = z.array(StepRowSchema).parse(dataOf(answer));
+      return new Map(rows.map(({ step, value }) => [step, value]));
+    },
+
+    renew: async ({ id, claim, leaseSeconds }) => {
+      const answer = await db.rpc('background_job_renew', { p_id: id, p_claim: claim, ...(leaseSeconds === undefined ? {} : { p_lease_seconds: leaseSeconds }) });
+      if (answer.error?.code === STALE) return 'stale';
+      return { until: z.string().min(1).parse(dataOf(answer)) };
+    },
+
+    wake: async ({ kind, key }) => z.boolean().parse(dataOf(await db.rpc('background_job_wake', { p_kind: kind, p_key: key }))),
   };
 }

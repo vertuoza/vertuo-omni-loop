@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { GithubDeferred, GithubPaused } from '@omni/github';
+import { fakeStepLedger } from '../../test/saved-steps.ts';
+import { savedStep } from '../saved-step.ts';
 import type { ClaimedJob, Finish, FinishAnswer, JobLedger } from './ledger.ts';
 import { LEASE_SECONDS, runDue, TIME_BUDGET_MS, type FailureHook, type JobHandler, type JobResult } from './worker.ts';
 
@@ -347,5 +350,64 @@ describe('runDue — a finish that does not land', () => {
       `job knowledge-pack initech/pack-api@${'1'.repeat(40)}: skipped: no product holds initech/pack-api`,
       `job knowledge-pack initech/pack-api@${'2'.repeat(40)}: failed on try 5: GitHub answered 502`,
     ]);
+  });
+});
+
+describe('runDue — a job\'s saved steps (PRD omni-loop-4 s1)', () => {
+  const Count = z.object({ count: z.number() });
+
+  /** A handler of two saved steps, `first` and `second`, counting how often each ran; it throws after `first` once. */
+  function twoSteps({ throwAfterFirst = false } = {}) {
+    const ran: string[] = [];
+    let thrown = !throwAfterFirst;
+    const handler: JobHandler = async (_job, run) => {
+      const step = run?.step;
+      if (!step) throw new Error('no step given');
+      await savedStep(step, 'first', Count, () => {
+        ran.push('first');
+        return { count: 1 };
+      });
+      if (!thrown) {
+        thrown = true;
+        throw new Error('the function was cut');
+      }
+      await savedStep(step, 'second', Count, () => {
+        ran.push('second');
+        return { count: 2 };
+      });
+      return { outcome: 'done' };
+    };
+    return { handler, ran };
+  }
+
+  it('saves each step on the ledger and renews the claim, for the worker\'s lease, after each', async () => {
+    const steps = fakeStepLedger();
+    const { ledger } = fakeLedger([{}]);
+    const { handler, ran } = twoSteps();
+    const renew = vi.spyOn(steps.ledger, 'renew');
+    const summary = await runDue({ ledger: { ...ledger, ...steps.ledger }, handlers: { 'knowledge-pack': handler }, clock: () => START, log: () => undefined });
+    expect(summary.done).toBe(1);
+    expect(ran).toEqual(['first', 'second']);
+    expect(steps.calls).toEqual({ read: ['job-1'], saved: ['job-1 first', 'job-1 second'], renewed: ['job-1', 'job-1'] });
+    expect(renew).toHaveBeenCalledWith({ id: 'job-1', claim: 'claim-1', leaseSeconds: LEASE_SECONDS });
+    expect(steps.stepsOf('job-1')).toEqual({ first: { count: 1 }, second: { count: 2 } });
+  });
+
+  it('a run cut after a step carries on from the next step on its retry: no finished step runs again', async () => {
+    const steps = fakeStepLedger();
+    const { handler, ran } = twoSteps({ throwAfterFirst: true });
+    const cut = fakeLedger([{ id: 'job-40', claim: 'claim-1', tries: 1 }]);
+    expect((await runDue({ ledger: { ...cut.ledger, ...steps.ledger }, handlers: { 'knowledge-pack': handler }, clock: () => START, log: () => undefined })).retry).toBe(1);
+    const retried = fakeLedger([{ id: 'job-40', claim: 'claim-2', tries: 2 }]);
+    expect((await runDue({ ledger: { ...retried.ledger, ...steps.ledger }, handlers: { 'knowledge-pack': handler }, clock: () => START, log: () => undefined })).done).toBe(1);
+    expect(ran).toEqual(['first', 'second']);
+  });
+
+  it('a ledger without saved steps gives each run steps of its own', async () => {
+    const { ledger } = fakeLedger([{}, {}]);
+    const { handler, ran } = twoSteps();
+    const summary = await run(ledger, handler);
+    expect(summary.done).toBe(2);
+    expect(ran).toEqual(['first', 'second', 'first', 'second']);
   });
 });
