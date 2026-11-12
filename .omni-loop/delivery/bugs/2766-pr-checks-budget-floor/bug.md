@@ -8,7 +8,8 @@
 
 ## Reproduction
 
-- **File:** `apps/omni-app/src/jobs/pr-checks.budget.test.ts`, `packages/github/src/client.test.ts` (describe "Git objects named by their sha never change"), `apps/omni-app/src/snapshot/snapshot.budget.test.ts`
+- **File:** `apps/omni-app/src/jobs/pr-checks.budget.test.ts`
+- **Also:** `apps/omni-app/src/snapshot/snapshot.budget.test.ts`, and the describe "Git objects named by their sha never change" in `packages/github/src/client.test.ts`, for the drain
 - **Level:** unit
 - **Red:** `HttpError: GitHub budget below its background floor until …` for each of `pr-outbox`, `pr-inbox`, `pr-approved` and `pr-budgets` with the budget at 10% of its limit; `AssertionError: expected [ …(12) ] to have a length of 6 but got 12` (a second snapshot of the same commit sent every Git object again); and the stored blob and tree asked of GitHub again (`no answer stubbed for …/git/blobs/aaaa…`)
 
