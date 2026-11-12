@@ -13,7 +13,7 @@ export function stillOpenBullets(body: string | undefined): string[] {
   for (const line of body.split(/\r?\n/)) {
     const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
     if (bullet !== null) bullets.push(bullet[1] ?? '');
-    else if (line.trim() !== '' && bullets.length > 0 && /^\s/.test(line)) bullets[bullets.length - 1] += ` ${line.trim()}`;
+    else if (line.trim() !== '' && bullets.length > 0 && /^\s/.test(line)) bullets[bullets.length - 1] = `${bullets.at(-1) ?? ''} ${line.trim()}`;
   }
   return bullets.map(collapse).filter((bullet) => bullet !== '' && bullet.toLowerCase() !== 'none');
 }
