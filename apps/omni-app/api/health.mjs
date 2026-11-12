@@ -241,6 +241,8 @@ var HealthSchema = z5.object({
   /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
   scheduled: z5.number().int().nonnegative().optional()
 });
+var StepRowSchema = z5.object({ step: z5.string().min(1), value: z5.unknown(), saved_at: z5.string().min(1) });
+var STALE = "55000";
 var refused = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
   if (error) throw refused(error);
@@ -288,7 +290,25 @@ function jobLedger(connection) {
       return { replayed: true, ...job };
     },
     health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
-    forget: async () => z5.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
+    forget: async () => z5.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget"))),
+    save: async ({ id, claim, step, value }) => {
+      const answer = await db.rpc("background_job_save", { p_id: id, p_claim: claim, p_step: step, p_value: z5.json().parse(value) });
+      if (answer.error?.code === STALE) return "stale";
+      dataOf(answer);
+      return "saved";
+    },
+    stepsOf: async ({ id, claim }) => {
+      const answer = await db.rpc("background_job_steps_of", { p_id: id, p_claim: claim });
+      if (answer.error?.code === STALE) return "stale";
+      const rows = z5.array(StepRowSchema).parse(dataOf(answer));
+      return new Map(rows.map(({ step, value }) => [step, value]));
+    },
+    renew: async ({ id, claim, leaseSeconds }) => {
+      const answer = await db.rpc("background_job_renew", { p_id: id, p_claim: claim, ...leaseSeconds === void 0 ? {} : { p_lease_seconds: leaseSeconds } });
+      if (answer.error?.code === STALE) return "stale";
+      return { until: z5.string().min(1).parse(dataOf(answer)) };
+    },
+    wake: async ({ kind, key }) => z5.boolean().parse(dataOf(await db.rpc("background_job_wake", { p_kind: kind, p_key: key })))
   };
 }
 

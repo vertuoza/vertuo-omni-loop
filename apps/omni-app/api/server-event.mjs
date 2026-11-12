@@ -859,6 +859,8 @@ var HealthSchema = z6.object({
   /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
   scheduled: z6.number().int().nonnegative().optional()
 });
+var StepRowSchema = z6.object({ step: z6.string().min(1), value: z6.unknown(), saved_at: z6.string().min(1) });
+var STALE = "55000";
 var refused2 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
   if (error) throw refused2(error);
@@ -906,7 +908,25 @@ function jobLedger(connection) {
       return { replayed: true, ...job };
     },
     health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
-    forget: async () => z6.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
+    forget: async () => z6.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget"))),
+    save: async ({ id, claim, step, value }) => {
+      const answer = await db.rpc("background_job_save", { p_id: id, p_claim: claim, p_step: step, p_value: z6.json().parse(value) });
+      if (answer.error?.code === STALE) return "stale";
+      dataOf(answer);
+      return "saved";
+    },
+    stepsOf: async ({ id, claim }) => {
+      const answer = await db.rpc("background_job_steps_of", { p_id: id, p_claim: claim });
+      if (answer.error?.code === STALE) return "stale";
+      const rows = z6.array(StepRowSchema).parse(dataOf(answer));
+      return new Map(rows.map(({ step, value }) => [step, value]));
+    },
+    renew: async ({ id, claim, leaseSeconds }) => {
+      const answer = await db.rpc("background_job_renew", { p_id: id, p_claim: claim, ...leaseSeconds === void 0 ? {} : { p_lease_seconds: leaseSeconds } });
+      if (answer.error?.code === STALE) return "stale";
+      return { until: z6.string().min(1).parse(dataOf(answer)) };
+    },
+    wake: async ({ kind, key }) => z6.boolean().parse(dataOf(await db.rpc("background_job_wake", { p_kind: kind, p_key: key })))
   };
 }
 
@@ -6036,8 +6056,8 @@ function evaluate({
     config = parseConfig(readFileSync15(configFile, "utf8"), CONFIG_FILE);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
-    const [firstLine3 = ""] = error.message.split("\n");
-    return { conclusion: "failure", title: firstLine3, summary: error.message, comment: null };
+    const [firstLine4 = ""] = error.message.split("\n");
+    return { conclusion: "failure", title: firstLine4, summary: error.message, comment: null };
   }
   const ctx = createContext(head, config);
   const kind = pullKind(pr, config);
@@ -12197,11 +12217,73 @@ function firstReviews(pull, author) {
 }
 
 // apps/omni-app/src/saved-step.ts
+var RENEW_EVERY_MS = 6e4;
 async function savedStep(step, id, schema, fn) {
   return parseSaved(schema, await step.run(id, fn), id);
 }
 function parseSaved(schema, value, id) {
   return parseOrThrow(schema, value, `The step "${id}" came back in an unexpected shape`);
+}
+function asSaved(value) {
+  return value === void 0 ? null : JSON.parse(JSON.stringify(value));
+}
+function jobSteps({
+  ledger,
+  job,
+  leaseSeconds,
+  renewEveryMs = RENEW_EVERY_MS,
+  log: log2 = () => void 0
+}) {
+  const name = `job ${job.id}`;
+  const held = leaseSeconds === void 0 ? job : { ...job, leaseSeconds };
+  let saved = null;
+  const read = async (id) => {
+    const steps = await ledger.stepsOf(job);
+    if (steps === "stale") throw new Error(`${name}: its claim was taken over before the step "${id}"`);
+    return new Map(steps);
+  };
+  const renewing = async (id, fn) => {
+    const timer = setInterval(() => {
+      void ledger.renew(held).then(
+        (answer) => {
+          if (answer === "stale") log2(`${name}: its claim was taken over while the step "${id}" ran`);
+        },
+        (error) => {
+          log2(`${name}: its claim was not renewed: ${firstLine2(error)}`);
+        }
+      );
+    }, renewEveryMs);
+    try {
+      return await fn();
+    } finally {
+      clearInterval(timer);
+    }
+  };
+  return {
+    run: async (id, fn) => {
+      saved ??= read(id);
+      const steps = await saved;
+      if (steps.has(id)) return steps.get(id);
+      const value = asSaved(await renewing(id, fn));
+      if (await ledger.save({ ...job, step: id, value }) === "stale") throw new Error(`${name}: its claim was taken over before the step "${id}" was saved`);
+      steps.set(id, value);
+      if (await ledger.renew(held) === "stale") throw new Error(`${name}: its claim was taken over after the step "${id}" was saved`);
+      return value;
+    }
+  };
+}
+function memorySteps() {
+  const steps = /* @__PURE__ */ new Map();
+  return {
+    run: async (id, fn) => {
+      if (!steps.has(id)) steps.set(id, asSaved(await fn()));
+      return steps.get(id);
+    }
+  };
+}
+function firstLine2(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.split("\n")[0]?.trim() ?? "";
 }
 
 // apps/omni-app/src/pr-stats/collect.ts
@@ -13025,7 +13107,7 @@ async function runDue({
   while (clock() - start < budgetMs) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
     if (!job) break;
-    const settled = await settle(job, handlers[job.kind], clock);
+    const settled = await settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
     summary.ran += 1;
     const kept2 = await keep(ledger, job, settled, log2);
     const ended = settled.outcome === "later" && kept2 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
@@ -13041,17 +13123,22 @@ async function failed2(job, reason2, hook, log2) {
   try {
     await hook(job, reason2 ?? "it failed on its last try");
   } catch (error) {
-    log2(`job ${job.kind} ${job.key}: its failure hook threw: ${firstLine2(error instanceof Error ? error.message : String(error))}`);
+    log2(`job ${job.kind} ${job.key}: its failure hook threw: ${firstLine3(error instanceof Error ? error.message : String(error))}`);
   }
 }
-async function settle(job, handler, clock) {
+function stepsOf(ledger, job, leaseSeconds, log2) {
+  const { save, stepsOf: read, renew } = ledger;
+  if (!save || !read || !renew) return memorySteps();
+  return jobSteps({ ledger: { save, stepsOf: read, renew }, job: { id: job.id, claim: job.claim }, leaseSeconds, log: log2 });
+}
+async function settle(job, handler, run, clock) {
   try {
     if (!handler) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
-    return settledOf(await handler(job));
+    return settledOf(await handler(job, run));
   } catch (error) {
-    const reason2 = firstLine2(error instanceof Error ? error.message : String(error));
+    const reason2 = firstLine3(error instanceof Error ? error.message : String(error));
     const budget = budgetRefusal2(error);
-    if (budget) return { outcome: "waiting", reason: firstLine2(budget.message), retryAt: later(clock, WAIT_MINUTES) };
+    if (budget) return { outcome: "waiting", reason: firstLine3(budget.message), retryAt: later(clock, WAIT_MINUTES) };
     const wait2 = RETRY_MINUTES[job.tries - 1];
     if (job.tries >= (job.maxTries ?? MAX_TRIES2) || wait2 === void 0) return { outcome: "failed", reason: reason2, retryAt: null };
     return { outcome: "retry", reason: reason2, retryAt: later(clock, wait2) };
@@ -13060,7 +13147,7 @@ async function settle(job, handler, clock) {
 function settledOf(result) {
   if (result.outcome === "done") return { outcome: "done", reason: null, retryAt: null };
   if (result.outcome === "later") return { outcome: "later", reason: null, retryAt: result.at.toISOString(), progress: result.progress };
-  return { outcome: "skipped", reason: firstLine2(result.reason), retryAt: null };
+  return { outcome: "skipped", reason: firstLine3(result.reason), retryAt: null };
 }
 async function keep(ledger, job, settled, log2) {
   const name = `job ${job.kind} ${job.key}`;
@@ -13068,7 +13155,7 @@ async function keep(ledger, job, settled, log2) {
   try {
     answer = await ledger.finish({ id: job.id, claim: job.claim, ...settled });
   } catch (error) {
-    log2(`${name}: its ${settled.outcome} was not kept: ${firstLine2(error instanceof Error ? error.message : String(error))}`);
+    log2(`${name}: its ${settled.outcome} was not kept: ${firstLine3(error instanceof Error ? error.message : String(error))}`);
     return null;
   }
   if (answer === "stale") log2(`${name}: its claim was taken over, so its ${settled.outcome} was not kept`);
@@ -13082,7 +13169,7 @@ function budgetRefusal2(error) {
   }
   return null;
 }
-function firstLine2(message) {
+function firstLine3(message) {
   const line = message.split("\n").map((one) => one.trim()).find((one) => one.length > 0);
   return line ? line.slice(0, MAX_REASON) : "it threw with no message";
 }
