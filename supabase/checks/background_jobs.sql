@@ -12,6 +12,9 @@
 -- Waiting and pacing (PRD omni-loop-3 s1): `later` queues the job at its date with its progress, its try given
 -- back, and the 21st fails it; one job of a kind and lane runs at a time, in one claim or two at once; each job
 -- has its own tries; a schedule with no done job for three periods is late; a stale claim is still refused.
+-- Long jobs (PRD omni-loop-4 s1): a step saved under a live claim is read back, under a stale one refused, and
+-- over 1 MB refused naming the step; a `later` and a replay keep the steps, the forget deletes them with their
+-- job; `wake` makes a queued job due now and leaves a running or finished one; `renew` extends only a live claim.
 -- One transaction, rolled back at the end, then the races through dblink. Any `FAIL:` stops the run.
 
 begin;
@@ -90,7 +93,9 @@ begin
     'public.background_job_add(text, text, text, jsonb, text, integer)', 'public.background_job_claim(integer, integer)',
     'public.background_job_finish(uuid, uuid, text, text, timestamptz, jsonb)', 'public.background_job_replay(uuid)',
     'public.background_jobs_health(text[], integer[])', 'public.background_jobs_forget()',
-    'public.background_job_refresh(text, text, text, jsonb, integer, text, integer)'] loop
+    'public.background_job_refresh(text, text, text, jsonb, integer, text, integer)',
+    'public.background_job_save(uuid, uuid, text, jsonb)', 'public.background_job_steps_of(uuid, uuid)',
+    'public.background_job_wake(text, text)', 'public.background_job_renew(uuid, uuid, integer)'] loop
     if has_function_privilege('anon', fn, 'execute') or has_function_privilege('authenticated', fn, 'execute') then
       raise exception 'FAIL: % may be called by someone signed in or signed out', fn;
     end if;
@@ -103,7 +108,12 @@ begin
      or has_function_privilege('service_role', 'public.background_job_line(text)', 'execute') then
     raise exception 'FAIL: background_job_line() may be called by someone';
   end if;
-  foreach fn in array array['public.background_jobs', 'public.background_job_attempts'] loop
+  if has_function_privilege('anon', 'public.background_job_held(uuid, uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.background_job_held(uuid, uuid)', 'execute')
+     or has_function_privilege('service_role', 'public.background_job_held(uuid, uuid)', 'execute') then
+    raise exception 'FAIL: background_job_held() may be called by someone';
+  end if;
+  foreach fn in array array['public.background_jobs', 'public.background_job_attempts', 'public.background_job_steps'] loop
     if has_table_privilege('anon', fn, 'select, insert, update, delete, truncate')
        or has_table_privilege('authenticated', fn, 'select, insert, update, delete, truncate') then
       raise exception 'FAIL: % may be read or written by someone signed in or signed out', fn;
@@ -126,11 +136,20 @@ select pg_temp.refused($q$select * from public.background_job_claim(1, 60)$q$, '
 select pg_temp.refused($q$select public.background_jobs_health()$q$, '42501', 'a person reading the health');
 select pg_temp.refused($q$select 1 from public.background_jobs$q$, '42501', 'a person reading the jobs');
 select pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'x/y#1', 'x/y', '{}', 5)$q$, '42501', 'a person refreshing a job');
+select pg_temp.refused($q$select 1 from public.background_job_steps$q$, '42501', 'a person reading the saved steps');
+select pg_temp.refused($q$select public.background_job_save(gen_random_uuid(), gen_random_uuid(), 'facts', '{}')$q$, '42501', 'a person saving a step');
+select pg_temp.refused($q$select * from public.background_job_steps_of(gen_random_uuid(), gen_random_uuid())$q$, '42501', 'a person reading a job''s steps');
+select pg_temp.refused($q$select public.background_job_wake('retro', 'x/y#1')$q$, '42501', 'a person waking a job');
+select pg_temp.refused($q$select public.background_job_renew(gen_random_uuid(), gen_random_uuid())$q$, '42501', 'a person renewing a claim');
 reset role;
 set local role anon;
 select pg_temp.refused($q$select 1 from public.background_job_attempts$q$, '42501', 'anon reading the attempts');
 select pg_temp.refused($q$select public.background_jobs_forget()$q$, '42501', 'anon forgetting the jobs');
 select pg_temp.refused($q$select public.background_job_refresh('pr-outbox', 'x/y#1', 'x/y', '{}', 5)$q$, '42501', 'anon refreshing a job');
+select pg_temp.refused($q$select 1 from public.background_job_steps$q$, '42501', 'anon reading the saved steps');
+select pg_temp.refused($q$select public.background_job_save(gen_random_uuid(), gen_random_uuid(), 'facts', '{}')$q$, '42501', 'anon saving a step');
+select pg_temp.refused($q$select public.background_job_wake('retro', 'x/y#1')$q$, '42501', 'anon waking a job');
+select pg_temp.refused($q$select public.background_job_renew(gen_random_uuid(), gen_random_uuid())$q$, '42501', 'anon renewing a claim');
 reset role;
 
 set local role service_role;
@@ -632,6 +651,11 @@ $$;
 create function pg_temp.kj_ended(k text, ky text, ago interval) returns void language sql security definer as $$
   update public.background_jobs j set finished_at = now() - ago where j.kind = k and j.key = ky;
 $$;
+-- Every row of this transaction is created at the same now(): a job added earlier is set so, or two jobs due at
+-- once are ordered by their random ids.
+create function pg_temp.kj_born(k text, ky text, ago interval) returns void language sql security definer as $$
+  update public.background_jobs j set created_at = now() - ago where j.kind = k and j.key = ky;
+$$;
 -- The jobs claimed now, as `kind/key` in order; `none` when no job is due.
 create function pg_temp.taken(lim integer default 10) returns text language sql as $$
   select coalesce(string_agg(c.kind || '/' || c.key, ' ' order by c.kind, c.key), 'none') from public.background_job_claim(lim, 60) c;
@@ -838,6 +862,7 @@ begin
   end if;
   -- A claim that ran out frees the lane: the job is due again, and it is the one handed out.
   perform public.background_job_add('pr-stats', 'pr-stats@e', 'pr-stats', '{}', 'pr-stats', 3);
+  perform pg_temp.kj_born('pr-stats', 'pr-stats@b', interval '1 minute');
   perform pg_temp.kj_expire('pr-stats', 'pr-stats@b');
   if pg_temp.taken(1) <> 'pr-stats/pr-stats@b' then
     raise exception 'FAIL: a lost claim of the lane was not handed out again before the next job of the lane';
@@ -877,6 +902,186 @@ begin
   perform pg_temp.kj_ended('pr-stats', 'pr-stats@a', interval '2 hours 59 minutes');
   if pg_temp.scheduled(array['pr-stats'], array[3600]) <> 0 then
     raise exception 'FAIL: a done job 2 hours 59 minutes ago made an hourly schedule late';
+  end if;
+end $$;
+reset role;
+
+-- ── Saved steps, waking and renewing (PRD omni-loop-4 s1), from an empty ledger ──
+delete from public.background_jobs;
+
+-- The saved steps of a job, as `step=value` in order, read as the owner under no claim; and how many steps
+-- the ledger holds in all.
+create function pg_temp.kj_steps(k text, ky text) returns text language sql security definer as $$
+  select coalesce(string_agg(s.step || '=' || s.value::text, ' ' order by s.saved_at, s.step), '')
+    from public.background_job_steps s join public.background_jobs j on j.id = s.job_id
+   where j.kind = k and j.key = ky;
+$$;
+create function pg_temp.all_steps() returns integer language sql security definer as $$
+  select count(*)::integer from public.background_job_steps;
+$$;
+-- The steps background_job_steps_of() reads back under a claim, as `step=value` in order.
+create function pg_temp.read_back(id uuid, claim uuid) returns text language sql as $$
+  select coalesce(string_agg(s.step || '=' || s.value::text, ' ' order by s.saved_at, s.step), '')
+    from public.background_job_steps_of(id, claim) s;
+$$;
+
+set local role service_role;
+
+-- ── A step saved under a live claim is read back; a malformed or too big one is refused, naming the step ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  perform public.background_job_add('retro', 'initech/web#40', 'initech/web', '{"pr": 40}', 'initech/web', 2);
+  if pg_temp.taken() <> 'retro/initech/web#40' then
+    raise exception 'FAIL: the retro job was not handed out';
+  end if;
+  j := pg_temp.kj('retro', 'initech/web#40');
+  if pg_temp.read_back(j.id, j.claim) <> '' then
+    raise exception 'FAIL: a job with no saved step read some back';
+  end if;
+  perform public.background_job_save(j.id, j.claim, 'qualify', '{"feature": false}');
+  perform public.background_job_save(j.id, j.claim, 'qualify', '{"feature": true}');
+  perform public.background_job_save(j.id, j.claim, 'facts', null);
+  if pg_temp.read_back(j.id, j.claim) <> 'facts=null qualify={"feature": true}' then
+    raise exception 'FAIL: the saved steps did not read back, the latest value kept: %', pg_temp.read_back(j.id, j.claim);
+  end if;
+  perform pg_temp.refused(format('select public.background_job_save(%L, %L, '' '', ''{}'')', j.id, j.claim),
+    '22023', 'a step with no id', 'Step');
+  perform pg_temp.refused(format('select public.background_job_save(%L, %L, ''sheet'', jsonb_build_object(''x'', repeat(''a'', 1048576)))', j.id, j.claim),
+    '22023', 'a value over 1 MB', 'Step "sheet"');
+  perform pg_temp.refused(format('select public.background_job_save(%L, %L, ''facts'', ''{}'')', gen_random_uuid(), j.claim),
+    'P0002', 'a step of no job', 'does not exist');
+  if pg_temp.kj_steps('retro', 'initech/web#40') <> 'facts=null qualify={"feature": true}' then
+    raise exception 'FAIL: a refused save changed the steps: %', pg_temp.kj_steps('retro', 'initech/web#40');
+  end if;
+end $$;
+
+-- ── A `later` keeps the steps; the claim it ended is stale for them; `wake` makes the job due now ──
+do $$
+declare
+  j     public.background_jobs;
+  stale uuid;
+begin
+  j := pg_temp.kj('retro', 'initech/web#40');
+  stale := j.claim;
+  perform public.background_job_finish(j.id, j.claim, 'later', null, now() + interval '14 days', '{}');
+  perform pg_temp.refused(format('select public.background_job_save(%L, %L, ''publish'', ''{}'')', j.id, stale),
+    '55000', 'a step saved under the claim of a job waiting', 'no longer held');
+  perform pg_temp.refused(format('select * from public.background_job_steps_of(%L, %L)', j.id, stale),
+    '55000', 'the steps read under the claim of a job waiting', 'no longer held');
+  if pg_temp.taken() <> 'none' then
+    raise exception 'FAIL: a job waiting 14 days was handed out';
+  end if;
+
+  if public.background_job_wake('retro', 'initech/web#4') or public.background_job_wake('main-watch', 'initech/web#40') then
+    raise exception 'FAIL: wake woke a job of another key or kind';
+  end if;
+  if (pg_temp.kj('retro', 'initech/web#40')).run_after <> now() + interval '14 days' then
+    raise exception 'FAIL: a wake of another key or kind moved the job';
+  end if;
+  if not public.background_job_wake('retro', 'initech/web#40') then
+    raise exception 'FAIL: wake did not wake a queued job';
+  end if;
+  j := pg_temp.kj('retro', 'initech/web#40');
+  if j.state <> 'queued' or j.run_after <> now() or j.laters <> 1 or j.tries <> 0 then
+    raise exception 'FAIL: a woken job is not queued, due now, its laters and tries kept: %', j;
+  end if;
+  -- A job already due keeps its place.
+  perform pg_temp.kj_due('retro', 'initech/web#40', interval '2 minutes');
+  if not public.background_job_wake('retro', 'initech/web#40') or (pg_temp.kj('retro', 'initech/web#40')).run_after <> now() - interval '2 minutes' then
+    raise exception 'FAIL: a wake moved a job already due later';
+  end if;
+
+  -- Its next run reads its steps back under its new claim.
+  if pg_temp.taken() <> 'retro/initech/web#40' then
+    raise exception 'FAIL: the woken job was not handed out';
+  end if;
+  j := pg_temp.kj('retro', 'initech/web#40');
+  if pg_temp.read_back(j.id, j.claim) <> 'facts=null qualify={"feature": true}' then
+    raise exception 'FAIL: the run after a later did not read its steps back: %', pg_temp.read_back(j.id, j.claim);
+  end if;
+  -- A running job is not woken.
+  if public.background_job_wake('retro', 'initech/web#40') or (pg_temp.kj('retro', 'initech/web#40')).state <> 'running' then
+    raise exception 'FAIL: wake touched a running job';
+  end if;
+end $$;
+
+-- ── `renew` extends only a live claim, never shortening it ──
+do $$
+declare
+  j     public.background_jobs;
+  stale uuid;
+begin
+  j := pg_temp.kj('retro', 'initech/web#40');
+  if j.claimed_until <> now() + interval '60 seconds' then
+    raise exception 'FAIL: the claim is not held for the 60 seconds of its lease: %', j.claimed_until;
+  end if;
+  if public.background_job_renew(j.id, j.claim) <> now() + interval '300 seconds'
+     or (pg_temp.kj('retro', 'initech/web#40')).claimed_until <> now() + interval '300 seconds' then
+    raise exception 'FAIL: renew did not extend the claim to 5 minutes from now';
+  end if;
+  if public.background_job_renew(j.id, j.claim, 10) <> now() + interval '300 seconds' then
+    raise exception 'FAIL: a renew shortened the claim';
+  end if;
+  if public.background_job_renew(j.id, j.claim, 600) <> now() + interval '600 seconds' then
+    raise exception 'FAIL: renew did not extend the claim by the lease given';
+  end if;
+  perform pg_temp.refused(format('select public.background_job_renew(%L, %L, 5)', j.id, j.claim), '22023', 'a lease too short', 'Lease');
+  perform pg_temp.refused(format('select public.background_job_renew(%L, %L)', gen_random_uuid(), j.claim), 'P0002', 'a renew of no job', 'does not exist');
+
+  -- The claim runs out: the next worker holds the job, and the stale claim can neither renew, save nor read.
+  stale := j.claim;
+  perform pg_temp.kj_expire('retro', 'initech/web#40');
+  if pg_temp.taken() <> 'retro/initech/web#40' then
+    raise exception 'FAIL: the job whose claim ran out was not handed out again';
+  end if;
+  perform pg_temp.refused(format('select public.background_job_renew(%L, %L)', j.id, stale), '55000', 'a stale claim renewed', 'no longer held');
+  perform pg_temp.refused(format('select public.background_job_save(%L, %L, ''publish'', ''{"pr": 41}'')', j.id, stale),
+    '55000', 'a step saved under a stale claim', 'no longer held');
+  perform pg_temp.refused(format('select * from public.background_job_steps_of(%L, %L)', j.id, stale),
+    '55000', 'the steps read under a stale claim', 'no longer held');
+  if pg_temp.kj_steps('retro', 'initech/web#40') <> 'facts=null qualify={"feature": true}' then
+    raise exception 'FAIL: a stale claim changed the steps: %', pg_temp.kj_steps('retro', 'initech/web#40');
+  end if;
+end $$;
+
+-- ── A failed job is not woken; a replay keeps its steps; the forget deletes them with their job ──
+do $$
+declare
+  j public.background_jobs;
+begin
+  j := pg_temp.kj('retro', 'initech/web#40');
+  perform public.background_job_save(j.id, j.claim, 'publish', '{"pr": 41}');
+  perform public.background_job_finish(j.id, j.claim, 'failed', 'GitHub answered 502');
+  if public.background_job_wake('retro', 'initech/web#40') or (pg_temp.kj('retro', 'initech/web#40')).state <> 'failed' then
+    raise exception 'FAIL: wake touched a failed job';
+  end if;
+  perform public.background_job_replay(j.id);
+  if pg_temp.taken() <> 'retro/initech/web#40' then
+    raise exception 'FAIL: the replayed job was not handed out';
+  end if;
+  j := pg_temp.kj('retro', 'initech/web#40');
+  if pg_temp.read_back(j.id, j.claim) <> 'facts=null publish={"pr": 41} qualify={"feature": true}' then
+    raise exception 'FAIL: a replay did not keep the steps: %', pg_temp.read_back(j.id, j.claim);
+  end if;
+  perform public.background_job_finish(j.id, j.claim, 'done');
+  if public.background_job_wake('retro', 'initech/web#40') then
+    raise exception 'FAIL: wake touched a done job';
+  end if;
+
+  -- Another job's steps stay when this one is forgotten.
+  perform public.background_job_add('knowledge-harvest', 'initech/web#40', 'initech/web', '{"pr": 40}', 'initech/web');
+  perform pg_temp.taken();
+  j := pg_temp.kj('knowledge-harvest', 'initech/web#40');
+  perform public.background_job_save(j.id, j.claim, 'draft', '"a lesson"');
+  perform pg_temp.kj_ended('retro', 'initech/web#40', interval '89 days');
+  if public.background_jobs_forget() <> 0 or pg_temp.all_steps() <> 4 then
+    raise exception 'FAIL: the forget deleted the steps of a job finished 89 days ago';
+  end if;
+  perform pg_temp.kj_ended('retro', 'initech/web#40', interval '91 days');
+  if public.background_jobs_forget() <> 1 or pg_temp.all_steps() <> 1 or pg_temp.kj_steps('knowledge-harvest', 'initech/web#40') <> 'draft="a lesson"' then
+    raise exception 'FAIL: the forget did not delete the steps with their job, and only those: % steps left', pg_temp.all_steps();
   end if;
 end $$;
 reset role;
