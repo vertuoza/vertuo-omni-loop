@@ -244,8 +244,8 @@ own words: the reply is your note beside it), records one outbox item of PRD n, 
 asks a person to agree to postpone it, posts the reply and resolves the thread. It prints the
 follow-up file and the item. Commit those two files alone, no code with them, as
 `docs(follow-up): <slug>` (`<slug>` the follow-up file's name without its date), and push with the
-round. `omni ship` refuses the PRD while a `later` reply has no follow-up file or no item, and the
-outbox gate holds it until a person answers the item. Exit 1 with `not judged: could not read
+round. `omni ship` refuses the PRD while a `later` reply's item has no follow-up file (it reads the
+items, never the review), and the outbox gate holds it until a person answers the item. Exit 1 with `not judged: could not read
 thread <id>` means the comment could not be read: nothing was posted or written; reply `asked`
 instead, saying so.
 

@@ -106,6 +106,10 @@ function quoted(text: string): string {
 
 /** The question a postponed point asks, word for word as the spec names it. */
 const QUESTION = 'Postpone this to a follow-up, or fix it in this PRD?';
+/** The line the agent's reasons follow, quoted, in a postponed point's item. */
+const WHY_LINE = 'Why the agent proposes to postpone it:';
+/** The line a postponed point's item names its thread on: `Thread `<id>`: <url>`. */
+const THREAD_LINE = /^Whether a reviewer's comment can wait for a follow-up\. Thread `[^`\n]*`: (\S+)$/m;
 
 /** What `postponeItem` is given: the thread, where the point was kept, and both sides' words. */
 type PostponedPoint = { threadId: string; url: string; followUp: string; asked: string; note: string };
@@ -135,7 +139,7 @@ export function postponeItem({ threadId, url, followUp, asked, note }: Postponed
       '',
       quoted(asked),
       '',
-      'Why the agent proposes to postpone it:',
+      WHY_LINE,
       '',
       quoted(note.trim()),
       '',
@@ -145,4 +149,28 @@ export function postponeItem({ threadId, url, followUp, asked, note }: Postponed
     cost: 'Low: answering fix it now sends the point to a rework of this PRD, which deletes the follow-up file.',
     gaps: ['Whether the reviewer agrees that the point can wait.'],
   };
+}
+
+/** The quoted lines right after `line` in `text`, unquoted; empty when `line` is not there. */
+function quoteAfter(text: string, line: string): string {
+  const lines = text.split('\n');
+  const at = lines.indexOf(line);
+  if (at === -1) return '';
+  const rest = lines.slice(at + 1);
+  const start = rest.findIndex((one) => one !== '');
+  const end = rest.findIndex((one, index) => index >= start && !one.startsWith('>'));
+  return rest
+    .slice(start, end === -1 ? undefined : end)
+    .map((one) => one.replace(/^> ?/, ''))
+    .join('\n');
+}
+
+/**
+ * BR-PRODUCT-130: what an item `postponeItem` wrote says of its thread, read back from the item's
+ * text (an open item file, or the item a ledger entry settled): the thread's url and the agent's
+ * note. `null` for any other item's text.
+ */
+export function readPostponed(text: string): { url: string; note: string } | null {
+  const url = THREAD_LINE.exec(text)?.[1];
+  return url === undefined ? null : { url, note: quoteAfter(text, WHY_LINE) };
 }
