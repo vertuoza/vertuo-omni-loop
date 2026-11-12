@@ -8,7 +8,8 @@
 
 ## Reproduction
 
-- **File:** `kit/bin/commands/dossier-product.test.ts`, `apps/galaxy/src/dossier/api-product.test.ts`
+- **File:** `kit/bin/commands/dossier-product.test.ts`
+- **Also:** `apps/galaxy/src/dossier/api-product.test.ts`
 - **Level:** unit
 - **Red:** `AssertionError: expected { code: 2, out: '', …(4) } to match object { code: +0, err: '' }` (kit) · `AssertionError: expected 400 to be 200` (app)
 
