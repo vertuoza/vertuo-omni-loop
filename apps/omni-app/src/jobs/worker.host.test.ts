@@ -56,13 +56,19 @@ describe('runDue inside a function that ends (bug #2756)', () => {
   });
 
   it('a job still running as its function nears its end is given back, its try kept, before the function is stopped', async () => {
-    const { ledger, finished } = fakeLedger(1);
-    const neverEnds: JobHandler = () => new Promise(() => undefined);
-    // The function ends 5.05 seconds from now: the run gives the job back 5 seconds before, so the finish lands.
-    void runDue({ ledger, handlers: { escalation: neverEnds }, clock: () => START, ...endingAt(START + 5_050), log: () => undefined });
-    await vi.waitFor(() => {
+    vi.useFakeTimers();
+    try {
+      const { ledger, finished } = fakeLedger(1);
+      const neverEnds: JobHandler = () => new Promise(() => undefined);
+      // The function ends 30 seconds from now: the run gives the job back 5 seconds before, so the finish lands.
+      void runDue({ ledger, handlers: { escalation: neverEnds }, clock: () => START, ...endingAt(START + 30_000), log: () => undefined });
+      await vi.advanceTimersByTimeAsync(24_999);
+      expect(finished).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
       expect(finished).toHaveLength(1);
-    }, { timeout: 1_000 });
-    expect(finished[0]).toMatchObject({ id: 'job-1', claim: 'claim-1', outcome: 'waiting' });
+      expect(finished[0]).toMatchObject({ id: 'job-1', claim: 'claim-1', outcome: 'waiting' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
