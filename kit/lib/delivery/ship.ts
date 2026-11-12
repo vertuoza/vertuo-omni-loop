@@ -39,7 +39,9 @@ function releaseNoteReasons(ctx: Context, prd: PrdNumber, dir: string, read: Rea
   return gradeReleaseNote(read(file), { prd }).map((rule) => `release note: ${rule}`);
 }
 
-export function planShip(ctx: Context, prd: PrdNumber, { files, read }: { files: readonly string[]; read: ReadFile }): ShipPlan {
+/** `held` (PRD 2739): the reasons a gate the caller ran holds the PRD, as the review gate's
+ * (`ship-review.ts`): they join the step's own. */
+export function planShip(ctx: Context, prd: PrdNumber, { files, read, held = [] }: { files: readonly string[]; read: ReadFile; held?: readonly string[] }): ShipPlan {
   const where = ctx.layout.whereIs(prd);
   if (where?.state !== 'inbox') {
     return { ok: false, reasons: [`PRD ${Number(prd)} is not in the inbox (${where ? where.state : 'nowhere'})`] };
@@ -48,6 +50,7 @@ export function planShip(ctx: Context, prd: PrdNumber, { files, read }: { files:
     ...openItemFiles(prd, { ctx }).map((file) => `open outbox item: ${file}`),
     ...unreworkedDrift(prd, { ctx }).map((entry: { id: string }) => `drifted, not reworked: ${entry.id}`),
     ...releaseNoteReasons(ctx, prd, where.dir, read),
+    ...held,
   ];
   if (reasons.length) return { ok: false, reasons };
 
@@ -81,14 +84,14 @@ export class DirtyDeliveryError extends Error {
   }
 }
 
-export function applyShip(ctx: Context, prd: PrdNumber, { exec = execFileSync }: { exec?: ExecRaw } = {}): ShipPlan & { ok: true } {
+export function applyShip(ctx: Context, prd: PrdNumber, { exec = execFileSync, held = [] }: { exec?: ExecRaw; held?: readonly string[] } = {}): ShipPlan & { ok: true } {
   // Ship moves folders with git mv and never commits: it runs on a committed delivery folder, as
   // yolo-fix commits the settle before shipping.
   const delivery = ctx.config.paths.delivery;
   const dirty = exec('git', ['status', '--porcelain', '--', delivery], { cwd: ctx.root, encoding: 'utf8' });
   if (String(dirty).trim()) throw new DirtyDeliveryError(delivery);
   const read: ReadFile = (file) => readFileSync(join(ctx.root, file), 'utf8');
-  const plan = planShip(ctx, prd, { files: trackedFiles(ctx), read });
+  const plan = planShip(ctx, prd, { files: trackedFiles(ctx), read, held });
   if (!plan.ok) throw new Error(`Cannot ship PRD ${Number(prd)}:\n${plan.reasons.map((r) => `  - ${r}`).join('\n')}`);
   for (const { from, to } of plan.moves) {
     mkdirSync(dirname(join(ctx.root, to)), { recursive: true });

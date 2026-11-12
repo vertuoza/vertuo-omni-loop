@@ -123,18 +123,16 @@ type CareState = {
   round: { actions: { kind: string }[] };
 };
 
-/** What a fake GraphQL call answers instead of the default: the reply's mutation, the thread's read. */
-type Graphql = { reply?: unknown; thread?: unknown };
+/** What a fake GraphQL write answers instead of the default: the reply's mutation. */
+type Graphql = { reply?: unknown };
 
 /** A person's review comment with punctuation, a code span and two lines (PRD 2739, BL-ASK-1). */
 const ASKED = 'Please rename `fooBar` — it reads like a typo!\nAnd keep the old name as an alias, for now (one release).';
-const ASKED_URL = 'https://github.com/acme/widgets/pull/9#discussion_r1';
 
 /** A fake `execFileSync` standing in for git and for `gh`'s writes and a target's default branch. Records every call. */
 function fakeExec(root: string, { graphql = {} }: { graphql?: Graphql } = {}) {
   const calls: { file: string; args: readonly string[]; options: ExecFileSyncOptions }[] = [];
   const answers: [string, () => unknown][] = [
-    ['on PullRequestReviewThread', () => graphql.thread ?? { data: { node: { comments: { nodes: [{ body: ASKED, url: ASKED_URL }, { body: 'Earlier.\n\n<!-- omni-care: asked -->', url: `${ASKED_URL}0` }] } } } }],
     ['addPullRequestReviewThreadReply', () => graphql.reply ?? { data: { addPullRequestReviewThreadReply: { comment: { url: 'https://github.com/acme/widgets/pull/9#discussion_r9' } } } }],
     ['resolveReviewThread', () => ({ data: { resolveReviewThread: { thread: { isResolved: true } } } })],
   ];
@@ -372,11 +370,29 @@ describe('omni care reply', () => {
 describe('omni care reply --verdict later', () => {
   const NOTE = 'Low value for this PR: naming preference. Happy to take it as a follow-up.';
   const OUTBOX = '.omni-loop/delivery/outbox/0007-widgets';
+  const THREAD_URL = 'https://github.com/acme/widgets/pull/9#T1';
+  /** The feature PR #9, its thread T1 opened by a person's comment after an earlier care reply. */
+  const asking = (reads: FakeLoopState = {}) =>
+    fakeLoopReads({
+      changes: { 'acme/widgets': [subPr('s1'), pr(9, 'open', { url: 'https://github.com/acme/widgets/pull/9' })] },
+      details: {
+        'acme/widgets#9': {
+          review: {
+            checks: [],
+            mergeable: true,
+            threads: [
+              { id: 'T1', resolved: false, path: 'a/x.ts', line: 1, comments: [{ author: 'bot', body: 'Earlier.\n\n<!-- omni-care: asked -->', createdAt: NOW }, { author: 'rev', body: ASKED, createdAt: NOW }] },
+            ],
+          },
+        },
+      },
+      ...reads,
+    });
 
-  async function later(graphql: Graphql = {}) {
+  async function later({ graphql = {}, reads = asking(), thread = 'T1' }: { graphql?: Graphql; reads?: ReturnType<typeof fakeLoopReads>; thread?: string } = {}) {
     const root = repo();
     writeFileSync(join(root, 'reply.md'), `${NOTE}\n`);
-    const result = await run(['care', 'reply', '--verdict', 'later', '--prd', '7', '--thread', 'T1', '--file', 'reply.md'], root, widgets(), fakeExec(root, { graphql }));
+    const result = await run(['care', 'reply', '--verdict', 'later', '--prd', '7', '--thread', thread, '--file', 'reply.md'], root, reads, fakeExec(root, { graphql }));
     return { ...result, root };
   }
 
@@ -384,65 +400,68 @@ describe('omni care reply --verdict later', () => {
     const { code, out, calls, root } = await later();
     expect(code).toBe(0);
     const graphql = calls.filter((c) => c.args[1] === 'graphql').map((c) => sentJson(c));
-    expect(graphql.map((call) => digText(call, 'query'))).toEqual([
-      expect.stringContaining('on PullRequestReviewThread'),
-      expect.stringContaining('addPullRequestReviewThreadReply'),
-      expect.stringContaining('resolveReviewThread'),
-    ]);
-    expect(dig(graphql[1], 'variables')).toEqual({ thread: 'T1', body: `${NOTE}\n\n<!-- omni-care: later -->` });
+    expect(graphql.map((call) => digText(call, 'query'))).toEqual([expect.stringContaining('addPullRequestReviewThreadReply'), expect.stringContaining('resolveReviewThread')]);
+    expect(dig(graphql[0], 'variables')).toEqual({ thread: 'T1', body: `${NOTE}\n\n<!-- omni-care: later -->` });
     const printed = JSON.parse(out) as { followUp: string; item: { id: string; rank: string; file: string } };
     expect(printed).toMatchObject({ thread: 'T1', verdict: 'later', resolved: true, item: { id: 'care-s0-01-postpone-please-rename-foobar-it-reads-like', rank: 'high' } });
 
     const point = readFileSync(join(root, printed.followUp), 'utf8');
     expect(printed.followUp).toMatch(/^\.omni-loop\/delivery\/follow-ups\/\d{4}-\d{2}-\d{2}-please-rename-foobar-it-reads-like\.md$/);
-    expect(point).toContain(`source: PRD #7 · ${ASKED_URL}\n`);
+    expect(point).toContain(`source: PRD #7 · ${THREAD_URL}\n`);
     expect(point).toContain(`## Asked\n\n${ASKED}\n\n## Agent's note\n\n${NOTE}\n`);
 
     expect(printed.item.file).toBe(`${OUTBOX}/care-s0-01-postpone-please-rename-foobar-it-reads-like.md`);
     const item = readFileSync(join(root, printed.item.file), 'utf8');
     expect(item).toContain('rank: high\n');
-    expect(item).toContain(ASKED_URL);
-    expect(item).toContain('`T1`');
+    expect(item).toContain(THREAD_URL);
     expect(item).toContain(printed.followUp);
     expect(item).toContain('Postpone this to a follow-up, or fix it in this PRD?');
   });
 
-  it('calls GitHub only to read the thread, reply and resolve: no issue, no notification', async () => {
+  it("finds the thread on a sub-PR of the PRD, and names the sub-PR's url", async () => {
+    const reads = asking({ details: { 'acme/widgets#21': { review: { checks: [], mergeable: true, threads: [{ id: 'T7', resolved: false, path: null, line: null, comments: [{ author: 'rev', body: ASKED, createdAt: NOW }] }] } } } });
+    const { code, out, root } = await later({ reads, thread: 'T7' });
+    expect(code).toBe(0);
+    const { followUp } = JSON.parse(out) as { followUp: string };
+    expect(readFileSync(join(root, followUp), 'utf8')).toContain(`source: PRD #7 · ${subPr('s1').url}#T7\n`);
+  });
+
+  it('calls GitHub only to reply and resolve: no read, no issue, no notification', async () => {
     const { calls } = await later();
     const gh = calls.filter((c) => c.file === 'gh');
     expect(gh.every((c) => c.args[0] === 'api' && c.args[1] === 'graphql')).toBe(true);
-    expect(gh).toHaveLength(3);
+    expect(gh).toHaveLength(2);
   });
 
   it('refuses a later reply posted without --prd, before anything is posted', async () => {
     const root = repo();
-    const { code, err, calls } = await run(['care', 'reply', '--verdict', 'later', '--body', NOTE, '--thread', 'T1'], root, widgets());
+    const { code, err, calls } = await run(['care', 'reply', '--verdict', 'later', '--body', NOTE, '--thread', 'T1'], root, asking());
     expect(code).toBe(2);
     expect(err).toMatch(/--prd/);
     expect(calls.filter((c) => c.file === 'gh')).toEqual([]);
   });
 
-  it('says not judged and writes nothing when the thread cannot be read', async () => {
-    const { code, err, calls, root } = await later({ thread: { data: { node: null } } });
+  it('says not judged and writes nothing when no pull request of the PRD holds the thread', async () => {
+    const { code, err, calls, root } = await later({ thread: 'T404' });
     expect(code).toBe(1);
-    expect(err).toBe('omni care reply: not judged: could not read thread T1\n');
-    expect(calls.filter((c) => c.file === 'gh')).toHaveLength(1);
+    expect(err).toBe('omni care reply: not judged: could not read thread T404\n');
+    expect(calls.filter((c) => c.file === 'gh')).toEqual([]);
     expect(existsSync(join(root, '.omni-loop/delivery/follow-ups'))).toBe(false);
     expect(existsSync(join(root, OUTBOX))).toBe(false);
   });
 
+  it('says not judged, naming why, when the loop cannot be read', async () => {
+    const { code, err } = await later({ reads: fakeLoopReads({ everything: new LoopReadError('unreachable', 'everything') }) });
+    expect(code).toBe(1);
+    expect(err).toBe('omni care reply: not judged: could not read thread T1: unreachable\n');
+  });
+
   it('keeps nothing when GitHub refuses the reply', async () => {
-    const { code, err, root } = await later({ reply: { errors: [{ message: 'Resource not accessible' }] } });
+    const { code, err, root } = await later({ graphql: { reply: { errors: [{ message: 'Resource not accessible' }] } } });
     expect(code).toBe(1);
     expect(err).toMatch(/GitHub refused it: Resource not accessible/);
     expect(existsSync(join(root, '.omni-loop/delivery/follow-ups'))).toBe(false);
     expect(existsSync(join(root, OUTBOX))).toBe(false);
-  });
-
-  it('says not judged when GitHub refuses the read', async () => {
-    const { code, err } = await later({ thread: { errors: [{ message: 'Could not resolve to a node' }] } });
-    expect(code).toBe(1);
-    expect(err).toBe('omni care reply: not judged: could not read thread T1\n');
   });
 });
 

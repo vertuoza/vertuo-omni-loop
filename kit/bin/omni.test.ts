@@ -12,6 +12,7 @@ import type { ExecFileSyncOptions } from 'node:child_process';
 import { realExec } from '../test/fixture.ts';
 import type { Io } from '../test/fixture.ts';
 import { parsePrd } from '../lib/ids.ts';
+import { fakeLoopReads } from '../lib/loop-reads/fake.ts';
 
 function io() {
   const out: string[] = [];
@@ -151,7 +152,8 @@ describe('omni — flags, lookups and guards', () => {
       },
     });
     const s = io();
-    expect(await main(['ship', '42'], { cwd: root, ...s })).toBe(0);
+    // `omni ship` reads the PRD's review first (PRD 2739): a PRD with no pull request yet has none.
+    expect(await main(['ship', '42'], { cwd: root, reads: fakeLoopReads(), ...s })).toBe(0);
     const out = s.out.join('');
     expect(out).toContain('rewrote paths in .omni-loop/delivery/shipped/0042-a/spec.md');
     expect(out).not.toContain('rewrote paths in .omni-loop/delivery/inbox/');

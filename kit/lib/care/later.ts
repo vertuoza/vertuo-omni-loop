@@ -27,6 +27,12 @@ export function reviewSource(prd: PrdNumber, url: string): string {
   return `PRD #${prd} · ${url}`;
 }
 
+/** A review thread's url, as the loop's reads let both `care reply` and `ship` name it: its pull
+ * request's url, then `#` and the thread's id (the reads carry no comment url). */
+export function threadUrl(changeUrl: string, threadId: string): string {
+  return `${changeUrl}#${threadId}`;
+}
+
 /** A review point's body: the person's comment as GitHub returned it, then the agent's note. */
 function reviewBody(asked: string, note: string): string {
   return `${ASKED_HEADING}\n\n${asked}\n\n${NOTE_HEADING}\n\n${note.trim()}`;

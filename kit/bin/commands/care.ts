@@ -32,13 +32,14 @@
 // `gh` as before.
 //
 // PRD 2739, s3: `later` promises the point for a follow-up, and takes `--prd <n>`. Before posting, it
-// reads the thread's first comment without a care marker through `gh` (unreadable: `not judged`, exit 1,
-// nothing posted or written) and prepares the follow-up file (`## Asked`, that comment word for word;
-// `## Agent's note`, the reply) and one outbox item of PRD n, ranked high, asking a person to agree. Once
-// the reply is posted and the thread resolved, it writes both in this checkout; it commits nothing.
+// finds the thread among PRD n's pull requests through the loop's reads, as `state` does, and takes its
+// first comment without a care marker (unreadable: `not judged`, exit 1, nothing posted or written). It
+// prepares the follow-up file (`## Asked`, that comment word for word; `## Agent's note`, the reply),
+// source `PRD #<n> · <pull request url>#<thread id>`, and one outbox item of PRD n, ranked high, asking a
+// person to agree. Once the reply is posted and the thread resolved, it writes both in this checkout; it
+// commits nothing.
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { z } from 'zod';
 import { landingChain, landingPrToWatch } from '../../lib/care/chain.ts';
 import { decideRound, decideSubPrRound } from '../../lib/care/decide.ts';
 import type { Waiting } from '../../lib/care/decide.ts';
@@ -52,7 +53,8 @@ import { parsePlanLandings, parsePlanRepositories, parsePlanSlices } from '../..
 import { landingPlan } from '../../lib/landings/landing-plan.ts';
 import type { Slice } from '../../lib/types.ts';
 import { CARE_VERDICTS, careReplyBody } from '../../lib/care/marker.ts';
-import { askedComment, planReviewPoint, replyText, reviewSource, writeReviewPoint } from '../../lib/care/later.ts';
+import { askedComment, planReviewPoint, replyText, reviewSource, threadUrl, writeReviewPoint } from '../../lib/care/later.ts';
+import { prdReviews } from '../../lib/care/threads.ts';
 import { preparePostpone } from '../../lib/care/postpone.ts';
 import { FOLLOW_UPS_DIR } from '../../lib/follow-ups/follow-ups.ts';
 import { careState } from '../../lib/care/state.ts';
@@ -94,20 +96,6 @@ const REPLY_MUTATION = `mutation($thread: ID!, $body: String!) {
 const RESOLVE_MUTATION = `mutation($thread: ID!) {
   resolveReviewThread(input: { threadId: $thread }) { thread { isResolved } }
 }`;
-const THREAD_QUERY = `query($thread: ID!) {
-  node(id: $thread) { ... on PullRequestReviewThread { comments(first: 100) { nodes { body url } } } }
-}`;
-
-/** The answer to the thread's read: its comments, or no node when GitHub knows no such thread. */
-const ThreadReadSchema = z.looseObject({
-  data: z
-    .looseObject({
-      node: z
-        .looseObject({ comments: z.looseObject({ nodes: z.array(z.looseObject({ body: z.string(), url: z.string() })) }) })
-        .nullish(),
-    })
-    .nullish(),
-});
 
 /** One GraphQL write through `gh api graphql`, the request fed on stdin. Throws GitHub's first error. */
 function graphql({ query, variables }: { query: string; variables: Record<string, unknown> }, { exec, env }: { exec: Exec; env: Env | undefined }): unknown {
@@ -428,7 +416,7 @@ function replyBodyOf(flags: ReplyFlags, ctx: Context): string {
   return careReplyBody(text, flags.verdict ?? '');
 }
 
-async function runReply(args: string[], io: CommandIo): Promise<number> {
+async function runReply(args: string[], io: CommandIo, free: TargetsIo): Promise<number> {
   const { ctx, stdout } = io;
   const { positional, flags } = parseArgs('care', args, { values: ['verdict', 'body', 'file', 'thread', 'repo', 'prd'] });
   if (positional.length) throw usageError(USAGE);
@@ -437,7 +425,7 @@ async function runReply(args: string[], io: CommandIo): Promise<number> {
     println(stdout, body);
     return 0;
   }
-  if (flags.verdict === 'later') return postLater({ thread: flags.thread, body, prd: flags.prd }, io);
+  if (flags.verdict === 'later') return postLater({ thread: flags.thread, body, prd: flags.prd, repo: flags.repo }, { ...io, reads: loopReadsFor(ctx, free) });
   return postReply({ thread: flags.thread, verdict: flags.verdict ?? '', body }, io);
 }
 
@@ -467,34 +455,42 @@ function postReply({ thread, verdict, body }: { thread: string; verdict: string;
   }
 }
 
-/** The comment `thread` asks with, its body as GitHub returns it and its url; `null` when it cannot be read. */
-function readAsked(thread: string, gh: Gh): { body: string; url: string } | null {
+/** The comment `thread` asks with, as the loop's reads return it word for word, and the thread's url;
+ * or why it cannot be read: the reads failed, no pull request of PRD `prd` holds it, or it has none. */
+async function readAsked(prd: PrdNumber, thread: string, { ctx, reads, repo }: { ctx: Context; reads: LoopReads; repo: string | undefined }): Promise<{ asked: string; url: string } | { why: string }> {
+  let changes: Awaited<ReturnType<typeof prdReviews>>;
   try {
-    const read = ThreadReadSchema.safeParse(graphql({ query: THREAD_QUERY, variables: { thread } }, gh));
-    return read.success ? askedComment(read.data.data?.node?.comments.nodes ?? []) : null;
-  } catch {
-    return null;
+    changes = await prdReviews(repoSlug('care', ctx, repo), featureBranchFor(prd, ctx), reads, 'not-closed');
+  } catch (error) {
+    if (error instanceof LoopReadError) return { why: `could not read thread ${thread}: ${error.line}` };
+    throw error;
   }
+  for (const change of changes) {
+    const found = change.review.threads.find((one) => one.id === thread);
+    const asked = found === undefined ? null : askedComment(found.comments);
+    if (asked !== null) return { asked: asked.body, url: threadUrl(change.url, thread) };
+  }
+  return { why: `could not read thread ${thread}` };
 }
 
 /** PRD 2739: reads the thread, prepares the point and its high item, posts the `later` reply, resolves
  * the thread, then writes both; a thread it cannot read, or an item the outbox check refuses, posts nothing. */
-async function postLater({ thread, body, prd: prdFlag }: { thread: string; body: string; prd: string | undefined }, io: CommandIo): Promise<number> {
-  const { ctx, stdout, stderr, exec, env } = io;
+async function postLater({ thread, body, prd: prdFlag, repo }: { thread: string; body: string; prd: string | undefined; repo: string | undefined }, io: Io): Promise<number> {
+  const { ctx, stdout, stderr, exec, env, reads } = io;
   if (prdFlag === undefined) throw usageError('omni care reply: a later reply keeps its point for PRD n: pass --prd <n>.');
   const prd = prdArg('care', '--prd', prdFlag);
   if (ctx.layout.outboxDir(prd) === null) throw usageError(`omni care reply: PRD ${prd} has no inbox or shipped folder.`);
-  const gh: Gh = { exec, env: githubEnv(ctx, { exec, env }) };
-  const asked = readAsked(thread, gh);
-  if (asked === null) {
-    println(stderr, `omni care reply: not judged: could not read thread ${thread}`);
+  const read = await readAsked(prd, thread, { ctx, reads, repo });
+  if ('why' in read) {
+    println(stderr, `omni care reply: not judged: ${read.why}`);
     return 1;
   }
+  const { asked, url: threadAt } = read;
   const note = replyText(body);
   const dir = join(ctx.root, ctx.config.paths.delivery, FOLLOW_UPS_DIR);
-  const point = planReviewPoint(dir, { source: reviewSource(prd, asked.url), date: new Date().toISOString().slice(0, 10), asked: asked.body, note });
+  const point = planReviewPoint(dir, { source: reviewSource(prd, threadAt), date: new Date().toISOString().slice(0, 10), asked, note });
   const followUp = relative(ctx.root, point.file);
-  const item = await preparePostpone(ctx, prd, { threadId: thread, url: asked.url, followUp, asked: asked.body, note });
+  const item = await preparePostpone(ctx, prd, { threadId: thread, url: threadAt, followUp, asked, note });
   if (!item.ok) {
     println(stderr, 'omni care reply: the item it would record fails "check outbox", so nothing was posted:');
     for (const violation of item.violations) println(stderr, `  - ${violation}`);
@@ -502,7 +498,7 @@ async function postLater({ thread, body, prd: prdFlag }: { thread: string; body:
   }
   let url: string | null;
   try {
-    url = post({ thread, body, resolve: true }, gh);
+    url = post({ thread, body, resolve: true }, { exec, env: githubEnv(ctx, { exec, env }) });
   } catch (error) {
     return refused(error, stderr);
   }
