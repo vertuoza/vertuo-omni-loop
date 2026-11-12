@@ -12,7 +12,6 @@
 // - The query's embedding failing or passing the budget, the database refusing, or no vector at all: the
 //   word search's answer with `mode: "words"`, never an error. Each fallback is one log line, with no text of
 //   the query or the knowledge.
-import { createHash } from 'node:crypto';
 import { embedText } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import type { KnowledgeEntry, KnowledgeHit, SearchMode } from './product-mcp.contract';
 import type { KnowledgeVectorsRepository } from './product-mcp.repository';
@@ -32,7 +31,10 @@ export type Meaning = {
 type Answer = { hits: KnowledgeHit[]; total: number; mode?: SearchMode };
 
 /** The lower-case hex sha256 of the text's UTF-8 bytes. */
-const sha256 = (text: string): string => createHash('sha256').update(text, 'utf8').digest('hex');
+async function sha256(text: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -57,8 +59,8 @@ export async function searchByMeaning(
   if (meaning === null) return { ...searchKnowledge(entries, query), mode: 'words' };
   const { embedder, vectors, budgetMs = MEANING_BUDGET_MS } = meaning;
   const kept = filtered(entries, query);
-  const hashes = new Map(kept.map((entry) => [entry, sha256(embedText(entry))] as const));
-  const hashOf = (entry: KnowledgeEntry): string => hashes.get(entry) ?? sha256(embedText(entry));
+  const hashes = new Map(await Promise.all(kept.map(async (entry) => [entry, await sha256(embedText(entry))] as const)));
+  const hashOf = (entry: KnowledgeEntry): string => hashes.get(entry) ?? '';
   const distinct = [...new Set(hashes.values())];
   if (distinct.length === 0) return { ...searchKnowledge(entries, query), mode: 'words' };
 
