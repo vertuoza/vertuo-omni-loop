@@ -16,9 +16,6 @@ import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { CanonFacts } from '../inngest-client.ts';
 import type { CheckAction } from './github.ts';
 
-/** The event the webhook sends for a click on a canon button; the `canon-action` function posts. */
-export const CANON_ACTION_EVENT = 'omni-loop/canon.action.requested';
-
 /** The buttons' identifiers, as GitHub sends them back (20 characters at most). */
 export const CANON_ACTION = Object.freeze({ rewrite: 'canon-rewrite', claim: 'canon-claim' });
 

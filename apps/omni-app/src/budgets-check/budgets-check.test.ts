@@ -7,7 +7,6 @@ import { createHmac } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { InngestTestEngine } from '@inngest/test';
 import { afterAll, describe, expect, it } from 'vitest';
 import { roundUpToKib, setCeilings } from 'omni-loop/kit/lib/budgets/ceilings.ts';
 import { measureContextBudget } from 'omni-loop/kit/lib/budgets/measure.ts';
@@ -17,10 +16,10 @@ import { createContext } from 'omni-loop/kit/lib/context.ts';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { formText, makeRepo } from 'omni-loop/kit/test/fixture.ts';
 import { main } from 'omni-loop/kit/bin/omni.ts';
-import { BUDGETS_EXTERNAL_ID, inngest } from '../inngest-client.ts';
+import { BUDGETS_EXTERNAL_ID } from '../inngest-client.ts';
 import { checkRunAt, claimedJob, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
-import { createServerEventRecheck } from '../server-event/recheck.ts';
-import { SERVER_EVENT } from '../server-event/server-event.ts';
+import { serverEventRecheck } from '../jobs/pr-checks.ts';
+import { SERVER_EVENT_KIND, serverEventHandler, serverEventJob } from '../server-event/job.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { GithubPaused } from '@omni/github';
 import type { ClaimedJob, JobLedger, RefreshJob } from '../jobs/ledger.ts';
@@ -282,13 +281,14 @@ describe('budgets-check — the omni / budgets check run (PRD 1679 s3)', () => {
 
     rows.items[0] = { ...rows.items[0], settlement: { verdict: 'agreed', basis: 'answered', settledAt: '2026-10-12T10:00:00Z' } } as (typeof rows.items)[0];
     const sent: RefreshJob[] = [];
-    const recheck = createServerEventRecheck({
-      client: inngest,
+    const recheck = serverEventHandler({
       octokitFor: () => setup.octokit,
       readTargets: () => Promise.resolve({ prdId: 'mobile-12', installationId: 7, pulls: [{ repository: 'acme/widgets', number: 31 }] }),
-      jobs: { refresh: (job) => Promise.resolve(sent.push(job)), run: () => run(setup, sent, readOutboxRows) },
+      recheck: serverEventRecheck({ refresh: (job) => Promise.resolve(sent.push(job)) }),
     });
-    await new InngestTestEngine({ function: recheck, events: [{ name: SERVER_EVENT, data: { event: 'item-settled', dossier: DOSSIER, at: '2026-10-12T10:00:00Z' } }] }).execute();
+    const { payload } = serverEventJob({ event: 'item-settled', dossier: DOSSIER, at: '2026-10-12T10:00:00Z' });
+    await recheck(claimedJob(SERVER_EVENT_KIND, payload));
+    await run(setup, sent, readOutboxRows);
     expect(sent.filter(({ kind }) => kind === BUDGETS_KIND)).toHaveLength(1);
     expect(budgetRuns(setup)).toHaveLength(2);
     expect(latest(setup)).toMatchObject({ conclusion: 'success', head_sha: 'head1' });

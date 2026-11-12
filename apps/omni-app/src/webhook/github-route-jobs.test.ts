@@ -334,6 +334,57 @@ describe('/api/github — the fix row stamp and the fleet board are jobs of the 
   });
 });
 
+describe('/api/github — a canon button\'s click is a job of the ledger (PRD omni-loop-3 s4)', () => {
+  /** A click of Rewrite for <persona> on the red inbox check run of `o/r#9`. */
+  const clicked = JSON.stringify({
+    action: 'requested_action',
+    installation: { id: 7 },
+    repository: REPOSITORY,
+    requested_action: { identifier: 'canon-rewrite' },
+    check_run: {
+      id: 5,
+      external_id: INBOX_EXTERNAL_ID,
+      head_sha: 'h',
+      output: { summary: `<!-- omni-canon ${JSON.stringify({ prd: 12, persona: 'Marc', claims: ['never#4'] })} -->` },
+      pull_requests: [{ number: 9, head: { sha: 'h' } }],
+    },
+  });
+
+  it('each click adds its own `canon-action` job, in the pull request\'s lane, run once the delivery is answered; nothing goes to Inngest', async () => {
+    const { add, ledger } = fakeLedger(() => 0);
+    const queued: NewJob[] = [];
+    const ran: string[] = [];
+    const sent: unknown[] = [];
+    const handlers: Record<string, JobHandler> = {
+      'canon-action': (job) => {
+        ran.push(`${job.kind} ${String(job.payload.action)}`);
+        return Promise.resolve({ outcome: 'done' });
+      },
+    };
+    const queue = (job: NewJob) => {
+      queued.push(job);
+      return add(job);
+    };
+    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue, refresh: () => Promise.resolve('added'), approved: () => Promise.resolve([]), run: () => runDue({ ledger, handlers, log: () => undefined }) };
+    const one = route(jobs, (events?: unknown) => Promise.resolve(sent.push(events)));
+    expect((await one.post('check_run', clicked)).status).toBe(200);
+    expect((await one.post('check_run', clicked)).status).toBe(200);
+    await one.settle();
+    expect(queued.map(({ kind, lane, maxTries }) => ({ kind, lane, maxTries }))).toEqual([
+      { kind: 'canon-action', lane: 'o/r#9', maxTries: 4 },
+      { kind: 'canon-action', lane: 'o/r#9', maxTries: 4 },
+    ]);
+    expect(new Set(queued.map(({ key }) => key)).size).toBe(2);
+    expect(ran).toEqual(['canon-action canon-rewrite', 'canon-action canon-rewrite']);
+    expect(sent).toEqual([]);
+  });
+
+  it('answers 500 when the database refuses the click\'s job, so GitHub delivers it again', async () => {
+    const { response } = await deliver(recording([], { queue: () => Promise.reject(new Error('the database refused: down')) }), () => Promise.resolve(), clicked, 'check_run');
+    expect(response.status).toBe(500);
+  });
+});
+
 describe('/api/github — the latest state wins, on a ledger that keeps the refresh table (PRD 2688 s7)', () => {
   /** The route over a fake ledger whose four checks say which head they ran on; `during` runs inside the first run. */
   function checked(during: (post: (body: string) => Promise<unknown>) => Promise<void> = () => Promise.resolve()) {

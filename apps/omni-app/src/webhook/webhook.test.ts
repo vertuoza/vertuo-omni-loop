@@ -5,7 +5,8 @@ import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { type AppEvent, APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, HARVEST_EVENT, INBOX_EXTERNAL_ID, RETRO_EVENT } from '../inngest-client.ts';
 import type { RefreshJob } from '../jobs/ledger.ts';
 import { PR_CHECK_KINDS } from '../jobs/pr-checks.ts';
-import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
+import { canonActionJob } from '../inbox-check/canon-action.ts';
+import { CANON_ACTION } from '../inbox-check/canon-actions.ts';
 import {
   APPROVED_LABEL_ACTIONS,
   CANON_ACTIONS,
@@ -567,29 +568,65 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     expect(CANON_ACTIONS.check_run).toEqual(['requested_action']);
   });
 
-  it.each([CANON_ACTION.rewrite, CANON_ACTION.claim])('turns a click of %s on an inbox check run into one canon action event', async (identifier) => {
-    const { response, send } = await deliver({ event: 'check_run', payload: clicked(identifier) });
-    expect(response.status).toBe(200);
-    expect(send.mock.calls[0]?.[0]).toEqual([
-      {
-        name: CANON_ACTION_EVENT,
-        data: {
-          installationId: 4242,
-          owner: 'vertuoza',
-          repo: 'vertuo-omni-loop',
-          repository: 'vertuoza/vertuo-omni-loop',
-          prNumber: 28,
-          headSha: 'abc123',
-          checkRunId: 77,
-          action: identifier,
-          facts: FACTS,
-        },
-      },
+  /** A signed click delivered as GitHub sends it, delivery `d-1`: the answer, what went to Inngest and the jobs queued. */
+  async function deliverClick(payload: unknown, queueJobs?: (jobs: NewJob[]) => Promise<unknown>) {
+    const body = JSON.stringify(payload);
+    const send = sending();
+    const queued: NewJob[] = [];
+    const response = await receiveWebhook({
+      body,
+      headers: { 'x-github-event': 'check_run', 'x-github-delivery': 'd-1', 'x-hub-signature-256': sign(body) },
+      secret: SECRET,
+      send,
+      queueJobs: queueJobs ?? ((jobs) => Promise.resolve(queued.push(...jobs))),
+      forward: forwarding(),
+    });
+    return { response, send, queued };
+  }
+
+  it.each([CANON_ACTION.rewrite, CANON_ACTION.claim])('turns a click of %s on an inbox check run into one canon-action job, keyed by the delivery, and sends Inngest nothing (PRD omni-loop-3 s4)', async (identifier) => {
+    const { response, send, queued } = await deliverClick(clicked(identifier));
+    expect(response).toEqual({ status: 200, body: 'sent 0 · 1 jobs' });
+    expect(send).not.toHaveBeenCalled();
+    const click = {
+      installationId: 4242,
+      owner: 'vertuoza',
+      repo: 'vertuo-omni-loop',
+      repository: 'vertuoza/vertuo-omni-loop',
+      prNumber: parsePr(28),
+      headSha: 'abc123',
+      checkRunId: 77,
+      action: identifier,
+      facts: FACTS,
+    };
+    expect(toCanonActionRequests('check_run', clicked(identifier))).toEqual([click]);
+    expect(queued).toEqual([canonActionJob('d-1', click as never)]);
+    expect(queued[0]).toMatchObject({ kind: 'canon-action', key: 'd-1', lane: 'vertuoza/vertuo-omni-loop#28', maxTries: 4 });
+  });
+
+  it('a click naming two pull requests adds one job for each, the second keyed `<delivery>#1`', () => {
+    const two = clicked(CANON_ACTION.rewrite, { pull_requests: [{ number: 28, head: { sha: 'abc123' } }, { number: 29, head: { sha: 'def456' } }] });
+    expect(toQueuedJobs('check_run', two, 'd-1').map(({ key, lane }) => ({ key, lane }))).toEqual([
+      { key: 'd-1', lane: 'vertuoza/vertuo-omni-loop#28' },
+      { key: 'd-1#1', lane: 'vertuoza/vertuo-omni-loop#29' },
     ]);
   });
 
-  it('never re-runs a check for a click', () => {
-    expect(toEvents('check_run', clicked(CANON_ACTION.rewrite)).map((e) => e.name)).toEqual([CANON_ACTION_EVENT]);
+  it('a click GitHub sent with no delivery id is still one job, under a fresh key', async () => {
+    const body = JSON.stringify(clicked(CANON_ACTION.claim));
+    const queued: NewJob[] = [];
+    await receiveWebhook({ body, headers: { 'x-github-event': 'check_run', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), queueJobs: (jobs) => Promise.resolve(queued.push(...jobs)), forward: forwarding() });
+    expect(queued).toHaveLength(1);
+    expect(queued[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('answers 500 when the database refuses the job, so GitHub redelivers the click', async () => {
+    const { response } = await deliverClick(clicked(CANON_ACTION.rewrite), () => Promise.reject(new Error('the database refused: down')));
+    expect(response).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
+  });
+
+  it('never re-runs a check for a click, and sends no event for it', () => {
+    expect(toEvents('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
     expect(toCheckJobs('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
   });
 
@@ -598,11 +635,12 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     ['an unknown button', clicked('ship-anyway')],
     ['a check run without the canon facts', clicked(CANON_ACTION.claim, { output: { title: 'x', summary: 'PRD 839' } })],
     ['a check run tied to no pull request', clicked(CANON_ACTION.claim, { pull_requests: [] })],
-  ])('sends nothing for %s', async (_, payload) => {
+  ])('adds nothing for %s', async (_, payload) => {
     expect(toCanonActionRequests('check_run', payload)).toEqual([]);
-    const { response, send } = await deliver({ event: 'check_run', payload });
+    const { response, send, queued } = await deliverClick(payload);
     expect(response.status).toBe(200);
     expect(send).not.toHaveBeenCalled();
+    expect(queued).toEqual([]);
   });
 });
 
@@ -909,6 +947,6 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), queueJobs, forward: forwarding() });
     expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
     expect(queueJobs).not.toHaveBeenCalled();
-    expect(toQueuedJobs('pull_request', loopPull('opened', { body: 'by hand' }))).toEqual([]);
+    expect(toQueuedJobs('pull_request', loopPull('opened', { body: 'by hand' }), 'd-1')).toEqual([]);
   });
 });
