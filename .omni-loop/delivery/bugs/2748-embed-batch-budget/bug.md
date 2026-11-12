@@ -14,7 +14,7 @@
 
 ## Fix
 
-Each call to the embed Edge Function carried up to 64 texts of up to 2,000 characters, more than gte-small can embed within an Edge Function's CPU budget, so it answered 546 and the job tried the same batch again forever. The function now takes at most 8 texts a call, both callers send at most 8, and the App's client splits a batch the function answers 546 or 503 to in halves, down to one text, so the job always moves on.
+Each call to the embed Edge Function carried up to 64 texts of up to 2,000 characters, more than gte-small can embed within an Edge Function's CPU budget, so it answered 546 and the job tried the same batch again forever. The function now takes at most 8 texts a call, both callers send at most 8, and the App's client splits a batch the function answers 546 or 503 to in halves, down to one text, so the job always moves on. The model, the vectors' length and the batch now live once, in `kit/lib/knowledge/embed-contract.ts`, which both callers import, and galaxy's client is named `queryEmbedClient`, so the two clients no longer export the same names.
 
 ## Guard
 
