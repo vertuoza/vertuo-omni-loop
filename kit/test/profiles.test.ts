@@ -7,10 +7,6 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { makeRepo } from './fixture.ts';
-import { fakeLoopReads } from '../lib/loop-reads/fake.ts';
-
-/** The loop's reads of a PRD with no pull request yet: `omni ship` reads its review (PRD 2739). */
-const reads = fakeLoopReads();
 
 const quiet = () => ({ stdout: { write() {} }, stderr: { write() {} } });
 const D = '.omni-loop/delivery';
@@ -147,7 +143,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
     // settle removed from disk but git still tracks.
     const refused: string[] = [];
     expect(
-      await main(['ship', '42'], { cwd: root, reads, stdout: { write() {} }, stderr: { write: (s) => refused.push(s) } }),
+      await main(['ship', '42'], { cwd: root, stdout: { write() {} }, stderr: { write: (s) => refused.push(s) } }),
     ).toBe(2);
     expect(refused.join('')).toMatch(/^[^\n]*uncommitted changes under \.omni-loop\/delivery — commit the settle first[^\n]*\n$/);
 
@@ -157,7 +153,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
       cwd: root,
     });
 
-    expect(await main(['ship', '42'], { cwd: root, reads, ...quiet() })).toBe(0);
+    expect(await main(['ship', '42'], { cwd: root, ...quiet() })).toBe(0);
 
     expect(existsSync(join(root, `${D}/inbox/0042-a`))).toBe(false);
     expect(existsSync(join(root, `${D}/shipped/0042-a/spec.md`))).toBe(true);

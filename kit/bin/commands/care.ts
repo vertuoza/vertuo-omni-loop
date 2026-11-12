@@ -460,7 +460,7 @@ function postReply({ thread, verdict, body }: { thread: string; verdict: string;
 async function readAsked(prd: PrdNumber, thread: string, { ctx, reads, repo }: { ctx: Context; reads: LoopReads; repo: string | undefined }): Promise<{ asked: string; url: string } | { why: string }> {
   let changes: Awaited<ReturnType<typeof prdReviews>>;
   try {
-    changes = await prdReviews(repoSlug('care', ctx, repo), featureBranchFor(prd, ctx), reads, 'not-closed');
+    changes = await prdReviews(repoSlug('care', ctx, repo), featureBranchFor(prd, ctx), reads);
   } catch (error) {
     if (error instanceof LoopReadError) return { why: `could not read thread ${thread}: ${error.line}` };
     throw error;

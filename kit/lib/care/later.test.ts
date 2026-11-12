@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { readFollowUps } from '../follow-ups/follow-ups.ts';
 import { parsePrd } from '../ids.ts';
 import { plainWordsProblems } from '../outbox/outbox.ts';
-import { askedComment, planReviewPoint, postponeItem, postponeItemId, replyFirstWords, reviewSource, writeReviewPoint } from './later.ts';
+import { askedComment, planReviewPoint, postponeItem, postponeItemId, readPostponed, replyFirstWords, reviewSource, writeReviewPoint } from './later.ts';
 
 const ASKED = 'Please rename `fooBar` — it reads like a typo.\nAnd keep the old name as an alias, for now!';
 const NOTE = 'Low value for this PR: naming preference. Happy to take it as a follow-up.';
@@ -118,5 +118,17 @@ describe('postponeItem', () => {
 
   it('takes its slug from the follow-up file', () => {
     expect(item.slug).toBe('postpone-x');
+  });
+});
+
+describe('readPostponed', () => {
+  const item = postponeItem({ threadId: 'PRRT_1', url: URL, followUp: '.omni-loop/delivery/follow-ups/2026-11-12-x.md', asked: ASKED, note: `${NOTE}\n\nSecond paragraph.` });
+
+  it("reads back the thread's url and the agent's note from the item it wrote", () => {
+    expect(readPostponed(`## What I had to decide\n\n${item.decide}\n\n## What I did meanwhile\n`)).toEqual({ url: URL, note: `${NOTE}\n\nSecond paragraph.` });
+  });
+
+  it('is null for an item no later reply wrote', () => {
+    expect(readPostponed('## What I had to decide\n\nThread `T1`: https://example.com mentioned in passing.\n')).toBeNull();
   });
 });
