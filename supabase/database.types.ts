@@ -1993,6 +1993,41 @@ export type Database = {
           },
         ]
       }
+      knowledge_vectors: {
+        Row: {
+          embedding: string
+          last_used_at: string
+          made_at: string
+          model: string
+          text_sha256: string
+          workspace_id: string
+        }
+        Insert: {
+          embedding: string
+          last_used_at?: string
+          made_at?: string
+          model: string
+          text_sha256: string
+          workspace_id: string
+        }
+        Update: {
+          embedding?: string
+          last_used_at?: string
+          made_at?: string
+          model?: string
+          text_sha256?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_vectors_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ledger_events: {
         Row: {
           at: string
@@ -6043,6 +6078,19 @@ export type Database = {
         Args: { p_graph: Json; p_repo: string; p_sha: string }
         Returns: Json
       }
+      knowledge_nearest: {
+        Args: {
+          p_hashes: string[]
+          p_k: number
+          p_model: string
+          p_query: string
+          p_workspace: string
+        }
+        Returns: {
+          distance: number
+          text_sha256: string
+        }[]
+      }
       knowledge_pack_for_token: {
         Args: { p_hash: string; p_repo: string; p_sha?: string }
         Returns: Json
@@ -6059,6 +6107,15 @@ export type Database = {
       knowledge_product_for_repo: {
         Args: { p_product?: string; p_repo: string }
         Returns: Json
+      }
+      knowledge_vectors_forget: { Args: never; Returns: number }
+      knowledge_vectors_missing: {
+        Args: { p_hashes: string[]; p_model: string; p_workspace: string }
+        Returns: string[]
+      }
+      knowledge_vectors_put: {
+        Args: { p_model: string; p_rows: Json; p_workspace: string }
+        Returns: number
       }
       link_github: { Args: never; Returns: Json }
       lookup_product: {

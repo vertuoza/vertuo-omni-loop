@@ -7,11 +7,9 @@
 // of their own workspaces only, and a member of another workspace reads none (BR-PRODUCT-63). It holds no
 // rule of the laws themselves: the one parser of the kit does (`kit/lib/knowledge/business-laws.ts`), run on
 // the pack's files, never the imported copies of a plan repository (`repos/<target>/`).
-import { BUSINESS_LAWS_FILE, parseBusinessLaws, type BusinessLaw } from 'omni-loop/kit/lib/knowledge/business-laws.ts';
+import type { BusinessLaw } from 'omni-loop/kit/lib/knowledge/business-laws.ts';
+import { lawsOfPackFiles } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import { knowledgePacksRepository, type KnowledgePacksDb } from '../knowledge-packs/knowledge-packs.repository';
-
-/** Where a pack keeps the knowledge folder, unless the repository moved it. */
-const DEFAULT_KNOWLEDGE_ROOT = '.omni-loop/knowledge';
 
 /** Why a product's laws were not read: it has no law home, its pack is not there (yet) or the read failed. */
 export type LawsNone = 'no-law-home' | 'no-pack' | 'unreadable';
@@ -27,20 +25,7 @@ export function lawHomeOf(read: { lawHome?: string | null | undefined }): string
   return typeof home === 'string' && home !== '' ? home.toLowerCase() : null;
 }
 
-/** The business laws of a pack's files: `product/` and each domain folder of the knowledge root, never a copy under `repos/`. */
-export function lawsOfPackFiles(files: readonly { path: string; content: string }[], knowledgeRoot: string = DEFAULT_KNOWLEDGE_ROOT): BusinessLaw[] {
-  const product = `${knowledgeRoot}/product/${BUSINESS_LAWS_FILE}`;
-  const domains = `${knowledgeRoot}/domains/`;
-  const shared = files.filter((file) => file.path === product).flatMap((file) => parseBusinessLaws(file.path, file.content, { scope: 'product', domain: 'product' }));
-  const domain = files
-    .flatMap((file) => {
-      const key = file.path.startsWith(domains) && file.path.endsWith(`/${BUSINESS_LAWS_FILE}`) ? file.path.slice(domains.length, -(BUSINESS_LAWS_FILE.length + 1)) : '';
-      return key !== '' && !key.includes('/') ? [{ file, key }] : [];
-    })
-    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
-    .flatMap(({ file, key }) => parseBusinessLaws(file.path, file.content, { scope: 'domain', domain: key }));
-  return [...shared, ...domain];
-}
+export { lawsOfPackFiles };
 
 /** What a product's laws are at `home`: the newest pack's, as the caller reads it. */
 export async function readProductLaws({ db, home, knowledgeRoot }: { db: KnowledgePacksDb; home: string | null; knowledgeRoot?: string | undefined }): Promise<ProductLaws> {

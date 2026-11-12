@@ -11,7 +11,8 @@
 //                    `external_id`, as the webhook told its event before; any other check run is the outbox's
 //   the approval     the approved label put on or taken off a PRD's issue refreshes the `pr-approved` job of each
 //                    open pull request of that PRD, read from GitHub (../approved-check/github.ts)
-//   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's and the
+//   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's (which
+//                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
@@ -40,7 +41,8 @@ import { businessLawsJudge, businessLawsJudgeUrl } from '../inbox-check/business
 import { CANON_ACTION_KIND, canonActionHandler } from '../inbox-check/canon-action.ts';
 import type { CanonGrader, LawsGrader } from '../inbox-check/evaluate-inbox.ts';
 import { PR_INBOX_KIND, inboxFailureHook, inboxHandler } from '../inbox-check/inbox-check.ts';
-import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from './payloads.ts';
+import { embedClient } from '../knowledge-embed/embedder.ts';
+import { knowledgeEmbedStore } from '../knowledge-embed/store.ts';
 import { knowledgePackStore } from '../knowledge-pack/store.ts';
 import { appOctokitFor, type OctokitFor } from '../octokit-for.ts';
 import type { GitHubClient } from '../outbox-check/github.ts';
@@ -57,7 +59,9 @@ import { mainWatchStore } from '../main-watch/store.ts';
 import { RETRO_KIND, retroFailureHook, retroHandler } from '../retro/retro.ts';
 import { runnerQueue } from '../retro/runner-queue.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
+import { embedHandler, EMBED_KIND } from './embed.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
+import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from './payloads.ts';
 import type { FailureHook, JobHandler } from './worker.ts';
 
 /** The four kinds, in the order a pull request's jobs are refreshed. */
@@ -153,9 +157,9 @@ export function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecor
 export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
 
 /**
- * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the four checks',
- * the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet board's, the canon buttons',
- * the knowledge harvest's, the retro's, the main watch's and the server event's.
+ * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the knowledge
+ * embed's, the four checks', the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet
+ * board's, the canon buttons', the knowledge harvest's, the retro's, the main watch's and the server event's.
  */
 export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient & GraphqlOctokit>): Workers {
   const { supabase } = env;
@@ -170,9 +174,11 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
     canon: liveCanon({ supabase, openrouter: env.openrouter ?? null, constituentJudge: env.constituentJudge ?? null, galaxyUrl }),
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret }),
   });
+  const ledger = jobLedger(supabase);
   return {
     handlers: {
-      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }),
+      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase), addJob: ledger.add }),
+      [EMBED_KIND]: embedHandler({ store: knowledgeEmbedStore(supabase), embed: embedClient(supabase) }),
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
@@ -197,7 +203,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
         store: mainWatchStore(supabase),
         queue: runnerQueue(supabase),
       }),
-      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(jobLedger(supabase)) }),
+      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(ledger) }),
     },
     failures: { ...checks.failures, [HARVEST_KIND]: harvestFailureHook({ octokitFor }), [RETRO_KIND]: retroFailureHook({ octokitFor }) },
   };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { knowledgeEntries, type EntrySources } from './entries';
+import { embedText, knowledgeEntries, type EntrySources } from './entries.ts';
 
 // The pure entry builder (PRD 2707 s3), over the fixture packs of a fictional product, Acme: acme/widgets
 // (the law home) and acme/api, each with its own ADRs and registers.
@@ -136,5 +136,41 @@ describe('knowledgeEntries', () => {
     const entries = knowledgeEntries(sources({ repositories: [{ repo: 'acme/moved', files: moved }], lawHome: null }));
     expect(byId('moved/ADR-0001', entries)).toBeDefined();
     expect(byId('moved/BR-PRODUCT-1', entries)?.title).toBe('Moved.');
+  });
+});
+
+describe('duplicate ADR numbers', () => {
+  const twin = (title: string) => `# ADR-0043 — ${title}\n\n**Status:** accepted\n\nText.`;
+  const files = [
+    { path: '.omni-loop/knowledge/adr/0043-retries.md', content: twin('Retries') },
+    { path: '.omni-loop/knowledge/adr/0043-timeouts.md', content: twin('Timeouts') },
+    { path: '.omni-loop/knowledge/adr/0044-other.md', content: '# ADR-0044 — Other\n\n**Status:** accepted' },
+  ];
+  const entries = knowledgeEntries(sources({ repositories: [{ repo: 'acme/gateway', files }], lawHome: null }));
+
+  it('gives each twin its file name, and every other entry its usual id', () => {
+    expect(entries.filter((e) => e.kind === 'adr').map((e) => e.id)).toEqual(['gateway/0043-retries', 'gateway/0043-timeouts', 'gateway/ADR-0044']);
+  });
+
+  it('does not rename the same number in two repositories', () => {
+    const other = [{ path: '.omni-loop/knowledge/adr/0043-retries.md', content: twin('Retries') }];
+    const both = knowledgeEntries(sources({ repositories: [{ repo: 'acme/gateway', files }, { repo: 'acme/edge', files: other }], lawHome: null }));
+    expect(byId('edge/ADR-0043', both)).toBeDefined();
+  });
+});
+
+describe('embedText', () => {
+  it('is the title, then the body without its Owner line', () => {
+    const law = byId('BL-QUOTES-1');
+    const text = embedText(law ?? { title: '', body: '' });
+    expect(text.startsWith(`${law?.title ?? ''}\n`)).toBe(true);
+    expect(text).toContain('Why: A customer who receives an empty quote');
+    expect(text).not.toContain('Owner:');
+    expect(text).not.toContain('anna');
+  });
+
+  it('drops the Owner line of a Legal entry too, and leaves a body with none whole', () => {
+    expect(embedText(byId('L-GDPR-2') ?? { title: '', body: '' })).not.toContain('Owner:');
+    expect(embedText({ title: 'T', body: 'a\nb' })).toBe('T\na\nb');
   });
 });
