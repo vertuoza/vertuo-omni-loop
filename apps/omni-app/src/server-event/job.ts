@@ -1,8 +1,8 @@
 // `server-event` as a job of the ledger (PRD omni-loop-3 s4; PRD 1548 s4 and s8, acceptance 8): what the
-// `serverEvent` Inngest function did, moved over. `/api/server-event` (./server-event.ts) refreshes one job per
+// `serverEvent` function did, moved over. `/api/server-event` (./server-event.ts) refreshes one job per
 // product PRD's dossier, keyed by the dossier's id, in no lane, with 4 tries, due 5 seconds on (PRD 2688's refresh,
 // ../jobs/ledger.ts): a second event for the same dossier within 5 seconds joins the queued job, on its latest
-// payload, as the Inngest debounce did. Its payload is the server event (`event`, `dossier`, `at`), never a token
+// payload, as the debounce did. Its payload is the server event (`event`, `dossier`, `at`), never a token
 // (L-GDPR-2). An approval, a void, an outbox item opened or one settled on the server re-posts the checks,
 // `omni/approved` and the outbox check among them, on every open target pull request of that product PRD:
 //
@@ -25,7 +25,7 @@ import { GithubDeferred, GithubPaused } from '@omni/github';
 import { z } from 'zod';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { productPrdOf } from '../approved-check/state.ts';
-import type { CheckRequestData } from '../inngest-client.ts';
+import type { CheckRequestData } from '../jobs/payloads.ts';
 import { REFRESH_DELAY_SECONDS, type RefreshJob } from '../jobs/ledger.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';

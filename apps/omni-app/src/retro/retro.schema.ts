@@ -1,5 +1,5 @@
 // What the retro hands from one step to the next, and keeps in `retro.json`, as zod schemas (PRD 1030,
-// s19-01 of PRD 976). Inngest saves each step's value as JSON, and every replay of the run reads it
+// s19-01 of PRD 976). The ledger saves each step's value as JSON, and every replay of the run reads it
 // back from there: the merge run's values are read again fourteen days later by its day-14 run, maybe
 // after a deploy. So each value the retro reads back from a saved step, and each run a `retro.json`
 // keeps, is parsed with its schema where it is read (`../saved-step.ts`); a value of another shape

@@ -21,7 +21,7 @@
 // deferred, is never sent; it is thrown, and the worker reads it as `waiting`.
 import { contextBudget } from 'omni-loop/kit/lib/config.ts';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { BUDGETS_EXTERNAL_ID } from '../inngest-client.ts';
+import { BUDGETS_EXTERNAL_ID } from '../jobs/payloads.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readBaseConfig, readPull, type GitHubClient, type PullFacts, type Repo } from '../outbox-check/github.ts';
 import { CreatedSchema, firstLine } from '../outbox-check/github-schema.ts';

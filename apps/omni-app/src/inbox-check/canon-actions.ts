@@ -13,7 +13,7 @@
 // marker of its action, so a second click of the same button edits that comment, never a new one.
 import { z } from 'zod';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import type { CanonFacts } from '../inngest-client.ts';
+import type { CanonFacts } from '../jobs/payloads.ts';
 import type { CheckAction } from './github.ts';
 
 /** The buttons' identifiers, as GitHub sends them back (20 characters at most). */

@@ -191,7 +191,7 @@ describe('delivery — gather', () => {
     await expect(run({ github: stubGitHub({ threads: limited }) })).rejects.toThrow('API rate limit exceeded');
   });
 
-  it('lets any other GitHub failure fail the step, so Inngest retries it', async () => {
+  it('lets any other GitHub failure fail the step, so the ledger retries it', async () => {
     const github = stubGitHub();
     const broken = failing(github.octokit, 'GET /repos/{owner}/{repo}/pulls/{pull_number}/files');
     await expect(run({ github: { ...github, octokit: broken } })).rejects.toThrow('GitHub is down');

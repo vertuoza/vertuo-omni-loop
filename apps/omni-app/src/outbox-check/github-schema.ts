@@ -137,7 +137,7 @@ export function messageOf(error: unknown): unknown {
 
 /**
  * The first line of whatever a failure said, as `String` prints it ("unknown error" when it said
- * nothing): Inngest hands an error over unparsed, and a check run's title holds one line.
+ * nothing): a job hands an error over unparsed, and a check run's title holds one line.
  */
 export function firstLine(reason: unknown): string {
   const said = (reason === undefined || reason === null ? 'unknown error' : printed(reason)).trim();

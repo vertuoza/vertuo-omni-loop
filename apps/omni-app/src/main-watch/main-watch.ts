@@ -1,4 +1,4 @@
-// `main-watch`: what a PRD did to main in the seven days after its feature PR merged (PRD 2410; moved off Inngest
+// `main-watch`: what a PRD did to main in the seven days after its feature PR merged (PRD 2410; moved
 // onto the job ledger by PRD omni-loop-4 s4). A status, not a retro: the retro (PRD 72) runs beside it unchanged,
 // and this job never shares a run with it. `/api/github` adds one job for a pull request merged into the default
 // branch, keyed `<owner/name>#<pr>`, lower case, in no lane (a watch waiting for its next day holds nothing up).
@@ -62,7 +62,7 @@ export const REWIND_STEP = 'queue-rewind';
 /** The most looks a watch takes: a day apart, seven days fit well inside it, and the ledger's 20 `later` are not spent. */
 export const MAX_LOOKS = 18;
 
-/** A main watch's tries (Inngest's 3 retries, and the first): the 4th that throws fails it. */
+/** A main watch's tries (3 retries, and the first): the 4th that throws fails it. */
 const MAX_TRIES = 4;
 
 /** The payload of a `main-watch` job: where and when the pull request merged. */

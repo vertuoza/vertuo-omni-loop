@@ -42,7 +42,7 @@ describe('the knowledge harvest schemas', () => {
     expect(CommitSchema.safeParse({ message: 7 }).error?.issues[0]?.path).toEqual(['message']);
   });
 
-  it('read back a step "qualify" as Inngest saved it, the config included, and refuse a merge missing its time, of another type or null', () => {
+  it('read back a step "qualify" as the ledger saved it, the config included, and refuse a merge missing its time, of another type or null', () => {
     const qualified = {
       skip: null,
       config: parseConfig('kit: 1\nrepo:\n  defaultBranch: main\n'),

@@ -10,7 +10,7 @@
 //            never waits on a check that will not come. Nothing on a pull request the check does not run on
 //            (a base without the loop's config, the check off, no PRD approved on the server)
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { APPROVED_EXTERNAL_ID, checkPayloadOf, CheckRequestDataSchema, type CheckRequestData } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, checkPayloadOf, CheckRequestDataSchema, type CheckRequestData } from '../jobs/payloads.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { completeAsFailure, type GitHubClient } from '../outbox-check/github.ts';

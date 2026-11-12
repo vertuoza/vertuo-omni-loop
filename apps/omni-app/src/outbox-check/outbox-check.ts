@@ -42,7 +42,7 @@ import { createContext } from 'omni-loop/kit/lib/context.ts';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { businessLawFiles } from 'omni-loop/kit/lib/outbox/decision-coverage.ts';
 import { NOT_ACTIVE_ON_REPO, evaluate, type Verdict } from '../evaluate/evaluate.ts';
-import type { CheckRequestData } from '../inngest-client.ts';
+import type { CheckRequestData } from '../jobs/payloads.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { DEFAULT_CHECK_NAME, publish, startCheck, type Published } from '../publish/publish.ts';
 import { noteTo } from '../run-log/run-log.ts';

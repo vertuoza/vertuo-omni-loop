@@ -49,7 +49,7 @@ export type Kind<Records = unknown, Facts = unknown> = {
   readonly id: string;
   readonly section: string;
   readonly runs: readonly Run[];
-  /** What `gather` returns, as the run reads it back from the step Inngest saved it in. */
+  /** What `gather` returns, as the run reads it back from the step the ledger saved it in. */
   readonly records: z.ZodType<Records>;
   gather(octokit: Octokit, scope: Scope): Promise<Records>;
   detect(records: Records | null, context: DetectContext): { facts: Facts | null; findings: Finding[] };
