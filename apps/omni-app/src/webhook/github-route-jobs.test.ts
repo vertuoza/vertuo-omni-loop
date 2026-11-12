@@ -105,7 +105,8 @@ describe('/api/github — the knowledge pack job (PRD 2676 s2)', () => {
     expect(order.at(-1)).toBe('run');
     expect(order.indexOf('queue fix-row-stamp')).toBe(1);
     expect(order.indexOf('queue knowledge-harvest')).toBe(2);
-    expect(order.indexOf('send')).toBe(3);
+    expect(order.indexOf('queue retro')).toBe(3);
+    expect(order.indexOf('send')).toBe(4);
     expect(kept).toHaveLength(1);
   });
 
@@ -123,6 +124,16 @@ describe('/api/github — the knowledge pack job (PRD 2676 s2)', () => {
     const harvest = queued.find((job) => job.kind === 'knowledge-harvest');
     expect(harvest).toMatchObject({ subject: 'o/r', lane: 'o/r', maxTries: 4 });
     expect(queued.filter((job) => job.kind === 'knowledge-harvest')).toHaveLength(1);
+  });
+
+  it('queues one retro job for the merge, keyed by repository and pull request, in the lane of the repository, and sends Inngest no retro event (PRD omni-loop-4 s3)', async () => {
+    const queued: NewJob[] = [];
+    const sent: unknown[] = [];
+    await deliver(recording([], { queue: (job) => Promise.resolve(queued.push(job) > 0) }), (events?: unknown) => Promise.resolve(sent.push(events)));
+    const retros = queued.filter((job) => job.kind === 'retro');
+    expect(retros).toHaveLength(1);
+    expect(retros[0]).toMatchObject({ key: 'o/r#9', subject: 'o/r', lane: 'o/r', maxTries: 4, payload: { mergeSha: SHA, mergedAt: '2026-10-16T09:00:00Z' } });
+    expect(JSON.stringify(sent)).not.toContain('retro.requested');
   });
 
   it('keeps the job when Inngest refuses the event', async () => {

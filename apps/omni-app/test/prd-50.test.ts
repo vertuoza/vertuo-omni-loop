@@ -1,16 +1,17 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { InngestTestEngine } from '@inngest/test';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { inngest, RETRO_EVENT } from '../src/inngest-client.ts';
-import { createRetro } from '../src/retro/retro.ts';
+import { retroJob } from '../src/retro/retro.ts';
 import { Recording, replayGitHub } from './github-replay.ts';
+import { retroRunner } from './retro-scenario.ts';
+import { fakeStepLedger } from './saved-steps.ts';
 import { readEnv } from '../src/env.ts';
 
 // PRD 50, recorded (PRD 72, "Test seams"): feature PR #51 and its sub-PRs as GitHub returned them,
-// replayed offline through the real retro function. The recording is read here and by later slices;
+// replayed offline through the real retro job (PRD omni-loop-4 s3). The recording is read here and by later slices;
 // none of them writes to it. Without a model key the retro is not judged, so since PRD 487 it ends
 // with one comment on #51 instead of a retro PR.
 const FIXTURE = fileURLToPath(new URL('./fixtures/prd-50/', import.meta.url));
@@ -19,23 +20,12 @@ const recording = Recording.parse(JSON.parse(readFileSync(`${FIXTURE}recording.j
 const FOLDER = '.omni-loop/delivery/shipped/0050-question-intros';
 const BRANCH = 'docs/retro-question-intros';
 
-/** The retro of #51 against the recording, not yet run. */
-function engine() {
+const JOB = retroJob({ installationId: 1, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(51), mergeSha: recording.mergeSha, mergedAt: '2026-09-25T14:44:12Z' });
+
+/** The retro of #51 against the recording, not yet run; its steps saved on `ledger`. */
+function engine(ledger = fakeStepLedger()) {
   const github = replayGitHub({ recording: recording.requests });
-  const fn = createRetro({ client: inngest, octokitFor: () => github.octokit, openrouter: readEnv({}).openrouter });
-  const event = {
-    name: RETRO_EVENT,
-    data: {
-      installationId: 1,
-      owner: 'vertuoza',
-      repo: 'vertuo-omni-loop',
-      repository: 'vertuoza/vertuo-omni-loop',
-      prNumber: 51,
-      mergeSha: recording.mergeSha,
-      mergedAt: '2026-09-25T14:44:12Z',
-    },
-  };
-  return { github, run: new InngestTestEngine({ function: fn, events: [event] }) };
+  return { github, ledger, run: retroRunner({ octokitFor: () => github.octokit, openrouter: readEnv({}).openrouter }, JOB, { ledger }) };
 }
 
 async function replay() {
@@ -60,10 +50,11 @@ const Sheet = z.object({
   findings: z.unknown(),
 });
 
-/** The fact sheet the replay counts, from its step "facts". */
+/** The fact sheet the replay counts, as its step "facts" saved it. */
 async function sheet() {
-  const { result } = await engine().run.executeStep('facts');
-  return Sheet.parse(result);
+  const { run, ledger } = engine();
+  await run.execute();
+  return Sheet.parse(ledger.stepsOf(JOB.key).facts);
 }
 
 /** The one comment the replay wrote on #51: the test fails when it wrote none. */

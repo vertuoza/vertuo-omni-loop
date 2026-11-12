@@ -2,7 +2,7 @@ import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { type AppEvent, APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, RETRO_EVENT } from '../inngest-client.ts';
+import { type AppEvent, APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID } from '../inngest-client.ts';
 import type { RefreshJob } from '../jobs/ledger.ts';
 import { PR_CHECK_KINDS } from '../jobs/pr-checks.ts';
 import { canonActionJob } from '../inbox-check/canon-action.ts';
@@ -18,7 +18,7 @@ import {
   toApprovedLabelRequests,
   toCanonActionRequests,
   toCheckJobs,
-  toEvents,
+  toRetroJobs,
   toFixStampRequests,
   toFleetBoardRequests,
   toHarvestJobs,
@@ -30,6 +30,7 @@ import { FLEET_BOARD_EVENT } from '../fleet-board/events.ts';
 import { fleetBoardJob } from '../fleet-board/job.ts';
 import { fixRowStampJob } from '../fix-rows/job.ts';
 import { harvestJob } from '../knowledge-harvest/knowledge-harvest.ts';
+import { retroJob } from '../retro/retro.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
@@ -209,9 +210,9 @@ describe('webhook — the event and action filter', () => {
     expect(toCheckJobs('check_run', payload).map((job) => job.kind)).toEqual(['pr-outbox']);
   });
 
-  it('turns no handled pull request action into an Inngest event: the checks are jobs (PRD 2688)', () => {
+  it('turns no handled pull request action into a retro job: the checks are jobs of their own (PRD 2688)', () => {
     for (const action of CHECK_ACTIONS.pull_request) {
-      expect(toEvents('pull_request', pullRequestPayload(action))).toEqual([]);
+      expect(toRetroJobs('pull_request', pullRequestPayload(action))).toEqual([]);
     }
   });
 
@@ -243,10 +244,11 @@ describe('webhook — the event and action filter', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('answers 502 when an event cannot be sent, so GitHub records a failed delivery', async () => {
+  it('never hands a merged pull request to `send`: its retro is a job of the ledger (PRD omni-loop-4 s3)', async () => {
     const send = vi.fn<Send>(() => Promise.reject(new Error('inngest down')));
     const { response } = await deliver({ payload: mergedPayload(), send });
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(200);
+    expect(send).not.toHaveBeenCalled();
   });
 });
 
@@ -355,27 +357,25 @@ const mergedPayload = (over = {}) =>
   });
 
 describe('webhook — the retro route (PRD 72)', () => {
-  it('turns a merged pull request into one retro event, and refreshes no check; its harvest is a job (PRD 82, PRD omni-loop-4 s2)', async () => {
+  it('turns a merged pull request into its jobs, sends Inngest nothing and refreshes no check; its retro and its harvest are jobs (PRD omni-loop-4 s2, s3)', async () => {
     const { response, send, refreshed } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
     expect(refreshed).toEqual([]);
-    // The retro, and beside it the main watch (PRD 2410), which `send` never gets; the fix stamp's and the harvest's jobs.
-    expect(response.body).toBe('sent 2 · 2 jobs');
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toEqual([
-      {
-        name: RETRO_EVENT,
-        data: {
-          installationId: 4242,
-          owner: 'vertuoza',
-          repo: 'vertuo-omni-loop',
-          repository: 'vertuoza/vertuo-omni-loop',
-          prNumber: 28,
-          mergeSha: MERGE_SHA,
-          mergedAt: MERGED_AT,
-        },
-      },
-    ]);
+    // The main watch (PRD 2410), which `send` never gets; the fix stamp's, the harvest's and the retro's jobs.
+    expect(response.body).toBe('sent 1 · 3 jobs');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('turns a merged pull request into one retro job, keyed by repository and pull request, in the lane of the repository, carrying where and when it merged', () => {
+    const jobs = toRetroJobs('pull_request', mergedPayload());
+    expect(jobs).toEqual([retroJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28), mergeSha: MERGE_SHA, mergedAt: MERGED_AT })]);
+    expect(jobs[0]).toMatchObject({
+      kind: 'retro',
+      key: 'vertuoza/vertuo-omni-loop#28',
+      lane: 'vertuoza/vertuo-omni-loop',
+      payload: { installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', repository: 'vertuoza/vertuo-omni-loop', prNumber: 28, mergeSha: MERGE_SHA, mergedAt: MERGED_AT },
+    });
+    expect(jobs[0]?.payload).not.toHaveProperty('owed');
   });
 
   it('turns a merged pull request into one knowledge-harvest job, keyed by repository and pull request, in the lane of the repository', () => {
@@ -384,30 +384,31 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(jobs[0]).toMatchObject({ kind: 'knowledge-harvest', key: 'vertuoza/vertuo-omni-loop#28', lane: 'vertuoza/vertuo-omni-loop' });
   });
 
-  it('turns a closed, unmerged pull request into nothing', () => {
-    expect(toEvents('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+  it('turns a closed, unmerged pull request into no retro job', () => {
+    expect(toRetroJobs('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
   });
 
   it('turns a merged pull request without a merge SHA into nothing', () => {
     expect(toRetroRequests('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
+    expect(toRetroJobs('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
   });
 
-  it('turns a pull request merged into another branch than the default, a sub-PR, into no retro event and no harvest job (#1409)', () => {
+  it('turns a pull request merged into another branch than the default, a sub-PR, into no retro job and no harvest job (#1409)', () => {
     const subPr = mergedPayload({ head: { sha: 'abc123', ref: 'feat/retro--s1' }, base: { ref: 'feat/retro' } });
     expect(toRetroRequests('pull_request', subPr)).toEqual([]);
     expect(toHarvestJobs('pull_request', subPr)).toEqual([]);
-    expect(toEvents('pull_request', subPr)).toEqual([]);
+    expect(toRetroJobs('pull_request', subPr)).toEqual([]);
   });
 
-  it('leaves the rest of the qualifying to the retro and the harvest: any pull request merged into the default branch becomes the event and the job', () => {
+  it('leaves the rest of the qualifying to the retro and the harvest: any pull request merged into the default branch becomes both jobs', () => {
     const payload = mergedPayload({ head: { sha: 'abc123', ref: 'docs/phase-0-retro' } });
-    expect(toEvents('pull_request', payload).map((event) => event.name)).toEqual([RETRO_EVENT]);
+    expect(toRetroJobs('pull_request', payload)).toHaveLength(1);
     expect(toHarvestJobs('pull_request', payload)).toHaveLength(1);
   });
 
-  it('sends the event and adds the job when the delivery names no default branch, as before (#1409)', () => {
+  it('adds both jobs when the delivery names no default branch, as before (#1409)', () => {
     const payload = { ...mergedPayload({ base: { ref: 'feat/retro' } }), repository: { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } } };
-    expect(toEvents('pull_request', payload).map((event) => event.name)).toEqual([RETRO_EVENT]);
+    expect(toRetroJobs('pull_request', payload)).toHaveLength(1);
     expect(toHarvestJobs('pull_request', payload)).toHaveLength(1);
   });
 
@@ -415,10 +416,10 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(toHarvestJobs('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
   });
 
-  it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro event or a harvest job', (action) => {
+  it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro job or a harvest job', (action) => {
     expect(toRetroRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
     expect(toHarvestJobs('pull_request', { ...mergedPayload(), action })).toEqual([]);
-    expect(toEvents('pull_request', { ...mergedPayload(), action })).toEqual([]);
+    expect(toRetroJobs('pull_request', { ...mergedPayload(), action })).toEqual([]);
     expect(toCheckJobs('pull_request', { ...mergedPayload(), action })).toHaveLength(4);
   });
 
@@ -482,10 +483,8 @@ describe('webhook — the stage events (PRD 587)', () => {
     expect(forwarded.at).toEqual(expect.any(String));
   });
 
-  it('keeps the retro event and the checks\' jobs unchanged beside it', async () => {
-    const send = sending();
-    await receive(stagePayload('closed', 'feat/real-stages', 'main'), { send, forward: forwarding() });
-    expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT]);
+  it('keeps the retro job and the checks\' jobs unchanged beside it', () => {
+    expect(toRetroJobs('pull_request', stagePayload('closed', 'feat/real-stages', 'main')).map((job) => job.kind)).toEqual(['retro']);
     expect(toCheckJobs('pull_request', stagePayload('ready_for_review', 'feat/x', 'main')).map((job) => job.kind)).toEqual([...PR_CHECK_KINDS]);
   });
 
@@ -624,8 +623,8 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     expect(response).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
   });
 
-  it('never re-runs a check for a click, and sends no event for it', () => {
-    expect(toEvents('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
+  it('never re-runs a check for a click, and adds no retro for it', () => {
+    expect(toRetroJobs('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
     expect(toCheckJobs('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
   });
 
@@ -676,8 +675,8 @@ describe('webhook — the approved label (PRD 1612)', () => {
     expect(toApprovedLabelRequests('pull_request', labelPayload('labeled'))).toEqual([]);
   });
 
-  it('is no Inngest event and refreshes no check of its own', () => {
-    expect(toEvents('issues', labelPayload('labeled'))).toEqual([]);
+  it('is no retro job and refreshes no check of its own', () => {
+    expect(toRetroJobs('issues', labelPayload('labeled'))).toEqual([]);
     expect(toCheckJobs('issues', labelPayload('labeled'))).toEqual([]);
   });
 
@@ -746,15 +745,19 @@ describe('webhook — the fix stamp (PRD 2011 s7)', () => {
     expect(HANDLED.pull_request).toEqual(expect.arrayContaining([...FIX_STAMP_ACTIONS.pull_request]));
   });
 
-  it('a signed delivery hands its `fix-row-stamp` job to queueJobs, not to Inngest, beside the events `send` gets (PRD omni-loop-3 s3)', async () => {
+  it('a signed delivery hands its `fix-row-stamp` job to queueJobs, not to Inngest, beside the harvest’s and the retro’s jobs (PRD omni-loop-3 s3, omni-loop-4 s3)', async () => {
     const payload = mergedPayload({ body: FIXES });
     const body = JSON.stringify(payload);
     const send = sending();
     const queueJobs = vi.fn((jobs: NewJob[]) => Promise.resolve(jobs.length));
     const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send, queueJobs, forward: forwarding() });
-    expect(response).toEqual({ status: 200, body: 'sent 2 · 2 jobs' });
-    expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT]);
-    expect(queueJobs).toHaveBeenCalledWith([fixRowStampJob(stampOf('merged', MERGED_AT, 'mobile-B74').data as FixStampData), harvestJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28) })]);
+    expect(response).toEqual({ status: 200, body: 'sent 1 · 3 jobs' });
+    expect(send).not.toHaveBeenCalled();
+    expect(queueJobs).toHaveBeenCalledWith([
+      fixRowStampJob(stampOf('merged', MERGED_AT, 'mobile-B74').data as FixStampData),
+      harvestJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28) }),
+      retroJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28), mergeSha: MERGE_SHA, mergedAt: MERGED_AT }),
+    ]);
     expect(queueJobs.mock.calls[0]?.[0][0]).toMatchObject({ kind: 'fix-row-stamp', key: `vertuoza/vertuo-omni-loop#28@merged@${MERGED_AT}`, maxTries: 4 });
   });
 
@@ -815,7 +818,7 @@ describe('webhook — the main watch (PRD 2410)', () => {
     expect(toMainWatchRequests('check_suite', suitePayload({ head_sha: null }))).toEqual([]);
     expect(toMainWatchRequests('check_suite', suitePayload({ id: null }))).toEqual([]);
     expect(toMainWatchRequests('check_suite', { ...suitePayload(), installation: null })).toEqual([]);
-    expect(toEvents('check_suite', suitePayload())).toEqual([]);
+    expect(toRetroJobs('check_suite', suitePayload())).toEqual([]);
   });
 
   it('a signed delivery hands the main watch its events, nothing to send, and answers 502 when they cannot be sent', async () => {
@@ -912,7 +915,7 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     for (const action of ['opened', 'reopened', 'ready_for_review', 'edited']) {
       const signed = loopPull(action);
       const byHand = loopPull(action, { body: 'by hand' });
-      expect(toEvents('pull_request', signed)).toEqual(toEvents('pull_request', byHand));
+      expect(toRetroJobs('pull_request', signed)).toEqual(toRetroJobs('pull_request', byHand));
       expect(toCheckJobs('pull_request', signed)).toEqual(toCheckJobs('pull_request', byHand));
       expect(toCheckJobs('pull_request', signed)).toHaveLength(4);
       expect(toFixStampRequests('pull_request', signed)).toEqual(toFixStampRequests('pull_request', byHand));

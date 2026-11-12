@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG, FEATURE, MERGE_SHA, OWNER, PLAN, REPO, SUB_PULLS, mergeFiles, widgetScenario } from '../../test/retro-scenario.ts';
 import { qualify } from './qualify.ts';
+import { RetroPayloadSchema } from './retro.ts';
 
 type Scenario = ReturnType<typeof widgetScenario>;
 
-const run = (scenario: Scenario) => qualify(scenario.github.octokit, scenario.event.data);
+const run = (scenario: Scenario) => qualify(scenario.github.octokit, RetroPayloadSchema.parse(scenario.job.payload));
 
 /** `qualify`'s answer for a merge it takes; the test fails, naming why, when it skips the merge. */
 async function taken(scenario: Scenario) {

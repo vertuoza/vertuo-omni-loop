@@ -71,11 +71,14 @@ export function mergeRuns(existing: string | null, record: RunRecord): RetroDoc 
 
 /**
  * `record`, keeping the outcomes of the run it replaces (PRD 2338): the retro never writes one, so a
- * replay, or the day-14 run writing the merge run again, keeps every outcome the branch holds.
+ * replay, or the day-14 run writing the merge run again, keeps every outcome the branch holds. A record
+ * that carries no issue keeps the issues of the run it replaces too: a merge run owed at the switch
+ * opens none, its issues already open (PRD omni-loop-4 s3).
  */
 function withOutcomes(record: RunRecord, replaced: RunRecord): RunRecord {
-  if (!replaced.outcomes && !record.outcomes) return record;
-  return { ...record, outcomes: { ...replaced.outcomes, ...record.outcomes } };
+  const issues = Object.keys(record.issues ?? {}).length === 0 && replaced.issues ? { issues: replaced.issues } : {};
+  if (!replaced.outcomes && !record.outcomes) return { ...record, ...issues };
+  return { ...record, ...issues, outcomes: { ...replaced.outcomes, ...record.outcomes } };
 }
 
 /** The retro PR's title: `docs(retro): PRD <n> — <PRD title>`. */

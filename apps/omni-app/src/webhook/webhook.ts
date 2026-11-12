@@ -11,10 +11,11 @@
 // (PRD 1548), the budgets check's (PRD 1679); any other is the outbox check's. A refresh that fails is
 // logged and the delivery goes on: the next event, or GitHub's Re-run button, refreshes the jobs again.
 //
-// Beside the checks, a merged `pull_request.closed` becomes the retro event (PRD 72) and the `knowledge-harvest`
-// job of the ledger (PRD 82, PRD omni-loop-4 s2: `toHarvestJobs`, handed to `queueJobs`), and refreshes no check.
-// An unmerged `closed` becomes nothing on either; beside them, a `closed` or `reopened` may also become a fix
-// stamp (below).
+// Beside the checks, a merged `pull_request.closed` becomes the `retro` job (PRD 72, PRD omni-loop-4 s3:
+// `toRetroJobs`) and the `knowledge-harvest` job (PRD 82, PRD omni-loop-4 s2: `toHarvestJobs`) of the ledger, both
+// handed to `queueJobs`, and refreshes no check. An unmerged `closed` becomes nothing on either; beside them, a
+// `closed` or `reopened` may also become a fix stamp (below). No event of the delivery goes to `send` any more:
+// the main watch's go to `sendWatch`.
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
 // run, becomes one `canon-action` job of the ledger alone (PRD omni-loop-3 s4), keyed by the delivery's id
@@ -38,7 +39,7 @@
 // branch names no record, and becomes none.
 //
 // The main watch (PRD 2410): a pull request merged into the default branch also becomes one main watch
-// event, beside the retro's, and a check suite of the default branch that completed red
+// event, beside the retro's job, and a check suite of the default branch that completed red
 // becomes one main watch CI event, which wakes the watch of the commit it ran on (../main-watch/events.ts).
 // Both are handed to `sendWatch`, each with an id, so a delivery GitHub sends twice is one event.
 //
@@ -58,9 +59,9 @@
 // handed to `addJobs` before anything is sent to Inngest, so Inngest refusing an event never loses it. A job
 // that cannot be added is logged and the delivery goes on: the hourly comparison repairs it.
 //
-// The fix stamp's, the fleet board's (PRD omni-loop-3 s3) and the canon buttons' (s4) jobs, `toQueuedJobs`, are
-// handed to `queueJobs` once the pack's are added, before anything is sent to Inngest. Nothing repairs one that was lost, so a refusal answers
-// 500, and GitHub's redelivery, the same job by its key, adds it then.
+// The fix stamp's, the fleet board's (PRD omni-loop-3 s3), the harvest's, the retro's (PRD omni-loop-4 s2, s3) and the
+// canon buttons' (s4) jobs, `toQueuedJobs`, are handed to `queueJobs` once the pack's are added, before anything is
+// sent to Inngest. A refusal answers 500, and GitHub's redelivery, the same job by its key, adds it then.
 //
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
@@ -82,6 +83,7 @@ import { fixRowStampJob } from '../fix-rows/job.ts';
 import { FLEET_BOARD_EVENT, fleetBoardId, type FleetBoardRequest } from '../fleet-board/events.ts';
 import { fleetBoardJob } from '../fleet-board/job.ts';
 import { harvestJob } from '../knowledge-harvest/knowledge-harvest.ts';
+import { retroJob } from '../retro/retro.ts';
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type MainWatchRequest } from '../main-watch/events.ts';
 import { canonActionJob } from '../inbox-check/canon-action.ts';
@@ -224,7 +226,6 @@ export async function receiveWebhook({
   body,
   headers,
   secret,
-  send,
   refreshJobs = () => Promise.resolve(),
   rerunApproved = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
@@ -237,7 +238,11 @@ export async function receiveWebhook({
   body: string;
   headers: HeadersIn;
   secret: string | undefined;
-  send: (events: AppEvent[]) => Promise<unknown>;
+  /**
+   * Sent the delivery's events to Inngest; no delivery has one since the retro is a job (PRD omni-loop-4 s3), so it is
+   * never called. Taken until the main watch's events leave Inngest too (s4).
+   */
+  send?: (events: AppEvent[]) => Promise<unknown>;
   /** Refreshes the checks' jobs (PRD 2688), before anything else is called; none given, they go nowhere. */
   refreshJobs?: (jobs: RefreshJob[]) => Promise<unknown>;
   /** Takes the approved label's re-runs (PRD 1612), each a PRD whose pull requests' approved check runs again; none given, they go nowhere. */
@@ -274,11 +279,10 @@ export async function receiveWebhook({
   await refreshCheckJobs(refreshJobs, checks, log);
   await forwardToGalaxy(event, payload, { forward, touch, log });
 
-  const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
   const queued = toQueuedJobs(event, payload, header(headers, 'x-github-delivery') ?? randomUUID());
   const watch = toMainWatchRequests(event, payload);
-  const sent = events.length + watch.length;
+  const sent = watch.length;
   if (checks.length + approved.length + queued.length + sent === 0) return reply(200, 'ignored');
 
   await addPackJobs(addJobs, toPackJobs(event, payload), log);
@@ -290,7 +294,6 @@ export async function receiveWebhook({
 
   try {
     if (approved.length > 0) await rerunApproved(approved);
-    if (events.length > 0) await send(events);
     if (watch.length > 0) await sendWatch(watch);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
@@ -341,18 +344,6 @@ async function addPackJobs(addJobs: (jobs: NewJob[]) => Promise<unknown>, jobs: 
 }
 
 /**
- * The router alone, pure: a retro action goes to the retro. The checks are jobs, never events (`toCheckJobs`), and
- * so are the knowledge harvest and a canon button's clicks (`toQueuedJobs`).
- */
-export function toEvents(event: string, payload: unknown): AppEvent[] {
-  const action = readPayload(payload)?.action;
-  if (handles(RETRO_ACTIONS, event, action)) {
-    return toRetroRequests(event, payload);
-  }
-  return [];
-}
-
-/**
  * The checks' filter, pure (PRD 2688): a check action refreshes the four jobs of each pull request it
  * names; a re-run of a check run refreshes only the job of its kind, by its `external_id`. Anything
  * else — a `closed`, merged or not, included — refreshes none. A pull request into another branch than
@@ -386,12 +377,12 @@ export function toCheckJobs(event: string, delivery: unknown): RefreshJob[] {
 }
 
 /**
- * The retro's filter, pure: a pull request closed by its merge into the repository's default branch
- * becomes one retro request carrying the merge SHA and time; an unmerged one, or one merged into
- * another branch (a sub-PR into its feature branch), becomes none (#1409: every sub-PR's merge used
- * to start a retro and a harvest, which spent the Inngest account). A delivery naming no default
- * branch is sent as before. Whether it is a feature PR is not decided here: the retro reads the
- * config at the merge SHA to decide (its step "qualify").
+ * The merged pull requests' filter, pure: a pull request closed by its merge into the repository's default branch
+ * becomes one request carrying the merge SHA and time; an unmerged one, or one merged into another branch (a sub-PR
+ * into its feature branch), becomes none (#1409: every sub-PR's merge used to start a retro and a harvest, which
+ * spent the Inngest account). A delivery naming no default branch counts as before. The retro, the harvest, the pack
+ * and the main watch each read it. Whether it is a feature PR is not decided here: the retro reads the config at the
+ * merge SHA to decide (its step "qualify").
  */
 export function toRetroRequests(event: string, delivery: unknown): RetroRequest[] {
   const payload = readPayload(delivery);
@@ -424,6 +415,17 @@ export function toHarvestJobs(event: string, payload: unknown): NewJob[] {
 }
 
 /**
+ * The retro's filter, pure (PRD omni-loop-4 s3): each merged pull request `toRetroRequests` keeps becomes one `retro`
+ * job, carrying where and when it merged (../retro/retro.ts). The job decides in its step "qualify" whether it is a
+ * feature PR.
+ */
+export function toRetroJobs(event: string, payload: unknown): NewJob[] {
+  return toRetroRequests(event, payload).map(({ data: { installationId, owner, repo, prNumber, mergeSha, mergedAt } }) =>
+    retroJob({ installationId, owner, repo, prNumber, mergeSha, mergedAt }),
+  );
+}
+
+/**
  * The knowledge pack's filter, pure (PRD 2676 s2): the merged pull requests the retro gets, one pack job each,
  * keyed by repository and merge commit, so a delivery sent twice is one job. Whether a product holds the
  * repository is not decided here: the route's `addJobs` asks the database before it adds.
@@ -436,7 +438,7 @@ function toPackJobs(event: string, delivery: unknown): NewJob[] {
 
 /**
  * The jobs the delivery adds beside the pack's (PRD omni-loop-3 s3, s4): its fix stamp's `fix-row-stamp` job, its
- * fleet board's `fleet-board` job, its merged pull request's `knowledge-harvest` job, then its canon click's `canon-action` job, keyed by `deliveryId` (one per pull
+ * fleet board's `fleet-board` job, its merged pull request's `knowledge-harvest` and `retro` jobs, then its canon click's `canon-action` job, keyed by `deliveryId` (one per pull
  * request the click names: the first keyed by it, each next one `<delivery>#<n>`), each read by its filter below.
  */
 export function toQueuedJobs(event: string, delivery: unknown, deliveryId: string): NewJob[] {
@@ -445,6 +447,7 @@ export function toQueuedJobs(event: string, delivery: unknown, deliveryId: strin
     ...toFixStampRequests(event, delivery).map(({ data }) => fixRowStampJob(data)),
     ...toFleetBoardRequests(event, delivery).map(({ data }) => fleetBoardJob(data)),
     ...toHarvestJobs(event, delivery),
+    ...toRetroJobs(event, delivery),
     ...clicks,
   ];
 }
