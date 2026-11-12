@@ -43,7 +43,8 @@ generated `kit/dist/` is rebuilt by the wave, never listed.
 ### s3
 - `omni care reply --verdict later --prd 7 --thread <id> --file <f>` posts a reply ending with
   `<!-- omni-care: later -->`, resolves the thread and writes the follow-up of source
-  `PRD #7 · <thread url>`; `--point <text>` sets its text; it also records one outbox item ranked
+  `PRD #7 · <thread url>`, its `## Asked` the person's comment word for word (BL-ASK-1) and its
+  `## Agent's note` the reply; there is no `--point`; it also records one outbox item ranked
   high in PRD 7's outbox (via the `omni item new` writer) asking a person to agree to postpone it,
   high even when the agent proposes medium (never#2).
 - `omni ship <n>` refuses while a `later` reply on the feature PR or a merged sub-PR has no file,

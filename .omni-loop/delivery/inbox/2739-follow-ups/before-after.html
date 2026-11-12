@@ -119,7 +119,7 @@ details > summary { cursor: pointer; color: var(--muted); }
 <h4>API / schema</h4>
 <table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
 <tr><td><code>omni follow-up add</code> / <code>list</code></td><td>added</td><td>—</td><td>writes and lists the point files</td><td>kit</td></tr>
-<tr><td><code>omni care reply --verdict</code></td><td>changed</td><td><code>fixed|pushed-back|asked</code></td><td>+ <code>later</code>, with <code>--prd</code> and <code>--point</code></td><td>kit</td></tr>
+<tr><td><code>omni care reply --verdict</code></td><td>changed</td><td><code>fixed|pushed-back|asked</code></td><td>+ <code>later</code>, with <code>--prd</code>; the file keeps the person's comment word for word</td><td>kit</td></tr>
 <tr><td><code>bug.md</code> section <code>## Still open</code></td><td>added</td><td>—</td><td>optional; each bullet needs a follow-up file</td><td>kit</td></tr>
 </table><p>No row is breaking: the new verdict and section are optional additions (kit rule: removing or changing an element is breaking).</p>
 </div>

@@ -57,6 +57,10 @@ The export job retries a 4xx forever: 312 retries in the last run's log.
   as the run saw (`owner/name`, at most ten).
 - The body is the point in one or two sentences, plain text, never a customer's, a tenant's or a
   person's name and never a secret (the same rule as PRD 2508's `Follow-up:` line).
+- **A review point keeps the person's own words** (BL-ASK-1). For source `PRD #<n> · <thread url>`
+  the body is two parts: `## Asked`, the person's review comment copied word for word from the
+  thread (never shortened, summarised or reworded), and `## Agent's note`, the agent's own line on
+  why it is postponed, signed as the agent's (L-AIACT-1). Only the second part is the agent's.
 - One file per point means two branches that each add one never conflict.
 - A person closes a point by deleting its file, in any pull request, or by opening an issue for it
   first. The loop never deletes one.
@@ -88,8 +92,11 @@ The export job retries a 4xx forever: 312 retries in the last run's log.
 
 - `omni care reply` takes a fourth verdict, `later`: the reply promises the point for later. It
   posts the reply with the marker `<!-- omni-care: later -->`, resolves the thread, and, with
-  `--prd <n>`, writes the follow-up in the worktree it runs in, source `PRD #<n> · <thread url>`,
-  text the reply's first sentence after the marker's verdict word, or `--point <text>` when given.
+  `--prd <n>`, writes the follow-up in the worktree it runs in, source `PRD #<n> · <thread url>`:
+  `## Asked` is the thread's first comment by a person, copied word for word as GitHub returns it,
+  and `## Agent's note` is the reply's text. There is no `--point`: the agent never writes the
+  person's point in its own words. A thread whose comment cannot be read is refused,
+  `not judged: could not read <thread url>`, and nothing is written.
   `/omni:pr-care` then commits it alone (`docs(follow-up): <slug>`) and pushes with its round.
 - **A person agrees to postpone it** (never#2). Putting a person's review comment off is a decision
   the agent takes alone, so the same `later` reply also records **one outbox item ranked high** in
@@ -133,6 +140,12 @@ own script over `omni follow-up list --json`.
 | vertuo-omni-loop | docs | section `## Still open` | no written convention: follows `kit/lib/bug/verdict.ts` `SECTIONS` (title-case `##` sections) |
 
 ## Decisions
+
+- **The person's words are copied, never reworded** (BL-ASK-1, flagged by the page's business-law
+  judge on 2026-11-12). The first version took the follow-up's text from the agent's reply or a
+  `--point` option, which rewrote a person's review comment in the agent's words. Now `## Asked`
+  holds the comment word for word, the agent's words sit under `## Agent's note`, and `--point` is
+  gone.
 
 - **One file per point, not one shared file.** The idea named one file (`follow-ups.md`). Every fix
   branch appending to it would conflict on GitHub, whose merge button ignores git's union merge. The
@@ -189,7 +202,8 @@ temporary repository and an injected `exec`, never a call to GitHub.
   `ok`; no section → `ok`.
 - `kit/lib/bug/product.test.ts`: the same for `bug check --product`.
 - `kit/bin/care.test.ts`: `reply --verdict later --prd 7` posts the marker, resolves the thread,
-  writes the file and records one outbox item ranked high naming the thread, even when the agent
+  writes the file whose `## Asked` is byte-for-byte the person's comment (a comment with
+  punctuation, a code span and two lines, unchanged) and records one outbox item ranked high naming the thread, even when the agent
   proposes medium.
 - `kit/lib/delivery/ship.test.ts`: **the test that would have caught item 1's review promises**: a
   feature PR thread with a `later` reply and no file → refused naming the PR and the reply; with the
@@ -211,7 +225,7 @@ harmless.
   feature PR a person merges. Changing it needs @pierrederval or @dervalp to approve the pull
   request on GitHub.
 - BL-APPROVALS-1 — An approval covers exactly the files the approver read; a later change voids it. Kept: a follow-up file is added on the fix or feature branch before the person approves the PR, and `omni ship` refuses before the feature PR is marked ready, never after.
-- BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: the follow-up text is the agent's own reply, never a person's answer, and a person's review comment is only linked by its thread url.
+- BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: a review follow-up copies the person's comment word for word under `## Asked`, beside its thread url, and the agent's words sit apart under `## Agent's note`; there is no option to write the point in the agent's own words.
 - BL-GATE-1 — A check that ends without deciding says so in its result: "not judged", with the reason; it never shows a pass. Kept: `omni ship` prints `not judged: could not read the review threads …` and exits 1 when GitHub cannot be read.
 - The `later` reply's outbox item touches the gate's laws (owners for each: @pierrederval or @dervalp approve the pull request that changes it):
   - BR-PRODUCT-3: an agent never applies the override label itself. If broken, an agent waves its own postponement through. Kept: nothing here applies a label.
@@ -230,7 +244,8 @@ harmless.
    holds a point with no follow-up file; `ok` once the file exists.
 3. `omni bug check --product <key> <file>` refuses the same way for source `<key>-B<n>`.
 4. `omni care reply --verdict later --prd <n> --thread <id> --file <f>` posts a reply ending with
-   `<!-- omni-care: later -->`, resolves the thread, writes the follow-up file and records one
+   `<!-- omni-care: later -->`, resolves the thread, writes the follow-up file, its `## Asked` the
+   person's comment word for word and its `## Agent's note` the reply, and records one
    outbox item ranked high in PRD n's outbox asking a person to agree to postpone it.
 5. `omni ship <n>` refuses while a `later` reply on the PRD's pull requests has no follow-up file,
    naming the PR; it refuses a `later` reply with no outbox item of its thread; it ships once both
