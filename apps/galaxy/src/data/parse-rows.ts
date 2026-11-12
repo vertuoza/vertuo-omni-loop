@@ -8,7 +8,7 @@
 //
 // A failed parse becomes the module's own failed read, the one it already answers on an error:
 // `orEmpty` ([]), `orNull` (null), the `Parsed` itself where the module returns `{ ok: false }`, or
-// `orThrow` where a thrown error is what retries (an Inngest step). It is logged once, naming
+// `orThrow` where a thrown error is what retries (a job step). It is logged once, naming
 // `where` (the module, then the table, rpc or route) and the zod path of each issue, and never a
 // row's values: rows can hold personal data.
 //
@@ -78,7 +78,7 @@ export function orNull<T>(parsed: Parsed<T>): T | null {
   return parsed.ok ? parsed.value : null;
 }
 
-/** The value, or a thrown error: the failed read of a module whose caller retries (an Inngest step). */
+/** The value, or a thrown error: the failed read of a module whose caller retries (a job step). */
 export function orThrow<T>(parsed: Parsed<T>): T {
   if (parsed.ok) return parsed.value;
   throw new Error(parsed.error);

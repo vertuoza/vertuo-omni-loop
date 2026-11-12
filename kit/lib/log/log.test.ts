@@ -40,7 +40,7 @@ describe('a log call', () => {
   it('keeps every allow-listed field', () => {
     const { logger, parsed } = harness();
     logger.info({
-      event: 'inngest',
+      event: 'jobs',
       outcome: 'ok',
       ms: 40,
       repo: 'acme/widgets',
@@ -54,7 +54,7 @@ describe('a log call', () => {
     });
     expect(parsed()[0]).toEqual({
       level: 'info',
-      event: 'inngest',
+      event: 'jobs',
       outcome: 'ok',
       ms: 40,
       repo: 'acme/widgets',

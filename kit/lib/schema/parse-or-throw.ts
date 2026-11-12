@@ -1,5 +1,5 @@
 // One parse that fails by the first field that is wrong (PRD 725): a value read from the outside
-// (`gh`, GitHub, an Inngest event, Supabase) parsed with the kit's messages, or an error that names
+// (`gh`, GitHub, a job's payload, Supabase) parsed with the kit's messages, or an error that names
 // what answered and the field: `<shape>: 0.number: Expected number, received string`.
 import type { z } from 'zod';
 import { KIT_MESSAGES } from './messages.ts';
