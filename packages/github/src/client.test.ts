@@ -336,6 +336,19 @@ describe('githubFetch: Git objects named by their sha never change (#2766)', () 
     expect(sent).toHaveLength(1);
   });
 
+  it('answers a stored Git object even while GitHub paused the installation, and marks it read once a day', async () => {
+    const { client, store, sent, at } = setup(ok({ content: 'aGk=', encoding: 'base64' }, { etag: 'W/"t1"' }));
+    await call(client, BLOB, 'background');
+    await store.pause(42, 'core', T0 + 48 * 3_600_000, T0);
+    at(T0 + 24 * 3_600_000 - 1);
+    expect((await call(client, BLOB, 'background')).headers.get('etag')).toBe('W/"t1"');
+    expect(await store.etag(42, BLOB)).toMatchObject({ readAt: T0 });
+    at(T0 + 24 * 3_600_000);
+    await call(client, BLOB, 'background');
+    expect(await store.etag(42, BLOB)).toMatchObject({ readAt: T0 + 24 * 3_600_000 });
+    expect(sent).toHaveLength(1);
+  });
+
   it('still asks GitHub for a tree named by a branch, which moves', async () => {
     const { client, sent } = setup(ok({ sha: 'x', tree: [] }, { etag: 'W/"t1"' }), ok({ sha: 'y', tree: [] }, { etag: 'W/"t2"' }));
     await call(client, BRANCH_TREE, 'background');

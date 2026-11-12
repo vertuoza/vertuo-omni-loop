@@ -550,6 +550,11 @@ function refusal(budget, priority, now) {
   const belowFloor = budget.resetAt > now && budget.remaining < budget.limit * BACKGROUND_FLOOR;
   return priority === "background" && belowFloor ? new GithubDeferred(budget.resetAt) : null;
 }
+var GIT_OBJECT = /\/git\/(?:blobs|trees)\/[0-9a-f]{40}$/i;
+var isGitObject = (url) => GIT_OBJECT.test(new URL(url).pathname);
+function storedObject(kept3) {
+  return new Response(kept3.body, { status: 200, headers: { "content-type": kept3.contentType ?? "application/json", etag: kept3.etag } });
+}
 function fromStore(res, kept3) {
   const out = new Headers(res.headers);
   out.set("content-type", kept3.contentType ?? "application/json");
@@ -603,10 +608,15 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const { installation, priority, ...rest } = init;
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
+    const etag = await conditionalOf(installation, url, resource, rest.method);
+    if (etag.kept && isGitObject(url)) {
+      const at4 = clock();
+      if (at4 - etag.kept.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at4));
+      return storedObject(etag.kept);
+    }
     const known = await stored((s) => s.budget(installation, resource));
     const refused7 = refusal(known, priority, clock());
     if (refused7) throw refused7;
-    const etag = await conditionalOf(installation, url, resource, rest.method);
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
     const answered = clock();
@@ -12010,11 +12020,11 @@ import { createClient as createClient4 } from "@supabase/supabase-js";
 var APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
 function installationOctokitFor(githubApp, github) {
   let app;
-  return async (installationId) => {
+  return async (installationId, priority = "background") => {
     const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app reads GitHub as an installation");
     app ??= new App({ appId: id, privateKey });
     const octokit = await app.getInstallationOctokit(installationId);
-    const budgeted = github.bound({ installation: installationId, priority: "background" });
+    const budgeted = github.bound({ installation: installationId, priority });
     const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init);
     octokit.hook.before("request", (options) => {
       options.request = { ...options.request, fetch: fetch2 };
@@ -20453,7 +20463,9 @@ function serverEventRecheck(ledger) {
     for (const job of prCheckJobs(request, 0)) await ledger.refresh(job);
   };
 }
-function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecord: readRecord2 = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask: ask3, canon = null, laws = null }) {
+var foreground = (octokitFor) => (installationId) => octokitFor(installationId, "interactive");
+function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = null, readRecord: readRecord2 = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask: ask3, canon = null, laws = null }) {
+  const octokitFor = foreground(anyPriority);
   return {
     handlers: {
       [OUTBOX_KIND]: outboxHandler({ octokitFor, readProductOutbox, galaxyUrl }),

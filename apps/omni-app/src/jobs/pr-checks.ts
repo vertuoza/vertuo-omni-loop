@@ -11,6 +11,9 @@
 //                    `external_id`, as the webhook told its event before; any other check run is the outbox's
 //   the approval     the approved label put on or taken off a PRD's issue refreshes the `pr-approved` job of each
 //                    open pull request of that PRD, read from GitHub (../approved-check/github.ts)
+//   the budget       a check gates a merge: its handler and its failure hook spend the installation's GitHub budget
+//                    at `interactive` priority, above the background floor the sweeps and the retros step back at,
+//                    and only GitHub's own pause holds them (bug #2766)
 //   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's (which
 //                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts), and
@@ -132,8 +135,15 @@ export function serverEventRecheck(ledger: { refresh: (job: RefreshJob) => Promi
 /** A worker's handlers and failure hooks, by kind. */
 export type Workers = { handlers: Record<string, JobHandler>; failures: Record<string, FailureHook> };
 
-/** The four checks' handlers and failure hooks. */
-export function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecord = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask, canon = null, laws = null }: PrCheckDeps): Workers {
+/**
+ * The checks' GitHub: `octokitFor` at `interactive` priority (bug #2766). A check gates a merge, so it spends the
+ * installation's budget above its background floor, as a page a person waits on does; only a pause holds it.
+ */
+const foreground = <Client>(octokitFor: OctokitFor<Client>): OctokitFor<Client> => (installationId) => octokitFor(installationId, 'interactive');
+
+/** The four checks' handlers and failure hooks, each spending the budget as foreground work. */
+export function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = null, readRecord = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask, canon = null, laws = null }: PrCheckDeps): Workers {
+  const octokitFor = foreground(anyPriority);
   return {
     handlers: {
       [OUTBOX_KIND]: outboxHandler({ octokitFor, readProductOutbox, galaxyUrl }),
