@@ -116,7 +116,7 @@ the same key (`<owner/name>@<commit>`), through `background_job_add()`. A job ma
 `query`, the order is:
 
 1. **Exact matches:** an entry whose id, or a term whose word, equals the query (case and accents ignored), so
-   `BL-QUOTES-1` or `SIREN` comes first.
+   `BL-ORDERS-1` or `SKU` comes first.
 2. **Meaning:** the query is embedded through `embed` (2-second timeout), then `knowledge_nearest` ranks the
    filtered entries' hashes, nearest first.
 3. **Not embedded yet:** entries whose hash has no vector (a pack minutes old), ordered by today's word match,
@@ -188,7 +188,7 @@ then each question with its rank and `mode`.
 
 ## User stories
 
-- As a developer, I ask my agent "can a quote be sent without a payment term?", and it finds the business law
+- As a developer, I ask my agent "can an order ship without a delivery address?", and it finds the business law
   that answers it, though the law says it differently.
 - As an agent, I search in my own words and get the nearest entries first, each with an id I can cite; I know from
   `mode` whether I got the meaning search or the word search.
@@ -289,7 +289,7 @@ the function.
 
 ## Acceptance criteria
 
-- **Meaning on a real product.** After the deploy, `pnpm eval:search vertuoza <the product's questions file>`, run
+- **Meaning on a real product.** After the deploy, `pnpm eval:search <the measured product's key> <its questions file>`, run
   by a person with the product's 22 questions, puts the expected entry in the top 5 for at least 11 of the 12
   natural questions and 7 of the 10 paraphrased ones, every answer with `mode: "meaning"`.
 - **Exact first.** A search for an entry's exact id, or a term's exact word, answers that entry first.
