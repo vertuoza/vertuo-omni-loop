@@ -1,12 +1,15 @@
+import { createHash } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { embedText } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import { describe, expect, it } from 'vitest';
 import { hashApiKey } from '../public-api/keys/secret';
 import { handleProductMcp, type ProductMcpDeps } from './product-mcp.controller';
 import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema } from './product-mcp.contract';
 import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
+import { MEANING_BUDGET_MS, type Meaning } from './search-meaning';
 
 // `/api/products/<key>/mcp` (PRD 2707 s3) driven by the SDK's own client over the route's handler, against a
 // stubbed repository that plays product_mcp_for_key() and api_key_of() as
@@ -115,7 +118,14 @@ async function world({ database = true, failing = false }: { database?: boolean;
     }
   };
 
-  return { state, calls, logged, post, connect, ask, call };
+  /** The entries the live key reads now, as the service builds them. */
+  const entries = async () => {
+    const access = await repository.access(hashes.live, 'acme-app');
+    if (access === null) throw new Error('the live key reads nothing');
+    return (await productMcpService(repository).read(access)).entries;
+  };
+
+  return { state, calls, logged, deps, post, connect, ask, call, entries };
 }
 
 const INITIALIZE = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'probe', version: '1' } } };
@@ -264,5 +274,115 @@ describe('/api/products/<key>/mcp', () => {
     expect(failed.status).toBe(500);
     expect(w.logged).toEqual(['product mcp: product_mcp_for_key: the database refused: boom']);
     expect(w.logged.join('')).not.toContain(LIVE);
+  });
+
+  describe('search_knowledge by meaning (PRD 2728 s5)', () => {
+    // A fake model: a text's vector says whether it speaks of quotes, of keys, of locking in. The fake store
+    // holds the vectors of every entry but those a test leaves out, per workspace, and ranks by cosine.
+    const AXES = [/quote/i, /key|credential|secret/i, /lock/i];
+    const fakeVector = (text: string): number[] => AXES.map((axis) => (axis.test(text) ? 1 : 0.01));
+    const sha = (text: string): string => createHash('sha256').update(text, 'utf8').digest('hex');
+    const cosine = (a: number[], b: number[]): number => {
+      const dot = a.reduce((sum, x, i) => sum + x * (b[i] ?? 0), 0);
+      return dot / (Math.hypot(...a) * Math.hypot(...b));
+    };
+
+    async function withMeaning(w: Awaited<ReturnType<typeof world>>, {
+      leaveOut = [], embedder = (texts: readonly string[]) => Promise.resolve(texts.map(fakeVector)), budgetMs,
+    }: { leaveOut?: string[]; embedder?: Meaning['embedder']; budgetMs?: number } = {}) {
+      const held = new Map<string, number[]>();
+      for (const entry of await w.entries()) {
+        if (!leaveOut.includes(entry.id)) held.set(sha(embedText(entry)), fakeVector(embedText(entry)));
+      }
+      const store = { workspaces: [] as string[], put: [] as string[], embedded: [] as string[] };
+      const meaning: Meaning = {
+        embedder: (texts, signal) => { store.embedded.push(...texts); return embedder(texts, signal); },
+        vectors: {
+          missing: (workspace, _model, hashes) => { store.workspaces.push(workspace); return Promise.resolve(hashes.filter((h) => !held.has(h))); },
+          put: (workspace, _model, rows) => {
+            store.workspaces.push(workspace);
+            for (const row of rows) { held.set(row.sha256, [...row.vector]); store.put.push(row.sha256); }
+            return Promise.resolve();
+          },
+          nearest: (workspace, _model, hashes, query, k) => {
+            store.workspaces.push(workspace);
+            const ranked = hashes.flatMap((h) => { const v = held.get(h); return v ? [{ h, d: 1 - cosine(v, [...query]) }] : []; })
+              .sort((a, b) => a.d - b.d || (a.h < b.h ? -1 : 1));
+            return Promise.resolve(ranked.slice(0, k).map(({ h }) => h));
+          },
+        },
+        ...(budgetMs === undefined ? {} : { budgetMs }),
+      };
+      w.deps.meaning = meaning;
+      return store;
+    }
+
+    const search = async (w: Awaited<ReturnType<typeof world>>, args: Record<string, unknown>) =>
+      SearchAnswerSchema.parse(JSON.parse((await w.call(LIVE, 'search_knowledge', args)).text));
+
+    it('answers by meaning, the nearest first, reading the served workspace\'s vectors alone', async () => {
+      const w = await world();
+      const store = await withMeaning(w);
+      const answer = await search(w, { query: 'may an offer go out empty? (quote)' });
+      expect(answer.mode).toBe('meaning');
+      expect(answer.hits[0]?.id).toBe('BL-QUOTES-1');
+      expect(new Set(store.workspaces)).toEqual(new Set(['w-acme']));
+    });
+
+    it('puts an exact id or term first', async () => {
+      const w = await world();
+      await withMeaning(w);
+      expect((await search(w, { query: 'api/ADR-0012' })).hits[0]?.id).toBe('api/ADR-0012');
+      expect((await search(w, { query: 'api key' })).hits[0]?.id).toBe('term:API key');
+    });
+
+    it('answers by words, with the same hits as today, when the model fails', async () => {
+      const today = await search(await world(), { query: 'api key' });
+      const w = await world();
+      await withMeaning(w, { embedder: () => Promise.reject(new Error('embed: answered 503')) });
+      const answer = await search(w, { query: 'api key' });
+      expect(answer).toEqual({ ...today, mode: 'words' });
+      expect(w.logged).toContain('product mcp: searched by words: embed: answered 503');
+    });
+
+    it('answers by words when the model passes the budget, which is 2 seconds', async () => {
+      expect(MEANING_BUDGET_MS).toBe(2000);
+      const today = await search(await world(), { query: 'quote' });
+      const w = await world();
+      await withMeaning(w, { embedder: () => new Promise<never>(() => undefined), budgetMs: 20 });
+      expect(await search(w, { query: 'quote' })).toEqual({ ...today, mode: 'words' });
+    });
+
+    it('answers by words when no entry holds a vector yet', async () => {
+      const w = await world();
+      await withMeaning(w, { leaveOut: (await w.entries()).map((e) => e.id) });
+      const answer = await search(w, { query: 'quote', kind: 'business-law' });
+      expect(answer.mode).toBe('words');
+      expect(answer.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-1']);
+    });
+
+    it('embeds the product\'s own rows missing a vector during the search, and ranks them by meaning', async () => {
+      const w = await world();
+      const store = await withMeaning(w, { leaveOut: ['L-GDPR-2', 'api/ADR-0012'] });
+      const answer = await search(w, { query: 'secret' });
+      expect(answer.mode).toBe('meaning');
+      const legal = (await w.entries()).find((e) => e.id === 'L-GDPR-2');
+      expect(store.put).toEqual([sha(embedText(legal ?? { title: '', body: '' }))]);
+      expect(store.embedded.join('\n')).not.toMatch(/Owner:/);
+      // The Legal entry now has a vector and ranks by meaning; the ADR, a pack's, waits for the job, by words.
+      const ids = answer.hits.map((hit) => hit.id);
+      expect(ids.indexOf('L-GDPR-2')).toBeLessThan(ids.length - 1);
+      expect(ids).not.toContain('api/ADR-0012');
+    });
+
+    it('with no query, lists as today, with no mode', async () => {
+      const today = await search(await world(), { kind: 'business-law' });
+      const w = await world();
+      const store = await withMeaning(w);
+      const answer = await search(w, { kind: 'business-law' });
+      expect(answer).toEqual(today);
+      expect(answer.mode).toBeUndefined();
+      expect(store.workspaces).toEqual([]);
+    });
   });
 });
