@@ -955,6 +955,8 @@ describe('retro — a job of the ledger (PRD omni-loop-4 s3)', () => {
     assertDefined(sub, 'the first sub-PR');
     const scenario = widgetScenario({ feature: { ...sub, merge_commit_sha: MERGE_SHA }, subPulls: [] });
     const job: ClaimedJob = { id: 'job-1', ...scenario.job, tries: 1, claim: 'claim-1', claimedUntil: '2026-09-20T12:05:00Z' };
-    expect(await retroHandler(depsOf(scenario))(job)).toMatchObject({ outcome: 'skipped', reason: expect.stringContaining('is not the default branch') });
+    const ended = z.object({ outcome: z.string(), reason: z.string() }).parse(await retroHandler(depsOf(scenario))(job));
+    expect(ended.outcome).toBe('skipped');
+    expect(ended.reason).toContain('is not the default branch');
   });
 });
