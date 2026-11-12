@@ -1,0 +1,29 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-12",
+      "personas": [
+        {"name": "Paul - Product Manager", "stance": "excited", "score": 2, "reaction": "I want features out fast. Don't park my consumer PR forever on a probe nobody wrote.", "citations": ["persona:Paul - Product Manager"]},
+        {"name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "My front-end PR merged before the field existed is exactly how a screen breaks in QA; holding it is what I want.", "citations": ["persona:F-E Developer"]},
+        {"name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Fine if writing the probe stays optional for my repository and the kit never runs my code.", "citations": ["persona:B-E DEv"]},
+        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One rule for the merge order across teams, written on the pull request, keeps the repositories in step.", "citations": ["persona:Lead Engineer"]},
+        {"name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A status comment that names what the pull request waits for tells me why it is still a draft.", "citations": ["persona:Irisa"]}
+      ],
+      "objection": {"persona": "Paul - Product Manager", "text": "I want features out fast. Don't park my consumer PR forever on a probe nobody wrote.", "citations": ["persona:Paul - Product Manager"], "settled": "accepted"},
+      "fit": "Fits the developers and the lead engineer; the product manager fears waiting, met by holding only declared lines and needing no probe."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-12",
+      "personas": [
+        {"name": "Paul - Product Manager", "stance": "excited", "score": 3, "reaction": "With no probe a merged provider clears it, and the loop marks it ready by itself: I wait only as long as I must.", "citations": ["persona:Paul - Product Manager"]},
+        {"name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "My front-end PR merged before the field existed is exactly how a screen breaks in QA; holding it is what I want.", "citations": ["persona:F-E Developer"]},
+        {"name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "The probe is mine to write or not, and the kit only reads it: that I can live with.", "citations": ["persona:B-E DEv"]},
+        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One rule for the merge order across teams, written on the pull request, keeps the repositories in step.", "citations": ["persona:Lead Engineer"]},
+        {"name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A status comment that names what the pull request waits for tells me why it is still a draft.", "citations": ["persona:Irisa"]}
+      ],
+      "fit": "Fits every persona once merged is enough without a probe."
+    }
+  ]
+}
