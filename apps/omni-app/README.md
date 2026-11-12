@@ -45,6 +45,37 @@ A check due but not started for over 10 minutes is posted `queued`, `Delayed: Om
 by the sweep ([below](#the-job-ledger--the-sweep-human-steps-prd-2676)). A database failure never fails a
 delivery: the next event, or **Re-run**, refreshes the jobs again.
 
+### The App's other jobs on the ledger (PRD omni-loop-3)
+
+Six more kinds run on the same ledger, no longer on Inngest (`src/jobs/pr-checks.ts` wires their
+handlers). A job may wait without failing: it ends `later`, due at a date, keeps a small `progress` for
+its next run and gets its try back; the 21st `later` fails it. A job in a **lane** never runs beside
+another job of its kind and lane. Each kind sets its own tries.
+
+| kind | what adds it | key | lane | tries |
+|---|---|---|---|---|
+| `pr-stats` | the schedule, every 15 minutes ([the collector](#the-engineering-boards-collector-prd-612)) | `pr-stats@<slot start>` | `pr-stats` | 3 |
+| `escalation` | the schedule, every hour ([Escalation](#escalation-prd-1794)) | `escalation@<slot start>` | `escalation` | 3 |
+| `fix-row-stamp` | `/api/github`, for a pull request closed, merged or not, or reopened ([the merge stamp](#fix-rows-and-knowledge-packs-prd-2011)) | `<owner/name>#<pr>@<what>@<when>` | none | 4 |
+| `fleet-board` | `/api/github`, for a pull request the loop signed, into the default branch | `<owner/name>#<pr>` | none | 4 |
+| `canon-action` | `/api/github`, for a click of a button on a red canon check ([the canon gate](#the-inbox-check-prd-675)) | the delivery's id | `<owner/name>#<pr>` | 4 |
+| `server-event` | `/api/server-event`, refreshed per dossier ([the server event](#a-product-prds-checks-prd-1548)) | the dossier's id | none | 4 |
+
+- **The schedule** (`src/jobs/schedule.ts`) is a list in the code, with no table. Every minute the sweep
+  adds the job of each schedule's current slot. The key makes a second add of a slot do nothing, and a
+  slot the sweep missed is never added later: the next slot reads everything since the last run.
+- **The fleet board** puts a loop pull request on the board of its author's fleet. When the author has
+  no fleet, it takes the fleet of whoever sent the runner job that lists the pull request. A runner
+  lists its pull requests a little after opening them, so a look that finds no such job ends
+  `later`, a minute on, its look number in `progress`; the 10th goes on with no fleet.
+- **What adds a job first.** `/api/github` and `/api/server-event` write the job before anything else.
+  A database that refuses answers 500, so GitHub's redelivery, or galaxy's next event, adds it then.
+  Once the call is answered, the jobs due run in `waitUntil`; the sweep runs whatever is left.
+- **Health.** `/api/health` says `checks.jobs` `late` when `pr-stats` has had no `done` job for 45
+  minutes, or `escalation` for 3 hours.
+
+To read a job, or replay a failed one, see [The job ledger — the sweep, human steps](#the-job-ledger--the-sweep-human-steps-prd-2676).
+
 ### Fix, knowledge and enforce PRs (PRD 1342)
 
 When the base branch's config says `laws.source: knowledge`, the check grades three more kinds of
@@ -106,16 +137,19 @@ galaxy says the server changed the PRD, so nothing polls. Galaxy POSTs `{ event,
 `/api/server-event` (`src/server-event/`), signed with an HMAC-SHA256 of the body under
 `STAGE_EVENT_SECRET` in `x-omni-signature-256`, for four events: `approved`, `voided` (a push changed a
 pinned file), `item-opened` and `item-settled` (an item answered, or adopted as it was raised). A bad
-or missing signature is 401, a body that is not a server event 400, and a good one 202. The Inngest
-function `server-event`, debounced per PRD, reads the PRD's open PRs from the `pull_requests` table the
+or missing signature is 401, a body that is not a server event 400, and a good one 202. The route
+refreshes the PRD's `server-event` job on the ledger (`src/server-event/job.ts`), one per dossier, due 5
+seconds on, so a burst of events runs it once, on the last; a job the database refuses answers 500. The
+job reads the PRD's open PRs from the `pull_requests` table the
 collector keeps ([below](#the-engineering-boards-collector-prd-612)), reads each one once from GitHub,
 keeps those whose body names the PRD, refreshes the four checks' jobs of each, due at once, and runs
 the jobs due (PRD 2688). A PR the collector has not read yet gets both checks on its next webhook.
 
 ## Fix rows and knowledge packs (PRD 2011)
 
-**The merge stamp.** On a merged `pull_request.closed`, the App calls `fix_row_stamp()` as the service
-role (`src/fix-rows/`, the only writer of a Fixes row's merge). It stamps `merged_at` on the row whose
+**The merge stamp.** On a `pull_request` closed, merged or not, or reopened, the App adds a
+`fix-row-stamp` job, which calls `fix_row_stamp()` as the service role (`src/fix-rows/`, the only
+writer of a Fixes row's merge). It stamps `merged_at` on the row whose
 repository and pull request match, once: a replay keeps the first stamp and ships nothing twice. A
 pull request closed without merging marks its row not merged and leaves the record open, and a reopen
 clears that. When the last row of a product bug record merges, the record ships. A merge that matches
@@ -123,7 +157,7 @@ no row, whose body names a record of a product that holds the repository, is kep
 as an unmatched merge. The stamp writes nothing on GitHub and never merges anything.
 
 **The pack snapshot.** On a merge that touches a repository's knowledge folder or its flow config, the
-knowledge harvest also calls the `knowledge-pack` function (`src/knowledge-pack/`). It reads the files
+App adds a `knowledge-pack` job to the ledger (PRD 2676, `src/jobs/pack.ts`, `src/knowledge-pack/`). It reads the files
 at the commit, records each with its sha256 in a `knowledge_packs` row, and marks that row the newest
 pack for each product link of the repository. It runs at background priority in the installation's
 budget. `GET /api/knowledge-packs` serves the newest pack to an
@@ -177,7 +211,9 @@ stay, and with none the gate is not red.
 
 On a red canon the check run carries two buttons: **Rewrite for <persona>** posts the rework command,
 and **Change the line** links each cited line on galaxy's Settings › Business (a Never line at
-`#never-<n>`, the Statement at `#statement`).
+`#never-<n>`, the Statement at `#statement`). A click adds a `canon-action` job, in its pull request's
+lane, so two clicks on one pull request never run together; a second run edits the button's comment,
+never doubling it.
 
 The model's verdict is cached in the running instance by the repository, the spec's hash, the claims'
 latest update (`updatedAt`) and the constituents' latest event id (`latestEventId`), so a Re-run with
@@ -277,7 +313,8 @@ repairs a missed event. No Inngest function is involved.
 
 ## The Engineering board's collector (PRD 612)
 
-Every 15 minutes the Inngest function **pr-stats** (`prStats`) reads the pull requests of every
+Every 15 minutes the schedule adds one **pr-stats** job (`src/pr-stats/job.ts`), one at a time, which
+reads the pull requests of every
 **tracked** repository (galaxy's Settings → Repositories) of every workspace with an installation of
 the app, through that installation, and writes them to Supabase for galaxy's Dashboard → Engineering:
 one `pull_requests` row per pull request (author, dates, who merged, base, commits, lines, and whether
@@ -287,9 +324,10 @@ review, never its author).
 - A repository's first collection backfills 90 days; each one after reads only the pull requests
   updated after its cursor (`repositories.collected_until`). Rows are upserted, so running twice
   changes nothing.
-- Each repository is its own Inngest step, at most 50 pull requests a step. A failure (no access, a
-  rate limit, a GitHub error) is written to that repository's `collect_error`, with the cursor at what
-  was written, and retried on the next run; the others are collected all the same.
+- A run reads each repository at most 50 pull requests at a time, and re-runs whole: no step is saved.
+  A failure (no access, a rate limit, a GitHub error) is written to that repository's `collect_error`,
+  with the cursor at what was written, and retried on the next run; the others are collected all the
+  same. A call the shared GitHub client refuses (a low budget) ends the run `waiting`.
 - **Omni-man signed** a pull request when a commit carries a co-author trailer with his e-mail, its
   body carries `<!-- omni-loop:signed -->`, or `omni-loop-invader[bot]` opened it.
 - It writes only those two tables and the collection columns of `repositories`, and reads GitHub only.
@@ -304,8 +342,8 @@ delegate in `laws.owners` and no `laws.leadership`.
 - **The record.** After each outbox check run, the check keeps one comment marked
   `<!-- omni:escalation -->`, edited in place: one line per held thing, since when it holds, its step,
   who is asked and when the next step falls due (`src/escalation/record.ts`). It mentions nobody.
-- **The sweep.** Every hour the Inngest function **escalation** (`escalation`, `src/escalation/sweep.ts`)
-  lists the App's installations as the App itself, then, through each installation, every open pull
+- **The sweep.** Every hour the schedule adds one **escalation** job (`src/escalation/job.ts`,
+  `src/escalation/sweep.ts`), one at a time, so two never post the same ask. It lists the App's installations as the App itself, then, through each installation, every open pull
   request of its repositories carrying the record. Each held thing whose next step fell due
   (`limits.escalationWorkingDays` after it was first held, then as many again) gets one new comment
   marked `<!-- omni:escalation-ask <thing> <step> -->`, mentioning the people newly asked: at step 1
@@ -328,8 +366,15 @@ GitHub ── pull_request / check_run.rerequested ──▶ /api/github    veri
              Re-run of a check run         → that check's job alone, told by its external_id
              a merged pull_request.closed  → omni-loop/retro.requested and
                                              omni-loop/knowledge.harvest.requested, and the pack's job
+             a pull request closed or reopened → a fix-row-stamp job
+             a loop pull request into the default branch → a fleet-board job
+             a click of a canon button     → a canon-action job, in its pull request's lane
              a stage move (PRD 587)        → POST galaxy /api/stages/event, signed, beside either route
            after the answer, in waitUntil: the 5 seconds gone by, the jobs due run (src/jobs/worker.ts)
+Galaxy ── server event ──▶ /api/server-event   verify signature → refresh the dossier's server-event job → 202
+           after the answer, in waitUntil: the jobs due run
+Vercel cron ── every minute ──▶ /api/jobs-sweep   the delayed checks posted queued → each schedule's slot added
+                                                   (pr-stats every 15 minutes, escalation every hour) → the jobs due run
 Ledger ──▶ job "pr-outbox", in one try
               "in-progress"  create the check run, in_progress, on the head SHA
                              (no base config: stop here, post nothing, the job skipped)
@@ -363,17 +408,17 @@ Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per
               step "write"            the same tip: write the knowledge, run both checks, drop what fails
               step "publish"          one commit on branches.knowledge, cut from that tip; the knowledge PR
             onFailure          one comment on the merged PR
-Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run at a time)
-              step "list-repositories"        the tracked repositories of installed workspaces
-              steps "collect <ws>/<repo> <n>" at most 50 pull requests each: details, reviews, commits
-Inngest ──▶ /api/inngest   function "escalation" (cron 0 * * * *, one run at a time)
-              step "installations"          the App's installations, listed as the App
-              steps "repositories <id>"     each installation's repositories
-              steps "sweep <owner>/<repo>"  its open pull requests with a record: one ask per due step, the record rewritten
+Ledger ──▶ job "pr-stats", in the lane pr-stats, 3 tries
+              the tracked repositories of installed workspaces, at most 50 pull requests at a time:
+              details, reviews, commits
+Ledger ──▶ job "escalation", in the lane escalation, 3 tries
+              the App's installations, listed as the App; each installation's repositories; their open
+              pull requests with a record: one ask per due step, the record rewritten
+Ledger ──▶ jobs "fix-row-stamp", "fleet-board", "canon-action", "server-event", 4 tries each
 ```
 
-Vercel serves the four functions from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`
-and `api/health.mjs` ([Health](#health-prd-1723)): committed bundles of their entries under
+Vercel serves the five functions from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`,
+`api/jobs-sweep.mjs` and `api/health.mjs` ([Health](#health-prd-1723)): committed bundles of their entries under
 `entries/` with the app's code, the kit and the workspace packages inside, npm packages left as
 imports. Vercel compiles a TypeScript function file by file and keeps
 every `import './x.ts'` as written, so a function served from TypeScript fails to start (#1084).
@@ -396,7 +441,7 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | `publish` — the check run and the comment | `src/publish/` |
 | `outbox-check` — the `pr-outbox` job's handler and failure hook | `src/outbox-check/`, run by the job ledger's worker |
 | `inbox-check` — the `pr-inbox` job's handler, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, run by the job ledger's worker |
-| `jobs` — the job ledger, its worker, the checks' four kinds and the sweep | `src/jobs/`, run at `api/github.mjs`, `api/inngest.mjs` (the server event) and `api/jobs-sweep.mjs` |
+| `jobs` — the job ledger, its worker, the checks' four kinds, every kind's handlers, the schedule and the sweep | `src/jobs/`, run at `api/github.mjs`, `api/server-event.mjs` and `api/jobs-sweep.mjs` |
 | `canon` — the inbox check's canon gate: the spec against the business, and its live ports | `src/canon/` |
 | `retro` — the Inngest function wiring the retro's units | `src/retro/retro.ts`, served at `api/inngest.mjs` |
 | `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.ts` |
@@ -410,8 +455,8 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.ts`, served at `api/inngest.mjs` |
 | the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.ts` |
 | `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.ts` |
-| `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.mjs` |
-| `escalation` — the record kept after each outbox check run, and the hourly sweep that asks more people | `src/escalation/`, the sweep served at `api/inngest.mjs` |
+| `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, the `pr-stats` job run by the job ledger's worker |
+| `escalation` — the record kept after each outbox check run, and the hourly sweep that asks more people | `src/escalation/`; the sweep is the `escalation` job, run by the job ledger's worker |
 | `health` — alive, its commit, and whether its environment parses | `src/health/`, served at `api/health.mjs` (bundled from `entries/health.ts`) |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The
@@ -505,9 +550,10 @@ None of these is taken by the code; a person does each once.
    the Vercel variable, redeploy, then delete the old key.
 3. **Inngest.** Create (or reuse) the Inngest account and sync the app at
    `https://<production domain>/api/inngest`. A deploy does not resync it: after a deploy that adds a
-   function (pr-stats, PRD 612, and server-event, PRD 1548, are some) or removes one (the four checks'
-   functions and `approved-rerun`, PRD 2688), press **Resync** on the app in Inngest, or the new function
-   never runs and the removed one stays listed.
+   function or removes one (the four checks' functions and `approved-rerun`, PRD 2688; `pr-stats`,
+   `escalation`, `fix-row-stamp`, `fleet-board`, `canon-action` and `server-event`, PRD omni-loop-3),
+   press **Resync** on the app in Inngest, or the new function never runs and the removed one stays
+   listed. Inngest now serves only the retro, the knowledge harvest and the main watch.
 4. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
    default branch.
 
@@ -572,26 +618,31 @@ None of these is taken by the code. Until they are done, stages come from galaxy
 ### The job ledger — the sweep, human steps (PRD 2676)
 
 The ledger (`background_jobs`, `background_job_attempts`; the worker is `src/jobs/worker.ts`) holds the
-knowledge pack's jobs and the four pull-request checks' (PRD 2688, [above](#the-checks-on-the-job-ledger-prd-2688)).
+knowledge pack's jobs, the four pull-request checks' (PRD 2688, [above](#the-checks-on-the-job-ledger-prd-2688))
+and the six kinds of PRD omni-loop-3 ([above](#the-apps-other-jobs-on-the-ledger-prd-omni-loop-3)).
 A merge adds its pack's job, a pull request event refreshes its checks' jobs, and the webhook runs the jobs
-due after it answers; the sweep finishes what that left, every kind's handler wired. `GET /api/jobs-sweep` answers only `Authorization: Bearer <CRON_SECRET>` (anything
+due after it answers; the sweep adds the scheduled jobs and finishes what the routes left, every kind's
+handler wired. `GET /api/jobs-sweep` answers only `Authorization: Bearer <CRON_SECRET>` (anything
 else is 401, and with no `CRON_SECRET` set every call is) and has two crons in `vercel.json`:
 
 | cron | call | what it does |
 |---|---|---|
-| every 15 minutes | `/api/jobs-sweep` | first posts, `queued` and delayed, every check due but not started for over 10 minutes; then runs the jobs due: retries, claims that ran out, whatever the webhook did not finish |
+| every minute | `/api/jobs-sweep` | first posts, `queued` and delayed, every check due but not started for over 10 minutes; then adds the job of each schedule's current slot (`pr-stats` every 15 minutes, `escalation` every hour); then runs the jobs due: retries, `later`s, claims that ran out, the scheduled jobs, whatever the routes did not finish |
 | hourly, at minute 7 | `/api/jobs-sweep?gaps=1` | first the comparison: each repository a product holds and the App is installed on, with no pack or an older one than its latest commit on the knowledge folder or the config, gets a job (it stops when GitHub's budget is low); then the jobs due; and at 03:00 UTC it forgets the jobs finished over 90 days ago, with their attempts |
 
 1. **Set `CRON_SECRET`** in this app's Vercel project, to any long random value, and redeploy: a new
    variable is read only by a new deployment. Vercel's cron then sends it by itself.
 2. **Read a job.** The tables are the service role's alone: in the Supabase SQL editor,
    `select kind, state, tries, run_after, reason from background_jobs order by created_at desc limit 20`
-   lists the jobs, and `select outcome, error, started_at from background_job_attempts where job_id = '<id>'`
-   lists a job's tries. `/api/health` says `checks.jobs` `late` when one is jammed.
+   lists the jobs; add `where kind = 'pr-stats'` (or any kind) for one kind, and `lane`, `max_tries` and
+   `progress` to the columns for its lane, its tries and what its last `later` kept.
+   `select outcome, error, started_at from background_job_attempts where job_id = '<id>'`
+   lists a job's tries. `/api/health` says `checks.jobs` `late` when one is jammed, or when a schedule
+   has had no `done` job for three of its periods.
 3. **Replay a failed job:**
    `curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "content-type: application/json" -d '{"replay": "<job id>"}' https://<this app>/api/jobs-sweep`.
-   It puts the `failed` job back to `queued` with its tries at zero, keeps its attempts, and runs the jobs
-   due at once. A job that is not `failed`, or that does not exist, answers 409.
+   It puts the `failed` job back to `queued` with its tries at zero and its progress cleared, keeps its
+   attempts, and runs the jobs due at once. Any kind replays this way, a scheduled one included. A job that is not `failed`, or that does not exist, answers 409.
 
 ### The knowledge harvest — human steps (PRD 82)
 

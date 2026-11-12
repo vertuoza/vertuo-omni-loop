@@ -38,12 +38,12 @@ what ran and how it ended.
 
 | field | what it holds |
 |---|---|
-| `event` | what ran: `webhook`, `server-event`, `inngest` or `stages-sync` |
+| `event` | what ran: `webhook`, `server-event`, `jobs-sweep`, `inngest` or `stages-sync`; `note` for a sentence a run said on the way |
 | `outcome` | `ok`, `refused` (a bad signature, a wrong bearer, a wrong method) or `failed` |
 | `ms` | how long the run took, in milliseconds |
 | `repo` | the repository the run was about, when it had one |
 | `prd` | the PRD the run was about, when it had one |
-| `deliveryId`, `runId`, `fn` | the GitHub delivery id; the Inngest run id; the Inngest function id, or the GitHub event's name |
+| `deliveryId`, `runId`, `fn` | the GitHub delivery id; the Inngest run id; the Inngest function id, the GitHub event's name, or, on a `note`, who said it (`jobs`, a job's kind) |
 | `level` | `info`, `warn` or `error` |
 | `error` | `{ name, message }`: the message cut to 500 characters, any token, key or bearer value in it shown as `***`, never a stack |
 
@@ -53,7 +53,19 @@ App's other lines, its warnings, are JSON too, today's sentence in `message`, at
 To find a run, open the project's **Logs** in Vercel and search for a field and its value as they
 appear in the line, quotes included: `"outcome":"failed"` lists every run that failed in the last 30
 days; add a repository's name to narrow it to that repository, or `"event":"inngest"` for the
-Inngest runs alone. Each line's `ms` tells a slow run from a quick one.
+Inngest runs alone: the retro, the knowledge harvest and the main watch. Each line's `ms` tells a slow
+run from a quick one.
+
+The App's background jobs run on its own job ledger, not on Inngest, so they write no `inngest` line.
+That holds for the four pull-request checks and the knowledge pack, and for the six kinds of PRD
+omni-loop-3: `pr-stats`, `escalation`, `fix-row-stamp`, `fleet-board`, `canon-action` and
+`server-event`. A job runs inside the call that ran the jobs due, so its time counts in that call's
+line: `webhook`, `server-event`, or `jobs-sweep` (the sweep, every minute, which also adds the
+scheduled jobs). What the jobs say goes in `note` lines. Search `"fn":"jobs"` for the ledger's own
+lines: a try that failed, was retried or waited, a job skipped, a job that could not be added. Search
+`"fn":"pr-stats"` or `"fn":"escalation"` for what each run of those two collected or asked, and
+`"fn":"fleet-board"` or `"fn":"fix-row-stamp"` for those. The ledger's tables keep every job and try
+(the App's README says how to read them).
 
 Galaxy's pages and its other routes still log plain strings: Vercel keeps them, and the alert above
 counts their 5xx responses. New server code logs through `kit/lib/log` (the conventions form says

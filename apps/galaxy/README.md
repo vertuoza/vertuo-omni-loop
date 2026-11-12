@@ -574,8 +574,8 @@ Omni App installation can see and is not listed yet, and switches tracking throu
 `add_repository()` and `set_repository_tracked()`; every other member reads the list. A repository
 the App cannot read shows *Omni App has no access*, with a link to the installation's settings on
 GitHub. Vertuoza, and only Vertuoza, starts with six tracked repositories; any other workspace starts
-with none. omni-app's `prStats` Inngest function collects the tracked repositories every 15 minutes
-into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md)).
+with none. omni-app's `pr-stats` job, on the App's job ledger, collects the tracked repositories every
+15 minutes into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md#the-engineering-boards-collector-prd-612)).
 
 **Runner skills** (PRD 2313). Each row ends with a **Runner skills** block, closed by default. Opened,
 it reads the repository's `.claude/skills/<name>/SKILL.md` on its default branch live, as the Omni App
