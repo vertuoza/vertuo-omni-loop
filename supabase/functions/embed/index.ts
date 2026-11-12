@@ -5,9 +5,12 @@
 import { MODEL, handleEmbed, type EmbedSession } from './handler.ts';
 
 // The edge runtime's globals, declared here so the repository's Node typecheck and lint read this file.
-declare const Deno: { serve(handler: (request: Request) => Promise<Response>): unknown };
+declare const Deno: {
+  serve(handler: (request: Request) => Promise<Response>): unknown;
+  env: { get(name: string): string | undefined };
+};
 declare const Supabase: { ai: { Session: new (model: string) => EmbedSession } };
 
 const session = new Supabase.ai.Session(MODEL);
 
-Deno.serve((request) => handleEmbed(request, session));
+Deno.serve((request) => handleEmbed(request, session, (name) => Deno.env.get(name)));
