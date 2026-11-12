@@ -111,6 +111,58 @@
         }
       ],
       "fit": "Every persona at 3 or more; the skeptical developers wait on the eval's numbers."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-12",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The word search still answers when the vectors are down, so it costs nothing to try; I'll trust it once the eval holds after deploy.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every agent finding the same rule from different words keeps the teams aligned, and the eval script lets me check it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Read-only and exact ids first; I'll judge it when agents cite the right law in their pull requests.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Agents now understand the product the way I describe it, not only in its own words.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I can ask in customer words and still land on the right rule.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "Every persona at 3 or more; the skeptical developers wait for the post-deploy eval."
     }
   ]
 }
