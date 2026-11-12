@@ -5,7 +5,8 @@ import { FORGET_HOUR_UTC, jobsSweepRoute, type SweepJobs } from './sweep.ts';
 
 const SECRET = 'cron-secret';
 const URL_BASE = 'https://omni-loop.example/api/jobs-sweep';
-const RUN = { ran: 1, done: 1, skipped: 0, retry: 0, waiting: 0, failed: 0, stale: 0 };
+const RUN = { ran: 1, done: 1, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
+const SCHEDULED = { scheduled: 2, added: 1 };
 const DELAYED = { due: 1, posted: 1, skipped: 0, failed: 0, stopped: false };
 const GAPS = { read: 2, added: 1, skipped: 0, failed: 0, stopped: false };
 const ID = '00000000-0000-4000-8000-000000002676';
@@ -19,6 +20,10 @@ function fake(calls: string[], replayed: Awaited<ReturnType<SweepJobs['replay']>
     delayed: () => {
       calls.push('delayed');
       return Promise.resolve(DELAYED);
+    },
+    schedule: () => {
+      calls.push('schedule');
+      return Promise.resolve(SCHEDULED);
     },
     gaps: () => {
       calls.push('gaps');
@@ -58,32 +63,39 @@ describe('/api/jobs-sweep (PRD 2676 s4)', () => {
     expect(calls.indexOf('delayed')).toBeLessThan(calls.indexOf('run'));
   });
 
+  it('adds the scheduled jobs before it runs the jobs due (PRD omni-loop-3 s1)', async () => {
+    const calls: string[] = [];
+    await route(fake(calls)).GET(new Request(URL_BASE, { headers: authed }));
+    expect(calls.indexOf('schedule')).toBeGreaterThan(-1);
+    expect(calls.indexOf('schedule')).toBeLessThan(calls.indexOf('run'));
+  });
+
   it('runs the jobs due with the secret', async () => {
     const calls: string[] = [];
     const response = await route(fake(calls)).GET(new Request(URL_BASE, { headers: authed }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, delayed: DELAYED, run: RUN });
-    expect(calls).toEqual(['delayed', 'run']);
+    expect(await response.json()).toEqual({ ok: true, delayed: DELAYED, scheduled: SCHEDULED, run: RUN });
+    expect(calls).toEqual(['delayed', 'schedule', 'run']);
   });
 
   it('runs the comparison first with ?gaps=1, and forgets nothing outside the daily hour', async () => {
     const calls: string[] = [];
     const response = await route(fake(calls)).GET(new Request(`${URL_BASE}?gaps=1`, { headers: authed }));
-    expect(await response.json()).toEqual({ ok: true, gaps: GAPS, delayed: DELAYED, run: RUN });
-    expect(calls).toEqual(['gaps', 'delayed', 'run']);
+    expect(await response.json()).toEqual({ ok: true, gaps: GAPS, delayed: DELAYED, scheduled: SCHEDULED, run: RUN });
+    expect(calls).toEqual(['gaps', 'delayed', 'schedule', 'run']);
   });
 
   it('forgets the old rows once a day, in the hourly call of the daily hour', async () => {
     const calls: string[] = [];
     const response = await route(fake(calls), FORGET_HOUR_UTC).GET(new Request(`${URL_BASE}?gaps=1`, { headers: authed }));
-    expect(await response.json()).toEqual({ ok: true, gaps: GAPS, forgotten: 3, delayed: DELAYED, run: RUN });
-    expect(calls).toEqual(['gaps', 'forget', 'delayed', 'run']);
+    expect(await response.json()).toEqual({ ok: true, gaps: GAPS, forgotten: 3, delayed: DELAYED, scheduled: SCHEDULED, run: RUN });
+    expect(calls).toEqual(['gaps', 'forget', 'delayed', 'schedule', 'run']);
   });
 
-  it('forgets nothing in the plain 15-minute call, even in the daily hour', async () => {
+  it('forgets nothing in the plain call of every minute, even in the daily hour', async () => {
     const calls: string[] = [];
     await route(fake(calls), FORGET_HOUR_UTC).GET(new Request(URL_BASE, { headers: authed }));
-    expect(calls).toEqual(['delayed', 'run']);
+    expect(calls).toEqual(['delayed', 'schedule', 'run']);
   });
 
   it('replays a failed job, then runs the jobs due', async () => {

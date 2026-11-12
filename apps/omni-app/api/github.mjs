@@ -215,8 +215,8 @@ var SECRETS = Object.freeze([
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
-function maskSecrets(text12) {
-  let out = plainText(text12);
+function maskSecrets(text13) {
+  let out = plainText(text13);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -252,14 +252,14 @@ async function askModel({
   const request = (conversation) => ask({ fetch: fetch2, sleep: sleep2, call, deadline, key, title, body: body(conversation) });
   const first = await request(messages);
   if (!first.ok) return failure(UNAVAILABLE, model, unavailable(first.status));
-  const checked = runCheck(check, parseJson(first.content));
-  if (checked.reply !== null) return { ok: true, error: null, model, reply: checked.reply, reason: null };
+  const checked2 = runCheck(check, parseJson(first.content));
+  if (checked2.reply !== null) return { ok: true, error: null, model, reply: checked2.reply, reason: null };
   const repair = await request([
     ...messages,
     { role: "assistant", content: first.content },
     {
       role: "user",
-      content: `Your reply did not fit the shape asked for: ${checked.errors.join("; ")}. Reply again with only the JSON object, in that shape.`
+      content: `Your reply did not fit the shape asked for: ${checked2.errors.join("; ")}. Reply again with only the JSON object, in that shape.`
     }
   ]);
   if (!repair.ok) return failure(UNAVAILABLE, model, unavailable(repair.status));
@@ -372,9 +372,9 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text12) => {
-    if (!text12.startsWith("data:")) return false;
-    const data = text12.slice(5).trim();
+  const line = (text13) => {
+    if (!text13.startsWith("data:")) return false;
+    const data = text13.slice(5).trim();
     if (data === "[DONE]") return true;
     let raw;
     try {
@@ -393,9 +393,9 @@ async function readContent(response) {
     buffer += decoder.decode(value, { stream: true });
     let newline = buffer.indexOf("\n");
     while (newline !== -1) {
-      const text12 = buffer.slice(0, newline).replace(/\r$/, "");
+      const text13 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text12)) {
+      if (line(text13)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -406,12 +406,12 @@ async function readContent(response) {
   line(buffer + decoder.decode());
   return content;
 }
-function parseJson(text12) {
-  const start = text12.indexOf("{");
-  const end = text12.lastIndexOf("}");
+function parseJson(text13) {
+  const start = text13.indexOf("{");
+  const end = text13.lastIndexOf("}");
   if (start === -1 || end < start) return void 0;
   try {
-    return JSON.parse(text12.slice(start, end + 1));
+    return JSON.parse(text13.slice(start, end + 1));
   } catch {
     return void 0;
   }
@@ -601,8 +601,8 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
     const known = await stored((s) => s.budget(installation, resource));
-    const refused6 = refusal(known, priority, clock());
-    if (refused6) throw refused6;
+    const refused7 = refusal(known, priority, clock());
+    if (refused7) throw refused7;
     const etag = await conditionalOf(installation, url, resource, rest.method);
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
@@ -726,10 +726,10 @@ var CREDENTIALS = [
   [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK2}`],
   [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK2}`]
 ];
-function maskCredentials(text12) {
-  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text12);
+function maskCredentials(text13) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text13);
 }
-var cut = (text12) => text12.length > MAX_TEXT ? text12.slice(0, MAX_TEXT) : text12;
+var cut = (text13) => text13.length > MAX_TEXT ? text13.slice(0, MAX_TEXT) : text13;
 function errorOf(value) {
   if (value instanceof Error) {
     return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
@@ -928,6 +928,12 @@ function rowsOf(schema, answer) {
   return z7.array(schema).parse(answer.data ?? []);
 }
 
+// apps/omni-app/src/jobs/schedule.ts
+var SCHEDULES = Object.freeze([
+  { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
+  { kind: "escalation", periodMinutes: 60, maxTries: 3 }
+]);
+
 // apps/omni-app/src/jobs/ledger.ts
 var REFRESH_DELAY_SECONDS = 5;
 var RefreshedSchema = z8.enum(["added", "updated", "again", "requeued"]);
@@ -938,7 +944,10 @@ var ClaimedRowSchema = z8.object({
   key: z8.string().min(1),
   subject: z8.string().min(1),
   payload: PayloadSchema,
+  progress: PayloadSchema.default({}),
+  lane: z8.string().min(1).nullable().default(null),
   tries: z8.number().int().min(1).max(5),
+  max_tries: z8.number().int().min(1).max(5).default(5),
   claim: z8.string().min(1),
   claimed_until: z8.string().min(1)
 });
@@ -953,35 +962,46 @@ var ReplayedRowSchema = z8.object({
 var HealthSchema = z8.object({
   state: z8.enum(["ok", "late"]),
   late: z8.number().int().nonnegative(),
-  failed: z8.number().int().nonnegative()
+  failed: z8.number().int().nonnegative(),
+  /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
+  scheduled: z8.number().int().nonnegative().optional()
 });
 var refused2 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
   if (error) throw refused2(error);
   return data;
 }
+function paced(lane, maxTries) {
+  return { ...lane === void 0 ? {} : { p_lane: lane }, ...maxTries === void 0 ? {} : { p_max_tries: maxTries } };
+}
+function healthArgs(schedules) {
+  if (schedules.length === 0) return void 0;
+  return { p_kinds: schedules.map(({ kind }) => kind), p_periods: schedules.map(({ periodMinutes }) => periodMinutes * 60) };
+}
 function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
-    add: async ({ kind, key, subject, payload }) => z8.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
-    refresh: async ({ kind, key, subject, payload, delaySeconds }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
+    add: async ({ kind, key, subject, payload, lane, maxTries }) => z8.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane, maxTries) }))),
+    refresh: async ({ kind, key, subject, payload, delaySeconds, lane, maxTries }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
       p_kind: kind,
       p_key: key,
       p_subject: subject,
       p_payload: payload,
-      p_delay_seconds: delaySeconds
+      p_delay_seconds: delaySeconds,
+      ...paced(lane, maxTries)
     }))),
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z8.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
-      return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));
+      return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
-    finish: async ({ id, claim, outcome, reason: reason2, retryAt }) => {
+    finish: async ({ id, claim, outcome, reason: reason2, retryAt, progress }) => {
       const answer = await db.rpc("background_job_finish", {
         p_id: id,
         p_claim: claim,
         p_outcome: outcome,
         ...reason2 === null ? {} : { p_reason: reason2 },
-        ...retryAt === null ? {} : { p_retry_at: retryAt }
+        ...retryAt === null ? {} : { p_retry_at: retryAt },
+        ...progress === void 0 ? {} : { p_progress: progress }
       });
       if (answer.error?.code === "55000") return "stale";
       return JobStateSchema.parse(dataOf(answer));
@@ -992,7 +1012,7 @@ function jobLedger(connection) {
       const job = ReplayedRowSchema.parse(dataOf(answer));
       return { replayed: true, ...job };
     },
-    health: async () => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", void 0, { get: true }))),
+    health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
     forget: async () => z8.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget")))
   };
 }
@@ -1240,14 +1260,14 @@ function readHead(head) {
   return { title: head[at4]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
-  const text12 = raw.replace(COMMENT, "").trim();
-  const lines = text12.split("\n").map((line) => line.trim()).filter(Boolean);
+  const text13 = raw.replace(COMMENT, "").trim();
+  const lines = text13.split("\n").map((line) => line.trim()).filter(Boolean);
   const questions = lines.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines.length) return { kind: "holes", text: text12, see: null, questions };
+  if (questions.length === lines.length) return { kind: "holes", text: text13, see: null, questions };
   const see = lines.length === 1 ? lines[0]?.match(SEE) ?? null : null;
-  if (see) return { kind: "pointer", text: text12, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text12, see: null, questions };
+  if (see) return { kind: "pointer", text: text13, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
+  return { kind: "text", text: text13, see: null, questions };
 }
 function readSection(heading, lines) {
   const at4 = lines.findIndex((line) => line.trim() !== "");
@@ -1289,8 +1309,8 @@ function readSlots(sections, { file, errors, oldSpellings }) {
   }
   return { slots, unmarked };
 }
-function parseForm(text12, { file = null } = {}) {
-  const block = text12.match(FRONT_MATTER_BLOCK);
+function parseForm(text13, { file = null } = {}) {
+  const block = text13.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile2(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
@@ -1489,8 +1509,8 @@ var VoiceRoundSchema = z12.object({
 var VoiceSchema = z12.object({ rounds: z12.array(VoiceRoundSchema) });
 var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
-function countSentences(text12) {
-  return text12.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+function countSentences(text13) {
+  return text13.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
 function citationProblems(citations, field2) {
   if (!Array.isArray(citations) || citations.length === 0) {
@@ -1500,9 +1520,9 @@ function citationProblems(citations, field2) {
     (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field2}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text12, field2) {
-  if (!isText(text12)) return [`${field2} must be a sentence.`];
-  const count = countSentences(text12);
+function lineProblems(text13, field2) {
+  if (!isText(text13)) return [`${field2} must be a sentence.`];
+  const count = countSentences(text13);
   return count > MAX_SENTENCES ? [`${field2} holds ${count} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
@@ -1546,10 +1566,10 @@ function roundProblems(round) {
     ...fitProblems(round.fit)
   ];
 }
-function parseVoice(text12) {
+function parseVoice(text13) {
   let voice;
   try {
-    voice = JSON.parse(text12);
+    voice = JSON.parse(text13);
   } catch {
     return { ok: false, voice: null, errors: ["not valid JSON."] };
   }
@@ -1753,8 +1773,8 @@ import { z as z17 } from "zod";
 var NAME = String.raw`[A-Za-z_][\w-]*`;
 var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
 var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
-function parseCompound(text12) {
-  const compound = COMPOUND.exec(text12.trim());
+function parseCompound(text13) {
+  const compound = COMPOUND.exec(text13.trim());
   if (!compound || compound[0] === "") return null;
   const [, tag, parts = ""] = compound;
   const matched = [...parts.matchAll(new RegExp(PART, "g"))];
@@ -2563,7 +2583,7 @@ function stopwatch(logger) {
     return () => void 0;
   }
 }
-async function loggedRun(logger, event, run, outcomeOf) {
+async function loggedRun(logger, event, run, outcomeOf2) {
   const elapsed = stopwatch(logger);
   const fields = {};
   const note = (more) => {
@@ -2578,7 +2598,7 @@ async function loggedRun(logger, event, run, outcomeOf) {
   }
   let outcome;
   try {
-    outcome = outcomeOf(value);
+    outcome = outcomeOf2(value);
   } catch {
     outcome = "ok";
   }
@@ -2733,8 +2753,8 @@ function match(template, ref) {
 function fill(template, topic) {
   return template.replace("{topic}", String(topic));
 }
-function escape(text12) {
-  return text12.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape(text13) {
+  return text13.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/approved-check/judge-client.ts
@@ -2785,7 +2805,7 @@ import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 
 // kit/lib/markers.ts
-var escape2 = (text12) => text12.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var escape2 = (text13) => text13.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape2(prefix);
   return Object.freeze({
@@ -3005,10 +3025,10 @@ function readPending(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
   };
 }
-function splitEntries(text12) {
+function splitEntries(text13) {
   const entries = [];
   let current = null;
-  for (const line of text12.split("\n")) {
+  for (const line of text13.split("\n")) {
     const match2 = line.match(ENTRY_HEADING);
     if (match2) {
       if (current) entries.push(current);
@@ -3023,8 +3043,8 @@ function splitEntries(text12) {
   if (current) entries.push(current);
   return entries;
 }
-function parseEntryFile(file, text12, place) {
-  return splitEntries(text12).map(({ id, lines }) => {
+function parseEntryFile(file, text13, place) {
+  return splitEntries(text13).map(({ id, lines }) => {
     const { fields, counts, fieldAt } = readFields(lines);
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
@@ -3077,8 +3097,8 @@ function diskSource(root) {
     read: (file) => readFileSync6(join9(root, file), "utf8")
   };
 }
-function glossaryTermOf(text12) {
-  return readFields(text12.split("\n")).fields.glossaryTerm ?? null;
+function glossaryTermOf(text13) {
+  return readFields(text13.split("\n")).fields.glossaryTerm ?? null;
 }
 function productDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/product`;
@@ -3241,9 +3261,9 @@ var PUNCHLINES = Object.freeze([
   "Small print, big relief once it is settled."
 ]);
 var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
-function stableHash(text12) {
+function stableHash(text13) {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(text12)) {
+  for (const byte of new TextEncoder().encode(text13)) {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
@@ -3475,8 +3495,8 @@ function validateSections(body) {
   );
   return { errors, sections };
 }
-function parseOutboxItem(text12, { file = null } = {}) {
-  const read = readFrontMatterBlock(text12, file, OutboxItemFrontMatterSchema);
+function parseOutboxItem(text13, { file = null } = {}) {
+  const read = readFrontMatterBlock(text13, file, OutboxItemFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const errors = [...read.errors];
   const { errors: sectionErrors, sections } = validateSections(read.body);
@@ -3508,21 +3528,21 @@ function parseOutboxItem(text12, { file = null } = {}) {
   };
   return { ok: true, item };
 }
-function readFrontMatterBlock(text12, file, schema) {
-  const blockMatch = text12.match(FRONT_MATTER_BLOCK2);
+function readFrontMatterBlock(text13, file, schema) {
+  const blockMatch = text13.match(FRONT_MATTER_BLOCK2);
   if (!blockMatch) {
     return { body: null, errors: [withFile(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
   const [, rawFrontMatter = "", body = ""] = blockMatch;
   const lines = parseFrontMatterLines(rawFrontMatter);
-  const checked = schema.safeParse(lines.data, { error: KIT_MESSAGES });
-  const refusals = checked.success ? [] : checked.error.issues.map(
+  const checked2 = schema.safeParse(lines.data, { error: KIT_MESSAGES });
+  const refusals = checked2.success ? [] : checked2.error.issues.map(
     (issue) => `${issue.path.length > 0 ? issue.path.join(".") : "(front matter)"}: ${issue.message}`
   );
   return {
     body,
     errors: [...lines.errors, ...refusals].map((message) => withFile(file, message)),
-    data: checked.success ? checked.data : null
+    data: checked2.success ? checked2.data : null
   };
 }
 var OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
@@ -3565,17 +3585,17 @@ var REGISTER_OR_ADR_ID = /\bN\d+\b|\bBR-[A-Z0-9]+-\d+\b|\bADR-\d{4}\b/g;
 var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
-function countSentences2(text12) {
-  const trimmed2 = (text12 ?? "").trim();
+function countSentences2(text13) {
+  const trimmed2 = (text13 ?? "").trim();
   if (!trimmed2) return 0;
   const matches = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
-function uniqueMatches(text12, pattern) {
-  return [...new Set(text12.match(pattern) ?? [])];
+function uniqueMatches(text13, pattern) {
+  return [...new Set(text13.match(pattern) ?? [])];
 }
-function plainWordsProblems(text12) {
-  const value = text12 ?? "";
+function plainWordsProblems(text13) {
+  const value = text13 ?? "";
   const problems = [];
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -3612,8 +3632,8 @@ function plainWordsProblems(text12) {
   }
   return problems;
 }
-function funLineProblems(text12) {
-  const value = (text12 ?? "").trim();
+function funLineProblems(text13) {
+  const value = (text13 ?? "").trim();
   const problems = plainWordsProblems(value);
   const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
@@ -3663,8 +3683,8 @@ function outboxItemFiles({ ctx }) {
 import { existsSync as existsSync10, mkdirSync, readFileSync as readFileSync8, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute as isAbsolute2, join as join12, relative } from "node:path";
 import { z as z20 } from "zod";
-function parseItem(text12, file) {
-  return parseOutboxItem(text12, { file });
+function parseItem(text13, file) {
+  return parseOutboxItem(text13, { file });
 }
 var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
@@ -3745,14 +3765,14 @@ var AFFIRMATIONS = /* @__PURE__ */ new Set([
   "thats right"
 ]);
 var STATED_VERDICT_LINE = /^[ \t]*verdict:[ \t]*(agreed|drifted)[ \t]*$/im;
-function normalizeApostrophes(text12) {
-  return text12.replace(/[‘’ʼ]/g, "'");
+function normalizeApostrophes(text13) {
+  return text13.replace(/[‘’ʼ]/g, "'");
 }
-function normalizeWhole(text12) {
-  return normalizeApostrophes(text12).toLowerCase().replace(/\s+/g, " ").trim();
+function normalizeWhole(text13) {
+  return normalizeApostrophes(text13).toLowerCase().replace(/\s+/g, " ").trim();
 }
-function openingClause(text12) {
-  const [first] = normalizeApostrophes(text12).split(/[,.;:!?\n]|—|–|--/);
+function openingClause(text13) {
+  const [first] = normalizeApostrophes(text13).split(/[,.;:!?\n]|—|–|--/);
   return (first ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function markerFound(haystack, marker) {
@@ -3875,8 +3895,8 @@ function renderSettledEntry({
   );
   return lines.join("\n");
 }
-function parseSettledEntries(text12, markers) {
-  return latestPerId(rawSettledEntries(text12, markers));
+function parseSettledEntries(text13, markers) {
+  return latestPerId(rawSettledEntries(text13, markers));
 }
 function latestPerId(entries) {
   const byId = /* @__PURE__ */ new Map();
@@ -3892,8 +3912,8 @@ function closedEntry({ id, fields, blocks: blocks2 }) {
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
-function rawSettledEntries(text12, markers) {
-  const lines = text12.split("\n");
+function rawSettledEntries(text13, markers) {
+  const lines = text13.split("\n");
   const entries = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
@@ -4070,9 +4090,9 @@ function patternMatcher(pattern) {
   const regex = new RegExp(`^${anchored ? "" : "(?:.*/)?"}${globSource(body)}${under}$`);
   return (path) => regex.test(path);
 }
-function parseCodeowners(text12) {
+function parseCodeowners(text13) {
   const rules = [];
-  for (const line of text12.split("\n")) {
+  for (const line of text13.split("\n")) {
     const [pattern, ...rest] = line.trim().split(/\s+/);
     if (pattern === void 0 || pattern === "" || pattern.startsWith("#")) continue;
     const comment = rest.findIndex((token) => token.startsWith("#"));
@@ -4083,8 +4103,8 @@ function parseCodeowners(text12) {
 }
 function readCodeowners(read) {
   for (const file of CODEOWNERS_FILES) {
-    const text12 = read(file);
-    if (text12 !== null) return { file, rules: parseCodeowners(text12) };
+    const text13 = read(file);
+    if (text13 !== null) return { file, rules: parseCodeowners(text13) };
   }
   return { file: null, rules: [] };
 }
@@ -4136,9 +4156,9 @@ var HEADING2 = /^##\s+(.*?)\s*$/;
 var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
 var FIELD = /^(Why|Also):\s*(.*)$/;
 var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
-function blocks(text12) {
+function blocks(text13) {
   const found = [];
-  for (const line of text12.split("\n")) {
+  for (const line of text13.split("\n")) {
     const match2 = line.match(HEADING2);
     if (match2) found.push({ heading: match2[1] ?? "", lines: [] });
     else found.at(-1)?.lines.push(line);
@@ -4166,8 +4186,8 @@ function idProblem(file, id, place) {
   if (match2[1] !== code) return `${file}: ${id} \u2014 names ${match2[1] ?? ""}, but it sits in the ${place.domain} folder: write BL-${code}-<n>.`;
   return null;
 }
-function parseBusinessLaws(file, text12, place) {
-  return blocks(text12).map(({ heading, lines }) => {
+function parseBusinessLaws(file, text13, place) {
+  return blocks(text13).map(({ heading, lines }) => {
     const { statement: statement2, why, also } = readBody2(lines);
     const problems = [
       idProblem(file, heading, place),
@@ -4413,8 +4433,8 @@ function validateBody(body) {
   errors.push(...entryErrors);
   return { errors, entries };
 }
-function parseAccount(text12, { file = null } = {}) {
-  const read = readFrontMatterBlock(text12, file, AccountFrontMatterSchema);
+function parseAccount(text13, { file = null } = {}) {
+  const read = readFrontMatterBlock(text13, file, AccountFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const { errors: bodyErrors, entries } = validateBody(read.body);
   const errors = [...read.errors, ...bodyErrors.map((message) => withFile(file, message))];
@@ -4449,8 +4469,8 @@ function readAccounts(prd, { ctx }) {
   const names = readdirSync6(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text12 = readRepoFile(ctx, file);
-    const parsed2 = parseAccount(text12, { file });
+    const text13 = readRepoFile(ctx, file);
+    const parsed2 = parseAccount(text13, { file });
     if (!parsed2.ok) return parsed2;
     const unresolved = parsed2.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
@@ -4495,16 +4515,16 @@ function compare(risky, accounts) {
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
   const accepted = /* @__PURE__ */ new Set();
-  const refused6 = /* @__PURE__ */ new Map();
+  const refused7 = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     const why = refusal2(entry);
     if (why === null) accepted.add(entryKey(entry));
-    else refused6.set(entryKey(entry), why);
+    else refused7.set(entryKey(entry), why);
   }
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change2) => accepted.has(entryKey(change2)));
   const unaccounted = risky.filter((change2) => !accepted.has(entryKey(change2))).map((change2) => {
-    const why = refused6.get(entryKey(change2));
+    const why = refused7.get(entryKey(change2));
     return why === void 0 ? change2 : { ...change2, refused: why };
   });
   const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
@@ -4519,8 +4539,8 @@ function openItemFiles(prd, { ctx }) {
   return outboxItemFiles({ ctx }).filter((file) => file.startsWith(prefix));
 }
 function describeItem(file, { ctx }) {
-  const text12 = readRepoFile(ctx, file);
-  const parsed2 = parseOutboxItem(text12, { file });
+  const text13 = readRepoFile(ctx, file);
+  const parsed2 = parseOutboxItem(text13, { file });
   return parsed2.ok ? { file, id: parsed2.item.id, rank: parsed2.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
@@ -4844,8 +4864,8 @@ function readSettledEntries(prd, { ctx }) {
 function adoptedEntriesForPrd(prd, { ctx }) {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
-function firstSentence(text12) {
-  const trimmed2 = (text12 ?? "").trim();
+function firstSentence(text13) {
+  const trimmed2 = (text13 ?? "").trim();
   const match2 = trimmed2.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match2 ? match2[0] : trimmed2).trim();
 }
@@ -4861,8 +4881,8 @@ function answeredOutcome(entry) {
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
-function quoteReply(text12) {
-  const oneLine2 = (text12 ?? "").replace(/\s+/g, " ").trim();
+function quoteReply(text13) {
+  const oneLine2 = (text13 ?? "").replace(/\s+/g, " ").trim();
   const truncated = oneLine2.length > 120 ? `${oneLine2.slice(0, 117)}\u2026` : oneLine2;
   return `"${truncated}"`;
 }
@@ -4886,14 +4906,14 @@ function formatApprovedAt(approvedAt) {
   const [, , month, day] = match2;
   return `${Number(day)} ${MONTH_NAMES[Number(month) - 1]}`;
 }
-function tableCell(text12) {
-  return (text12 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
+function tableCell(text13) {
+  return (text13 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
-function quoted2(text12) {
-  return (text12 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+function quoted2(text13) {
+  return (text13 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
-function funLine(text12) {
-  return `_${(text12 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+function funLine(text13) {
+  return `_${(text13 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
 }
 function formatOptionsTable(options, mark) {
   return [
@@ -5085,9 +5105,9 @@ function formatOutboxPrComment({
   return lines.join("\n");
 }
 function omniPageLink(prd, ctx) {
-  const { answers, ask: ask2, repo } = ctx.config;
-  if (!answers.enabled || !ask2.url || !repo.slug || !Number.isInteger(prd) || Number(prd) < 1) return null;
-  return `${ask2.url.replace(/\/+$/, "")}/prd/at/${repo.slug}/${prd}`;
+  const { answers, ask: ask3, repo } = ctx.config;
+  if (!answers.enabled || !ask3.url || !repo.slug || !Number.isInteger(prd) || Number(prd) < 1) return null;
+  return `${ask3.url.replace(/\/+$/, "")}/prd/at/${repo.slug}/${prd}`;
 }
 function upsertOutboxPrComment({ prd, ctx, now: now2 = () => (/* @__PURE__ */ new Date()).toISOString() }, client) {
   const items = openItemsForPrd(prd, { ctx });
@@ -5330,16 +5350,16 @@ function numericReference(ref) {
   const code = Number.parseInt(ref.slice(hex ? 2 : 1), hex ? 16 : 10);
   return code > 0 && code <= 1114111 ? String.fromCodePoint(code) : null;
 }
-function decodeEntities(text12) {
-  return text12.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
+function decodeEntities(text13) {
+  return text13.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
 }
 function past(html, marker, from) {
   const at4 = html.indexOf(marker, from);
   return at4 === -1 ? html.length : at4 + marker.length;
 }
 var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
-function addText(reader, text12) {
-  if (text12 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text12) });
+function addText(reader, text13) {
+  if (text13 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text13) });
 }
 function skipDeclaration(html, lt) {
   if (html.startsWith("<!--", lt)) return past(html, "-->", lt + 4);
@@ -5495,8 +5515,8 @@ function unrecognizedKeyMessage(key) {
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
   return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
-function parseSpec(text12, { file = null } = {}) {
-  const blockMatch = text12.match(FRONT_MATTER_BLOCK3);
+function parseSpec(text13, { file = null } = {}) {
+  const blockMatch = text13.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
@@ -5748,8 +5768,8 @@ function prerequisitesOf(section2) {
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
 }
-function parseRoadmap(text12) {
-  const block = FRONT_MATTER_BLOCK4.exec(text12);
+function parseRoadmap(text13) {
+  const block = FRONT_MATTER_BLOCK4.exec(text13);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
   const front = frontMatter(raw, FrontMatterSchema3);
@@ -5994,8 +6014,8 @@ function knownAreas(ctx) {
     readdirSync8(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
 }
-function violationsForFile(file, folder, text12, ctx) {
-  const parsed2 = parseSpec(text12, { file });
+function violationsForFile(file, folder, text13, ctx) {
+  const parsed2 = parseSpec(text13, { file });
   if (!parsed2.ok) {
     return { record: null, violations: parsed2.errors };
   }
@@ -6053,8 +6073,8 @@ function gradeFolder(specFile, ctx) {
   if (!existsSync18(join19(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
-    const text12 = readRepoFile(ctx, specFile);
-    const graded = violationsForFile(specFile, folder, text12, ctx);
+    const text13 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text13, ctx);
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
@@ -6085,8 +6105,8 @@ function proseLines(body) {
   let fence = null;
   for (const line of body.split(/\r?\n/)) {
     if (fence !== null) {
-      const closing = new RegExp(`^ {0,3}${fence[0] === "`" ? "`" : "~"}{${fence.length},}[ \\t]*$`);
-      if (closing.test(line)) fence = null;
+      const closing2 = new RegExp(`^ {0,3}${fence[0] === "`" ? "`" : "~"}{${fence.length},}[ \\t]*$`);
+      if (closing2.test(line)) fence = null;
       continue;
     }
     const opening = OPENING.exec(line);
@@ -6603,14 +6623,14 @@ async function readPull(octokit, { owner, repo, prNumber }) {
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
-  let text12;
+  let text13;
   try {
-    text12 = readFileSync17(join24(folder, CONFIG_FILE), "utf8");
+    text13 = readFileSync17(join24(folder, CONFIG_FILE), "utf8");
   } catch {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text12, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
+    return { folder, config: parseConfig(text13, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -7023,7 +7043,7 @@ function birthplaceOf(ctx, prd) {
 function heldReading(why) {
   return { state: "unreachable", lines: [UNREACHABLE_LINE, why], url: null, approval: null, drift: [] };
 }
-async function readingAt(octokit, source, folder, ask2) {
+async function readingAt(octokit, source, folder, ask3) {
   const { owner, repo, ref, paths } = source;
   const root = mkdtempSync5(join29(tmpdir5(), "omni-approved-"));
   try {
@@ -7035,7 +7055,7 @@ async function readingAt(octokit, source, folder, ask2) {
     }
     const ctx = { root, layout: foldersLayout(root, paths) };
     if (birthplaceOf(ctx, folder.prd) !== "server") return null;
-    const answer = await ask2(`${owner}/${repo}`, folder.prd);
+    const answer = await ask3(`${owner}/${repo}`, folder.prd);
     if ("held" in answer) return heldReading(answer.held);
     const kept2 = new Set(ARTIFACT_KINDS.map((entry) => entry.kind));
     const elsewhere = (answer.reply.approval?.files ?? []).filter((file) => !kept2.has(file.kind)).map((file) => file.path);
@@ -7093,7 +7113,7 @@ function repoApprovedVerdict(prd, reading, head) {
 // apps/omni-app/src/approved-check/approved-check.ts
 var SILENT = Object.freeze({ posted: false, reason: "not a pull request of a PRD approved on the server, with the approved check on" });
 var NO_JUDGE = () => Promise.resolve({ held: "the App cannot ask galaxy's judge here" });
-async function checkApproved({ octokitFor, readRecord: readRecord2, galaxyUrl, ask: ask2, now: now2, log: log2 }, { installationId, owner, repo, repository, prNumber, headSha }, steps) {
+async function checkApproved({ octokitFor, readRecord: readRecord2, galaxyUrl, ask: ask3, now: now2, log: log2 }, { installationId, owner, repo, repository, prNumber, headSha }, steps) {
   const { budgeted } = steps;
   const target2 = await steps.target(() => budgeted(async () => targetOf(await octokitFor(installationId), { owner, repo, prNumber })));
   if (!target2) return { ...SILENT };
@@ -7104,7 +7124,7 @@ async function checkApproved({ octokitFor, readRecord: readRecord2, galaxyUrl, a
     verdict = approvedVerdict(target2.prd, reading);
     named = target2.prd.id;
   } else {
-    const judged3 = await steps.repo(() => budgeted(async () => judgedAt(await octokitFor(installationId), target2, ask2)));
+    const judged3 = await steps.repo(() => budgeted(async () => judgedAt(await octokitFor(installationId), target2, ask3)));
     if (!judged3) return { posted: false, reason: `PRD ${Number(target2.prd)} was born in its repository (\u25C7): its phase-0 PR approved it.` };
     verdict = repoApprovedVerdict(target2.prd, judged3.reading, judged3.head);
     named = `${Number(target2.prd)}`;
@@ -7147,9 +7167,9 @@ async function checkNameOf(octokit, { owner, repo, prNumber }) {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   return (await configAt(octokit, { owner, repo, ref: pr.baseSha }))?.ci.approvedContext ?? null;
 }
-async function judgedAt(octokit, target2, ask2) {
+async function judgedAt(octokit, target2, ask3) {
   if ("held" in target2) return { reading: heldReading(target2.held), head: target2.head };
-  const reading = await readingAt(octokit, target2.source, { prd: target2.prd, dir: target2.dir }, ask2);
+  const reading = await readingAt(octokit, target2.source, { prd: target2.prd, dir: target2.dir }, ask3);
   return reading ? { reading, head: target2.source.ref } : null;
 }
 async function readingOf(readRecord2, repository, prd, now2, log2) {
@@ -7192,8 +7212,8 @@ function refusalIn(error) {
 
 // apps/omni-app/src/approved-check/approved-job.ts
 var APPROVED_KIND = "pr-approved";
-function approvedHandler({ octokitFor, readRecord: readRecord2, galaxyUrl, ask: ask2 = NO_JUDGE, now: now2 = () => /* @__PURE__ */ new Date(), log: log2 = noteTo("approved-check") }) {
-  const deps = { octokitFor, readRecord: readRecord2, galaxyUrl, ask: ask2, now: now2, log: log2 };
+function approvedHandler({ octokitFor, readRecord: readRecord2, galaxyUrl, ask: ask3 = NO_JUDGE, now: now2 = () => /* @__PURE__ */ new Date(), log: log2 = noteTo("approved-check") }) {
+  const deps = { octokitFor, readRecord: readRecord2, galaxyUrl, ask: ask3, now: now2, log: log2 };
   return async (job) => {
     const run = await checkApproved(deps, requestOf(job.payload), { target: (work) => work(), product: (work) => work(), repo: (work) => work(), publish: (work) => work(), budgeted: (work) => work() });
     return "posted" in run ? { outcome: "skipped", reason: run.reason } : { outcome: "done" };
@@ -7295,10 +7315,10 @@ import { existsSync as existsSync22, mkdirSync as mkdirSync5, readFileSync as re
 import { dirname as dirname7, join as join30 } from "node:path";
 import { z as z29 } from "zod";
 var CeilingsSchema = z29.record(z29.string().min(1), z29.number().int().nonnegative());
-function parseCeilings(text12, file) {
+function parseCeilings(text13, file) {
   let raw;
   try {
-    raw = JSON.parse(text12);
+    raw = JSON.parse(text13);
   } catch (error) {
     throw new Error(`${file}: not valid JSON \u2014 ${messageOf2(error)}`);
   }
@@ -7519,8 +7539,8 @@ var LAW_LINE = /^(?:[-*]\s+)?`?([A-Z0-9-]+)`?\s+[—–-]\s+(.+)$/;
 function thesisPath(ctx) {
   return `${productDir(ctx)}/${THESIS_FILE}`;
 }
-function parseThesis(file, text12) {
-  const lines = text12.split("\n");
+function parseThesis(file, text13) {
+  const lines = text13.split("\n");
   const start = lines.findIndex((line) => LAWS_HEADING.test(line.trim()));
   if (start === -1) return { file, lawsSection: null, laws: [] };
   const rest = lines.slice(start + 1);
@@ -7592,40 +7612,40 @@ var TITLE2 = /^#\s+(.+?)\s*$/m;
 var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
 var LAYERS_HEADER = /\*\*Layers:\*\*[ \t]*([^·\n]*)/;
 var DOMAIN_HEADER = /\*\*Domain:\*\*[ \t]*([^·\s]*)/;
-var headerOf = (text12) => text12.split(/^##\s/m)[0] ?? "";
-function headerLayers(text12) {
-  const value = LAYERS_HEADER.exec(headerOf(text12))?.[1] ?? "";
+var headerOf = (text13) => text13.split(/^##\s/m)[0] ?? "";
+function headerLayers(text13) {
+  const value = LAYERS_HEADER.exec(headerOf(text13))?.[1] ?? "";
   return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
 }
-function headerDomain(text12) {
-  const value = (DOMAIN_HEADER.exec(headerOf(text12))?.[1] ?? "").replace(/`/g, "");
+function headerDomain(text13) {
+  const value = (DOMAIN_HEADER.exec(headerOf(text13))?.[1] ?? "").replace(/`/g, "");
   return value === "" ? null : value;
 }
-function headerPrd(text12) {
-  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text12))?.[1]));
+function headerPrd(text13) {
+  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text13))?.[1]));
   return prd.success ? prd.data : null;
 }
-function tagsOf(text12) {
-  const layers = headerLayers(text12);
-  const domain = headerDomain(text12);
+function tagsOf(text13) {
+  const layers = headerLayers(text13);
+  const domain = headerDomain(text13);
   return { ...layers.length > 0 ? { layers } : {}, ...domain === null ? {} : { domain } };
 }
 var levelOf = (record) => record.level ?? "repo";
 var STATUS_HEADER = /\*\*Status:\*\*[ \t]*([^·\n]*)/;
-function headerStatus(text12) {
-  const value = (STATUS_HEADER.exec(headerOf(text12))?.[1] ?? "").replace(/`/g, "").trim();
+function headerStatus(text13) {
+  const value = (STATUS_HEADER.exec(headerOf(text13))?.[1] ?? "").replace(/`/g, "").trim();
   return value === "" ? null : value;
 }
-function parseDecisionRecord(file, text12) {
+function parseDecisionRecord(file, text13) {
   const name = file.split("/").pop() ?? file;
   return {
     number: name.match(RECORD)?.[1] ?? "",
     file,
-    title: text12.match(TITLE2)?.[1] ?? null,
-    status: headerStatus(text12),
-    text: text12,
-    prd: headerPrd(text12),
-    ...tagsOf(text12)
+    title: text13.match(TITLE2)?.[1] ?? null,
+    status: headerStatus(text13),
+    text: text13,
+    prd: headerPrd(text13),
+    ...tagsOf(text13)
   };
 }
 function readFolder(root, dir, level) {
@@ -7685,9 +7705,9 @@ function configValue(config, key) {
   if (value === null) return { ok: false, reason: "is not set in the config" };
   return { ok: false, reason: "holds no single value" };
 }
-function fillConfig(text12, config) {
+function fillConfig(text13, config) {
   const unresolved = [];
-  const filled = text12.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
+  const filled = text13.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
     const value = configValue(config, key);
     if (value.ok) return value.text;
     unresolved.push({ key, reason: value.reason });
@@ -7717,8 +7737,8 @@ function headingsOf(lines) {
   }
   return headings;
 }
-function sectionOf(text12, anchor) {
-  const lines = text12.split("\n");
+function sectionOf(text13, anchor) {
+  const lines = text13.split("\n");
   const headings = headingsOf(lines);
   const start = headings.find((heading) => heading.anchor === anchor);
   if (!start) return null;
@@ -8076,7 +8096,7 @@ function fixLines(verdict, { prd, growth, ceilingsFile }) {
   const skill = prd === null ? "" : `\`/omni:pr-care\` (or \`/omni:yolo-fix ${prd}\`) handles it by itself. Or `;
   return [`Fix it for me: ${skill}${skill ? "paste" : "Paste"} this into Claude: ${prompt}`];
 }
-var capitalised = (text12) => `${text12.charAt(0).toUpperCase()}${text12.slice(1)}`;
+var capitalised = (text13) => `${text13.charAt(0).toUpperCase()}${text13.slice(1)}`;
 function roomLines({ target: target2, bytes, ceiling }, { prd, ceilingsFile }) {
   if (prd === null) {
     return [
@@ -8157,8 +8177,8 @@ import { join as join40 } from "node:path";
 import { existsSync as existsSync29, readdirSync as readdirSync15, readFileSync as readFileSync28 } from "node:fs";
 import { join as join39 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text12, heading) {
-  const lines = text12.split("\n");
+function invariantAdrs(text13, heading) {
+  const lines = text13.split("\n");
   const start = lines.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
@@ -8233,8 +8253,8 @@ var FUN_SECTION_FIELDS = [
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
-function checkItemText(file, text12, { laws }) {
-  const parsed2 = parseItem(text12, file);
+function checkItemText(file, text13, { laws }) {
+  const parsed2 = parseItem(text13, file);
   if (!parsed2.ok) return parsed2.errors;
   const { item } = parsed2;
   const violations = [];
@@ -8318,9 +8338,9 @@ function markdownFiles(dir) {
 function spendFolder(ids, dir) {
   for (const name of markdownFiles(dir)) ids.add(basename8(name, ".md"));
 }
-function writeInto(out, id, text12) {
+function writeInto(out, id, text13) {
   mkdirSync6(out.abs, { recursive: true });
-  writeFileSync9(join41(out.abs, `${id}.md`), text12);
+  writeFileSync9(join41(out.abs, `${id}.md`), text13);
   return join41(out.shown, `${id}.md`);
 }
 
@@ -8344,12 +8364,12 @@ function itemRefusal({
   prd,
   file,
   name,
-  text: text12,
+  text: text13,
   taken
 }) {
-  const violations = checkItemText(file, text12, { laws });
+  const violations = checkItemText(file, text13, { laws });
   if (violations.length > 0) return violations.join("; ");
-  const parsed2 = parseOutboxItem(text12, { file });
+  const parsed2 = parseOutboxItem(text13, { file });
   if (!parsed2.ok) return parsed2.errors.join("; ");
   const { item } = parsed2;
   if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
@@ -8361,9 +8381,9 @@ function accountRefusal({
   prd,
   destination,
   name,
-  text: text12
+  text: text13
 }) {
-  const parsed2 = parseAccount(text12, { file: name });
+  const parsed2 = parseAccount(text13, { file: name });
   if (!parsed2.ok) return parsed2.errors.join("; ");
   if (parsed2.account.prd !== prd) return `it belongs to PRD ${parsed2.account.prd}, not PRD ${prd}`;
   if (existsSync32(destination)) return `an account of that name is already in the outbox of PRD ${prd}`;
@@ -8378,14 +8398,14 @@ function relayFolder({
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   const moved = [];
-  const refused6 = [];
+  const refused7 = [];
   const taken = settledIds(ctx, outboxDir);
   for (const name of markdownFiles(join42(ctx.root, outboxDir))) taken.add(basename9(name, ".md"));
   for (const name of markdownFiles(dir)) {
     const from = join42(dir, name);
     const reason2 = itemRefusal({ laws, prd, file: `${outboxDir}/${name}`, name, text: readFileSync29(from, "utf8"), taken });
     if (reason2 !== null) {
-      refused6.push({ file: from, reason: reason2 });
+      refused7.push({ file: from, reason: reason2 });
       continue;
     }
     const to = `${outboxDir}/${name}`;
@@ -8400,14 +8420,14 @@ function relayFolder({
     const to = `${outboxDir}/${ACCOUNTS_DIR}/${name}`;
     const reason2 = accountRefusal({ prd, destination: join42(ctx.root, to), name: from, text: readFileSync29(from, "utf8") });
     if (reason2 !== null) {
-      refused6.push({ file: from, reason: reason2 });
+      refused7.push({ file: from, reason: reason2 });
       continue;
     }
     mkdirSync7(join42(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
     move(from, join42(ctx.root, to));
     moved.push({ from, to });
   }
-  return { moved, refused: refused6 };
+  return { moved, refused: refused7 };
 }
 
 // kit/lib/outbox/replies.ts
@@ -8457,10 +8477,10 @@ function parseReplyLines(body) {
   return lines;
 }
 function interpretAnswer({
-  text: text12,
+  text: text13,
   options
 }) {
-  const trimmed2 = plainText(text12).trim();
+  const trimmed2 = plainText(text13).trim();
   if (RECOMMENDATION_RE.test(trimmed2)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
@@ -8784,9 +8804,9 @@ function gitOutboxStore(ctx) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     }),
-    writeItem: ({ prd, id, text: text12 }, out) => promised(() => {
+    writeItem: ({ prd, id, text: text13 }, out) => promised(() => {
       const outboxDir = outboxDirOf(ctx, repoPrd(prd));
-      return writeInto(out ?? { abs: join44(ctx.root, outboxDir), shown: outboxDir }, id, text12);
+      return writeInto(out ?? { abs: join44(ctx.root, outboxDir), shown: outboxDir }, id, text13);
     }),
     adopt: (itemText) => promised(() => adoptItem({ ctx, itemText })),
     settle: (ref, answer) => promised(() => settleItem({ ctx, file: ref, answer })),
@@ -8851,7 +8871,7 @@ function settledEntriesOf(row) {
 }
 function serverOutboxStore({ ctx, connect, now: now2 }) {
   const repo = ctx.config.repo.slug;
-  async function ask2(call) {
+  async function ask3(call) {
     const client = connect();
     try {
       return await call(client);
@@ -8863,14 +8883,14 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
   }
   async function rows(prd) {
     const { key, seq } = productPrdParts(prd);
-    const reply2 = ItemsReplySchema.safeParse(await ask2((client) => client.readOutboxItems({ key, seq, repo })));
+    const reply2 = ItemsReplySchema.safeParse(await ask3((client) => client.readOutboxItems({ key, seq, repo })));
     if (!reply2.success) throw new OutboxServerError("the Omni page answered the outbox items out of shape", 200);
     return reply2.data.items;
   }
   const openRows = async (prd) => (await rows(prd)).filter((row) => row.settlement === null);
   async function put(prd, body, adopt) {
     const { key, seq } = productPrdParts(prd);
-    await ask2((client) => client.putOutboxItem({ key, seq, repo, body, adopt }));
+    await ask3((client) => client.putOutboxItem({ key, seq, repo, body, adopt }));
   }
   async function answered(write2) {
     try {
@@ -8893,13 +8913,13 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     },
-    async writeItem({ prd, id, text: text12 }, out) {
+    async writeItem({ prd, id, text: text13 }, out) {
       const product = productPrd(prd);
-      if (out !== null) return writeInto(out, id, text12);
+      if (out !== null) return writeInto(out, id, text13);
       const ref = refOf(product, id);
-      const refusal3 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text12, taken: /* @__PURE__ */ new Set() });
+      const refusal3 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text13, taken: /* @__PURE__ */ new Set() });
       if (refusal3 !== null) throw new Error(`${ref}: ${refusal3}`);
-      await put(product, text12, false);
+      await put(product, text13, false);
       return ref;
     },
     async adopt(itemText) {
@@ -8922,16 +8942,16 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       const row = named === null ? void 0 : (await openRows(named.prd)).find((open) => open.item === named.id);
       const item = named === null || row === void 0 ? null : parsedRow(named.prd, row);
       if (named === null || row === void 0 || item === null) return { ok: false, errors: [`${ref}: no such open item.`] };
-      const { text: text12, statedVerdict = null } = given.data;
-      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text12, statedVerdict });
+      const { text: text13, statedVerdict = null } = given.data;
+      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text13, statedVerdict });
       const { verdict } = judgement;
       if (verdict === null) {
         return { ok: false, errors: [`${ref}: the verdict is undetermined \u2014 ${judgement.reason}. Say it outright: add a "Verdict: agreed" or "Verdict: drifted" line to the answer, or pass --verdict.`] };
       }
       const { key, seq } = productPrdParts(named.prd);
       return answered(async () => {
-        await ask2((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text12 }));
-        const entryAnswer = { text: text12, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now2()).toISOString(), channel: null };
+        await ask3((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text13 }));
+        const entryAnswer = { text: text13, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now2()).toISOString(), channel: null };
         const entry = renderSettledEntry({ item, itemText: row.body, answer: entryAnswer, judgement, markers: ctx.markers });
         return { ok: true, verdict, basis: judgement.basis, entry, settledFile: ledgerOf2(named.prd), removedFile: ref };
       });
@@ -8941,25 +8961,25 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       if (!isFolder(dir)) return null;
       const taken = new Set((await rows(product)).map((row) => row.item));
       const moved = [];
-      const refused6 = [];
+      const refused7 = [];
       for (const name of markdownFiles(dir)) {
         const from = join45(dir, name);
-        const text12 = readFileSync32(from, "utf8");
+        const text13 = readFileSync32(from, "utf8");
         const id = name.slice(0, -".md".length);
-        const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text12, taken });
+        const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text13, taken });
         if (reason2 !== null) {
-          refused6.push({ file: from, reason: reason2 });
+          refused7.push({ file: from, reason: reason2 });
           continue;
         }
-        await put(product, text12, false);
+        await put(product, text13, false);
         unlinkSync2(from);
         taken.add(id);
         moved.push({ from, to: refOf(product, id) });
       }
       for (const name of markdownFiles(join45(dir, ACCOUNTS_DIR))) {
-        refused6.push({ file: join45(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
+        refused7.push({ file: join45(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
       }
-      return { moved, refused: refused6 };
+      return { moved, refused: refused7 };
     },
     async gate(prd, { labels = [] }) {
       const product = productPrd(prd);
@@ -9291,10 +9311,10 @@ var CANON_SPEC_LIMIT = 4e4;
 var MAX_QUOTE = 300;
 var CACHE_LIMIT = 200;
 var JUDGE_NOT_CONFIGURED = "no-secret";
-var plain = (text12) => (text12 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-function quoted3(text12, quote) {
+var plain = (text13) => (text13 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+function quoted3(text13, quote) {
   const q = plain(quote);
-  return q.length > 0 && plain(text12).includes(q);
+  return q.length > 0 && plain(text13).includes(q);
 }
 var SYSTEM = [
   "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), its Legal entries (what the law requires of it), the business claims its team confirmed, and its personas.",
@@ -9460,13 +9480,13 @@ function counted2(findings, broken) {
   return findings.map((f) => ({ ...f, claims: f.claims.filter((id) => !isConstituent(id)) })).filter((f) => f.claims.length > 0);
 }
 var NO_JUDGE2 = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: "no judge here" });
-function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge2 = NO_JUDGE2, ask: ask2, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
+function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge2 = NO_JUDGE2, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
   async function modelVerdict({ repo, spec, read }) {
     const { business, claims, constituents, legal, personas, version } = read;
     const key = [repo, createHash2("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
     const hit = cache.get(key);
     if (hit) return hit;
-    const answer = await ask2({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, legal, personas }), check: checkReply, schema: SCHEMA });
+    const answer = await ask3({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, legal, personas }), check: checkReply, schema: SCHEMA });
     if (!answer.ok) {
       return { gate: neutral(answer.error === NO_KEY ? `model not configured (${answer.reason})` : `model error: ${answer.reason}`) };
     }
@@ -9571,32 +9591,611 @@ function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
   const readConstituents = supabase ? constituentsReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
   const judge2 = constituentJudge({ url: judgeUrl(env.galaxyUrl), secret: env.constituentJudge?.secret, fetch: fetch2 });
   const openrouter = env.openrouter ? { key: env.openrouter.key, model: CANON_MODEL } : null;
-  const ask2 = (request) => askModel({ ...request, openrouter, fetch: fetch2, call: CANON_CALL, title: "omni loop canon" });
-  return createCanon({ readBusiness, readConstituents, judge: judge2, ask: ask2 });
+  const ask3 = (request) => askModel({ ...request, openrouter, fetch: fetch2, call: CANON_CALL, title: "omni loop canon" });
+  return createCanon({ readBusiness, readConstituents, judge: judge2, ask: ask3 });
+}
+
+// apps/omni-app/src/escalation/sweep.ts
+import { mkdtempSync as mkdtempSync7, rmSync as rmSync10 } from "node:fs";
+import { tmpdir as tmpdir7 } from "node:os";
+import { join as join48 } from "node:path";
+import { z as z38 } from "zod";
+
+// kit/lib/escalation/escalation.ts
+var DAY_MS = 24 * 60 * 60 * 1e3;
+var SATURDAY = 6;
+var SUNDAY = 0;
+var isWeekend = (date) => date.getUTCDay() === SATURDAY || date.getUTCDay() === SUNDAY;
+function workingStart(date) {
+  if (!isWeekend(date)) return date;
+  const days = date.getUTCDay() === SATURDAY ? 2 : 1;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+}
+function addWorkingDays(start, days) {
+  let at4 = workingStart(start);
+  for (let left = days; left > 0; ) {
+    at4 = new Date(at4.getTime() + DAY_MS);
+    if (!isWeekend(at4)) left -= 1;
+  }
+  return at4;
+}
+var bare = (login) => login.replace(/^@/, "");
+var loginOf = (owner) => bare(typeof owner === "string" ? owner : owner.login);
+var delegatesOf = (owners) => owners.flatMap((owner) => typeof owner === "string" ? [] : [bare(owner.delegate)]);
+function escalates(settings) {
+  return delegatesOf(settings.owners).length > 0 || settings.leadership.length > 0;
+}
+function unique2(logins) {
+  const seen = /* @__PURE__ */ new Set();
+  return logins.filter((login) => {
+    const key = login.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function askedAt(kind, step, settings) {
+  if (step === 0) return [];
+  const first = kind === "law" ? delegatesOf(settings.owners) : settings.owners.flatMap((owner) => {
+    const login = loginOf(owner);
+    return typeof owner === "string" ? [login] : [login, bare(owner.delegate)];
+  });
+  return unique2(step === 1 ? first : [...first, ...settings.leadership.map(bare)]);
+}
+var instant = (date) => date.toISOString().replace(/\.\d{3}Z$/, "Z");
+function parseInstant(iso2) {
+  const date = new Date(iso2);
+  if (Number.isNaN(date.getTime())) throw new Error(`escalation: firstHeld ${JSON.stringify(iso2)} is not an instant`);
+  return date;
+}
+function stepAt(first, now2, workingDays) {
+  const due1 = addWorkingDays(first, workingDays);
+  if (now2 < due1) return { step: 0, nextDue: instant(due1) };
+  const due2 = addWorkingDays(due1, workingDays);
+  if (now2 < due2) return { step: 1, nextDue: instant(due2) };
+  return { step: 2, nextDue: null };
+}
+var previous = (step) => step === 2 ? 1 : 0;
+function decideOne(held, now2, settings) {
+  const base = { thing: held.thing, kind: held.kind, firstHeld: held.firstHeld };
+  const { step, nextDue } = stepAt(parseInstant(held.firstHeld), now2, settings.workingDays);
+  if (held.answered) return { ...base, step, asked: [], newlyAsked: [], nextDue: null };
+  if (!escalates(settings)) return { ...base, step: 0, asked: [], newlyAsked: [], nextDue: null };
+  const asked = askedAt(held.kind, step, settings);
+  const before2 = new Set(askedAt(held.kind, previous(step), settings).map((login) => login.toLowerCase()));
+  return { ...base, step, asked, newlyAsked: asked.filter((login) => !before2.has(login.toLowerCase())), nextDue };
+}
+function decide(held, now2, settings) {
+  return held.map((one) => decideOne(one, now2, settings));
+}
+
+// kit/lib/escalation/comments.ts
+var RECORD_MARKER = "<!-- omni:escalation -->";
+var ASK_MARKER = (thing, step) => `<!-- omni:escalation-ask ${thing} ${String(step)} -->`;
+var ASK_RE = /<!-- omni:escalation-ask (\S+) ([12]) -->/g;
+var NOBODY = "nobody yet";
+var LAST = "no step follows";
+var LINE_RE = /^- (?<kind>law|item) `(?<thing>[^`\s]+)` · held since (?<firstHeld>\S+) · step (?<step>[012]) · asked (?<asked>.+?) · (?:next step due (?<nextDue>\S+)|no step follows)$/;
+function renderLine(one) {
+  const asked = one.asked.length > 0 ? one.asked.join(", ") : NOBODY;
+  const next = one.nextDue === null ? LAST : `next step due ${one.nextDue}`;
+  return `- ${one.kind} \`${one.thing}\` \xB7 held since ${one.firstHeld} \xB7 step ${String(one.step)} \xB7 asked ${asked} \xB7 ${next}`;
+}
+function renderRecord(held) {
+  return [
+    RECORD_MARKER,
+    "**Waiting on a person.** When nobody answers, the loop asks more people, in working days (Monday to Friday, UTC). It never approves or adopts anything: only a person ends the wait.",
+    "",
+    ...held.length > 0 ? held.map(renderLine) : ["Nothing waits on a person."]
+  ].join("\n");
+}
+var asStep = (digit) => digit === "2" ? 2 : digit === "1" ? 1 : 0;
+var readAsked = (asked) => asked === NOBODY ? [] : asked.split(", ");
+function readLine(line) {
+  const groups = LINE_RE.exec(line)?.groups;
+  if (groups === void 0) return null;
+  const field2 = (name) => groups[name] ?? "";
+  return {
+    thing: field2("thing"),
+    kind: field2("kind") === "law" ? "law" : "item",
+    firstHeld: field2("firstHeld"),
+    step: asStep(groups.step),
+    asked: readAsked(field2("asked")),
+    nextDue: groups.nextDue ?? null
+  };
+}
+function readRecord(body) {
+  if (!body.startsWith(RECORD_MARKER)) return null;
+  return body.split("\n").flatMap((line) => {
+    const one = readLine(line.trimEnd());
+    return one === null ? [] : [one];
+  });
+}
+var kindWord = (kind) => kind === "law" ? "The change to the locked law" : "The open question";
+function renderAsk(due) {
+  const people = [...new Set(due.flatMap((one) => one.newlyAsked))];
+  return [
+    ...due.map((one) => ASK_MARKER(one.thing, one.step)),
+    `${people.map((login) => `@${login}`).join(" ")}: this pull request waits on a person.`,
+    "",
+    ...due.map((one) => `- ${kindWord(one.kind)} \`${one.thing}\` has waited since ${one.firstHeld}.`),
+    "",
+    "Only a login CODEOWNERS lists clears a law by approving, and only a writer of the repository answers a question. Nothing has been approved or adopted for you."
+  ].join("\n");
+}
+function readAsk(body) {
+  return [...body.matchAll(ASK_RE)].flatMap(
+    ([, thing, step]) => thing === void 0 || step === void 0 ? [] : [{ thing, step: asStep(step) }]
+  );
+}
+
+// apps/omni-app/src/escalation/held.ts
+import { join as join47 } from "node:path";
+var WAITING_RANKS = /* @__PURE__ */ new Set(["high", "human-action"]);
+function settingsOf(config) {
+  return { owners: config.laws.owners, leadership: config.laws.leadership, workingDays: config.limits.escalationWorkingDays };
+}
+function heldItems(config, head, pr) {
+  const kind = pullKind(pr, config);
+  if ("skip" in kind || kind.kind !== "feature") return [];
+  const prd = prdOfTopic(kind.topic, prdDirs(config).flatMap((dir) => prdFoldersIn(join47(head, dir)).map((folder) => folder.name)), config);
+  if ("skip" in prd) return [];
+  return openItems(prd.number, { ctx: createContext(head, config) }).filter((item) => item.rank !== null && WAITING_RANKS.has(item.rank)).map((item) => ({ thing: item.id ?? item.file.replace(/^.*\//, "").replace(/\.md$/, ""), kind: "item" }));
+}
+function heldLaws(gate) {
+  if (gate === null) return [];
+  return [...new Set(gate.awaiting.map((one) => one.law))].map((law) => ({ thing: law, kind: "law" }));
+}
+function heldAt({ config, head, pr, gate }) {
+  const settings = settingsOf(config);
+  if (!escalates(settings)) return null;
+  return { settings, held: [...heldLaws(gate), ...heldItems(config, head, pr)] };
+}
+
+// apps/omni-app/src/escalation/sweep.ts
+var InstallationsSchema = z38.array(z38.looseObject({ id: z38.number() }));
+var RepositoriesSchema = z38.looseObject({
+  repositories: z38.array(z38.looseObject({ name: z38.string(), owner: z38.looseObject({ login: z38.string() }) }))
+});
+var OpenPullsSchema = z38.array(z38.looseObject({ number: z38.number(), base: z38.looseObject({ sha: z38.string() }) }));
+var lower = (login) => login.toLowerCase();
+function moveDue(lines, settings, now2, posted) {
+  const decisions = decide(lines.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now2, settings);
+  const due = [];
+  const moved = lines.map((line, index) => {
+    const decision = decisions[index];
+    if (decision === void 0 || decision.step <= line.step) return line;
+    const already = new Set(line.asked.map(lower));
+    const newlyAsked = decision.asked.filter((login) => !already.has(lower(login)));
+    const announced = posted.some((one) => one.thing === line.thing && one.step >= decision.step);
+    if (!announced && newlyAsked.length > 0) due.push({ ...decision, newlyAsked });
+    const { thing, kind, firstHeld, step, asked, nextDue } = decision;
+    return { thing, kind, firstHeld, step, asked, nextDue };
+  });
+  return { lines: moved, due };
+}
+async function settingsAt(octokit, { owner, repo, baseSha }) {
+  const dest = mkdtempSync7(join48(tmpdir7(), "omni-escalation-"));
+  try {
+    const { config } = await readBaseConfig(octokit, { owner, repo, baseSha, dest });
+    return config === null ? null : settingsOf(config);
+  } finally {
+    rmSync10(dest, { recursive: true, force: true });
+  }
+}
+function recordIn(comments) {
+  for (const comment of comments) {
+    const lines = readRecord(comment.body);
+    if (lines !== null) return lines.length > 0 ? { record: comment, lines } : null;
+  }
+  return null;
+}
+async function sweepPull(octokit, { owner, repo, prNumber, now: now2, settings }) {
+  const comments = await listComments(octokit, { owner, repo, prNumber });
+  const found = recordIn(comments);
+  if (found === null) return "none";
+  const read = await settings();
+  if (read === null || !escalates(read)) return "none";
+  const moved = moveDue(found.lines, read, now2, comments.flatMap((comment) => readAsk(comment.body)));
+  if (moved.due.length > 0) {
+    await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { owner, repo, issue_number: prNumber, body: renderAsk(moved.due) });
+  }
+  const body = renderRecord(moved.lines);
+  if (body !== found.record.body) {
+    await octokit.request("PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}", { owner, repo, comment_id: found.record.id, body });
+  }
+  if (moved.due.length > 0) return "asked";
+  return body === found.record.body ? "unchanged" : "moved";
+}
+async function sweepRepository(octokit, { owner, repo, now: now2, log: log2 }) {
+  const pulls = await paginate(
+    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, state: "open", per_page: PER_PAGE, page }).then(({ data }) => OpenPullsSchema.parse(data))
+  );
+  const configs = /* @__PURE__ */ new Map();
+  const settingsOfBase = (baseSha) => () => {
+    const known = configs.get(baseSha) ?? settingsAt(octokit, { owner, repo, baseSha });
+    configs.set(baseSha, known);
+    return known;
+  };
+  const swept = { pulls: pulls.length, asked: 0, failed: 0 };
+  for (const pull of pulls) {
+    try {
+      const outcome = await sweepPull(octokit, { owner, repo, prNumber: parsePr(pull.number), now: now2, settings: settingsOfBase(pull.base.sha) });
+      if (outcome === "asked") swept.asked += 1;
+    } catch (error) {
+      if (refusalIn(error)) throw error;
+      swept.failed += 1;
+      log2(`escalation sweep of ${owner}/${repo}#${String(pull.number)} waits for the next hour: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return swept;
+}
+async function installationsOf(app) {
+  const installations = await paginate(
+    (page) => app.request("GET /app/installations", { per_page: PER_PAGE, page }).then(({ data }) => InstallationsSchema.parse(data))
+  );
+  return installations.map(({ id }) => id);
+}
+async function repositoriesOf(octokit) {
+  const repositories = await paginate(
+    (page) => octokit.request("GET /installation/repositories", { per_page: PER_PAGE, page }).then(({ data }) => RepositoriesSchema.parse(data).repositories)
+  );
+  return repositories.map(({ name, owner }) => ({ owner: owner.login, repo: name }));
+}
+async function sweepAll({ app, octokitFor, now: now2, log: log2 }) {
+  const total = { repositories: 0, pulls: 0, asked: 0, failed: 0 };
+  for (const installation of await installationsOf(app)) {
+    const octokit = await octokitFor(installation);
+    for (const { owner, repo } of await repositoriesOf(octokit)) {
+      const swept = await sweepRepository(octokit, { owner, repo, now: now2, log: log2 });
+      total.repositories += 1;
+      total.pulls += swept.pulls;
+      total.asked += swept.asked;
+      total.failed += swept.failed;
+    }
+  }
+  return total;
+}
+
+// apps/omni-app/src/escalation/job.ts
+var ESCALATION_KIND = "escalation";
+function sweptLine({ repositories, pulls, asked, failed: failed3 }) {
+  return `escalation: ${String(repositories)} repositories, ${String(pulls)} open pull requests, ${String(asked)} asked, ${String(failed3)} left for the next hour`;
+}
+function escalationHandler({
+  octokitFor,
+  appOctokit,
+  log: log2 = noteTo("escalation"),
+  clock = Date.now
+}) {
+  return async () => {
+    if (appOctokit === null) {
+      log2("escalation: the App cannot list its installations here, so nobody is asked.");
+      return { outcome: "skipped", reason: "no app: the App cannot list its installations here" };
+    }
+    const swept = await sweepAll({ app: await appOctokit(), octokitFor, now: new Date(clock()), log: log2 });
+    log2(sweptLine(swept));
+    return { outcome: "done" };
+  };
+}
+
+// apps/omni-app/src/fix-rows/fix-stamp.ts
+import { z as z39 } from "zod";
+var FIX_STAMP_EVENT = "omni-loop/fix.stamp.requested";
+var FixStampKindSchema = z39.enum(["merged", "closed", "reopened"]);
+var at3 = z39.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
+var FixStampDataSchema = z39.looseObject({
+  installationId: z39.number(),
+  repository: z39.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  kind: FixStampKindSchema,
+  at: at3,
+  bug: ProductBugIdSchema.nullable()
+});
+var FIXES = /^ {0,3}Fixes ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-B[1-9]\d{0,9})(?![\w-])/;
+function fixedRecordOf(body) {
+  for (const line of proseLines(body ?? "")) {
+    const id = FIXES.exec(line)?.[1];
+    const parsed2 = id === void 0 ? null : ProductBugIdSchema.safeParse(id);
+    if (parsed2?.success) return parsed2.data;
+  }
+  return null;
+}
+function fixStampId({ repository, prNumber, kind, at: when }) {
+  return `fix-stamp:${repository.toLowerCase()}#${String(prNumber)}:${kind}:${when}`;
+}
+
+// apps/omni-app/src/fix-rows/job.ts
+var FIX_ROW_STAMP_KIND = "fix-row-stamp";
+var MAX_TRIES = 4;
+function fixRowStampJob({ installationId, repository, prNumber, kind, at: at4, bug }) {
+  const subject = repository.toLowerCase();
+  return {
+    kind: FIX_ROW_STAMP_KIND,
+    key: `${subject}#${String(prNumber)}@${kind}@${at4}`,
+    subject,
+    payload: { installationId, repository, prNumber, kind, at: at4, bug },
+    maxTries: MAX_TRIES
+  };
+}
+function fixRowStampHandler({ stamp, log: log2 = noteTo("fix-row-stamp") }) {
+  return async (job) => {
+    const { repository, prNumber, kind, at: at4, bug } = FixStampDataSchema.parse(job.payload);
+    const pull = `${repository}#${String(prNumber)}`;
+    if (!stamp) {
+      log2(`fix stamp: ${pull} ${kind} stamps nothing: the App cannot reach the server here`);
+      return { outcome: "skipped", reason: "the App cannot reach the server here" };
+    }
+    const answer = await stamp({ repository, prNumber, kind, at: at4, bug });
+    for (const shipped of answer.shipped) log2(`fix stamp: ${pull} merged, the last fix of ${shipped}: it ships`);
+    if (answer.unmatched !== null) log2(`fix stamp: ${pull} merged, matching no row of ${answer.unmatched}: kept as unmatched merge ${pull.toLowerCase()}`);
+    return { outcome: "done" };
+  };
+}
+
+// apps/omni-app/src/fix-rows/stamp.ts
+import { z as z40 } from "zod";
+var StampedRowSchema = z40.object({
+  bug: ProductBugIdSchema,
+  dossierId: z40.string().min(1),
+  position: z40.number().int().positive(),
+  state: z40.enum(["open", "merged", "closed"])
+});
+var StampAnswerSchema = z40.object({
+  rows: z40.array(StampedRowSchema),
+  shipped: z40.array(ProductBugIdSchema),
+  unmatched: ProductBugIdSchema.nullable()
+});
+function fixRowStamper(connection) {
+  const db = serviceDb(connection);
+  return async ({ repository, prNumber, kind, at: at4, bug }) => {
+    const { data, error } = await db.rpc("fix_row_stamp", {
+      p_repo: repository,
+      p_pull: prNumber,
+      p_event: kind,
+      p_at: at4,
+      ...bug === null ? {} : { p_bug: bug }
+    });
+    if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+    return StampAnswerSchema.parse(data);
+  };
+}
+
+// apps/omni-app/src/fleet-board/job.ts
+import { z as z44 } from "zod";
+
+// apps/omni-app/src/fleet-board/events.ts
+import { z as z41 } from "zod";
+var FLEET_BOARD_EVENT = "omni-loop/fleet-board.requested";
+var FleetBoardDataSchema = z41.looseObject({
+  installationId: z41.number(),
+  owner: z41.string().min(1),
+  repo: z41.string().min(1),
+  repository: z41.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  /** The pull request's GraphQL node id, the card's content. */
+  nodeId: z41.string().min(1),
+  /** The pull request's link, as a runner's job lists it. */
+  url: z41.string().min(1),
+  /** The GitHub login of its author. */
+  author: z41.string().min(1)
+});
+function fleetBoardId({ repository, prNumber, action, at: at4 }) {
+  return `fleet-board:${repository.toLowerCase()}#${String(prNumber)}:${action}:${at4}`;
+}
+
+// apps/omni-app/src/fleet-board/github.ts
+import { z as z42 } from "zod";
+var BOARD = /^https:\/\/github\.com\/orgs\/([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/projects\/([1-9][0-9]{0,9})\/?$/;
+function boardOf(url) {
+  const match2 = BOARD.exec(url.trim());
+  if (!match2?.[1] || !match2[2]) return null;
+  return { org: match2[1], number: Number(match2[2]) };
+}
+var PROJECT = `query FleetBoardProject($org: String!, $number: Int!) {
+  organization(login: $org) { projectV2(number: $number) { id } }
+}`;
+var ADD = `mutation FleetBoardAdd($project: ID!, $content: ID!) {
+  addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
+}`;
+var ProjectAnswerSchema = z42.looseObject({
+  organization: z42.looseObject({ projectV2: z42.looseObject({ id: z42.string().min(1) }).nullish() }).nullish()
+});
+var AddAnswerSchema = z42.looseObject({
+  addProjectV2ItemById: z42.looseObject({ item: z42.looseObject({ id: z42.string().min(1) }).nullish() }).nullish()
+});
+async function addToBoard(octokit, { url, contentId }) {
+  const board = boardOf(url);
+  if (!board) return refused5("missing");
+  try {
+    const project = ProjectAnswerSchema.parse(await octokit.graphql(PROJECT, { org: board.org, number: board.number })).organization?.projectV2?.id;
+    if (!project) return refused5("missing");
+    const card = AddAnswerSchema.parse(await octokit.graphql(ADD, { project, content: contentId })).addProjectV2ItemById?.item?.id;
+    if (!card) throw new Error("GitHub answered addProjectV2ItemById with no card");
+    return { outcome: "added" };
+  } catch (error) {
+    const reason2 = refusalOf(error);
+    if (reason2 === null) throw error;
+    return refused5(reason2);
+  }
+}
+function refused5(reason2) {
+  return { outcome: "refused", reason: reason2 };
+}
+var NOT_ALLOWED = /* @__PURE__ */ new Set(["FORBIDDEN", "INSUFFICIENT_SCOPES"]);
+var GraphqlErrorsSchema = z42.looseObject({ errors: z42.array(z42.looseObject({ type: z42.unknown().optional() })).min(1) });
+var HttpErrorSchema = z42.looseObject({ status: z42.number(), message: z42.string().optional() });
+function refusalOf(error) {
+  const graphql = GraphqlErrorsSchema.safeParse(error);
+  if (graphql.success) {
+    const types = graphql.data.errors.map((one) => one.type);
+    if (types.some((type) => NOT_ALLOWED.has(type))) return "permission";
+    if (types.every((type) => type === "NOT_FOUND")) return "missing";
+    return null;
+  }
+  const http = HttpErrorSchema.safeParse(error);
+  if (!http.success) return null;
+  const { status, message = "" } = http.data;
+  if ((status === 401 || status === 403) && !/rate limit/i.test(message)) return "permission";
+  if (status === 404) return "missing";
+  return null;
+}
+
+// apps/omni-app/src/fleet-board/store.ts
+import { z as z43 } from "zod";
+var NOTE_MAX = 200;
+var LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+var TRACKED = "workspace_id, workspaces!inner(github_installation_id)";
+var PLAYER = "team";
+var JOB = "sent_by, sent_by_key";
+var TEAM = "name, project_url";
+var TrackedRowSchema = z43.object({ workspace_id: z43.string().min(1), workspaces: z43.object({ github_installation_id: z43.union([z43.number(), z43.string()]).nullable() }) });
+var PlayerRowSchema = z43.object({ team: z43.string().nullable() });
+var JobRowSchema = z43.object({ sent_by: z43.string().nullable(), sent_by_key: z43.string().nullable() });
+var TeamRowSchema = z43.object({ name: z43.string().min(1), project_url: z43.string().nullable() });
+function fleetBoardStore(connection) {
+  const db = serviceDb(connection);
+  async function activeFleet(workspace, name) {
+    const [team] = rowsOf(TeamRowSchema, await db.from("teams").select(TEAM).eq("workspace_id", workspace).eq("name", name).is("retired_at", null).limit(1));
+    return team ? { name: team.name, projectUrl: team.project_url } : null;
+  }
+  return {
+    async workspaces({ installationId, repository }) {
+      const rows = rowsOf(
+        TrackedRowSchema,
+        await db.from("repositories").select(TRACKED).eq("full_name", repository.toLowerCase()).eq("tracked", true).is("removed_at", null).eq("workspaces.github_installation_id", installationId).order("workspace_id")
+      );
+      return [...new Set(rows.filter((row) => Number(row.workspaces.github_installation_id) === installationId).map((row) => row.workspace_id))];
+    },
+    async fleetOf({ workspace, login }) {
+      if (!LOGIN.test(login)) return null;
+      const [player] = rowsOf(PlayerRowSchema, await db.from("players").select(PLAYER).eq("workspace_id", workspace).ilike("github_login", login).not("team", "is", null).limit(1));
+      if (!player?.team) return null;
+      return activeFleet(workspace, player.team);
+    },
+    async jobFleet({ workspace, url }) {
+      const [job] = rowsOf(
+        JobRowSchema,
+        await db.from("runner_jobs").select(JOB).eq("workspace_id", workspace).contains("prs", JSON.stringify([url])).order("queued_at", { ascending: false }).limit(1)
+      );
+      if (!job) return { found: false, fleet: null };
+      if (!job.sent_by || job.sent_by_key) return { found: true, fleet: null };
+      const [player] = rowsOf(PlayerRowSchema, await db.from("players").select(PLAYER).eq("workspace_id", workspace).eq("user_id", job.sent_by).not("team", "is", null).limit(1));
+      return { found: true, fleet: player?.team ? await activeFleet(workspace, player.team) : null };
+    },
+    async note({ workspace, fleet, projectUrl, note, at: at4 }) {
+      const written = rowsOf(
+        TeamRowSchema,
+        await db.from("teams").update({ project_note: note.slice(0, NOTE_MAX), project_noted_at: at4 }).eq("workspace_id", workspace).eq("name", fleet).eq("project_url", projectUrl).select(TEAM)
+      );
+      return { noted: written.length > 0 };
+    }
+  };
+}
+
+// apps/omni-app/src/fleet-board/job.ts
+var FLEET_BOARD_KIND = "fleet-board";
+var MAX_TRIES2 = 4;
+var LOOKS = 10;
+var WAIT_MS = 6e4;
+function fleetBoardJob({ installationId, owner, repo, repository, prNumber, nodeId, url, author }) {
+  const subject = repository.toLowerCase();
+  return {
+    kind: FLEET_BOARD_KIND,
+    key: `${subject}#${String(prNumber)}`,
+    subject,
+    payload: { installationId, owner, repo, repository, prNumber, nodeId, url, author },
+    maxTries: MAX_TRIES2
+  };
+}
+var ProgressSchema = z44.looseObject({ look: z44.number().int().min(1).max(LOOKS).optional() });
+function fleetBoardHandler({ octokitFor, store, now: now2 = () => /* @__PURE__ */ new Date(), log: log2 = noteTo("fleet-board") }) {
+  return async (job) => {
+    const data = parseOrThrow(FleetBoardDataSchema, job.payload, `The ${FLEET_BOARD_KIND} job carries an unexpected shape`);
+    const pull = `${data.repository}#${String(data.prNumber)}`;
+    if (!store) return { outcome: "skipped", reason: "no database to read the fleets from" };
+    const look = (ProgressSchema.parse(job.progress ?? {}).look ?? 0) + 1;
+    const workspaces = await store.workspaces({ installationId: data.installationId, repository: data.repository });
+    const fleets = await fleetsOf({ store, workspaces, data, look });
+    if (fleets === null) {
+      log2(`fleet board: ${pull}: no runner job holds it yet, look ${String(look)} of ${String(LOOKS)}: looking again in a minute`);
+      const progress = { look };
+      return { outcome: "later", at: new Date(now2().getTime() + WAIT_MS), progress };
+    }
+    const outcomes = [];
+    for (const workspace of workspaces) outcomes.push(await addCard({ octokitFor, store, now: now2, data, workspace, fleet: fleets.get(workspace) ?? null }));
+    const said = `${pull}: ${outcomes.length > 0 ? outcomes.map(outcomeLine).join("; ") : "no workspace tracks it on this installation"}`;
+    log2(`fleet board: ${said}`);
+    return outcomes.some((outcome) => "note" in outcome) ? { outcome: "done" } : { outcome: "skipped", reason: said };
+  };
+}
+async function addCard({
+  octokitFor,
+  store,
+  now: now2,
+  data,
+  workspace,
+  fleet
+}) {
+  if (!fleet) return { workspace, skipped: "the author, and the sender of a runner job holding the pull request, are in no active fleet" };
+  const board = fleet.projectUrl;
+  if (!board) return { workspace, fleet: fleet.name, skipped: "the fleet has no board" };
+  const added = await addToBoard(await octokitFor(data.installationId), { url: board, contentId: data.nodeId });
+  const note = noteOf(added, data);
+  await store.note({ workspace, fleet: fleet.name, projectUrl: board, note, at: now2().toISOString() });
+  return { workspace, fleet: fleet.name, note };
+}
+function outcomeLine(outcome) {
+  const where = "fleet" in outcome ? `${outcome.workspace} ${outcome.fleet}` : outcome.workspace;
+  return `${where}: ${"note" in outcome ? outcome.note : outcome.skipped}`;
+}
+async function fleetsOf({ store, workspaces, data, look }) {
+  const fleets = /* @__PURE__ */ new Map();
+  const pending = [];
+  for (const workspace of workspaces) {
+    const fleet = await store.fleetOf({ workspace, login: data.author });
+    fleets.set(workspace, fleet);
+    if (!fleet) pending.push(workspace);
+  }
+  if (pending.length === 0) return fleets;
+  const answers = /* @__PURE__ */ new Map();
+  let found = false;
+  for (const workspace of pending) {
+    const answer = await store.jobFleet({ workspace, url: data.url });
+    answers.set(workspace, answer.fleet);
+    found ||= answer.found;
+  }
+  if (found) for (const [workspace, fleet] of answers) fleets.set(workspace, fleet);
+  else if (look < LOOKS) return null;
+  return fleets;
+}
+function noteOf(added, { owner, repo, prNumber }) {
+  if (added.outcome === "added") return `Added #${String(prNumber)} \xB7 ${owner}/${repo}`.slice(0, NOTE_MAX);
+  return added.reason === "permission" ? "Not added: ask an org admin" : "Not added: no such project";
 }
 
 // apps/omni-app/src/inbox-check/business-laws-judge.ts
-import { z as z38 } from "zod";
+import { z as z45 } from "zod";
 var SECRET_VAR = "BUSINESS_LAWS_JUDGE_SECRET";
 var GATE = "business laws";
 var TIMEOUT_MS = 55e3;
-var FindingSchema3 = z38.looseObject({
-  law: z38.string(),
-  statement: z38.string(),
-  why: z38.string(),
-  quote: z38.string(),
+var FindingSchema3 = z45.looseObject({
+  law: z45.string(),
+  statement: z45.string(),
+  why: z45.string(),
+  quote: z45.string(),
   // What the judge found broken, in its own words (bug #2696); an older galaxy sends none.
-  broken: z38.string().optional().catch(void 0),
-  owners: z38.array(z38.string()).catch([])
+  broken: z45.string().optional().catch(void 0),
+  owners: z45.array(z45.string()).catch([])
 });
-var VerdictSchema2 = z38.looseObject({
-  state: z38.enum(["green", "red", "neutral"]),
-  reason: z38.string(),
-  laws: z38.array(z38.string()),
-  domains: z38.array(z38.looseObject({ key: z38.string(), name: z38.string().optional() })).catch([]),
-  findings: z38.array(FindingSchema3).catch([])
+var VerdictSchema2 = z45.looseObject({
+  state: z45.enum(["green", "red", "neutral"]),
+  reason: z45.string(),
+  laws: z45.array(z45.string()),
+  domains: z45.array(z45.looseObject({ key: z45.string(), name: z45.string().optional() })).catch([]),
+  findings: z45.array(FindingSchema3).catch([])
 });
-var RefusalSchema2 = z38.looseObject({ error: z38.string().optional().catch(void 0) });
+var RefusalSchema2 = z45.looseObject({ error: z45.string().optional().catch(void 0) });
 function businessLawsJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/business-laws/judge`;
 }
@@ -9626,12 +10225,12 @@ async function signedCall(post, { url, secret, body, timeoutMs }) {
   try {
     const response = await post(url, { method: "POST", body, headers, signal: AbortSignal.timeout(timeoutMs) });
     const reply2 = await response.json().catch(() => null);
-    return response.ok ? { reply: reply2 } : { why: `galaxy answered ${response.status}${refusalOf(reply2)}` };
+    return response.ok ? { reply: reply2 } : { why: `galaxy answered ${response.status}${refusalOf2(reply2)}` };
   } catch (error) {
     return { why: `galaxy could not be reached: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-function refusalOf(reply2) {
+function refusalOf2(reply2) {
   const refusal3 = RefusalSchema2.safeParse(reply2);
   return refusal3.success && refusal3.data.error ? `: ${refusal3.data.error}` : "";
 }
@@ -9651,15 +10250,87 @@ function businessLawsJudge({ url, secret, fetch: post = fetch, timeoutMs = TIMEO
   };
 }
 
+// apps/omni-app/src/inbox-check/canon-actions.ts
+import { z as z46 } from "zod";
+var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
+var MAX_LABEL = 20;
+var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
+var MarkerSchema = z46.looseObject({ prd: z46.unknown(), persona: z46.unknown(), claims: z46.unknown() });
+function canonActions(canon) {
+  if (canon?.state !== "red") return [];
+  const persona = canon.persona?.name;
+  return [
+    {
+      label: (persona ? `Rewrite for ${persona}` : "Rewrite the spec").slice(0, MAX_LABEL),
+      description: "Post the command that reworks the spec",
+      identifier: CANON_ACTION.rewrite
+    },
+    { label: "Change the line", description: "Open the line on Settings \u203A Business", identifier: CANON_ACTION.claim }
+  ];
+}
+function canonMarker({ prd, canon }) {
+  if (!canon || canon.state !== "red" || prd === null) return null;
+  const claims = [...new Set(canon.findings.flatMap((finding) => finding.claims))];
+  return `<!-- omni-canon ${JSON.stringify({ prd, persona: canon.persona?.name ?? null, claims })} -->`;
+}
+function readCanonMarker(summary) {
+  const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed2(summary));
+  if (!match2) return null;
+  let parsed2;
+  try {
+    parsed2 = JSON.parse(match2[1] ?? "");
+  } catch {
+    return null;
+  }
+  const read = MarkerSchema.safeParse(parsed2);
+  if (!read.success) return null;
+  const facts = read.data;
+  const prd = PrdNumberSchema.safeParse(facts.prd);
+  if (!prd.success || !Array.isArray(facts.claims)) return null;
+  const claims = facts.claims;
+  return {
+    prd: prd.data,
+    persona: typeof facts.persona === "string" && facts.persona ? facts.persona : null,
+    claims: claims.filter((id) => typeof id === "string")
+  };
+}
+var printed2 = (value) => String(value);
+var commentMarker = (action) => `<!-- omni-canon-action:${action} -->`;
+function claimLink(galaxyUrl, id) {
+  const page = `${galaxyUrl.replace(/\/+$/, "")}/app/settings/business`;
+  if (id === "statement") return `${page}#statement`;
+  const never = /^never#(\d+)$/.exec(id);
+  return never ? `${page}#never-${never[1]}` : page;
+}
+var isConstituent2 = (id) => id === "statement" || /^never#\d+$/.test(id);
+function canonComment(action, facts, { galaxyUrl }) {
+  if (action === CANON_ACTION.rewrite) {
+    const whom = facts.persona ? ` for ${facts.persona}` : "";
+    return [commentMarker(action), `To rewrite the spec${whom}, run \`/omni:brainstorm --rework ${facts.prd}\`.`].join("\n");
+  }
+  if (action === CANON_ACTION.claim) {
+    const lines = facts.claims.map((id) => `- [${id}](${claimLink(galaxyUrl, id)})`);
+    const how = [];
+    if (facts.claims.some(isConstituent2)) {
+      how.push("To change the Statement or a Never line, open it on Settings \u203A Business: an owner of the workspace changes it on the Constituents panel; then re-run the inbox check.");
+    }
+    if (facts.claims.some((id) => !isConstituent2(id))) {
+      how.push("To change the claim, open it on Settings \u203A Business. A new wording is saved as proposed and confirmed like any other; then re-run the inbox check.");
+    }
+    return [commentMarker(action), ...how, "", ...lines].join("\n");
+  }
+  return null;
+}
+
 // apps/omni-app/src/inbox-check/inbox-check.ts
-import { mkdtempSync as mkdtempSync7, rmSync as rmSync11 } from "node:fs";
-import { tmpdir as tmpdir7 } from "node:os";
-import { join as join51 } from "node:path";
+import { mkdtempSync as mkdtempSync8, rmSync as rmSync12 } from "node:fs";
+import { tmpdir as tmpdir8 } from "node:os";
+import { join as join53 } from "node:path";
 import "zod";
 
 // apps/omni-app/src/inbox-check/evaluate-inbox.ts
 import { existsSync as existsSync38, readdirSync as readdirSync18, readFileSync as readFileSync37 } from "node:fs";
-import { join as join50 } from "node:path";
+import { join as join52 } from "node:path";
 
 // kit/lib/flow/plan-rules.ts
 var LANDINGS_ALIAS_AREA2 = "landings.alone";
@@ -9779,18 +10450,18 @@ function landingAloneViolations(slices, flow) {
 
 // kit/lib/plan-repo/copy-flow.ts
 import { existsSync as existsSync37, readFileSync as readFileSync36, statSync as statSync12 } from "node:fs";
-import { join as join49 } from "node:path";
+import { join as join51 } from "node:path";
 import { parse as parse3, stringify } from "yaml";
 
 // kit/lib/dossier/local.ts
 import { execFileSync as execFileSync6 } from "node:child_process";
 import { readFileSync as readFileSync34, realpathSync as realpathSync2, writeFileSync as writeFileSync12 } from "node:fs";
-import { basename as basename11, dirname as dirname8, join as join47, resolve as resolve2 } from "node:path";
-import { z as z39 } from "zod";
-var DOSSIERS_FILE = join47(LOCAL_DIR, "dossiers.json");
+import { basename as basename11, dirname as dirname8, join as join49, resolve as resolve2 } from "node:path";
+import { z as z47 } from "zod";
+var DOSSIERS_FILE = join49(LOCAL_DIR, "dossiers.json");
 var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
-var text9 = z39.string().min(1);
-var DossierEntrySchema = z39.object({
+var text9 = z47.string().min(1);
+var DossierEntrySchema = z47.object({
   id: text9,
   url: text9,
   claudeSessionId: text9.nullable(),
@@ -9815,33 +10486,33 @@ function mainCheckout(cwd, exec = execFileSync6) {
 
 // kit/lib/knowledge/packs/store.ts
 import { createHash as createHash3 } from "node:crypto";
-import { chmodSync as chmodSync3, existsSync as existsSync36, mkdirSync as mkdirSync8, readdirSync as readdirSync17, readFileSync as readFileSync35, renameSync as renameSync2, rmSync as rmSync10, statSync as statSync11, writeFileSync as writeFileSync13 } from "node:fs";
-import { dirname as dirname9, join as join48, posix as posix4 } from "node:path";
-import { z as z40 } from "zod";
-var PACKS_DIR = join48(LOCAL_DIR, "packs");
+import { chmodSync as chmodSync3, existsSync as existsSync36, mkdirSync as mkdirSync8, readdirSync as readdirSync17, readFileSync as readFileSync35, renameSync as renameSync2, rmSync as rmSync11, statSync as statSync11, writeFileSync as writeFileSync13 } from "node:fs";
+import { dirname as dirname9, join as join50, posix as posix4 } from "node:path";
+import { z as z48 } from "zod";
+var PACKS_DIR = join50(LOCAL_DIR, "packs");
 var PACK_FILE = "pack.json";
-var FileSchema = z40.object({ path: z40.string().min(1), sha256: z40.string().regex(/^[0-9a-f]{64}$/) });
-var MetaSchema = z40.object({
-  repository: z40.string().min(1),
-  sha: z40.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z40.string().min(1),
-  madeAt: z40.string().min(1),
-  files: z40.array(FileSchema)
+var FileSchema = z48.object({ path: z48.string().min(1), sha256: z48.string().regex(/^[0-9a-f]{64}$/) });
+var MetaSchema = z48.object({
+  repository: z48.string().min(1),
+  sha: z48.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z48.string().min(1),
+  madeAt: z48.string().min(1),
+  files: z48.array(FileSchema)
 });
 var PackReplySchema = MetaSchema.omit({ files: true }).extend({
-  files: z40.array(FileSchema.extend({ content: z40.string() }))
+  files: z48.array(FileSchema.extend({ content: z48.string() }))
 });
 var packName = (repo) => repo.slice(repo.indexOf("/") + 1);
 function localPacks(root, repo) {
-  const dir = join48(root, PACKS_DIR);
+  const dir = join50(root, PACKS_DIR);
   if (!existsSync36(dir)) return [];
   const name = packName(repo);
   const found = [];
   for (const entry of readdirSync17(dir)) {
     if (!entry.startsWith(`${name}@`) || entry.endsWith(".partial")) continue;
-    const folder = join48(PACKS_DIR, entry);
+    const folder = join50(PACKS_DIR, entry);
     try {
-      const meta = MetaSchema.parse(JSON.parse(readFileSync35(join48(root, folder, PACK_FILE), "utf8")));
+      const meta = MetaSchema.parse(JSON.parse(readFileSync35(join50(root, folder, PACK_FILE), "utf8")));
       if (entry === `${name}@${meta.sha}` && (repo === name || meta.repository.toLowerCase() === repo.toLowerCase())) found.push({ ...meta, folder });
     } catch {
     }
@@ -9850,7 +10521,7 @@ function localPacks(root, repo) {
 }
 var newestPack = (root, repo) => localPacks(root, repo)[0] ?? null;
 function packFile(root, pack2, path) {
-  const file = join48(root, pack2.folder, path);
+  const file = join50(root, pack2.folder, path);
   return existsSync36(file) && statSync11(file).isFile() ? readFileSync35(file, "utf8") : null;
 }
 
@@ -9881,10 +10552,10 @@ function parseFlowConfig(source, file) {
   return flow === void 0 ? { landings, pr, contracts } : { flow, landings, pr, contracts };
 }
 function copyFolder(repo, { ctx }) {
-  return join49(ctx.config.paths.knowledge, "repos", at(repo.split("/"), 1, `the name of ${repo}`));
+  return join51(ctx.config.paths.knowledge, "repos", at(repo.split("/"), 1, `the name of ${repo}`));
 }
 function copyFlowFolder(repo, { config }) {
-  return join49(copyFolder(repo, { ctx: { config } }), COPY_FLOW_DIR);
+  return join51(copyFolder(repo, { ctx: { config } }), COPY_FLOW_DIR);
 }
 function packRoots(root) {
   const main = mainCheckout(root);
@@ -9897,7 +10568,7 @@ function readPackFlow(repo, root) {
     if (pack2 === null || source === null) continue;
     return {
       folder: pack2.folder,
-      config: parseFlowConfig(source, join49(pack2.folder, PACK_CONFIG)),
+      config: parseFlowConfig(source, join51(pack2.folder, PACK_CONFIG)),
       readHook: (path) => packFile(where, pack2, path)
     };
   }
@@ -9908,11 +10579,11 @@ function readCopyFlow(repo, where) {
 }
 function readFolderFlow(repo, { root, config }) {
   const folder = copyFlowFolder(repo, { config });
-  const file = join49(folder, COPY_FLOW_FILE);
-  if (!existsSync37(join49(root, file))) return null;
-  const flow = parseFlowConfig(readFileSync36(join49(root, file), "utf8"), file);
+  const file = join51(folder, COPY_FLOW_FILE);
+  if (!existsSync37(join51(root, file))) return null;
+  const flow = parseFlowConfig(readFileSync36(join51(root, file), "utf8"), file);
   const readHook = (path) => {
-    const hook = join49(root, folder, path);
+    const hook = join51(root, folder, path);
     return existsSync37(hook) && statSync12(hook).isFile() ? readFileSync36(hook, "utf8") : null;
   };
   return { folder, config: flow, readHook };
@@ -9925,7 +10596,7 @@ function targetFlows({ root, config }) {
       const copy = readCopyFlow(repo, { root, config });
       if (copy) flows.set(shortName2(repo), { ok: true, config: copy.config });
     } catch (error) {
-      flows.set(shortName2(repo), { ok: false, file: join49(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
+      flows.set(shortName2(repo), { ok: false, file: join51(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
     }
   }
   return flows;
@@ -9933,20 +10604,20 @@ function targetFlows({ root, config }) {
 
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text12) {
-  const id = WorkSliceIdSchema.safeParse(text12);
-  if (!id.success) throw new Error(`This plan's slice table names "${text12}", which is no slice id like s1.`);
+function sliceIdOf(text13) {
+  const id = WorkSliceIdSchema.safeParse(text13);
+  if (!id.success) throw new Error(`This plan's slice table names "${text13}", which is no slice id like s1.`);
   return id.data;
 }
 function blockedByCell(cell) {
-  const text12 = (cell ?? "").trim();
-  if (NOTHING.test(text12)) return [];
-  return text12.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+  const text13 = (cell ?? "").trim();
+  if (NOTHING.test(text13)) return [];
+  return text13.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell) {
-  const text12 = (cell ?? "").trim();
-  if (NOTHING.test(text12)) return [];
-  return [...text12.matchAll(/`([^`]+)`/g)].map((match2) => (match2[1] ?? "").trim()).filter(Boolean);
+  const text13 = (cell ?? "").trim();
+  if (NOTHING.test(text13)) return [];
+  return [...text13.matchAll(/`([^`]+)`/g)].map((match2) => (match2[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -10020,12 +10691,12 @@ function sliceTable(markdown) {
   return { column: (name) => header2.indexOf(name), rows: bodyRows(lines, headerIndex) };
 }
 var TIERS2 = ["deep", "build", "light"];
-function isTier(text12) {
-  return TIERS2.some((tier) => tier === text12);
+function isTier(text13) {
+  return TIERS2.some((tier) => tier === text13);
 }
 function tierCell(cell) {
-  const text12 = plainCell(cell);
-  return isTier(text12) ? text12 : null;
+  const text13 = plainCell(cell);
+  return isTier(text13) ? text13 : null;
 }
 function unknownTiers(markdown) {
   let table;
@@ -10045,13 +10716,13 @@ function unknownTiers(markdown) {
   return unknown;
 }
 function landingCell(cell) {
-  const text12 = plainCell(cell);
-  return NOTHING.test(text12) ? 1 : Number(text12);
+  const text13 = plainCell(cell);
+  return NOTHING.test(text13) ? 1 : Number(text13);
 }
 function contractCell(cell) {
-  const text12 = plainCell(cell);
-  if (NOTHING.test(text12)) return null;
-  const kinds = text12.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  const text13 = plainCell(cell);
+  if (NOTHING.test(text13)) return null;
+  const kinds = text13.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
   if (kinds.length === 0) return null;
   return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
@@ -10499,53 +11170,6 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, nee
   return faults.join("; ");
 }
 
-// apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z41 } from "zod";
-var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
-var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
-var MAX_LABEL = 20;
-var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
-var MarkerSchema = z41.looseObject({ prd: z41.unknown(), persona: z41.unknown(), claims: z41.unknown() });
-function canonActions(canon) {
-  if (canon?.state !== "red") return [];
-  const persona = canon.persona?.name;
-  return [
-    {
-      label: (persona ? `Rewrite for ${persona}` : "Rewrite the spec").slice(0, MAX_LABEL),
-      description: "Post the command that reworks the spec",
-      identifier: CANON_ACTION.rewrite
-    },
-    { label: "Change the line", description: "Open the line on Settings \u203A Business", identifier: CANON_ACTION.claim }
-  ];
-}
-function canonMarker({ prd, canon }) {
-  if (!canon || canon.state !== "red" || prd === null) return null;
-  const claims = [...new Set(canon.findings.flatMap((finding) => finding.claims))];
-  return `<!-- omni-canon ${JSON.stringify({ prd, persona: canon.persona?.name ?? null, claims })} -->`;
-}
-function readCanonMarker(summary) {
-  const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed2(summary));
-  if (!match2) return null;
-  let parsed2;
-  try {
-    parsed2 = JSON.parse(match2[1] ?? "");
-  } catch {
-    return null;
-  }
-  const read = MarkerSchema.safeParse(parsed2);
-  if (!read.success) return null;
-  const facts = read.data;
-  const prd = PrdNumberSchema.safeParse(facts.prd);
-  if (!prd.success || !Array.isArray(facts.claims)) return null;
-  const claims = facts.claims;
-  return {
-    prd: prd.data,
-    persona: typeof facts.persona === "string" && facts.persona ? facts.persona : null,
-    claims: claims.filter((id) => typeof id === "string")
-  };
-}
-var printed2 = (value) => String(value);
-
 // apps/omni-app/src/inbox-check/evaluate-inbox.ts
 function phase0Topic(headRef, template) {
   if (typeof headRef !== "string" || !template.includes("{topic}")) return null;
@@ -10555,7 +11179,7 @@ function phase0Topic(headRef, template) {
   return headRef.slice(prefix.length, headRef.length - suffix.length) || null;
 }
 function readConfigAt(base) {
-  const file = join50(base, CONFIG_FILE);
+  const file = join52(base, CONFIG_FILE);
   if (!existsSync38(file)) return null;
   try {
     return parseConfig(readFileSync37(file, "utf8"), CONFIG_FILE);
@@ -10565,7 +11189,7 @@ function readConfigAt(base) {
   }
 }
 function inboxPrd({ head, config, topic }) {
-  const dir = join50(head, createContext(head, config).layout.dirs.inbox);
+  const dir = join52(head, createContext(head, config).layout.dirs.inbox);
   if (!existsSync38(dir)) return null;
   for (const entry of readdirSync18(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const parsed2 = entry.isDirectory() ? parseFolderName(entry.name) : null;
@@ -10585,7 +11209,7 @@ function inboxRoadmap({ head, config, topic }) {
   if (wanted === null) return null;
   const ctx = createContext(head, config);
   const entry = roadmapFiles(ctx).find(
-    (file) => parseFolderName(file.dir.slice(file.dir.lastIndexOf("/") + 1))?.topic === wanted && existsSync38(join50(head, file.file))
+    (file) => parseFolderName(file.dir.slice(file.dir.lastIndexOf("/") + 1))?.topic === wanted && existsSync38(join52(head, file.file))
   );
   if (!entry) return null;
   return gradeRoadmaps(ctx).find((graded) => graded.dir === entry.dir) ?? null;
@@ -10746,14 +11370,14 @@ async function canonGateOf({
   repo
 }) {
   if (!canon || !repo) return neutral("the canon gate is not wired here");
-  const file = join50(head, inFolder(ctx.layout.specPath(prd), prd));
+  const file = join52(head, inFolder(ctx.layout.specPath(prd), prd));
   if (!existsSync38(file)) return neutral(`no spec.md in ${placeOf2(ctx, prd).dir}`);
   return canon.grade({ repo, spec: readFileSync37(file, "utf8"), ref: `PRD ${prd}` });
 }
 async function lawsGateOf({ laws, ctx, prd, head, repo }) {
   const neutralGate = (reason2) => ({ name: LAWS_GATE, ok: true, neutral: true, reason: reason2 });
   if (!repo) return neutralGate("not judged: the business laws judge is not wired here");
-  const file = join50(head, inFolder(ctx.layout.specPath(prd), prd));
+  const file = join52(head, inFolder(ctx.layout.specPath(prd), prd));
   if (!existsSync38(file)) return neutralGate(`not judged: no spec.md in ${placeOf2(ctx, prd).dir}`);
   return laws.grade({ repo, spec: readFileSync37(file, "utf8") });
 }
@@ -10794,11 +11418,11 @@ function inboxGate({ ctx, prd }) {
 }
 function planGate({ ctx, prd, head }) {
   const file = inFolder(ctx.layout.planPath(prd), prd);
-  const absolute = join50(head, file);
+  const absolute = join52(head, file);
   if (!existsSync38(absolute)) {
     return { name: "plan", ok: false, reason: `no plan.md in ${placeOf2(ctx, prd).dir}` };
   }
-  const page = join50(head, inFolder(ctx.layout.beforeAfterPath(prd), prd));
+  const page = join52(head, inFolder(ctx.layout.beforeAfterPath(prd), prd));
   const graded = gradePlan(readFileSync37(absolute, "utf8"), {
     config: ctx.config,
     targets: targetFlows({ root: head, config: ctx.config }),
@@ -10947,19 +11571,19 @@ function inboxFailureHook({ octokitFor }) {
 }
 async function phase0CheckName(octokit, { owner, repo, prNumber }) {
   const pr = await readPull(octokit, { owner, repo, prNumber });
-  const folder = mkdtempSync7(join51(tmpdir7(), "omni-inbox-name-"));
+  const folder = mkdtempSync8(join53(tmpdir8(), "omni-inbox-name-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: folder });
     if (!config || phase0Topic(pr.headRef, config.branches.phase0) === null) return null;
     return config.ci.inboxContext;
   } finally {
-    rmSync11(folder, { recursive: true, force: true });
+    rmSync12(folder, { recursive: true, force: true });
   }
 }
 async function evaluateAt(octokit, { owner, repo, prNumber, headSha, canon, laws }) {
   const pr = await readPull(octokit, { owner, repo, prNumber });
-  const base = mkdtempSync7(join51(tmpdir7(), "omni-inbox-base-"));
-  const head = mkdtempSync7(join51(tmpdir7(), "omni-inbox-head-"));
+  const base = mkdtempSync8(join53(tmpdir8(), "omni-inbox-base-"));
+  const head = mkdtempSync8(join53(tmpdir8(), "omni-inbox-head-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base });
     const topic = config ? phase0Topic(pr.headRef, config.branches.phase0) : null;
@@ -10974,8 +11598,8 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha, canon, laws
     const { changes, commits } = await compareFacts(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     return await evaluateInbox({ base, head, pr: { headRef: pr.headRef }, repo: `${owner}/${repo}`, changes, commits, issue, canon, laws });
   } finally {
-    rmSync11(base, { recursive: true, force: true });
-    rmSync11(head, { recursive: true, force: true });
+    rmSync12(base, { recursive: true, force: true });
+    rmSync12(head, { recursive: true, force: true });
   }
 }
 async function failInbox(octokit, { owner, repo, prNumber, headSha }, reason2) {
@@ -10992,22 +11616,67 @@ async function failInbox(octokit, { owner, repo, prNumber, headSha }, reason2) {
   await completeInboxAsFailure(octokit, { owner, repo, headSha, name, reason: reason2, create });
 }
 
+// apps/omni-app/src/inbox-check/canon-action.ts
+var CANON_ACTION_KIND = "canon-action";
+var MAX_TRIES3 = 4;
+function canonActionJob(delivery, data) {
+  const subject = data.repository.toLowerCase();
+  const { installationId, owner, repo, repository, prNumber, headSha, checkRunId, action, facts } = data;
+  return {
+    kind: CANON_ACTION_KIND,
+    key: delivery,
+    subject,
+    payload: {
+      installationId,
+      owner,
+      repo,
+      repository,
+      prNumber,
+      action,
+      facts,
+      ...headSha === void 0 ? {} : { headSha },
+      ...checkRunId === void 0 ? {} : { checkRunId }
+    },
+    lane: `${subject}#${String(prNumber)}`,
+    maxTries: MAX_TRIES3
+  };
+}
+function canonActionHandler({ octokitFor, galaxyUrl }) {
+  return async (job) => {
+    const { installationId, owner, repo, prNumber, action, facts } = CanonActionRequestDataSchema.parse(job.payload);
+    const body = canonComment(action, facts, { galaxyUrl });
+    if (body === null) return { outcome: "skipped", reason: `not a canon button: ${action}` };
+    const octokit = await octokitFor(installationId);
+    if (await phase0CheckName(octokit, { owner, repo, prNumber }) === null) {
+      return { outcome: "skipped", reason: "not a phase-0 PR of a repository with omni-loop" };
+    }
+    const marker = commentMarker(action);
+    const mine = (await listComments(octokit, { owner, repo, prNumber })).find((comment) => comment.body.includes(marker));
+    if (mine) {
+      await octokit.request("PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}", { owner, repo, comment_id: mine.id, body });
+      return { outcome: "done" };
+    }
+    await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { owner, repo, issue_number: prNumber, body });
+    return { outcome: "done" };
+  };
+}
+
 // apps/omni-app/src/knowledge-pack/store.ts
-import { z as z43 } from "zod";
-var KeptSchema = z43.object({
-  workspace: z43.string().min(1),
-  packId: z43.string().min(1),
-  created: z43.boolean(),
-  newest: z43.boolean(),
-  files: z43.number().int().nonnegative()
+import { z as z50 } from "zod";
+var KeptSchema = z50.object({
+  workspace: z50.string().min(1),
+  packId: z50.string().min(1),
+  created: z50.boolean(),
+  newest: z50.boolean(),
+  files: z50.number().int().nonnegative()
 });
-var PutAnswerSchema = z43.object({
-  repository: z43.string().min(1),
-  sha: z43.string().regex(/^[0-9a-f]{40}$/),
-  packs: z43.array(KeptSchema)
+var PutAnswerSchema = z50.object({
+  repository: z50.string().min(1),
+  sha: z50.string().regex(/^[0-9a-f]{40}$/),
+  packs: z50.array(KeptSchema)
 });
-var HolderSchema = z43.object({ product_id: z43.string().min(1) });
-var refused5 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+var HolderSchema = z50.object({ product_id: z50.string().min(1) });
+var refused6 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function knowledgePackStore(connection) {
   const db = serviceDb(connection);
   return {
@@ -11022,16 +11691,50 @@ function knowledgePackStore(connection) {
         p_committed_at: committedAt,
         p_files: files.map(({ path, content, sha256: sha2562 }) => ({ path, content, sha256: sha2562 }))
       });
-      if (error) throw refused5(error);
+      if (error) throw refused6(error);
       return PutAnswerSchema.parse(data);
     }
   };
 }
 
+// apps/omni-app/src/octokit-for.ts
+import { App } from "@octokit/app";
+import { createClient as createClient4 } from "@supabase/supabase-js";
+var APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
+function installationOctokitFor(githubApp, github) {
+  let app;
+  return async (installationId) => {
+    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app reads GitHub as an installation");
+    app ??= new App({ appId: id, privateKey });
+    const octokit = await app.getInstallationOctokit(installationId);
+    const budgeted = github.bound({ installation: installationId, priority: "background" });
+    const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init);
+    octokit.hook.before("request", (options) => {
+      options.request = { ...options.request, fetch: fetch2 };
+    });
+    return octokit;
+  };
+}
+function appOctokitFor(githubApp) {
+  let app;
+  return () => {
+    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app looks up its installations as the App");
+    app ??= new App({ appId: id, privateKey });
+    return app.octokit;
+  };
+}
+function githubStoreOf(supabase) {
+  if (!supabase) return null;
+  const db = createClient4(supabase.url, supabase.key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  });
+  return supabaseGithubStore({ etags: () => db.from("github_etags"), budget: () => db.from("github_budget") });
+}
+
 // apps/omni-app/src/outbox-check/outbox-check.ts
-import { mkdtempSync as mkdtempSync8, rmSync as rmSync12 } from "node:fs";
-import { tmpdir as tmpdir8 } from "node:os";
-import { join as join54 } from "node:path";
+import { mkdtempSync as mkdtempSync9, rmSync as rmSync13 } from "node:fs";
+import { tmpdir as tmpdir9 } from "node:os";
+import { join as join55 } from "node:path";
 
 // apps/omni-app/src/outbox-check/delivery-scope.ts
 function deliveryFetched(config, pr) {
@@ -11062,7 +11765,7 @@ function fixFolder(topic) {
 
 // apps/omni-app/src/outbox-check/law-locked.ts
 import { existsSync as existsSync39, readFileSync as readFileSync38 } from "node:fs";
-import { join as join52 } from "node:path";
+import { join as join54 } from "node:path";
 var STANDING = /* @__PURE__ */ new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
 function approversOf(reviews, headSha) {
   const standing = /* @__PURE__ */ new Map();
@@ -11098,7 +11801,7 @@ async function lawGateAt(octokit, {
   const fired = lockedLawChanges(changes, { ctx, base: diskSource(base) });
   if (fired.length === 0) return null;
   await snapshot(octokit, { owner, repo, ref: baseSha, paths: [...CODEOWNERS_FILES], dest: base });
-  const codeowners = readCodeowners((file) => existsSync39(join52(base, file)) ? readFileSync38(join52(base, file), "utf8") : null);
+  const codeowners = readCodeowners((file) => existsSync39(join54(base, file)) ? readFileSync38(join54(base, file), "utf8") : null);
   const approvers = await approversAt(octokit, { owner, repo, prNumber, headSha });
   const lawOwners = config.laws.owners.map((entry) => lawOwnerParts(entry).owner);
   const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
@@ -11133,11 +11836,11 @@ Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
 }
 
 // apps/omni-app/src/outbox-check/product-outbox.ts
-import { z as z44 } from "zod";
-var text10 = z44.string().min(1);
-var HolderRowSchema3 = z44.object({ product_id: text10, products: z44.object({ name: text10 }) });
-var DossierRowSchema3 = z44.object({ id: text10 });
-var ItemRowSchema2 = z44.object({ item: text10, rank: text10, outbox_settlements: z44.array(z44.unknown()) });
+import { z as z51 } from "zod";
+var text10 = z51.string().min(1);
+var HolderRowSchema3 = z51.object({ product_id: text10, products: z51.object({ name: text10 }) });
+var DossierRowSchema3 = z51.object({ id: text10 });
+var ItemRowSchema2 = z51.object({ item: text10, rank: text10, outbox_settlements: z51.array(z51.unknown()) });
 function productOutboxReader(connection) {
   const db = serviceDb(connection);
   return async (repository, prd) => {
@@ -11196,140 +11899,6 @@ function productOutboxVerdict(prd, reading, galaxyUrl) {
     ].join("\n"),
     detailsUrl: details
   };
-}
-
-// apps/omni-app/src/escalation/held.ts
-import { join as join53 } from "node:path";
-
-// kit/lib/escalation/escalation.ts
-var DAY_MS = 24 * 60 * 60 * 1e3;
-var SATURDAY = 6;
-var SUNDAY = 0;
-var isWeekend = (date) => date.getUTCDay() === SATURDAY || date.getUTCDay() === SUNDAY;
-function workingStart(date) {
-  if (!isWeekend(date)) return date;
-  const days = date.getUTCDay() === SATURDAY ? 2 : 1;
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
-}
-function addWorkingDays(start, days) {
-  let at4 = workingStart(start);
-  for (let left = days; left > 0; ) {
-    at4 = new Date(at4.getTime() + DAY_MS);
-    if (!isWeekend(at4)) left -= 1;
-  }
-  return at4;
-}
-var bare = (login) => login.replace(/^@/, "");
-var loginOf = (owner) => bare(typeof owner === "string" ? owner : owner.login);
-var delegatesOf = (owners) => owners.flatMap((owner) => typeof owner === "string" ? [] : [bare(owner.delegate)]);
-function escalates(settings) {
-  return delegatesOf(settings.owners).length > 0 || settings.leadership.length > 0;
-}
-function unique2(logins) {
-  const seen = /* @__PURE__ */ new Set();
-  return logins.filter((login) => {
-    const key = login.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-function askedAt(kind, step, settings) {
-  if (step === 0) return [];
-  const first = kind === "law" ? delegatesOf(settings.owners) : settings.owners.flatMap((owner) => {
-    const login = loginOf(owner);
-    return typeof owner === "string" ? [login] : [login, bare(owner.delegate)];
-  });
-  return unique2(step === 1 ? first : [...first, ...settings.leadership.map(bare)]);
-}
-var instant = (date) => date.toISOString().replace(/\.\d{3}Z$/, "Z");
-function parseInstant(iso2) {
-  const date = new Date(iso2);
-  if (Number.isNaN(date.getTime())) throw new Error(`escalation: firstHeld ${JSON.stringify(iso2)} is not an instant`);
-  return date;
-}
-function stepAt(first, now2, workingDays) {
-  const due1 = addWorkingDays(first, workingDays);
-  if (now2 < due1) return { step: 0, nextDue: instant(due1) };
-  const due2 = addWorkingDays(due1, workingDays);
-  if (now2 < due2) return { step: 1, nextDue: instant(due2) };
-  return { step: 2, nextDue: null };
-}
-var previous = (step) => step === 2 ? 1 : 0;
-function decideOne(held, now2, settings) {
-  const base = { thing: held.thing, kind: held.kind, firstHeld: held.firstHeld };
-  const { step, nextDue } = stepAt(parseInstant(held.firstHeld), now2, settings.workingDays);
-  if (held.answered) return { ...base, step, asked: [], newlyAsked: [], nextDue: null };
-  if (!escalates(settings)) return { ...base, step: 0, asked: [], newlyAsked: [], nextDue: null };
-  const asked = askedAt(held.kind, step, settings);
-  const before2 = new Set(askedAt(held.kind, previous(step), settings).map((login) => login.toLowerCase()));
-  return { ...base, step, asked, newlyAsked: asked.filter((login) => !before2.has(login.toLowerCase())), nextDue };
-}
-function decide(held, now2, settings) {
-  return held.map((one) => decideOne(one, now2, settings));
-}
-
-// apps/omni-app/src/escalation/held.ts
-var WAITING_RANKS = /* @__PURE__ */ new Set(["high", "human-action"]);
-function settingsOf(config) {
-  return { owners: config.laws.owners, leadership: config.laws.leadership, workingDays: config.limits.escalationWorkingDays };
-}
-function heldItems(config, head, pr) {
-  const kind = pullKind(pr, config);
-  if ("skip" in kind || kind.kind !== "feature") return [];
-  const prd = prdOfTopic(kind.topic, prdDirs(config).flatMap((dir) => prdFoldersIn(join53(head, dir)).map((folder) => folder.name)), config);
-  if ("skip" in prd) return [];
-  return openItems(prd.number, { ctx: createContext(head, config) }).filter((item) => item.rank !== null && WAITING_RANKS.has(item.rank)).map((item) => ({ thing: item.id ?? item.file.replace(/^.*\//, "").replace(/\.md$/, ""), kind: "item" }));
-}
-function heldLaws(gate) {
-  if (gate === null) return [];
-  return [...new Set(gate.awaiting.map((one) => one.law))].map((law) => ({ thing: law, kind: "law" }));
-}
-function heldAt({ config, head, pr, gate }) {
-  const settings = settingsOf(config);
-  if (!escalates(settings)) return null;
-  return { settings, held: [...heldLaws(gate), ...heldItems(config, head, pr)] };
-}
-
-// kit/lib/escalation/comments.ts
-var RECORD_MARKER = "<!-- omni:escalation -->";
-var NOBODY = "nobody yet";
-var LAST = "no step follows";
-var LINE_RE = /^- (?<kind>law|item) `(?<thing>[^`\s]+)` · held since (?<firstHeld>\S+) · step (?<step>[012]) · asked (?<asked>.+?) · (?:next step due (?<nextDue>\S+)|no step follows)$/;
-function renderLine(one) {
-  const asked = one.asked.length > 0 ? one.asked.join(", ") : NOBODY;
-  const next = one.nextDue === null ? LAST : `next step due ${one.nextDue}`;
-  return `- ${one.kind} \`${one.thing}\` \xB7 held since ${one.firstHeld} \xB7 step ${String(one.step)} \xB7 asked ${asked} \xB7 ${next}`;
-}
-function renderRecord(held) {
-  return [
-    RECORD_MARKER,
-    "**Waiting on a person.** When nobody answers, the loop asks more people, in working days (Monday to Friday, UTC). It never approves or adopts anything: only a person ends the wait.",
-    "",
-    ...held.length > 0 ? held.map(renderLine) : ["Nothing waits on a person."]
-  ].join("\n");
-}
-var asStep = (digit) => digit === "2" ? 2 : digit === "1" ? 1 : 0;
-var readAsked = (asked) => asked === NOBODY ? [] : asked.split(", ");
-function readLine(line) {
-  const groups = LINE_RE.exec(line)?.groups;
-  if (groups === void 0) return null;
-  const field2 = (name) => groups[name] ?? "";
-  return {
-    thing: field2("thing"),
-    kind: field2("kind") === "law" ? "law" : "item",
-    firstHeld: field2("firstHeld"),
-    step: asStep(groups.step),
-    asked: readAsked(field2("asked")),
-    nextDue: groups.nextDue ?? null
-  };
-}
-function readRecord(body) {
-  if (!body.startsWith(RECORD_MARKER)) return null;
-  return body.split("\n").flatMap((line) => {
-    const one = readLine(line.trimEnd());
-    return one === null ? [] : [one];
-  });
 }
 
 // apps/omni-app/src/escalation/record.ts
@@ -11428,15 +11997,15 @@ async function sayingBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
-    const refused6 = budgetRefusal(error);
-    if (refused6) log2(`outbox check of ${where} waits for the GitHub budget: ${refused6.message}`);
+    const refused7 = budgetRefusal(error);
+    if (refused7) log2(`outbox check of ${where} waits for the GitHub budget: ${refused7.message}`);
     throw error;
   }
 }
 async function evaluateAt2(octokit, { owner, repo, prNumber, headSha }) {
   const pr = await readPull(octokit, { owner, repo, prNumber });
-  const base = mkdtempSync8(join54(tmpdir8(), "omni-base-"));
-  const head = mkdtempSync8(join54(tmpdir8(), "omni-head-"));
+  const base = mkdtempSync9(join55(tmpdir9(), "omni-base-"));
+  const head = mkdtempSync9(join55(tmpdir9(), "omni-head-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base });
     let comments = [];
@@ -11462,8 +12031,8 @@ async function evaluateAt2(octokit, { owner, repo, prNumber, headSha }) {
     const held = heldAt({ config, head, pr, gate });
     return held === null ? withLawGate(verdict, gate) : { ...withLawGate(verdict, gate), held };
   } finally {
-    rmSync12(base, { recursive: true, force: true });
-    rmSync12(head, { recursive: true, force: true });
+    rmSync13(base, { recursive: true, force: true });
+    rmSync13(head, { recursive: true, force: true });
   }
 }
 function failOutboxCheck(octokit, { owner, repo, prNumber, headSha }, reason2, log2) {
@@ -11527,40 +12096,590 @@ function outboxFailureHook({ octokitFor, log: log2 = noteTo("outbox-check") }) {
   };
 }
 
+// apps/omni-app/src/pr-stats/schema.ts
+import { z as z53 } from "zod";
+
+// kit/lib/plan-repo/gh-schema.ts
+import { z as z52 } from "zod";
+var GhRepositorySchema = z52.looseObject({ default_branch: z52.string() });
+var GhContentEntrySchema = z52.looseObject({ type: z52.string(), name: z52.string(), path: z52.string() });
+var GhCompareFileSchema = z52.looseObject({
+  filename: z52.string(),
+  previous_filename: z52.string().optional()
+});
+var GhCompareSchema = z52.looseObject({
+  ahead_by: z52.number().optional(),
+  status: z52.string().optional(),
+  files: z52.array(GhCompareFileSchema).optional()
+});
+function firstIssue(error) {
+  const [issue] = error.issues;
+  if (issue === void 0) return error.message;
+  const field2 = issue.path.length > 0 ? issue.path.join(".") : "(answer)";
+  return `${field2}: ${issue.message}`;
+}
+
+// apps/omni-app/src/pr-stats/schema.ts
+var RateLimitSchema = z53.looseObject({
+  limit: z53.number(),
+  remaining: z53.number(),
+  resetAt: z53.string().nullish()
+});
+var RateLimited = z53.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z53.looseObject({
+  repository: z53.looseObject({
+    pullRequests: z53.looseObject({
+      pageInfo: z53.looseObject({ hasNextPage: z53.boolean(), endCursor: z53.string().nullish() }),
+      nodes: z53.array(z53.looseObject({ number: PrNumberSchema, updatedAt: z53.string() }))
+    })
+  })
+});
+var ActorSchema = z53.looseObject({ login: z53.string().nullish(), __typename: z53.string().nullish() }).nullish();
+var PullDetailSchema = z53.looseObject({
+  number: PrNumberSchema,
+  author: ActorSchema,
+  createdAt: z53.string(),
+  mergedAt: z53.string().nullish(),
+  closedAt: z53.string().nullish(),
+  mergedBy: ActorSchema,
+  baseRefName: z53.string().nullish(),
+  headRefName: z53.string().nullish(),
+  isDraft: z53.boolean().nullish(),
+  body: z53.string().nullish(),
+  additions: z53.number().nullish(),
+  deletions: z53.number().nullish(),
+  labels: z53.looseObject({ nodes: z53.array(z53.looseObject({ name: z53.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z53.looseObject({
+    totalCount: z53.number(),
+    nodes: z53.array(
+      z53.looseObject({
+        commit: z53.looseObject({ message: z53.string().nullish(), committedDate: z53.string().nullish() }).nullish()
+      })
+    )
+  }).nullish(),
+  reviews: z53.looseObject({ nodes: z53.array(z53.looseObject({ author: ActorSchema, submittedAt: z53.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z53.looseObject({
+    nodes: z53.array(
+      z53.looseObject({ createdAt: z53.string().nullish(), label: z53.looseObject({ name: z53.string().nullish() }).nullish() }).nullish()
+    ).nullish()
+  }).nullish()
+});
+var PullDetailsSchema = z53.looseObject({ repository: z53.record(z53.string(), z53.unknown()) });
+var PullCommentsSchema = z53.looseObject({
+  comments: z53.looseObject({ nodes: z53.array(z53.looseObject({ body: z53.string().nullish() }).nullish()).nullish() }).nullish()
+}).nullish();
+var TrackedRowSchema2 = z53.looseObject({
+  workspace_id: z53.string(),
+  full_name: z53.string(),
+  collected_until: z53.string().nullish(),
+  workspaces: z53.looseObject({ github_installation_id: z53.union([z53.number(), z53.string()]) })
+});
+var FailureSchema2 = z53.looseObject({
+  errors: z53.array(z53.looseObject({ type: z53.unknown().optional(), message: z53.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z53.unknown().optional(),
+  status: z53.unknown().optional()
+});
+function parseAnswer(schema, value, what) {
+  return parsedOr(schema, value, `GitHub answered ${what} unexpectedly`);
+}
+function parsedOr(schema, value, context) {
+  const parsed2 = schema.safeParse(value);
+  if (parsed2.success) return parsed2.data;
+  throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
+}
+var BudgetSchema = z53.object({
+  limit: z53.number().exactOptional(),
+  remaining: z53.number().exactOptional(),
+  resetAt: z53.string().nullable().exactOptional()
+});
+var TrackedRepositorySchema = z53.object({
+  workspaceId: z53.string(),
+  installationId: z53.number(),
+  fullName: z53.string(),
+  collectedUntil: z53.string().nullable()
+});
+var TrackedRepositoriesSchema = z53.array(TrackedRepositorySchema);
+var BatchOutSchema = z53.object({
+  saved: z53.number(),
+  cursor: z53.string(),
+  more: z53.boolean(),
+  paused: z53.literal(true).exactOptional(),
+  error: z53.string().exactOptional(),
+  budget: BudgetSchema
+});
+
+// apps/omni-app/src/pr-stats/signed.ts
+var DEFAULT_SIGNATURE = parseConfig("kit: 1\n").signature;
+if (!DEFAULT_SIGNATURE) throw new Error("the kit's default config signs as Omni-man");
+var SIGNATURE = DEFAULT_SIGNATURE;
+var OMNI_LOGIN = botLogin(SIGNATURE.email);
+var TRAILER = /^co-authored-by:.*<([^>]+)>$/i;
+function carriesOmniTrailer(message) {
+  if (typeof message !== "string") return false;
+  const email = SIGNATURE.email.toLowerCase();
+  return message.split("\n").some((line) => TRAILER.exec(line.trim())?.[1]?.trim().toLowerCase() === email);
+}
+function isOmniSigned({ author, body, commitMessages }) {
+  return author === OMNI_LOGIN || isSignedBody(body) || (commitMessages ?? []).some(carriesOmniTrailer);
+}
+function isBot(user) {
+  if (!user) return false;
+  return user.type === "Bot" || typeof user.login === "string" && user.login.endsWith("[bot]");
+}
+
+// apps/omni-app/src/pr-stats/github.ts
+var PER_PAGE3 = 100;
+var MAX_LIST_PAGES = 50;
+var COMMITS_READ = 100;
+var LABELS_READ = 100;
+var REVIEWS_READ = 100;
+var LABEL_EVENTS_READ = 100;
+var NEEDS_FIX_LABEL = parseConfig("kit: 1\n").labels.needsFix;
+var COMMENTS_READ = 100;
+var MAIN_BRANCHES = ["main", "master", "develop"];
+var STATUS_MARKER = makeMarkers(parseConfig("kit: 1\n").markers.prefix).status;
+var BUDGET_FLOOR = 0.5;
+var QUERY_COST_MARGIN = 10;
+var RATE_LIMIT = "rateLimit { limit remaining resetAt }";
+var BudgetLow = class extends Error {
+  constructor(budget) {
+    super(`GitHub budget low: ${budget.remaining} of ${budget.limit} left, until ${budget.resetAt ?? "the reset"}`);
+    this.name = "BudgetLow";
+  }
+};
+function affords(budget) {
+  if (budget.limit === void 0) return true;
+  return Number(budget.remaining) - QUERY_COST_MARGIN >= budget.limit * BUDGET_FLOOR;
+}
+async function ask2(octokit, budget, query, variables) {
+  if (budget.limit === void 0) {
+    const answer2 = parseAnswer(RateLimited, await octokit.graphql(`query Budget { ${RATE_LIMIT} }`), "Budget");
+    Object.assign(budget, answer2?.rateLimit);
+  }
+  if (!affords(budget)) throw new BudgetLow(budget);
+  const data = await octokit.graphql(query, variables);
+  const answer = parseAnswer(RateLimited, data, operationOf(query));
+  if (answer?.rateLimit) Object.assign(budget, answer.rateLimit);
+  return data;
+}
+function operationOf(query) {
+  return /query\s+(\w+)/.exec(query)?.[1] ?? "a query";
+}
+var LIST = `query PullsUpdated($owner: String!, $repo: String!, $first: Int!, $after: String) {
+  ${RATE_LIMIT}
+  repository(owner: $owner, name: $repo) {
+    pullRequests(first: $first, after: $after, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      pageInfo { hasNextPage endCursor }
+      nodes { number updatedAt }
+    }
+  }
+}`;
+async function pullsUpdatedAfter(octokit, budget, { owner, repo, since }) {
+  const after = Date.parse(since);
+  const out = [];
+  let cursor = null;
+  for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
+    const answer = await ask2(octokit, budget, LIST, { owner, repo, first: PER_PAGE3, after: cursor });
+    const data = parseAnswer(PullsUpdatedSchema, answer, "PullsUpdated");
+    const { nodes, pageInfo } = data.repository.pullRequests;
+    for (const pull of nodes) {
+      if (Date.parse(pull.updatedAt) <= after) return out.reverse();
+      out.push({ number: pull.number, updatedAt: pull.updatedAt });
+    }
+    if (!pageInfo.hasNextPage) break;
+    cursor = pageInfo.endCursor;
+  }
+  return out.reverse();
+}
+var PULL_FIELDS = `number
+  author { login __typename }
+  createdAt mergedAt closedAt
+  mergedBy { login __typename }
+  baseRefName headRefName isDraft body additions deletions
+  labels(first: ${LABELS_READ}) { nodes { name } }
+  commits(last: ${COMMITS_READ}) { totalCount nodes { commit { message committedDate } } }
+  reviews(first: ${REVIEWS_READ}) { nodes { author { login __typename } submittedAt } }
+  timelineItems(first: ${LABEL_EVENTS_READ}, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }`;
+async function readPullRecords(octokit, budget, { workspaceId, fullName, numbers }) {
+  if (numbers.length === 0) return [];
+  const [owner, repo] = fullName.split("/");
+  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { ${PULL_FIELDS} }`).join("\n    ");
+  const query = `query PullDetails($owner: String!, $repo: String!) {
+  ${RATE_LIMIT}
+  repository(owner: $owner, name: $repo) {
+    ${pulls}
+  }
+}`;
+  const data = parseAnswer(PullDetailsSchema, await ask2(octokit, budget, query, { owner, repo }), "PullDetails");
+  const records = numbers.flatMap((number) => {
+    const pull = data.repository[`p${number}`];
+    return pull ? [recordOf(parseAnswer(PullDetailSchema, pull, `PullDetails, pull request ${number}`), { workspaceId, fullName })] : [];
+  });
+  const held = records.filter(({ row }) => canHoldRun(row)).map(({ row }) => row.number);
+  const states = await readStatusStates(octokit, budget, { owner, repo, numbers: held });
+  for (const { row } of records) row.status_state = states.get(row.number) ?? null;
+  return records;
+}
+function canHoldRun(row) {
+  return !row.merged_at && !row.closed_at && row.omni_signed && MAIN_BRANCHES.includes(row.base ?? "");
+}
+async function readStatusStates(octokit, budget, { owner, repo, numbers }) {
+  const states = /* @__PURE__ */ new Map();
+  if (numbers.length === 0) return states;
+  const pulls = numbers.map((number) => `p${number}: pullRequest(number: ${number}) { comments(first: ${COMMENTS_READ}) { nodes { body } } }`).join("\n    ");
+  const query = `query PullStatus($owner: String!, $repo: String!) {
+  ${RATE_LIMIT}
+  repository(owner: $owner, name: $repo) {
+    ${pulls}
+  }
+}`;
+  const data = parseAnswer(PullDetailsSchema, await ask2(octokit, budget, query, { owner, repo }), "PullStatus");
+  for (const number of numbers) {
+    const pull = parseAnswer(PullCommentsSchema, data.repository[`p${number}`], `PullStatus, pull request ${number}`);
+    const comment = pull?.comments?.nodes?.find((node) => node?.body?.includes(STATUS_MARKER));
+    const state = comment?.body ? stateOf(comment.body) : null;
+    if (state) states.set(number, state);
+  }
+  return states;
+}
+function stateOf(body) {
+  return /^\s*-?\s*state:\s*(.+?)\s*$/m.exec(body)?.[1] ?? null;
+}
+function loginOf2(actor) {
+  if (!actor?.login) return null;
+  return actor.__typename === "Bot" && !actor.login.endsWith("[bot]") ? `${actor.login}[bot]` : actor.login;
+}
+function recordOf(pull, { workspaceId, fullName }) {
+  const author = loginOf2(pull.author);
+  const commits = pull.commits ?? { totalCount: 0, nodes: [] };
+  const row = {
+    workspace_id: workspaceId,
+    repo: fullName,
+    number: pull.number,
+    author,
+    author_is_bot: Boolean(pull.author) && isBot({ login: author, type: pull.author?.__typename }),
+    opened_at: pull.createdAt,
+    ...closing(pull),
+    ...loopFacts(pull, commits),
+    commits: commits.totalCount,
+    additions: pull.additions ?? 0,
+    deletions: pull.deletions ?? 0,
+    omni_signed: isOmniSigned({ author, body: pull.body, commitMessages: commits.nodes.map((node) => node.commit?.message) })
+  };
+  return { row, reviews: firstReviews(pull, author).map(([reviewer, firstAt]) => ({ workspace_id: workspaceId, repo: fullName, number: pull.number, reviewer, first_at: firstAt })) };
+}
+function loopFacts(pull, commits) {
+  return {
+    base: pull.baseRefName ?? null,
+    head: pull.headRefName ?? null,
+    draft: Boolean(pull.isDraft),
+    labels: (pull.labels?.nodes ?? []).map((label2) => label2?.name).filter((name) => Boolean(name)),
+    head_committed_at: commits.nodes.at(-1)?.commit?.committedDate ?? null,
+    needs_fix_at: firstNeedsFix(pull)
+  };
+}
+function firstNeedsFix(pull) {
+  let first = null;
+  for (const event of pull.timelineItems?.nodes ?? []) {
+    if (event?.label?.name !== NEEDS_FIX_LABEL || !event.createdAt) continue;
+    if (!first || Date.parse(event.createdAt) < Date.parse(first)) first = event.createdAt;
+  }
+  return first;
+}
+function closing(pull) {
+  return { merged_at: pull.mergedAt ?? null, closed_at: pull.closedAt ?? null, merged_by: loginOf2(pull.mergedBy) };
+}
+function firstReviews(pull, author) {
+  const first = /* @__PURE__ */ new Map();
+  for (const review of pull.reviews?.nodes ?? []) {
+    const reviewer = loginOf2(review.author);
+    if (!reviewer || !review.submittedAt || reviewer === author) continue;
+    const at4 = first.get(reviewer);
+    if (!at4 || Date.parse(review.submittedAt) < Date.parse(at4)) first.set(reviewer, review.submittedAt);
+  }
+  return [...first].sort(([a], [b]) => a.localeCompare(b));
+}
+
+// apps/omni-app/src/saved-step.ts
+async function savedStep(step, id, schema, fn) {
+  return parseSaved(schema, await step.run(id, fn), id);
+}
+function parseSaved(schema, value, id) {
+  return parseOrThrow(schema, value, `The step "${id}" came back in an unexpected shape`);
+}
+
+// apps/omni-app/src/pr-stats/collect.ts
+var BACKFILL_DAYS = 90;
+var BATCH = 50;
+var MAX_BATCHES = 20;
+var DAY_MS2 = 24 * 60 * 60 * 1e3;
+var atOnce = { run: (_id, fn) => Promise.resolve(fn()) };
+async function collectAll({ store, octokitFor, step = atOnce, now: now2 }) {
+  const nowIso = new Date(now2).toISOString();
+  const backfillFrom = new Date(now2 - BACKFILL_DAYS * DAY_MS2).toISOString();
+  const repositories = await savedStep(step, "list-repositories", TrackedRepositoriesSchema, () => store.trackedRepositories());
+  const summary = { repositories: repositories.length, collected: 0, failed: 0, unfinished: 0, paused: 0, saved: 0 };
+  const budgets = /* @__PURE__ */ new Map();
+  for (const repository of repositories) {
+    const { outcome, saved } = await collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso });
+    summary[outcome] += 1;
+    summary.saved += saved;
+  }
+  return summary;
+}
+async function collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso }) {
+  const { installationId, workspaceId, fullName } = repository;
+  let saved = 0;
+  let cursor = repository.collectedUntil ?? backfillFrom;
+  for (let n = 1; ; n += 1) {
+    const budget = budgets.get(installationId) ?? {};
+    if (!affords(budget)) return { outcome: "paused", saved };
+    const out = await savedStep(
+      step,
+      `collect ${workspaceId}/${fullName} ${n}`,
+      BatchOutSchema,
+      () => collectBatch({ store, octokitFor, repository, cursor, nowIso, budget })
+    );
+    saved += out.saved;
+    cursor = out.cursor;
+    budgets.set(installationId, out.budget);
+    const outcome = outcomeOf(out, n);
+    if (outcome) return { outcome, saved };
+  }
+}
+function outcomeOf(out, n) {
+  if (out.paused) return "paused";
+  if (out.error) return "failed";
+  if (!out.more) return "collected";
+  return n === MAX_BATCHES ? "unfinished" : null;
+}
+async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before2 }) {
+  const { workspaceId, fullName, installationId } = repository;
+  const [owner, repo] = fullName.split("/");
+  let reached = cursor;
+  let saved = 0;
+  const budget = { ...before2 };
+  try {
+    const octokit = await octokitFor(installationId);
+    const listed = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
+    const taken = batchOf(listed);
+    const records = await readPullRecords(octokit, budget, { workspaceId, fullName, numbers: taken.map((item) => item.number) });
+    const byNumber = new Map(records.map((record) => [record.row.number, record]));
+    for (const [index, item] of taken.entries()) {
+      const record = byNumber.get(item.number);
+      if (record) {
+        await store.savePull(record.row, record.reviews);
+        saved += 1;
+      }
+      if (taken[index + 1]?.updatedAt !== item.updatedAt) reached = item.updatedAt;
+    }
+    const more = listed.length > taken.length;
+    await store.updateRepository(
+      workspaceId,
+      fullName,
+      more ? { collected_until: reached } : { collected_at: nowIso, collected_until: reached, collect_error: null }
+    );
+    return { saved, cursor: reached, more, budget };
+  } catch (error) {
+    if (refusalIn(error)) {
+      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
+      throw error;
+    }
+    if (error instanceof BudgetLow) {
+      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
+      return { saved, cursor: reached, more: false, paused: true, budget };
+    }
+    const reason2 = describe2(error);
+    await store.updateRepository(workspaceId, fullName, { collected_until: reached, collect_error: reason2 });
+    return { saved, cursor: reached, more: false, error: reason2, budget };
+  }
+}
+function batchOf(listed) {
+  let end = Math.min(BATCH, listed.length);
+  while (end < listed.length && listed[end]?.updatedAt === listed[end - 1]?.updatedAt) end += 1;
+  return listed.slice(0, end);
+}
+function describe2(error) {
+  const failure2 = FailureSchema2.safeParse(error);
+  const { errors, message: said, status } = failure2.success ? failure2.data : {};
+  const graphqlError = errors?.[0];
+  if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
+  const message = printed3(said ?? error ?? "unknown error").split("\n")[0] ?? "";
+  return status ? `HTTP ${printed3(status)}: ${message}` : message;
+}
+var printed3 = (value) => String(value);
+
+// apps/omni-app/src/pr-stats/supabase-store.ts
+import { createClient as createClient5 } from "@supabase/supabase-js";
+var TRACKED2 = "workspace_id, full_name, collected_until, workspaces!inner(github_installation_id)";
+function supabaseStore({ url, key, fetch: fetch2 }) {
+  const db = createClient5(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...fetch2 ? { global: { fetch: fetch2 } } : {}
+  });
+  return {
+    async trackedRepositories() {
+      const rows = checked(
+        await db.from("repositories").select(TRACKED2).eq("tracked", true).not("workspaces.github_installation_id", "is", null).order("workspace_id").order("full_name")
+      );
+      return parsedOr(TrackedRowSchema2.array(), rows, "The database answered the tracked repositories unexpectedly").map((row) => ({
+        workspaceId: row.workspace_id,
+        installationId: Number(row.workspaces.github_installation_id),
+        fullName: row.full_name,
+        collectedUntil: row.collected_until ?? null
+      }));
+    },
+    async savePull(row, reviews) {
+      checked(await db.from("pull_requests").upsert(row, { onConflict: "workspace_id,repo,number" }));
+      if (reviews.length > 0) {
+        checked(await db.from("pull_request_reviews").upsert(reviews, { onConflict: "workspace_id,repo,number,reviewer" }));
+      }
+    },
+    async updateRepository(workspaceId, fullName, patch) {
+      checked(await db.from("repositories").update(patch).eq("workspace_id", workspaceId).eq("full_name", fullName));
+    }
+  };
+}
+function checked({ data, error }) {
+  if (error) throw new Error(`The database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+  return data ?? [];
+}
+
+// apps/omni-app/src/pr-stats/job.ts
+var PR_STATS_KIND = "pr-stats";
+function collectedLine({ repositories, collected, failed: failed3, unfinished, paused, saved }) {
+  return `pr-stats: ${String(repositories)} repositories: ${String(collected)} collected, ${String(failed3)} failed, ${String(unfinished)} unfinished, ${String(paused)} paused; ${String(saved)} pull requests saved`;
+}
+function prStatsHandler({
+  octokitFor,
+  supabase,
+  storeFor = supabaseStore,
+  log: log2 = noteTo("pr-stats"),
+  clock = Date.now
+}) {
+  return async () => {
+    if (!supabase) {
+      log2("prStats: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set, so nothing is collected.");
+      return { outcome: "skipped", reason: "no store: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set" };
+    }
+    const summary = await collectAll({ store: storeFor(supabase), octokitFor, now: clock() });
+    log2(collectedLine(summary));
+    return { outcome: "done" };
+  };
+}
+
+// apps/omni-app/src/server-event/job.ts
+import { z as z54 } from "zod";
+var SERVER_EVENT_KIND = "server-event";
+var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
+var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var ServerEventSchema = z54.object({
+  event: z54.enum(SERVER_EVENT_KINDS),
+  dossier: z54.string().regex(UUID2),
+  at: z54.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
+});
+var SERVER_EVENT_TRIGGER = "server-event";
+function refusalIn2(error, depth = 0) {
+  if (error instanceof GithubPaused || error instanceof GithubDeferred) return error;
+  return error instanceof Error && depth < 3 ? refusalIn2(error.cause, depth + 1) : null;
+}
+async function keptOf(octokit, pull, prdId) {
+  const [owner = "", repo = ""] = pull.repository.split("/");
+  const read = await readPull(octokit, { owner, repo, prNumber: parsePr(pull.number) });
+  return productPrdOf(read.body)?.id === prdId ? { ...pull, headSha: read.headSha } : null;
+}
+function serverEventHandler({ octokitFor, readTargets, recheck, log: log2 = noteTo("server-event-recheck") }) {
+  return async (job) => {
+    const { event: what, dossier } = ServerEventSchema.parse(job.payload);
+    if (!readTargets) {
+      log2(`server event: the ${what} of dossier ${dossier} re-checks nothing: the App cannot read the server here`);
+      return { outcome: "skipped", reason: "the App cannot read the server here" };
+    }
+    const targets = await readTargets(dossier);
+    if (!targets) return { outcome: "skipped", reason: `dossier ${dossier} is no product PRD's` };
+    const kept2 = [];
+    for (const pull of targets.pulls) {
+      const where = `${pull.repository}#${String(pull.number)}`;
+      try {
+        const found = await keptOf(await octokitFor(targets.installationId), pull, targets.prdId);
+        if (found) kept2.push(found);
+      } catch (error) {
+        const refused7 = refusalIn2(error);
+        if (refused7) log2(`server event: ${where} waits for the GitHub budget: ${refused7.message}`);
+        throw error;
+      }
+    }
+    if (kept2.length === 0) return { outcome: "skipped", reason: `no open pull request names ${targets.prdId}` };
+    for (const { repository, number, headSha } of kept2) {
+      const [owner = "", repo = ""] = repository.split("/");
+      const request = { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER };
+      await recheck(request);
+    }
+    return { outcome: "done" };
+  };
+}
+
+// apps/omni-app/src/server-event/targets.ts
+import { z as z55 } from "zod";
+var text11 = z55.string().min(1);
+var DossierRowSchema4 = z55.object({ workspace_id: text11, product_id: text11.nullable(), product_seq: z55.number().int().positive().nullable() });
+var ProductRowSchema = z55.object({ key: text11.nullable() });
+var WorkspaceRowSchema = z55.object({ github_installation_id: z55.number().int().positive().nullable() });
+var LinkRowSchema = z55.object({ repository: text11 });
+var PullRowSchema = z55.object({ repo: text11, number: z55.number().int().positive() });
+function targetsReader(connection) {
+  const db = serviceDb(connection);
+  return async (dossier) => {
+    const [row] = rowsOf(DossierRowSchema4, await db.from("dossiers").select("workspace_id, product_id, product_seq").eq("id", dossier).eq("kind", "prd").limit(1));
+    if (!row?.product_id || row.product_seq === null) return null;
+    const [product] = rowsOf(ProductRowSchema, await db.from("products").select("key").eq("id", row.product_id).limit(1));
+    if (!product?.key) return null;
+    const [workspace] = rowsOf(WorkspaceRowSchema, await db.from("workspaces").select("github_installation_id").eq("id", row.workspace_id).limit(1));
+    if (!workspace?.github_installation_id) return null;
+    const repositories = rowsOf(LinkRowSchema, await db.from("product_repositories").select("repository").eq("product_id", row.product_id)).map((link) => link.repository);
+    const pulls = repositories.length === 0 ? [] : rowsOf(PullRowSchema, await db.from("pull_requests").select("repo, number").eq("workspace_id", row.workspace_id).in("repo", repositories).is("merged_at", null).is("closed_at", null).order("repo", { ascending: true }).order("number", { ascending: true }));
+    return {
+      prdId: `${product.key}-${row.product_seq}`,
+      installationId: workspace.github_installation_id,
+      pulls: pulls.map((pull) => ({ repository: pull.repo, number: pull.number }))
+    };
+  };
+}
+
 // apps/omni-app/src/jobs/pack.ts
-import { z as z50 } from "zod";
+import { z as z61 } from "zod";
 
 // apps/omni-app/src/knowledge-harvest/github.ts
-import { mkdtempSync as mkdtempSync11, readdirSync as readdirSync20, rmSync as rmSync15, statSync as statSync15 } from "node:fs";
-import { tmpdir as tmpdir11 } from "node:os";
-import { join as join65 } from "node:path";
+import { mkdtempSync as mkdtempSync12, readdirSync as readdirSync20, rmSync as rmSync16, statSync as statSync15 } from "node:fs";
+import { tmpdir as tmpdir12 } from "node:os";
+import { join as join66 } from "node:path";
 
 // kit/lib/knowledge/pipeline.ts
 import {
   cpSync,
   existsSync as existsSync48,
   mkdirSync as mkdirSync12,
-  mkdtempSync as mkdtempSync9,
+  mkdtempSync as mkdtempSync10,
   readdirSync as readdirSync19,
   readFileSync as readFileSync46,
   renameSync as renameSync3,
-  rmSync as rmSync13,
+  rmSync as rmSync14,
   statSync as statSync14,
   symlinkSync,
   writeFileSync as writeFileSync17
 } from "node:fs";
-import { tmpdir as tmpdir9 } from "node:os";
-import { dirname as dirname14, join as join63 } from "node:path";
-import { z as z47 } from "zod";
+import { tmpdir as tmpdir10 } from "node:os";
+import { dirname as dirname14, join as join64 } from "node:path";
+import { z as z58 } from "zod";
 
 // kit/lib/delivery/ship.ts
 import { execFileSync as execFileSync7 } from "node:child_process";
 import { existsSync as existsSync41, readFileSync as readFileSync40, writeFileSync as writeFileSync14, mkdirSync as mkdirSync9 } from "node:fs";
-import { basename as basename12, join as join56, dirname as dirname11 } from "node:path";
+import { basename as basename12, join as join57, dirname as dirname11 } from "node:path";
 
 // kit/lib/releases/check-releases.ts
 import { existsSync as existsSync40, readFileSync as readFileSync39 } from "node:fs";
-import { join as join55 } from "node:path";
+import { join as join56 } from "node:path";
 
 // kit/lib/releases/note.ts
 import { dirname as dirname10 } from "node:path";
@@ -11574,69 +12693,69 @@ var FORBIDDEN = [
 
 // kit/lib/outbox/settle-merge.ts
 import { existsSync as existsSync42 } from "node:fs";
-import { join as join57 } from "node:path";
-import { z as z45 } from "zod";
-var PrField = z45.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
-var MergeSchema = z45.object({
-  by: z45.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z45.string().min(1, "merge.by is required \u2014 who merged")),
-  at: z45.string().regex(
+import { join as join58 } from "node:path";
+import { z as z56 } from "zod";
+var PrField = z56.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
+var MergeSchema = z56.object({
+  by: z56.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z56.string().min(1, "merge.by is required \u2014 who merged")),
+  at: z56.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
   ),
   pr: PrField,
-  url: z45.string().trim().min(1).optional()
+  url: z56.string().trim().min(1).optional()
 }).strict();
 
 // kit/lib/knowledge/check-knowledge.ts
 import { existsSync as existsSync44, readFileSync as readFileSync42, statSync as statSync13 } from "node:fs";
-import { join as join59 } from "node:path";
+import { join as join60 } from "node:path";
 
 // kit/lib/codeowners-laws.ts
 import { existsSync as existsSync43, mkdirSync as mkdirSync10, readFileSync as readFileSync41, writeFileSync as writeFileSync15 } from "node:fs";
-import { dirname as dirname12, join as join58 } from "node:path";
+import { dirname as dirname12, join as join59 } from "node:path";
 
 // kit/lib/knowledge-tree/product.ts
 var PRODUCT_LEVELS = Object.freeze(["omni settings", "plan repo", "repo"]);
 
 // kit/lib/knowledge/classify.ts
 import { existsSync as existsSync45, readFileSync as readFileSync43 } from "node:fs";
-import { join as join60 } from "node:path";
-import { z as z46 } from "zod";
+import { join as join61 } from "node:path";
+import { z as z57 } from "zod";
 var CLASSIFICATION_KINDS = ["adr", "invariant", "rule", "covered", "stays-here"];
 var PRODUCT_PLACE = PRODUCT_CODE.toLowerCase();
 var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 function capped(field2, max) {
-  return z46.string({ error: (issue) => issue.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`).max(max, `${field2} is over its cap of ${max} characters`);
+  return z57.string({ error: (issue) => issue.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`).max(max, `${field2} is over its cap of ${max} characters`);
 }
-var text11 = (field2) => z46.string({ error: (issue) => issue.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`);
+var text12 = (field2) => z57.string({ error: (issue) => issue.input === void 0 ? `${field2} is required` : `${field2} must be text` }).trim().min(1, `${field2} is required`);
 var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
-var enforcedBy = z46.array(text11("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
-var worthALaw = z46.boolean({ error: "worthALaw must be true or false" }).optional();
-var ClassificationSchema = z46.discriminatedUnion(
+var enforcedBy = z57.array(text12("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
+var worthALaw = z57.boolean({ error: "worthALaw must be true or false" }).optional();
+var ClassificationSchema = z57.discriminatedUnion(
   "kind",
   [
-    z46.object({
-      kind: z46.literal("adr"),
-      title: text11("title").refine((value) => !value.includes("\n"), "title must be one line"),
+    z57.object({
+      kind: z57.literal("adr"),
+      title: text12("title").refine((value) => !value.includes("\n"), "title must be one line"),
       statement,
       reason
     }).strict(),
-    z46.object({ kind: z46.literal("invariant"), place: text11("place"), statement, enforcedBy, worthALaw, reason }).strict(),
-    z46.object({
-      kind: z46.literal("rule"),
-      place: text11("place"),
+    z57.object({ kind: z57.literal("invariant"), place: text12("place"), statement, enforcedBy, worthALaw, reason }).strict(),
+    z57.object({
+      kind: z57.literal("rule"),
+      place: text12("place"),
       statement,
-      serves: text11("serves"),
-      principle: z46.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
+      serves: text12("serves"),
+      principle: z57.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
       enforcedBy,
       worthALaw,
       reason
     }).strict(),
-    z46.object({ kind: z46.literal("covered"), covers: text11("covers"), reason }).strict(),
-    z46.object({ kind: z46.literal("stays-here"), statement, reason }).strict()
+    z57.object({ kind: z57.literal("covered"), covers: text12("covers"), reason }).strict(),
+    z57.object({ kind: z57.literal("stays-here"), statement, reason }).strict()
   ],
   { error: () => `kind must be one of: ${CLASSIFICATION_KINDS.join(", ")}` }
 ).superRefine((reply2, context) => {
@@ -11651,171 +12770,171 @@ var ClassificationSchema = z46.discriminatedUnion(
 
 // kit/lib/knowledge/harvest.ts
 import { existsSync as existsSync46, readFileSync as readFileSync44 } from "node:fs";
-import { join as join61 } from "node:path";
+import { join as join62 } from "node:path";
 
 // kit/lib/knowledge/write.ts
 import { existsSync as existsSync47, mkdirSync as mkdirSync11, readFileSync as readFileSync45, writeFileSync as writeFileSync16 } from "node:fs";
-import { dirname as dirname13, join as join62 } from "node:path";
+import { dirname as dirname13, join as join63 } from "node:path";
 var KEPT_STATUSES = Object.freeze(["added", "modified", "renamed"]);
 
 // kit/lib/knowledge/pipeline.ts
-var PullFilesSchema = z47.array(z47.looseObject({ filename: z47.string().min(1), status: z47.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
+var PullFilesSchema = z58.array(z58.looseObject({ filename: z58.string().min(1), status: z58.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
 var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
 
 // apps/omni-app/src/retro/qualify.ts
-import { mkdtempSync as mkdtempSync10, rmSync as rmSync14 } from "node:fs";
-import { tmpdir as tmpdir10 } from "node:os";
-import { join as join64 } from "node:path";
+import { mkdtempSync as mkdtempSync11, rmSync as rmSync15 } from "node:fs";
+import { tmpdir as tmpdir11 } from "node:os";
+import { join as join65 } from "node:path";
 
 // apps/omni-app/src/knowledge-harvest/schema.ts
-import { z as z48 } from "zod";
-var HarvestEventSchema = z48.looseObject({
-  installationId: z48.number(),
-  owner: z48.string(),
-  repo: z48.string(),
+import { z as z59 } from "zod";
+var HarvestEventSchema = z59.looseObject({
+  installationId: z59.number(),
+  owner: z59.string(),
+  repo: z59.string(),
   prNumber: PrNumberSchema
 });
 var FailedHarvestEventSchema = HarvestEventSchema.partial();
-var PullMergeSchema = z48.looseObject({
-  merged: z48.boolean().nullish(),
-  merged_at: z48.string().nullish(),
-  merged_by: z48.looseObject({ login: z48.string().nullish() }).nullish(),
-  merge_commit_sha: z48.string().nullish(),
-  html_url: z48.string().nullish()
+var PullMergeSchema = z59.looseObject({
+  merged: z59.boolean().nullish(),
+  merged_at: z59.string().nullish(),
+  merged_by: z59.looseObject({ login: z59.string().nullish() }).nullish(),
+  merge_commit_sha: z59.string().nullish(),
+  html_url: z59.string().nullish()
 });
-var RefSchema3 = z48.looseObject({ object: z48.looseObject({ sha: z48.string() }) });
-var OpenPullSchema = z48.looseObject({ head: z48.looseObject({ ref: z48.string().nullish() }).nullish() });
-var CommitSchema = z48.looseObject({ message: z48.string().nullish() });
-function parsedOr(schema, value, context) {
+var RefSchema3 = z59.looseObject({ object: z59.looseObject({ sha: z59.string() }) });
+var OpenPullSchema = z59.looseObject({ head: z59.looseObject({ ref: z59.string().nullish() }).nullish() });
+var CommitSchema = z59.looseObject({ message: z59.string().nullish() });
+function parsedOr2(schema, value, context) {
   const parsed2 = schema.safeParse(value);
   if (parsed2.success) return parsed2.data;
   const [issue] = parsed2.error.issues;
   const field2 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
   throw new Error(`${context}: ${field2}: ${issue?.message ?? parsed2.error.message}`);
 }
-var MergeSchema2 = z48.object({ by: z48.string(), at: z48.string(), pr: PrNumberSchema, url: z48.string().exactOptional() });
-var QualifiedSchema = z48.union([
-  z48.object({ skip: z48.string() }),
-  z48.object({
-    skip: z48.null(),
+var MergeSchema2 = z59.object({ by: z59.string(), at: z59.string(), pr: PrNumberSchema, url: z59.string().exactOptional() });
+var QualifiedSchema = z59.union([
+  z59.object({ skip: z59.string() }),
+  z59.object({
+    skip: z59.null(),
     config: ConfigSchema,
-    prd: z48.object({ number: PrdNumberSchema, topic: z48.string(), title: z48.string() }),
+    prd: z59.object({ number: PrdNumberSchema, topic: z59.string(), title: z59.string() }),
     merge: MergeSchema2
   })
 ]);
-var MoveSchema = z48.object({ from: z48.string(), to: z48.string() });
-var EditsSchema = z48.object({
-  deletes: z48.array(z48.string()),
-  moves: z48.array(MoveSchema),
-  writes: z48.array(z48.object({ path: z48.string(), text: z48.string() }))
+var MoveSchema = z59.object({ from: z59.string(), to: z59.string() });
+var EditsSchema = z59.object({
+  deletes: z59.array(z59.string()),
+  moves: z59.array(MoveSchema),
+  writes: z59.array(z59.object({ path: z59.string(), text: z59.string() }))
 });
-var ItemSectionsSchema = z48.object({
-  questionPlain: z48.string().nullable().exactOptional(),
-  decisionPlain: z48.string().nullable().exactOptional(),
-  options: z48.array(z48.object({ letter: z48.string(), text: z48.string() })).nullable().exactOptional(),
-  personSteps: z48.string().nullable().exactOptional(),
-  whatIHadToDecide: z48.string().nullable().exactOptional(),
-  whatIDidMeanwhile: z48.string().nullable().exactOptional(),
-  whatItCostsToChangeLater: z48.string().nullable().exactOptional()
+var ItemSectionsSchema = z59.object({
+  questionPlain: z59.string().nullable().exactOptional(),
+  decisionPlain: z59.string().nullable().exactOptional(),
+  options: z59.array(z59.object({ letter: z59.string(), text: z59.string() })).nullable().exactOptional(),
+  personSteps: z59.string().nullable().exactOptional(),
+  whatIHadToDecide: z59.string().nullable().exactOptional(),
+  whatIDidMeanwhile: z59.string().nullable().exactOptional(),
+  whatItCostsToChangeLater: z59.string().nullable().exactOptional()
 });
-var CandidateSchema = z48.object({
-  id: z48.string(),
-  verdict: z48.string().nullable(),
-  answer: z48.string(),
-  itemText: z48.string(),
-  item: z48.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
+var CandidateSchema = z59.object({
+  id: z59.string(),
+  verdict: z59.string().nullable(),
+  answer: z59.string(),
+  itemText: z59.string(),
+  item: z59.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
 });
-var SummarySchema = z48.object({
-  places: z48.object({ adr: z48.boolean(), knowledge: z48.boolean() }),
-  domains: z48.array(z48.object({ name: z48.string(), firstLine: z48.string().nullable() })),
-  principles: z48.array(z48.object({ id: z48.string(), place: z48.string(), statement: z48.string() })),
-  decisions: z48.array(z48.object({ number: z48.string(), title: z48.string().nullable() })),
-  laws: z48.array(
-    z48.object({ id: z48.string(), kind: z48.enum(["principle", "rule", "invariant"]).nullable(), place: z48.string(), statement: z48.string() })
+var SummarySchema = z59.object({
+  places: z59.object({ adr: z59.boolean(), knowledge: z59.boolean() }),
+  domains: z59.array(z59.object({ name: z59.string(), firstLine: z59.string().nullable() })),
+  principles: z59.array(z59.object({ id: z59.string(), place: z59.string(), statement: z59.string() })),
+  decisions: z59.array(z59.object({ number: z59.string(), title: z59.string().nullable() })),
+  laws: z59.array(
+    z59.object({ id: z59.string(), kind: z59.enum(["principle", "rule", "invariant"]).nullable(), place: z59.string(), statement: z59.string() })
   )
 });
-var SettledSchema = z48.object({
-  tip: z48.string(),
-  prepared: z48.object({
-    ok: z48.literal(true),
+var SettledSchema = z59.object({
+  tip: z59.string(),
+  prepared: z59.object({
+    ok: z59.literal(true),
     prd: PrdNumberSchema,
     edits: EditsSchema,
-    settled: z48.array(z48.object({ id: z48.string(), from: z48.enum(["open", "drift"]) })),
-    shipped: z48.array(MoveSchema),
-    candidates: z48.array(CandidateSchema),
+    settled: z59.array(z59.object({ id: z59.string(), from: z59.enum(["open", "drift"]) })),
+    shipped: z59.array(MoveSchema),
+    candidates: z59.array(CandidateSchema),
     summary: SummarySchema,
-    changed: z48.array(z48.object({ path: z48.string(), status: z48.string() }))
+    changed: z59.array(z59.object({ path: z59.string(), status: z59.string() }))
   })
 });
-var ClassificationOutSchema = z48.object({
-  id: z48.string(),
+var ClassificationOutSchema = z59.object({
+  id: z59.string(),
   reply: ClassificationSchema.nullable(),
-  reason: z48.string().nullable(),
-  error: z48.string().nullable()
+  reason: z59.string().nullable(),
+  error: z59.string().nullable()
 });
-var PlacedSchema = z48.object({
-  id: z48.string(),
-  kind: z48.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
-  landedAs: z48.array(z48.string()),
-  files: z48.array(z48.string()),
-  ledgerFile: z48.string(),
-  ledgerLine: z48.string(),
-  decided: z48.string(),
-  status: z48.string().nullable(),
-  proposed: z48.boolean(),
-  reason: z48.string(),
-  enforcedBy: z48.array(z48.string()).exactOptional(),
-  dropped: z48.array(z48.object({ path: z48.string(), reason: z48.string() })).exactOptional(),
-  law: z48.object({ worth: z48.boolean(), decidedBy: z48.string(), confidence: z48.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
+var PlacedSchema = z59.object({
+  id: z59.string(),
+  kind: z59.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
+  landedAs: z59.array(z59.string()),
+  files: z59.array(z59.string()),
+  ledgerFile: z59.string(),
+  ledgerLine: z59.string(),
+  decided: z59.string(),
+  status: z59.string().nullable(),
+  proposed: z59.boolean(),
+  reason: z59.string(),
+  enforcedBy: z59.array(z59.string()).exactOptional(),
+  dropped: z59.array(z59.object({ path: z59.string(), reason: z59.string() })).exactOptional(),
+  law: z59.object({ worth: z59.boolean(), decidedBy: z59.string(), confidence: z59.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
 });
-var LawIssueSchema = z48.object({
-  id: z48.string(),
-  entry: z48.string(),
-  register: z48.string(),
-  statement: z48.string(),
-  source: z48.string(),
-  title: z48.string(),
-  body: z48.string()
+var LawIssueSchema = z59.object({
+  id: z59.string(),
+  entry: z59.string(),
+  register: z59.string(),
+  statement: z59.string(),
+  source: z59.string(),
+  title: z59.string(),
+  body: z59.string()
 });
-var WrittenSchema = z48.object({
+var WrittenSchema = z59.object({
   edits: EditsSchema,
-  placed: z48.array(PlacedSchema),
-  notPlaced: z48.array(z48.object({ id: z48.string(), reason: z48.string() })),
-  checks: z48.object({ knowledge: z48.array(z48.string()), outbox: z48.array(z48.string()) }),
-  commit: z48.object({
-    files: z48.array(z48.object({ path: z48.string(), content: z48.string() })),
-    moves: z48.array(MoveSchema),
-    deletes: z48.array(z48.string())
+  placed: z59.array(PlacedSchema),
+  notPlaced: z59.array(z59.object({ id: z59.string(), reason: z59.string() })),
+  checks: z59.object({ knowledge: z59.array(z59.string()), outbox: z59.array(z59.string()) }),
+  commit: z59.object({
+    files: z59.array(z59.object({ path: z59.string(), content: z59.string() })),
+    moves: z59.array(MoveSchema),
+    deletes: z59.array(z59.string())
   }),
-  taken: z48.array(z48.string()),
-  lawIssues: z48.array(LawIssueSchema)
+  taken: z59.array(z59.string()),
+  lawIssues: z59.array(LawIssueSchema)
 });
-var LawWorthStateSchema = z48.object({
-  statement: z48.string(),
-  why: z48.string().nullable(),
-  principle: z48.string().nullable(),
-  domain: z48.string().nullable(),
-  prdTitle: z48.string().nullable()
+var LawWorthStateSchema = z59.object({
+  statement: z59.string(),
+  why: z59.string().nullable(),
+  principle: z59.string().nullable(),
+  domain: z59.string().nullable(),
+  prdTitle: z59.string().nullable()
 });
-var LawQuestionsSchema = z48.array(z48.object({ id: z48.string(), state: LawWorthStateSchema, old: z48.boolean() }));
-var LawJudgementSchema = z48.object({
-  worth: z48.object({ worth: z48.boolean(), decidedBy: z48.string(), confidence: z48.number().nullable() }).nullable(),
-  reason: z48.string().nullable()
+var LawQuestionsSchema = z59.array(z59.object({ id: z59.string(), state: LawWorthStateSchema, old: z59.boolean() }));
+var LawJudgementSchema = z59.object({
+  worth: z59.object({ worth: z59.boolean(), decidedBy: z59.string(), confidence: z59.number().nullable() }).nullable(),
+  reason: z59.string().nullable()
 });
-var LawIssueOpenedSchema = z48.object({ number: IssueNumberSchema, created: z48.boolean() });
-var ListedIssueSchema = z48.looseObject({ number: IssueNumberSchema, title: z48.string().nullish(), pull_request: z48.unknown().optional() });
-var PublishedSchema = z48.object({
-  branch: z48.string(),
-  commit: z48.string(),
-  committed: z48.boolean(),
-  pr: z48.object({ number: PrNumberSchema, url: z48.string(), created: z48.boolean() })
+var LawIssueOpenedSchema = z59.object({ number: IssueNumberSchema, created: z59.boolean() });
+var ListedIssueSchema = z59.looseObject({ number: IssueNumberSchema, title: z59.string().nullish(), pull_request: z59.unknown().optional() });
+var PublishedSchema = z59.object({
+  branch: z59.string(),
+  commit: z59.string(),
+  committed: z59.boolean(),
+  pr: z59.object({ number: PrNumberSchema, url: z59.string(), created: z59.boolean() })
 }).nullable();
-var CommentedSchema = z48.object({ commentId: CommentIdSchema, created: z48.boolean() });
+var CommentedSchema = z59.object({ commentId: CommentIdSchema, created: z59.boolean() });
 
 // apps/omni-app/src/knowledge-harvest/github.ts
 async function readMerge(octokit, { owner, repo, prNumber }) {
   const { data: answer } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { owner, repo, pull_number: prNumber });
-  const data = parsedOr(PullMergeSchema, answer, `GitHub answered #${prNumber} unexpectedly`);
+  const data = parsedOr2(PullMergeSchema, answer, `GitHub answered #${prNumber} unexpectedly`);
   return {
     merged: data.merged === true || Boolean(data.merged_at),
     by: data.merged_by?.login ?? null,
@@ -11834,13 +12953,13 @@ function sha256Of(bytes) {
 var utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 function textOf(bytes) {
   if (bytes.length > MAX_FILE_BYTES) return { why: "over 1 MiB" };
-  let text12;
+  let text13;
   try {
-    text12 = utf8.decode(bytes);
+    text13 = utf8.decode(bytes);
   } catch {
     return { why: "not UTF-8 text" };
   }
-  return text12.includes("\0") ? { why: "holds a NUL character" } : { text: text12 };
+  return text13.includes("\0") ? { why: "holds a NUL character" } : { text: text13 };
 }
 function packFiles(read) {
   const files = [];
@@ -11855,31 +12974,31 @@ function packFiles(read) {
 }
 
 // apps/omni-app/src/knowledge-pack/github.ts
-import { mkdtempSync as mkdtempSync12, readdirSync as readdirSync21, readFileSync as readFileSync47, rmSync as rmSync16, statSync as statSync16 } from "node:fs";
-import { tmpdir as tmpdir12 } from "node:os";
-import { join as join66 } from "node:path";
-import { z as z49 } from "zod";
-var PullFileSchema = z49.looseObject({ filename: z49.string().min(1), previous_filename: z49.string().nullish() });
+import { mkdtempSync as mkdtempSync13, readdirSync as readdirSync21, readFileSync as readFileSync47, rmSync as rmSync17, statSync as statSync16 } from "node:fs";
+import { tmpdir as tmpdir13 } from "node:os";
+import { join as join67 } from "node:path";
+import { z as z60 } from "zod";
+var PullFileSchema = z60.looseObject({ filename: z60.string().min(1), previous_filename: z60.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z49.array(PullFileSchema).parse(data);
+    return z60.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
 function filesIn(root, dir = "") {
-  return readdirSync21(join66(root, dir)).flatMap((name) => {
+  return readdirSync21(join67(root, dir)).flatMap((name) => {
     const rel = dir ? `${dir}/${name}` : name;
-    return statSync16(join66(root, rel)).isDirectory() ? filesIn(root, rel) : [rel];
+    return statSync16(join67(root, rel)).isDirectory() ? filesIn(root, rel) : [rel];
   });
 }
 async function withPathsAt(octokit, { owner, repo, sha, paths }, fn) {
-  const root = mkdtempSync12(join66(tmpdir12(), "omni-knowledge-pack-"));
+  const root = mkdtempSync13(join67(tmpdir13(), "omni-knowledge-pack-"));
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
     return fn(root);
   } finally {
-    rmSync16(root, { recursive: true, force: true });
+    rmSync17(root, { recursive: true, force: true });
   }
 }
 async function configAt2(octokit, where) {
@@ -11887,7 +13006,7 @@ async function configAt2(octokit, where) {
     const files = filesIn(root);
     if (!files.includes(CONFIG_FILE)) return { none: `it has no ${CONFIG_FILE}` };
     try {
-      return { config: parseConfig(readFileSync47(join66(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
+      return { config: parseConfig(readFileSync47(join67(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
     } catch (error) {
       return { none: `its config does not parse: ${(error instanceof Error ? error.message : String(error)).split("\n")[0] ?? ""}` };
     }
@@ -11897,7 +13016,7 @@ async function packBytesAt(octokit, { owner, repo, sha, paths }) {
   return withPathsAt(
     octokit,
     { owner, repo, sha, paths: [...paths.folders, ...paths.files] },
-    (root) => new Map(filesIn(root).map((path) => [path, readFileSync47(join66(root, path))]))
+    (root) => new Map(filesIn(root).map((path) => [path, readFileSync47(join67(root, path))]))
   );
 }
 
@@ -11943,12 +13062,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z50.object({
-  installationId: z50.number(),
-  owner: z50.string().min(1),
-  repo: z50.string().min(1),
-  sha: z50.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z50.string().min(1),
+var PackPayloadSchema = z61.object({
+  installationId: z61.number(),
+  owner: z61.string().min(1),
+  repo: z61.string().min(1),
+  sha: z61.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z61.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -12058,12 +13177,17 @@ async function approvedRerunJobs(octokit, { installationId, owner, repo, prd, tr
     })
   );
 }
-function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecord: readRecord2 = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask: ask2, canon = null, laws = null }) {
+function serverEventRecheck(ledger) {
+  return async (request) => {
+    for (const job of prCheckJobs(request, 0)) await ledger.refresh(job);
+  };
+}
+function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecord: readRecord2 = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask: ask3, canon = null, laws = null }) {
   return {
     handlers: {
       [OUTBOX_KIND]: outboxHandler({ octokitFor, readProductOutbox, galaxyUrl }),
       [PR_INBOX_KIND]: inboxHandler({ octokitFor, canon, laws }),
-      [APPROVED_KIND]: approvedHandler({ octokitFor, readRecord: readRecord2, galaxyUrl, ...ask2 ? { ask: ask2 } : {} }),
+      [APPROVED_KIND]: approvedHandler({ octokitFor, readRecord: readRecord2, galaxyUrl, ...ask3 ? { ask: ask3 } : {} }),
       [BUDGETS_KIND]: budgetsHandler({ octokitFor, readOutboxRows })
     },
     failures: {
@@ -12088,7 +13212,16 @@ function liveWorkers(env, octokitFor) {
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret })
   });
   return {
-    handlers: { [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }), ...checks.handlers },
+    handlers: {
+      [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase) }),
+      ...checks.handlers,
+      [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
+      [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
+      [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
+      [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
+      [CANON_ACTION_KIND]: canonActionHandler({ octokitFor, galaxyUrl }),
+      [SERVER_EVENT_KIND]: serverEventHandler({ octokitFor, readTargets: targetsReader(supabase), recheck: serverEventRecheck(jobLedger(supabase)) })
+    },
     failures: checks.failures
   };
 }
@@ -12096,11 +13229,12 @@ function liveWorkers(env, octokitFor) {
 // apps/omni-app/src/jobs/worker.ts
 var TIME_BUDGET_MS = 24e4;
 var LEASE_SECONDS = 300;
-var MAX_TRIES = 5;
+var MAX_TRIES4 = 5;
 var RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 var WAIT_MINUTES = 15;
 var MINUTE = 6e4;
 var MAX_REASON = 500;
+var TOO_MANY_LATERS = "it asked to run later more than 20 times";
 async function runDue({
   ledger,
   handlers,
@@ -12110,7 +13244,7 @@ async function runDue({
   leaseSeconds = LEASE_SECONDS,
   log: log2 = noteTo("jobs")
 }) {
-  const summary = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, failed: 0, stale: 0 };
+  const summary = { ran: 0, done: 0, skipped: 0, retry: 0, waiting: 0, later: 0, failed: 0, stale: 0 };
   const start = clock();
   while (clock() - start < budgetMs) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
@@ -12118,9 +13252,11 @@ async function runDue({
     const settled = await settle(job, handlers[job.kind], clock);
     summary.ran += 1;
     const kept2 = await keep(ledger, job, settled, log2);
+    const ended = settled.outcome === "later" && kept2 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
     if (kept2 === "stale") summary.stale += 1;
-    else if (kept2 !== null) summary[settled.outcome] += 1;
-    if (kept2 === "failed") await failed2(job, settled.reason, failures[job.kind], log2);
+    else if (kept2 !== null) summary[ended.outcome] += 1;
+    if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+    if (kept2 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
   }
   return summary;
 }
@@ -12135,16 +13271,20 @@ async function failed2(job, reason2, hook, log2) {
 async function settle(job, handler, clock) {
   try {
     if (!handler) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
-    const result = await handler(job);
-    return result.outcome === "done" ? { outcome: "done", reason: null, retryAt: null } : { outcome: "skipped", reason: firstLine2(result.reason), retryAt: null };
+    return settledOf(await handler(job));
   } catch (error) {
     const reason2 = firstLine2(error instanceof Error ? error.message : String(error));
     const budget = budgetRefusal2(error);
     if (budget) return { outcome: "waiting", reason: firstLine2(budget.message), retryAt: later(clock, WAIT_MINUTES) };
     const wait2 = RETRY_MINUTES[job.tries - 1];
-    if (job.tries >= MAX_TRIES || wait2 === void 0) return { outcome: "failed", reason: reason2, retryAt: null };
+    if (job.tries >= (job.maxTries ?? MAX_TRIES4) || wait2 === void 0) return { outcome: "failed", reason: reason2, retryAt: null };
     return { outcome: "retry", reason: reason2, retryAt: later(clock, wait2) };
   }
+}
+function settledOf(result) {
+  if (result.outcome === "done") return { outcome: "done", reason: null, retryAt: null };
+  if (result.outcome === "later") return { outcome: "later", reason: null, retryAt: result.at.toISOString(), progress: result.progress };
+  return { outcome: "skipped", reason: firstLine2(result.reason), retryAt: null };
 }
 async function keep(ledger, job, settled, log2) {
   const name = `job ${job.kind} ${job.key}`;
@@ -12157,7 +13297,7 @@ async function keep(ledger, job, settled, log2) {
   }
   if (answer === "stale") log2(`${name}: its claim was taken over, so its ${settled.outcome} was not kept`);
   else if (settled.outcome === "skipped") log2(`${name}: skipped: ${settled.reason ?? ""}`);
-  else if (settled.outcome !== "done") log2(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ""}`);
+  else if (settled.outcome !== "done" && settled.outcome !== "later") log2(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ""}`);
   return answer;
 }
 function budgetRefusal2(error) {
@@ -12172,50 +13312,24 @@ function firstLine2(message) {
 }
 var later = (clock, minutes) => new Date(clock() + minutes * MINUTE).toISOString();
 
-// apps/omni-app/src/octokit-for.ts
-import { App } from "@octokit/app";
-import { createClient as createClient4 } from "@supabase/supabase-js";
-var APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
-function installationOctokitFor(githubApp, github) {
-  let app;
-  return async (installationId) => {
-    const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app reads GitHub as an installation");
-    app ??= new App({ appId: id, privateKey });
-    const octokit = await app.getInstallationOctokit(installationId);
-    const budgeted = github.bound({ installation: installationId, priority: "background" });
-    const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init);
-    octokit.hook.before("request", (options) => {
-      options.request = { ...options.request, fetch: fetch2 };
-    });
-    return octokit;
-  };
-}
-function githubStoreOf(supabase) {
-  if (!supabase) return null;
-  const db = createClient4(supabase.url, supabase.key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-  });
-  return supabaseGithubStore({ etags: () => db.from("github_etags"), budget: () => db.from("github_budget") });
-}
-
 // apps/omni-app/src/stage-forward/touch.ts
 import { posix as posix5 } from "node:path";
-import { z as z51 } from "zod";
+import { z as z62 } from "zod";
 var TOUCH_EVENTS = Object.freeze(["issues", "issue_comment", "pull_request", "pull_request_review", "check_suite", "push"]);
 var DEFAULTS = (() => {
   const { paths, branches } = parseConfig("kit: 1");
   return Object.freeze({ delivery: posix5.normalize(paths.delivery).replace(/\/+$/, ""), branches });
 })();
-var Repository = z51.looseObject({ repository: z51.looseObject({ full_name: z51.string().min(1) }) });
-var IssueEvent = z51.looseObject({ issue: z51.looseObject({ number: IssueNumberSchema, pull_request: z51.unknown().optional() }) });
-var PullEvent = z51.looseObject({ pull_request: z51.looseObject({ number: PrNumberSchema, head: z51.looseObject({ ref: z51.string().min(1) }) }) });
-var CheckSuiteEvent = z51.looseObject({
-  check_suite: z51.looseObject({ head_branch: z51.string().min(1).nullish(), pull_requests: z51.array(z51.looseObject({ number: PrNumberSchema })).nullish() })
+var Repository = z62.looseObject({ repository: z62.looseObject({ full_name: z62.string().min(1) }) });
+var IssueEvent = z62.looseObject({ issue: z62.looseObject({ number: IssueNumberSchema, pull_request: z62.unknown().optional() }) });
+var PullEvent = z62.looseObject({ pull_request: z62.looseObject({ number: PrNumberSchema, head: z62.looseObject({ ref: z62.string().min(1) }) }) });
+var CheckSuiteEvent = z62.looseObject({
+  check_suite: z62.looseObject({ head_branch: z62.string().min(1).nullish(), pull_requests: z62.array(z62.looseObject({ number: PrNumberSchema })).nullish() })
 });
-var Files = z51.array(z51.string()).nullish();
-var PushEvent = z51.looseObject({
-  ref: z51.string(),
-  commits: z51.array(z51.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
+var Files = z62.array(z62.string()).nullish();
+var PushEvent = z62.looseObject({
+  ref: z62.string(),
+  commits: z62.array(z62.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
 });
 var issueTouches = (repository, payload) => {
   const read = IssueEvent.safeParse(payload);
@@ -12281,74 +13395,23 @@ function forwardTouch(touch, post) {
 }
 
 // apps/omni-app/src/webhook/webhook.ts
+import { randomUUID } from "node:crypto";
 import { Webhooks } from "@octokit/webhooks";
-import { z as z55 } from "zod";
-
-// apps/omni-app/src/fix-rows/fix-stamp.ts
-import { z as z52 } from "zod";
-var FIX_STAMP_EVENT = "omni-loop/fix.stamp.requested";
-var FixStampKindSchema = z52.enum(["merged", "closed", "reopened"]);
-var at3 = z52.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
-var FixStampDataSchema = z52.looseObject({
-  installationId: z52.number(),
-  repository: z52.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
-  prNumber: PrNumberSchema,
-  kind: FixStampKindSchema,
-  at: at3,
-  bug: ProductBugIdSchema.nullable()
-});
-var FIXES = /^ {0,3}Fixes ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-B[1-9]\d{0,9})(?![\w-])/;
-function fixedRecordOf(body) {
-  for (const line of proseLines(body ?? "")) {
-    const id = FIXES.exec(line)?.[1];
-    const parsed2 = id === void 0 ? null : ProductBugIdSchema.safeParse(id);
-    if (parsed2?.success) return parsed2.data;
-  }
-  return null;
-}
-function fixStampId({ repository, prNumber, kind, at: when }) {
-  return `fix-stamp:${repository.toLowerCase()}#${String(prNumber)}:${kind}:${when}`;
-}
-
-// apps/omni-app/src/fleet-board/events.ts
-import { z as z53 } from "zod";
-var FLEET_BOARD_EVENT = "omni-loop/fleet-board.requested";
-var FleetBoardDataSchema = z53.looseObject({
-  installationId: z53.number(),
-  owner: z53.string().min(1),
-  repo: z53.string().min(1),
-  repository: z53.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
-  prNumber: PrNumberSchema,
-  /** The pull request's GraphQL node id, the card's content. */
-  nodeId: z53.string().min(1),
-  /** The pull request's link, as a runner's job lists it. */
-  url: z53.string().min(1),
-  /** The GitHub login of its author. */
-  author: z53.string().min(1)
-});
-function fleetBoardId({ repository, prNumber, action, at: at4 }) {
-  return `fleet-board:${repository.toLowerCase()}#${String(prNumber)}:${action}:${at4}`;
-}
-
-// apps/omni-app/src/pr-stats/signed.ts
-var DEFAULT_SIGNATURE = parseConfig("kit: 1\n").signature;
-if (!DEFAULT_SIGNATURE) throw new Error("the kit's default config signs as Omni-man");
-var SIGNATURE = DEFAULT_SIGNATURE;
-var OMNI_LOGIN = botLogin(SIGNATURE.email);
+import { z as z64 } from "zod";
 
 // apps/omni-app/src/main-watch/events.ts
-import { z as z54 } from "zod";
+import { z as z63 } from "zod";
 var MAIN_WATCH_EVENT = "omni-loop/main-watch.requested";
 var MAIN_WATCH_CI_EVENT = "omni-loop/main-watch.ci-red";
-var slug = z54.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
-var MainWatchDataSchema = z54.looseObject({
-  installationId: z54.number(),
-  owner: z54.string().min(1),
-  repo: z54.string().min(1),
+var slug = z63.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name");
+var MainWatchDataSchema = z63.looseObject({
+  installationId: z63.number(),
+  owner: z63.string().min(1),
+  repo: z63.string().min(1),
   repository: slug,
   prNumber: PrNumberSchema,
-  mergeSha: z54.string().min(1),
-  mergedAt: z54.string().nullish()
+  mergeSha: z63.string().min(1),
+  mergedAt: z63.string().nullish()
 });
 function mainWatchId({ repository, prNumber, mergeSha }) {
   return `main-watch:${repository.toLowerCase()}#${String(prNumber)}:${mergeSha}`;
@@ -12389,46 +13452,46 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z55.looseObject({
+var PullRefSchema = z64.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z55.looseObject({ sha: z55.string().nullish() }).nullish(),
-  base: z55.looseObject({ ref: z55.string().nullish() }).nullish()
+  head: z64.looseObject({ sha: z64.string().nullish() }).nullish(),
+  base: z64.looseObject({ ref: z64.string().nullish() }).nullish()
 });
-var PayloadSchema2 = z55.looseObject({
-  action: z55.unknown(),
+var PayloadSchema2 = z64.looseObject({
+  action: z64.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z55.looseObject({ id: z55.number().nullish() }).nullish(),
-  repository: z55.looseObject({
-    name: z55.string(),
-    full_name: z55.string().nullish(),
-    owner: z55.looseObject({ login: z55.string().nullish() }).nullish(),
-    default_branch: z55.string().nullish()
+  installation: z64.looseObject({ id: z64.number().nullish() }).nullish(),
+  repository: z64.looseObject({
+    name: z64.string(),
+    full_name: z64.string().nullish(),
+    owner: z64.looseObject({ login: z64.string().nullish() }).nullish(),
+    default_branch: z64.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    node_id: z55.string().nullish(),
-    html_url: z55.string().nullish(),
-    state: z55.string().nullish(),
-    user: z55.looseObject({ login: z55.string().nullish() }).nullish(),
-    body: z55.string().nullish(),
-    merged: z55.boolean().nullish(),
-    merge_commit_sha: z55.string().nullish(),
-    merged_at: z55.string().nullish(),
-    closed_at: z55.string().nullish(),
-    updated_at: z55.string().nullish()
+    node_id: z64.string().nullish(),
+    html_url: z64.string().nullish(),
+    state: z64.string().nullish(),
+    user: z64.looseObject({ login: z64.string().nullish() }).nullish(),
+    body: z64.string().nullish(),
+    merged: z64.boolean().nullish(),
+    merge_commit_sha: z64.string().nullish(),
+    merged_at: z64.string().nullish(),
+    closed_at: z64.string().nullish(),
+    updated_at: z64.string().nullish()
   }).nullish(),
-  check_run: z55.looseObject({
-    id: z55.number().nullish(),
-    external_id: z55.string().nullish(),
-    head_sha: z55.string().nullish(),
-    pull_requests: z55.array(PullRefSchema).nullish(),
-    output: z55.looseObject({ summary: z55.unknown() }).nullish()
+  check_run: z64.looseObject({
+    id: z64.number().nullish(),
+    external_id: z64.string().nullish(),
+    head_sha: z64.string().nullish(),
+    pull_requests: z64.array(PullRefSchema).nullish(),
+    output: z64.looseObject({ summary: z64.unknown() }).nullish()
   }).nullish(),
-  requested_action: z55.looseObject({ identifier: z55.unknown() }).nullish(),
-  check_suite: z55.looseObject({
-    id: z55.number().nullish(),
-    head_branch: z55.string().nullish(),
-    head_sha: z55.string().nullish(),
-    conclusion: z55.string().nullish()
+  requested_action: z64.looseObject({ identifier: z64.unknown() }).nullish(),
+  check_suite: z64.looseObject({
+    id: z64.number().nullish(),
+    head_branch: z64.string().nullish(),
+    head_sha: z64.string().nullish(),
+    conclusion: z64.string().nullish()
   }).nullish()
 });
 async function receiveWebhook({
@@ -12438,10 +13501,9 @@ async function receiveWebhook({
   send,
   refreshJobs = () => Promise.resolve(),
   rerunApproved = () => Promise.resolve(),
-  sendStamps = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
-  sendBoard = () => Promise.resolve(),
   addJobs = () => Promise.resolve(),
+  queueJobs = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log: log2 = noteTo("webhook")
@@ -12461,22 +13523,24 @@ async function receiveWebhook({
   await forwardToGalaxy(event, payload, { forward, touch, log: log2 });
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
-  const stamps = toFixStampRequests(event, payload);
+  const queued = toQueuedJobs(event, payload, header(headers, "x-github-delivery") ?? randomUUID());
   const watch = toMainWatchRequests(event, payload);
-  const board = toFleetBoardRequests(event, payload);
-  const sent = events.length + stamps.length + watch.length + board.length;
-  if (checks.length + approved.length + sent === 0) return reply(200, "ignored");
+  const sent = events.length + watch.length;
+  if (checks.length + approved.length + queued.length + sent === 0) return reply(200, "ignored");
   await addPackJobs(addJobs, toPackJobs(event, payload), log2);
+  try {
+    if (queued.length > 0) await queueJobs(queued);
+  } catch (error) {
+    return reply(500, `could not add the job: ${String(messageOf3(error))}`);
+  }
   try {
     if (approved.length > 0) await rerunApproved(approved);
     if (events.length > 0) await send(events);
-    if (stamps.length > 0) await sendStamps(stamps);
     if (watch.length > 0) await sendWatch(watch);
-    if (board.length > 0) await sendBoard(board);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf3(error))}`);
   }
-  const jobs = checks.length + approved.length;
+  const jobs = checks.length + approved.length + queued.length;
   return reply(200, jobs > 0 ? `sent ${String(sent)} \xB7 ${String(jobs)} jobs` : `sent ${String(sent)}`);
 }
 async function forwardToGalaxy(event, payload, { forward, touch, log: log2 }) {
@@ -12515,7 +13579,6 @@ function toEvents(event, payload) {
   if (handles(RETRO_ACTIONS, event, action)) {
     return [...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
   }
-  if (handles(CANON_ACTIONS, event, action)) return toCanonActionRequests(event, payload);
   return [];
 }
 function toCheckJobs(event, delivery) {
@@ -12564,6 +13627,10 @@ function toPackJobs(event, delivery) {
   return toRetroRequests(event, delivery).map(
     ({ data: { installationId, owner, repo, prNumber, mergeSha, mergedAt } }) => packJob({ installationId, owner, repo, prNumber, sha: mergeSha, committedAt: mergedAt })
   );
+}
+function toQueuedJobs(event, delivery, deliveryId) {
+  const clicks = toCanonActionRequests(event, delivery).map((data, n) => canonActionJob(n === 0 ? deliveryId : `${deliveryId}#${String(n)}`, data));
+  return [...toFixStampRequests(event, delivery).map(({ data }) => fixRowStampJob(data)), ...toFleetBoardRequests(event, delivery).map(({ data }) => fleetBoardJob(data)), ...clicks];
 }
 function toFixStampRequests(event, delivery) {
   const payload = readPayload(delivery);
@@ -12618,9 +13685,9 @@ function toFleetBoardRequests(event, delivery) {
     }
   ];
 }
-var LabelEventSchema = z55.looseObject({
-  label: z55.looseObject({ name: z55.string() }),
-  issue: z55.looseObject({ number: PrdNumberSchema, pull_request: z55.unknown().optional() })
+var LabelEventSchema = z64.looseObject({
+  label: z64.looseObject({ name: z64.string() }),
+  issue: z64.looseObject({ number: PrdNumberSchema, pull_request: z64.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery) {
   const payload = readPayload(delivery);
@@ -12642,10 +13709,7 @@ function toCanonActionRequests(event, delivery) {
   const source = sourceOf(payload);
   const facts = readCanonMarker(run.output?.summary);
   if (!source || !facts) return [];
-  return (run.pull_requests ?? []).map((pull) => ({ number: pull.number, sha: pull.head?.sha ?? run.head_sha })).filter(isNamed).map((pull) => ({
-    name: CANON_ACTION_EVENT,
-    data: { ...source, prNumber: pull.number, headSha: pull.sha, checkRunId: run.id ?? void 0, action, facts }
-  }));
+  return (run.pull_requests ?? []).map((pull) => ({ number: pull.number, sha: pull.head?.sha ?? run.head_sha })).filter(isNamed).map((pull) => ({ ...source, prNumber: pull.number, headSha: pull.sha, checkRunId: run.id ?? void 0, action, facts }));
 }
 function readPayload(payload) {
   const read = PayloadSchema2.safeParse(payload);
@@ -12697,6 +13761,7 @@ function liveJobs(env, logger) {
   const workerEnv = { ...env, supabase };
   return {
     add: async (job) => await store.held(job.subject) && ledger.add(job),
+    queue: (job) => ledger.add(job),
     refresh: (job) => ledger.refresh(job),
     approved: async (rerun) => approvedRerunJobs(await octokitFor(rerun.installationId), rerun),
     run: () => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor) })
@@ -12723,6 +13788,10 @@ function deliveryJobs(jobs) {
       addJobs: async (newJobs) => {
         if (!jobs) return;
         for (const job of newJobs) added = await jobs.add(job) || added;
+      },
+      queueJobs: async (newJobs) => {
+        if (!jobs) return;
+        for (const job of newJobs) added = await jobs.queue(job) || added;
       }
     },
     after: ({ pause, say }) => {
@@ -12772,21 +13841,19 @@ function githubRoute(env, {
   return {
     POST: loggedHandler(logger, "webhook", async (request, note) => {
       note({ deliveryId: request.headers.get("x-github-delivery") ?? void 0, fn: request.headers.get("x-github-event") ?? void 0 });
-      const text12 = await request.text();
+      const text13 = await request.text();
       const delivery = deliveryJobs(jobs);
       const { status, body } = await receiveWebhook({
-        body: text12,
+        body: text13,
         headers: request.headers,
         secret: env.webhook?.secret,
         send,
         ...delivery.hooks,
-        sendStamps: send,
         sendWatch: send,
-        sendBoard: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched2)
       });
-      if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text12) });
+      if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text13) });
       const after = delivery.after({ pause, say });
       if (after) keepAlive(after);
       return new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8" } });

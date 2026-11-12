@@ -2,7 +2,7 @@ import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { BACKFILL_DAYS, BATCH, type CollectStep, collectAll } from './collect.ts';
-import { fakeGitHub, fakeStore, pull } from './fake.ts';
+import { collectThroughJob, fakeGitHub, fakeStore, pull } from './fake.ts';
 
 type FakeGitHub = ReturnType<typeof fakeGitHub>;
 type FakeStore = ReturnType<typeof fakeStore>;
@@ -11,7 +11,7 @@ import { SIGNATURE } from './signed.ts';
 
 const NOW = Date.parse('2026-09-29T12:00:00Z');
 const WS = 'ws-vertuoza';
-/** Inngest's step, as these tests stub it: a step's value comes back as JSON, read again. */
+/** A step that saves its value, as Inngest's did: it comes back as JSON, read again. */
 const step: CollectStep = {
   run: async <T>(_id: string, fn: () => T | Promise<T>): Promise<T> => {
     const value: unknown = await fn();
@@ -20,8 +20,12 @@ const step: CollectStep = {
 };
 const daysAgo = (days: number) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString();
 
-function run({ store, github, now = NOW }: { store: FakeStore; github: FakeGitHub; now?: number }) {
-  return collectAll({ store, octokitFor: () => Promise.resolve(github.octokit), step, now });
+/** One run of a claimed `pr-stats` job (PRD omni-loop-3 s2): the summary its last line says. */
+async function run({ store, github, now = NOW }: { store: FakeStore; github: FakeGitHub; now?: number }) {
+  const ran = await collectThroughJob({ store, github, now });
+  expect(ran.result).toEqual({ outcome: 'done' });
+  assertDefined(ran.summary, 'the summary line');
+  return ran.summary;
 }
 
 const pullsListed = (github: FakeGitHub, repo: string) => github.queries.filter((query) => query.operation === 'PullsUpdated' && query.repo === repo);

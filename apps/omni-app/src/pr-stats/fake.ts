@@ -8,6 +8,10 @@
 // GitHub; a spent budget answers 403 (REST) or RATE_LIMITED (GraphQL).
 
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { ClaimedJob } from '../jobs/ledger.ts';
+import type { JobResult } from '../jobs/worker.ts';
+import type { CollectSummary } from './collect.ts';
+import { PR_STATS_KIND, prStatsHandler } from './job.ts';
 import type { PrStatsStore, RepositoryPatch } from './supabase-store.ts';
 
 /** A user as GitHub's REST API names it. */
@@ -309,4 +313,32 @@ export function pull(number: PrNumber, fields: Partial<FakePull> = {}): FakePull
     commitMessages: ['feat: something'],
     ...fields,
   };
+}
+
+/** The `pr-stats` job of the slot `slot`, as the ledger hands it to the worker: claimed, on its first try. */
+export function prStatsJob(slot = '2026-09-29T12:00:00.000Z'): ClaimedJob {
+  return { id: 'job-1', kind: PR_STATS_KIND, key: `${PR_STATS_KIND}@${slot}`, subject: PR_STATS_KIND, payload: { slot }, progress: {}, lane: PR_STATS_KIND, maxTries: 3, tries: 1, claim: 'claim-1', claimedUntil: slot };
+}
+
+const COLLECTED = /^pr-stats: (\d+) repositories: (\d+) collected, (\d+) failed, (\d+) unfinished, (\d+) paused; (\d+) pull requests saved$/;
+
+/**
+ * One run of a claimed `pr-stats` job against the stubbed `github` and the fake `store`, at `now`: how the job
+ * ended, every line it logged, and the summary its last line says (null when it logged none).
+ */
+export async function collectThroughJob({ store, github, now }: { store: PrStatsStore; github: ReturnType<typeof fakeGitHub>; now: number }) {
+  const lines: string[] = [];
+  const handler = prStatsHandler({
+    octokitFor: () => Promise.resolve(github.octokit),
+    supabase: { url: 'https://db.example', key: 'service-key' },
+    storeFor: () => store,
+    log: (line) => lines.push(line),
+    clock: () => now,
+  });
+  const result: JobResult = await handler(prStatsJob());
+  const said = COLLECTED.exec(lines.at(-1) ?? '')?.slice(1).map(Number);
+  const summary: CollectSummary | null = said
+    ? { repositories: said[0] ?? 0, collected: said[1] ?? 0, failed: said[2] ?? 0, unfinished: said[3] ?? 0, paused: said[4] ?? 0, saved: said[5] ?? 0 }
+    : null;
+  return { result, lines, summary };
 }

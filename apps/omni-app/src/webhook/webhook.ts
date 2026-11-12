@@ -16,9 +16,10 @@
 // them, a `closed` or `reopened` may also become a fix stamp (below).
 //
 // A click of a button on a red canon check (PRD 839), `check_run.requested_action` on an inbox check
-// run, becomes one canon action event alone, carrying the button and the facts the check run's summary
-// hides (../inbox-check/canon-actions.ts); the `canon-action` function posts its comment. It re-runs
-// no check.
+// run, becomes one `canon-action` job of the ledger alone (PRD omni-loop-3 s4), keyed by the delivery's id
+// (`X-GitHub-Delivery`, a fresh id when a delivery carries none) and carrying the button and the facts the check run's summary hides
+// (../inbox-check/canon-actions.ts), handed to `queueJobs`; the job posts its comment
+// (../inbox-check/canon-action.ts). It re-runs no check.
 //
 // Beside either route, a pull request that moves a PRD to a stage (PRD 587) is handed to `forward` as
 // one stage event (src/stage-forward/). The app's `forward` (./github-route.ts) POSTs it to galaxy,
@@ -31,8 +32,8 @@
 //
 // The fix stamp (PRD 2011 s7): a pull request closed, merged or not, or reopened, into the repository's
 // default branch, or on any branch when its body names a bug record (`Fixes mobile-B74`), also becomes one
-// fix stamp event, beside whatever else it becomes, handed to `sendStamps`; the `fix-row-stamp` function
-// stamps the Fixes rows of that repository and pull request (../fix-rows/). A sub-PR into its feature
+// `fix-row-stamp` job of the ledger (PRD omni-loop-3 s3), beside whatever else it becomes, handed to
+// `queueJobs`; the job stamps the Fixes rows of that repository and pull request (../fix-rows/job.ts). A sub-PR into its feature
 // branch names no record, and becomes none.
 //
 // The main watch (PRD 2410): a pull request merged into the default branch also becomes one main watch
@@ -43,8 +44,8 @@
 // The fleet board (PRD 2530): a pull request opened, reopened, ready for review or edited, open, into the
 // repository's default branch, and signed by the loop, read from the delivery alone (its body carries the
 // signature's marker, or the loop's bot opened it), also becomes one fleet board event, beside whatever else
-// it becomes, handed to `sendBoard`; the `fleet-board` function adds it to its author's fleet's board
-// (../fleet-board/). A sub-PR, a pull request typed by hand, a closed one, or a delivery naming no default
+// it becomes, handed to `queueJobs` as one `fleet-board` job of the ledger (PRD omni-loop-3 s3), which adds it to
+// its author's fleet's board (../fleet-board/job.ts). A sub-PR, a pull request typed by hand, a closed one, or a delivery naming no default
 // branch becomes none: the board takes only the loop's pull requests into main.
 //
 // The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
@@ -56,8 +57,13 @@
 // handed to `addJobs` before anything is sent to Inngest, so Inngest refusing an event never loses it. A job
 // that cannot be added is logged and the delivery goes on: the hourly comparison repairs it.
 //
+// The fix stamp's, the fleet board's (PRD omni-loop-3 s3) and the canon buttons' (s4) jobs, `toQueuedJobs`, are
+// handed to `queueJobs` once the pack's are added, before anything is sent to Inngest. Nothing repairs one that was lost, so a refusal answers
+// 500, and GitHub's redelivery, the same job by its key, adds it then.
+//
 // The delivery is read through one schema: a delivery whose fields are of another type than GitHub
 // sends becomes no event at all.
+import { randomUUID } from 'node:crypto';
 import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
@@ -67,16 +73,19 @@ import {
   INBOX_EXTERNAL_ID,
   RETRO_EVENT,
   type AppEvent,
-  type CanonActionRequest,
+  type CanonActionRequestData,
   type HarvestRequest,
   type RetroRequest,
 } from '../inngest-client.ts';
 import { isSignedBody } from 'omni-loop/kit/lib/signature.ts';
 import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
+import { fixRowStampJob } from '../fix-rows/job.ts';
 import { FLEET_BOARD_EVENT, fleetBoardId, type FleetBoardRequest } from '../fleet-board/events.ts';
+import { fleetBoardJob } from '../fleet-board/job.ts';
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, mainWatchCiId, mainWatchId, type MainWatchRequest } from '../main-watch/events.ts';
-import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
+import { canonActionJob } from '../inbox-check/canon-action.ts';
+import { CANON_ACTION, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { packJob } from '../jobs/pack.ts';
 import { prCheckJob, prCheckJobs, rerunKindOf, type ApprovedRerun } from '../jobs/pr-checks.ts';
@@ -218,10 +227,9 @@ export async function receiveWebhook({
   send,
   refreshJobs = () => Promise.resolve(),
   rerunApproved = () => Promise.resolve(),
-  sendStamps = () => Promise.resolve(),
   sendWatch = () => Promise.resolve(),
-  sendBoard = () => Promise.resolve(),
   addJobs = () => Promise.resolve(),
+  queueJobs = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log = noteTo('webhook'),
@@ -234,14 +242,15 @@ export async function receiveWebhook({
   refreshJobs?: (jobs: RefreshJob[]) => Promise<unknown>;
   /** Takes the approved label's re-runs (PRD 1612), each a PRD whose pull requests' approved check runs again; none given, they go nowhere. */
   rerunApproved?: (reruns: ApprovedRerun[]) => Promise<unknown>;
-  /** Sends the fix stamp events (PRD 2011 s7); none given, they go nowhere. */
-  sendStamps?: (events: FixStampRequest[]) => Promise<unknown>;
   /** Sends the main watch's events (PRD 2410); none given, they go nowhere. */
   sendWatch?: (events: MainWatchRequest[]) => Promise<unknown>;
-  /** Sends the fleet board's events (PRD 2530); none given, they go nowhere. */
-  sendBoard?: (events: FleetBoardRequest[]) => Promise<unknown>;
   /** Adds the ledger's jobs (PRD 2676 s2), before any event is sent; none given, they go nowhere. */
   addJobs?: (jobs: NewJob[]) => Promise<unknown>;
+  /**
+   * Adds the fix stamp's, the fleet board's and the canon buttons' jobs (PRD omni-loop-3 s3, s4), before any event
+   * is sent; a refusal answers 500. None given, they go nowhere.
+   */
+  queueJobs?: (jobs: NewJob[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -267,24 +276,26 @@ export async function receiveWebhook({
 
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
-  const stamps = toFixStampRequests(event, payload);
+  const queued = toQueuedJobs(event, payload, header(headers, 'x-github-delivery') ?? randomUUID());
   const watch = toMainWatchRequests(event, payload);
-  const board = toFleetBoardRequests(event, payload);
-  const sent = events.length + stamps.length + watch.length + board.length;
-  if (checks.length + approved.length + sent === 0) return reply(200, 'ignored');
+  const sent = events.length + watch.length;
+  if (checks.length + approved.length + queued.length + sent === 0) return reply(200, 'ignored');
 
   await addPackJobs(addJobs, toPackJobs(event, payload), log);
+  try {
+    if (queued.length > 0) await queueJobs(queued);
+  } catch (error) {
+    return reply(500, `could not add the job: ${String(messageOf(error))}`);
+  }
 
   try {
     if (approved.length > 0) await rerunApproved(approved);
     if (events.length > 0) await send(events);
-    if (stamps.length > 0) await sendStamps(stamps);
     if (watch.length > 0) await sendWatch(watch);
-    if (board.length > 0) await sendBoard(board);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
-  const jobs = checks.length + approved.length;
+  const jobs = checks.length + approved.length + queued.length;
   return reply(200, jobs > 0 ? `sent ${String(sent)} · ${String(jobs)} jobs` : `sent ${String(sent)}`);
 }
 
@@ -330,15 +341,14 @@ async function addPackJobs(addJobs: (jobs: NewJob[]) => Promise<unknown>, jobs: 
 }
 
 /**
- * The router alone, pure: a retro action goes to the retro and the knowledge harvest, a canon button's
- * click to the canon action. The checks are jobs, never events: `toCheckJobs`.
+ * The router alone, pure: a retro action goes to the retro and the knowledge harvest. The checks are jobs, never
+ * events (`toCheckJobs`), and so are a canon button's clicks (`toQueuedJobs`).
  */
 export function toEvents(event: string, payload: unknown): AppEvent[] {
   const action = readPayload(payload)?.action;
   if (handles(RETRO_ACTIONS, event, action)) {
     return [...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
   }
-  if (handles(CANON_ACTIONS, event, action)) return toCanonActionRequests(event, payload);
   return [];
 }
 
@@ -425,6 +435,16 @@ function toPackJobs(event: string, delivery: unknown): NewJob[] {
   return toRetroRequests(event, delivery).map(({ data: { installationId, owner, repo, prNumber, mergeSha, mergedAt } }) =>
     packJob({ installationId, owner, repo, prNumber, sha: mergeSha, committedAt: mergedAt }),
   );
+}
+
+/**
+ * The jobs the delivery adds beside the pack's (PRD omni-loop-3 s3, s4): its fix stamp's `fix-row-stamp` job, its
+ * fleet board's `fleet-board` job, then its canon click's `canon-action` job, keyed by `deliveryId` (one per pull
+ * request the click names: the first keyed by it, each next one `<delivery>#<n>`), each read by its filter below.
+ */
+export function toQueuedJobs(event: string, delivery: unknown, deliveryId: string): NewJob[] {
+  const clicks = toCanonActionRequests(event, delivery).map((data, n) => canonActionJob(n === 0 ? deliveryId : `${deliveryId}#${String(n)}`, data));
+  return [...toFixStampRequests(event, delivery).map(({ data }) => fixRowStampJob(data)), ...toFleetBoardRequests(event, delivery).map(({ data }) => fleetBoardJob(data)), ...clicks];
 }
 
 /**
@@ -539,10 +559,10 @@ const BUTTONS: readonly unknown[] = Object.values(CANON_ACTION);
 
 /**
  * The canon buttons' filter, pure: a click of Rewrite for <persona> or Change the claim on an inbox
- * check run whose summary carries the canon facts becomes one canon action request per pull request it
- * names; any other click, check run or action becomes none.
+ * check run whose summary carries the canon facts becomes one click per pull request it names, which
+ * `toQueuedJobs` makes a `canon-action` job; any other click, check run or action becomes none.
  */
-export function toCanonActionRequests(event: string, delivery: unknown): CanonActionRequest[] {
+export function toCanonActionRequests(event: string, delivery: unknown): CanonActionRequestData[] {
   const payload = readPayload(delivery);
   if (!payload || !handles(CANON_ACTIONS, event, payload.action)) return [];
   const run = payload.check_run;
@@ -556,10 +576,7 @@ export function toCanonActionRequests(event: string, delivery: unknown): CanonAc
   return (run.pull_requests ?? [])
     .map((pull) => ({ number: pull.number, sha: pull.head?.sha ?? run.head_sha }))
     .filter(isNamed)
-    .map((pull) => ({
-      name: CANON_ACTION_EVENT,
-      data: { ...source, prNumber: pull.number, headSha: pull.sha, checkRunId: run.id ?? undefined, action, facts },
-    }));
+    .map((pull) => ({ ...source, prNumber: pull.number, headSha: pull.sha, checkRunId: run.id ?? undefined, action, facts }));
 }
 
 /** The delivery as the router reads it, or `null` when it is not of that shape. */

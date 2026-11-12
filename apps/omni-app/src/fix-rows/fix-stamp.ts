@@ -1,12 +1,12 @@
 // The fix stamp's event (PRD 2011 s7): a pull request closed, merged or not, or reopened, as the webhook
-// hands it to the `fix-row-stamp` function (./fix-row-stamp.ts), which stamps the Fixes rows of a bug
+// adds it as the `fix-row-stamp` job's payload (./job.ts, PRD omni-loop-3 s3), which stamps the Fixes rows of a bug
 // record born on the server whose repository and pull request it is.
 //
 // The webhook reads no database, so it cannot tell a fix's pull request from any other: it sends the
 // event for every pull request of the repository's default branch, where a fix lands, and, on any
 // branch, for one whose body names a record (`Fixes mobile-B74 · <link>`, the line
 // `/omni:mega-bug-fix --product` writes), so a fix merged into an integration branch is stamped too. A
-// sub-PR into its feature branch names none, and sends nothing (#1409: each event is a run).
+// sub-PR into its feature branch names none, and adds nothing (#1409: each job is a run).
 import { z } from 'zod';
 import { PrNumberSchema, ProductBugIdSchema, type ProductBugId } from 'omni-loop/kit/lib/ids.ts';
 import { proseLines } from '../evaluate/prose-lines.ts';

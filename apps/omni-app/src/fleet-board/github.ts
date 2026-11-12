@@ -6,18 +6,14 @@
 // GitHub's refusals are answers, never retried: the App not allowed to write the organization's projects
 // (an org admin has not accepted `Organization projects`) is `permission`; a project or organization that
 // does not exist, or a link that is not an organization project, is `missing`. Anything else (a 5xx, a rate
-// limit) is thrown, so the step fails and Inngest retries it.
+// limit) is thrown, so the run fails and the ledger's worker retries the job (./job.ts).
 import { z } from 'zod';
 
 /** The one seam of GitHub the fleet board calls through: a GraphQL query and its variables. */
 export type GraphqlOctokit = { graphql: (query: string, variables?: Record<string, unknown>) => Promise<unknown> };
 
 /** What adding the card came to. */
-export const AddedSchema = z.discriminatedUnion('outcome', [
-  z.object({ outcome: z.literal('added') }),
-  z.object({ outcome: z.literal('refused'), reason: z.enum(['permission', 'missing']) }),
-]);
-export type Added = z.infer<typeof AddedSchema>;
+export type Added = { outcome: 'added' } | { outcome: 'refused'; reason: 'permission' | 'missing' };
 
 /** An organization project's link: `https://github.com/orgs/<org>/projects/<number>`, as the fleet keeps it. */
 const BOARD = /^https:\/\/github\.com\/orgs\/([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/projects\/([1-9][0-9]{0,9})\/?$/;

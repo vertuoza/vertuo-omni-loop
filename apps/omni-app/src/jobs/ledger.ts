@@ -1,19 +1,24 @@
 // The job ledger (PRD 2676 s1, spec "The ledger"), as the service role (`SUPABASE_URL`,
 // `SUPABASE_SERVICE_ROLE_KEY`, the approved check's own pair): the App has no person's session. Every call is
-// one of the seven functions of `supabase/migrations/20270113090000_background_jobs.sql` and
-// `20270114090000_pr_check_jobs.sql`, the service role's alone, and every answer is parsed where it comes in:
+// one of the seven functions of `supabase/migrations/20270113090000_background_jobs.sql`,
+// `20270114090000_pr_check_jobs.sql` and `20270116090000_background_job_later.sql`, the service role's alone, and
+// every answer is parsed where it comes in:
 //
-//   add      background_job_add(): a job, nothing for a key the kind already holds; whether it added one
+//   add      background_job_add(): a job, nothing for a key the kind already holds; whether it added one. Its
+//            lane and its tries (PRD omni-loop-3 s1) are sent only when given: none, and 5 tries, otherwise
 //   refresh  background_job_refresh() (PRD 2688 s1): the job of that kind and key on its latest payload, due in
 //            the delay; `added`, `updated` (it was queued), `again` (it was running: its finish queues it once
 //            more) or `requeued` (it was finished: queued, its tries at zero, its attempts kept)
-//   claim    background_job_claim(): the jobs due, oldest first, each under a fresh claim with one more try;
-//            the claims that ran out are written as `lost` first (due again, or failed on the 5th try)
-//   finish   background_job_finish(): the try recorded and the job moved; `stale` when the claim is no longer
+//   claim    background_job_claim(): the jobs due, oldest first, each under a fresh claim with one more try, never
+//            two of one kind and lane running at once; the claims that ran out are written as `lost` first (due
+//            again, or failed on the job's last try)
+//   finish   background_job_finish(): the try recorded and the job moved; `later` keeps the job's progress for
+//            its next run and gives its try back (a 21st `later` fails it); `stale` when the claim is no longer
 //            the job's (55000): a worker presumed dead never overwrites the one that replaced it
 //   replay   background_job_replay(): a failed job queued again, its tries at zero, its attempts kept; no such
 //            job (P0002) or one not failed (55000) is answered in words
-//   health   background_jobs_health(): ok or late, with counts and no name
+//   health   background_jobs_health(): ok or late, with counts and no name; given the schedules (./schedule.ts),
+//            late too when a schedule's kind has had no done job for three of its periods
 //   forget   background_jobs_forget(): the jobs finished over 90 days ago deleted; how many
 //
 // Throws on any other refusal, or an answer out of shape.
@@ -21,12 +26,19 @@ import { z } from 'zod';
 import type { Json } from '../../../../supabase/database.types.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { serviceDb } from '../server-event/service-db.ts';
+import { SCHEDULES, type Schedule } from './schedule.ts';
 
 /** How a try ends, as the worker reports it. `lost` is the database's alone. */
-export type JobOutcome = 'done' | 'skipped' | 'retry' | 'waiting' | 'failed';
+export type JobOutcome = 'done' | 'skipped' | 'retry' | 'waiting' | 'later' | 'failed';
 
-/** A job to add: what it is, its key (unique per kind), its repository and what it needs. Never a token. */
-export type NewJob = { kind: string; key: string; subject: string; payload: { [field: string]: Json | undefined } };
+/** A JSON object a job carries: its payload, or the progress it keeps between runs. Never a token. */
+export type JobFields = { [field: string]: Json | undefined };
+
+/**
+ * A job to add: what it is, its key (unique per kind), its repository and what it needs. Never a token. Its lane
+ * (one running job per kind and lane) and its tries (1 to 5) are optional: none, and 5, when not given.
+ */
+export type NewJob = { kind: string; key: string; subject: string; payload: JobFields; lane?: string; maxTries?: number };
 
 /** A job to refresh, and how many seconds from now it falls due when queued (0 to 3600). */
 export type RefreshJob = NewJob & { delaySeconds: number };
@@ -40,14 +52,20 @@ export type Refreshed = z.infer<typeof RefreshedSchema>;
 
 const PayloadSchema = z.record(z.string(), z.unknown());
 
-/** A row as background_job_claim() answers it: held, under its claim. */
+/**
+ * A row as background_job_claim() answers it: held, under its claim. A row from before PRD omni-loop-3's
+ * migration reads as no progress, no lane and 5 tries.
+ */
 const ClaimedRowSchema = z.object({
   id: z.string().min(1),
   kind: z.string().min(1),
   key: z.string().min(1),
   subject: z.string().min(1),
   payload: PayloadSchema,
+  progress: PayloadSchema.default({}),
+  lane: z.string().min(1).nullable().default(null),
   tries: z.number().int().min(1).max(5),
+  max_tries: z.number().int().min(1).max(5).default(5),
   claim: z.string().min(1),
   claimed_until: z.string().min(1),
 });
@@ -63,10 +81,20 @@ export type ClaimedJob = {
   tries: number;
   claim: string;
   claimedUntil: string;
+  // The three below are always set by the ledger; a job built by hand (a test) may leave them out.
+  /** What the job's last `later` kept for this run; `{}` when none did. */
+  progress?: z.infer<typeof PayloadSchema>;
+  /** The lane it runs in; null when none. */
+  lane?: string | null;
+  /** Its tries, 1 to 5: the last that throws fails it. 5 when not set. */
+  maxTries?: number;
 };
 
-/** A try to record: the job, its claim, how it ended, why (an error's first line), and when it may run again. */
-export type Finish = { id: string; claim: string; outcome: JobOutcome; reason: string | null; retryAt: string | null };
+/**
+ * A try to record: the job, its claim, how it ended, why (an error's first line), when it may run again, and,
+ * for a `later` only, the progress its next run reads.
+ */
+export type Finish = { id: string; claim: string; outcome: JobOutcome; reason: string | null; retryAt: string | null; progress?: JobFields };
 
 const JobStateSchema = z.enum(['queued', 'done', 'skipped', 'failed']);
 /** The job's state once the try is recorded, or `stale`: the claim is no longer the job's, nothing was kept. */
@@ -89,6 +117,8 @@ export const HealthSchema = z.object({
   state: z.enum(['ok', 'late']),
   late: z.number().int().nonnegative(),
   failed: z.number().int().nonnegative(),
+  /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
+  scheduled: z.number().int().nonnegative().optional(),
 });
 export type JobsHealth = z.infer<typeof HealthSchema>;
 
@@ -98,7 +128,7 @@ export type Ledger = {
   claim: (input: { limit: number; leaseSeconds: number }) => Promise<ClaimedJob[]>;
   finish: (input: Finish) => Promise<FinishAnswer>;
   replay: (id: string) => Promise<Replayed>;
-  health: () => Promise<JobsHealth>;
+  health: (schedules?: readonly Schedule[]) => Promise<JobsHealth>;
   forget: () => Promise<number>;
 };
 
@@ -115,34 +145,47 @@ function dataOf({ data, error }: { data: unknown; error: Refusal | null }): unkn
   return data;
 }
 
+/** A job's lane and tries as the database takes them: only those given, so a call without them reads as before. */
+function paced(lane: string | undefined, maxTries: number | undefined): { p_lane?: string; p_max_tries?: number } {
+  return { ...(lane === undefined ? {} : { p_lane: lane }), ...(maxTries === undefined ? {} : { p_max_tries: maxTries }) };
+}
+
+/** The schedules as background_jobs_health() takes them, a kind and its period in seconds at one place; none, nothing sent. */
+function healthArgs(schedules: readonly Schedule[]): { p_kinds: string[]; p_periods: number[] } | undefined {
+  if (schedules.length === 0) return undefined;
+  return { p_kinds: schedules.map(({ kind }) => kind), p_periods: schedules.map(({ periodMinutes }) => periodMinutes * 60) };
+}
+
 /** The ledger, as the service role on `connection`. */
 export function jobLedger(connection: Connection): Ledger {
   const db = serviceDb(connection);
   return {
-    add: async ({ kind, key, subject, payload }) =>
-      z.boolean().parse(dataOf(await db.rpc('background_job_add', { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload }))),
+    add: async ({ kind, key, subject, payload, lane, maxTries }) =>
+      z.boolean().parse(dataOf(await db.rpc('background_job_add', { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane, maxTries) }))),
 
-    refresh: async ({ kind, key, subject, payload, delaySeconds }) =>
+    refresh: async ({ kind, key, subject, payload, delaySeconds, lane, maxTries }) =>
       RefreshedSchema.parse(dataOf(await db.rpc('background_job_refresh', {
         p_kind: kind,
         p_key: key,
         p_subject: subject,
         p_payload: payload,
         p_delay_seconds: delaySeconds,
+        ...paced(lane, maxTries),
       }))),
 
     claim: async ({ limit, leaseSeconds }) => {
       const rows = z.array(ClaimedRowSchema).parse(dataOf(await db.rpc('background_job_claim', { p_limit: limit, p_lease_seconds: leaseSeconds })));
-      return rows.map(({ claimed_until, ...row }) => ({ ...row, claimedUntil: claimed_until }));
+      return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
 
-    finish: async ({ id, claim, outcome, reason, retryAt }) => {
+    finish: async ({ id, claim, outcome, reason, retryAt, progress }) => {
       const answer = await db.rpc('background_job_finish', {
         p_id: id,
         p_claim: claim,
         p_outcome: outcome,
         ...(reason === null ? {} : { p_reason: reason }),
         ...(retryAt === null ? {} : { p_retry_at: retryAt }),
+        ...(progress === undefined ? {} : { p_progress: progress }),
       });
       if (answer.error?.code === '55000') return 'stale';
       return JobStateSchema.parse(dataOf(answer));
@@ -155,7 +198,8 @@ export function jobLedger(connection: Connection): Ledger {
       return { replayed: true, ...job };
     },
 
-    health: async () => HealthSchema.parse(dataOf(await db.rpc('background_jobs_health', undefined, { get: true }))),
+    health: async (schedules = SCHEDULES) =>
+      HealthSchema.parse(dataOf(await db.rpc('background_jobs_health', healthArgs(schedules), { get: true }))),
 
     forget: async () => z.number().int().nonnegative().parse(dataOf(await db.rpc('background_jobs_forget'))),
   };

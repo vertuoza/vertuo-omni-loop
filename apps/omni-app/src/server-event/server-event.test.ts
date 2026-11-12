@@ -1,7 +1,9 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import type { RefreshJob } from '../jobs/ledger.ts';
 import { capture, throwing } from '../run-log/capture.ts';
-import { receiveServerEvent, SERVER_EVENT, SERVER_SIGNATURE_HEADER, serverEventRoute, verifyServerEvent, type ServerEventRequest } from './server-event.ts';
+import { serverEventJob } from './job.ts';
+import { receiveServerEvent, SERVER_SIGNATURE_HEADER, serverEventRoute, verifyServerEvent, type ServerEventJobs } from './server-event.ts';
 
 const SECRET = 'shared-secret';
 const DOSSIER = '0b9f8a1e-3c4d-4e5f-8a9b-0c1d2e3f4a5b';
@@ -20,14 +22,14 @@ function requestOf(value: unknown, { signature }: { signature?: string | null } 
 
 function deps({ unset = false, fail = false } = {}) {
   const secret = unset ? undefined : SECRET;
-  const sent: ServerEventRequest[] = [];
+  const sent: RefreshJob[] = [];
   const logged: string[] = [];
   return {
     sent,
     logged,
     deps: {
       secret,
-      send: (events: ServerEventRequest[]) => (fail ? Promise.reject(new Error('inngest is down')) : Promise.resolve(sent.push(...events))),
+      queue: (job: RefreshJob) => (fail ? Promise.reject(new Error('the database refused: down')) : Promise.resolve(sent.push(job))),
       log: (line: string) => logged.push(line),
     },
   };
@@ -46,13 +48,21 @@ describe('verifyServerEvent', () => {
 });
 
 describe('receiveServerEvent — one signed POST from galaxy (PRD 1548 s4)', () => {
-  it('sends a signed approval, void, item opened or item settled on as one Inngest event, and answers 202 (PRD 1548 s8)', async () => {
+  it('refreshes a signed approval, void, item opened or item settled as the dossier\'s server-event job, due in 5 seconds with 4 tries, and answers 202 (PRD 1548 s8; PRD omni-loop-3 s4)', async () => {
     for (const event of ['approved', 'voided', 'item-opened', 'item-settled']) {
       const run = deps();
       const reply = await receiveServerEvent(requestOf({ ...EVENT, event }), run.deps);
       expect(reply).toEqual({ status: 202, body: 'accepted' });
-      expect(run.sent).toEqual([{ name: SERVER_EVENT, data: { ...EVENT, event } }]);
+      expect(run.sent).toEqual([{ kind: 'server-event', key: DOSSIER, subject: DOSSIER, payload: { ...EVENT, event }, maxTries: 4, delaySeconds: 5 }]);
     }
+  });
+
+  it('a second event for the same dossier is the same job, refreshed on its latest payload: it joins the queued one', async () => {
+    const run = deps();
+    await receiveServerEvent(requestOf(EVENT), run.deps);
+    await receiveServerEvent(requestOf({ ...EVENT, event: 'voided' }), run.deps);
+    expect(run.sent.map(({ kind, key }) => `${kind} ${key}`)).toEqual([`server-event ${DOSSIER}`, `server-event ${DOSSIER}`]);
+    expect(run.sent[1]?.payload).toMatchObject({ event: 'voided' });
   });
 
   it('refuses a bad or a missing signature 401, sending nothing', async () => {
@@ -79,26 +89,78 @@ describe('receiveServerEvent — one signed POST from galaxy (PRD 1548 s4)', () 
     expect(run.sent).toEqual([]);
   });
 
-  it('answers 500 when the event cannot be sent on, naming it in the log', async () => {
+  it('answers 500 when the database refuses the job, naming it in the log', async () => {
     const run = deps({ fail: true });
-    expect(await receiveServerEvent(requestOf(EVENT), run.deps)).toEqual({ status: 500, body: 'the server event could not be sent on' });
-    expect(run.logged).toEqual([`server event: the approved of dossier ${DOSSIER} was not sent on — inngest is down`]);
+    expect(await receiveServerEvent(requestOf(EVENT), run.deps)).toEqual({ status: 500, body: 'the server event could not be queued' });
+    expect(run.logged).toEqual([`server event: the approved of dossier ${DOSSIER} was not queued — the database refused: down`]);
   });
 });
 
+/** A ledger that keeps what was refreshed and counts its runs; `refuse` refuses every job. */
+function ledgerOf({ refuse = false } = {}) {
+  const refreshed: RefreshJob[] = [];
+  const runs: string[] = [];
+  const jobs: ServerEventJobs = {
+    refresh: (job) => (refuse ? Promise.reject(new Error('down')) : Promise.resolve(refreshed.push(job))),
+    run: () => Promise.resolve(runs.push('run')),
+  };
+  return { jobs, refreshed, runs };
+}
+
+/** The route's work after its answers: kept, and let through on `settle`, each pause recorded. */
+function afterAnswers() {
+  const kept: Promise<unknown>[] = [];
+  const paused: number[] = [];
+  return { kept, paused, keepAlive: (work: Promise<unknown>) => kept.push(work), pause: (ms: number) => Promise.resolve(paused.push(ms)).then(() => undefined) };
+}
+
 describe('serverEventRoute — /api/server-event', () => {
   it('reads the raw body and the signature header, and answers in plain text', async () => {
-    const sent: ServerEventRequest[] = [];
-    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: (events) => Promise.resolve(sent.push(...events)) });
+    const ledger = ledgerOf();
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs: ledger.jobs, keepAlive: () => undefined });
     const body = JSON.stringify(EVENT);
     const response = await route.POST(new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: sign(body) } }));
     expect(response.status).toBe(202);
     expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
     expect(await response.text()).toBe('accepted');
-    expect(sent).toHaveLength(1);
+    expect(ledger.refreshed).toEqual([serverEventJob(EVENT as never)]);
 
     const refused = await route.POST(new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: sign(body, 'x') } }));
     expect(refused.status).toBe(401);
+  });
+
+  it('runs the jobs due in waitUntil once answered, after the job\'s 5 seconds and a second for the clocks; a refused event runs nothing', async () => {
+    const ledger = ledgerOf();
+    const after = afterAnswers();
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs: ledger.jobs, keepAlive: after.keepAlive, pause: after.pause });
+    const body = JSON.stringify(EVENT);
+    await route.POST(new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: sign(body, 'x') } }));
+    expect(after.kept).toEqual([]);
+    expect((await route.POST(new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: sign(body) } }))).status).toBe(202);
+    await Promise.all(after.kept);
+    expect(after.paused).toEqual([6000]);
+    expect(ledger.runs).toEqual(['run']);
+  });
+
+  it('a run that fails after the answer is said in the log, and the sweep runs the job later', async () => {
+    const log = capture();
+    const after = afterAnswers();
+    const jobs: ServerEventJobs = { refresh: () => Promise.resolve(), run: () => Promise.reject(new Error('the database refused: down')) };
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs, logger: log.logger, keepAlive: after.keepAlive, pause: after.pause });
+    const body = JSON.stringify(EVENT);
+    expect((await route.POST(new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: sign(body) } }))).status).toBe(202);
+    await Promise.all(after.kept);
+    expect(log.lines().filter((line) => line.event === 'note')).toEqual([expect.objectContaining({ fn: 'jobs', message: 'the run failed — the database refused: down' })]);
+  });
+
+  it('answers 500 where the App has no database, since the event cannot be queued', async () => {
+    const after = afterAnswers();
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs: null, keepAlive: after.keepAlive });
+    const body = JSON.stringify(EVENT);
+    const response = await route.POST(new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: sign(body) } }));
+    expect(response.status).toBe(500);
+    expect(await response.text()).toBe('the server event could not be queued');
+    expect(after.kept).toEqual([]);
   });
 
   it('refuses a GET 405, naming POST', async () => {
@@ -113,10 +175,10 @@ describe('serverEventRoute — one server-event line per call (PRD 1723 s6)', ()
     new Request('https://app.example/api/server-event', { method: 'POST', body, headers: { [SERVER_SIGNATURE_HEADER]: signature } });
   const body = JSON.stringify(EVENT);
 
-  it('logs ok on an accepted event, refused on a bad signature, a body that is no event or a GET, failed when Inngest is down', async () => {
+  it('logs ok on an accepted event, refused on a bad signature, a body that is no event or a GET, failed when the database refuses the job', async () => {
     const log = capture();
-    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.resolve(), logger: log.logger });
-    const down = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.reject(new Error('down')), logger: log.logger });
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs: ledgerOf().jobs, logger: log.logger, keepAlive: () => undefined });
+    const down = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs: ledgerOf({ refuse: true }).jobs, logger: log.logger, keepAlive: () => undefined });
     expect((await route.POST(post(body, sign(body)))).status).toBe(202);
     expect((await route.POST(post(body, sign(body, 'x')))).status).toBe(401);
     expect((await route.POST(post('{}', sign('{}')))).status).toBe(400);
@@ -134,7 +196,7 @@ describe('serverEventRoute — one server-event line per call (PRD 1723 s6)', ()
 
   it('logs failed on a thrown error, and rethrows the very error', async () => {
     const log = capture();
-    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.resolve(), logger: log.logger });
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs: ledgerOf().jobs, logger: log.logger, keepAlive: () => undefined });
     const request = post(body, sign(body));
     const thrown = new Error('the body could not be read');
     vi.spyOn(request, 'text').mockRejectedValue(thrown);
@@ -143,14 +205,14 @@ describe('serverEventRoute — one server-event line per call (PRD 1723 s6)', ()
   });
 
   it('answers the same when the logger throws', async () => {
-    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { send: () => Promise.resolve(), logger: throwing });
+    const route = serverEventRoute({ stageEvents: { secret: SECRET } }, { jobs: ledgerOf().jobs, logger: throwing, keepAlive: () => undefined });
     expect((await route.POST(post(body, sign(body)))).status).toBe(202);
   });
 
   it('says a missing secret as a JSON note line at warn, by default', async () => {
     const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
     try {
-      await receiveServerEvent(requestOf(EVENT), { secret: undefined, send: () => Promise.resolve() });
+      await receiveServerEvent(requestOf(EVENT), { secret: undefined, queue: () => Promise.resolve() });
       expect(write.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toEqual([
         {
           level: 'warn',
