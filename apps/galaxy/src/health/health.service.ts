@@ -2,7 +2,7 @@
 // environment parses (the read `instrumentation.ts`'s register() makes at startup) and the galaxy's
 // database answers one query within 3 seconds (./health.repository.ts). Every check `ok` is 200,
 // anything else 503, never cached. The body names checks only: never a variable's value, an error's
-// text or anything about a person, and nothing here calls GitHub, Inngest or OpenRouter.
+// text or anything about a person, and nothing here calls GitHub, the job ledger or OpenRouter.
 import 'server-only';
 import { serverCommit, serverEnv } from '../env.ts';
 import { healthRepository } from './health.repository.ts';

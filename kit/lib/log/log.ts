@@ -1,6 +1,6 @@
 /**
  * **The structured logger** (PRD 1723): one JSON line to stdout per call, what the GitHub App's
- * entries, its Inngest functions and the arcade's cron write at the end of each run, so Vercel's
+ * entries, its jobs and the arcade's cron write at the end of each run, so Vercel's
  * log search can filter by `event`, `outcome`, `repo` or `prd` and read how long a run took.
  *
  * - **An allow-list of fields** ({@link LOG_FIELDS}). A field outside it, or an allowed field whose
@@ -43,7 +43,7 @@ export type LogOutcome = 'ok' | 'refused' | 'failed';
 
 /** What a caller hands one log call. */
 export type LogEntry = {
-  /** What ran: `webhook`, `server-event`, `inngest`, `stages-sync`. */
+  /** What ran: `webhook`, `server-event`, `jobs`, `stages-sync`. */
   event: string;
   outcome?: LogOutcome;
   /** How long the run took, in milliseconds. */
