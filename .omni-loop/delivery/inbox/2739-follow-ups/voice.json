@@ -111,6 +111,59 @@
         }
       ],
       "fit": "Fits every persona; the skeptical developers rise once the gates refuse an unfiled point."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-12",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A repository that never reviews ships untouched, so nothing new gets in my way.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every open point is now a file with its source, so nothing a fix saw is lost again.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A fix cannot close while a problem it saw has no file.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Nothing is opened or sent behind my back; I decide what deserves an issue.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "One line in the status tells me how many points wait.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "Fits every persona; the skeptical back-end developer's worry about being blocked is gone now that no review means nothing to check."
     }
   ]
 }
