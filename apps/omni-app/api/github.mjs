@@ -14619,6 +14619,7 @@ var ServerEventSchema = z65.object({
   at: z65.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 var SERVER_EVENT_TRIGGER = "server-event";
+var GONE = /* @__PURE__ */ new Set([404, 410]);
 function refusalIn2(error, depth = 0) {
   if (error instanceof GithubPaused || error instanceof GithubDeferred) return error;
   return error instanceof Error && depth < 3 ? refusalIn2(error.cause, depth + 1) : null;
@@ -14627,6 +14628,22 @@ async function keptOf(octokit, pull, prdId) {
   const [owner = "", repo = ""] = pull.repository.split("/");
   const read = await readPull2(octokit, { owner, repo, prNumber: parsePr(pull.number) });
   return productPrdOf(read.body)?.id === prdId ? { ...pull, headSha: read.headSha } : null;
+}
+var GONE_PULL = "gone";
+async function readTarget3({ octokitFor, log: log2 }, { installationId, prdId }, pull) {
+  const where = `${pull.repository}#${String(pull.number)}`;
+  try {
+    return await keptOf(await octokitFor(installationId), pull, prdId);
+  } catch (error) {
+    const status = statusOf(error);
+    if (GONE.has(status)) {
+      log2(`server event: ${where} is left out: GitHub answers ${String(status)}, it is gone or the App cannot read it`);
+      return GONE_PULL;
+    }
+    const refused7 = refusalIn2(error);
+    if (refused7) log2(`server event: ${where} waits for the GitHub budget: ${refused7.message}`);
+    throw error;
+  }
 }
 function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, log: log2 = noteTo("server-event-recheck") }) {
   return async (job) => {
@@ -14638,18 +14655,16 @@ function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, lo
     const targets = await readTargets2(dossier);
     if (!targets) return { outcome: "skipped", reason: `dossier ${dossier} is no product PRD's` };
     const kept3 = [];
+    let leftOut = 0;
     for (const pull of targets.pulls) {
-      const where = `${pull.repository}#${String(pull.number)}`;
-      try {
-        const found = await keptOf(await octokitFor(targets.installationId), pull, targets.prdId);
-        if (found) kept3.push(found);
-      } catch (error) {
-        const refused7 = refusalIn2(error);
-        if (refused7) log2(`server event: ${where} waits for the GitHub budget: ${refused7.message}`);
-        throw error;
-      }
+      const found = await readTarget3({ octokitFor, log: log2 }, targets, pull);
+      if (found === GONE_PULL) leftOut += 1;
+      else if (found) kept3.push(found);
     }
-    if (kept3.length === 0) return { outcome: "skipped", reason: `no open pull request names ${targets.prdId}` };
+    if (kept3.length === 0) {
+      const gone = leftOut === 0 ? "" : ` (${String(leftOut)} left out: GitHub answers 404 or 410 for them)`;
+      return { outcome: "skipped", reason: `no open pull request names ${targets.prdId}${gone}` };
+    }
     for (const { repository, number, headSha } of kept3) {
       const [owner = "", repo = ""] = repository.split("/");
       const request = { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER };
