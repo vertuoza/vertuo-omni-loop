@@ -23,6 +23,12 @@
 // as `/api/github` does, so a retro already added, done or waiting for its day 14, is never added twice; the job
 // itself publishes nothing again when its retro PR or verdict comment exists (../retro/retro.ts). The same budget
 // stops it; a repository GitHub otherwise refuses is counted and logged, and the others go on.
+//
+// A main watch owed at the switch (PRD omni-loop-4 s4, spec "What is owed at the switch"): last, unless a rule before
+// it stopped, each PRD's own lane still `watching` in `prd_main_watch` inside its seven days gets a `main-watch` job
+// (`mainWatchJob`), the pull request that merged at its commit found on GitHub as the installation. The ledger keys it
+// as `/api/github` does, so a watch with a job, live or finished, is never added twice; the job opens its lanes again,
+// which leaves their rows as they are, and carries on from the store. The same budget stops it.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { z } from 'zod';
 import { CONFIG_FILE } from 'omni-loop/kit/lib/config.ts';
@@ -34,6 +40,7 @@ import type { OctokitFor } from '../octokit-for.ts';
 import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { THRESHOLDS } from '../retro/rules.ts';
 import { topicOf } from '../retro/qualify.ts';
+import { mainWatchJob } from '../main-watch/main-watch.ts';
 import { retroJob } from '../retro/retro.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
@@ -43,8 +50,11 @@ import { packJob } from './pack.ts';
 /** A repository a product holds, with its newest pack's commit and date: `null` when it has none. */
 export type HeldRepository = { repository: string; pack: { sha: string; committedAt: string } | null };
 
-/** What the comparison reads of the database. */
-export type GapsStore = { held: () => Promise<HeldRepository[]> };
+/** A PRD's own lane of the main watch, still `watching`: its repository and PRD, the merge it watches and its seven days. */
+export type WatchingLane = { repository: string; mergeSha: string; mergedAt: string; watchUntil: string };
+
+/** What the comparison reads of the database. `watching` is absent from a store that holds no main watch (a test's). */
+export type GapsStore = { held: () => Promise<HeldRepository[]>; watching?: () => Promise<WatchingLane[]> };
 
 /** What the comparison did: the repositories read, the jobs added, and what it left alone, by why. */
 export type GapsSummary = {
@@ -61,11 +71,14 @@ export type GapsSummary = {
    * repositories (or the App's list of installations) GitHub refused. Absent when the pack's rule stopped first.
    */
   retros?: RetrosSummary;
+  /** The main watch's rule (PRD omni-loop-4 s4): the lanes it read, the owed `main-watch` jobs it added, and those GitHub refused. */
+  watches?: RetrosSummary;
 };
 
 /** What the retro's rule did. */
 type RetrosSummary = { read: number; added: number; failed: number };
 
+const WatchingRowSchema = z.object({ repository: z.string().min(1), lane: z.string().min(1), merge_sha: z.string().min(1), merged_at: z.string().min(1), watch_until: z.string().min(1) });
 const HeldRowSchema = z.object({ repository: z.string().min(1) });
 const PackRowSchema = z.object({ repository: z.string().min(1), sha: z.string().min(1), committed_at: z.string().min(1) });
 
@@ -83,6 +96,10 @@ export function gapsStore(connection: Connection): GapsStore {
       }
       return [...new Set(held.map((row) => row.repository.toLowerCase()))].sort().map((repository) => ({ repository, pack: newest.get(repository) ?? null }));
     },
+    watching: async () =>
+      rowsOf(WatchingRowSchema, await db.from('prd_main_watch').select('repository, lane, merge_sha, merged_at, watch_until').eq('status', 'watching'))
+        .filter((row) => row.lane === row.repository)
+        .map((row) => ({ repository: row.repository, mergeSha: row.merge_sha, mergedAt: row.merged_at, watchUntil: row.watch_until })),
   };
 }
 
@@ -116,6 +133,17 @@ async function latestCommit(octokit: RequestOctokit, { owner, repo, branch, path
     if (commit && committedAt && (!latest || Date.parse(committedAt) > Date.parse(latest.committedAt))) latest = { sha: commit.sha, committedAt };
   }
   return latest;
+}
+
+/** The installation of the App on `owner/repo`; null when the App is not installed there. */
+async function installationOf(appOctokit: () => Promise<RequestOctokit> | RequestOctokit, owner: string, repo: string): Promise<number | null> {
+  try {
+    const { data } = await (await appOctokit()).request(INSTALLATION, { owner, repo });
+    return InstallationSchema.parse(data).id;
+  } catch (error) {
+    if (statusOf(error) === 404) return null;
+    throw error;
+  }
 }
 
 type Outcome = 'added' | 'same' | 'skipped';
@@ -156,6 +184,13 @@ export async function compareGaps({
   summary.retros = { read: 0, added: 0, failed: 0 };
   try {
     await addOwedRetros(summary.retros, { ledger, appOctokit, octokitFor, now, log });
+  } catch (error) {
+    if (!budgetRefused(error)) throw error;
+    return stoppedBy(summary, log);
+  }
+  summary.watches = { read: 0, added: 0, failed: 0 };
+  try {
+    await addOwedWatches(summary.watches, { store, ledger, appOctokit, octokitFor, now, log });
   } catch (error) {
     if (!budgetRefused(error)) throw error;
     return stoppedBy(summary, log);
@@ -259,14 +294,8 @@ async function compareOne(
   { ledger, appOctokit, octokitFor, log }: { ledger: Pick<Ledger, 'add'>; appOctokit: () => Promise<RequestOctokit> | RequestOctokit; octokitFor: OctokitFor<RequestOctokit>; log: (line: string) => void },
 ): Promise<Outcome> {
   const [owner = '', repo = ''] = repository.split('/');
-  let installationId: number;
-  try {
-    const { data } = await (await appOctokit()).request(INSTALLATION, { owner, repo });
-    installationId = InstallationSchema.parse(data).id;
-  } catch (error) {
-    if (statusOf(error) === 404) return 'skipped';
-    throw error;
-  }
+  const installationId = await installationOf(appOctokit, owner, repo);
+  if (installationId === null) return 'skipped';
   const octokit = await octokitFor(installationId);
   const { data } = await octokit.request('GET /repos/{owner}/{repo}', { owner, repo });
   const branch = RepositorySchema.parse(data).default_branch;
@@ -281,4 +310,42 @@ async function compareOne(
   if (pack && (pack.sha === latest.sha || Date.parse(pack.committedAt) >= Date.parse(latest.committedAt))) return 'same';
   const added = await ledger.add(packJob({ installationId, owner, repo, sha: latest.sha, committedAt: latest.committedAt }));
   return added ? 'added' : 'same';
+}
+
+const PullsOfCommitSchema = z.array(z.looseObject({ number: PrNumberSchema, merged_at: z.string().nullish(), merge_commit_sha: z.string().nullish() }));
+
+/**
+ * The main watch's rule: an owed `main-watch` job for each PRD's own lane still `watching` inside its seven days. A
+ * refusal for a low budget is thrown to the caller; any other is counted in `summary`.
+ */
+async function addOwedWatches(
+  summary: RetrosSummary,
+  { store, ledger, appOctokit, octokitFor, now, log }: { store: GapsStore; ledger: Pick<Ledger, 'add'>; appOctokit: () => Promise<RequestOctokit> | RequestOctokit; octokitFor: OctokitFor<RequestOctokit>; now: () => number; log: (line: string) => void },
+): Promise<void> {
+  const lanes = (await store.watching?.()) ?? [];
+  for (const watching of lanes.filter(({ watchUntil }) => Date.parse(watchUntil) > now())) {
+    try {
+      summary.added += await owedWatch(watching, { ledger, appOctokit, octokitFor });
+      summary.read += 1;
+    } catch (error) {
+      if (budgetRefused(error)) throw error;
+      summary.failed += 1;
+      log(`the comparison could not read the main watch owed in ${watching.repository}: ${firstLine(error)}`);
+    }
+  }
+}
+
+/** The owed `main-watch` job of one lane: 1 when added, 0 when the App is not installed, no merged pull request holds the commit, or the ledger holds the job. */
+async function owedWatch(
+  { repository, mergeSha, mergedAt }: WatchingLane,
+  { ledger, appOctokit, octokitFor }: { ledger: Pick<Ledger, 'add'>; appOctokit: () => Promise<RequestOctokit> | RequestOctokit; octokitFor: OctokitFor<RequestOctokit> },
+): Promise<number> {
+  const [owner = '', repo = ''] = repository.split('/');
+  const installationId = await installationOf(appOctokit, owner, repo);
+  if (installationId === null) return 0;
+  const octokit = await octokitFor(installationId);
+  const { data } = await octokit.request('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { owner, repo, commit_sha: mergeSha });
+  const pull = PullsOfCommitSchema.parse(data).find((one) => one.merged_at && one.merge_commit_sha === mergeSha);
+  if (!pull) return 0;
+  return (await ledger.add(mainWatchJob({ installationId, owner, repo, prNumber: pull.number, mergeSha, mergedAt }))) ? 1 : 0;
 }

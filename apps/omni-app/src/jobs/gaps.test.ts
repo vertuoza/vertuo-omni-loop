@@ -262,3 +262,71 @@ describe('the comparison — a retro owed at the switch (PRD omni-loop-4 s3)', (
     expect(lines.join('\n')).toContain('installations');
   });
 });
+
+describe('the comparison — a main watch owed at the switch (PRD omni-loop-4 s4)', () => {
+  const NOW = Date.parse('2026-11-12T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const MERGE = 'a'.repeat(40);
+  const MERGED_AT = new Date(NOW - 2 * DAY).toISOString();
+  const lane = (over: Partial<{ repository: string; watchUntil: string }> = {}) => ({ repository: 'acme/widgets', mergeSha: MERGE, mergedAt: MERGED_AT, watchUntil: new Date(NOW + 5 * DAY).toISOString(), ...over });
+  const PULLS = 'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls';
+
+  /** The comparison with a store holding `lanes` still watching, and an installation that knows `routes`. */
+  function compare(lanes: ReturnType<typeof lane>[], routes: Record<string, unknown>, added: NewJob[], ledger = ledgerOf(added)) {
+    return compareGaps({
+      store: { held: () => Promise.resolve([]), watching: () => Promise.resolve(lanes) },
+      ledger,
+      appOctokit: () => stub({ 'GET /repos/{owner}/{repo}/installation': { id: 7 }, 'GET /app/installations': [] }),
+      octokitFor: () => stub(routes),
+      now: () => NOW,
+      log: () => undefined,
+    });
+  }
+
+  const merge = (over: Record<string, unknown> = {}) => ({ number: 12, merged_at: MERGED_AT, merge_commit_sha: MERGE, ...over });
+
+  it('adds a `main-watch` job for a lane still watching inside its seven days, keyed as `/api/github` adds it', async () => {
+    const added: NewJob[] = [];
+    const summary = await compare([lane()], { [PULLS]: [merge({ number: 11, merge_commit_sha: 'b'.repeat(40) }), merge()] }, added);
+    expect(summary.watches).toEqual({ read: 1, added: 1, failed: 0 });
+    expect(added).toEqual([
+      {
+        kind: 'main-watch',
+        key: 'acme/widgets#12',
+        subject: 'acme/widgets',
+        payload: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, mergeSha: MERGE, mergedAt: MERGED_AT },
+        maxTries: 4,
+      },
+    ]);
+  });
+
+  it('adds none for a lane whose seven days are over, or when the ledger already holds the job', async () => {
+    const added: NewJob[] = [];
+    expect((await compare([lane({ watchUntil: new Date(NOW - DAY).toISOString() })], { [PULLS]: [merge()] }, added)).watches).toEqual({ read: 0, added: 0, failed: 0 });
+    expect(added).toEqual([]);
+    expect((await compare([lane()], { [PULLS]: [merge()] }, [], { add: () => Promise.resolve(false) })).watches).toEqual({ read: 1, added: 0, failed: 0 });
+  });
+
+  it('adds none when no merged pull request holds the commit, or the App is not installed on the repository', async () => {
+    const added: NewJob[] = [];
+    expect((await compare([lane()], { [PULLS]: [merge({ merged_at: null })] }, added)).watches).toEqual({ read: 1, added: 0, failed: 0 });
+    const gone = await compareGaps({
+      store: { held: () => Promise.resolve([]), watching: () => Promise.resolve([lane()]) },
+      ledger: ledgerOf(added),
+      appOctokit: () => stub({ 'GET /app/installations': [] }),
+      octokitFor: () => stub({}),
+      now: () => NOW,
+      log: () => undefined,
+    });
+    expect(gone.watches).toEqual({ read: 1, added: 0, failed: 0 });
+    expect(added).toEqual([]);
+  });
+
+  it('counts a repository GitHub refuses and goes on, and stops on a low budget', async () => {
+    const added: NewJob[] = [];
+    const refused = await compare([lane(), lane({ repository: 'acme/other' })], { [PULLS]: new Error('boom') }, added);
+    expect(refused.watches).toEqual({ read: 0, added: 0, failed: 2 });
+    const stopped = await compare([lane()], { [PULLS]: new GithubDeferred(NOW + 3600_000) }, added);
+    expect(stopped.stopped).toBe(true);
+  });
+});

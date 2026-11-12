@@ -1,5 +1,5 @@
 // What each step of the main watch returns (PRD 2410), read back through these schemas (`savedStep`,
-// ../saved-step.ts): Inngest saves a step's value as JSON, and the watch reads its values back for
+// ../saved-step.ts): the ledger saves a step's value as JSON, and the watch reads its values back for
 // seven days, maybe after a deploy that changed what a step returns.
 import { z } from 'zod';
 
@@ -27,5 +27,9 @@ export const RecordedSchema = z.object({ added: z.number().int().min(0) });
 /** A step "close-<lane>": whether the lane was still watching, and is now clean. */
 export const ClosedSchema = z.object({ closed: z.boolean() });
 
-/** What a wait reads of the tick that ended it, if one did: its time. */
-export const TickSchema = z.looseObject({ ts: z.number().exactOptional() }).nullable();
+/**
+ * What a `main-watch` job keeps between its runs (its `progress`, small): the number of the next look, the lanes done
+ * with and the lanes that broke. A job with none has not looked yet: its first run only opens the watch.
+ */
+export const ProgressSchema = z.object({ turn: z.number().int().min(0), done: z.array(text), broke: z.array(text) });
+export type Progress = z.infer<typeof ProgressSchema>;

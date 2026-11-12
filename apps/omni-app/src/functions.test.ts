@@ -1,72 +1,8 @@
-import { InngestTestEngine } from '@inngest/test';
-import { internalEvents } from 'inngest';
 import { describe, expect, it } from 'vitest';
-import { readEnv } from './env.ts';
 import { appFunctions } from './functions.ts';
-import { capture, throwing } from './run-log/capture.ts';
 
-/** A GitHub that is never reached: every installation call throws. */
-const octokitFor = () => {
-  throw new Error('no GitHub here');
-};
-
-const ids = {
-  mainWatch: 'main-watch',
-};
-
-type Fn = ReturnType<typeof appFunctions>[keyof ReturnType<typeof appFunctions>];
-
-/** The event that starts `fn`: its first trigger's, with data none of them accepts, or a timer's tick. */
-function startOf(fn: Fn) {
-  const [trigger] = fn.opts.triggers ?? [];
-  if (trigger && 'event' in trigger) return { name: trigger.event, data: {} };
-  return { name: internalEvents.ScheduledTimer, data: {} };
-}
-
-describe('appFunctions — one inngest line per run (PRD 1723 s6)', () => {
-  it('serves the one function by this id, the main watch: neither the retro, the knowledge harvest, the knowledge pack, the pull-request checks, the pr-stats collector, the escalation, the fix row stamp, the fleet board, the canon buttons nor the server event, which are jobs of the ledger (PRD 2676, PRD 2688, PRD omni-loop-3, PRD omni-loop-4)', () => {
-    const functions = appFunctions(readEnv({}), { octokitFor });
-    expect(Object.fromEntries(Object.entries(functions).map(([name, fn]) => [name, fn.opts.id]))).toEqual(ids);
-    const served = Object.values(functions).map((fn) => fn.opts.id);
-    for (const gone of ['knowledge-pack', 'outbox-check', 'inbox-check', 'approved-check', 'approved-rerun', 'budgets-check', 'pr-stats', 'escalation', 'fix-row-stamp', 'fleet-board', 'canon-action', 'server-event', 'knowledge-harvest', 'retro']) expect(served).not.toContain(gone);
-  });
-
-  for (const [name, id] of Object.entries(ids)) {
-    it(`${name}: a run logs exactly one inngest line, its id in fn, the run id, ok or failed as it ended`, async () => {
-      const log = capture();
-      const fn = appFunctions(readEnv({}), { octokitFor, logger: log.logger })[name as keyof typeof ids];
-      const { error } = await new InngestTestEngine({ function: fn, events: [startOf(fn) as never] }).execute();
-      const lines = log.lines().filter((line) => line.event === 'inngest');
-      expect(lines).toHaveLength(1);
-      expect(lines[0]).toMatchObject({ event: 'inngest', fn: id, outcome: error === undefined ? 'ok' : 'failed' });
-      expect(typeof lines[0]?.runId).toBe('string');
-      expect(typeof lines[0]?.ms).toBe('number');
-    });
-  }
-
-  it('serves no failure handler: the retro’s and the harvest’s are failure hooks of the ledger (PRD omni-loop-4)', () => {
-    const functions = appFunctions(readEnv({}), { octokitFor });
-    const withFailure = Object.entries(functions).filter(([, fn]) => typeof fn.opts.onFailure === 'function');
-    expect(withFailure.map(([name]) => name)).toEqual([]);
-  });
-
-  it('keeps every function’s retries and failure handler as created', () => {
-    const plain = appFunctions(readEnv({}), { octokitFor });
-    const logged = appFunctions(readEnv({}), { octokitFor, logger: throwing });
-    for (const name of Object.keys(ids) as (keyof typeof ids)[]) {
-      const { retries, triggers } = plain[name].opts;
-      expect(logged[name].opts).toMatchObject({ retries, triggers });
-      expect(typeof logged[name].opts.onFailure).toBe(typeof plain[name].opts.onFailure);
-    }
-  });
-
-  it('a logger that throws changes no run’s result or error', async () => {
-    for (const name of Object.keys(ids) as (keyof typeof ids)[]) {
-      const plain = appFunctions(readEnv({}), { octokitFor })[name];
-      const logged = appFunctions(readEnv({}), { octokitFor, logger: throwing })[name];
-      const a = await new InngestTestEngine({ function: plain, events: [startOf(plain) as never] }).execute();
-      const b = await new InngestTestEngine({ function: logged, events: [startOf(logged) as never] }).execute();
-      expect([b.result, (b.error as Error | undefined)?.message]).toEqual([a.result, (a.error as Error | undefined)?.message]);
-    }
+describe('appFunctions — none left on Inngest (PRD omni-loop-4 s4)', () => {
+  it('serves no function: the main watch, the retro, the knowledge harvest, the knowledge pack, the pull-request checks, the pr-stats collector, the escalation, the fix row stamp, the fleet board, the canon buttons and the server event are jobs of the ledger (PRD 2676, PRD 2688, PRD omni-loop-3, PRD omni-loop-4)', () => {
+    expect(appFunctions()).toEqual([]);
   });
 });

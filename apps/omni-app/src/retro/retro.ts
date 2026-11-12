@@ -130,16 +130,6 @@ export const RETRO_KIND = 'retro';
 export const MERGE_RUN = 'merge';
 export const FOLLOW_UP_RUN = 'day-14';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * The tick the retro's daily schedule sent on Inngest, and the longest one wait for it lasted: the main watch,
- * still an Inngest function until PRD omni-loop-4 s4, waits on them a day at a time (../main-watch/main-watch.ts).
- * The retro sends no tick any more: it waits once, on the ledger.
- */
-export const DAY_EVENT = 'omni-loop/retro.day-passed';
-export const DAY_WAIT = 2 * DAY_MS;
-
 /** A retro's tries (Inngest's 3 retries, and the first): the 4th that throws fails it. */
 const MAX_TRIES = 4;
 

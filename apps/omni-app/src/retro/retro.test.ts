@@ -947,7 +947,7 @@ describe('retro — a job of the ledger (PRD omni-loop-4 s3)', () => {
     const { handlers, failures } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
     expect(typeof handlers[RETRO_KIND]).toBe('function');
     expect(typeof failures[RETRO_KIND]).toBe('function');
-    expect(Object.values(appFunctions(readEnv({}), { octokitFor: () => Promise.reject(new Error('unused')) })).map((fn) => fn.opts.id)).not.toContain('retro');
+    expect(appFunctions()).toEqual([]);
   });
 
   it('ends a job `skipped`, with why, when the merge gets no retro', async () => {

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { functions, GET, POST, PUT } from '../../entries/inngest.ts';
 import { EnvError } from '../env.ts';
-import { MAIN_WATCH_FUNCTION_ID } from '../main-watch/main-watch.ts';
 
 describe('/api/inngest', () => {
   beforeEach(() => {
@@ -11,17 +10,12 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the main watch (PRD 2410), and nothing else: the knowledge harvest and the retro are jobs of the ledger (PRD omni-loop-4 s2, s3)', () => {
-    expect(functions.map((fn) => fn.id())).toEqual([MAIN_WATCH_FUNCTION_ID]);
+  it('serves no function: the retro, the knowledge harvest and the main watch are jobs of the ledger (PRD omni-loop-4)', () => {
+    expect(functions).toEqual([]);
   });
 
   it('serves none of the pull-request checks, the fix row stamp, the fleet board, the canon buttons nor the server event: they run on the job ledger (PRD 2688, acceptance 11; PRD omni-loop-3 s3, s4)', () => {
-    const ids = functions.map((fn) => fn.id());
-    for (const gone of ['outbox-check', 'inbox-check', 'approved-check', 'approved-rerun', 'budgets-check', 'fix-row-stamp', 'fleet-board', 'canon-action', 'server-event', 'knowledge-harvest', 'retro']) expect(ids).not.toContain(gone);
-    const triggers = functions.flatMap((fn) => (fn as unknown as { opts: { triggers?: { event?: string }[] } }).opts.triggers ?? []).map((trigger) => trigger.event);
-    for (const event of ['omni-loop/outbox.check.requested', 'omni-loop/inbox.check.requested', 'omni-loop/approved.check.requested', 'omni-loop/approved.label.changed', 'omni-loop/budgets.check.requested', 'omni-loop/fix.stamp.requested', 'omni-loop/fleet-board.requested', 'omni-loop/canon.action.requested', 'omni-loop/server.event.received', 'omni-loop/knowledge.harvest.requested', 'omni-loop/retro.requested']) {
-      expect(triggers).not.toContain(event);
-    }
+    expect(functions.map((fn: { id(): string }) => fn.id())).toEqual([]);
   });
 
   it('answers GET, POST and PUT — the three verbs Inngest calls', () => {
@@ -32,8 +26,7 @@ describe('/api/inngest', () => {
     const response = await GET(new Request('https://omni-loop.example/api/inngest', { headers: { host: 'omni-loop.example' } }));
     expect(response.status).toBe(200);
     const body = (await response.json()) as { function_count: number };
-    // Inngest registers each failure handler as a function of its own, beside its function; the main watch has none.
-    expect(body.function_count).toBe(1);
+    expect(body.function_count).toBe(0);
   });
 });
 
@@ -63,6 +56,6 @@ describe('/api/inngest — the environment, read when the route loads (PRD 1059)
   });
 
   it('loads on a preview with nothing set', async () => {
-    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(1);
+    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(0);
   });
 });

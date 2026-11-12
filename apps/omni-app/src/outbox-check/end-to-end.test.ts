@@ -120,7 +120,6 @@ async function attempt(github: GitHub, { event, payload }: Delivery, run: Run) {
     },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: () => Promise.resolve(),
     refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs.filter((job) => job.kind === OUTBOX_KIND))),
   });
   expect(response.status).toBe(200);
