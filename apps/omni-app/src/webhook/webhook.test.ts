@@ -2,7 +2,7 @@ import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { type AppEvent, APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, HARVEST_EVENT, INBOX_EXTERNAL_ID, RETRO_EVENT } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID } from '../inngest-client.ts';
 import type { RefreshJob } from '../jobs/ledger.ts';
 import { PR_CHECK_KINDS } from '../jobs/pr-checks.ts';
 import { canonActionJob } from '../inbox-check/canon-action.ts';
@@ -18,31 +18,30 @@ import {
   toApprovedLabelRequests,
   toCanonActionRequests,
   toCheckJobs,
-  toEvents,
+  toRetroJobs,
   toFixStampRequests,
   toFleetBoardRequests,
-  toHarvestRequests,
-  toMainWatchRequests,
+  toHarvestJobs,
+  toMainWatchJobs,
+  toMainWatchWakes,
   toQueuedJobs,
   toRetroRequests,
 } from './webhook.ts';
 import { FLEET_BOARD_EVENT } from '../fleet-board/events.ts';
 import { fleetBoardJob } from '../fleet-board/job.ts';
 import { fixRowStampJob } from '../fix-rows/job.ts';
+import { harvestJob } from '../knowledge-harvest/knowledge-harvest.ts';
+import { mainWatchJob } from '../main-watch/main-watch.ts';
+import { retroJob } from '../retro/retro.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
-import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, type MainWatchRequest } from '../main-watch/events.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
 import { FIX_STAMP_EVENT, type FixStampData } from '../fix-rows/fix-stamp.ts';
 import type { Touch } from '../stage-forward/touch.ts';
 
 const SECRET = 'shh-test-secret';
 
-/** What `/api/github` hands Inngest, as a test stubs it. */
-type Send = (events: AppEvent[]) => Promise<unknown>;
-/** A send that takes every event: Inngest's answer, ids and all. */
-const sending = () => vi.fn<Send>(() => Promise.resolve({ ids: ['evt'] }));
 /** A forward that takes every stage event. */
 const forwarding = () => vi.fn<(event: StageEvent) => Promise<unknown>>(() => Promise.resolve());
 
@@ -93,31 +92,28 @@ const checkJob = (kind: string, trigger: string): RefreshJob => ({
 });
 
 /** A delivery: `signature` null sends none, and left out signs the body with the secret. */
-type Delivery = { event?: string; payload?: unknown; signature?: string | null; secret?: string; send?: ReturnType<typeof sending> };
+type Delivery = { event?: string; payload?: unknown; signature?: string | null; secret?: string };
 
-/** The delivery received: the answer, what `send` was handed, and the checks' jobs refreshed. */
-function deliver({ event = 'pull_request', payload = pullRequestPayload('opened'), signature, secret = SECRET, send }: Delivery = {}) {
+/** The delivery received: the answer, and the checks' jobs refreshed. */
+function deliver({ event = 'pull_request', payload = pullRequestPayload('opened'), signature, secret = SECRET }: Delivery = {}) {
   const body = JSON.stringify(payload);
   const headers: Record<string, string> = { 'x-github-event': event, 'x-github-delivery': 'd-1' };
   if (signature !== null) headers['x-hub-signature-256'] = signature ?? sign(body);
-  const sent = send ?? sending();
   const refreshed: RefreshJob[] = [];
   const refreshJobs = (jobs: RefreshJob[]) => Promise.resolve(refreshed.push(...jobs));
-  return receiveWebhook({ body, headers, secret, send: sent, refreshJobs, forward: forwarding() }).then((response) => ({ response, send: sent, refreshed }));
+  return receiveWebhook({ body, headers, secret, refreshJobs, forward: forwarding() }).then((response) => ({ response, refreshed }));
 }
 
 describe('webhook — the signature', () => {
-  it('refreshes the four checks\' jobs of a validly signed, handled pull request, and sends Inngest nothing (PRD 2688)', async () => {
-    const { response, send, refreshed } = await deliver();
+  it('refreshes the four checks\' jobs of a validly signed, handled pull request, (PRD 2688)', async () => {
+    const { response, refreshed } = await deliver();
     expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
-    expect(send).not.toHaveBeenCalled();
     expect(refreshed).toEqual(PR_CHECK_KINDS.map((kind) => checkJob(kind, 'pull_request.opened')));
   });
 
   it('answers 401 and refreshes nothing to a wrong signature', async () => {
-    const { response, send, refreshed } = await deliver({ signature: sign('{"tampered":true}') });
+    const { response, refreshed } = await deliver({ signature: sign('{"tampered":true}') });
     expect(response.status).toBe(401);
-    expect(send).not.toHaveBeenCalled();
     expect(refreshed).toEqual([]);
   });
 
@@ -156,9 +152,8 @@ describe('webhook — the event and action filter', () => {
   });
 
   it('answers 200 and refreshes nothing on a closed pull request that was not merged', async () => {
-    const { response, send, refreshed } = await deliver({ payload: pullRequestPayload('closed') });
+    const { response, refreshed } = await deliver({ payload: pullRequestPayload('closed') });
     expect(response).toEqual({ status: 200, body: 'ignored' });
-    expect(send).not.toHaveBeenCalled();
     expect(refreshed).toEqual([]);
   });
 
@@ -174,9 +169,8 @@ describe('webhook — the event and action filter', () => {
     ['ping', { zen: 'Keep it logically awesome.' }],
     ['check_suite', { action: 'requested', installation: INSTALLATION, repository: REPOSITORY }],
   ])('answers 200 and sends nothing to an unrelated %s event', async (event, payload) => {
-    const { response, send, refreshed } = await deliver({ event, payload });
+    const { response, refreshed } = await deliver({ event, payload });
     expect(response.status).toBe(200);
-    expect(send).not.toHaveBeenCalled();
     expect(refreshed).toEqual([]);
   });
 
@@ -187,9 +181,8 @@ describe('webhook — the event and action filter', () => {
   });
 
   it('turns check_run.rerequested of the outbox check into its one job, for its pull request', async () => {
-    const { response, send, refreshed } = await deliver({ event: 'check_run', payload: rerequestedPayload() });
+    const { response, refreshed } = await deliver({ event: 'check_run', payload: rerequestedPayload() });
     expect(response.status).toBe(200);
-    expect(send).not.toHaveBeenCalled();
     expect(refreshed).toEqual([checkJob('pr-outbox', 'check_run.rerequested')]);
   });
 
@@ -208,9 +201,9 @@ describe('webhook — the event and action filter', () => {
     expect(toCheckJobs('check_run', payload).map((job) => job.kind)).toEqual(['pr-outbox']);
   });
 
-  it('turns no handled pull request action into an Inngest event: the checks are jobs (PRD 2688)', () => {
+  it('turns no handled pull request action into a retro job: the checks are jobs of their own (PRD 2688)', () => {
     for (const action of CHECK_ACTIONS.pull_request) {
-      expect(toEvents('pull_request', pullRequestPayload(action))).toEqual([]);
+      expect(toRetroJobs('pull_request', pullRequestPayload(action))).toEqual([]);
     }
   });
 
@@ -230,27 +223,19 @@ describe('webhook — the event and action filter', () => {
 
   it('answers 400 to a signed body that is not JSON', async () => {
     const body = 'not json';
-    const send = vi.fn();
     const response = await receiveWebhook({
       body,
       headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) },
       secret: SECRET,
-      send,
       forward: forwarding(),
     });
     expect(response.status).toBe(400);
-    expect(send).not.toHaveBeenCalled();
   });
 
-  it('answers 502 when an event cannot be sent, so GitHub records a failed delivery', async () => {
-    const send = vi.fn<Send>(() => Promise.reject(new Error('inngest down')));
-    const { response } = await deliver({ payload: mergedPayload(), send });
-    expect(response.status).toBe(502);
-  });
 });
 
 describe('webhook — the checks\' jobs come first (PRD 2688 s7)', () => {
-  it('refreshes the jobs before anything else is called: the stage event, the touches and Inngest after', async () => {
+  it('refreshes the jobs before anything else is called: the stage event and the touches after', async () => {
     const order: string[] = [];
     const payload = pullRequestPayload('ready_for_review', { pull_request: { number: 28, head: { sha: 'abc123', ref: 'feat/x' }, base: { ref: 'main' } } });
     const body = JSON.stringify(payload);
@@ -258,7 +243,6 @@ describe('webhook — the checks\' jobs come first (PRD 2688 s7)', () => {
       body,
       headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) },
       secret: SECRET,
-      send: () => Promise.resolve(order.push('send')),
       refreshJobs: (jobs) => Promise.resolve(order.push(...jobs.map((job) => `refresh ${job.kind}`))),
       forward: () => Promise.resolve(order.push('forward')),
       touch: () => Promise.resolve(order.push('touch')),
@@ -274,7 +258,7 @@ describe('webhook — the checks\' jobs come first (PRD 2688 s7)', () => {
       body,
       headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) },
       secret: SECRET,
-      send: sending(),
+     
       refreshJobs: () => Promise.reject(new Error('the database refused: down')),
       forward: forwarding(),
       log: (line) => logged.push(line),
@@ -354,72 +338,68 @@ const mergedPayload = (over = {}) =>
   });
 
 describe('webhook — the retro route (PRD 72)', () => {
-  it('turns a merged pull request into one retro event and one harvest event (PRD 82), and refreshes no check', async () => {
-    const { response, send, refreshed } = await deliver({ payload: mergedPayload() });
+  it('turns a merged pull request into its jobs and refreshes no check; its retro, its harvest and its main watch are jobs (PRD omni-loop-4 s2, s3, s4)', async () => {
+    const { response, refreshed } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
     expect(refreshed).toEqual([]);
-    // The retro, the harvest, and beside them the main watch (PRD 2410), which `send` never gets; and the fix stamp's job (PRD omni-loop-3 s3).
-    expect(response.body).toBe('sent 3 · 1 jobs');
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toEqual([
-      {
-        name: RETRO_EVENT,
-        data: {
-          installationId: 4242,
-          owner: 'vertuoza',
-          repo: 'vertuo-omni-loop',
-          repository: 'vertuoza/vertuo-omni-loop',
-          prNumber: 28,
-          mergeSha: MERGE_SHA,
-          mergedAt: MERGED_AT,
-        },
-      },
-      {
-        name: HARVEST_EVENT,
-        data: {
-          installationId: 4242,
-          owner: 'vertuoza',
-          repo: 'vertuo-omni-loop',
-          repository: 'vertuoza/vertuo-omni-loop',
-          prNumber: 28,
-        },
-      },
-    ]);
+    // The fix stamp's, the harvest's, the retro's and the main watch's jobs.
+    expect(response.body).toBe('sent 0 · 4 jobs');
   });
 
-  it('turns a closed, unmerged pull request into nothing', () => {
-    expect(toEvents('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+  it('turns a merged pull request into one retro job, keyed by repository and pull request, in the lane of the repository, carrying where and when it merged', () => {
+    const jobs = toRetroJobs('pull_request', mergedPayload());
+    expect(jobs).toEqual([retroJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28), mergeSha: MERGE_SHA, mergedAt: MERGED_AT })]);
+    expect(jobs[0]).toMatchObject({
+      kind: 'retro',
+      key: 'vertuoza/vertuo-omni-loop#28',
+      lane: 'vertuoza/vertuo-omni-loop',
+      payload: { installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', repository: 'vertuoza/vertuo-omni-loop', prNumber: 28, mergeSha: MERGE_SHA, mergedAt: MERGED_AT },
+    });
+    expect(jobs[0]?.payload).not.toHaveProperty('owed');
+  });
+
+  it('turns a merged pull request into one knowledge-harvest job, keyed by repository and pull request, in the lane of the repository', () => {
+    const jobs = toHarvestJobs('pull_request', mergedPayload());
+    expect(jobs).toEqual([harvestJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28) })]);
+    expect(jobs[0]).toMatchObject({ kind: 'knowledge-harvest', key: 'vertuoza/vertuo-omni-loop#28', lane: 'vertuoza/vertuo-omni-loop' });
+  });
+
+  it('turns a closed, unmerged pull request into no retro job', () => {
+    expect(toRetroJobs('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
   });
 
   it('turns a merged pull request without a merge SHA into nothing', () => {
     expect(toRetroRequests('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
+    expect(toRetroJobs('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
   });
 
-  it('turns a pull request merged into another branch than the default, a sub-PR, into no retro and no harvest event (#1409)', () => {
+  it('turns a pull request merged into another branch than the default, a sub-PR, into no retro job and no harvest job (#1409)', () => {
     const subPr = mergedPayload({ head: { sha: 'abc123', ref: 'feat/retro--s1' }, base: { ref: 'feat/retro' } });
     expect(toRetroRequests('pull_request', subPr)).toEqual([]);
-    expect(toHarvestRequests('pull_request', subPr)).toEqual([]);
-    expect(toEvents('pull_request', subPr)).toEqual([]);
+    expect(toHarvestJobs('pull_request', subPr)).toEqual([]);
+    expect(toRetroJobs('pull_request', subPr)).toEqual([]);
   });
 
-  it('leaves the rest of the qualifying to the functions: any pull request merged into the default branch becomes both events', () => {
-    const events = toEvents('pull_request', mergedPayload({ head: { sha: 'abc123', ref: 'docs/phase-0-retro' } }));
-    expect(events.map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+  it('leaves the rest of the qualifying to the retro and the harvest: any pull request merged into the default branch becomes both jobs', () => {
+    const payload = mergedPayload({ head: { sha: 'abc123', ref: 'docs/phase-0-retro' } });
+    expect(toRetroJobs('pull_request', payload)).toHaveLength(1);
+    expect(toHarvestJobs('pull_request', payload)).toHaveLength(1);
   });
 
-  it('sends both events when the delivery names no default branch, as before (#1409)', () => {
+  it('adds both jobs when the delivery names no default branch, as before (#1409)', () => {
     const payload = { ...mergedPayload({ base: { ref: 'feat/retro' } }), repository: { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } } };
-    expect(toEvents('pull_request', payload).map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+    expect(toRetroJobs('pull_request', payload)).toHaveLength(1);
+    expect(toHarvestJobs('pull_request', payload)).toHaveLength(1);
   });
 
-  it('turns a closed, unmerged pull request into no harvest event', () => {
-    expect(toHarvestRequests('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+  it('turns a closed, unmerged pull request into no harvest job', () => {
+    expect(toHarvestJobs('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
   });
 
-  it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro or harvest event', (action) => {
+  it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro job or a harvest job', (action) => {
     expect(toRetroRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
-    expect(toHarvestRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
-    expect(toEvents('pull_request', { ...mergedPayload(), action })).toEqual([]);
+    expect(toHarvestJobs('pull_request', { ...mergedPayload(), action })).toEqual([]);
+    expect(toRetroJobs('pull_request', { ...mergedPayload(), action })).toEqual([]);
     expect(toCheckJobs('pull_request', { ...mergedPayload(), action })).toHaveLength(4);
   });
 
@@ -452,14 +432,13 @@ describe('webhook — the stage events (PRD 587)', () => {
 
   const receive = (
     payload: unknown,
-    { forward = forwarding(), send = sending(), signature }: { forward?: ReturnType<typeof forwarding>; send?: ReturnType<typeof sending>; signature?: string } = {},
+    { forward = forwarding(), signature }: { forward?: ReturnType<typeof forwarding>; signature?: string } = {},
   ) => {
     const body = JSON.stringify(payload);
     return receiveWebhook({
       body,
       headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': signature ?? sign(body) },
       secret: SECRET,
-      send,
       forward,
     });
   };
@@ -483,10 +462,8 @@ describe('webhook — the stage events (PRD 587)', () => {
     expect(forwarded.at).toEqual(expect.any(String));
   });
 
-  it('keeps the retro and harvest events and the checks\' jobs unchanged beside it', async () => {
-    const send = sending();
-    await receive(stagePayload('closed', 'feat/real-stages', 'main'), { send, forward: forwarding() });
-    expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+  it('keeps the retro job and the checks\' jobs unchanged beside it', () => {
+    expect(toRetroJobs('pull_request', stagePayload('closed', 'feat/real-stages', 'main')).map((job) => job.kind)).toEqual(['retro']);
     expect(toCheckJobs('pull_request', stagePayload('ready_for_review', 'feat/x', 'main')).map((job) => job.kind)).toEqual([...PR_CHECK_KINDS]);
   });
 
@@ -499,7 +476,7 @@ describe('webhook — the stage events (PRD 587)', () => {
     expect(forward).not.toHaveBeenCalled();
   });
 
-  it('never fails the reply when the forward throws, nor when the Inngest send finds nothing to send', async () => {
+  it('never fails the reply when the forward throws', async () => {
     const forward = vi.fn<(event: StageEvent) => Promise<unknown>>(() => Promise.reject(new Error('galaxy down')));
     const response = await receive(cases[0]?.[1], { forward });
     expect(response.status).toBe(200);
@@ -513,7 +490,7 @@ describe('webhook — touches (PRD 902, s3)', () => {
       body,
       headers: { 'x-github-event': event, 'x-hub-signature-256': signature ?? sign(body) },
       secret: SECRET,
-      send: sending(),
+     
       forward: forwarding(),
       touch,
     });
@@ -568,26 +545,23 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     expect(CANON_ACTIONS.check_run).toEqual(['requested_action']);
   });
 
-  /** A signed click delivered as GitHub sends it, delivery `d-1`: the answer, what went to Inngest and the jobs queued. */
+  /** A signed click delivered as GitHub sends it, delivery `d-1`: the answer and the jobs queued. */
   async function deliverClick(payload: unknown, queueJobs?: (jobs: NewJob[]) => Promise<unknown>) {
     const body = JSON.stringify(payload);
-    const send = sending();
     const queued: NewJob[] = [];
     const response = await receiveWebhook({
       body,
       headers: { 'x-github-event': 'check_run', 'x-github-delivery': 'd-1', 'x-hub-signature-256': sign(body) },
       secret: SECRET,
-      send,
       queueJobs: queueJobs ?? ((jobs) => Promise.resolve(queued.push(...jobs))),
       forward: forwarding(),
     });
-    return { response, send, queued };
+    return { response, queued };
   }
 
-  it.each([CANON_ACTION.rewrite, CANON_ACTION.claim])('turns a click of %s on an inbox check run into one canon-action job, keyed by the delivery, and sends Inngest nothing (PRD omni-loop-3 s4)', async (identifier) => {
-    const { response, send, queued } = await deliverClick(clicked(identifier));
+  it.each([CANON_ACTION.rewrite, CANON_ACTION.claim])('turns a click of %s on an inbox check run into one canon-action job, keyed by the delivery, (PRD omni-loop-3 s4)', async (identifier) => {
+    const { response, queued } = await deliverClick(clicked(identifier));
     expect(response).toEqual({ status: 200, body: 'sent 0 · 1 jobs' });
-    expect(send).not.toHaveBeenCalled();
     const click = {
       installationId: 4242,
       owner: 'vertuoza',
@@ -615,7 +589,7 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
   it('a click GitHub sent with no delivery id is still one job, under a fresh key', async () => {
     const body = JSON.stringify(clicked(CANON_ACTION.claim));
     const queued: NewJob[] = [];
-    await receiveWebhook({ body, headers: { 'x-github-event': 'check_run', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), queueJobs: (jobs) => Promise.resolve(queued.push(...jobs)), forward: forwarding() });
+    await receiveWebhook({ body, headers: { 'x-github-event': 'check_run', 'x-hub-signature-256': sign(body) }, secret: SECRET, queueJobs: (jobs) => Promise.resolve(queued.push(...jobs)), forward: forwarding() });
     expect(queued).toHaveLength(1);
     expect(queued[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
   });
@@ -625,8 +599,8 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     expect(response).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
   });
 
-  it('never re-runs a check for a click, and sends no event for it', () => {
-    expect(toEvents('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
+  it('never re-runs a check for a click, and adds no retro for it', () => {
+    expect(toRetroJobs('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
     expect(toCheckJobs('check_run', clicked(CANON_ACTION.rewrite))).toEqual([]);
   });
 
@@ -637,9 +611,8 @@ describe('webhook — the two actions on a red canon check (PRD 839)', () => {
     ['a check run tied to no pull request', clicked(CANON_ACTION.claim, { pull_requests: [] })],
   ])('adds nothing for %s', async (_, payload) => {
     expect(toCanonActionRequests('check_run', payload)).toEqual([]);
-    const { response, send, queued } = await deliverClick(payload);
+    const { response, queued } = await deliverClick(payload);
     expect(response.status).toBe(200);
-    expect(send).not.toHaveBeenCalled();
     expect(queued).toEqual([]);
   });
 });
@@ -677,26 +650,23 @@ describe('webhook — the approved label (PRD 1612)', () => {
     expect(toApprovedLabelRequests('pull_request', labelPayload('labeled'))).toEqual([]);
   });
 
-  it('is no Inngest event and refreshes no check of its own', () => {
-    expect(toEvents('issues', labelPayload('labeled'))).toEqual([]);
+  it('is no retro job and refreshes no check of its own', () => {
+    expect(toRetroJobs('issues', labelPayload('labeled'))).toEqual([]);
     expect(toCheckJobs('issues', labelPayload('labeled'))).toEqual([]);
   });
 
-  it('a signed delivery of the approved label hands the re-run to rerunApproved, nothing to send', async () => {
+  it('a signed delivery of the approved label hands the re-run to rerunApproved', async () => {
     const payload = labelPayload('unlabeled');
     const body = JSON.stringify(payload);
-    const send = sending();
     const rerunApproved = vi.fn(() => Promise.resolve());
     const response = await receiveWebhook({
       body,
       headers: { 'x-github-event': 'issues', 'x-hub-signature-256': sign(body) },
       secret: SECRET,
-      send,
       rerunApproved,
       forward: forwarding(),
     });
     expect(response).toEqual({ status: 200, body: 'sent 0 · 1 jobs' });
-    expect(send).not.toHaveBeenCalled();
     expect(rerunApproved).toHaveBeenCalledWith(toApprovedLabelRequests('issues', payload));
   });
 });
@@ -747,91 +717,94 @@ describe('webhook — the fix stamp (PRD 2011 s7)', () => {
     expect(HANDLED.pull_request).toEqual(expect.arrayContaining([...FIX_STAMP_ACTIONS.pull_request]));
   });
 
-  it('a signed delivery hands its `fix-row-stamp` job to queueJobs, not to Inngest, beside the events `send` gets (PRD omni-loop-3 s3)', async () => {
+  it('a signed delivery hands its `fix-row-stamp` job to queueJobs, not to Inngest, beside the harvest’s and the retro’s jobs (PRD omni-loop-3 s3, omni-loop-4 s3)', async () => {
     const payload = mergedPayload({ body: FIXES });
     const body = JSON.stringify(payload);
-    const send = sending();
     const queueJobs = vi.fn((jobs: NewJob[]) => Promise.resolve(jobs.length));
-    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send, queueJobs, forward: forwarding() });
-    expect(response).toEqual({ status: 200, body: 'sent 3 · 1 jobs' });
-    expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
-    expect(queueJobs).toHaveBeenCalledWith([fixRowStampJob(stampOf('merged', MERGED_AT, 'mobile-B74').data as FixStampData)]);
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, queueJobs, forward: forwarding() });
+    expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
+    expect(queueJobs).toHaveBeenCalledWith([
+      fixRowStampJob(stampOf('merged', MERGED_AT, 'mobile-B74').data as FixStampData),
+      harvestJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28) }),
+      retroJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28), mergeSha: MERGE_SHA, mergedAt: MERGED_AT }),
+      mainWatchJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28), mergeSha: MERGE_SHA, mergedAt: MERGED_AT }),
+    ]);
     expect(queueJobs.mock.calls[0]?.[0][0]).toMatchObject({ kind: 'fix-row-stamp', key: `vertuoza/vertuo-omni-loop#28@merged@${MERGED_AT}`, maxTries: 4 });
   });
 
-  it('answers 500 when the job cannot be added, and sends Inngest nothing', async () => {
+  it('answers 500 when the job cannot be added,', async () => {
     const closed = JSON.stringify(closedPayload());
-    const send = sending();
     const failing = vi.fn(() => Promise.reject(new Error('the database refused: down')));
-    const refused = await receiveWebhook({ body: closed, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(closed) }, secret: SECRET, send, queueJobs: failing, forward: forwarding() });
+    const refused = await receiveWebhook({ body: closed, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(closed) }, secret: SECRET, queueJobs: failing, forward: forwarding() });
     expect(refused).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
-    expect(send).not.toHaveBeenCalled();
   });
 
   it('a delivery with a bad signature hands queueJobs nothing', async () => {
     const body = JSON.stringify(mergedPayload());
     const queueJobs = vi.fn(() => Promise.resolve());
-    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send: sending(), queueJobs, forward: forwarding() });
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, queueJobs, forward: forwarding() });
     expect(response.status).toBe(401);
     expect(queueJobs).not.toHaveBeenCalled();
   });
 });
 
-describe('webhook — the main watch (PRD 2410)', () => {
+describe('webhook — the main watch (PRD 2410, PRD omni-loop-4 s4)', () => {
   const suitePayload = (over: Record<string, unknown> = {}, repository: Record<string, unknown> = REPOSITORY) => ({
     action: 'completed',
     installation: INSTALLATION,
     repository,
     check_suite: { id: 77, head_branch: 'main', head_sha: MERGE_SHA, status: 'completed', conclusion: 'failure', ...over },
   });
-  const ciEvent = { name: MAIN_WATCH_CI_EVENT, id: 'main-watch-ci:vertuoza/vertuo-omni-loop:77', data: { installationId: 4242, repository: 'vertuoza/vertuo-omni-loop', sha: MERGE_SHA } };
 
-  it('turns a pull request merged into the default branch into one main watch event, carrying its merge, with an id', () => {
-    expect(toMainWatchRequests('pull_request', mergedPayload())).toEqual([
-      {
-        name: MAIN_WATCH_EVENT,
-        id: `main-watch:vertuoza/vertuo-omni-loop#28:${MERGE_SHA}`,
-        data: { installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', repository: 'vertuoza/vertuo-omni-loop', prNumber: 28, mergeSha: MERGE_SHA, mergedAt: MERGED_AT },
-      },
-    ]);
-    expect(toMainWatchRequests('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }))).toEqual([]);
-    expect(toMainWatchRequests('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
-    expect(toMainWatchRequests('pull_request', pullRequestPayload('opened'))).toEqual([]);
+  it('turns a pull request merged into the default branch into one main-watch job, carrying its merge, in no lane', () => {
+    const job = mainWatchJob({ installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', prNumber: parsePr(28), mergeSha: MERGE_SHA, mergedAt: MERGED_AT });
+    expect(toMainWatchJobs('pull_request', mergedPayload())).toEqual([job]);
+    expect(job).toMatchObject({
+      kind: 'main-watch',
+      key: 'vertuoza/vertuo-omni-loop#28',
+      subject: 'vertuoza/vertuo-omni-loop',
+      maxTries: 4,
+      payload: { installationId: 4242, owner: 'vertuoza', repo: 'vertuo-omni-loop', repository: 'vertuoza/vertuo-omni-loop', prNumber: 28, mergeSha: MERGE_SHA, mergedAt: MERGED_AT },
+    });
+    expect(job.lane).toBeUndefined();
+    expect(toMainWatchJobs('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }))).toEqual([]);
+    expect(toMainWatchJobs('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+    expect(toMainWatchJobs('pull_request', pullRequestPayload('opened'))).toEqual([]);
   });
 
-  it('turns a check suite of the default branch that completed red into one CI event naming its commit', () => {
+  it('turns a check suite of the default branch that completed red into the commit it ran on', () => {
     for (const conclusion of ['failure', 'timed_out', 'startup_failure']) {
-      expect(toMainWatchRequests('check_suite', suitePayload({ conclusion })), conclusion).toEqual([ciEvent]);
+      expect(toMainWatchWakes('check_suite', suitePayload({ conclusion })), conclusion).toEqual([MERGE_SHA]);
     }
     const noDefault = { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } };
-    expect(toMainWatchRequests('check_suite', suitePayload({ head_branch: 'feat/x' }, noDefault))).toEqual([ciEvent]);
+    expect(toMainWatchWakes('check_suite', suitePayload({ head_branch: 'feat/x' }, noDefault))).toEqual([MERGE_SHA]);
   });
 
   it('turns a green, neutral or cancelled suite, a suite of another branch, another action or a suite missing its commit into none', () => {
     for (const conclusion of ['success', 'neutral', 'cancelled', 'skipped', null]) {
-      expect(toMainWatchRequests('check_suite', suitePayload({ conclusion })), String(conclusion)).toEqual([]);
+      expect(toMainWatchWakes('check_suite', suitePayload({ conclusion })), String(conclusion)).toEqual([]);
     }
-    expect(toMainWatchRequests('check_suite', suitePayload({ head_branch: 'feat/x' }))).toEqual([]);
-    expect(toMainWatchRequests('check_suite', { ...suitePayload(), action: 'requested' })).toEqual([]);
-    expect(toMainWatchRequests('check_suite', suitePayload({ head_sha: null }))).toEqual([]);
-    expect(toMainWatchRequests('check_suite', suitePayload({ id: null }))).toEqual([]);
-    expect(toMainWatchRequests('check_suite', { ...suitePayload(), installation: null })).toEqual([]);
-    expect(toEvents('check_suite', suitePayload())).toEqual([]);
+    expect(toMainWatchWakes('check_suite', suitePayload({ head_branch: 'feat/x' }))).toEqual([]);
+    expect(toMainWatchWakes('check_suite', { ...suitePayload(), action: 'requested' })).toEqual([]);
+    expect(toMainWatchWakes('check_suite', suitePayload({ head_sha: null }))).toEqual([]);
+    expect(toMainWatchWakes('check_suite', suitePayload({ id: null }))).toEqual([]);
+    expect(toMainWatchWakes('check_suite', { ...suitePayload(), installation: null })).toEqual([]);
+    expect(toMainWatchWakes('pull_request', mergedPayload())).toEqual([]);
+    expect(toRetroJobs('check_suite', suitePayload())).toEqual([]);
+    expect(toMainWatchJobs('check_suite', suitePayload())).toEqual([]);
   });
 
-  it('a signed delivery hands the main watch its events, nothing to send, and answers 502 when they cannot be sent', async () => {
+  it('a signed delivery of a red suite hands the commit to wakeWatch, and answers 502 when the watch cannot be woken', async () => {
     const body = JSON.stringify(suitePayload());
     const headers = { 'x-github-event': 'check_suite', 'x-hub-signature-256': sign(body) };
-    const send = sending();
-    const sendWatch = vi.fn((events: MainWatchRequest[]) => Promise.resolve(events.length));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendWatch, forward: forwarding() })).toEqual({ status: 200, body: 'sent 1' });
-    expect(sendWatch).toHaveBeenCalledWith([ciEvent]);
-    expect(send).not.toHaveBeenCalled();
+    const wakeWatch = vi.fn((shas: string[]) => Promise.resolve(shas.length));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, wakeWatch, forward: forwarding() })).toEqual({ status: 200, body: 'sent 1' });
+    expect(wakeWatch).toHaveBeenCalledWith([MERGE_SHA]);
 
-    const failing = vi.fn(() => Promise.reject(new Error('inngest is down')));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendWatch: failing, forward: forwarding() })).toEqual({ status: 502, body: 'could not send the event: inngest is down' });
+    const failing = vi.fn(() => Promise.reject(new Error('the database refused: down')));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, wakeWatch: failing, forward: forwarding() })).toEqual({ status: 502, body: 'could not wake the watch: the database refused: down' });
     const bad = vi.fn(() => Promise.resolve());
-    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send, sendWatch: bad, forward: forwarding() })).status).toBe(401);
+    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, wakeWatch: bad, forward: forwarding() })).status).toBe(401);
     expect(bad).not.toHaveBeenCalled();
   });
 });
@@ -913,38 +886,36 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     for (const action of ['opened', 'reopened', 'ready_for_review', 'edited']) {
       const signed = loopPull(action);
       const byHand = loopPull(action, { body: 'by hand' });
-      expect(toEvents('pull_request', signed)).toEqual(toEvents('pull_request', byHand));
+      expect(toRetroJobs('pull_request', signed)).toEqual(toRetroJobs('pull_request', byHand));
       expect(toCheckJobs('pull_request', signed)).toEqual(toCheckJobs('pull_request', byHand));
       expect(toCheckJobs('pull_request', signed)).toHaveLength(4);
       expect(toFixStampRequests('pull_request', signed)).toEqual(toFixStampRequests('pull_request', byHand));
-      expect(toMainWatchRequests('pull_request', signed)).toEqual([]);
+      expect(toMainWatchJobs('pull_request', signed)).toEqual([]);
       expect(toApprovedLabelRequests('pull_request', signed)).toEqual([]);
     }
     expect(toFixStampRequests('pull_request', loopPull('reopened')).map((event) => event.name)).toEqual([FIX_STAMP_EVENT]);
   });
 
-  it('a signed delivery hands queueJobs its `fleet-board` job beside the checks\' jobs, sends Inngest nothing, and answers 500 when it cannot be added (PRD omni-loop-3 s3)', async () => {
+  it('a signed delivery hands queueJobs its `fleet-board` job beside the checks\' jobs, and answers 500 when it cannot be added (PRD omni-loop-3 s3)', async () => {
     const body = JSON.stringify(loopPull('opened'));
     const headers = { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) };
-    const send = sending();
     const queueJobs = vi.fn((jobs: NewJob[]) => Promise.resolve(jobs.length));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, send, queueJobs, forward: forwarding() })).toEqual({ status: 200, body: 'sent 0 · 5 jobs' });
+    expect(await receiveWebhook({ body, headers, secret: SECRET, queueJobs, forward: forwarding() })).toEqual({ status: 200, body: 'sent 0 · 5 jobs' });
     expect(queueJobs).toHaveBeenCalledWith([fleetBoardJob(boardEvent('opened').data as never)]);
     expect(queueJobs.mock.calls[0]?.[0][0]).toMatchObject({ kind: 'fleet-board', key: 'vertuoza/vertuo-omni-loop#28', maxTries: 4 });
     expect(queueJobs.mock.calls[0]?.[0][0]).not.toHaveProperty('lane');
-    expect(send).not.toHaveBeenCalled();
 
     const failing = vi.fn(() => Promise.reject(new Error('the database refused: down')));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, send, queueJobs: failing, forward: forwarding() })).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
+    expect(await receiveWebhook({ body, headers, secret: SECRET, queueJobs: failing, forward: forwarding() })).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
     const bad = vi.fn(() => Promise.resolve());
-    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send, queueJobs: bad, forward: forwarding() })).status).toBe(401);
+    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, queueJobs: bad, forward: forwarding() })).status).toBe(401);
     expect(bad).not.toHaveBeenCalled();
   });
 
   it('a pull request typed by hand hands the fleet board nothing', async () => {
     const body = JSON.stringify(loopPull('opened', { body: 'by hand' }));
     const queueJobs = vi.fn(() => Promise.resolve());
-    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), queueJobs, forward: forwarding() });
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, queueJobs, forward: forwarding() });
     expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
     expect(queueJobs).not.toHaveBeenCalled();
     expect(toQueuedJobs('pull_request', loopPull('opened', { body: 'by hand' }), 'd-1')).toEqual([]);

@@ -1,5 +1,6 @@
 // The comparison, on a stubbed GitHub and a fake ledger (PRD 2676 s4): no pack, an older pack, the same pack, a
-// repository the App is not installed on, a low budget.
+// repository the App is not installed on, a low budget. Then its retro's rule (PRD omni-loop-4 s3): a feature PR
+// merged in the last fourteen days gets an owed `retro` job, under the same budget.
 import { GithubDeferred } from '@omni/github';
 import { describe, expect, it } from 'vitest';
 import type { RequestOctokit } from '../knowledge-harvest/github.ts';
@@ -148,5 +149,184 @@ describe('the comparison (PRD 2676 s4)', () => {
       log: () => undefined,
     });
     expect(summary).toMatchObject({ read: 0, failed: 2, stopped: false });
+  });
+});
+
+describe('the comparison — a retro owed at the switch (PRD omni-loop-4 s3)', () => {
+  const NOW = Date.parse('2026-11-12T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const FEATURE_CONFIG = ['kit: 1', 'branches:', '  feature: feat/{topic}'].join('\n');
+  const WIDGETS = { name: 'widgets', owner: { login: 'acme' }, default_branch: 'main' };
+
+  /** A pull request merged into main `days` days before NOW, from `head`. */
+  const merged = (number: number, days: number, head = `feat/topic-${String(number)}`) => ({
+    number,
+    merged_at: new Date(NOW - days * DAY).toISOString(),
+    merge_commit_sha: `m${String(number)}`,
+    head: { ref: head },
+  });
+
+  /** An installation holding `acme/widgets`, whose closed pull requests into main are `pulls`, its config `config`. */
+  function installed(pulls: unknown[], { config = FEATURE_CONFIG, calls = [] as string[] } = {}) {
+    return stub(
+      {
+        'GET /installation/repositories': { repositories: [WIDGETS] },
+        'GET /repos/{owner}/{repo}/pulls': pulls,
+        [TREE]: (params?: Record<string, unknown>) => ({
+          truncated: false,
+          tree: params?.tree_sha === 'd' ? [{ path: 'config.yml', mode: '100644', type: 'blob', sha: 'f', size: config.length }] : [{ path: '.omni-loop', mode: '040000', type: 'tree', sha: 'd' }],
+        }),
+        [BLOB]: { content: Buffer.from(config).toString('base64'), encoding: 'base64' },
+      },
+      calls,
+    );
+  }
+
+  const app = () => stub({ 'GET /app/installations': [{ id: 7 }] });
+
+  /** The comparison with no product-held repository: only the retro's rule runs. */
+  const compare = (octokit: RequestOctokit, added: NewJob[], ledger = ledgerOf(added)) =>
+    compareGaps({ store: { held: () => Promise.resolve([]) }, ledger, appOctokit: app, octokitFor: () => octokit, now: () => NOW, log: () => undefined });
+
+  it('adds an owed `retro` job for a feature PR merged in the last fourteen days, keyed and laned as `/api/github` adds it', async () => {
+    const added: NewJob[] = [];
+    const summary = await compare(installed([merged(12, 3, 'feat/widget')]), added);
+    expect(summary.retros).toEqual({ read: 1, added: 1, failed: 0 });
+    expect(added).toEqual([
+      {
+        kind: 'retro',
+        key: 'acme/widgets#12',
+        subject: 'acme/widgets',
+        lane: 'acme/widgets',
+        payload: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, mergeSha: 'm12', mergedAt: merged(12, 3).merged_at, owed: true },
+        maxTries: 4,
+      },
+    ]);
+  });
+
+  it('adds none for a pull request merged over fourteen days ago, closed unmerged, or not a feature PR', async () => {
+    const added: NewJob[] = [];
+    const unmerged = { number: 14, merged_at: null, merge_commit_sha: null, head: { ref: 'feat/closed' } };
+    await compare(installed([merged(13, 15), unmerged, merged(15, 1, 'docs/phase-0-widget'), merged(16, 1, 'feat/widget--s1/x')]), added);
+    expect(added).toEqual([]);
+  });
+
+  it('counts none for a merge whose job is already held: the ledger keys it, so a retro already added is never added twice', async () => {
+    const summary = await compare(installed([merged(12, 3)]), [], { add: () => Promise.resolve(false) });
+    expect(summary.retros).toEqual({ read: 1, added: 0, failed: 0 });
+  });
+
+  it('reads no config when nothing merged in the window, and leaves a repository without config alone, saying so', async () => {
+    const calls: string[] = [];
+    await compare(installed([merged(13, 20)], { calls }), []);
+    expect(calls).toEqual(['GET /installation/repositories', 'GET /repos/{owner}/{repo}/pulls']);
+    const lines: string[] = [];
+    const summary = await compareGaps({
+      store: { held: () => Promise.resolve([]) },
+      ledger: ledgerOf([]),
+      appOctokit: app,
+      octokitFor: () => stub({ 'GET /installation/repositories': { repositories: [WIDGETS] }, 'GET /repos/{owner}/{repo}/pulls': [merged(12, 1)], [TREE]: { truncated: false, tree: [] } }),
+      now: () => NOW,
+      log: (line) => lines.push(line),
+    });
+    expect(summary.retros).toEqual({ read: 1, added: 0, failed: 0 });
+    expect(lines.join('\n')).toContain('acme/widgets');
+  });
+
+  it('stops on a low budget, as the pack’s rule does, and runs not at all once that rule stopped', async () => {
+    const summary = await compare(stub({ 'GET /installation/repositories': new GithubDeferred(Date.parse('2026-11-12T13:00:00Z')) }), []);
+    expect(summary).toMatchObject({ stopped: true, retros: { read: 0, added: 0, failed: 0 } });
+
+    const asked: string[] = [];
+    const stopped = await compareGaps({
+      store: { held: () => Promise.resolve([held(null)]) },
+      ledger: ledgerOf([]),
+      appOctokit: () => stub({ 'GET /repos/{owner}/{repo}/installation': { id: 7 }, 'GET /app/installations': [{ id: 7 }] }),
+      octokitFor: () => stub({ 'GET /repos/{owner}/{repo}': new GithubDeferred(Date.parse('2026-11-12T13:00:00Z')) }, asked),
+      now: () => NOW,
+      log: () => undefined,
+    });
+    expect(stopped.stopped).toBe(true);
+    expect(stopped.retros).toBeUndefined();
+    expect(asked).toEqual(['GET /repos/{owner}/{repo}']);
+  });
+
+  it('goes on to the next repository when GitHub refuses one for another reason, and says so when the App’s installations cannot be read', async () => {
+    const two = { repositories: [{ ...WIDGETS, name: 'a' }, { ...WIDGETS, name: 'b' }] };
+    const summary = await compare(stub({ 'GET /installation/repositories': two }), []);
+    expect(summary.retros).toEqual({ read: 0, added: 0, failed: 2 });
+
+    const lines: string[] = [];
+    const none = await compareGaps({ store: { held: () => Promise.resolve([]) }, ledger: ledgerOf([]), appOctokit: () => stub({}), octokitFor: () => stub({}), now: () => NOW, log: (line) => lines.push(line) });
+    expect(none.retros).toEqual({ read: 0, added: 0, failed: 1 });
+    expect(lines.join('\n')).toContain('installations');
+  });
+});
+
+describe('the comparison — a main watch owed at the switch (PRD omni-loop-4 s4)', () => {
+  const NOW = Date.parse('2026-11-12T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const MERGE = 'a'.repeat(40);
+  const MERGED_AT = new Date(NOW - 2 * DAY).toISOString();
+  const lane = (over: Partial<{ repository: string; watchUntil: string }> = {}) => ({ repository: 'acme/widgets', mergeSha: MERGE, mergedAt: MERGED_AT, watchUntil: new Date(NOW + 5 * DAY).toISOString(), ...over });
+  const PULLS = 'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls';
+
+  /** The comparison with a store holding `lanes` still watching, and an installation that knows `routes`. */
+  function compare(lanes: ReturnType<typeof lane>[], routes: Record<string, unknown>, added: NewJob[], ledger = ledgerOf(added)) {
+    return compareGaps({
+      store: { held: () => Promise.resolve([]), watching: () => Promise.resolve(lanes) },
+      ledger,
+      appOctokit: () => stub({ 'GET /repos/{owner}/{repo}/installation': { id: 7 }, 'GET /app/installations': [] }),
+      octokitFor: () => stub(routes),
+      now: () => NOW,
+      log: () => undefined,
+    });
+  }
+
+  const merge = (over: Record<string, unknown> = {}) => ({ number: 12, merged_at: MERGED_AT, merge_commit_sha: MERGE, ...over });
+
+  it('adds a `main-watch` job for a lane still watching inside its seven days, keyed as `/api/github` adds it', async () => {
+    const added: NewJob[] = [];
+    const summary = await compare([lane()], { [PULLS]: [merge({ number: 11, merge_commit_sha: 'b'.repeat(40) }), merge()] }, added);
+    expect(summary.watches).toEqual({ read: 1, added: 1, failed: 0 });
+    expect(added).toEqual([
+      {
+        kind: 'main-watch',
+        key: 'acme/widgets#12',
+        subject: 'acme/widgets',
+        payload: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, mergeSha: MERGE, mergedAt: MERGED_AT },
+        maxTries: 4,
+      },
+    ]);
+  });
+
+  it('adds none for a lane whose seven days are over, or when the ledger already holds the job', async () => {
+    const added: NewJob[] = [];
+    expect((await compare([lane({ watchUntil: new Date(NOW - DAY).toISOString() })], { [PULLS]: [merge()] }, added)).watches).toEqual({ read: 0, added: 0, failed: 0 });
+    expect(added).toEqual([]);
+    expect((await compare([lane()], { [PULLS]: [merge()] }, [], { add: () => Promise.resolve(false) })).watches).toEqual({ read: 1, added: 0, failed: 0 });
+  });
+
+  it('adds none when no merged pull request holds the commit, or the App is not installed on the repository', async () => {
+    const added: NewJob[] = [];
+    expect((await compare([lane()], { [PULLS]: [merge({ merged_at: null })] }, added)).watches).toEqual({ read: 1, added: 0, failed: 0 });
+    const gone = await compareGaps({
+      store: { held: () => Promise.resolve([]), watching: () => Promise.resolve([lane()]) },
+      ledger: ledgerOf(added),
+      appOctokit: () => stub({ 'GET /app/installations': [] }),
+      octokitFor: () => stub({}),
+      now: () => NOW,
+      log: () => undefined,
+    });
+    expect(gone.watches).toEqual({ read: 1, added: 0, failed: 0 });
+    expect(added).toEqual([]);
+  });
+
+  it('counts a repository GitHub refuses and goes on, and stops on a low budget', async () => {
+    const added: NewJob[] = [];
+    const refused = await compare([lane(), lane({ repository: 'acme/other' })], { [PULLS]: new Error('boom') }, added);
+    expect(refused.watches).toEqual({ read: 0, added: 0, failed: 2 });
+    const stopped = await compare([lane()], { [PULLS]: new GithubDeferred(NOW + 3600_000) }, added);
+    expect(stopped.stopped).toBe(true);
   });
 });

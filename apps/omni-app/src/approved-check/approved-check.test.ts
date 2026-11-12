@@ -83,7 +83,6 @@ async function deliver(run: ReturnType<typeof setUp>, event: string, payload: Re
     headers: { 'x-github-event': event, 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(raw).digest('hex')}` },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: () => Promise.resolve(),
     refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs)),
   });
   expect(response.status).toBe(200);

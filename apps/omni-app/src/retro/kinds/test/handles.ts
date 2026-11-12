@@ -2,8 +2,8 @@
 // fixtures (a scope with only the fields a read needs, a context without a PRD), so these handles
 // take any object and read the facts back as present; the kind itself stays strictly typed.
 import { replayGitHub } from '../../../../test/github-replay.ts';
-import { widgetScenario } from '../../../../test/retro-scenario.ts';
-import { createRetro } from '../../retro.ts';
+import { retroRunner, widgetScenario } from '../../../../test/retro-scenario.ts';
+import type { RetroDeps } from '../../retro.ts';
 import type { Finding, Kind, KindContext, KindScope, Octokit } from '../index.ts';
 
 export function handles<Records, Facts>(kind: Kind<Records, Facts>) {
@@ -26,7 +26,7 @@ export function scenario(parts: Parameters<typeof widgetScenario>[0] = {}): Retu
   return widgetScenario(parts);
 }
 
-/** The retro's Inngest function over a test's stubs. */
-export function retroFunction(options: Parameters<typeof createRetro>[0]): ReturnType<typeof createRetro> {
-  return createRetro(options);
+/** One run of the retro's job over a test's stubs and the scenario's job: what it returned, or the error it threw. */
+export function retroRun(deps: RetroDeps, widget: ReturnType<typeof widgetScenario>): ReturnType<ReturnType<typeof retroRunner>['execute']> {
+  return retroRunner(deps, widget.job).execute();
 }

@@ -104,7 +104,6 @@ async function deliver({ repo = 'api', number = 446, action = 'closed', merged =
     body: text,
     headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(text).digest('hex')}` },
     secret: SECRET,
-    send: () => Promise.resolve(),
     queueJobs: (jobs) => Promise.resolve(queued.push(...jobs)),
     forward: () => Promise.resolve(),
   });

@@ -10,12 +10,17 @@
 //           already `clean` is never written again
 //   close   a lane still `watching` becomes `clean`, with nothing unread
 //
+// Beside the store, `watchingJobKeys` (PRD omni-loop-4 s4) finds the jobs a red check suite wakes: the keys of the
+// queued `main-watch` jobs of the PRDs whose lane merged at that commit (`prd_main_watch.merge_sha`, a target's lane
+// too, its job being the plan repository's).
+//
 // Throws when the database refuses or answers out of shape: the step retries.
 import { z } from 'zod';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { IdRowSchema } from '../retro/runner-queue.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
+import { MAIN_WATCH_KIND } from './main-watch.ts';
 import type { Break } from './signals.ts';
 
 /** A lane to open: the repository it merged into, its merge commit and when its seven days end. */
@@ -38,6 +43,9 @@ export type MainWatchStore = {
 
 /** A watch row, as an insert or an update returns it. */
 export const LaneRowSchema = z.object({ lane: z.string().min(1) });
+const RepositoryRowSchema = z.object({ repository: z.string().min(1) });
+const KeyRowSchema = z.object({ key: z.string().min(1) });
+
 /** A break row, as an insert returns it. */
 export const SourceRowSchema = z.object({ source: z.string().min(1) });
 
@@ -100,5 +108,19 @@ export function mainWatchStore(connection: Connection): MainWatchStore {
       );
       return { closed: closed.length > 0 };
     },
+  };
+}
+
+/**
+ * The keys of the `main-watch` jobs waiting on the merge commit `sha`: the queued jobs of the repositories whose PRD
+ * has a lane still `watching` that merged at it, as the service role on `connection`. None when no watch holds it.
+ */
+export function watchingJobKeys(connection: Connection): (sha: string) => Promise<string[]> {
+  const db = serviceDb(connection);
+  return async (sha) => {
+    const watched = rowsOf(RepositoryRowSchema, await db.from('prd_main_watch').select('repository').eq('merge_sha', sha.toLowerCase()).eq('status', 'watching'));
+    const repositories = [...new Set(watched.map((row) => row.repository))];
+    if (repositories.length === 0) return [];
+    return rowsOf(KeyRowSchema, await db.from('background_jobs').select('key').eq('kind', MAIN_WATCH_KIND).eq('state', 'queued').in('subject', repositories)).map((row) => row.key);
   };
 }

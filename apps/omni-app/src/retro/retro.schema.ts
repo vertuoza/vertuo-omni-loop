@@ -252,5 +252,11 @@ export const QueuedSchema = z.object({ job: text.nullable(), created: z.boolean(
 /** The step "verdict": the comment kept on the merged feature PR. */
 export const CommentedSchema = z.object({ commentId: CommentIdSchema, created: z.boolean() });
 
-/** A step "clock-day-14": the time read, in milliseconds. */
-export const ClockSchema = z.number();
+/**
+ * The step "published-before" (PRD omni-loop-4 s3), of a retro owed at the switch: the newest pull request from the
+ * retro branch, whatever its state, and the verdict comment on the merged feature PR, each when it exists.
+ */
+export const PublishedBeforeSchema = z.object({
+  pr: z.object({ branch: text, commit: text, number: PrNumberSchema, url: text }).nullable(),
+  comment: z.object({ commentId: CommentIdSchema }).nullable(),
+});

@@ -21,8 +21,14 @@
 // A kind may have a failure hook (PRD 2688 s1, spec "Failure, never stuck"): it runs once, when the 5th try
 // threw and the ledger kept the job `failed`, never on a finish refused, overtaken (`stale`) or queued again by a
 // refresh that came while it ran. A hook that throws is logged, and the run goes on.
+//
+// A handler is given the job's saved steps (PRD omni-loop-4 s1, ../saved-step.ts `jobSteps`): a step that
+// finished on an earlier try, or an earlier run, gives its saved value back without running; any other is
+// saved once it ends, and the worker renews the job's claim, for its lease, after each saved step and every
+// minute while a step runs. A ledger without saved steps (a test's) gives each run steps of its own.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { noteTo } from '../run-log/run-log.ts';
+import { jobSteps, memorySteps, type StepRun } from '../saved-step.ts';
 import type { ClaimedJob, FinishAnswer, JobFields, JobLedger, JobOutcome } from './ledger.ts';
 
 /** How long a run claims jobs for. */
@@ -45,7 +51,10 @@ const MAX_REASON = 500;
  * throws.
  */
 export type JobResult = { outcome: 'done' } | { outcome: 'skipped'; reason: string } | { outcome: 'later'; at: Date; progress: JobFields };
-export type JobHandler = (job: ClaimedJob) => Promise<JobResult>;
+/** What the worker gives a handler beside its job: the job's saved steps, for `savedStep`. */
+export type JobRun = { step: StepRun };
+/** Runs a job. The worker always gives it its run; a test calling it directly may not. */
+export type JobHandler = (job: ClaimedJob, run?: JobRun) => Promise<JobResult>;
 /** What a kind does once its job ended failed: the job, and the error's first line as the ledger kept it. */
 export type FailureHook = (job: ClaimedJob, reason: string) => Promise<void>;
 
@@ -83,7 +92,7 @@ export async function runDue({
   while (clock() - start < budgetMs) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
     if (!job) break;
-    const settled = await settle(job, handlers[job.kind], clock);
+    const settled = await settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log) }, clock);
     summary.ran += 1;
     const kept = await keep(ledger, job, settled, log);
     // A `later` the ledger failed (its 21st) counts, and is hooked, as the failure it became.
@@ -106,11 +115,18 @@ async function failed(job: ClaimedJob, reason: string | null, hook: FailureHook 
   }
 }
 
+/** The saved steps of the job: on the ledger, renewing its claim for `leaseSeconds`; else for this run only. */
+function stepsOf(ledger: JobLedger, job: ClaimedJob, leaseSeconds: number, log: (line: string) => void): StepRun {
+  const { save, stepsOf: read, renew } = ledger;
+  if (!save || !read || !renew) return memorySteps();
+  return jobSteps({ ledger: { save, stepsOf: read, renew }, job: { id: job.id, claim: job.claim }, leaseSeconds, log });
+}
+
 /** Runs the job and reads how its try ended. */
-async function settle(job: ClaimedJob, handler: JobHandler | undefined, clock: () => number): Promise<Settled> {
+async function settle(job: ClaimedJob, handler: JobHandler | undefined, run: JobRun, clock: () => number): Promise<Settled> {
   try {
     if (!handler) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
-    return settledOf(await handler(job));
+    return settledOf(await handler(job, run));
   } catch (error) {
     const reason = firstLine(error instanceof Error ? error.message : String(error));
     const budget = budgetRefusal(error);

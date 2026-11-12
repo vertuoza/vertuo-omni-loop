@@ -10,7 +10,7 @@ import {
   TreeSchema,
   parseGitHub,
 } from './github.schema.ts';
-import { RetroEventSchema } from './retro.ts';
+import { RetroPayloadSchema } from './retro.ts';
 
 const PULL = 'GET /repos/{owner}/{repo}/pulls/{pull_number}';
 const pull = { number: 12, state: 'closed', base: { ref: 'main' }, head: { ref: 'feat/widget', sha: 'h1' } };
@@ -70,16 +70,16 @@ describe('a retro.json read back from a branch', () => {
   });
 });
 
-describe('the retro event', () => {
+describe('the retro job’s payload', () => {
   const data = { installationId: 1, owner: 'acme', repo: 'widgets', prNumber: 12, mergeSha: 'merge1', mergedAt: null };
 
   it('reads the merged pull request it names', () => {
-    expect(RetroEventSchema.parse(data)).toEqual(data);
+    expect(RetroPayloadSchema.parse(data)).toEqual(data);
   });
 
-  it('fails an event missing a field, naming it', () => {
+  it('fails a payload missing a field, naming it', () => {
     const rest = Object.fromEntries(Object.entries(data).filter(([key]) => key !== 'prNumber'));
-    const parsed = RetroEventSchema.safeParse(rest);
+    const parsed = RetroPayloadSchema.safeParse(rest);
     expect(parsed.success).toBe(false);
     expect(parsed.error?.issues[0]?.path).toEqual(['prNumber']);
   });

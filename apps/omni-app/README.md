@@ -76,6 +76,56 @@ another job of its kind and lane. Each kind sets its own tries.
 
 To read a job, or replay a failed one, see [The job ledger — the sweep, human steps](#the-job-ledger--the-sweep-human-steps-prd-2676).
 
+### Long jobs on the ledger (PRD omni-loop-4)
+
+Three jobs run for days on the same ledger: the retro, the knowledge harvest and the main watch. They
+were Inngest functions until PRD omni-loop-4. `/api/inngest` serves no function now, and `/api/github`
+sends no event to Inngest. The route, the package and the client stay until PRD omni-loop-5 removes them.
+
+A long job is a ledger job with three more things:
+
+- **Saved steps.** Each finished step's value is saved in `background_job_steps`, under the job's claim.
+  A step that has a saved value is never run again, so a retry, a replay or a run after a wait carries
+  on from its last saved step. A value over 1 MB is refused, naming the step.
+- **A wait.** The job ends `later`, due at a date, and is `queued` until then. A waiting job is not
+  late. The retro waits once, 14 days after its merge; the main watch waits a day at a time.
+- **A claim that lasts.** The worker renews the claim after each saved step, and every minute while a
+  step runs (a model call), so a long run is never claimed twice.
+
+A red check suite on a watched merge commit wakes its main watch (`background_job_wake`): the next look
+comes at once, not a day later.
+
+| kind | what adds it | key | lane | tries | what it does |
+|---|---|---|---|---|---|
+| `retro` | `/api/github`, for a feature PR merged; the hourly comparison, for one merged in the last 14 days with none | `<owner/name>#<pr>` | `<owner/name>` | 4 | the merge run publishes the retro, or its verdict comment, then waits 14 days; the day-14 run adds the "After merge" section |
+| `knowledge-harvest` | `/api/github`, for a pull request merged | `<owner/name>#<pr>` | `<owner/name>` | 4 | one run, cut into saved steps: a retry never asks the model twice for the same step |
+| `main-watch` | `/api/github`, for a pull request merged into the default branch; the hourly comparison, for a PRD's lane still watching with no job | `<owner/name>#<pr>` | none | 4 | opens its lanes, then one look a day for seven days; a break queues `/omni:rewind` once; at most 18 looks, then `done` |
+
+- **A retro or a harvest that fails on its last try** posts its one comment on the merged pull request:
+  "could not run", with the reason. A main watch has no comment: it stays `failed` in the ledger.
+- **The comparison** (`src/jobs/gaps.ts`, hourly) adds what is owed at the switch: a `retro` for a
+  feature PR merged in the last 14 days with none, a `main-watch` for a lane still watching inside its
+  seven days. A retro whose pull request or verdict comment already exists goes straight to its day-14
+  wait, without publishing again. A harvest is never added by the comparison: a person asks for it again.
+
+#### Reading and replaying a long job
+
+1. **Its state.** In the Supabase SQL editor:
+   `select id, state, tries, run_after, lane, reason from background_jobs where kind = 'retro' order by created_at desc limit 20`
+   (any kind). A job with `run_after` in the future is waiting, not stuck.
+2. **Its saved steps.** `select step, saved_at from background_job_steps where job_id = '<id>' order by saved_at`
+   lists the steps that finished, in order. Leave out the `value` column unless you need it: a retro's
+   `facts` step holds the fact sheet, which can be a few hundred kilobytes.
+3. **Its tries.** `select outcome, error, started_at from background_job_attempts where job_id = '<id>'`.
+4. **Its log.** Search Vercel's Logs for `"fn":"jobs"` and the job's kind: each line names the job, for
+   example `job retro <owner/name>#<pr>`.
+
+The tables are the service role's alone, as for every part of the ledger.
+
+**To replay a failed long job,** use the sweep's replay described [below](#the-job-ledger--the-sweep-human-steps-prd-2676).
+It keeps the job's saved steps, so a retro that failed after its merge run carries on from its last
+saved step: the steps that finished, the publish included, never run again.
+
 ### Fix, knowledge and enforce PRs (PRD 1342)
 
 When the base branch's config says `laws.source: knowledge`, the check grades three more kinds of
@@ -241,9 +291,11 @@ as history and changes nothing else.
   "Facts only: <reason>".
 - If GitHub fails after the retries, one comment on the merged PR says "The retro could not run:
   <reason>".
-- **To re-run a retro,** replay its run from Inngest's dashboard. Publishing is idempotent: the branch
+- **To re-run a retro,** replay its job ([below](#reading-and-replaying-a-long-job)). Publishing is idempotent: the branch
   and the PR are found again, and a commit is added (never a force-push) only when the retro changed.
   A missed webhook can also be redelivered from the app's settings.
+- The retro is a job of the ledger: its day-14 section is added 14 days after the merge, from its saved
+  steps ([long jobs](#long-jobs-on-the-ledger-prd-omni-loop-4)).
 - **What leaves GitHub:** the model receives the PRD's title and problem and, per finding, its facts and
   evidence excerpts — the last lines of failed jobs' logs, the hunks of rewritten code, the text of
   stuck and review comments — with token-shaped strings masked. They go to OpenRouter and the model's
@@ -271,7 +323,7 @@ default branch, labelled `labels.knowledge` (default `omni:knowledge`). A person
   dropped and listed as not placed, with the check's message.
 - If GitHub fails after the retries, one comment on the merged PR says "The knowledge harvest could not
   run: <reason>".
-- **To re-run a harvest,** replay its run from Inngest's dashboard. The branch and the PR are found
+- **To re-run a harvest,** replay its job ([below](#reading-and-replaying-a-long-job)). The branch and the PR are found
   again: a branch that already holds the harvest's commit is never committed to again, and only the
   PR's body is rewritten. Nothing to harvest opens nothing.
 - **Laws (PRD 1342),** when `laws.source` is `knowledge`: each decision classified a rule or an
@@ -360,12 +412,13 @@ delegate in `laws.owners` and no `laws.leadership`.
 ## How it runs
 
 ```
-GitHub ── pull_request / check_run.rerequested ──▶ /api/github    verify signature → refresh jobs → inngest.send → 200
+GitHub ── pull_request / check_run.rerequested ──▶ /api/github    verify signature → refresh jobs → 200
              every handled action          → the four checks' jobs refreshed (pr-outbox, pr-inbox,
                                              pr-approved, pr-budgets), due in 5 seconds
              Re-run of a check run         → that check's job alone, told by its external_id
-             a merged pull_request.closed  → omni-loop/retro.requested and
-                                             omni-loop/knowledge.harvest.requested, and the pack's job
+             a merged pull_request.closed  → a retro job, a knowledge-harvest job, a main-watch job,
+                                             and the pack's job
+             a red check suite on a watched merge commit → background_job_wake: its main-watch job due now
              a pull request closed or reopened → a fix-row-stamp job
              a loop pull request into the default branch → a fleet-board job
              a click of a canon button     → a canon-action job, in its pull request's lane
@@ -391,23 +444,28 @@ Ledger ──▶ job "pr-inbox", in one try
               "publish"      complete the check run; no comment
             failure hook   on the 5th try that threw: complete the check run as failure — never left in_progress
                            (not a phase-0 PR: post nothing)
-Inngest ──▶ /api/inngest   function "retro" (one at a time per repository)
+Ledger ──▶ job "retro", in the lane <owner/name>, 4 tries, saved steps (one at a time per repository)
               step "qualify"          the config at the merge SHA; a feature PR; its PRD folder
               step "gather-pulls"     the sub-PRs into the feature branch
               steps "gather-<kind>"   each kind of finding's GitHub reads, one step per kind
-              step "facts"            detect: the fact sheet, memoized
+              step "facts"            detect: the fact sheet, saved
               step "narrate"          the model's prose, called from this Vercel function
               step "guard"            each field of prose accepted, or dropped with its reason
               step "publish-issues"   one retro issue per finding, worst first
               step "publish"          the branch, retro.md + retro.json, then the retro PR
-            onFailure          one comment on the merged PR
-Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per repository)
+              later, due 14 days on   the same steps with "-day-14" after each id: the "After merge" section
+            failure hook       one comment on the merged PR
+Ledger ──▶ job "knowledge-harvest", in the lane <owner/name>, 4 tries, saved steps (one at a time per repository)
               step "qualify"          the merge (who, when, which commit); a feature PR, by the retro's rule
               step "settle"           the default branch's tip: settle at merge, plan the ship, list the candidates
               steps "classify:<id>"   one OpenRouter call per candidate
               step "write"            the same tip: write the knowledge, run both checks, drop what fails
               step "publish"          one commit on branches.knowledge, cut from that tip; the knowledge PR
-            onFailure          one comment on the merged PR
+            failure hook       one comment on the merged PR
+Ledger ──▶ job "main-watch", 4 tries, saved steps
+              the first run opens its lanes, then ends later, a day on; each later run is one look
+              steps "read-<turn>-<lane>", "record-<turn>", "queue-rewind", "close-<lane>"
+              done after the last lane's seven days; a red check suite wakes it at once
 Ledger ──▶ job "pr-stats", in the lane pr-stats, 3 tries
               the tracked repositories of installed workspaces, at most 50 pull requests at a time:
               details, reviews, commits
@@ -417,8 +475,9 @@ Ledger ──▶ job "escalation", in the lane escalation, 3 tries
 Ledger ──▶ jobs "fix-row-stamp", "fleet-board", "canon-action", "server-event", 4 tries each
 ```
 
-Vercel serves the five functions from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`,
-`api/jobs-sweep.mjs` and `api/health.mjs` ([Health](#health-prd-1723)): committed bundles of their entries under
+Vercel serves five entries from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`,
+`api/jobs-sweep.mjs` and `api/health.mjs` ([Health](#health-prd-1723)); `api/inngest.mjs` serves no function
+since PRD omni-loop-4. They are committed bundles of their entries under
 `entries/` with the app's code, the kit and the workspace packages inside, npm packages left as
 imports. Vercel compiles a TypeScript function file by file and keeps
 every `import './x.ts'` as written, so a function served from TypeScript fails to start (#1084).
@@ -443,7 +502,7 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | `inbox-check` — the `pr-inbox` job's handler, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, run by the job ledger's worker |
 | `jobs` — the job ledger, its worker, the checks' four kinds, every kind's handlers, the schedule and the sweep | `src/jobs/`, run at `api/github.mjs`, `api/server-event.mjs` and `api/jobs-sweep.mjs` |
 | `canon` — the inbox check's canon gate: the spec against the business, and its live ports | `src/canon/` |
-| `retro` — the Inngest function wiring the retro's units | `src/retro/retro.ts`, served at `api/inngest.mjs` |
+| `retro` — the retro's job: its handler, its units wired in order | `src/retro/retro.ts`, run by the job ledger's worker |
 | `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.ts` |
 | the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.ts`) |
 | `detect` — pure: plain records → the fact sheet | `src/retro/detect.ts` |
@@ -452,7 +511,8 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | the issue publisher, and `publish` — the branch, the files, the PR | `src/retro/issues.ts`, `src/retro/publish.ts` |
 | `rules` — every threshold, the finding order, the words refused, a version | `src/retro/rules.ts` |
 | `git-write` — the shared writer: a branch, one commit (moves reuse blobs), a PR | `src/git-write/` |
-| `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.ts`, served at `api/inngest.mjs` |
+| `knowledge-harvest` — the job wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.ts`, run by the job ledger's worker |
+| `main-watch` — the job that watches main for seven days after a PRD merged | `src/main-watch/main-watch.ts`, run by the job ledger's worker |
 | the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.ts` |
 | `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.ts` |
 | `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, the `pr-stats` job run by the job ledger's worker |
@@ -553,7 +613,8 @@ None of these is taken by the code; a person does each once.
    function or removes one (the four checks' functions and `approved-rerun`, PRD 2688; `pr-stats`,
    `escalation`, `fix-row-stamp`, `fleet-board`, `canon-action` and `server-event`, PRD omni-loop-3),
    press **Resync** on the app in Inngest, or the new function never runs and the removed one stays
-   listed. Inngest now serves only the retro, the knowledge harvest and the main watch.
+   listed. Since PRD omni-loop-4 Inngest serves no function: the retro, the knowledge harvest and the
+   main watch run on the job ledger, so there is nothing to resync for them.
 4. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
    default branch.
 
@@ -599,9 +660,7 @@ opening a retro PR live (PRD 72, acceptance criterion 1).
 2. **Set the model's key** in the app's Vercel project: `OPENROUTER_API_KEY`, and optionally
    `OPENROUTER_MODEL` to use another model than Claude Opus 5.5. Without the key, every retro goes out
    facts only.
-3. **Check the Inngest plan allows a 14-day sleep,** for the second run fourteen days after the merge.
-   If it does not, the day-14 run is started by a daily scheduled Inngest function instead.
-4. **Create the `omni:retro` label:** run `npx github:vertuoza/vertuo-omni-loop init` in each
+3. **Create the `omni:retro` label:** run `npx github:vertuoza/vertuo-omni-loop init` in each
    repository.
 
 ### Stage events — human steps (PRD 587)
@@ -619,7 +678,8 @@ None of these is taken by the code. Until they are done, stages come from galaxy
 
 The ledger (`background_jobs`, `background_job_attempts`; the worker is `src/jobs/worker.ts`) holds the
 knowledge pack's jobs, the four pull-request checks' (PRD 2688, [above](#the-checks-on-the-job-ledger-prd-2688))
-and the six kinds of PRD omni-loop-3 ([above](#the-apps-other-jobs-on-the-ledger-prd-omni-loop-3)).
+the six kinds of PRD omni-loop-3 ([above](#the-apps-other-jobs-on-the-ledger-prd-omni-loop-3)), and the
+three long kinds of PRD omni-loop-4 ([above](#long-jobs-on-the-ledger-prd-omni-loop-4)).
 A merge adds its pack's job, a pull request event refreshes its checks' jobs, and the webhook runs the jobs
 due after it answers; the sweep adds the scheduled jobs and finishes what the routes left, every kind's
 handler wired. `GET /api/jobs-sweep` answers only `Authorization: Bearer <CRON_SECRET>` (anything
@@ -642,7 +702,7 @@ else is 401, and with no `CRON_SECRET` set every call is) and has two crons in `
 3. **Replay a failed job:**
    `curl -X POST -H "Authorization: Bearer $CRON_SECRET" -H "content-type: application/json" -d '{"replay": "<job id>"}' https://<this app>/api/jobs-sweep`.
    It puts the `failed` job back to `queued` with its tries at zero and its progress cleared, keeps its
-   attempts, and runs the jobs due at once. Any kind replays this way, a scheduled one included. A job that is not `failed`, or that does not exist, answers 409.
+   attempts, and runs the jobs due at once. Any kind replays this way, a scheduled one included. A job that is not `failed`, or that does not exist, answers 409. A long job keeps its saved steps, so it carries on from its last saved step ([reading and replaying a long job](#reading-and-replaying-a-long-job)).
 
 ### The knowledge harvest — human steps (PRD 82)
 

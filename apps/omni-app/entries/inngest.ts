@@ -7,17 +7,18 @@
 // value, or in production a missing GITHUB_WEBHOOK_SECRET or GitHub App, fails the function's start
 // with one error naming every variable concerned, never a value.
 //
-// It serves three functions (../src/functions.ts): the retro (PRD 72), the knowledge harvest (PRD 82) and the main
-// watch (PRD 2410), the retro and the harvest each with its own failure handler, which Inngest registers as a
-// function of its own. The pull-request checks (PRD 2688) and the App's other background jobs, the Engineering
-// board's collector, the escalation sweep, the fix row stamp, the fleet board, the canon buttons and the server
-// event (PRD omni-loop-3), run on the App's job ledger instead (../src/jobs/), never here.
+// It serves no function (../src/functions.ts): the retro, the knowledge harvest and the main watch (PRD omni-loop-4),
+// the pull-request checks (PRD 2688) and the App's other background jobs run on the App's job ledger
+// (../src/jobs/), never here. The route, the package and the client stay until PRD omni-loop-5 removes them.
 import { serve } from 'inngest/edge';
 import { processEnv, readEnv } from '../src/env.ts';
 import { appFunctions } from '../src/functions.ts';
 import { inngest } from '../src/inngest-client.ts';
 
-export const functions = Object.values(appFunctions(readEnv(processEnv())));
+// Read for its check only: a half-set group or a missing production variable still fails the function's start.
+readEnv(processEnv());
+
+export const functions = appFunctions();
 
 const handler = serve({ client: inngest, functions });
 

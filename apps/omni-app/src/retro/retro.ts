@@ -1,5 +1,8 @@
-// `retro`: the Inngest function wiring the retro's units (PRD 72, "Flow"). Its own function: it never
-// shares a run with "outbox-check", and never reads or writes a check run.
+// `retro`: the job of the ledger wiring the retro's units (PRD 72, "Flow"; moved off Inngest by PRD omni-loop-4
+// s3). `/api/github` adds one job for a pull request merged into the default branch, keyed `<owner/name>#<pr>`,
+// lower case, in the lane `<owner/name>`: one retro at a time per repository, so two runs never number the same
+// ids, and a retro waiting for its day 14 holds nothing up (a lane holds only a running job). Its payload is
+// where and when the pull request merged, never a token (L-GDPR-2). It never reads or writes a check run.
 //
 //   step "qualify"          the config at the merge SHA; a feature PR by the app's rule; its PRD folder
 //   step "gather-pulls"     the sub-PRs into the feature branch
@@ -7,11 +10,14 @@
 //                           installation, looked up as the App, then its feature PRs and sub-PRs
 //   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`), then
 //                           "gather-<kind>-<name>" for each target read, as its installation
-//   step "facts"            `detect`: the fact sheet — memoized, so a retry never changes a number
+//   step "facts"            `detect`: the fact sheet — saved, so a retry never changes a number
 //   step "gather-knowledge" what the judge compares with (PRD 487): the knowledge summary and the
 //                           lessons of the retros already merged, both at the merge commit
 //   step "narrate"          the model's prose and its verdict, from this Vercel function
 //   step "guard"            each field of prose accepted, or dropped with its reason; the verdict too
+//   step "published-before" only for a retro owed at the switch (`owed`, added by ../jobs/gaps.ts): the
+//                           retro PR from the retro branch, and the verdict comment, that already exist;
+//                           either one, and the merge run publishes nothing (below)
 //   then, when the verdict says the retro is worth a pull request:
 //   step "publish-issues"   one retro issue per finding the judge kept, worst first
 //   step "publish"          the branch, retro.md + retro.json in the PRD's shipped folder, then the PR;
@@ -24,68 +30,66 @@
 //                           marked `<markers.prefix>-retro-verdict` and rewritten in place on a replay
 //   steps "comment-target-<name>"  a multi-repository PRD's read targets: one comment on each one's
 //                           merged feature PR, the retro's link and its findings (`target-comment.ts`)
-//   step "clock-day-14"     the time, once the merge run is out
-//   "wait-day-14-<n>"       a day at a time, until the merge plus `THRESHOLDS.afterMergeDays` days:
-//                           each wait ends on the tick of the function's own daily schedule, or after
-//                           `DAY_WAIT` with none, and then "clock-day-14-<n>" reads the time
+//   then the run ends `later`, due the merge plus `THRESHOLDS.afterMergeDays` days (`followUpAt`): one wait,
+//                           of fourteen days, under the ledger's cap of 20; the clock is read again on
+//                           every run, never saved, so the run after the wait reads the day it runs on
 //   the same steps, "-day-14" after each id, for the kinds of the day-14 run: an "After merge"
 //                           section, issues for its new findings, committed to the retro PR while it
 //                           is open, else to a new `<branch>-day-14` PR (`publish.ts`)
-//   onFailure               one comment on the merged PR: "The retro could not run: <reason>"
+//   failure hook            one comment on the merged PR: "The retro could not run: <reason>"
 //
-// A merge that is not a feature PR ends at "qualify" and posts nothing.
+// A merge that is not a feature PR ends `skipped` at "qualify" and posts nothing.
 //
-// The day-14 run never hangs on one long sleep: the app's Inngest plan caps any sleep at seven days
-// (answered on #75, playbook › architecture › Boundaries). So the same function also runs on a daily
-// schedule (`DAILY`), where it does one thing: step "day-passed" sends `DAY_EVENT`, the tick that
-// wakes every retro waiting for its day-14 run. No wait lasts longer than `DAY_WAIT`, so a schedule
-// that misses a day, or never runs, makes the day-14 run late by that much at most, never lost.
+// Every step's value is saved on the ledger under the job's claim (../saved-step.ts `jobSteps`), so the run after
+// the wait replays the merge run from its saved steps, publishing nothing again, and carries on with the day-14
+// steps. A retry, or a replay of a failed job, carries on after its last saved step in the same way.
 //
-// The day-14 run carries on from the merge run held in this same run: its kinds are handed the merge
-// run's fact sheet (`scope.atMerge`, the churn ranges a fix is placed against); its findings are
-// numbered on from the merge run's (F1… stay what they were); the model is asked again about the
-// whole retro, both runs' findings, with the knowledge the merge run gathered, and when it gives
-// nothing the merge run's words, its verdict included, stay; and the merge run's record is written
-// again beside its own. Worth it, it commits to the merge run's PR while that is open, else opens
-// one (the merge run may have been worth none); its issues are for its own kept findings, and for
-// the merge run's too when the merge run opened none. Not worth it, it rewrites the verdict comment.
+// The day-14 run carries on from the merge run: its kinds are handed the merge run's fact sheet (`scope.atMerge`,
+// the churn ranges a fix is placed against); its findings are numbered on from the merge run's (F1… stay what they
+// were); the model is asked again about the whole retro, both runs' findings, with the knowledge the merge run
+// gathered, and when it gives nothing the merge run's words, its verdict included, stay; and the merge run's record
+// is written again beside its own. Worth it, it commits to the merge run's PR while that is open, else opens one
+// (the merge run may have been worth none); its issues are for its own kept findings, and for the merge run's too
+// when the merge run opened none. Not worth it, it rewrites the verdict comment.
 //
-// `createRetro` takes the Inngest client and `octokitFor(installationId)`, so a test runs the real
-// function against a stubbed GitHub; `followUp` adds the day-14 run and the daily schedule that wakes
-// it, and a test passes its fourteen days through the clock and the waits. The app serves it with its
-// day-14 run (../functions.ts).
+// A retro owed at the switch (PRD omni-loop-4 s3, spec "What is owed at the switch"): a feature PR merged in the
+// last fourteen days with no `retro` job gets one from the hourly comparison, `owed`. Inngest may already have
+// published its merge run: when its retro PR or its verdict comment exists, the merge run reads its facts and
+// words again but publishes nothing, comments on no target, and goes straight to its day-14 wait.
 //
-// The event's data is parsed by `RetroEventSchema` before use, and every GitHub answer this file reads
-// by its schema in `github.schema.ts`. Every value a step returns is read back through its schema in
-// `retro.schema.ts` (`savedStep`): Inngest saves it as JSON, and the day-14 run reads the merge run's
-// values back fourteen days later, maybe after a deploy that changed what the step returns.
-import { internalEvents } from 'inngest';
-import type { Inngest } from 'inngest';
+// `retroHandler` takes `octokitFor(installationId)`, so a test runs the real retro against a stubbed GitHub;
+// `followUp` adds the day-14 run, and `now` is the clock a test passes its fourteen days through.
+//
+// The payload is parsed by `RetroPayloadSchema` before use, and every GitHub answer this file reads by its schema
+// in `github.schema.ts`. Every value a step returns is read back through its schema in `retro.schema.ts`
+// (`savedStep`): the ledger saves it as JSON, and the day-14 run reads the merge run's values back fourteen days
+// later, maybe after a deploy that changed what the step returns.
 import { z } from 'zod';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { foldersLayout } from 'omni-loop/kit/lib/layout.ts';
 import { parseOrThrow } from 'omni-loop/kit/lib/schema/parse-or-throw.ts';
 import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
-import { RETRO_EVENT } from '../inngest-client.ts';
+import { pullsFrom } from '../git-write/git-write.ts';
+import type { NewJob } from '../jobs/ledger.ts';
+import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import { listComments } from '../outbox-check/github.ts';
-import { firstLine } from '../outbox-check/github-schema.ts';
 import { detect } from './detect.ts';
 import { knowledgeSummary } from 'omni-loop/kit/lib/knowledge/classify.ts';
 import { playbookLines } from 'omni-loop/kit/lib/playbook/lines.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';
-import { parseSaved, savedStep, type StepRun } from '../saved-step.ts';
-import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
+import { memorySteps, savedStep, type StepRun } from '../saved-step.ts';
+import { failureCommentHook, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import { listPullsInto } from './github.ts';
-import { BlobSchema, CreatedCommentSchema, RetroDocSchema, RetroLessonsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
+import { BlobSchema, RetroDocSchema, RetroLessonsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
 import {
-  ClockSchema,
   CommentedSchema,
   FactSheetSchema,
   GuardedSchema,
   IssueLinksSchema,
   KnownSchema,
   NarratedSchema,
+  PublishedBeforeSchema,
   PublishedSchema,
   PullsIntoSchema,
   QualifiedSchema,
@@ -120,39 +124,14 @@ import type {
   Scope,
 } from './retro.types.ts';
 
-export const RETRO_FUNCTION_ID = 'retro';
+export const RETRO_KIND = 'retro';
 
 /** The two runs of a retro: at the merge, and fourteen days later. */
 export const MERGE_RUN = 'merge';
 export const FOLLOW_UP_RUN = 'day-14';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** The function's daily schedule (UTC), which wakes the retros waiting for their day-14 run. */
-export const DAILY = '0 6 * * *';
-/** The tick the daily schedule sends: a day has passed. */
-export const DAY_EVENT = 'omni-loop/retro.day-passed';
-/** The step the scheduled run sends the tick in. */
-export const DAY_STEP = 'day-passed';
-/**
- * The longest one wait lasts when no tick comes: two days, well inside the plan's seven, so a missed
- * schedule makes the day-14 run two days late at most.
- */
-export const DAY_WAIT = 2 * DAY_MS;
-/** Between the two runs: the n-th wait is `<FOLLOW_UP_STEP>-<n>`; the clock read after it, `<CLOCK_STEP>-<n>`. */
-export const FOLLOW_UP_STEP = 'wait-day-14';
-export const CLOCK_STEP = 'clock-day-14';
-
-/** The name of the event a cron trigger sends, as the event's name reads it: text, not the enum. */
-const SCHEDULED: string = internalEvents.ScheduledTimer;
-
-/**
- * One retro at a time per repository. The spec asks for one per repository and PRD; the PRD is known
- * only once "qualify" has read the repository, so the key is the repository alone, which also keeps
- * two retros of one PRD apart. Inngest counts the steps running against it, never a run waiting, so
- * a retro waiting for its day-14 run holds nothing up.
- */
-export const CONCURRENCY = Object.freeze({ key: 'event.data.repository', limit: 1 });
+/** A retro's tries (Inngest's 3 retries, and the first): the 4th that throws fails it. */
+const MAX_TRIES = 4;
 
 /** The prefix of the failure comment's marker. The config may be what failed to read, so the kit's default. */
 const MARKER_PREFIX = parseConfig('kit: 1\n').markers.prefix;
@@ -166,43 +145,40 @@ export const VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
 export const NO_NEW_LESSON = 'no new lesson';
 export const NOT_JUDGED = 'not judged';
 
-/** The data of the event `/api/github` sends for a merged pull request. */
-export const RetroEventSchema = z.object({
+/**
+ * The payload of a `retro` job: where and when the pull request merged; `owed` when the hourly comparison added it
+ * at the switch (../jobs/gaps.ts), not `/api/github`.
+ */
+export const RetroPayloadSchema = z.object({
   installationId: z.number(),
   owner: z.string(),
   repo: z.string(),
   prNumber: PrNumberSchema,
   mergeSha: z.string(),
   mergedAt: z.string().nullish(),
+  owed: z.boolean().optional(),
 });
 
-/**
- * The merged pull request a failed run was for, as the failure event carries it; a scheduled run,
- * or any other event, carries none, and a field of the wrong type reads as missing.
- */
-const FailedEventSchema = z
-  .object({
-    installationId: z.number().optional().catch(undefined),
-    owner: z.string().optional().catch(undefined),
-    repo: z.string().optional().catch(undefined),
-    prNumber: PrNumberSchema.optional().catch(undefined),
-  })
-  .catch({});
+/** Where and when a pull request merged, and whether its retro is owed at the switch. */
+export type RetroPayload = z.infer<typeof RetroPayloadSchema>;
 
 /**
- * The step tools the retro uses. Every value `run` returns is read back through its schema
- * (`savedStep`), and the event a wait returns through `TickSchema`.
+ * The job of one merged pull request: one retro at a time per repository (its lane), a delivery sent twice one
+ * job, and the comparison's add of a retro `/api/github` already added none.
  */
-type RetroStep = StepRun & {
-  sendEvent(id: string, payload: { name: string; data: Record<string, never> }): Promise<unknown>;
-  waitForEvent(id: string, options: { event: string; timeout: number }): Promise<unknown>;
-};
-
-/** What a wait reads of the tick that ended it, if one did: its time. */
-const TickSchema = z.looseObject({ ts: z.number().exactOptional() }).nullable();
+export function retroJob({ installationId, owner, repo, prNumber, mergeSha, mergedAt, owed = false }: RetroPayload): NewJob {
+  const subject = `${owner}/${repo}`.toLowerCase();
+  return {
+    kind: RETRO_KIND,
+    key: `${subject}#${String(prNumber)}`,
+    subject,
+    lane: subject,
+    payload: { installationId, owner, repo, repository: `${owner}/${repo}`, prNumber, mergeSha, mergedAt: mergedAt ?? null, ...(owed ? { owed: true } : {}) },
+    maxTries: MAX_TRIES,
+  };
+}
 
 export type RetroDeps = {
-  client: Inngest.Any;
   octokitFor: OctokitFor<Octokit>;
   /** The App's own client, which looks up its installation on each target of a multi-repository PRD (PRD 1130). */
   appOctokit?: AppOctokit | null;
@@ -217,6 +193,8 @@ export type RetroDeps = {
    * and the retro PR's body still carries the line for a person to run.
    */
   queue?: ApplyQueue | null;
+  /** The clock, in milliseconds: read on every run, never saved, so the run after the wait knows its day. */
+  now?: () => number;
 };
 
 /** What the judge said, as the retro acts on it. */
@@ -239,51 +217,58 @@ type RunResult = {
   queued: Queued | null;
 };
 
-export function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch, kinds = KINDS, followUp = false, queue = null }: RetroDeps) {
-  return client.createFunction(
-    {
-      id: RETRO_FUNCTION_ID,
-      name: 'omni-loop · retro',
-      triggers: followUp ? [{ event: RETRO_EVENT }, { cron: DAILY }] : [{ event: RETRO_EVENT }],
-      concurrency: CONCURRENCY,
-      retries: 3,
-      onFailure: createRetroFailureHandler({ octokitFor }),
-    },
-    async ({ event, step }) => {
-      if (event.name === SCHEDULED) {
-        await step.sendEvent(DAY_STEP, { name: DAY_EVENT, data: {} });
-        return { sent: DAY_EVENT };
-      }
+/**
+ * The handler of the `retro` kind: one run of the retro on the job's saved steps. A skip ends the job `skipped`;
+ * a merge run whose day 14 has not come ends it `later`, due that day; else it is `done`.
+ */
+export function retroHandler(deps: RetroDeps): JobHandler {
+  return async (job, run) => jobResultOf(await retro(deps, job.payload, run?.step ?? memorySteps()));
+}
 
-      const { installationId, owner, repo, prNumber, mergeSha, mergedAt } = parseEvent(event.data);
-      const github = async () => octokitFor(installationId);
+/** How a run of the retro ends its job: `skipped` with why, `later` on the day it waits until, else `done`. */
+export function jobResultOf(ran: object): JobResult {
+  if ('skipped' in ran && typeof ran.skipped === 'string') return { outcome: 'skipped', reason: ran.skipped };
+  if ('waitsUntil' in ran && typeof ran.waitsUntil === 'string') return { outcome: 'later', at: new Date(ran.waitsUntil), progress: {} };
+  return { outcome: 'done' };
+}
 
-      const qualified = await savedStep(step, 'qualify', QualifiedSchema, async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
-      if (qualified.skip !== null) return { skipped: qualified.skip };
-      const { pr, prd, config } = qualified;
+/**
+ * One run of the retro of the merged pull request `payload` names, its steps saved on `step`: the merge run, then,
+ * with `followUp`, the day-14 run once its day has come, or the day it waits until.
+ */
+export async function retro(
+  { octokitFor, appOctokit = null, openrouter, fetch, kinds = KINDS, followUp = false, queue = null, now = Date.now }: RetroDeps,
+  payload: unknown,
+  step: StepRun,
+) {
+  const { installationId, owner, repo, prNumber, mergeSha, mergedAt, owed = false } = parsePayload(payload);
+  const github = async () => octokitFor(installationId);
 
-      const pulls = await savedStep(step, 'gather-pulls', PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
+  const qualified = await savedStep(step, 'qualify', QualifiedSchema, async () => qualify(await github(), { owner, repo, prNumber, mergeSha }));
+  if (qualified.skip !== null) return { skipped: qualified.skip };
+  const { pr, prd, config } = qualified;
 
-      const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
-      const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...(targets.length > 0 ? { targets } : {}) };
-      const context = { step, github, octokitFor, openrouter, fetch, queue, installationId, owner, repo, pr, prd, config, pulls };
-      const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
-      const result = { prd: prd.number, ...outcome(first) };
+  const pulls = await savedStep(step, 'gather-pulls', PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
-      const laterKinds = kindsIn(FOLLOW_UP_RUN, kinds);
-      if (!followUp || laterKinds.length === 0) return result;
+  const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
+  const scope: Scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...(targets.length > 0 ? { targets } : {}) };
+  const context = { step, github, octokitFor, openrouter, fetch, queue, installationId, owner, repo, pr, prd, config, pulls };
+  const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope, owed });
+  const result = { prd: prd.number, ...outcome(first) };
 
-      await waitForDay(step, followUpAt(scope.mergedAt));
-      const later = await runRetro({
-        ...context,
-        run: FOLLOW_UP_RUN,
-        kinds: laterKinds,
-        scope: { ...scope, atMerge: first.sheet },
-        earlier: first,
-      });
-      return { ...result, followUp: outcome(later) };
-    },
-  );
+  const laterKinds = kindsIn(FOLLOW_UP_RUN, kinds);
+  if (!followUp || laterKinds.length === 0) return result;
+
+  const due = followUpAt(scope.mergedAt);
+  if (now() < Date.parse(due)) return { ...result, waitsUntil: due };
+  const later = await runRetro({
+    ...context,
+    run: FOLLOW_UP_RUN,
+    kinds: laterKinds,
+    scope: { ...scope, atMerge: first.sheet },
+    earlier: first,
+  });
+  return { ...result, followUp: outcome(later) };
 }
 
 /** The kinds that take part in one run, in registry order, as `kindsFor` picks them from any list. */
@@ -291,28 +276,13 @@ function kindsIn(run: Run, kinds: readonly Kind[]): Kind[] {
   return kinds.filter((kind) => kind.runs.includes(run));
 }
 
-/** The event's data, parsed; an event missing a field fails, naming it. */
-function parseEvent(data: unknown): z.infer<typeof RetroEventSchema> {
-  return parseOrThrow(RetroEventSchema, data, `The ${RETRO_EVENT} event carries an unexpected shape`);
-}
-
-/**
- * Waits until `due` a day at a time, never on one long sleep: each wait ends on the daily schedule's
- * tick, or after `DAY_WAIT` with none, and the tick's time, or the clock read after a wait no tick
- * ended, says whether the day has come. A run already past `due`, like a late replay, does not wait.
- */
-async function waitForDay(step: RetroStep, due: string): Promise<void> {
-  const until = Date.parse(due);
-  let now = await savedStep(step, CLOCK_STEP, ClockSchema, () => Date.now());
-  for (let turn = 1; now < until; turn += 1) {
-    const wait = `${FOLLOW_UP_STEP}-${turn}`;
-    const tick = parseSaved(TickSchema, await step.waitForEvent(wait, { event: DAY_EVENT, timeout: DAY_WAIT }), wait);
-    now = tick?.ts ?? (await savedStep(step, `${CLOCK_STEP}-${turn}`, ClockSchema, () => Date.now()));
-  }
+/** The job's payload, parsed; a payload missing a field fails, naming it. */
+function parsePayload(payload: unknown): RetroPayload {
+  return parseOrThrow(RetroPayloadSchema, payload, 'The retro job carries an unexpected payload');
 }
 
 type RunInput = {
-  step: RetroStep;
+  step: StepRun;
   github: () => Promise<Octokit>;
   octokitFor: OctokitFor<Octokit>;
   openrouter: OpenRouterEnv | null;
@@ -330,6 +300,8 @@ type RunInput = {
   kinds: readonly Kind[];
   scope: Scope;
   earlier?: RunResult | null;
+  /** A merge run owed at the switch: it publishes nothing when its retro PR or verdict comment already exists. */
+  owed?: boolean;
 };
 
 /**
@@ -342,9 +314,42 @@ async function runRetro(input: RunInput): Promise<RunResult> {
   const folder = retroFolder(input.prd, input.config);
   const sheet = await factSheet(input, id, folder);
   const judged = await judgeSheet(input, id, sheet);
+  const before = input.owed && input.run === MERGE_RUN ? await publishedBefore(input) : null;
+  if (before) return keptRun(sheet, judged, before);
   const result = judged.verdict.worthIt ? await publishRun(input, id, folder, sheet, judged) : await commentRun(input, id, sheet, judged);
   await commentOnTargets(input, id, judged.whole, result);
   return result;
+}
+
+type Before = z.infer<typeof PublishedBeforeSchema>;
+
+/**
+ * What a retro owed at the switch finds already published (step "published-before"): the newest pull request from
+ * the retro branch, whatever its state, and the verdict comment on the merged feature PR; null when neither exists,
+ * and the merge run publishes as any other.
+ */
+async function publishedBefore({ step, github, owner, repo, pr, prd, config }: RunInput): Promise<Before | null> {
+  const found = await savedStep(step, 'published-before', PublishedBeforeSchema, async () => {
+    const octokit = await github();
+    const branch = config.branches.retro.replaceAll('{topic}', prd.topic);
+    const [pull] = await pullsFrom(octokit, { owner, repo, branch, base: config.repo.defaultBranch });
+    const marker = verdictMarker(config.markers.prefix);
+    const comment = (await listComments(octokit, { owner, repo, prNumber: pr.number })).find((one) => one.body.includes(marker));
+    return {
+      pr: pull ? { branch, commit: pull.head?.sha ?? pr.mergeSha, number: pull.number, url: pull.html_url } : null,
+      comment: comment ? { commentId: comment.id } : null,
+    };
+  });
+  return found.pr || found.comment ? found : null;
+}
+
+/**
+ * The merge run of a retro Inngest already published: its facts and words, and what it published then, kept as
+ * found. Nothing is written again: no issue, no commit, no comment, none on a target.
+ */
+function keptRun(sheet: FactSheet, { prose, known, verdict, base }: Judged, { pr, comment }: Before): RunResult {
+  const published = pr ? { branch: pr.branch, committed: false, commit: pr.commit, pr: { number: pr.number, url: pr.url, created: false }, apply: null } : null;
+  return { sheet, prose, known, record: { ...base, issues: {} }, published, comment: comment ? { ...comment, created: false } : null, verdict, queued: null };
 }
 
 /**
@@ -582,45 +587,10 @@ function outcome({ sheet, record, published, comment, verdict, queued }: RunResu
   return { ...counts, verdict: verdict.judged ? NO_NEW_LESSON : NOT_JUDGED, comment };
 }
 
-/** The failure handler's input: the failure event Inngest sends, and its step tools when it gives them. */
-type FailureInput = {
-  event: { data: { event: { data?: unknown }; error?: { message?: string } | null } };
-  error?: { message?: string } | null;
-  step?: Partial<StepRun> | null;
-};
-
 /**
- * The failure handler: once the run has failed after its retries, one comment on the merged PR —
- * "The retro could not run: <reason>" — rewritten in place on a later failure, never a second one.
- * A scheduled run has no merged PR, so its failure leaves no comment.
+ * The failure hook of the `retro` kind: once the job ended failed, one comment on the merged PR, "The retro could
+ * not run: <reason>", rewritten in place on a later failure, never a second one.
  */
-export function createRetroFailureHandler({ octokitFor }: { octokitFor: OctokitFor<Octokit> }) {
-  return async ({ event, error, step }: FailureInput) => {
-    const { installationId, owner, repo, prNumber } = FailedEventSchema.parse(event.data.event.data ?? {});
-    if (!installationId || !prNumber) return { skipped: 'not a merge' };
-    const reason = firstLine(error?.message ?? event.data.error?.message);
-    const body = `${FAILURE_MARKER}\nThe retro could not run: ${reason}\n`;
-
-    return commentOnFailure(octokitFor, step, { installationId, owner, repo }, FailureCommentSchema, async (octokit, where) => {
-      const comments = await listComments(octokit, { ...where, prNumber });
-      const existing = comments.find((comment) => comment.body.includes(FAILURE_MARKER));
-      if (existing) {
-        await octokit.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {
-          owner,
-          repo,
-          comment_id: existing.id,
-          body,
-        });
-        return { commentId: existing.id, reason, created: false };
-      }
-      const COMMENT = 'POST /repos/{owner}/{repo}/issues/{issue_number}/comments';
-      const { data } = await octokit.request(COMMENT, {
-        owner,
-        repo,
-        issue_number: prNumber,
-        body,
-      });
-      return { commentId: parseGitHub(CreatedCommentSchema, data, COMMENT).id, reason, created: true };
-    });
-  };
+export function retroFailureHook({ octokitFor }: { octokitFor: OctokitFor<Octokit> }): FailureHook {
+  return failureCommentHook(octokitFor, { schema: RetroPayloadSchema, marker: FAILURE_MARKER, what: 'The retro' });
 }
