@@ -183,6 +183,14 @@ describe('the product home\'s storage', () => {
     ]);
   });
 
+  it('reads a product roadmap born on the Omni page, which has no number and no repository (bug 2722)', async () => {
+    // A roadmap made on the Omni page for a product (PRD 2011) is numbered by its product (mobile-R3),
+    // not by an issue: its roadmaps row holds no number and no repository.
+    const row = { id: 'r-2', number: null, repo: null, title: 'Mobile launch', milestone: 'Store', target_date: null, created_at: '2026-11-09T09:00:00Z' };
+    const { repo } = stub({ roadmaps: { data: [row] } });
+    expect(await repo.roadmaps('ws-1', 'p-1')).toEqual([row]);
+  });
+
   it('throws on a refused or out-of-shape read of the ideas, roadmaps or fixes', async () => {
     await expect(stub({ ideas: { error: { message: 'down' } } }).repo.ideas('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s ideas (down)');
     await expect(stub({ roadmaps: { error: { message: 'down' } } }).repo.roadmaps('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s roadmaps (down)');

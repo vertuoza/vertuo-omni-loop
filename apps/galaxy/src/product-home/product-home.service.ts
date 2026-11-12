@@ -109,8 +109,10 @@ export interface HomeIdea {
 /** A roadmap of the product (s10). */
 export interface HomeRoadmap {
   id: string;
-  number: number;
-  repo: string;
+  /** Its issue's number; null for a roadmap made on the Omni page (bug 2722). */
+  number: number | null;
+  /** Its issue's repository; null for a roadmap made on the Omni page. */
+  repo: string | null;
   title: string;
   milestone: string;
   targetDate: string | null;
