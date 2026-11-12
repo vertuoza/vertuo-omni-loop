@@ -170,3 +170,32 @@ describe('omni dossier get <id> <kind>: the latest version, in a scratch file', 
     }
   });
 });
+
+describe('omni dossier get <key>-R<n> roadmap: a product roadmap\'s latest roadmap.md, in a scratch file (bug #2758)', () => {
+  const ROADMAP = '# Roadmap: crew\n\n| id | prd | blocked by | why | wave |\n';
+  const LATEST = { id: 'd-r3', roadmap: 'mobile-R3', url: `${BASE}/roadmaps/r-3`, kind: 'roadmap', version: 2, sha256: sha256(ROADMAP), content: ROADMAP, createdAt: '2026-10-11T09:00:00.000Z' };
+
+  it('reads it from the get route by the roadmap\'s number, writes roadmap.md outside the repository and prints its path and sha256', async () => {
+    const run = await dossier(['get', 'mobile-R3', 'roadmap'], { reply: () => json(200, LATEST) });
+    expect(run).toMatchObject({ code: 0, err: '' });
+    const [path = '', hash] = run.out.trimEnd().split('\n');
+    expect(path.startsWith(join(run.base, 'omni-mobile-R3-'))).toBe(true);
+    expect(path.endsWith('roadmap.md')).toBe(true);
+    expect(readFileSync(path, 'utf8')).toBe(ROADMAP);
+    expect(hash).toBe(`sha256 ${sha256(ROADMAP)}`);
+    expect(run.calls).toEqual([{ url: `${BASE}/api/dossiers/get?product=mobile&roadmap=3&kind=roadmap&repo=acme%2Fwidgets`, method: 'GET', body: undefined }]);
+  });
+
+  it('holds while the server is down, says none on a 404, and refuses a content that does not hash as the server says', async () => {
+    expect(await dossier(['get', 'mobile-R3', 'roadmap'], { reply: down })).toMatchObject({ code: 1, out: '', err: 'held · server unreachable · held, not failed\n' });
+    expect(await dossier(['get', 'mobile-R3', 'roadmap'], { reply: () => json(404, { error: 'No roadmap mobile-R3.' }) })).toMatchObject({ code: 1, err: 'none\n' });
+    expect(await dossier(['get', 'mobile-R3', 'roadmap'], { reply: () => json(200, { ...LATEST, sha256: 'f'.repeat(64) }) }))
+      .toMatchObject({ code: 1, out: '', err: 'refused (the roadmap does not hash as the server says)\n' });
+  });
+
+  it('refuses a PRD\'s kind on a roadmap, and the roadmap kind on a PRD', async () => {
+    for (const args of [['get', 'mobile-R3', 'plan'], ['get', 'mobile-12', 'roadmap'], ['get', 'mobile-R3']]) {
+      expect((await dossier(args, { reply: () => json(200, LATEST) })).code).toBe(2);
+    }
+  });
+});

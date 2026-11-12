@@ -432,6 +432,11 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      *   content: string, createdAt: string }>} */
     getDossier: ({ key, seq, kind, repo }: { key: string; seq: number; kind: string; repo: string | null }) =>
       call('GET', `/api/dossiers/get?${new URLSearchParams({ product: key, prd: String(seq), kind, ...(repo ? { repo } : {}) })}`),
+    /** Bug #2758: product roadmap `<key>-R<seq>`'s latest roadmap.md, whole (PRD 2011); a 404 when there is none.
+     * @returns {Promise<{ id: string, roadmap: string, url: string, kind: 'roadmap', version: number, sha256: string,
+     *   content: string, createdAt: string }>} */
+    getRoadmap: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
+      call('GET', `/api/dossiers/get?${new URLSearchParams({ product: key, roadmap: String(seq), kind: 'roadmap', ...(repo ? { repo } : {}) })}`),
     /** PRD 1548 s7: product PRD `<key>-<seq>`'s outbox items, each with its settlement or none; a 404 when
      * there is no such PRD. `../outbox/server-store.ts` reads the reply. */
     readOutboxItems: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
