@@ -41,7 +41,6 @@ async function deliver(pull: Pull): Promise<RefreshJob[]> {
     headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
     secret: SECRET,
     forward: () => Promise.resolve(),
-    send: () => Promise.resolve(),
     refreshJobs: (jobs) => Promise.resolve(sent.push(...jobs.filter((job) => job.kind === OUTBOX_KIND))),
   });
   expect(response.status).toBe(200);

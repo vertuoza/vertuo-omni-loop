@@ -725,6 +725,35 @@ export type Database = {
           },
         ]
       }
+      background_job_steps: {
+        Row: {
+          job_id: string
+          saved_at: string
+          step: string
+          value: Json
+        }
+        Insert: {
+          job_id: string
+          saved_at?: string
+          step: string
+          value: Json
+        }
+        Update: {
+          job_id?: string
+          saved_at?: string
+          step?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_job_steps_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "background_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       background_jobs: {
         Row: {
           again: boolean
@@ -1961,6 +1990,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "repositories"
             referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
+      knowledge_vectors: {
+        Row: {
+          embedding: string
+          last_used_at: string
+          made_at: string
+          model: string
+          text_sha256: string
+          workspace_id: string
+        }
+        Insert: {
+          embedding: string
+          last_used_at?: string
+          made_at?: string
+          model: string
+          text_sha256: string
+          workspace_id: string
+        }
+        Update: {
+          embedding?: string
+          last_used_at?: string
+          made_at?: string
+          model?: string
+          text_sha256?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_vectors_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -5177,6 +5241,36 @@ export type Database = {
         }
         Returns: string
       }
+      background_job_held: {
+        Args: { p_claim: string; p_id: string }
+        Returns: {
+          again: boolean
+          claim: string | null
+          claimed_at: string | null
+          claimed_until: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          key: string
+          kind: string
+          lane: string | null
+          laters: number
+          max_tries: number
+          payload: Json
+          progress: Json
+          reason: string | null
+          run_after: string
+          state: string
+          subject: string
+          tries: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "background_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       background_job_line: { Args: { p_text: string }; Returns: string }
       background_job_refresh: {
         Args: {
@@ -5188,6 +5282,10 @@ export type Database = {
           p_payload: Json
           p_subject: string
         }
+        Returns: string
+      }
+      background_job_renew: {
+        Args: { p_claim: string; p_id: string; p_lease_seconds?: number }
         Returns: string
       }
       background_job_replay: {
@@ -5219,6 +5317,22 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      background_job_save: {
+        Args: { p_claim: string; p_id: string; p_step: string; p_value: Json }
+        Returns: undefined
+      }
+      background_job_steps_of: {
+        Args: { p_claim: string; p_id: string }
+        Returns: {
+          saved_at: string
+          step: string
+          value: Json
+        }[]
+      }
+      background_job_wake: {
+        Args: { p_key: string; p_kind: string }
+        Returns: boolean
       }
       background_jobs_forget: { Args: never; Returns: number }
       background_jobs_health: {
@@ -5964,6 +6078,19 @@ export type Database = {
         Args: { p_graph: Json; p_repo: string; p_sha: string }
         Returns: Json
       }
+      knowledge_nearest: {
+        Args: {
+          p_hashes: string[]
+          p_k: number
+          p_model: string
+          p_query: string
+          p_workspace: string
+        }
+        Returns: {
+          distance: number
+          text_sha256: string
+        }[]
+      }
       knowledge_pack_for_token: {
         Args: { p_hash: string; p_repo: string; p_sha?: string }
         Returns: Json
@@ -5980,6 +6107,15 @@ export type Database = {
       knowledge_product_for_repo: {
         Args: { p_product?: string; p_repo: string }
         Returns: Json
+      }
+      knowledge_vectors_forget: { Args: never; Returns: number }
+      knowledge_vectors_missing: {
+        Args: { p_hashes: string[]; p_model: string; p_workspace: string }
+        Returns: string[]
+      }
+      knowledge_vectors_put: {
+        Args: { p_model: string; p_rows: Json; p_workspace: string }
+        Returns: number
       }
       link_github: { Args: never; Returns: Json }
       lookup_product: {

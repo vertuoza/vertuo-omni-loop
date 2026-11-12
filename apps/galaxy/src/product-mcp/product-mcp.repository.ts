@@ -7,6 +7,11 @@
 // no table of personal data is read here. Every answer
 // is parsed where it comes in; a refusal of the database, or an answer out of shape, throws, naming the call.
 // It holds no rule.
+//
+// The knowledge's vectors (PRD 2728 s5) are read and written through knowledge_vectors_missing(),
+// knowledge_vectors_put() and knowledge_nearest() (supabase/migrations/20270118090000_knowledge_vectors.sql),
+// the service role's alone, each taking the workspace and reading only its rows (BR-PRODUCT-63). They are
+// asked only once the key check has served the request.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
@@ -85,3 +90,32 @@ export function productMcpRepository(db: ProductMcpDb) {
 }
 
 export type ProductMcpRepository = ReturnType<typeof productMcpRepository>;
+
+const NearRow = z.object({ text_sha256: z.string(), distance: z.number() });
+
+/** A vector as knowledge_nearest() takes it: pgvector's text form. */
+const asVector = (vector: readonly number[]): string => JSON.stringify(vector);
+
+/** The workspace's vectors of one model, on the service role's client. */
+export function knowledgeVectorsRepository(db: ProductMcpDb) {
+  return {
+    /** The hashes among `hashes` with no vector yet, each once, in the list's order. */
+    missing: (workspace: string, model: string, hashes: readonly string[]): Promise<string[]> =>
+      read(db.rpc('knowledge_vectors_missing', { p_workspace: workspace, p_model: model, p_hashes: hashes }), z.array(z.string()), 'knowledge_vectors_missing'),
+
+    /** Keeps the vectors of `rows`; one malformed row refuses them all. */
+    async put(workspace: string, model: string, rows: readonly { sha256: string; vector: readonly number[] }[]): Promise<void> {
+      await read(db.rpc('knowledge_vectors_put', { p_workspace: workspace, p_model: model, p_rows: rows }), z.number().int(), 'knowledge_vectors_put');
+    },
+
+    /** The `k` hashes among `hashes` holding a vector, nearest to `query` first. */
+    nearest: async (workspace: string, model: string, hashes: readonly string[], query: readonly number[], k: number): Promise<string[]> =>
+      (await read(
+        db.rpc('knowledge_nearest', { p_workspace: workspace, p_model: model, p_hashes: hashes, p_query: asVector(query), p_k: k }),
+        z.array(NearRow),
+        'knowledge_nearest',
+      )).map((row) => row.text_sha256),
+  };
+}
+
+export type KnowledgeVectorsRepository = ReturnType<typeof knowledgeVectorsRepository>;

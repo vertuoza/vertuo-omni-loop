@@ -205,5 +205,68 @@ describe('jobLedger — the ledger as the service role (PRD 2676 s1)', () => {
     await expect(ledger(refused()).claim({ limit: 1, leaseSeconds: 300 })).rejects.toThrow('(42501)');
     await expect(ledger(refused()).health()).rejects.toThrow('(42501)');
     await expect(ledger(refused()).forget()).rejects.toThrow('(42501)');
+    await expect(ledger(refused()).save({ id: ID, claim: CLAIM, step: 'facts', value: {} })).rejects.toThrow('(42501)');
+    await expect(ledger(refused()).stepsOf({ id: ID, claim: CLAIM })).rejects.toThrow('(42501)');
+    await expect(ledger(refused()).renew({ id: ID, claim: CLAIM })).rejects.toThrow('(42501)');
+    await expect(ledger(refused()).wake({ kind: 'main-watch', key: 'initech/web#7' })).rejects.toThrow('(42501)');
+  });
+});
+
+describe('jobLedger — saved steps, waking and renewing (PRD omni-loop-4 s1)', () => {
+  const STALE = { status: 400, code: '55000', message: `Claim: job ${ID} is no longer held by this claim.` };
+
+  it('save: calls background_job_save with the job, its claim, the step and its value; answers saved', async () => {
+    const db = dbFetch(null);
+    expect(await ledger(db.fetch).save({ id: ID, claim: CLAIM, step: 'facts', value: { prs: [12, 13], merged: null } })).toBe('saved');
+    expect(db.calls).toEqual([{
+      method: 'POST',
+      path: '/rest/v1/rpc/background_job_save',
+      search: '',
+      body: { p_id: ID, p_claim: CLAIM, p_step: 'facts', p_value: { prs: [12, 13], merged: null } },
+      key: 'service-key',
+    }]);
+  });
+
+  it('save: a claim no longer the job\'s is stale; a value over 1 MB is thrown naming the step', async () => {
+    expect(await ledger(dbFetch(STALE).fetch).save({ id: ID, claim: CLAIM, step: 'facts', value: 1 })).toBe('stale');
+    const big = dbFetch({ status: 400, code: '22023', message: 'Step "facts": its value is over 1 MB.' });
+    await expect(ledger(big.fetch).save({ id: ID, claim: CLAIM, step: 'facts', value: 'x' })).rejects.toThrow('Step "facts": its value is over 1 MB. (22023)');
+  });
+
+  it('stepsOf: calls background_job_steps_of under the claim; answers each step\'s value by its id', async () => {
+    const db = dbFetch([
+      { step: 'qualify', value: { feature: true }, saved_at: '2027-01-17T09:00:00+00:00' },
+      { step: 'facts', value: null, saved_at: '2027-01-17T09:00:01+00:00' },
+    ]);
+    const steps = await ledger(db.fetch).stepsOf({ id: ID, claim: CLAIM });
+    expect(steps).toEqual(new Map<string, unknown>([['qualify', { feature: true }], ['facts', null]]));
+    expect(db.calls).toEqual([expect.objectContaining({ method: 'POST', path: '/rest/v1/rpc/background_job_steps_of', body: { p_id: ID, p_claim: CLAIM } })]);
+    expect(await ledger(dbFetch([]).fetch).stepsOf({ id: ID, claim: CLAIM })).toEqual(new Map());
+  });
+
+  it('stepsOf: a claim no longer the job\'s is stale; a row out of shape throws', async () => {
+    expect(await ledger(dbFetch(STALE).fetch).stepsOf({ id: ID, claim: CLAIM })).toBe('stale');
+    await expect(ledger(dbFetch([{ step: '', value: 1, saved_at: 'x' }]).fetch).stepsOf({ id: ID, claim: CLAIM })).rejects.toThrow();
+    await expect(ledger(dbFetch({ facts: 1 }).fetch).stepsOf({ id: ID, claim: CLAIM })).rejects.toThrow();
+  });
+
+  it('renew: calls background_job_renew with the claim, and the lease only when given; answers when the claim runs out', async () => {
+    const until = '2027-01-17T09:05:00+00:00';
+    const db = dbFetch(until);
+    expect(await ledger(db.fetch).renew({ id: ID, claim: CLAIM })).toEqual({ until });
+    expect(db.calls[0]).toMatchObject({ path: '/rest/v1/rpc/background_job_renew', body: { p_id: ID, p_claim: CLAIM } });
+    const leased = dbFetch(until);
+    await ledger(leased.fetch).renew({ id: ID, claim: CLAIM, leaseSeconds: 600 });
+    expect(leased.calls[0]?.body).toEqual({ p_id: ID, p_claim: CLAIM, p_lease_seconds: 600 });
+    expect(await ledger(dbFetch(STALE).fetch).renew({ id: ID, claim: CLAIM })).toBe('stale');
+    await expect(ledger(dbFetch(7).fetch).renew({ id: ID, claim: CLAIM })).rejects.toThrow();
+  });
+
+  it('wake: calls background_job_wake with the kind and key; answers whether it woke a job', async () => {
+    const db = dbFetch(true);
+    expect(await ledger(db.fetch).wake({ kind: 'main-watch', key: 'initech/web#7' })).toBe(true);
+    expect(db.calls).toEqual([expect.objectContaining({ method: 'POST', path: '/rest/v1/rpc/background_job_wake', body: { p_kind: 'main-watch', p_key: 'initech/web#7' } })]);
+    expect(await ledger(dbFetch(false).fetch).wake({ kind: 'main-watch', key: 'initech/web#7' })).toBe(false);
+    await expect(ledger(dbFetch('woken').fetch).wake({ kind: 'main-watch', key: 'initech/web#7' })).rejects.toThrow();
   });
 });

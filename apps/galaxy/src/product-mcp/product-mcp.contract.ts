@@ -1,11 +1,13 @@
 // A product's MCP server (PRD 2707 s3; ADR-0095): what `/api/products/<key>/mcp` answers, as zod schemas,
 // and the one-line refusals. Browser-safe: no server module is imported.
 //
-//   search_knowledge {query?, kind?, domain?, repo?}  → {hits, total, repositories}
+//   search_knowledge {query?, kind?, domain?, repo?}  → {hits, total, mode?, repositories}
 //   get_knowledge    {id}                             → {entry, repositories}
 //
 // Every answer carries `repositories`: each repository of the product the key may read, with its newest
 // knowledge pack, or `pack: null` and the line telling the agent to tell its person (BL-PRODUCTKNOWLEDGE-4).
+// A search with a query says by `mode` how it ranked (PRD 2728 s5): `meaning`, by the entries' vectors, or
+// `words`, the word search, whenever the vectors could not answer. A listing (no query) carries no mode.
 import { z } from 'zod';
 
 /** The kinds of knowledge an entry is. */
@@ -26,7 +28,6 @@ const KnowledgeEntrySchema = z.object({
   file: z.string().nullable(),
   status: z.string().nullable(),
 });
-export type KnowledgeEntry = z.infer<typeof KnowledgeEntrySchema>;
 
 /** One search hit: an entry without its body, with the body's sentence that holds a word of the query. */
 const KnowledgeHitSchema = KnowledgeEntrySchema.pick({ id: true, kind: true, title: true, repo: true, domain: true }).extend({
@@ -45,9 +46,14 @@ const RepositoryStateSchema = z.object({
 });
 export type RepositoryState = z.infer<typeof RepositoryStateSchema>;
 
+/** How a search with a query ranked its hits: by meaning, or by words when the vectors could not answer. */
+const SearchModeSchema = z.enum(['meaning', 'words']);
+export type SearchMode = z.infer<typeof SearchModeSchema>;
+
 export const SearchAnswerSchema = z.object({
   hits: z.array(KnowledgeHitSchema),
   total: z.number().int().nonnegative(),
+  mode: SearchModeSchema.optional(),
   repositories: z.array(RepositoryStateSchema),
 });
 

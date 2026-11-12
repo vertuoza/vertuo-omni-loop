@@ -1,16 +1,14 @@
 import { readFileSync } from 'node:fs';
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { dig } from 'omni-loop/kit/bin/dig.ts';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { at as itemAt, defined } from 'omni-loop/kit/lib/narrow.ts';
-import { inngest } from '../../inngest-client.ts';
 import { FEATURE, JUDGE_ENV, OWNER, PLAN, REPO, SUB_PULLS, judge } from '../../../test/retro-scenario.ts';
 import { listPullsInto } from '../github.ts';
 import { LIMITS } from '../rules.ts';
 import { ci } from './ci.ts';
 import type { Finding, RetroPull } from './index.ts';
-import { handles, replay, retroFunction, scenario } from './test/handles.ts';
+import { handles, replay, retroRun, scenario } from './test/handles.ts';
 import { cleanLog, tailOf } from './ci-logs.ts';
 import { readEnv } from '../../env.ts';
 
@@ -374,14 +372,13 @@ describe('ci — its section', () => {
   });
 });
 
-describe('ci — through the retro function', () => {
+describe('ci — through the retro job', () => {
   const FOLDER = '.omni-loop/delivery/shipped/0007-widget';
   const BRANCH = 'docs/retro-widget';
 
   async function retroOf() {
     const widget = scenario({ recording: recording() });
-    const fn = retroFunction({ client: inngest, octokitFor: () => widget.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge() });
-    const { error } = await new InngestTestEngine({ function: fn, events: [widget.event] }).execute();
+    const { error } = await retroRun({ octokitFor: () => widget.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch: judge() }, widget);
     const files = widget.github.filesAt(BRANCH, [`${FOLDER}/retro.md`, `${FOLDER}/retro.json`]);
     return { error, github: widget.github, markdown: defined(files[`${FOLDER}/retro.md`], 'retro.md'), json: defined(files[`${FOLDER}/retro.json`], 'retro.json') };
   }

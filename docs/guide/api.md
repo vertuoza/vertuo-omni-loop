@@ -62,11 +62,11 @@ lines, across all its repositories. Any agent that speaks MCP can search and rea
 
 The server offers two tools, both read-only:
 
-- `search_knowledge` finds entries by plain words, with no model. It takes an optional `query`, and
-  optional `kind`, `domain` and `repo` filters. Without a `query` it lists the entries that match the
-  filters. For example, `{"query": "api key"}` answers the ADRs, rules, Legal entries and terms that
-  mention it, each with an id to cite.
-- `get_knowledge` reads one entry whole, by its id. For example, `{"id": "BL-QUOTES-1"}` answers that
+- `search_knowledge` finds entries by meaning. It takes an optional `query`, and optional `kind`,
+  `domain` and `repo` filters. Without a `query` it lists the entries that match the filters. For
+  example, `{"query": "can an order ship without a delivery address"}` answers the entries nearest to
+  that question, each with an id to cite. See **How the search ranks** below.
+- `get_knowledge` reads one entry whole, by its id. For example, `{"id": "BL-ORDERS-1"}` answers that
   business law's statement, Why, domains and owner.
 
 Each answer also lists the product's repositories. A repository with no knowledge yet is named there
@@ -85,6 +85,50 @@ the key belongs to the product's workspace and is on the product's allow-list.
 A key that does not work (missing, mistyped or revoked, or made by someone who has left the
 workspace) still connects, and every call answers: `This API key does not work here. Make one on
 Settings › API keys, and check the product's MCP server is on.`
+
+### How the search ranks
+
+Ask in your own words: the search does not need the product's exact terms. With a `query`, the hits
+come in this order, at most 20:
+
+1. **An exact match.** An entry whose id, or a term whose word, is the query (case and accents
+   ignored), like `BL-ORDERS-1` or `SKU`.
+2. **The nearest in meaning.** The question and every entry are turned into vectors, and the entries
+   nearest to the question come next.
+3. **Entries not yet turned into vectors,** such as a pack minutes old, by the words they share with
+   the query.
+
+Each answer with a `query` carries a `mode`. `meaning` says the meaning search ranked it. `words`
+says it could not and the plain word search answered instead: the model took more than 2 seconds,
+failed, or the product's knowledge has no vectors yet. A search never fails because of the vectors,
+so an agent still gets an answer, and may ask again later. A listing with no `query` has no `mode`.
+
+No owner's login is turned into a vector, and a workspace's vectors are never read by another.
+
+### Score a product's search
+
+`pnpm eval:search` scores a product's server on your own questions, so you can see whether a change
+helped. Write a JSON file with one entry per question: the `question` as an agent would ask it, the
+`expected` id that should come up, and a `set`, a free label such as `natural` or `paraphrase`.
+
+```json file=questions.json
+[
+  { "set": "natural", "expected": "BL-ORDERS-1", "question": "can an order ship without a delivery address?" }
+]
+```
+
+Put the API key alone in a file, then run:
+
+```bash terminal
+pnpm eval:search <key> questions.json --key-file ./oma.key
+```
+
+`<key>` is the product's key. It prints, per set, how many questions had the expected entry first,
+how many had it in the top 5, and the mean reciprocal rank (1 when always first, lower the further
+down it comes). Then it prints each question with its rank (`-` when it did not come up) and its
+`mode`. Aim for `meaning` on every line. The key is read from the file, sent in the header, and never
+printed. The repository holds a fictional example, `scripts/eval-search/acme.json`. Keep a real
+product's questions in its own repository: they name its own knowledge.
 
 ## Read the PRDs
 
