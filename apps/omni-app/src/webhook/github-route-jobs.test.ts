@@ -2,7 +2,9 @@
 // jobs due run after the answer, Inngest refusing an event never loses the job, and a database failure never fails
 // the delivery. The checks (PRD 2688 s7): a pull request event refreshes the four checks' jobs before anything else,
 // a re-run only its own, the approved label its PRD's pull requests' `pr-approved` jobs, and the jobs due run once
-// the refresh's delay has gone by, on a ledger that keeps the refresh table of the spec.
+// the refresh's delay has gone by, on a ledger that keeps the refresh table of the spec. The fix row stamp and the
+// fleet board (PRD omni-loop-3 s3): a merged pull request adds its `fix-row-stamp` job, a loop pull request its
+// `fleet-board` job, none goes to Inngest, a refused add answers 500, and the jobs due run after the answer.
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
@@ -11,6 +13,7 @@ import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID } from '..
 import type { ClaimedJob, Finish, FinishAnswer, JobLedger, NewJob, RefreshJob, Refreshed } from '../jobs/ledger.ts';
 import { PR_CHECK_KINDS, prCheckJob, type ApprovedRerun } from '../jobs/pr-checks.ts';
 import { runDue, type JobHandler } from '../jobs/worker.ts';
+import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
 import { githubRoute, RUN_AFTER_REFRESH_MS, type RouteJobs } from './github-route.ts';
 
 const SECRET = 'route-secret';
@@ -47,6 +50,10 @@ function recording(order: string[], over: Partial<RouteJobs> = {}): RouteJobs {
   return {
     add: (job) => {
       order.push(`add ${job.kind}`);
+      return Promise.resolve(true);
+    },
+    queue: (job) => {
+      order.push(`queue ${job.kind}`);
       return Promise.resolve(true);
     },
     refresh: (job) => {
@@ -96,7 +103,8 @@ describe('/api/github — the knowledge pack job (PRD 2676 s2)', () => {
     expect(response.status).toBe(200);
     expect(order[0]).toBe('add knowledge-pack');
     expect(order.at(-1)).toBe('run');
-    expect(order.indexOf('send')).toBe(1);
+    expect(order.indexOf('queue fix-row-stamp')).toBe(1);
+    expect(order.indexOf('send')).toBe(2);
     expect(kept).toHaveLength(1);
   });
 
@@ -115,14 +123,15 @@ describe('/api/github — the knowledge pack job (PRD 2676 s2)', () => {
     expect(added).toHaveLength(1);
   });
 
+  // The merge's fix stamp job is already held in the two below (PRD omni-loop-3 s3), so only the pack's add decides.
   it('does not fail the delivery when the database fails, and runs nothing', async () => {
-    const { response, kept } = await deliver(recording([], { add: () => Promise.reject(new Error('the database refused: down')) }), () => Promise.resolve());
+    const { response, kept } = await deliver(recording([], { add: () => Promise.reject(new Error('the database refused: down')), queue: () => Promise.resolve(false) }), () => Promise.resolve());
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
 
   it('runs nothing when no job was added, as for a repository no product holds', async () => {
-    const { response, kept } = await deliver(recording([], { add: () => Promise.resolve(false) }), () => Promise.resolve());
+    const { response, kept } = await deliver(recording([], { add: () => Promise.resolve(false), queue: () => Promise.resolve(false) }), () => Promise.resolve());
     expect(response.status).toBe(200);
     expect(kept).toEqual([]);
   });
@@ -255,8 +264,75 @@ function fakeLedger(now: () => number) {
       return Promise.resolve(outcome);
     },
   };
-  return { refresh, ledger };
+  /** background_job_add(): a job due now, nothing for a key the kind already holds. */
+  const add = ({ kind, key, subject, payload, maxTries }: NewJob): Promise<boolean> => {
+    if (rows.has(`${kind} ${key}`)) return Promise.resolve(false);
+    const job = { id: `job-${String(rows.size + 1)}`, kind, key, subject, payload, tries: 0, claim: '', claimedUntil: '', ...(maxTries === undefined ? {} : { maxTries }) };
+    rows.set(`${kind} ${key}`, { job, state: 'queued', runAfter: now(), again: false });
+    return Promise.resolve(true);
+  };
+  const states = () => Object.fromEntries([...rows].map(([name, row]) => [name, row.state]));
+  return { refresh, add, ledger, states };
 }
+
+describe('/api/github — the fix row stamp and the fleet board are jobs of the ledger (PRD omni-loop-3 s3)', () => {
+  /** A loop pull request opened into the default branch of `o/r`. */
+  const opened = JSON.stringify({
+    action: 'opened',
+    number: 9,
+    installation: { id: 7 },
+    repository: REPOSITORY,
+    pull_request: { number: 9, node_id: 'PR_9', html_url: 'https://github.com/o/r/pull/9', state: 'open', user: { login: 'ada' }, body: `Closes #3\n\n${SIGNED_MARKER}`, updated_at: '2026-10-16T09:00:00Z', head: { sha: 'h' }, base: { ref: 'main' } },
+  });
+
+  /** The route over a fake ledger whose handlers say what they ran; `send` records what went to Inngest. */
+  function onLedger() {
+    const { refresh, add, ledger, states } = fakeLedger(() => 0);
+    const ran: string[] = [];
+    const sent: unknown[] = [];
+    const handler: JobHandler = (job) => {
+      ran.push(`${job.kind} ${job.key}`);
+      return Promise.resolve({ outcome: 'done' });
+    };
+    const handlers = { 'fix-row-stamp': handler, 'fleet-board': handler };
+    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue: add, refresh, approved: () => Promise.resolve([]), run: () => runDue({ ledger, handlers, log: () => undefined }) };
+    const one = route(jobs, (events?: unknown) => Promise.resolve(sent.push(events)));
+    return { ran, sent, states, post: one.post, settle: one.settle };
+  }
+
+  it('a merged pull request adds its `fix-row-stamp` job, run once the delivery is answered; a redelivery adds none', async () => {
+    const run = onLedger();
+    expect((await run.post('pull_request', merged)).status).toBe(200);
+    await run.post('pull_request', merged);
+    await run.settle();
+    expect(run.ran).toEqual(['fix-row-stamp o/r#9@merged@2026-10-16T09:00:00Z']);
+    expect(run.states()).toMatchObject({ 'fix-row-stamp o/r#9@merged@2026-10-16T09:00:00Z': 'done' });
+    expect(JSON.stringify(run.sent)).not.toContain('fix.stamp');
+  });
+
+  it('a loop pull request into the default branch adds its `fleet-board` job, and sends Inngest nothing', async () => {
+    const run = onLedger();
+    expect((await run.post('pull_request', opened)).status).toBe(200);
+    await run.settle();
+    expect(run.ran).toEqual(['fleet-board o/r#9']);
+    expect(run.sent).toEqual([]);
+  });
+
+  it('answers 500 when the database refuses the add, so GitHub delivers it again, and sends Inngest nothing', async () => {
+    const order: string[] = [];
+    const sent: string[] = [];
+    const { response } = await deliver(recording(order, { queue: () => Promise.reject(new Error('the database refused: down')) }), () => Promise.resolve(sent.push('send')), merged);
+    expect(response.status).toBe(500);
+    expect(await response.text()).toBe('could not add the job: the database refused: down');
+    expect(sent).toEqual([]);
+  });
+
+  it('adds nothing where the App has no database, and the delivery is answered', async () => {
+    const { response, kept } = await deliver(null, () => Promise.resolve(), opened);
+    expect(response.status).toBe(200);
+    expect(kept).toEqual([]);
+  });
+});
 
 describe('/api/github — the latest state wins, on a ledger that keeps the refresh table (PRD 2688 s7)', () => {
   /** The route over a fake ledger whose four checks say which head they ran on; `during` runs inside the first run. */
@@ -273,7 +349,7 @@ describe('/api/github — the latest state wins, on a ledger that keeps the refr
       }
       return { outcome: 'done' };
     }]));
-    const jobs: RouteJobs = { add: () => Promise.resolve(false), refresh, approved: () => Promise.resolve([]), run: () => runDue({ ledger, handlers, log: () => undefined }) };
+    const jobs: RouteJobs = { add: () => Promise.resolve(false), queue: () => Promise.resolve(false), refresh, approved: () => Promise.resolve([]), run: () => runDue({ ledger, handlers, log: () => undefined }) };
     const one = route(jobs);
     const post = (body: string) => one.post('pull_request', body);
     const at = (ms: number) => {

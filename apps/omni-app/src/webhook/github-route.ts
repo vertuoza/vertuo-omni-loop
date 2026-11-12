@@ -1,7 +1,7 @@
 // `/api/github`'s handlers (PRD 1059): a Vercel function in the web-standard shape (a `Request` in, a
 // `Response` out), bound to the groups of the app's environment it needs (../env.ts). It reads the raw
 // body — the signature is over the exact bytes — lets `receiveWebhook` verify and filter it, sends the
-// resulting events, the fix stamps (PRD 2011 s7), the main watch's (PRD 2410) and the fleet board's (PRD 2530) among them, on the app's Inngest client, and forwards
+// resulting events, the main watch's (PRD 2410) among them, on the app's Inngest client, and forwards
 // a stage event to galaxy, signed with `STAGE_EVENT_SECRET`, and each touch to galaxy's
 // `/api/github/touched`, signed the same way (PRD 902, s3). The webhook secret is `GITHUB_WEBHOOK_SECRET`, required in production; unset
 // elsewhere, every delivery is refused (fail closed).
@@ -10,6 +10,11 @@
 // anything goes to Inngest; once the delivery is answered, the jobs due run in `waitUntil` (GitHub gives a
 // webhook 10 seconds). A repository no product holds adds nothing and reads nothing on GitHub; a database
 // failure is logged and the delivery goes on (the sweep's comparison repairs it).
+//
+// The fix row stamp (PRD 2011 s7) and the fleet board (PRD 2530), PRD omni-loop-3 s3: a pull request merged, closed or
+// reopened adds its `fix-row-stamp` job, and a loop pull request into the default branch its `fleet-board` job, on
+// any repository the App is installed on, before anything goes to Inngest. A database that refuses answers 500, so
+// GitHub's redelivery adds the job then; once the delivery is answered, the jobs due run in `waitUntil`.
 //
 // The checks (PRD 2688 s7): a pull request event refreshes its checks' jobs before anything else is called,
 // on any repository the App is installed on; the approved label's re-run finds its PRD's open pull requests
@@ -25,8 +30,6 @@ import { githubClient } from '@omni/github';
 import { waitUntil } from '@vercel/functions';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
-import type { FixStampRequest } from '../fix-rows/fix-stamp.ts';
-import type { FleetBoardRequest } from '../fleet-board/events.ts';
 import type { MainWatchRequest } from '../main-watch/events.ts';
 import { type AppEvent, inngest } from '../inngest-client.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type NewJob, type RefreshJob } from '../jobs/ledger.ts';
@@ -40,7 +43,7 @@ import { loggedHandler, noteTo } from '../run-log/run-log.ts';
 import { receiveWebhook } from './webhook.ts';
 
 /** Every event the route sends on the app's Inngest client. */
-type RouteEvent = AppEvent | FixStampRequest | MainWatchRequest | FleetBoardRequest;
+type RouteEvent = AppEvent | MainWatchRequest;
 
 /** The groups the route reads: its own, and those the checks' worker reads (../jobs/pr-checks.ts). */
 export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl'> &
@@ -50,6 +53,8 @@ export type GithubRouteEnv = Pick<AppEnv, 'webhook' | 'stageEvents' | 'galaxyUrl
 export type RouteJobs = {
   /** Adds the job when a product holds its repository; whether one was added. */
   add: (job: NewJob) => Promise<boolean>;
+  /** Adds the job on any repository (the fix row stamp's, the fleet board's); whether one was added. A refusal is thrown. */
+  queue: (job: NewJob) => Promise<boolean>;
   /** Refreshes a check's job, on any repository: the latest event wins. */
   refresh: (job: RefreshJob) => Promise<unknown>;
   /** The `pr-approved` jobs of the open pull requests of the PRD whose approved label changed, read from GitHub. */
@@ -70,6 +75,7 @@ function liveJobs(env: GithubRouteEnv, logger: Logger): RouteJobs | null {
   const workerEnv: WorkerEnv = { ...env, supabase };
   return {
     add: async (job) => (await store.held(job.subject)) && ledger.add(job),
+    queue: (job) => ledger.add(job),
     refresh: (job) => ledger.refresh(job),
     approved: async (rerun) => approvedRerunJobs(await octokitFor(rerun.installationId), rerun),
     run: () => runDue({ ledger, ...liveWorkers(workerEnv, octokitFor) }),
@@ -81,7 +87,8 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 /**
  * One delivery's jobs: the hooks `receiveWebhook` calls (refresh the checks' jobs, take the approvals' re-runs,
- * add the pack's jobs), and the work after the answer, or null when the delivery left the ledger nothing to run.
+ * add the pack's jobs, add the fix row stamp's and the fleet board's, a refusal of which is thrown), and the work
+ * after the answer, or null when the delivery left the ledger nothing to run.
  */
 function deliveryJobs(jobs: RouteJobs | null) {
   let added = false;
@@ -103,6 +110,10 @@ function deliveryJobs(jobs: RouteJobs | null) {
       addJobs: async (newJobs: NewJob[]) => {
         if (!jobs) return;
         for (const job of newJobs) added = (await jobs.add(job)) || added;
+      },
+      queueJobs: async (newJobs: NewJob[]) => {
+        if (!jobs) return;
+        for (const job of newJobs) added = (await jobs.queue(job)) || added;
       },
     },
     after: ({ pause, say }: { pause: (ms: number) => Promise<void>; say: (line: string) => void }): Promise<void> | null => {
@@ -187,9 +198,7 @@ export function githubRoute(
         secret: env.webhook?.secret,
         send,
         ...delivery.hooks,
-        sendStamps: send,
         sendWatch: send,
-        sendBoard: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched),
       });

@@ -22,14 +22,18 @@ import {
   toFleetBoardRequests,
   toHarvestRequests,
   toMainWatchRequests,
+  toQueuedJobs,
   toRetroRequests,
 } from './webhook.ts';
-import { FLEET_BOARD_EVENT, type FleetBoardRequest } from '../fleet-board/events.ts';
+import { FLEET_BOARD_EVENT } from '../fleet-board/events.ts';
+import { fleetBoardJob } from '../fleet-board/job.ts';
+import { fixRowStampJob } from '../fix-rows/job.ts';
+import type { NewJob } from '../jobs/ledger.ts';
 import { OMNI_LOGIN } from '../pr-stats/signed.ts';
 import { SIGNED_MARKER } from 'omni-loop/kit/lib/signature.ts';
 import { MAIN_WATCH_CI_EVENT, MAIN_WATCH_EVENT, type MainWatchRequest } from '../main-watch/events.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
-import { FIX_STAMP_EVENT, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
+import { FIX_STAMP_EVENT, type FixStampData } from '../fix-rows/fix-stamp.ts';
 import type { Touch } from '../stage-forward/touch.ts';
 
 const SECRET = 'shh-test-secret';
@@ -353,8 +357,8 @@ describe('webhook — the retro route (PRD 72)', () => {
     const { response, send, refreshed } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
     expect(refreshed).toEqual([]);
-    // The retro, the harvest, and beside them the fix stamp (PRD 2011 s7) and the main watch (PRD 2410), which `send` never gets.
-    expect(response.body).toBe('sent 4');
+    // The retro, the harvest, and beside them the main watch (PRD 2410), which `send` never gets; and the fix stamp's job (PRD omni-loop-3 s3).
+    expect(response.body).toBe('sent 3 · 1 jobs');
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]?.[0]).toEqual([
       {
@@ -705,28 +709,33 @@ describe('webhook — the fix stamp (PRD 2011 s7)', () => {
     expect(HANDLED.pull_request).toEqual(expect.arrayContaining([...FIX_STAMP_ACTIONS.pull_request]));
   });
 
-  it('a signed delivery hands its fix stamp to sendStamps, beside the events `send` gets, and answers 502 when it cannot be sent', async () => {
+  it('a signed delivery hands its `fix-row-stamp` job to queueJobs, not to Inngest, beside the events `send` gets (PRD omni-loop-3 s3)', async () => {
     const payload = mergedPayload({ body: FIXES });
     const body = JSON.stringify(payload);
     const send = sending();
-    const sendStamps = vi.fn((events: FixStampRequest[]) => Promise.resolve(events.length));
-    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send, sendStamps, forward: forwarding() });
-    expect(response).toEqual({ status: 200, body: 'sent 4' });
+    const queueJobs = vi.fn((jobs: NewJob[]) => Promise.resolve(jobs.length));
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send, queueJobs, forward: forwarding() });
+    expect(response).toEqual({ status: 200, body: 'sent 3 · 1 jobs' });
     expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
-    expect(sendStamps).toHaveBeenCalledWith([stampOf('merged', MERGED_AT, 'mobile-B74')]);
-
-    const closed = JSON.stringify(closedPayload());
-    const failing = vi.fn(() => Promise.reject(new Error('inngest is down')));
-    const refused = await receiveWebhook({ body: closed, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(closed) }, secret: SECRET, send: sending(), sendStamps: failing, forward: forwarding() });
-    expect(refused).toEqual({ status: 502, body: 'could not send the event: inngest is down' });
+    expect(queueJobs).toHaveBeenCalledWith([fixRowStampJob(stampOf('merged', MERGED_AT, 'mobile-B74').data as FixStampData)]);
+    expect(queueJobs.mock.calls[0]?.[0][0]).toMatchObject({ kind: 'fix-row-stamp', key: `vertuoza/vertuo-omni-loop#28@merged@${MERGED_AT}`, maxTries: 4 });
   });
 
-  it('a delivery with a bad signature hands sendStamps nothing', async () => {
+  it('answers 500 when the job cannot be added, and sends Inngest nothing', async () => {
+    const closed = JSON.stringify(closedPayload());
+    const send = sending();
+    const failing = vi.fn(() => Promise.reject(new Error('the database refused: down')));
+    const refused = await receiveWebhook({ body: closed, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(closed) }, secret: SECRET, send, queueJobs: failing, forward: forwarding() });
+    expect(refused).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('a delivery with a bad signature hands queueJobs nothing', async () => {
     const body = JSON.stringify(mergedPayload());
-    const sendStamps = vi.fn(() => Promise.resolve());
-    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send: sending(), sendStamps, forward: forwarding() });
+    const queueJobs = vi.fn(() => Promise.resolve());
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send: sending(), queueJobs, forward: forwarding() });
     expect(response.status).toBe(401);
-    expect(sendStamps).not.toHaveBeenCalled();
+    expect(queueJobs).not.toHaveBeenCalled();
   });
 });
 
@@ -876,27 +885,30 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     expect(toFixStampRequests('pull_request', loopPull('reopened')).map((event) => event.name)).toEqual([FIX_STAMP_EVENT]);
   });
 
-  it('a signed delivery hands the fleet board its event beside the checks\' jobs, and answers 502 when it cannot be sent', async () => {
+  it('a signed delivery hands queueJobs its `fleet-board` job beside the checks\' jobs, sends Inngest nothing, and answers 500 when it cannot be added (PRD omni-loop-3 s3)', async () => {
     const body = JSON.stringify(loopPull('opened'));
     const headers = { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) };
     const send = sending();
-    const sendBoard = vi.fn((events: FleetBoardRequest[]) => Promise.resolve(events.length));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendBoard, forward: forwarding() })).toEqual({ status: 200, body: 'sent 1 · 4 jobs' });
-    expect(sendBoard).toHaveBeenCalledWith([boardEvent('opened')]);
+    const queueJobs = vi.fn((jobs: NewJob[]) => Promise.resolve(jobs.length));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, send, queueJobs, forward: forwarding() })).toEqual({ status: 200, body: 'sent 0 · 5 jobs' });
+    expect(queueJobs).toHaveBeenCalledWith([fleetBoardJob(boardEvent('opened').data as never)]);
+    expect(queueJobs.mock.calls[0]?.[0][0]).toMatchObject({ kind: 'fleet-board', key: 'vertuoza/vertuo-omni-loop#28', maxTries: 4 });
+    expect(queueJobs.mock.calls[0]?.[0][0]).not.toHaveProperty('lane');
     expect(send).not.toHaveBeenCalled();
 
-    const failing = vi.fn(() => Promise.reject(new Error('inngest is down')));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, send, sendBoard: failing, forward: forwarding() })).toEqual({ status: 502, body: 'could not send the event: inngest is down' });
+    const failing = vi.fn(() => Promise.reject(new Error('the database refused: down')));
+    expect(await receiveWebhook({ body, headers, secret: SECRET, send, queueJobs: failing, forward: forwarding() })).toEqual({ status: 500, body: 'could not add the job: the database refused: down' });
     const bad = vi.fn(() => Promise.resolve());
-    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send, sendBoard: bad, forward: forwarding() })).status).toBe(401);
+    expect((await receiveWebhook({ body, headers: { ...headers, 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send, queueJobs: bad, forward: forwarding() })).status).toBe(401);
     expect(bad).not.toHaveBeenCalled();
   });
 
   it('a pull request typed by hand hands the fleet board nothing', async () => {
     const body = JSON.stringify(loopPull('opened', { body: 'by hand' }));
-    const sendBoard = vi.fn(() => Promise.resolve());
-    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), sendBoard, forward: forwarding() });
+    const queueJobs = vi.fn(() => Promise.resolve());
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send: sending(), queueJobs, forward: forwarding() });
     expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
-    expect(sendBoard).not.toHaveBeenCalled();
+    expect(queueJobs).not.toHaveBeenCalled();
+    expect(toQueuedJobs('pull_request', loopPull('opened', { body: 'by hand' }))).toEqual([]);
   });
 });

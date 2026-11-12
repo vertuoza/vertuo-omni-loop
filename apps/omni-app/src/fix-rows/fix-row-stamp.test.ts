@@ -1,16 +1,17 @@
-// The fix stamp end to end against a stubbed GitHub (PRD 2011 s7, acceptance 5): a signed delivery of a
-// pull request closed or reopened in, the webhook's fix stamp event out, and the `fix-row-stamp` function
-// run on it against a database that keeps a record's Fixes rows as `fix_row_stamp()` does. The function
-// is handed no GitHub at all: the delivery carries every fact it needs, so it reads nothing there and
+// The fix stamp end to end against a stubbed GitHub (PRD omni-loop-3 s3; PRD 2011 s7, acceptance 5): a signed
+// delivery of a pull request closed or reopened in, the webhook's `fix-row-stamp` job out, and that job claimed and
+// run against a database that keeps a record's Fixes rows as `fix_row_stamp()` does. The job is handed no GitHub
+// at all: the delivery carries every fact it needs, so it reads nothing there and
 // merges nothing. No test calls GitHub or Supabase.
 import { createHmac } from 'node:crypto';
-import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parsePr, parseProductBugId } from 'omni-loop/kit/lib/ids.ts';
-import { inngest } from '../inngest-client.ts';
+import type { ClaimedJob, NewJob } from '../jobs/ledger.ts';
+import { liveWorkers } from '../jobs/pr-checks.ts';
+import type { JobResult } from '../jobs/worker.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
-import { createFixRowStamp, FIX_ROW_STAMP_FUNCTION_ID } from './fix-row-stamp.ts';
-import { FIX_STAMP_EVENT, type FixStampRequest } from './fix-stamp.ts';
+import { FIX_ROW_STAMP_KIND, fixRowStampHandler, fixRowStampJob } from './job.ts';
+import type { FixStampData } from './fix-stamp.ts';
 import type { FixStamp, FixStamper, StampAnswer } from './stamp.ts';
 
 const SECRET = 'shh-test-secret';
@@ -78,7 +79,7 @@ function recordDb() {
 
 type Pull = { repo?: string; number?: number; action?: 'closed' | 'reopened'; merged?: boolean; base?: string; body?: string | null };
 
-/** A signed delivery of `pull`, as GitHub sends it: the fix stamp events the webhook sent. */
+/** A signed delivery of `pull`, as GitHub sends it: the jobs the webhook added. */
 async function deliver({ repo = 'api', number = 446, action = 'closed', merged = true, base = 'main', body = 'Fixes mobile-B74 · https://omni.example/bugs/mobile-B74' }: Pull = {}) {
   const payload = {
     action,
@@ -98,28 +99,27 @@ async function deliver({ repo = 'api', number = 446, action = 'closed', merged =
     },
   };
   const text = JSON.stringify(payload);
-  const stamps: FixStampRequest[] = [];
+  const queued: NewJob[] = [];
   const response = await receiveWebhook({
     body: text,
     headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(text).digest('hex')}` },
     secret: SECRET,
     send: () => Promise.resolve(),
-    sendStamps: (events) => Promise.resolve(stamps.push(...events)),
+    queueJobs: (jobs) => Promise.resolve(queued.push(...jobs)),
     forward: () => Promise.resolve(),
   });
   expect(response.status).toBe(200);
-  return stamps;
+  return queued.filter((job) => job.kind === FIX_ROW_STAMP_KIND);
 }
 
-/** Runs the function on every stamp event, in order; their results. */
-async function run(stamp: FixStamper | null, events: FixStampRequest[], log: string[] = []) {
-  const fn = createFixRowStamp({ client: inngest, stamp, log: (line) => log.push(line) });
-  const results: unknown[] = [];
-  for (const event of events) {
-    const { result, error } = await new InngestTestEngine({ function: fn, events: [event as never] }).execute();
-    expect(error).toBeUndefined();
-    results.push(result);
-  }
+/** `job` as the ledger hands it to the worker: claimed, on its first try. */
+const claimed = (job: NewJob): ClaimedJob => ({ id: 'job-1', claim: 'claim-1', claimedUntil: MERGED_AT, tries: 1, progress: {}, lane: null, maxTries: job.maxTries ?? 5, kind: job.kind, key: job.key, subject: job.subject, payload: job.payload });
+
+/** Runs every job, claimed, in order; how each ended. */
+async function run(stamp: FixStamper | null, jobs: NewJob[], log: string[] = []) {
+  const handler = fixRowStampHandler({ stamp, log: (line) => log.push(line) });
+  const results: JobResult[] = [];
+  for (const job of jobs) results.push(await handler(claimed(job)));
   return results;
 }
 
@@ -127,7 +127,7 @@ describe('fix-row-stamp — a merged fix stamps its row, the last ships the reco
   it('a merged pull request matching a row stamps it merged, and the record stays open while a row is not', async () => {
     const db = recordDb();
     const [result] = await run(db.stamp, await deliver());
-    expect(result).toEqual({ pull: 'acme/api#446', kind: 'merged', rows: ['mobile-B74 row 1 merged'], shipped: [], unmatched: null });
+    expect(result).toEqual({ outcome: 'done' });
     expect(db.record()).toEqual({ rows: ['acme/api#446 merged', 'acme/mobile#31 open'], shipped: false, unmatched: [] });
     expect(db.calls).toEqual([{ repository: 'acme/api', prNumber: 446, kind: 'merged', at: MERGED_AT, bug: 'mobile-B74' }]);
   });
@@ -137,24 +137,28 @@ describe('fix-row-stamp — a merged fix stamps its row, the last ships the reco
     const log: string[] = [];
     await run(db.stamp, await deliver(), log);
     const [last] = await run(db.stamp, await deliver({ repo: 'mobile', number: 31 }), log);
-    expect(last).toEqual({ pull: 'acme/mobile#31', kind: 'merged', rows: ['mobile-B74 row 2 merged'], shipped: ['mobile-B74'], unmatched: null });
+    expect(last).toEqual({ outcome: 'done' });
     expect(db.record()).toEqual({ rows: ['acme/api#446 merged', 'acme/mobile#31 merged'], shipped: true, unmatched: [] });
     expect(log).toEqual(['fix stamp: acme/mobile#31 merged, the last fix of mobile-B74: it ships']);
   });
 
-  it('a redelivered merge ships nothing twice', async () => {
+  it('a redelivered merge is the same job, and run again ships nothing twice', async () => {
     const db = recordDb();
+    const log: string[] = [];
     await run(db.stamp, await deliver());
-    await run(db.stamp, await deliver({ repo: 'mobile', number: 31 }));
-    const [again] = await run(db.stamp, await deliver({ repo: 'mobile', number: 31 }));
-    expect(again).toMatchObject({ shipped: [] });
+    const first = await deliver({ repo: 'mobile', number: 31 });
+    await run(db.stamp, first, log);
+    const again = await deliver({ repo: 'mobile', number: 31 });
+    expect(again.map((job) => job.key)).toEqual(first.map((job) => job.key));
+    expect(await run(db.stamp, again, log)).toEqual([{ outcome: 'done' }]);
+    expect(log).toEqual(['fix stamp: acme/mobile#31 merged, the last fix of mobile-B74: it ships']);
   });
 
   it('a merge matching no row stamps nothing and is kept as an unmatched merge of the record its body names', async () => {
     const db = recordDb();
     const log: string[] = [];
     const [result] = await run(db.stamp, await deliver({ number: 450 }), log);
-    expect(result).toEqual({ pull: 'acme/api#450', kind: 'merged', rows: [], shipped: [], unmatched: 'mobile-B74' });
+    expect(result).toEqual({ outcome: 'done' });
     expect(db.record()).toEqual({ rows: ['acme/api#446 open', 'acme/mobile#31 open'], shipped: false, unmatched: ['unmatched merge acme/api#450'] });
     expect(log).toEqual(['fix stamp: acme/api#450 merged, matching no row of mobile-B74: kept as unmatched merge acme/api#450']);
   });
@@ -162,44 +166,46 @@ describe('fix-row-stamp — a merged fix stamps its row, the last ships the reco
   it('a pull request closed unmerged leaves its row closed, not merged, and the record open; reopened, it is open again', async () => {
     const db = recordDb();
     const [closed] = await run(db.stamp, await deliver({ merged: false }));
-    expect(closed).toEqual({ pull: 'acme/api#446', kind: 'closed', rows: ['mobile-B74 row 1 closed'], shipped: [], unmatched: null });
+    expect(closed).toEqual({ outcome: 'done' });
+    expect(db.calls).toEqual([{ repository: 'acme/api', prNumber: 446, kind: 'closed', at: MERGED_AT, bug: 'mobile-B74' }]);
     expect(db.record()).toEqual({ rows: ['acme/api#446 closed, not merged', 'acme/mobile#31 open'], shipped: false, unmatched: [] });
     await run(db.stamp, await deliver({ action: 'reopened' }));
     expect(db.record().rows).toEqual(['acme/api#446 open', 'acme/mobile#31 open']);
   });
 });
 
-describe('fix-row-stamp — the function', () => {
-  const event = { name: FIX_STAMP_EVENT, id: 'e', data: { installationId: 1, repository: 'acme/api', prNumber: parsePr(446), kind: 'merged', at: MERGED_AT, bug: null } };
+describe('fix-row-stamp — the job', () => {
+  const data: FixStampData = { installationId: 1, repository: 'Acme/API', prNumber: parsePr(446), kind: 'merged', at: MERGED_AT, bug: null };
+  const job = fixRowStampJob(data);
 
-  it('is the `fix-row-stamp` function, on the fix stamp event, retried', () => {
-    const fn = createFixRowStamp({ client: inngest, stamp: null });
-    expect(fn.opts).toMatchObject({ id: FIX_ROW_STAMP_FUNCTION_ID, triggers: [{ event: FIX_STAMP_EVENT }], retries: 3 });
-    expect(FIX_ROW_STAMP_FUNCTION_ID).toBe('fix-row-stamp');
+  it('is one job per pull request, change and time, keyed `<owner/name>#<pr>@<what>@<when>`, in no lane, with 4 tries', () => {
+    expect(job).toEqual({ kind: 'fix-row-stamp', key: `acme/api#446@merged@${MERGED_AT}`, subject: 'acme/api', payload: { ...data }, maxTries: 4 });
+    expect(new Set([job.key, fixRowStampJob({ ...data, kind: 'closed' }).key, fixRowStampJob({ ...data, at: '2026-10-16T09:00:01Z' }).key]).size).toBe(3);
+  });
+
+  it('has a handler in the worker every runner of the ledger runs', () => {
+    const { handlers } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
+    expect(typeof handlers[FIX_ROW_STAMP_KIND]).toBe('function');
   });
 
   it('stamps nothing, saying why, when the App cannot reach the server here', async () => {
     const log: string[] = [];
-    const [result] = await run(null, [event as FixStampRequest], log);
-    expect(result).toEqual({ pull: 'acme/api#446', kind: 'merged', stamped: false });
-    expect(log).toEqual(['fix stamp: acme/api#446 merged stamps nothing: the App cannot reach the server here']);
+    const [result] = await run(null, [job], log);
+    expect(result).toEqual({ outcome: 'skipped', reason: 'the App cannot reach the server here' });
+    expect(log).toEqual(['fix stamp: Acme/API#446 merged stamps nothing: the App cannot reach the server here']);
   });
 
-  it('fails the run, for Inngest to retry, when the database refuses', async () => {
-    const fn = createFixRowStamp({ client: inngest, stamp: () => Promise.reject(new Error('the database refused: down')) });
-    const { error } = await new InngestTestEngine({ function: fn, events: [event as never] }).execute();
-    expect(String((error as Error | undefined)?.message)).toContain('the database refused: down');
+  it('throws, for the worker to retry, when the database refuses', async () => {
+    await expect(run(() => Promise.reject(new Error('the database refused: down')), [job])).rejects.toThrow('the database refused: down');
   });
 
-  it('refuses an event out of shape by its field, stamping nothing', async () => {
+  it('refuses a payload out of shape by its field, stamping nothing', async () => {
     const calls: FixStamp[] = [];
     const stamp: FixStamper = (call) => {
       calls.push(call);
       return Promise.resolve({ rows: [], shipped: [], unmatched: null });
     };
-    const fn = createFixRowStamp({ client: inngest, stamp });
-    const { error } = await new InngestTestEngine({ function: fn, events: [{ ...event, data: { ...event.data, kind: 'opened' } } as never] }).execute();
-    expect(String((error as Error | undefined)?.message)).toContain('kind');
+    await expect(run(stamp, [{ ...job, payload: { ...job.payload, kind: 'opened' } }])).rejects.toThrow('kind');
     expect(calls).toEqual([]);
   });
 });

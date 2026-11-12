@@ -15,18 +15,16 @@
 //               fleet still holds the board the card went to: a board cleared or changed meanwhile keeps
 //               no note of the old one
 //
-// Throws when the database refuses or answers out of shape: the step retries.
+// Throws when the database refuses or answers out of shape: the job's run fails, and the worker retries it.
 import { z } from 'zod';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 
 /** A fleet as the board reads it: its name and its board's link, `null` when it has none. */
-export const FleetSchema = z.object({ name: z.string().min(1), projectUrl: z.string().nullable() });
-export type Fleet = z.infer<typeof FleetSchema>;
+export type Fleet = { name: string; projectUrl: string | null };
 
 /** What the runner job of a pull request's link says: whether one holds it, and its sender's fleet. */
-export const JobFleetSchema = z.object({ found: z.boolean(), fleet: FleetSchema.nullable() });
-export type JobFleet = z.infer<typeof JobFleetSchema>;
+export type JobFleet = { found: boolean; fleet: Fleet | null };
 
 export type FleetBoardStore = {
   workspaces(input: { installationId: number; repository: string }): Promise<string[]>;

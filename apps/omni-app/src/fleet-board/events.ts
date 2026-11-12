@@ -1,9 +1,9 @@
 // The fleet board's event (PRD 2530): a pull request the loop signed, open, into the repository's default
-// branch, as the webhook hands it to the `fleet-board` function (./fleet-board.ts), which adds it to the
-// GitHub project board of its author's fleet.
+// branch, as the webhook adds it as the `fleet-board` job's payload (./job.ts, PRD omni-loop-3 s3), which adds it to
+// the GitHub project board of its author's fleet.
 //
 // The webhook reads no database, so it cannot tell whether the author is in a fleet, or whether that fleet
-// has a board: it sends the event for every such pull request, and the function decides. It reads what it
+// has a board: it sends the event for every such pull request, and the job decides. It reads what it
 // can from the delivery alone: the base, the state, the body's signature marker and the author.
 import { z } from 'zod';
 import { PrNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
