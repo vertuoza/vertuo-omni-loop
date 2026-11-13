@@ -24,6 +24,19 @@
         {"name": "Irisa", "stance": "neutral", "score": 3, "reaction": "A refusal that names the two commits tells me what to do without knowing the harness.", "citations": ["persona:Irisa"]}
       ],
       "fit": "Fits every persona once pr-care carries the rerun."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-13",
+      "personas": [
+        {"name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The proof I read now names the commit I merge, so a green line cannot point at code that is gone.", "citations": ["persona:F-E Developer"]},
+        {"name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "After a review fix the agent reruns the test itself; I only see a draft when it truly failed.", "citations": ["persona:B-E DEv"]},
+        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Old proof lines stay as written and a new one is added, so the body shows every commit it was proven at.", "citations": ["persona:Lead Engineer"]},
+        {"name": "Paul - Product Manager", "stance": "excited", "score": 3, "reaction": "One more test run after review slows a fix a little, but a fix that ships broken costs me more.", "citations": ["persona:Paul - Product Manager"]},
+        {"name": "Irisa", "stance": "neutral", "score": 3, "reaction": "The refusal names both commits and says what to run, which I can follow without knowing the tool.", "citations": ["persona:Irisa"]}
+      ],
+      "objection": null,
+      "fit": "Fits every persona; adding a line instead of rewriting one keeps each proof traceable."
     }
   ]
 }
