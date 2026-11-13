@@ -718,3 +718,15 @@ Source: .omni-loop/delivery/shipped/2739-follow-ups/outbox/settled.md, entry s3-
 Enforced by: kit/lib/delivery/ship-review.test.ts
 Stated: 2026-11-12
 Decided: @pierrederval, 2026-11-12, on PR #2740
+
+## BR-PRODUCT-131
+
+When a provider's own check answers fail for a pull request another one waits on, the waiting pull request stays a draft and one important question is raised naming both pull requests, the same as when the provider is closed without merging.
+
+Serves: P-PRODUCT-5
+Source: .omni-loop/delivery/shipped/2746-hold-consumer/outbox/settled.md, entry s3-04-probe-fail-raises-high-item, PRD #2746
+Enforced by: kit/lib/hold/probe.test.ts, kit/lib/hold/hold.test.ts, kit/test/hold-ready.test.ts
+Stated: 2026-11-13
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-13, PR #2747
+Proposed: harvest 2026-11-13
