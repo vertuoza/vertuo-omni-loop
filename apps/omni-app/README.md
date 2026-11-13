@@ -582,6 +582,9 @@ None of these is taken by the code; a person does each once.
    - `BUSINESS_LAWS_JUDGE_SECRET` — the secret the inbox check signs its call to galaxy's business laws
      judge with (PRD 2632), the same value as in galaxy's project. Unset, the `business laws` gate is
      neutral, "judge not configured".
+   - `SEARCH_CATEGORIZE_SECRET` — the secret the search categorizer job signs its call to galaxy's
+     `POST /api/search/categorize` with (PRD omni-loop-7), the same value as in galaxy's project. Unset,
+     the job still groups the logged searches and sets no category.
    - `CRON_SECRET` — the secret Vercel's cron sends as `Authorization: Bearer` to `/api/jobs-sweep`
      (PRD 2676, [below](#the-job-ledger--the-sweep-human-steps-prd-2676)). Unset, the sweep refuses every call.
    - `OPENROUTER_MODEL`, optional — another model than the default for the retro and the harvest
