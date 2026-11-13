@@ -89,7 +89,7 @@
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
-  type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
+  type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type BoardSave, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
@@ -299,6 +299,16 @@ function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, strin
     released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null,
     ...resumeFields(row), queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
+}
+
+/** A save as the Runners page reads it (PRD 2809, s7), from its manifest alone: none for a row whose manifest is out of shape. */
+function boardSaveOf(row: CheckpointRow): BoardSave[] {
+  const { manifest } = row;
+  if (manifest === null) return [];
+  return [{
+    job: row.job_id, runner: manifest.runner, kind: row.kind, savedAt: manifest.savedAt, keepUntil: row.keep_until, bytes: row.bytes,
+    branches: manifest.branches.length, files: manifest.branches.reduce((sum, branch) => sum + branch.files, 0),
+  }];
 }
 
 function runnerOf(row: RunnerRow, used: number, now: Date, samples?: RunnerSample[]): Runner {
@@ -1272,10 +1282,12 @@ export function runnersService(
       const samples = samplesByRunner(await store.samples(runners.map((runner) => runner.id), new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString()));
       // Whether a queued key's job needs its key's GitHub App (PRD 2482): one batched read of who holds an App, never the App's sealed key.
       const needing = await store.jobsNeedingApp(jobs.flatMap((job) => (job.status === 'queued' && job.sent_by_key !== null ? [{ id: job.id, keyId: job.sent_by_key }] : [])));
+      const boardSaves = (await saves.savesOf(jobs.map((job) => job.id))).flatMap(boardSaveOf);
       return ok({
         runners: runners.map((runner) => ({ ...runnerOf(runner, usedBy(active, runner.id), now, samples.get(runner.id) ?? []), githubApp: runner.github_app })),
         jobs: jobs.map((job) => ({ ...jobOf(job, logins, keys), ...(needing.has(job.id) ? { needsApp: true } : {}) })),
         viewer: { id: caller, owner: viewer.owner, fleet: viewer.fleet },
+        saves: boardSaves,
       });
     },
   };

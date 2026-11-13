@@ -10,6 +10,7 @@ import {
 import { accountChips, asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { listedAnswer } from './need-human';
 import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
+import { cameBackWords, keepsWords, lossOf, lostThrice, resumeWords, type Loss } from './loss';
 import { jobAgentWords, partLines } from './parts';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
@@ -103,9 +104,10 @@ function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
 
 function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
   const fleet = fleetCell(runner, board.viewer, fleets);
+  const keeps = keepsWords(runner.name, board.saves ?? []);
   return (
     <div className="runners-row">
-      <span className="runners-name" data-content>{runner.name}</span>
+      <span className="runners-name" data-content>{runner.name}{keeps !== null && <small className="runners-keeps runners-muted">{keeps}</small>}</span>
       <span className={`runners-state is-${stateTone(runner)}`}><i className="runners-dot" aria-hidden="true" />{stateWords(runner, now)}</span>
       {fleet.kind === 'picker'
         ? <FleetPicker runner={runner.id} name={runner.name} value={fleet.value} options={fleet.options} />
@@ -125,8 +127,46 @@ function AnswersButton({ job, primary, answered }: { job: Job; primary: boolean;
   return canAnswer(job) ? <NeedHumanButton job={job.id} /> : null;
 }
 
-function Action({ job, primary, answered }: { job: Job; primary: boolean; answered: Answered | null }) {
+/** Under Lost · resuming, who went silent and which attempt comes next, linking the resume (PRD 2809); under Lost 3 times, the losses' times. */
+function LossLine({ loss }: { loss: Loss | null }) {
+  if (loss === null) return null;
+  return <span className="runners-why" data-content>{loss.resume === null ? loss.why : <a href={`#job-${loss.resume}`}>{loss.why}</a>}</span>;
+}
+
+/** Under Failed, why the job failed in its runner's words; a lost job says it in its Lost words instead. */
+function FailedWhy({ job, lost }: { job: Job; lost: boolean }) {
+  const why = lost ? null : failedWhy(job);
+  return why === null ? null : <span className="runners-why" data-content>{why}</span>;
+}
+
+/** Under the fix job that continues a job that waited on answers: `after answers · job <id>`, linking back (PRD 2270). */
+function AfterAnswers({ job }: { job: Job }) {
+  const after = afterAnswersWords(job);
+  return after !== null && job.continues ? <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span> : null;
+}
+
+/** A job that is resuming has its resume queued, so sending it again would run the line twice: nothing to press. Lost 3 times has none, and Resume is its one action. */
+function LostAction({ job, primary, loss }: { job: Job; primary: boolean; loss: Loss }) {
+  return loss.resume === null ? <ResumeButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} /> : null;
+}
+
+/** Under a resume's status, in order: the job it came after, its attempt, and what came back once it started (PRD 2809). */
+function ResumeLines({ job, board }: { job: Job; board: Board }) {
+  const resumed = resumeWords(job);
+  const came = cameBackWords(job, board.jobs, board.saves ?? [], board.runners);
+  if (resumed === null) return null;
+  return (
+    <>
+      <span className="runners-why"><a href={`#job-${job.resumes ?? ''}`} data-content>{resumed.after}</a></span>
+      <span className="runners-why" data-content>{resumed.attempt}</span>
+      {came !== null && <span className="runners-came runners-muted" data-content>{came}</span>}
+    </>
+  );
+}
+
+function Action({ job, primary, answered, loss }: { job: Job; primary: boolean; answered: Answered | null; loss: Loss | null }) {
   if (canCancel(job)) return <CancelButton job={job.id} />;
+  if (loss !== null) return <LostAction job={job} primary={primary} loss={loss} />;
   if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
   const page = prdPageLink(job);
   return (
@@ -152,9 +192,9 @@ function ReleaseLine({ note }: { note: ReleaseNote }) {
   );
 }
 
-/** A job's status: its words, or Answered · fixing / fixed linking the fix, or Answered (PRD 2270). */
-function StatusWords({ job, now, answered, cannotRun }: { job: Job; now: Date; answered: Answered | null; cannotRun: boolean }) {
-  const words = answered === null ? statusWords(job, now, cannotRun) : answered.fix === null ? answered.words : <a href={`#job-${answered.fix}`}>{answered.words}</a>;
+/** A job's status: its words, or Lost · resuming and Lost 3 times (PRD 2809), or Answered · fixing / fixed linking the fix, or Answered (PRD 2270). */
+function StatusWords({ job, now, answered, cannotRun, loss }: { job: Job; now: Date; answered: Answered | null; cannotRun: boolean; loss: Loss | null }) {
+  const words = loss !== null ? loss.words : answered === null ? statusWords(job, now, cannotRun) : answered.fix === null ? answered.words : <a href={`#job-${answered.fix}`}>{answered.words}</a>;
   return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome, cannotRun)}${canAnswer(job) ? ' is-human' : ''}`}>{words}</span>;
 }
 
@@ -200,7 +240,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
   const prd = prdLineOf(job, prds);
   const retro = retroLineOf(job, retros);
   const answered = answeredOf(job, board.jobs, answeredIds);
-  const after = afterAnswersWords(job);
+  const loss = lossOf(job, board.jobs, board.runners, now);
   return (
     <div className="runners-row runners-job" id={`job-${job.id}`}>
       <span className="runners-line">
@@ -211,24 +251,28 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
       <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}{retro !== null && <small className="runners-muted runners-made-by"> <a href={retro.href}>{retro.words}</a></small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
-        <StatusWords job={job} now={now} answered={answered} cannotRun={cannotRun !== null} />
+        <StatusWords job={job} now={now} answered={answered} cannotRun={cannotRun !== null} loss={loss} />
+        <LossLine loss={loss} />
         <CannotRunWhy reason={cannotRun} />
-        {failedWhy(job) !== null && <span className="runners-why" data-content>{failedWhy(job)}</span>}
+        <FailedWhy job={job} lost={loss !== null} />
         <CancelledBy job={job} />
-        {after !== null && job.continues && <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span>}
+        <AfterAnswers job={job} />
+        <ResumeLines job={job} board={board} />
         {slicesWords(job) !== null && <span className="runners-why" data-content>{slicesWords(job)}</span>}
         <RunWords job={job} />
         <WaitingWhy words={waiting} />
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
       </span>
-      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} /></span>
+      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} loss={loss} /></span>
     </div>
   );
 }
 
 function Jobs({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
   if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
-  const primary = (board.jobs.find(canResume) ?? board.jobs.find(canSendAgain))?.id ?? answered[0] ?? null;
+  // A job that is resuming offers nothing to press (PRD 2809): it never takes the page's primary action.
+  const resuming = (job: Job) => lossOf(job, board.jobs, board.runners, now)?.resume != null;
+  const primary = (board.jobs.find(canResume) ?? board.jobs.find(lostThrice) ?? board.jobs.find((job) => canSendAgain(job) && !resuming(job)))?.id ?? answered[0] ?? null;
   return (
     <div className="runners-table runners-jobs">
       <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>
