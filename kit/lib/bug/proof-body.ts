@@ -32,9 +32,19 @@ import type { IssueNumber, PrNumber } from '../ids.ts';
 
 /** The pull request body to check, and where it came from. */
 export type ProofSource =
-  | { kind: 'file'; body: string }
-  | { kind: 'pull-request'; body: string; pr: PrNumber; isDraft: boolean }
+  | { kind: 'file'; body: string; head?: Head | undefined }
+  | { kind: 'pull-request'; body: string; pr: PrNumber; isDraft: boolean; head?: Head | undefined }
   | { kind: 'none' };
+
+/**
+ * The commit a proof must have been taken at (PRD 2741): the head that merges. `commits` are the
+ * pull request's commits, oldest first, to count how many follow the cited one; `subject` names the
+ * head in a fault (`#34's head`, `the local HEAD`), `of` the whole (`#34`, `this branch`). A head
+ * that could not be read is `unread`, one fault and never a pass (BL-GATE-1).
+ */
+export type Head =
+  | { kind: 'read'; sha: string; commits: readonly string[]; subject: string; of: string }
+  | { kind: 'unread'; label: string; why: string };
 
 const PROOF_HEADING = /^##[ \t]+Proof[ \t]*#*[ \t]*$/;
 const NEXT_HEADING = /^#{1,2}[ \t]/;
@@ -42,6 +52,8 @@ const IMAGE = /!\[[^\]]*\]\([ \t]*https:\/\/[^)\s]+/;
 const BEFORE_LINE = /^[ \t]*- \*\*Before the fix\*\*/m;
 const AFTER_LINE = /^[ \t]*- \*\*After the fix\*\*/m;
 const NOT_PRODUCED = /^[ \t]*GIF not produced - (.*)$/gm;
+const AFTER_CITES = /^[ \t]*- \*\*After the fix\*\*[^\n]*?\(green,[ \t]*`([0-9a-f]{7,40})`\)/im;
+const RE_PROVED = /^[ \t]*- \*\*Re-proved\*\*[ \t]*\(green,[ \t]*`([0-9a-f]{7,40})`\)/gim;
 const PROVED_ON = /^[ \t]*- \*\*Proved on:?\*\*:?[ \t]*(.*)$/m;
 const PREVIEW_LINE = /^[ \t]*- \*\*Preview:?\*\*:?[ \t]*\S/m;
 const CLIPS_LINE = /^[ \t]*Clips:[ \t]*\S/m;
@@ -139,13 +151,39 @@ function provedOnFaults(section: string): string[] {
   return ['## Proof\'s "Proved on" line names no level: a preview environment, CI or the machine that made the fix'];
 }
 
+/**
+ * The commit the proof's newest green cites (PRD 2741): the last `Re-proved` line's, else the After
+ * line's. An earlier line is never a fault, it stays as it was written; `undefined` when the After
+ * line cites none.
+ */
+function citedCommit(section: string): string | undefined {
+  const after = AFTER_CITES.exec(section)?.[1];
+  if (after === undefined) return undefined;
+  const reproved = [...section.matchAll(RE_PROVED)].map((match) => match[1] ?? '');
+  return reproved.at(-1) ?? after;
+}
+
+/** The faults of a produced proof's cited commit against `head`, none when it is the head. */
+function headFaults(section: string, head: Head | undefined): string[] {
+  const cited = citedCommit(section);
+  if (cited === undefined) return ['## Proof\'s "After the fix" line cites no commit: write (green, <short sha>) of the head'];
+  if (head === undefined) return [];
+  if (head.kind === 'unread') return [`not judged: could not read the head of ${head.label}: ${head.why}`];
+  const lower = cited.toLowerCase();
+  if (head.sha.toLowerCase().startsWith(lower)) return [];
+  const at = head.commits.findIndex((oid) => oid.toLowerCase().startsWith(lower));
+  const why = at < 0 ? `${cited} is not a commit of ${head.of}` : `${head.commits.length - 1 - at} commits later`;
+  const hint = 'run the reproduction again at the head and add a Re-proved line';
+  return [`the proof cites green at ${cited}, but ${head.subject} is ${head.sha.slice(0, 7)} (${why}): ${hint}`];
+}
+
 /** The faults of a body's `## Proof`, and whether the proof it holds is a produced one. */
-function bodyFaults(body: string): { faults: string[]; produced: boolean } {
+function bodyFaults(body: string, head?: Head): { faults: string[]; produced: boolean } {
   const section = proofSection(body);
   if (section === undefined) return { faults: ['no ## Proof section'], produced: false };
   const hasImage = IMAGE.test(section);
   const imageLines = BEFORE_LINE.test(section) && AFTER_LINE.test(section);
-  if (hasImage && imageLines) return { faults: provedOnFaults(section), produced: true };
+  if (hasImage && imageLines) return { faults: [...provedOnFaults(section), ...headFaults(section, head)], produced: true };
   const reasons = notProducedReasons(section);
   if (reasons.length > 0) {
     const whole = reasons.find((reason) => levelsWithoutReason(reason).length === 0);
@@ -171,7 +209,7 @@ function noBody(issue: IssueNumber): string {
 /** The verdict's lines for the proof of issue `issue`'s pull request, none when it carries one. */
 export function proofFaults(source: ProofSource, issue: IssueNumber): string[] {
   if (source.kind === 'none') return [noBody(issue)];
-  const { faults, produced } = bodyFaults(source.body);
+  const { faults, produced } = bodyFaults(source.body, source.head);
   if (source.kind === 'pull-request' && faults.length === 0 && !produced && !source.isDraft) {
     return [`the proof was not produced but #${source.pr} is not a draft: gh pr ready ${source.pr} --undo`];
   }
@@ -183,6 +221,8 @@ const ViewedPullRequestSchema = z.object({
   isDraft: z.boolean(),
   state: z.string(),
   number: PrNumberSchema,
+  headRefOid: z.string().optional(),
+  commits: z.array(z.object({ oid: z.string() })).optional(),
 });
 
 /**
@@ -190,12 +230,18 @@ const ViewedPullRequestSchema = z.object({
  * `none` when there is none: no pull request, a closed or merged one, no `gh`, no sign-in, or an
  * answer that is not a pull request.
  */
-export function openPullRequest({ root, exec }: { root: string; exec: ExecText }): ProofSource {
+export function openPullRequest({ root, exec, repo }: { root: string; exec: ExecText; repo?: string | undefined }): ProofSource {
   try {
-    const text = exec('gh', ['pr', 'view', '--json', 'body,isDraft,state,number'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const text = exec('gh', ['pr', 'view', '--json', 'body,isDraft,state,number,headRefOid,commits'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     const viewed = ViewedPullRequestSchema.safeParse(JSON.parse(text));
     if (!viewed.success || viewed.data.state !== 'OPEN') return { kind: 'none' };
-    return { kind: 'pull-request', body: viewed.data.body ?? '', pr: viewed.data.number, isDraft: viewed.data.isDraft };
+    const { number, headRefOid, commits } = viewed.data;
+    const label = `${repo ?? ''}#${number}`;
+    const head: Head =
+      headRefOid === undefined || headRefOid === ''
+        ? { kind: 'unread', label, why: 'gh gave no head commit' }
+        : { kind: 'read', sha: headRefOid, commits: (commits ?? []).map((commit) => commit.oid), subject: `#${number}'s head`, of: `#${number}` };
+    return { kind: 'pull-request', body: viewed.data.body ?? '', pr: number, isDraft: viewed.data.isDraft, head };
   } catch {
     return { kind: 'none' };
   }

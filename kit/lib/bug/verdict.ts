@@ -154,13 +154,14 @@ export function bugVerdict({ ctx, issue, changed, commits, laws, proof }: {
   /** The changes to a law the range has not answered in the folder (PRD 1342), one line each. */
   laws?: ((folder: string) => string[]) | undefined;
   /** The faults of the pull request's proof (PRD 2100), one line each; a `## Fixes` record's included (PRD 2578). */
-  proof?: (() => readonly string[]) | undefined;
+  proof?: ((record: { fixes: boolean }) => readonly string[]) | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   const verdict = fixVerdict({
     ctx, number: issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
     grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD}`, changedSet, issue), ...(laws?.(folder) ?? [])],
   });
-  const failures = proof === undefined ? verdict.failures : [...verdict.failures, ...proof()];
+  const fixes = verdict.folder !== null && recordSections(ctx, `${verdict.folder}/${RECORD}`)?.has('Fixes') === true;
+  const failures = proof === undefined ? verdict.failures : [...verdict.failures, ...proof({ fixes })];
   return { ok: failures.length === 0, folder: verdict.folder, failures };
 }
