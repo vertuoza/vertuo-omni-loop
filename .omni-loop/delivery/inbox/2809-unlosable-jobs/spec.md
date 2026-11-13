@@ -55,10 +55,8 @@ moving with the laptop closed only if a lost runner never loses work.
   session at once. The GitHub token refresh (`/api/runners/jobs/<id>/github-token`) is refused too
   once a job has ended. A replaced attempt can therefore write nothing to the replacement's row,
   and loses its GitHub token within the hour it was issued.
-- **One writer per branch.** A slice claim whose status comment names an ended job (`job: <id>`)
-  counts as held by that job's whole chain: its resume may take the slice up, and no other job may.
-  The resume's next status pass writes its own state, as every pass of `/omni:pr` already does; no
-  person's words are touched.
+- **One writer per branch.** A slice claimed by a job is held by that job's whole chain of
+  attempts: its resume may build the slice, and no other job may.
 
 ### 3. Saving before anything is removed (runner, `kit/lib/runner/checkpoint.ts`)
 
@@ -209,8 +207,7 @@ failure handling, raising any timeout.
     sender and its maker.
 - **The business laws:** BL-APPROVALS-1 (an approval covers exactly the files the approver read)
   is kept: a resume changes no approved file and approves nothing. BL-ASK-1 (an answer is never
-  reworded) is kept: no reply, review, approval or answer is changed; a claim is read as held by
-  the chain, and status comments are written as they are today.
+  reworded) is kept: this PRD reads no person's answer and writes none.
 
 ## Acceptance criteria
 
