@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.624" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.625" };
   }
 });
 
@@ -47151,9 +47151,21 @@ function reach3({ cwd, exec, tokens: tokens2, home, fetch, signal }) {
   const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch: withDeadline2(fetch, signal) });
   return { repo, root, client };
 }
+function movedTo(root, cached4) {
+  const copyOf = cached4.read.product?.name;
+  if (copyOf === void 0) return null;
+  const knowledge2 = readCachedKnowledge(root);
+  if (knowledge2.state !== "cached" || Date.parse(knowledge2.readAt) <= Date.parse(cached4.syncedAt)) return null;
+  return knowledge2.product === copyOf ? null : knowledge2.product;
+}
 function fallback2({ repo, root, state, why: why3 }, now2) {
   const cached4 = repo ? readCache(root, repo) : null;
   if (!repo || !cached4) return [bodyOf2(state), [`no constituents: ${why3} ${CARRY_ON2}`]];
+  const moved2 = movedTo(root, cached4);
+  if (moved2 !== null) {
+    const copyOf = cached4.read.product?.name ?? "";
+    return [bodyOf2(state), [`no constituents: ${why3}; the copy saved here is ${copyOf}'s, and this repository is now in ${moved2} ${CARRY_ON2}`]];
+  }
   const synced = `synced ${ageOf2(cached4.syncedAt, now2)}, ${why3}`;
   return [bodyOf2("cached", cached4.read, cached4.syncedAt), printed(cached4.read, repo, synced)];
 }
