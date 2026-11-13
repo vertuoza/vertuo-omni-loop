@@ -3,11 +3,13 @@
 //   step "target-<name>"         the App's own call `GET /repos/{owner}/{repo}/installation`, on the
 //                                App's budget; then, as that installation, the target's feature PRs
 //                                (one per landing) and the sub-PRs into each
-//   steps "gather-<kind>-<name>" each kind of the merge run, with a scope for that target
+//   steps "gather-<kind>-<name>" each kind of the merge run, with a scope for that target, in parts
+//                                when over the ledger's budget (`../saved-parts.ts`, #2786)
 //
 // A target the retro cannot read (not in the config, the App not installed there, a read refused) is
 // `read: false` with its reason, and the retro goes on with the others; any other failure is thrown,
 // so the step is retried.
+import { savedStepInParts } from '../saved-parts.ts';
 import { savedStep, type StepRun } from '../saved-step.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { listPullsFrom, listPullsInto, readPull } from './github.ts';
@@ -108,7 +110,7 @@ export async function gatherTarget(
   const own = targetScope(target, scope);
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
-    records[kind.id] = await savedStep(step, `gather-${kind.id}-${target.name}`, kind.records.nullable(), async () =>
+    records[kind.id] = await savedStepInParts(step, `gather-${kind.id}-${target.name}`, kind.records.nullable(), async () =>
       (await kind.gather(await octokitFor(target.installationId), own)) ?? null,
     );
   }
