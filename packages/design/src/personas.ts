@@ -10,7 +10,11 @@ import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 
 export type PersonaTrade =
   | 'builder' | 'plumber' | 'heating' | 'electrician' | 'carpenter' | 'roofer' | 'painter' | 'foreman'
-  | 'office' | 'accountant' | 'doctor' | 'nurse' | 'shopkeeper' | 'driver' | 'developer';
+  | 'office' | 'accountant' | 'doctor' | 'nurse' | 'shopkeeper' | 'driver' | 'developer'
+  | 'journalist' | 'supplier' | 'economist' | 'finance' | 'marketing' | 'data analyst';
+
+/** The bust any trade without art of its own is drawn with (PRD 2779): it takes every preset. */
+export const GENERIC_TRADE = 'generic';
 
 /** A stored persona avatar: preset numbers into its trade's sprite variations. */
 export interface PersonaAvatar { v: 1; skin: number; hair: number; hairColor: number; outfit: number; accessory: number }
@@ -27,11 +31,28 @@ const TRADE_LABELS: [PersonaTrade, string][] = [
   ['carpenter', 'Carpenter'], ['roofer', 'Roofer'], ['painter', 'Painter'], ['foreman', 'Site foreman'],
   ['office', 'Office manager'], ['accountant', 'Accountant'], ['doctor', 'Doctor'], ['nurse', 'Nurse'],
   ['shopkeeper', 'Shopkeeper'], ['driver', 'Driver'], ['developer', 'Developer'],
+  ['journalist', 'Journalist'], ['supplier', 'Supplier'], ['economist', 'Economist'],
+  ['finance', 'Finance'], ['marketing', 'Marketing'], ['data analyst', 'Data analyst'],
 ];
 /** The generic trade list, the same for every workspace. An id is a short lower-case word. */
 export const PERSONA_TRADES: readonly { readonly id: PersonaTrade; readonly label: string }[] = Object.freeze(
   TRADE_LABELS.map(([id, label]) => Object.freeze({ id, label })),
 );
+
+/**
+ * What a trade is, in the database (persona_fields()) and on the page alike: lower-case words with
+ * single spaces or hyphens between them, at most TRADE_MAX characters, like `plumber` or `data analyst`.
+ */
+export const TRADE_RULE: RegExp = /^[a-z]+([ -][a-z]+)*$/;
+export const TRADE_MAX = 40;
+/** The line a trade that breaks the rule is refused with, the database's words. */
+export const TRADE_RULE_LINE = 'Lower-case words with single spaces or hyphens between them, at most 40 characters, like plumber or data analyst.';
+
+/** True for a trade the database takes: any listed id, and any other text that follows the rule. */
+export const validPersonaTrade = (trade: string): boolean => trade.length <= TRADE_MAX && TRADE_RULE.test(trade);
+
+/** True for a trade with a bust of its own; any other valid trade is drawn with the generic one. */
+export const hasOwnBust = (trade: string): boolean => PERSONA_TRADES.some((t) => t.id === trade);
 
 // ── Ranges and presets ──────────────────────────────────────────────────────
 
@@ -59,7 +80,7 @@ export const PERSONA_PRESETS: {
   readonly hair: readonly string[];
   readonly hairColor: readonly string[];
   readonly accessory: readonly ['none', 'cap', 'glasses', 'helmet'];
-  readonly outfit: Readonly<Record<PersonaTrade, readonly string[]>>;
+  readonly outfit: Readonly<Record<PersonaTrade | typeof GENERIC_TRADE, readonly string[]>>;
 } = Object.freeze({
   skin: Object.freeze(['#fbd9bc', '#f5c19a', '#dfa377', '#b97c52', '#8c5a3a', '#5f3b27']),
   hair: Object.freeze(['short', 'side part', 'long', 'bun', 'curly', 'buzz and beard']),
@@ -82,6 +103,13 @@ export const PERSONA_PRESETS: {
     shopkeeper: Object.freeze(['#1d9f5a', '#c81e44', '#3346cc', '#dc9c16']),
     driver: Object.freeze(['#22309a', '#4d5374', '#c81e44', '#178a80']),
     developer: Object.freeze(['#4d5374', '#9b5de5', '#2fc6a4', '#ff5a6e']),
+    journalist: Object.freeze(['#a8642e', '#4d5374', '#c81e44', '#2fc6a4']),
+    supplier: Object.freeze(['#ff9b30', '#4d5374', '#1d9f5a', '#3346cc']),
+    economist: Object.freeze(['#22309a', '#4d5374', '#1d9f5a', '#5e3417']),
+    finance: Object.freeze(['#22309a', '#33384f', '#178a80', '#c81e44']),
+    marketing: Object.freeze(['#ff5a6e', '#b07cff', '#ffd84a', '#2fc6a4']),
+    'data analyst': Object.freeze(['#3346cc', '#9b5de5', '#2fc6a4', '#4d5374']),
+    generic: Object.freeze(['#5a6cf0', '#2fc6a4', '#ff9b30', '#b07cff']),
   }),
 });
 
@@ -257,6 +285,45 @@ const TRADES: Readonly<Record<string, { bust: string; prop: Paint }>> = {
     d.rect(21, 25, 4, 1, 'g', 1).rect(22, 27, 5, 1, 'C', 1);
     d.rect(17, 30, 15, 2, 'L');
   } },
+  // A notebook with its spiral and a pencil behind the ear's side.
+  journalist: { bust: 'shirt', prop(d) {
+    d.rect(22, 21, 9, 11, 'Y').rect(23, 22, 7, 9, 'F');
+    for (let y = 23; y < 31; y += 2) d.px(22, y, 'A', 0);
+    d.rect(24, 24, 5, 1, 'A', 2).rect(24, 26, 4, 1, 'A', 2).rect(24, 28, 5, 1, 'A', 2);
+    d.line(3, 31, 6, 24, 'O', 1).px(6, 23, 'R');
+  } },
+  // A pallet of bricks.
+  supplier: { bust: 'vest', prop(d) {
+    d.rect(18, 30, 14, 2, 'D');
+    d.rect(19, 26, 6, 3, 'R', 1).rect(26, 26, 5, 3, 'R', 1).rect(21, 22, 6, 3, 'R', 2).rect(28, 22, 3, 3, 'R', 2);
+    d.px(24, 26, 'L', 0).px(27, 22, 'L', 0);
+  } },
+  // A chart rising to the right, with its arrow.
+  economist: { bust: 'shirt', prop(d) {
+    d.rect(20, 21, 11, 11, 'F').rect(20, 31, 11, 1, 'A').rect(20, 21, 1, 11, 'A');
+    d.line(22, 29, 25, 26, 'g', 1).line(25, 26, 27, 27, 'g', 1).line(27, 27, 30, 22, 'g', 1);
+    d.px(29, 22, 'g').px(30, 24, 'g');
+  } },
+  // A bank card with its chip and stripe.
+  finance: { bust: 'shirt', prop(d) {
+    d.rect(19, 23, 12, 8, 'N').rect(19, 25, 12, 2, 'k').rect(21, 28, 3, 2, 'Y').rect(26, 29, 4, 1, 'L');
+    d.px(19, 23, null).px(30, 23, null);
+  } },
+  // A megaphone with its sound lines.
+  marketing: { bust: 'hoodie', prop(d) {
+    d.poly([[19, 26], [24, 26], [30, 21], [30, 31], [24, 28], [19, 28]], 'R');
+    d.rect(21, 28, 2, 3, 'A').line(31, 20, 31, 18, 'Y').line(32, 25, 32, 24, 'Y');
+  } },
+  // A laptop whose screen shows three bars.
+  'data analyst': { bust: 'hoodie', prop(d) {
+    d.rect(19, 22, 12, 8, 'A').rect(20, 23, 10, 6, 'C', 3);
+    d.rect(21, 26, 2, 3, 'g', 1).rect(24, 24, 2, 5, 'Y', 1).rect(27, 25, 2, 4, 'R', 1);
+    d.rect(17, 30, 15, 2, 'L');
+  } },
+  // The generic bust: a name badge on the chest.
+  generic: { bust: 'tee', prop(d) {
+    d.rect(19, 24, 7, 5, 'F').rect(20, 25, 5, 1, 'A', 2).rect(20, 27, 3, 1, 'A', 2).rect(21, 23, 1, 1, 'L');
+  } },
 };
 
 // The six hair styles. Each shows below a helmet's brim in its own way (the sideburns, the fall,
@@ -305,11 +372,13 @@ const ACCESSORIES: readonly Paint[] = [
  * deterministic: the same trade and avatar always give the same grid.
  */
 export function personaGrid(trade: string, avatar: PersonaAvatar): Pixels {
-  const def = TRADES[trade];
-  if (!def) throw new Error(`personaGrid: ${trade} is not a persona trade`);
+  if (!validPersonaTrade(trade)) throw new Error(`personaGrid: ${trade} is not a persona trade`);
+  const own = hasOwnBust(trade);
+  const def = defined(TRADES[own ? trade : GENERIC_TRADE], `the art of ${trade}`);
+  const outfitOf = own ? trade : GENERIC_TRADE;
   if (!validPersonaAvatar(avatar)) throw new Error(`personaGrid: ${JSON.stringify(avatar)} is not a persona avatar`);
   const outfits: Readonly<Record<string, readonly string[]>> = PERSONA_PRESETS.outfit;
-  const outfit = at(defined(outfits[trade], `the outfits of ${trade}`), avatar.outfit, `outfit ${avatar.outfit} of ${trade}`);
+  const outfit = at(defined(outfits[outfitOf], `the outfits of ${outfitOf}`), avatar.outfit, `outfit ${avatar.outfit} of ${outfitOf}`);
   const tint = {
     S: rampFrom(at(PERSONA_PRESETS.skin, avatar.skin, `skin ${avatar.skin}`)),
     H: rampFrom(at(PERSONA_PRESETS.hairColor, avatar.hairColor, `hair colour ${avatar.hairColor}`)),
