@@ -9,8 +9,10 @@
 //   steps "target-<name>"   a multi-repository PRD's targets (PRD 1130, `targets.read.ts`): each one's
 //                           installation, looked up as the App, then its feature PRs and sub-PRs
 //   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`), then
-//                           "gather-<kind>-<name>" for each target read, as its installation
-//   step "facts"            `detect`: the fact sheet — saved, so a retry never changes a number; saved without
+//                           "gather-<kind>-<name>" for each target read, as its installation; records over
+//                           the ledger's budget saved in parts ("<step>:part-<hash>-<k>", `../saved-parts.ts`),
+//                           so a delivery red on many commits stays under its 1 MB a step (#2786)
+//   step "facts"           `detect`: the fact sheet — saved, so a retry never changes a number; saved without
 //                           its excerpts (the red runs' log tails, `excerpts.ts`), put back from the gathers'
 //                           saved records as it is read, so a step stays under the ledger's 1 MB (#2780)
 //   step "gather-knowledge" what the judge compares with (PRD 487): the knowledge summary and the
@@ -81,6 +83,7 @@ import { knowledgeSummary } from 'omni-loop/kit/lib/knowledge/classify.ts';
 import { playbookLines } from 'omni-loop/kit/lib/playbook/lines.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';
+import { savedStepInParts } from '../saved-parts.ts';
 import { memorySteps, savedStep, type StepRun } from '../saved-step.ts';
 import { failureCommentHook, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import { listPullsInto } from './github.ts';
@@ -378,7 +381,7 @@ async function factSheet(input: RunInput, id: StepId, folder: string): Promise<F
   const { step, github, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier } = input;
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
-    records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
+    records[kind.id] = await savedStepInParts(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
   }
   const targets = await targetRecords(input);
   const before = earlier?.sheet.findings ?? [];

@@ -177,26 +177,31 @@ async function push(call: PushCall, io: ProductIo, addedLine: AddedLine): Promis
     return 1;
   }
   const code = reportPush(result, folder, io, addedLine);
-  if (seq !== null && isText(field(result, 'prdId'))) await reportLaws(parseProductPrdId(`${key}-${seq}`), io);
+  if (seq !== null && isText(field(result, 'prdId'))) {
+    const id = parseProductPrdId(`${key}-${seq}`);
+    await reportLaws(id, () => io.client.readProductApproval({ id, repo: io.repo }), io);
+  }
   return code;
 }
 
-/** Where product PRD `id`'s spec stands with its business laws, or null when the page does not say. */
-async function lawsOf(id: ProductPrdId, { client, repo }: ProductIo): Promise<Laws | null> {
+/** Where a PRD's spec stands with its business laws, from its approval route's reply, or null when the page
+ * does not say. */
+async function lawsOf(readApproval: () => Promise<unknown>): Promise<Laws | null> {
   try {
-    return parseLaws(parseApprovalReply(await client.readProductApproval({ id, repo }))?.laws);
+    return parseLaws(parseApprovalReply(await readApproval())?.laws);
   } catch (error) {
     if (!(error instanceof AskCallError)) throw error;
     return null;
   }
 }
 
-/** Prints product PRD `id`'s business laws verdict once its spec is judged, waiting a minute at most. */
-async function reportLaws(id: ProductPrdId, io: ProductIo): Promise<void> {
-  let laws = await lawsOf(id, io);
+/** Prints PRD `id`'s business laws verdict once its spec is judged, waiting a minute at most: a product PRD's
+ * (bug #2696), or a repository PRD's (bug #2793), its approval read through `readApproval`. */
+export async function reportLaws(id: string, readApproval: () => Promise<unknown>, io: Pick<ProductIo, 'stdout' | 'pause'>): Promise<void> {
+  let laws = await lawsOf(readApproval);
   for (let waits = 0; laws?.state === 'pending' && waits < VERDICT_WAITS; waits += 1) {
     await io.pause(VERDICT_EVERY_MS);
-    laws = await lawsOf(id, io);
+    laws = await lawsOf(readApproval);
   }
   if (laws === null) return;
   println(io.stdout, laws.state === 'pending' ? `laws: not judged yet · read it with omni prd ${id}` : lawsLines(laws).join('\n'));

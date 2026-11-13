@@ -34,9 +34,9 @@ const TAIL_LINES = 200;
 const tailOf = (job: number) =>
   Array.from({ length: TAIL_LINES }, (_, line) => `job ${String(job)} line ${String(line)}: the e2e suite timed out waiting for the page to settle`).join('\n');
 
-/** The ci kind's records of a delivery whose check `e2e` was red on 60 commits: about 0.7 MB, each tail once. */
-function redAgainAndAgain(): z.infer<typeof CiRecordsSchema> {
-  const jobs = Array.from({ length: RED_RUNS }, (_, index) => {
+/** The ci kind's records of a delivery whose check `e2e` was red on `count` commits: about 0.7 MB for 60, each tail once. */
+function redAgainAndAgain(count = RED_RUNS): z.infer<typeof CiRecordsSchema> {
+  const jobs = Array.from({ length: count }, (_, index) => {
     const id = 9000 + index;
     return {
       id,
@@ -55,8 +55,10 @@ function redAgainAndAgain(): z.infer<typeof CiRecordsSchema> {
   return CiRecordsSchema.parse({ slices: ['s1', 's2'], unread: [], jobs, logs: Object.fromEntries(jobs.map((job) => [String(job.id), { tail: tailOf(job.id) }])) });
 }
 
-/** The registry's kinds, the ci kind gathering the records above instead of reading GitHub Actions. */
-const kinds: readonly Kind[] = KINDS.map((kind) => (kind.id === ci.id ? { ...ci, gather: () => Promise.resolve(redAgainAndAgain()) } : kind));
+/** The registry's kinds, the ci kind gathering the records of `count` red runs instead of reading GitHub Actions. */
+const kindsRedOn = (count: number): readonly Kind[] =>
+  KINDS.map((kind) => (kind.id === ci.id ? { ...ci, gather: () => Promise.resolve(redAgainAndAgain(count)) } : kind));
+const kinds = kindsRedOn(RED_RUNS);
 
 describe('retro — a large repository on the job ledger (#2780)', () => {
   it('saves its fact sheet under the ledger’s 1 MB cap when red runs’ log tails would repeat past it, and finishes', async () => {
@@ -94,6 +96,53 @@ describe('retro — a large repository on the job ledger (#2780)', () => {
     const scenario = widgetScenario();
     const ledger = cappedLedger();
     const deps = { octokitFor: () => scenario.github.octokit, openrouter: null, kinds };
+    const first = await retroRunner(deps, scenario.job, { ledger }).execute();
+    const again = await retroRunner(deps, scenario.job, { ledger }).execute();
+    expect(first.error).toBeUndefined();
+    expect(again.error).toBeUndefined();
+    expect(again.saved).toEqual([]);
+    expect(again.result).toEqual(first.result);
+  });
+});
+
+// The step "gather-ci" itself on the same ledger (#2786): it keeps every red run's log tail once, so a delivery red
+// on enough commits gathers more than the 1 MB the ledger saves a step, however lean the step "facts" is.
+const MANY_RED_RUNS = 140;
+
+describe('retro — a delivery red on so many commits that its CI records pass 1 MB (#2786)', () => {
+  it('gathers records over 1 MB: what the step "gather-ci" would save in one value', () => {
+    expect(Buffer.byteLength(JSON.stringify(redAgainAndAgain(MANY_RED_RUNS)))).toBeGreaterThan(STEP_CAP);
+  });
+
+  it('saves every step under the ledger’s 1 MB cap, finishes, and gives the judge and retro.json every tail', async () => {
+    const scenario = widgetScenario();
+    const ledger = cappedLedger();
+    const fetch = judge();
+    const { error, saved } = await retroRunner(
+      { octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch, kinds: kindsRedOn(MANY_RED_RUNS) },
+      scenario.job,
+      { ledger },
+    ).execute();
+
+    expect(error).toBeUndefined();
+    expect(saved).toContain('publish');
+    const steps = ledger.stepsOf(scenario.job.key);
+    for (const value of Object.values(steps)) expect(Buffer.byteLength(JSON.stringify(value))).toBeLessThanOrEqual(STEP_CAP);
+    expect(Object.keys(steps).filter((id) => id.startsWith('gather-ci:part-')).length).toBeGreaterThan(2);
+
+    // The judge's input is capped at LIMITS.modelInputTokens (`narrate.ts`), which keeps the latest tails whole and drops
+    // the older ones: the tails it reads are whole ones, read back from the parts.
+    const asked = JSON.stringify(fetch.asked);
+    const read = Array.from({ length: MANY_RED_RUNS }, (_, index) => JSON.stringify(tailOf(9000 + index)).slice(1, -1)).filter((tail) => asked.includes(tail));
+    expect(read.length).toBeGreaterThan(0);
+    const json = scenario.github.filesAt('docs/retro-widget', ['.omni-loop/delivery/shipped/0007-widget/retro.json'])['.omni-loop/delivery/shipped/0007-widget/retro.json'] ?? '';
+    for (let index = 0; index < MANY_RED_RUNS; index += 1) expect(json).toContain(JSON.stringify(tailOf(9000 + index)));
+  });
+
+  it('reads the same records back on a retry, from the steps it saved', async () => {
+    const scenario = widgetScenario();
+    const ledger = cappedLedger();
+    const deps = { octokitFor: () => scenario.github.octokit, openrouter: null, kinds: kindsRedOn(MANY_RED_RUNS) };
     const first = await retroRunner(deps, scenario.job, { ledger }).execute();
     const again = await retroRunner(deps, scenario.job, { ledger }).execute();
     expect(first.error).toBeUndefined();

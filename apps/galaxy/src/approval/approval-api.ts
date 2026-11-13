@@ -1,7 +1,7 @@
 // The approval of a PRD born on the server (PRD 1299 s2), as plain functions of a Request, so they are
 // tested with a stubbed Supabase client and the route stays one line each:
 //
-//   GET  /api/dossiers/approval?repo=<owner/name>&prd=<n>  → 200 {url, approval}
+//   GET  /api/dossiers/approval?repo=<owner/name>&prd=<n>  → 200 {url, approval[, laws]}
 //   GET  /api/dossiers/approval?prd=<key>-<n>[&repo=…]     → 200 {url, approval[, laws]}
 //   POST /api/dossiers/approval {dossier}                  → 201 {url, approval}
 //
@@ -41,6 +41,7 @@
 // Since bug #2696 a GET of a product PRD carries `laws` where its latest spec is judged: `{state: 'pending'}`
 // while it has no verdict yet, else `{state, reason, judgedAt, findings}`, each finding the law, its statement,
 // the spec's quote and what the judge found broken. A GET never judges (a push does), and an older kit ignores it.
+// Since bug #2793 a GET of a repository's PRD carries it too, read the same way for its dossier.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed query or body (or the
 // database's own: a ◇ dossier, a draft, a missing spec, plan or before/after, a red business law verdict), 401 no valid sign-in, 403
@@ -80,7 +81,7 @@ export type ApprovalDeps = {
    * the caller reads it; never throws. Missing: nothing is judged first, and the database still refuses a red. */
   judge?: (db: ApprovalDb, dossier: string) => Promise<void>;
   /** Where the dossier's latest spec stands with its business laws, as the caller reads it (bug #2696): a GET
-   * of a product PRD carries it as `laws`. Null: nothing is judged there. Missing, or throwing: left out. */
+   * of any PRD carries it as `laws` (a repository's since bug #2793). Null: nothing is judged there. Missing, or throwing: left out. */
   laws?: (db: ApprovalDb, dossier: string) => Promise<LawsAnswer | null>;
 };
 
@@ -180,7 +181,7 @@ async function inForce(request: Request, db: ApprovalDb, key: PrdKey | Response,
     console.error(`approval: the database answered out of shape for PRD ${nameOf(key)}`);
     return refuse(500, NOT_READ);
   }
-  const laws = key.product === null ? null : await lawsOf(db, read.data.dossier, deps);
+  const laws = await lawsOf(db, read.data.dossier, deps);
   return reply(200, { ...answerOf(request, read.data), ...(laws ? { laws } : {}) });
 }
 

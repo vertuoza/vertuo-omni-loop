@@ -63,10 +63,11 @@ describe('loadMcpCard', () => {
   });
 
   it('names the repositories with no pack yet while the server is on, and reads the role', async () => {
-    state.reader = database({ key: 'acme', mcp_enabled: true, archived_at: null }, { role: 'member' });
+    state.reader = database({ name: 'Acme Insight', key: 'acme', mcp_enabled: true, archived_at: null }, { role: 'member' });
     state.packs = { 'acme/web': 'missing', 'acme/api': 'failed' };
     const read = await loadMcpCard('p-1');
     expect(read?.card).toEqual({ key: 'acme', on: true, owner: false, archived: false, origin: 'https://omni.example', missing: ['acme/web'] });
+    expect(read?.name).toBe('Acme Insight');
   });
 
   it('names none while the server is off, and finds an owner', async () => {

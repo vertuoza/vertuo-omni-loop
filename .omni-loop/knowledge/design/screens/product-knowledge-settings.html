@@ -30,10 +30,21 @@ pre { margin:0; border:1px solid; border-radius:6px; font: 13px ui-monospace, Me
 <p class="muted">Region is shared by every product: a change here changes it for all. The rest is this product’s.</p>
 <div class="card"><h5>Region</h5><p class="muted">Belgium · France · Netherlands</p></div>
 <div class="card"><h5>Offering, size, trade, rivals</h5><p class="muted">Picks and claims.</p></div>
+<div class="card" id="product-key"><h5>Product key</h5>
+<p><code>acme</code></p>
+<p class="muted">Set once.</p></div>
 <div class="card"><h5>MCP server <span class="state">Off</span></h5>
 <p class="muted">Agents can’t read this product’s knowledge yet.</p>
 <p class="muted">Then every API key reads it.</p>
 <button class="primary" data-primary>Turn on</button></div>
+</div>
+<p style="color:#8a90d6;margin:0">No key yet, as an owner sees it (PRD 2784)</p>
+<div class="screen" data-screen="product-knowledge-settings">
+<div class="card"><h5>Product key</h5>
+<p><input value="acme" aria-label="Product key" style="padding:6px 10px;border:1px solid #5a60c4;border-radius:8px;background:#07061c;color:#f2f4ff;font:13px ui-monospace,Menlo,monospace"> <button class="primary" data-primary>Set key</button></p>
+<p class="muted">Set once. It never changes.</p></div>
+<div class="card"><h5>MCP server <span class="state">Off</span></h5>
+<p class="muted"><a href="#product-key">Set the product’s key first.</a></p></div>
 </div>
 <p style="color:#8a90d6;margin:0">On, as an owner sees it</p>
 <div class="screen" data-screen="product-knowledge-settings">

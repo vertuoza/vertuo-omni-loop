@@ -168,7 +168,8 @@ describe('omni dossier push', () => {
 
     expect(again.code).toBe(0);
     expect(again.out.split('\n')[1]).toBe('added: none · unchanged: spec, plan, before-after');
-    expect(server.calls[2]?.body).not.toHaveProperty('draftId');
+    // Each push is followed by its verdict's read (bug #2793): the pushes alone.
+    expect(server.calls.filter((call) => call.path === '/api/dossiers/push')[1]?.body).not.toHaveProperty('draftId');
     const only: unknown = [...server.dossiers.values()][0];
     expect(dig(only, 'versions')).toHaveLength(3);
   });
@@ -227,7 +228,7 @@ describe('omni dossier push', () => {
     const run = await dossier(['push', '7'], { root, tokens });
 
     expect(run.code).toBe(0);
-    expect(server.calls.slice(1).map((call) => dig(call.body, 'draftId') ?? null)).toEqual([draft.id, null]);
+    expect(server.calls.filter((call) => call.path === '/api/dossiers/push').map((call) => dig(call.body, 'draftId') ?? null)).toEqual([draft.id, null]);
     expect(readDossiers(root)).toEqual([]);
     expect([...server.dossiers.values()]).toMatchObject([{ prd: 7 }]);
   });

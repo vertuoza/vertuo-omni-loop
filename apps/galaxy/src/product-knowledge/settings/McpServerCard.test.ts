@@ -23,6 +23,17 @@ describe('McpServerCard', () => {
     expect(html).not.toContain('data-mcp-url');
   });
 
+  it('no key: says the key comes first, linked to the Product key card, for an owner and any member, with no switch', () => {
+    for (const owner of [true, false]) {
+      const html = draw({ key: null, owner });
+      expect(html).toContain('Off');
+      expect(html).toContain('Set the product’s key first.');
+      expect(html).toContain('href="#product-key"');
+      expect(html).not.toContain('Agents can’t read this product’s knowledge yet.');
+      expect(html).not.toContain('Turn on');
+    }
+  });
+
   it('on: shows the URL, the copy buttons, the keys link and Turn off with its line', () => {
     const html = draw({ on: true });
     expect(html).toContain('Any workspace API key reads its knowledge.');
