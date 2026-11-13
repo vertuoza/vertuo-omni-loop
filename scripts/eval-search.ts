@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { parseArgs as parseCli } from 'node:util';
 import { z } from 'zod';
+import { scoreSearches } from '../kit/lib/knowledge/search-eval.ts';
 
 const USAGE = 'usage: node scripts/eval-search.ts <product> <questions file> --key-file <file> [--url <base>]';
 const DEFAULT_URL = 'https://www.omni-loop.xyz';
@@ -31,7 +32,7 @@ export type Found = { ids: string[]; mode: string | null };
 export type Search = (question: string) => Promise<Found>;
 
 /** One question scored: its place among the hits (1 is first), or null when the expected id did not come up. */
-export type Scored = Question & { rank: number | null; mode: string | null };
+export type Scored = Question & { rank: number | null; mode: string | null; ids: string[] };
 
 /** The questions of a file's text; throws a one-line error when it is not the shape above. */
 export function parseQuestions(text: string): Question[] {
@@ -52,7 +53,7 @@ export async function score(questions: readonly Question[], search: Search): Pro
   for (const q of questions) {
     const found = await search(q.question);
     const at = found.ids.indexOf(q.expected);
-    scored.push({ ...q, rank: at < 0 ? null : at + 1, mode: found.mode });
+    scored.push({ ...q, rank: at < 0 ? null : at + 1, mode: found.mode, ids: found.ids });
   }
   return scored;
 }
@@ -65,14 +66,8 @@ export function summarize(scored: readonly Scored[]): Summary[] {
   const sets = [...new Set(scored.map((s) => s.set))];
   return sets.map((set) => {
     const mine = scored.filter((s) => s.set === set);
-    const ranks = mine.map((s) => s.rank);
-    return {
-      set,
-      questions: mine.length,
-      first: ranks.filter((r) => r === 1).length,
-      top: ranks.filter((r) => r !== null && r <= TOP).length,
-      mrr: ranks.reduce<number>((sum, r) => sum + (r === null ? 0 : 1 / r), 0) / mine.length,
-    };
+    const m = scoreSearches(mine.map((s) => ({ category: set, ranked: s.ids, right: [s.expected] }))).overall;
+    return { set, questions: mine.length, first: Math.round(m.top1 * m.questions), top: Math.round(m.top5 * m.questions), mrr: m.mrr };
   });
 }
 
