@@ -2,7 +2,7 @@
 // `POST /api/search/categorize`, which runs the workspace's `search-category` Jev decision, since only galaxy
 // holds its sealed Jev key.
 //
-//   request  {workspaceId, productId, question}   signed as the law judge is (../knowledge-harvest/law-judge.ts):
+//   request  {workspaceId, productId, question}   signed as the law judge is (../knowledge-harvest/law-judge.ts), under SEARCH_CATEGORIZE_SECRET:
 //                                                 an HMAC-SHA256 over the exact body, `sha256=<hex>` in
 //                                                 x-omni-signature-256, under a secret both apps share
 //   reply    {category, decidedBy, confidence}    `category` a domain of the product, "other", or null when the

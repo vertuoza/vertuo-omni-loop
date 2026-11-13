@@ -168,7 +168,7 @@ export function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = nu
  * The groups the live worker reads: the database it runs on, what the checks ask beside GitHub, and the App's own
  * key, with which the escalation lists its installations.
  */
-export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
+export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge' | 'searchCategorize' | 'stageEvents' | 'galaxyUrl'>>;
 
 /**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the knowledge
@@ -198,7 +198,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       [SEARCH_CATEGORIZE_KIND]: searchCategorizeHandler({
         store: searchStore(supabase),
         embed: embedClient(supabase),
-        categorize: galaxyCategorizer({ url: categorizeUrl(galaxyUrl), secret: env.lawJudge?.secret }),
+        categorize: galaxyCategorizer({ url: categorizeUrl(galaxyUrl), secret: env.searchCategorize?.secret }),
       }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),

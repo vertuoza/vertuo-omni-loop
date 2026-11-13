@@ -55,7 +55,7 @@ export function searchStore(connection: Connection): SearchStore {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc('mcp_search_group_nearest', { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused(error);
-      const [row] = z.array(NearestRowSchema).parse(data ?? []);
+      const [row] = z.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
 
