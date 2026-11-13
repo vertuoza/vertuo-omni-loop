@@ -385,7 +385,6 @@
 
 .business-portrait { display: inline-block; flex: none; line-height: 0; border-radius: 8px; background: var(--ask-sunk); }
 .business-portrait svg { display: block; image-rendering: pixelated; }
-.business-portrait-none { width: 64px; height: 64px; }
 
 .business-stance { font: 700 11px/1 var(--ask-mono); padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; }
 .business-stance[data-stance='enthusiastic'] { color: var(--ask-green); }
