@@ -1,7 +1,9 @@
 // The catalog of the points a repository's flow may hook (PRD 1089): the one source of each point's
 // skills, the modes it allows, the inputs a hook is handed and, for a `replace`, what the hook must
 // produce. A point is named `<skill>.<step>` after the base skill; an ultra or mega variant that
-// follows that skill step for step fires the same point, so it is listed beside it.
+// follows that skill step for step fires the same point, so it is listed beside it. One point is
+// named after what it guards instead: `merge-after.served` (PRD 2746) is declared in a provider
+// repository's config and followed by the skills that would mark a consumer pull request ready.
 
 /** The ways a hook joins a point: before the kit's step, after it, or in its place. */
 const HOOK_MODES = Object.freeze(['before', 'after', 'replace'] as const);
@@ -18,6 +20,8 @@ export type FlowPoint = {
   inputs: readonly string[];
   /** What a `replace` hook must produce; `[]` where no `replace` is allowed. */
   outputs: readonly string[];
+  /** Whether a hook here may answer `wait <why>`, not yet, ask again; every other point takes `pass` or `fail` only. */
+  waits?: true;
 };
 
 const EXTEND: readonly HookMode[] = Object.freeze(['before', 'after']);
@@ -49,6 +53,14 @@ export const FLOW_POINTS: readonly FlowPoint[] = Object.freeze([
     outputs: ['before.* and after.* in {out}, the two recordings omni bug film reads', "an env: line, the preview environment's URL and lifetime", 'the verdict line'],
   },
   { point: 'yolo.ready', skills: ['yolo', 'ultra-yolo'], modes: EXTEND, inputs: ['prd', 'pr'], outputs: [] },
+  {
+    point: 'merge-after.served',
+    skills: ['pr', 'ultra-yolo', 'mega-bug-fix', 'mega-pr-care'],
+    modes: ['replace', 'after'],
+    inputs: ['provider', 'pr', 'merge-sha', 'consumer'],
+    outputs: ['the verdict line: pass, wait <why> or fail <why>'],
+    waits: true,
+  },
 ]);
 
 /** The point named `name`, or `undefined` when the catalog has none. */

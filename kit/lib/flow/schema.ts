@@ -83,6 +83,8 @@ const hooksSection = z.record(z.string(), pointHooks).superRefine((hooks, issues
     for (const { key, mode, ref } of eachHook(name, value)) {
       if (mode === 'replace' && !point.modes.includes('replace')) {
         issues.addIssue({ code: 'custom', path: key, message: `${name} takes before and after hooks only: its act is never replaced` });
+      } else if (!point.modes.includes(mode)) {
+        issues.addIssue({ code: 'custom', path: key, message: `${name} takes ${point.modes.join(' and ')} hooks only` });
       }
       const problem = hookRefProblem(ref);
       if (problem) issues.addIssue({ code: 'custom', path: key, message: problem });

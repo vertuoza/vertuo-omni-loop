@@ -60,6 +60,12 @@ describe('FlowSchema', () => {
     expect(FlowSchema.parse({ hooks: { 'bug-fix.proof': value } }).hooks).toEqual({ 'bug-fix.proof': value });
   });
 
+  it('reads a provider\'s probe at merge-after.served: a replace, an after, or a bare path (PRD 2746)', () => {
+    const flow = parseConfig(`kit: 1\n${hooks('    merge-after.served: { replace: .omni-loop/flow/served.md, after: .omni-loop/flow/log.md }\n')}`).flow;
+    expect(flow?.hooks?.['merge-after.served']).toEqual({ replace: '.omni-loop/flow/served.md', after: '.omni-loop/flow/log.md' });
+    expect(FlowSchema.parse({ hooks: { 'merge-after.served': 'a.md' } }).hooks).toEqual({ 'merge-after.served': 'a.md' });
+  });
+
   it('reads the spec example', () => {
     const flow = parseConfig(`kit: 1\n${SPEC_FLOW}`).flow;
     expect(Object.keys(flow?.areas ?? {})).toEqual(['kernel', 'migrations']);
@@ -78,6 +84,7 @@ describe('FlowSchema', () => {
     ['replace on an area hook that does not allow it', "flow:\n  areas:\n    kernel:\n      paths: ['^k/']\n      hooks:\n        yolo.ready: { replace: a.md }\n", 'flow.areas.kernel.hooks.yolo.ready.replace:'],
     ['replace on bug-fix.reproduce', hooks('    bug-fix.reproduce: { replace: a.md }\n'), 'flow.hooks.bug-fix.reproduce.replace: bug-fix.reproduce takes before and after hooks only'],
     ['replace on bug-fix.review', hooks('    bug-fix.review: { replace: a.md }\n'), 'flow.hooks.bug-fix.review.replace: bug-fix.review takes before and after hooks only'],
+    ['before on merge-after.served', hooks('    merge-after.served: { before: a.md }\n'), 'flow.hooks.merge-after.served.before: merge-after.served takes replace and after hooks only'],
     ['an absolute hook path', hooks('    do-work.test: /etc/hook.md\n'), 'flow.hooks.do-work.test: /etc/hook.md is an absolute path'],
     ['a hook path holding ..', hooks('    do-work.test: { after: ../hook.md }\n'), 'flow.hooks.do-work.test.after: ../hook.md holds ..'],
     ['a hook that is a URL', hooks('    do-work.test: { before: https://example.com/h.md }\n'), 'flow.hooks.do-work.test.before: https://example.com/h.md is a URL'],
