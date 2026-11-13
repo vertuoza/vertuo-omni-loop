@@ -364,6 +364,16 @@ For each target with a slice merged into its feature branch, in a detached workt
    PR in draft and the target **stuck**, naming the hook. Then follow `/omni:pr --repo <slug>`'s lifecycle until
    its CI is green or it is stuck. This is the only place a target feature PR is marked ready.
 
+   **Held by a provider.** A consumer target's PR carries its `Merge after` lines (step 2), so run
+   `node .omni-loop/bin/omni.mjs hold <owner/repo>#<n> --json` from the plan repository before `gh pr ready`, and follow it as
+   `/omni:pr`'s **Held by a provider** says: each probe it names through
+   `flow show merge-after.served` and `flow verdict merge-after.served`, ready only when every row
+   is clear or passes. Held, it **stays a draft**, its status comment saying
+   `waiting for <owner/repo>#<n> to be served: <why>`, and is not stuck: the run carries on with the
+   other targets, and the plan PR waits, as for a landing whose previous one is open, until it is
+   ready or merged (`/omni:mega-drive` reads the hold again each tick). A `fail` raises one high
+   outbox item naming both pull requests, in the plan repository's outbox.
+
 **Landings in a target.** Each landing of a target's chain is finished on its own branch, items 1
 to 4 (item 1 meets its base: the previous landing's branch while that one is open, the target's
 default branch once it has merged), and item 5 marks it ready only under `/omni:yolo`'s ready rule,

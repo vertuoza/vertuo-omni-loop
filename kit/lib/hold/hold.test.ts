@@ -47,3 +47,34 @@ describe('rows and verdict', () => {
     expect(verdictOf([]).kind).toBe('clear');
   });
 });
+
+describe('a merged provider\'s probe (s3)', () => {
+  const served = { hook: 'demo-org/api:.omni-loop/flow/served.md', mode: 'replace' as const, text: 'Check.' };
+
+  it('names each probe to follow, exit 0, and runs nothing', () => {
+    const row = rowOf(api41, { state: 'MERGED' }, { probes: [served] });
+    expect(rowLine(row)).toBe('demo-org/api#41 merged · probe demo-org/api:.omni-loop/flow/served.md probe');
+    expect(row.probes).toEqual([served]);
+    const verdict = verdictOf([row, rowOf({ repo: 'demo-org/auth', number: 7 }, { state: 'MERGED' })]);
+    expect(verdict).toEqual({ kind: 'probe', line: 'probe: demo-org/api#41 follow demo-org/api:.omni-loop/flow/served.md' });
+    expect(exitOf(verdict)).toBe(0);
+  });
+
+  it('is clear when the provider declares no probe', () => {
+    expect(rowOf(api41, { state: 'MERGED' }, { probes: [] })).toEqual({ provider: 'demo-org/api#41', what: 'merged · no probe', status: 'clear', why: 'it is merged' });
+  });
+
+  it('never clears a probe it could not read', () => {
+    const row = rowOf(api41, { state: 'MERGED' }, { failure: 'the probe served.md of demo-org/api cannot be read: HTTP 500' });
+    expect(rowLine(row)).toBe('demo-org/api#41 merged · probe not read not judged');
+    expect(verdictOf([row]).line).toBe('not judged: the probe served.md of demo-org/api cannot be read: HTTP 500');
+  });
+
+  it('puts a held row before a probe, and lists every probe row', () => {
+    const other = rowOf({ repo: 'demo-org/auth', number: 7 }, { state: 'MERGED' }, { probes: [{ ...served, hook: 'demo-org/auth:p.md' }] });
+    expect(verdictOf([rowOf(api41, { state: 'MERGED' }, { probes: [served] }), rowOf({ repo: 'demo-org/web', number: 3 }, { state: 'OPEN' })]).kind).toBe('held');
+    expect(verdictOf([rowOf(api41, { state: 'MERGED' }, { probes: [served] }), other]).line).toBe(
+      'probe: demo-org/api#41 follow demo-org/api:.omni-loop/flow/served.md; demo-org/auth#7 follow demo-org/auth:p.md',
+    );
+  });
+});

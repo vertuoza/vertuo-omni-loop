@@ -31,6 +31,8 @@ const pointHooks = z.union([
   hookRef,
   z.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict(),
 ]);
+/** One point's hooks, as a config writes them: a bare path, or by mode. `omni hold` reads a provider's with it (PRD 2746). */
+export const PointHooksSchema = pointHooks;
 
 /** A hook as the file names it: a path, or `{ path, alias: claude }`. */
 export type HookRef = z.infer<typeof hookRef>;
@@ -83,6 +85,8 @@ const hooksSection = z.record(z.string(), pointHooks).superRefine((hooks, issues
     for (const { key, mode, ref } of eachHook(name, value)) {
       if (mode === 'replace' && !point.modes.includes('replace')) {
         issues.addIssue({ code: 'custom', path: key, message: `${name} takes before and after hooks only: its act is never replaced` });
+      } else if (!point.modes.includes(mode)) {
+        issues.addIssue({ code: 'custom', path: key, message: `${name} takes ${point.modes.join(' and ')} hooks only` });
       }
       const problem = hookRefProblem(ref);
       if (problem) issues.addIssue({ code: 'custom', path: key, message: problem });

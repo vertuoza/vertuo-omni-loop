@@ -460,6 +460,15 @@ As `/omni:bug-fix` step 12, in the plan repository:
    Merge after <slug>#<pr>
    ```
 
+6. **Ready, held by a provider.** A consumer's fix PR and the record PR carry `Merge after` lines, so
+   whatever marks one ready (`/omni:pr`'s Done row, or **Resuming a stopped fix**) runs
+   `node .omni-loop/bin/omni.mjs hold <owner/repo>#<n> --json` before `gh pr ready`, and follows it as
+   `/omni:pr`'s **Held by a provider** says: each probe it names through
+   `flow show merge-after.served` and `flow verdict merge-after.served`, ready only when every row
+   is clear or passes. Held, the PR **stays a draft**, its status comment saying
+   `waiting for <owner/repo>#<n> to be served: <why>`; the record PR, merged last, waits for every
+   target PR. A `fail` raises one high outbox item naming both pull requests, in the fix's folder.
+
 ## 10. Hand off
 
 As `/omni:bug-fix` step 13: the issue, the fix plan, each target PR in merge order, the record PR,
@@ -561,7 +570,7 @@ alone.
 Then fix as step 7 says, on top of the branch: commits go after the stopped run's, never in place of
 them. A rerun is a job of its own, so `limits.attempts` starts again. **Green:** commit, push
 (`git push <clone remote> <fix branch>`, never forced), write the PR's body as step 7's PR says
-(`gh pr edit <pr> --body-file <file>`), mark it ready (`gh pr ready <pr>`), remove `labels.needsFix`
+(`gh pr edit <pr> --body-file <file>`), mark it ready (`gh pr ready <pr>`, once step 9 item 6's hold lets it), remove `labels.needsFix`
 (`gh pr edit <pr> --remove-label "<labels.needsFix>"`), and comment on the PR with one line,
 `Resumed: green at <sha>`. **Red again `limits.attempts` times:** stop rule 5, as written, and the
 hand-off ends on the line that resumes it again (step 10).
