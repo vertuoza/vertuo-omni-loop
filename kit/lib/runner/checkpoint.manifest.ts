@@ -1,6 +1,6 @@
 // The manifest of a job's save (PRD 2809, s4): what the runner tells the app about a save once it made one,
 // read by `CheckpointManifestSchema` on both sides — the runner's `checkpoint.ts` writes it, the app's contract
-// (apps/galaxy/src/runners/runners.contract.ts) re-exports it and reads what `POST /api/runners/jobs/<id>/checkpoint`
+// (its runners contract) re-exports it and reads what `POST /api/runners/jobs/<id>/checkpoint`
 // is sent. It names what the bundle holds and never a file's content: per branch its name, its checkpoint ref, the
 // commit origin had that its work starts from, its head, its files and commits saved; the bundle's bytes; what the
 // save takes of the runner's disk; the handoff note, masked as logs are and cut to 8 KB; why the upload failed.
