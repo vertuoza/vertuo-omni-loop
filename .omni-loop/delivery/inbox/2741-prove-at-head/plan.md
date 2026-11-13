@@ -21,7 +21,7 @@ generated `kit/dist/` is rebuilt by the wave, never listed.
 ### s1
 - `omni bug <n>`, its `gh pr view` injected with a head one commit after the sha the After line
   cites, prints `not ok` and `the proof cites green at <sha>, but #<pr>'s head is <head> (1 commits
-  later): run the reproduction again at the head and rewrite the After line` (the test that would
+  later): run the reproduction again at the head and add a Re-proved line` (the test that would
   have caught the kit-gaps review's item 2 earlier-green cases).
 - The same, with a review commit pushed after the proof (the injected head moves), prints `not ok`
   (the test that would have caught item 2's review-commit cases).
@@ -29,6 +29,8 @@ generated `kit/dist/` is rebuilt by the wave, never listed.
   not a commit of the pull request prints the line with `<sha> is not a commit of #<pr>`.
 - A produced proof whose After line cites no commit prints its own fault; a not-produced proof is
   graded as today.
+- A body with a `- **Re-proved** (green, `<head>`)` line under an After line citing an older commit
+  prints `ok`: the last Re-proved line is the cited one, and the older line is never a fault.
 - `--body-file` with no open pull request compares with `git rev-parse HEAD`.
 - A head `gh` cannot read is one fault, `not judged: could not read the head of <owner/repo>#<n>: <why>`, never a pass.
 
@@ -43,8 +45,9 @@ generated `kit/dist/` is rebuilt by the wave, never listed.
 
 ### s3
 - `/omni:pr-care`'s text says: after each push to a bug-fix pull request, run `omni bug <n>`; when
-  the only fault is a stale green, run the reproduction at the head, rewrite the After line with the
-  new short sha and passing line, put the body back and rerun `omni bug`; else `gh pr ready <pr>
+  the only fault is a stale green, run the reproduction at the head, add a `- **Re-proved** (green,
+  `<sha>`)` line with the new short sha and passing line under the proof, changing no line already
+  there, put the body back and rerun `omni bug`; else `gh pr ready <pr>
   --undo` and say why in the status comment.
 - `/omni:bug-fix` and `/omni:mega-bug-fix` say the After line cites the head at the moment the body is
   checked, and that `omni bug` refuses any other commit; `--pr` is named where the product proof is

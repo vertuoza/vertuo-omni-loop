@@ -48,9 +48,13 @@ every push it makes to a bug-fix pull request.
 - **The head.** Read from the open pull request of the current branch, `gh pr view --json
   body,isDraft,state,number,headRefOid,commits`. With `--body-file` and no open pull request yet,
   the head is the local `git rev-parse HEAD`.
+- **The newest green.** pr-care never rewrites the After line: a later proof is a new line added
+  under it, `- **Re-proved** (green, `<sha>`): `<passing line>``. The cited sha is the one of the
+  last `Re-proved` line in `## Proof`, or the After line's when there is none. Every earlier line
+  stays as it was written.
 - **The rule.** The cited sha must be a prefix of the head's full sha. Anything else is refused, one
   line:
-  `the proof cites green at abc1234, but #<pr>'s head is def5678 (2 commits later): run the reproduction again at the head and rewrite the After line`.
+  `the proof cites green at abc1234, but #<pr>'s head is def5678 (2 commits later): run the reproduction again at the head and add a Re-proved line`.
   When the cited sha is not a commit of the pull request at all, the line says `abc1234 is not a
   commit of #<pr>` in place of the count.
 - **Exactly the head.** No commit may follow the cited one, not even one that changes only the bug's
@@ -79,13 +83,14 @@ After every push it makes to a bug-fix pull request (a branch matching `branches
 with `## Proof` and `## Bug`), pr-care runs `omni bug <n>` again. When the only fault is the cited
 green:
 
-1. it runs the reproduction (the record's **File:**) at the new head, and on green rewrites the
-   After line with the new short sha and the new passing line, then puts the body back with
+1. it runs the reproduction (the record's **File:**) at the new head, and on green adds one line
+   under the last line of `## Proof`'s proof, `- **Re-proved** (green, `<new short sha>`):
+   `<new passing line>``, changing no line already there, then puts the body back with
    `gh pr edit --body-file`, and runs `omni bug <n>` once more;
 2. when the reproduction is red, or `omni bug` still refuses, it puts the pull request back to draft
    (`gh pr ready <pr> --undo`) and says why in its status comment.
 
-The GIF is not filmed again: the After line is the claim this PRD binds to the head. `/omni:bug-fix`
+The GIF is not filmed again: the newest green line is the claim this PRD binds to the head. `/omni:bug-fix`
 and `/omni:mega-bug-fix` already take the proof after their last commit (their step 12); they gain
 one sentence saying that the After line cites the head at the moment the body is checked.
 
@@ -109,8 +114,11 @@ one sentence saying that the After line cites the head at the moment the body is
 - **pr-care re-proves; no CI template.** The person chose that pr-care runs `omni bug` after each push
   it makes to a bug-fix pull request, which catches the agent's own review fixes, the cases seen. A
   workflow template that runs it on every push is out of scope.
-- **The GIF is not filmed again after a review push.** The After line, with its sha and passing line,
-  is what this PRD binds to the head; refilming is left to the bug-fix skill's own proof ladder.
+- **Add a line, never rewrite (BL-ASK-1).** The person chose that a re-proof is a new `Re-proved`
+  line under the After line, never a rewrite of it, so every proof line stays as first written and
+  the body shows each head it was proven at.
+- **The GIF is not filmed again after a review push.** The newest green line, with its sha and passing
+  line, is what this PRD binds to the head; refilming is left to the bug-fix skill's own proof ladder.
 - **No config key and no hook point.** The rule is the same in every repository; nothing here is
   something a target would want to change.
 - **The evidence is cited by the review's item number only.** The source review is of a private
@@ -146,6 +154,8 @@ temporary repository and an injected `exec`, never a call to GitHub.
 
 - `kit/lib/bug/proof-body.test.ts`: the cited sha parsed from the After line; a produced proof whose
   After line cites none → its fault.
+- `kit/lib/bug/proof-body.test.ts`: a body with Re-proved lines → the last one's sha is cited, and
+  the After line under it is not a fault; this is the test that keeps BL-ASK-1 (no line rewritten).
 - `kit/bin/bug.test.ts`: **the test that would have caught the earlier-green cases**: an open pull
   request (injected `gh pr view`) whose head is the child of the cited commit → `not ok` naming both
   shas and `1 commits later`; cited sha = head → `ok`; a sha not in the pull request → `not a commit
@@ -163,7 +173,7 @@ temporary repository and an injected `exec`, never a call to GitHub.
 
 Merging publishes a new kit version: every repository on it gets the stricter check. An open bug-fix
 pull request whose proof cites an older commit, or no commit, is refused the next time `omni bug`
-runs on it, until its After line is rewritten at the head; merged fixes are never graded again.
+runs on it, until a green line citing the head is added; merged fixes are never graded again.
 Rollback: revert the feature PR and release.
 
 PRD 2739 (follow-ups) also changes `kit/lib/bug/verdict.ts`, `kit/lib/bug/product.ts` and the pr-care
@@ -180,13 +190,15 @@ other's lines on rebase. `blocked-by` stays `none`.
   ready on a refused proof. Changing it needs @pierrederval or @dervalp to approve the pull request on
   GitHub.
 - BL-APPROVALS-1 — An approval covers exactly the files the approver read; a later change voids it. Kept, and strengthened in spirit: a proof now covers exactly the head a person merges, and a later commit voids it until it is taken again.
-- BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: pr-care rewrites only the agent's own After line in the pull request body, never a person's comment or answer.
+- BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: pr-care changes no line already written, not even the agent's own After line: a re-proof is a new `Re-proved` line added under it.
 
 ## Acceptance criteria
 
 1. `omni bug <n>` on a fix branch whose open pull request's head is one commit after the commit the
    After line cites prints `not ok` and the line naming both short shas and `1 commits later`.
-2. `omni bug <n>` prints `ok` once the After line cites the head (any prefix of 7 characters or more).
+2. `omni bug <n>` prints `ok` once the newest green line (the last `Re-proved` line, else the After
+   line) cites the head (any prefix of 7 characters or more); an older line citing an older commit
+   is left as it is and does not refuse.
 3. A produced proof whose After line cites no commit is refused with its own line.
 4. A proof that was not produced is graded as today: the head check adds nothing.
 5. `omni bug <n> --body-file <f>` with no open pull request compares the cited sha with the local
@@ -197,5 +209,5 @@ other's lines on rebase. `blocked-by` stays `none`.
    with `--pr <owner/repo>#<n>` it refuses a sha that is not that pull request's head.
 8. A head `gh` cannot read prints `not judged: could not read the head of <owner/repo>#<n>: <why>`, a fault, never a pass.
 9. `/omni:pr-care`'s text says: after each push to a bug-fix pull request, run `omni bug <n>`; on a
-   stale green, run the reproduction at the head and rewrite the After line, else put the pull
+   stale green, run the reproduction at the head and add a Re-proved line, else put the pull
    request back to draft and say why in the status comment.
