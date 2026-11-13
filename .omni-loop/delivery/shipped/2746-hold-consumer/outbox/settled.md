@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-13
 - Slice: s1
 - Wave: 1
+- Stays here: A one-number bump any new command needs; a local choice with nothing lasting about the product to keep.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Another slice that adds a command and edits the same line will conflict on one n
 - Raised: 2026-11-13
 - Slice: s3
 - Wave: 2
+- Stays here: A one-off territory call for this PRD's slices; it settles no lasting product behaviour or build choice, and is cheap to undo.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Undoing it means moving the provider read back out of the command and dropping t
 - Raised: 2026-11-13
 - Slice: s3
 - Wave: 2
+- Became: ADR-0138
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ Letting the watcher mark ready later is a few lines in one skill and the guardra
 - Raised: 2026-11-13
 - Slice: s3
 - Wave: 2
+- Became: BR-GATE-1
 
 ### The answer, as it was given
 
@@ -326,6 +330,7 @@ Marking the planning pull request ready around a held one later is one paragraph
 - Raised: 2026-11-13
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-131
 
 ### The answer, as it was given
 
