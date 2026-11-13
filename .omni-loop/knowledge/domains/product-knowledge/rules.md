@@ -58,3 +58,39 @@ Enforced by: supabase/checks/knowledge_graphs.sql
 Stated: 2026-10-19
 Decided: @pierrederval, 2026-10-19
 Kept id: moved from product, PRD 2346
+
+## BR-PRODUCTKNOWLEDGE-3
+
+Saving a persona that changes no field adds no line to the knowledge history. A save that changes at least one field adds exactly one line, holding the persona before and after, as Legal and Glossary changes do.
+
+Serves: P-PRODUCTKNOWLEDGE-3
+Source: .omni-loop/delivery/shipped/2779-open-personas/outbox/settled.md, entry s1-02-unchanged-edit-not-recorded, PRD #2779
+Enforced by: supabase/checks/personas.sql
+Stated: 2026-11-13
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-13, PR #2781
+Proposed: harvest 2026-11-13
+
+## BR-PRODUCTKNOWLEDGE-4
+
+An edit of a persona by name from the terminal finds only the live persona of that product whose name matches exactly, capitals included, after trimming surrounding spaces. If none matches it says so, naming the name and product; if several match, it sends the person to the Knowledge tab.
+
+Serves: P-PRODUCTKNOWLEDGE-4
+Source: .omni-loop/delivery/shipped/2779-open-personas/outbox/settled.md, entry s1-03-find-by-exact-name, PRD #2779
+Enforced by: kit/bin/commands/business-persona.test.ts, supabase/checks/personas.sql, apps/galaxy/src/knowledge-api/knowledge-api.persona.test.ts
+Stated: 2026-11-13
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-13, PR #2781
+Proposed: harvest 2026-11-13
+
+## BR-PRODUCTKNOWLEDGE-5
+
+When the update moves every excited persona to enthusiastic, each persona keeps the last-changed date a person left it, and the knowledge history gains one line per persona, from excited to enthusiastic, made by no person.
+
+Serves: P-PRODUCTKNOWLEDGE-5
+Source: .omni-loop/delivery/shipped/2779-open-personas/outbox/settled.md, entry s1-04-rename-keeps-changed-date, PRD #2779
+Enforced by: supabase/checks/personas.sql, supabase/migrations/20270120090000_open_personas.sql
+Stated: 2026-11-13
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-13, PR #2781
+Proposed: harvest 2026-11-13
