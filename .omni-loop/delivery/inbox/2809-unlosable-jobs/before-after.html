@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2809: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+
+.mock{--ask-ground:#07061c;--ask-surface:#120f3a;--ask-sunk:#0e0d33;--ask-ink:#f2f4ff;--ask-muted:#8a90d6;--ask-line:#1a2170;--ask-line-strong:#5a60c4;--ask-red:#ff6b86;--ask-green:#4ee08a;--ask-plasma:#ffd84a;--ask-plasma-soft:#2a2350;--ask-on-plasma:#07061c;--ask-cyan:#5ee7ff;
+background:var(--ask-ground);color:var(--ask-ink);border:1px solid var(--ask-line);border-radius:8px;padding:14px;font:14px/1.55 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif}
+.mock h5{margin:0 0 8px;font-size:15px}
+.mock table{width:100%;border-collapse:collapse;margin:0}
+.mock th{color:var(--ask-muted);font-size:12px;text-transform:none;letter-spacing:0;border-bottom:1px solid var(--ask-line)}
+.mock td{border-bottom:1px solid var(--ask-line);font-size:13px}
+.mock .ln{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:12px}
+.mock .st{font-weight:700}.mock .red{color:var(--ask-red)}.mock .grn{color:var(--ask-green)}.mock .mut{color:var(--ask-muted);font-size:12px;display:block}
+.mock a{color:var(--ask-cyan)}
+.mock button{background:var(--ask-plasma);color:var(--ask-on-plasma);border:0;border-radius:6px;padding:4px 10px;font:inherit;font-weight:700}
+.mock .rr td{background:var(--ask-surface)}
+.cap{color:var(--muted);font-size:13px;margin:6px 0 0}
+</style>
+</head>
+<body>
+<h1>PRD 2809: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional"><div data-service="galaxy"><h3>galaxy</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare">
+<div><div class="label">Today</div><p>A runner goes silent or restarts. Its job turns red, <em>Failed · runner lost</em>. The work its slice had not pushed is deleted with the folder. Nothing starts again until a person notices and presses Resume, which starts from scratch.</p></div>
+<div><div class="label">After</div><p>The lost job reads <em>Lost · resuming</em>. A minute later another runner takes it up as attempt 2 of 3, from the save the lost runner left: its unpushed commits and edits come back. A runner that keeps a save it could not upload says so on its row, with its size and until when. After three losses the job stops and lists them, and Resume is a person's again.</p></div></div></div><div data-section="pixel-perfect" data-state="filled"><h4>Pixel perfect</h4>
+<p>screens: runners</p>
+<div class="compare"><div><div class="label">Today</div><div class="mock" data-screen="runners-jobs-today"><h5>Jobs</h5><table><tr><th>Line</th><th>Where</th><th>Status</th><th></th></tr>
+<tr><td><span class="ln">/omni:yolo 2803</span></td><td>box-1</td><td><span class="st red">Failed</span><span class="mut">runner lost</span></td><td><button data-primary>Resume</button></td></tr>
+<tr><td><span class="ln">/omni:pr-care 2801</span></td><td>box-3</td><td><span class="st grn">Done</span><span class="mut"><a href="#">PR 2817</a></span></td><td></td></tr>
+</table></div></div><div><div class="label">After</div><div class="mock" data-screen="runners-jobs-after"><h5>Jobs</h5><table><tr><th>Line</th><th>Where</th><th>Status</th><th></th></tr>
+<tr><td><span class="ln">/omni:yolo 2803</span><span class="mut">after a loss · job 7f3a</span><span class="mut">attempt 2 of 3</span></td><td>box-3</td><td><span class="st">Running</span><span class="mut">Resumed from the 02:08 save · 2 branches</span></td><td><button data-primary>Terminal</button></td></tr>
+<tr><td><span class="ln">/omni:yolo 2803</span></td><td>box-1</td><td><span class="st red">Lost · resuming</span><span class="mut">box-1 went silent at 02:14</span></td><td></td></tr>
+<tr><td><span class="ln">/omni:yolo 2790</span></td><td>box-2</td><td><span class="st red">Lost 3 times</span><span class="mut">02:14, 02:31, 03:05</span></td><td><button>Resume</button></td></tr>
+</table></div></div></div>
+<p class="cap">The job rows of the Runners page. Today's Resume stays the primary only for a chain that stopped; a running resume's primary is its Terminal, as for any running job.</p>
+<div class="compare"><div><div class="label">Today</div><div class="mock" data-screen="runners-row-today"><h5>Runners</h5><table><tr><th>Runner</th><th>State</th><th>Slots</th></tr>
+<tr><td>box-1</td><td>Online</td><td>1 / 4</td></tr></table></div></div><div><div class="label">After</div><div class="mock" data-screen="runners-row-after"><h5>Runners</h5><table><tr><th>Runner</th><th>State</th><th>Slots</th></tr>
+<tr><td><span>box-1</span><span class="mut">Keeps 480 MB until Fri 14:00</span></td><td>Online</td><td>1 / 4</td></tr></table></div></div></div>
+<p class="cap">A runner keeping a local save shows it under its name.</p></div></div><div data-service="omni-app"><h3>omni-app</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare"><div><div class="label">Today</div><p>The App runs no job about runners.</p></div><div><div class="label">After</div><p>The App deletes a chain's saved bundles once the chain ends, and any bundle 7 days old, every hour.</p></div></div></div><div data-section="pixel-perfect" data-state="na"><h4>Pixel perfect</h4><p>N/A — the App has no screen</p></div></div><div data-service="supabase"><h3>supabase</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare"><div><div class="label">Today</div><p>A lost job is a dead end in the database.</p></div><div><div class="label">After</div><p>The database queues the resume in the same moment it records the loss, once, and holds it back until its wait ends.</p></div></div></div><div data-section="pixel-perfect" data-state="na"><h4>Pixel perfect</h4><p>N/A — the database has no screen</p></div></div><div data-service="kit"><h3>kit</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare"><div><div class="label">Today</div><p><code>omni runner</code> removes a finished job's folder, nested worktrees included, with nothing saved.</p></div><div><div class="label">After</div><p><code>omni runner</code> saves what GitHub does not hold before it removes anything, uploads it, or keeps it under a disk budget, and restores a lost job's save when it takes up its resume.</p></div></div></div><div data-section="pixel-perfect" data-state="na"><h4>Pixel perfect</h4><p>N/A — the CLI prints lines, unchanged but for one per save</p></div></div></section><section data-tab="technical"><div data-section="flow" data-state="filled"><h4>Flow</h4><details open><summary>Sequence (source)</summary><pre><span class="line">box-1 (omni runner) ─ running job 41 ─▶ silent at 02:14</span>
+<span class="line">galaxy ─ runners_mark_lost ─▶ supabase: job 41 failed · runner lost; insert job 7f3a (resumes 41, attempt 2, resume_after 02:15)</span>
+<span class="line">box-1 back ─ report job 41 ─▶ galaxy: 409 refused ─▶ box-1 stops the session</span>
+<span class="line">box-1 ─ checkpoint: bundle of unpushed work ─▶ galaxy POST /api/runners/jobs/41/checkpoint ─▶ signed upload ─▶ Supabase Storage runner-checkpoints</span>
+<span class="line">box-1 ─ manifest (Zod) ─▶ galaxy ─▶ supabase runner_checkpoints</span>
+<span class="line">box-3 ─ next (after 02:15) ─▶ runner_claim(): job 7f3a + checkpoints with signed download links</span>
+<span class="line">box-3 ─ fetch bundle ─▶ omni-checkpoint/&lt;branch&gt; ─ resume note ─▶ session merges the checkpoint, carries on</span>
+<span class="line">omni-app hourly checkpoints-forget ─▶ storage: delete bundles of ended chains and older than 7 days</span></pre></details>
+<p class="cap">Drawn as text: the flow has no Mermaid diagram to render.</p></div><div data-section="deploy" data-state="filled"><h4>Deploy order</h4><ol>
+<li>The migration (columns, table, bucket, <code>runner_claim()</code> and the loss functions). Old runners and the old app keep working: the new columns have defaults.</li>
+<li>The arcade (API route, service, Runners page) and the App's forget job, together through the release commit.</li>
+<li>The kit (<code>omni runner</code>): runners save and restore once updated; an older runner still gets its jobs resumed, without a save.</li></ol></div><div data-service="galaxy"><h3>galaxy <span class="badge" data-role>FRONT-END</span></h3><div data-section="db" data-state="na"><h4>Database</h4><p>N/A — the arcade reads and writes through the database functions above</p></div><div data-section="api" data-state="filled"><h4>API / schema</h4><table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>POST /api/runners/jobs/&lt;id&gt;/checkpoint</code></td><td>added</td><td>—</td><td>asks a signed upload link, then records the manifest (<code>CheckpointManifestSchema</code>)</td><td>galaxy</td></tr>
+<tr><td>claim answer (<code>next</code>)</td><td>changed</td><td>the job</td><td>the job, plus <code>resume: {attempt, of, checkpoints[]}</code> when it resumes another; optional, so older runners read it</td><td>galaxy</td></tr>
+<tr><td><code>/api/runners/jobs/&lt;id&gt;/github-token</code></td><td>changed</td><td>refreshes while the job is claimed or running, and briefly after</td><td>refused once the job has ended</td><td>galaxy</td></tr>
+<tr><td>job rows of the Runners page</td><td>changed</td><td>status, reason</td><td>plus <code>resumes</code>, <code>attempt</code>, the chain's saves</td><td>galaxy</td></tr></table></div><div data-section="behaviour" data-state="filled"><h4>Behaviour</h4><div class="compare"><div><div class="label">Today</div><p>A lost runner's jobs end <em>runner lost</em>; nothing is queued.</p></div><div><div class="label">After</div><p>The same reads end them the same way and, in the same transaction, queue one resume each for a resumable skill.</p></div></div></div></div><div data-service="omni-app"><h3>omni-app <span class="badge" data-role>BACK-END</span></h3><div data-section="db" data-state="na"><h4>Database</h4><p>N/A — no table of its own changes</p></div><div data-section="api" data-state="na"><h4>API / schema</h4><p>N/A — no route changes</p></div><div data-section="behaviour" data-state="filled"><h4>Behaviour</h4><p>A new job kind, <code>checkpoints-forget</code>, on the App's job ledger, every hour: deletes the bundles of ended chains and any older than 7 days, and stamps <code>deleted_at</code>.</p></div></div><div data-service="supabase"><h3>supabase <span class="badge" data-role>DATABASE</span></h3><div data-section="db" data-state="filled"><h4>Database</h4>
+<div class="compare"><div><div class="label">Today</div><pre><span class="line ctx">runner_jobs (</span><span class="line ctx">  id, line, repo, status, reason,</span><span class="line ctx">  continues uuid unique, …</span><span class="line ctx">)</span></pre></div>
+<div><div class="label">After</div><pre><span class="line ctx">runner_jobs (</span><span class="line ctx">  id, line, repo, status, reason,</span><span class="line ctx">  continues uuid unique, …</span><span class="line add">  resumes uuid unique references runner_jobs,</span><span class="line add">  attempt smallint not null default 1 check (1..3),</span><span class="line add">  resume_after timestamptz</span><span class="line ctx">)</span><span class="line add">runner_checkpoints (</span><span class="line add">  id, job_id references runner_jobs, runner_id,</span><span class="line add">  kind text check (portable | local),</span><span class="line add">  manifest jsonb, bytes bigint, storage_path text,</span><span class="line add">  keep_until timestamptz, created_at, deleted_at</span><span class="line add">)</span><span class="line add">storage bucket runner-checkpoints (private, 100 MB)</span></pre></div></div>
+<table><tr><th>table</th><th>change</th><th>detail</th></tr>
+<tr><td>runner_jobs</td><td>+ added</td><td><code>resumes</code>, <code>attempt</code>, <code>resume_after</code>; defaults keep old rows and old runners valid</td></tr>
+<tr><td>runner_checkpoints</td><td>+ added</td><td>one row per save, its manifest without file content; RLS: the workspace's members read, writes through security-definer functions</td></tr>
+<tr><td>runner_claim()</td><td>~ altered</td><td>skips a job before its <code>resume_after</code>; prefers the runner holding a local save while it is online</td></tr>
+<tr><td>runners_mark_lost(), registration, loseUnstarted</td><td>~ altered</td><td>queue one resume for a resumable skill, attempt under 3, in the same transaction</td></tr></table>
+<p class="cap">Breaking rule followed: the kit's default (conventions has no stricter page for the database).</p></div><div data-section="api" data-state="na"><h4>API / schema</h4><p>N/A — no GraphQL or REST schema; the functions are in Database</p></div><div data-section="behaviour" data-state="na"><h4>Behaviour</h4><p>N/A — covered by the functions in Database</p></div></div><div data-service="kit"><h3>kit <span class="badge" data-role>CLI</span></h3><div data-section="db" data-state="na"><h4>Database</h4><p>N/A — the CLI has no database</p></div><div data-section="api" data-state="filled"><h4>API / schema</h4><table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr><tr><td><code>omni runner --keep-budget &lt;size&gt;</code></td><td>added</td><td>—</td><td>the disk kept saves may use, 5 GB by default</td><td>kit</td></tr></table></div><div data-section="behaviour" data-state="filled"><h4>Behaviour</h4><div class="compare"><div><div class="label">Today</div><p><code>cleanUp</code> force-removes the job folder; the sweep removes stranded folders and unpushed job branches.</p></div><div><div class="label">After</div><p>Both save first (<code>checkpoint.ts</code>); a claim that resumes restores the chain's saves (<code>resume.ts</code>) and writes the resume note; the resumable skills take a branch's checkpoint first.</p></div></div></div></div></section><script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>
