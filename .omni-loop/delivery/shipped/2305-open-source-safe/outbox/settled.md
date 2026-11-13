@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-21
 - Slice: s1
 - Wave: 1
+- Stays here: It governs a temporary waiting list that disappears with the last slice, so nothing lasting remains beyond this feature's ledger.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ A constant: one condition in the guard's scan. The waiting list goes away with t
 - Raised: 2026-10-21
 - Slice: s1
 - Wave: 1
+- Became: ADR-0123
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ A constant: one job moved between two workflow files, and their shape tests upda
 - Raised: 2026-10-21
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off docs follow-up about who edits three lines of the CI guide; nothing lasting about the product or code to keep.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ Three lines in the CI form of the playbook, whenever they land.
 - Raised: 2026-10-21
 - Slice: s6
 - Wave: 2
+- Became: ADR-0124
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ Renaming the fixture is a find-and-replace over supabase/checks; inlining it cop
 - Raised: 2026-10-21
 - Slice: s6
 - Wave: 2
+- Stays here: A one-off choice about one file's name during the open-source clean-up; nothing lasting for the product or code to guarantee.
 
 ### The answer, as it was given
 
@@ -406,6 +411,7 @@ Renaming later is one git mv, after checking supabase db push against production
 - Raised: 2026-10-21
 - Slice: s8
 - Wave: 3
+- Stays here: A temporary wording choice about one output line; nothing lasting about behaviour to keep in the knowledge base.
 
 ### The answer, as it was given
 
