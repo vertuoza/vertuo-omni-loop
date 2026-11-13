@@ -15,7 +15,6 @@ const state = vi.hoisted((): Stubs => ({ reader: { kind: 'unreadable' }, runs: [
 vi.mock('server-only', () => ({}));
 vi.mock('../../constituents/knowledge-reader', () => ({
   knowledgeReader: () => Promise.resolve(state.reader),
-  writeSourceOf: () => ({ kind: 'database', url: 'u', key: 'k', workspace: 'w-1' }),
 }));
 vi.mock('./eval.repository', () => ({
   runsOf: () => Promise.resolve(state.runs),
@@ -38,14 +37,12 @@ describe('loadEval', () => {
 
   it('is the demo’s set for the demo product, and nothing for another', async () => {
     state.reader = { kind: 'demo' };
-    expect((await loadEval('demo-product-1', NOW))?.source).toEqual({ kind: 'demo' });
     expect((await loadEval('demo-product-1', NOW))?.runs).toHaveLength(3);
     expect(await loadEval('another', NOW)).toBeNull();
   });
 
   it('is a member’s runs and questions, with the answers of their product’s questions only', async () => {
     const read = await loadEval('p-1', NOW);
-    expect(read?.source).toEqual({ kind: 'database', url: 'u', key: 'k', workspace: 'w-1' });
     expect(read?.runs).toEqual([{ id: 'r1' }]);
     expect(read?.answers.map((a) => a.questionId)).toEqual(['q1']);
   });

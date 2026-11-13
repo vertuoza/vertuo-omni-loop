@@ -53,6 +53,9 @@ export const SERIES = [
   { key: 'recall10', label: 'recall@10' },
 ] as const;
 
+/** What a write answers: kept, or refused with the one line the control shows. */
+export type EvalWrite = { ok: true } | { ok: false; message: string };
+
 export const NO_RUN = 'No run yet: the set runs once a day and after new knowledge is embedded. The set is below.';
 export const NO_QUESTION = 'The set holds no question yet. Add one below, or wait for the daily promotion of each category’s most-asked ones.';
 

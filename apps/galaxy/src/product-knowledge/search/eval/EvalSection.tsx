@@ -16,7 +16,7 @@ export async function EvalSection({ tab, query }: { tab: KnowledgeTab; query: Qu
       <SearchViews product={product} shown="eval" />
       {data === null
         ? <Section id="search-eval-title" title={EVAL_TITLE} lede={EVAL_LEDE}><Unreadable what="eval set" /></Section>
-        : <EvalView product={product} source={data.source} runs={data.runs} questions={data.questions} answers={data.answers} query={query} domains={tab.domains.entries} />}
+        : <EvalView product={product} runs={data.runs} questions={data.questions} answers={data.answers} query={query} domains={tab.domains.entries} />}
     </>
   );
 }

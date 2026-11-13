@@ -7,6 +7,7 @@ import { EVAL_TITLE, EvalView, SearchViews } from './EvalView';
 import { NO_QUESTION, NO_RUN } from './eval-stats';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+vi.mock('./eval-actions', () => ({ addEvalQuestion: () => undefined, removeEvalQuestion: () => undefined, setEvalAnswer: () => undefined }));
 
 // The Eval view as the server renders it (PRD omni-loop-8 s5).
 
@@ -14,10 +15,9 @@ const NOW = Date.parse('2026-11-13T12:00:00Z');
 const demo = demoEval('demo-product-1', NOW);
 if (demo === null) throw new Error('the demo product has an eval set');
 const DOMAINS = [{ key: 'invoicing', name: 'Invoicing' }];
-const SOURCE = { kind: 'demo' } as const;
 
 const draw = (data: Pick<typeof demo, 'runs' | 'questions' | 'answers'>, query: Query = {}) =>
-  renderToStaticMarkup(createElement(EvalView, { product: 'p', source: SOURCE, ...data, query, domains: DOMAINS }));
+  renderToStaticMarkup(createElement(EvalView, { product: 'p', ...data, query, domains: DOMAINS }));
 const text = (markup: string) => markup.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/\s+/g, ' ').trim();
 const regionOf = (html: string, name: string) => html.slice(html.indexOf(`data-region="${name}"`));
 

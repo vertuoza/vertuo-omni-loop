@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { Query } from '../../../nav/query';
 import { Section } from '../../KnowledgeLists';
-import type { WriteSource } from '../../constituents/knowledge-reader';
 import { NONE, dayOf, excerpt, sectionHref, type DomainChoice } from '../../knowledge-sections';
 import { categoryLabel } from '../categories/categories-stats';
 import { percent } from '../search-stats';
@@ -124,20 +123,20 @@ function Misses({ run, questions }: { run: EvalRun; questions: readonly EvalQues
   );
 }
 
-function Answer({ source, answer }: { source: WriteSource; answer: EvalAnswer }) {
+function Answer({ answer }: { answer: EvalAnswer }) {
   const confidence = answer.confidence === null ? '' : `, ${answer.confidence.toFixed(2)}`;
   return (
     <li data-answer={answer.entryId} data-source={answer.source} data-relevant={answer.relevant ? 'true' : 'false'}>
       <code>{answer.entryId}</code>
       <span className="ev-by">{answer.relevant ? '' : 'not an answer · '}{byOf(answer)}{confidence} · {dayOf(answer.decidedAt)}</span>
       {answer.relevant && answer.source === 'jev'
-        ? <AnswerButton source={source} question={answer.questionId} entry={answer.entryId} relevant label="Confirm" /> : null}
-      <AnswerButton source={source} question={answer.questionId} entry={answer.entryId} relevant={!answer.relevant} label={answer.relevant ? 'Remove' : 'Restore'} />
+        ? <AnswerButton question={answer.questionId} entry={answer.entryId} relevant label="Confirm" /> : null}
+      <AnswerButton question={answer.questionId} entry={answer.entryId} relevant={!answer.relevant} label={answer.relevant ? 'Remove' : 'Restore'} />
     </li>
   );
 }
 
-function SetItem({ source, item, domains }: { source: WriteSource; item: SetQuestion; domains: readonly DomainChoice[] }) {
+function SetItem({ item, domains }: { item: SetQuestion; domains: readonly DomainChoice[] }) {
   const { question, right, refused } = item;
   return (
     <details className="kn-group ev-question" data-question={question.id}>
@@ -147,15 +146,15 @@ function SetItem({ source, item, domains }: { source: WriteSource; item: SetQues
         <span className="kn-group-rank ask-muted">{categoryLabel(question.category, domains)} · added by {addedByOf(question)}, {dayOf(question.addedAt)}</span>
       </summary>
       {right.length === 0 ? <p className="ask-muted" data-note="no-right-answer">No right answer yet: this question is left out of the measures until one is given.</p> : null}
-      <ul className="ev-answers">{[...right, ...refused].map((a) => <Answer key={a.entryId} source={source} answer={a} />)}</ul>
-      <AddAnswer source={source} question={question.id} />
-      <RemoveQuestion source={source} question={question.id} />
+      <ul className="ev-answers">{[...right, ...refused].map((a) => <Answer key={a.entryId} answer={a} />)}</ul>
+      <AddAnswer question={question.id} />
+      <RemoveQuestion question={question.id} />
     </details>
   );
 }
 
-export function EvalView({ product, source, runs, questions, answers, query, domains }: {
-  product: string; source: WriteSource; runs: readonly EvalRun[]; questions: readonly EvalQuestion[]; answers: readonly EvalAnswer[];
+export function EvalView({ product, runs, questions, answers, query, domains }: {
+  product: string; runs: readonly EvalRun[]; questions: readonly EvalQuestion[]; answers: readonly EvalAnswer[];
   query: Query; domains: readonly DomainChoice[];
 }) {
   const latest = runs[runs.length - 1];
@@ -181,8 +180,8 @@ export function EvalView({ product, source, runs, questions, answers, query, dom
       <div data-region="set">
         <h3>The set</h3>
         <p className="ask-muted">Each question with the entries that answer it, marked Jev or person. Confirm or remove a right answer, or add an entry Jev missed: your word wins and the next run uses it.</p>
-        {set.length === 0 ? <p className="products-empty" data-note="no-question">{NO_QUESTION}</p> : set.map((item) => <SetItem key={item.question.id} source={source} item={item} domains={domains} />)}
-        <AddQuestion source={source} product={product} categories={choices} />
+        {set.length === 0 ? <p className="products-empty" data-note="no-question">{NO_QUESTION}</p> : set.map((item) => <SetItem key={item.question.id} item={item} domains={domains} />)}
+        <AddQuestion product={product} categories={choices} />
       </div>
     </Section>
   );
