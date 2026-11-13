@@ -19,8 +19,8 @@ const QUESTIONS: readonly { query: string; mode: 'meaning' | 'words'; hits: read
 /** The demo product's searches, newest first; null for any other product. */
 export function demoSearches(product: string, now: number): SearchRow[] | null {
   if (product !== DEMO_PRODUCT) return null;
-  return Array.from({ length: 24 }, (_, i) => {
-    const q = QUESTIONS[i % QUESTIONS.length] as (typeof QUESTIONS)[number];
+  const cycled = [...QUESTIONS, ...QUESTIONS, ...QUESTIONS, ...QUESTIONS].slice(0, 24);
+  return cycled.map((q, i) => {
     return {
       id: `demo-search-${i}`, query: q.query, mode: q.mode, total: q.hits.length, hitIds: q.hits, openedRank: q.opened,
       askedAt: new Date(now - (i * 0.9 + 0.2) * DAY).toISOString(),
