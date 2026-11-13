@@ -64,6 +64,8 @@ function fixture({ pin }: { pin?: string } = {}) {
       'echo "see https://github.com/acme/other/pull/9"',
       `echo '${JSON.stringify({ type: 'result', subtype: 'success', num_turns: 1, total_cost_usd: 0, duration_ms: 1000, result: 'opened https://github.com/acme/widgets/pull/42' })}'`,
       'case "$line" in *push*) git push -q -u origin HEAD 2>/dev/null ;; esac',
+      // PRD 2809, s2: work left uncommitted, as a run cut short leaves it.
+      'case "$line" in *edit*) echo work > work.md ;; esac',
       'case "$line" in *fail*) exit 3 ;; esac',
       '',
     ].join('\n'),
@@ -922,13 +924,83 @@ describe('omni runner', () => {
     });
   });
 
-  it('refuses a bad --slots, --timeout, --name or --keep-logs', async () => {
-    for (const args of [['--slots', '9'], ['--slots', '0'], ['--timeout', '3d'], ['--name', 'a b'], ['--keep-logs', '0'], ['--keep-logs', 'x'], ['--keep-logs', '1.5']]) {
+  it('refuses a bad --slots, --timeout, --name, --keep-logs or --keep-budget', async () => {
+    for (const args of [['--slots', '9'], ['--slots', '0'], ['--timeout', '3d'], ['--name', 'a b'], ['--keep-logs', '0'], ['--keep-logs', 'x'], ['--keep-logs', '1.5'], ['--keep-budget', '-1'], ['--keep-budget', 'x'], ['--keep-budget', '5GB']]) {
       const err = out();
       const code = await main(['runner', '--name', 'box-1', '--repos', '.', ...args], { stdout: out().stream, stderr: err.stream, env: {} });
       expect(code).toBe(2);
       expect(err.text()).toMatch(/^omni runner: /);
     }
+  });
+});
+
+describe('omni runner: a job\'s work not on origin is saved before its folder goes (PRD 2809, s2)', () => {
+  const saveOf = (f: ReturnType<typeof fixture>, id: number): unknown => JSON.parse(readFileSync(join(f.home, 'wt', `widgets-job-${String(id)}.checkpoint.json`), 'utf8'));
+
+  it("keeps a job's folder, its branch and its save when it left work origin lacks", async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 31, line: '/omni:yolo edit', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    const folder = join(f.home, 'wt', 'widgets-job-31');
+    expect(readFileSync(join(folder, 'work.md'), 'utf8')).toBe('work\n');
+    expect(saveOf(f, 31)).toMatchObject({ job: '31', repo: 'acme/widgets', runner: 'box-1', kind: 'local', lost: null, failed: null, branches: [{ branch: 'agent/job-31', files: 1, commits: 0 }] });
+    expect(git(f.checkout, 'bundle', 'list-heads', `${folder}.checkpoint.bundle`)).toContain('refs/heads/omni-checkpoint/agent/job-31');
+    expect(git(f.checkout, 'branch', '--list', '--format=%(refname:short)', 'agent/job-31').trim()).toBe('agent/job-31');
+    expect(run.stdout.text()).toMatch(/job 31: kept its work not on origin until \d{4}-\d\d-\d\d \d\d:\d\d UTC: 1 branch, 1 file, 0 commits · \d+ KB/);
+  });
+
+  it('removes the folder as before, writing no save, when the job pushed all it did', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 32, line: '/omni:yolo push', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-32'))).toBe(false);
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-32.checkpoint.json'))).toBe(false);
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-32.checkpoint.bundle'))).toBe(false);
+  });
+
+  it('with --keep-budget 0 removes the save at once, its manifest saying what was lost', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 34, line: '/omni:yolo edit', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { args: ['--keep-budget', '0'] });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-34'))).toBe(false);
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-34.checkpoint.bundle'))).toBe(false);
+    expect(git(f.checkout, 'branch', '--list', 'agent/job-34').trim()).toBe('');
+    expect(saveOf(f, 34)).toMatchObject({ lost: { why: 'over the keep budget of 0 KB' }, branches: [{ branch: 'agent/job-34', files: 1 }] });
+    expect(run.stdout.text()).toContain('job 34: its kept save went over the keep budget of 0 KB: lost 1 branch, 1 file, 0 commits');
+  });
+
+  it("saves a stranded folder's work before the sweep removes anything, then keeps it, saved once", async () => {
+    const f = fixture();
+    const folder = join(f.home, 'wt', 'widgets-job-5');
+    git(f.checkout, 'worktree', 'add', '-q', '--no-track', '-b', 'agent/job-5', folder, 'origin/main');
+    writeFileSync(join(folder, 'left.md'), 'left behind\n');
+    const hours: number[] = [];
+    const sleep = async (ms: number) => {
+      if (ms === 60 * 60 * 1000) {
+        hours.push(ms);
+        if (hours.length <= 1) return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+    const app = fakeApp();
+    const run = startRunner(f, app, { sleep });
+    await until(() => hours.length >= 2, 'two sweeps');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(readFileSync(join(folder, 'left.md'), 'utf8')).toBe('left behind\n');
+    expect(saveOf(f, 5)).toMatchObject({ job: '5', kind: 'local', branches: [{ branch: 'agent/job-5', files: 1 }] });
+    expect(git(f.checkout, 'branch', '--list', '--format=%(refname:short)', 'agent/job-5').trim()).toBe('agent/job-5');
+    expect(run.stdout.text().match(/job 5: kept its work not on origin/g)).toHaveLength(1);
+    expect(run.stdout.text()).not.toContain('swept:');
   });
 });
 

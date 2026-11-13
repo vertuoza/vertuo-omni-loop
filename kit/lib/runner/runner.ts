@@ -21,7 +21,12 @@
 // (`paused`, `null` when running) and the limits. The pause is decided here, whatever the app answers.
 //
 // A sweep (`sweep.ts`) runs once the runner has registered, then every hour while it runs: it removes
-// the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds. It also
+// the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds.
+//
+// Nothing is removed before it is saved (PRD 2809, s2, `checkpoint.ts`): at a job's end, and before the sweep
+// removes a stranded folder, the work its worktrees hold that origin lacks goes into one git bundle beside the
+// folder, and the folder is kept for it, 7 days at most and within `--keep-budget` (5 GB unless given), the
+// oldest kept folder removed first. With no such work the folder goes as before. The sweep also
 // updates the Omni plugin, and before each job the runner brings the plugin up to the omni the job's
 // repository pins, or fails the job with the reason before Claude starts (`plugin.ts`, PRD 2100).
 //
@@ -97,7 +102,9 @@ import { partsPath, readParts } from './turnover.ts';
 import type { PluginKeeper } from './plugin.ts';
 import { notReleased } from './release.ts';
 import type { Released, Releaser } from './release.ts';
-import { dropJobBranch, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
+import { KEEP_BUDGET_GB, saveJob, savedLine } from './checkpoint.ts';
+import type { Author } from './checkpoint.ts';
+import { dropJobBranch, forgottenLine, keepWithin, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
 
 /** Where the runner prints: `process.stdout`, or a test's buffer. */
@@ -115,6 +122,7 @@ const HEALTH_EVERY_MS = 15_000;
 const SWEEP_MS = 60 * 60 * 1000;
 /** How many days a stopped job's logs are kept, unless `--keep-logs` says otherwise. */
 export const KEEP_LOGS_DAYS = 14;
+const GB = 1024 ** 3;
 
 /** Waits `ms`, or less when `signal` aborts. */
 const sleepFor = (ms: number, signal?: AbortSignal): Promise<void> =>
@@ -154,6 +162,8 @@ export type RunnerOptions = {
   backoff?: { firstMs: number; maxMs: number } | undefined;
   /** How many days a stopped job's logs are kept: `KEEP_LOGS_DAYS` unless given. */
   keepLogsDays?: number | undefined;
+  /** The disk the kept saves may take, in bytes (PRD 2809, s2): `KEEP_BUDGET_GB` unless given. */
+  keepBudgetBytes?: number | undefined;
   /** The machine's reads the health samples are taken from: the real machine unless given. */
   machine?: MachineReads | undefined;
   /** The limits the runner pauses at: `DEFAULT_LIMITS` unless given. */
@@ -538,15 +548,40 @@ function skillMissing(place: Place, base: string): JobUpdate | null {
   return { status: 'failed', reason: `refused: /${place.skill} is not on ${base}` };
 }
 
-/** Removes the job's worktree, the records left stale, then its branch unless it was pushed. */
+/**
+ * Saves the work `folder` holds that origin does not, before anything of it is removed (PRD 2809, s2): whether
+ * it is kept for its save. `author` is the job's app, when the runner knows it.
+ */
+function saved(loop: Loop, ran: { job: string; repo: string; checkout: string; folder: string; author: Author | null }): boolean {
+  const save = saveJob({ exec: loop.exec, runner: loop.name, now: loop.now(), ...ran });
+  if (save !== null) loop.print(savedLine(save));
+  return save !== null;
+}
+
+/** Keeps the runner's saves within their dates and its keep budget, printing each one it removed: those of the
+ * running jobs aside, but for `ended`, the job whose folder was just saved. */
+function keepSaves(loop: Loop, ended: string | null = null): void {
+  const running = new Set([...loop.jobs].filter((id) => id !== ended));
+  const forgotten = keepWithin({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running, now: loop.now(), budgetBytes: loop.keepBudgetBytes ?? KEEP_BUDGET_GB * GB });
+  for (const line of forgotten.map(forgottenLine)) if (line !== null) loop.print(line);
+}
+
+/**
+ * Saves the job's work origin lacks first (PRD 2809, s2): with some, the folder and its branch are kept for
+ * the save. Otherwise removes the job's worktree, the records left stale, then its branch unless it was pushed.
+ */
 function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
-  try {
-    loop.exec('git', ['-C', place.checkout, 'worktree', 'remove', '--force', place.worktree], QUIET);
-  } catch {
-    rmSync(place.worktree, { recursive: true, force: true });
+  const author = job.github === null ? null : { name: job.github.login, email: job.github.email };
+  if (!saved(loop, { job: job.id, repo: job.repo, checkout: place.checkout, folder: place.worktree, author })) {
+    try {
+      loop.exec('git', ['-C', place.checkout, 'worktree', 'remove', '--force', place.worktree], QUIET);
+    } catch {
+      rmSync(place.worktree, { recursive: true, force: true });
+    }
+    pruneWorktrees(loop.exec, place.checkout);
+    dropJobBranch(loop.exec, place.checkout, `agent/job-${job.id}`);
   }
-  pruneWorktrees(loop.exec, place.checkout);
-  dropJobBranch(loop.exec, place.checkout, `agent/job-${job.id}`);
+  keepSaves(loop, job.id);
 }
 
 /** `claude -p` stops the background agents a wave starts 10 minutes after its last turn, then exits 0;
@@ -981,8 +1016,14 @@ async function sweeper(loop: Loop): Promise<void> {
   while (!loop.halt.aborted) {
     // Whether each ran as an app is read first: the sweep removes a token file older than `keepLogsDays`.
     const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs }).map((stranded) => ({ ...stranded, ran: ranAsApp(loop, stranded.job) }));
+    // Before the sweep removes a stranded folder, its work origin lacks is saved, and the folder kept for it (PRD 2809, s2).
+    for (const { job, repo, folder } of lost) {
+      const checkout = loop.checkouts.get(repo);
+      if (checkout !== undefined) saved(loop, { job, repo, checkout, folder, author: null });
+    }
     const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
     if (line !== null) loop.print(line);
+    keepSaves(loop);
     for (const job of lost) await releaseLost(loop, job);
     await loop.plugin.sweep();
     await loop.sleep(SWEEP_MS, loop.halt);

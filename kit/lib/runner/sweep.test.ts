@@ -6,7 +6,9 @@ import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { branchPushed, strandedJobs, sweep, sweptLine } from './sweep.ts';
+import { readSave, saveJob, savePaths, sizeText } from './checkpoint.ts';
+import type { LocalSave } from './checkpoint.ts';
+import { branchPushed, forgottenLine, keepWithin, strandedJobs, sweep, sweptLine } from './sweep.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse('2026-10-14T12:00:00Z');
@@ -180,10 +182,87 @@ describe('strandedJobs (PRD 2175)', () => {
     writeFileSync(join(f.home, 'wt', 'widgets-job-4'), 'a file, not a worktree');
     mkdirSync(join(f.home, 'wt', 'widgets-job-a b'));
     const stranded = strandedJobs({ home: f.home, checkouts: f.checkouts, running: new Set(['running-2']) });
-    expect(stranded).toEqual([{ job: 'lost-1', repo: 'acme/widgets' }]);
+    expect(stranded).toEqual([{ job: 'lost-1', repo: 'acme/widgets', folder: join(f.home, 'wt', 'widgets-job-lost-1') }]);
   });
 
   it('names none when the home has no worktree folder', () => {
     expect(strandedJobs({ home: join(tmpdir(), 'omni-no-such-home'), checkouts: new Map([['acme/widgets', '/nowhere']]), running: new Set() })).toEqual([]);
+  });
+});
+
+/** Job `id`'s folder kept with a save, `days` before `NOW`: two new files in it (the fixture's and one more), and its manifest beside it. */
+function kept(f: ReturnType<typeof fixture>, id: string, days: number): LocalSave {
+  const worktree = f.job(id);
+  writeFileSync(join(worktree, `work-${id}.md`), 'work\n');
+  const save = saveJob({ exec, checkout: f.checkout, folder: worktree, job: id, repo: 'acme/widgets', runner: 'box-1', author: null, now: NOW - days * DAY });
+  if (save === null) throw new Error('nothing was saved');
+  return save;
+}
+
+const MB = 1024 * 1024;
+
+describe('a kept save (PRD 2809, s2)', () => {
+  it('is neither swept nor named stranded: its folder, its branch and its bundle stay', () => {
+    const f = fixture();
+    const save = kept(f, '7', 1);
+    expect(strandedJobs({ home: f.home, checkouts: f.checkouts, running: new Set() })).toEqual([]);
+    expect(run(f)).toEqual({ worktrees: 0, branches: 0, logs: 0, bytes: 0 });
+    expect(existsSync(save.folder)).toBe(true);
+    expect(existsSync(String(save.bundle))).toBe(true);
+    expect(f.branches()).toContain('agent/job-7');
+  });
+
+  it('goes at its keep date: its folder, its record, its unpushed branch, its bundle and its manifest', () => {
+    const f = fixture();
+    const old = kept(f, '7', 7);
+    const young = kept(f, '8', 6);
+    const forgotten = keepWithin({ home: f.home, checkouts: f.checkouts, exec, running: new Set(), budgetBytes: 1024 * MB, now: NOW });
+    expect(forgotten.map(({ save, why }) => ({ job: save.job, why }))).toEqual([{ job: '7', why: 'expired' }]);
+    expect(forgottenLine(forgotten[0] ?? { save: old, why: 'expired' })).toBe('job 7: its kept save went at the end of its 7 days');
+    for (const path of [old.folder, String(old.bundle), savePaths(old.folder).manifest]) expect(existsSync(path)).toBe(false);
+    expect(f.branches()).not.toContain('agent/job-7');
+    expect(f.worktrees().join('\n')).not.toContain('widgets-job-7');
+    expect(existsSync(young.folder)).toBe(true);
+  });
+
+  it('over the keep budget, the oldest kept folder goes first, its manifest saying what was lost, until the rest fit', () => {
+    const f = fixture();
+    // Each kept folder holds the fixture's 3 MB file.
+    const oldest = kept(f, '7', 3);
+    const middle = kept(f, '8', 2);
+    const newest = kept(f, '9', 1);
+    const budgetBytes = middle.bytes + newest.bytes;
+
+    const forgotten = keepWithin({ home: f.home, checkouts: f.checkouts, exec, running: new Set(), budgetBytes, now: NOW });
+
+    expect(forgotten.map(({ save, why }) => ({ job: save.job, why }))).toEqual([{ job: '7', why: 'budget' }]);
+    expect(existsSync(oldest.folder)).toBe(false);
+    expect(existsSync(String(oldest.bundle))).toBe(false);
+    expect(f.branches()).not.toContain('agent/job-7');
+    const manifest = readSave(savePaths(oldest.folder).manifest);
+    expect(manifest?.lost).toEqual({ at: new Date(NOW).toISOString(), why: `over the keep budget of ${sizeText(budgetBytes)}` });
+    expect(manifest?.branches).toEqual(oldest.branches);
+    expect(forgottenLine(forgotten[0] ?? { save: oldest, why: 'budget' })).toBe(`job 7: its kept save went over the keep budget of ${sizeText(budgetBytes)}: lost 1 branch, 2 files, 0 commits`);
+    for (const save of [middle, newest]) expect(existsSync(save.folder)).toBe(true);
+    // A lost save is no longer kept: the sweep and the next pass leave its manifest alone until its date.
+    expect(keepWithin({ home: f.home, checkouts: f.checkouts, exec, running: new Set(), budgetBytes, now: NOW })).toEqual([]);
+    expect(existsSync(savePaths(oldest.folder).manifest)).toBe(true);
+  });
+
+  it("forgets a lost save's manifest at its keep date, saying nothing", () => {
+    const f = fixture();
+    const save = kept(f, '7', 3);
+    keepWithin({ home: f.home, checkouts: f.checkouts, exec, running: new Set(), budgetBytes: 0, now: NOW });
+    const forgotten = keepWithin({ home: f.home, checkouts: f.checkouts, exec, running: new Set(), budgetBytes: 0, now: NOW + 5 * DAY });
+    expect(forgotten.map(({ why }) => why)).toEqual(['expired']);
+    expect(forgottenLine(forgotten[0] ?? { save, why: 'expired' })).toBeNull();
+    expect(existsSync(savePaths(save.folder).manifest)).toBe(false);
+  });
+
+  it("never touches a running job's save", () => {
+    const f = fixture();
+    const save = kept(f, '7', 30);
+    expect(keepWithin({ home: f.home, checkouts: f.checkouts, exec, running: new Set(['7']), budgetBytes: 0, now: NOW })).toEqual([]);
+    expect(existsSync(save.folder)).toBe(true);
   });
 });
