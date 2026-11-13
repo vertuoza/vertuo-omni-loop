@@ -1,13 +1,12 @@
 // `omni bug check --product <key> <file>` and `omni bug push --product <key> (--new | --bug <n>) <file>`
 // (PRD 2011, s6), through `main()` with a fetch that answers as `POST /api/fixes` does: a check answers the
 // product's repositories, a push the bug's id.
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../lib/ask/schema.ts';
-import { makeRepo } from '../test/fixture.ts';
-import type { FetchInit } from '../test/fixture.ts';
+import { makeRepo, realExec } from '../test/fixture.ts';
+import type { FakeExec, FetchInit } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 const BASE = 'https://omni.example';
@@ -42,7 +41,7 @@ const record = (repository: string) => [
   `| 1 | ${repository} | #41 | the token is read once |`, '', '## Reproduction', '', `- **${repository}:** api.test.ts — red`, '', '## Guard', '', `- **${repository}:** api.test.ts`, '',
 ].join('\n');
 
-async function omni(argv: string[], root: string, fetch: unknown, exec?: unknown) {
+async function omni(argv: string[], root: string, fetch: unknown, exec?: FakeExec) {
   const out: string[] = [];
   const err: string[] = [];
   const code = await main(argv, { cwd: root, env: {}, tokens: tokens(), fetch, ...(exec === undefined ? {} : { exec }), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
@@ -131,8 +130,8 @@ describe('omni bug check --product --body-file (PRD 2578)', () => {
   /** A `gh pr view <n> --repo <slug>` that answers the head `HEAD`, or fails as told; `calls` are the argument lists it was given. */
   function gh(answer: Error | string = JSON.stringify({ headRefOid: HEAD, commits: [{ oid: HEAD }] })) {
     const calls: string[][] = [];
-    const exec = (file: string, args: readonly string[], options?: unknown) => {
-      if (file !== 'gh') return execFileSync(file, args, options as never);
+    const exec: FakeExec = (file, args, options) => {
+      if (file !== 'gh') return realExec(file, args, options);
       calls.push([file, ...args]);
       if (answer instanceof Error) throw answer;
       return answer;

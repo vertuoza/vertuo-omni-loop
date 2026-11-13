@@ -28,7 +28,8 @@ import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { gradeBugFile, bugSeqArg, bugPushedLines, pushProductBug } from '../../lib/bug/product.ts';
 import type { PullRef } from '../../lib/bug/fixes.ts';
-import { fixesPulls, readPullHead, rowHeadFaults } from '../../lib/bug/fixes.ts';
+import { z } from 'zod';
+import { fixesPulls, rowHeadFaults } from '../../lib/bug/fixes.ts';
 import { citedCommit, openPullRequest, proofFaults, proofSection } from '../../lib/bug/proof-body.ts';
 import type { Head, ProofSource } from '../../lib/bug/proof-body.ts';
 import { bugVerdict, parseSections } from '../../lib/bug/verdict.ts';
@@ -104,6 +105,29 @@ function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
   return failures.length === 0 ? 0 : 1;
 }
 
+const HeadAnswerSchema = z.object({ headRefOid: z.string().min(1), commits: z.array(z.object({ oid: z.string() })).optional() });
+
+/** The head of `repo#number` read through `gh pr view`; `unread` with gh's own words when it cannot be (PRD 2741). */
+function readPullHead({ exec, root, repo, number }: { exec: ExecText; root: string; repo: string; number: number }): Head {
+  const label = `${repo}#${number}`;
+  try {
+    const text = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'headRefOid,commits'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const answer = HeadAnswerSchema.safeParse(JSON.parse(text));
+    if (!answer.success) return { kind: 'unread', label, why: 'gh gave no head commit' };
+    const { headRefOid, commits } = answer.data;
+    return { kind: 'read', sha: headRefOid, commits: (commits ?? []).map((commit) => commit.oid), subject: `${label}'s head`, of: label };
+  } catch (error) {
+    return { kind: 'unread', label, why: firstLine(error) };
+  }
+}
+
+/** The first line gh said when it failed: its stderr, else the error's own message. */
+function firstLine(error: unknown): string {
+  const stderr = typeof error === 'object' && error !== null && 'stderr' in error ? String(error.stderr).trim() : '';
+  const said = stderr || (error instanceof Error ? error.message : '');
+  return said.split('\n')[0] || 'gh failed';
+}
+
 /**
  * A `## Fixes` record's proof must cite the head of one of its rows' pull requests (PRD 2741): the code
  * is in those pull requests, not on this branch. Asks gh nothing for a proof that cites no commit (a
@@ -132,7 +156,7 @@ type ProductArgs = { key: string; file: string; bug: string | null; create: bool
 
 const PULL_REQUEST = /^([\w.-]+\/[\w.-]+)#(\d+)$/;
 
-type ProductFlags = { new?: true; bug?: string; 'body-file'?: string; pr?: string };
+type ProductFlags = Partial<Record<'new' | 'bug' | 'body-file' | 'pr', string | true>>;
 
 /** The usage error the flags of `check` earn: the proof's body and the pull request it belongs to go together. */
 function checkFault(flags: ProductFlags): string | null {
@@ -141,13 +165,13 @@ function checkFault(flags: ProductFlags): string | null {
   if (flags.new === true && flags.bug !== undefined) return 'omni bug check: --new and --bug are two ways to name the bug: give one.';
   if (body !== undefined && pr === undefined) return 'omni bug check: --body-file needs --pr <owner/repo>#<n>, the fix pull request it belongs to';
   if (pr === undefined) return null;
-  if (!PULL_REQUEST.test(pr)) return `omni bug check: --pr "${pr}" is not a pull request (as acme/api#41).`;
+  if (typeof pr !== 'string' || !PULL_REQUEST.test(pr)) return `omni bug check: --pr "${pr}" is not a pull request (as acme/api#41).`;
   return body === undefined ? 'omni bug check: --pr is for a --body-file.' : null;
 }
 
 /** The pull request `--pr` names, or null when none was given. */
-function pullArg(value: string | undefined): PullRef | null {
-  const match = PULL_REQUEST.exec(value ?? '');
+function pullArg(value: string | true | undefined): PullRef | null {
+  const match = PULL_REQUEST.exec(typeof value === 'string' ? value : '');
   return match === null ? null : { repo: match[1] ?? '', number: Number(match[2]) };
 }
 

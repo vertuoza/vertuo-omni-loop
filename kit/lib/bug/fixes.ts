@@ -16,9 +16,6 @@
  *
  * PRD 2741: the proof's cited commit must be the head of one of the rows' pull requests (`rowHeadFaults`).
  */
-import { z } from 'zod';
-import type { ExecText } from '../context.ts';
-import type { Head } from './proof-body.ts';
 
 /** What a `## Fixes` check reads of the config: the plan's targets, absent outside a plan repository. */
 export type FixesConfig = { plan?: { targets: readonly { repo: string }[] } | undefined };
@@ -98,8 +95,8 @@ export function fixesViolations(config: FixesConfig, sections: ReadonlyMap<strin
 /** A pull request a `## Fixes` row names: its repository's slug and its number. */
 export type PullRef = { repo: string; number: number };
 
-/** One row's pull request label and the head it was read at (PRD 2741). */
-export type RowHead = { label: string; head: Head };
+/** One row's pull request label and the head it was read at, or why it could not be (PRD 2741; a `Head` of `proof-body.ts` fits). */
+export type RowHead = { label: string; head: { kind: 'read'; sha: string } | { kind: 'unread'; label: string; why: string } };
 
 /**
  * The pull request of each row of a `## Fixes` table that names one in a repository it can resolve
@@ -113,24 +110,6 @@ export function fixesPulls(config: FixesConfig, fixes: string): PullRef[] {
     const number = Number(match?.[2] ?? match?.[4]);
     return slug === undefined || !(number > 0) ? [] : [{ repo: slug, number }];
   });
-}
-
-const HeadAnswerSchema = z.object({ headRefOid: z.string().min(1), commits: z.array(z.object({ oid: z.string() })).optional() });
-
-/** The head of `repo#number` read through `gh pr view`; `unread` with gh's own words when it cannot be. */
-export function readPullHead({ exec, root, repo, number }: { exec: ExecText; root: string; repo: string; number: number }): Head {
-  const label = `${repo}#${number}`;
-  try {
-    const text = exec('gh', ['pr', 'view', String(number), '--repo', repo, '--json', 'headRefOid,commits'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    const answer = HeadAnswerSchema.safeParse(JSON.parse(text));
-    if (!answer.success) return { kind: 'unread', label, why: 'gh gave no head commit' };
-    const { headRefOid, commits } = answer.data;
-    return { kind: 'read', sha: headRefOid, commits: (commits ?? []).map((commit) => commit.oid), subject: `${label}'s head`, of: label };
-  } catch (error) {
-    const stderr = typeof error === 'object' && error !== null && 'stderr' in error ? String((error as { stderr: unknown }).stderr).trim() : '';
-    const why = stderr || (error instanceof Error ? error.message : 'gh failed');
-    return { kind: 'unread', label, why: why.split('\n')[0] ?? 'gh failed' };
-  }
 }
 
 /**
