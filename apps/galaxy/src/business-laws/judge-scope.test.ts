@@ -44,13 +44,17 @@ describe('a finding that only names what the spec does not say', () => {
     'The spec does not describe how the loan counts themselves reach the shelf.',
     "It doesn't mention what happens when the job cannot reach the shelf.",
     'The spec fails to specify who is told when the counts are not stored.',
+    'The spec does not say what happens if the job fails, risking that the loans stop being counted.',
+    'The spec designs a nightly count, but does not design what happens if the job fails, so the shelf could go stale.',
   ])('is no finding: the verdict stays green — %s', async (why) => {
     const { ask } = model({ findings: [{ law: 'BL-LIBRARY-1', quote: QUOTE, why }] });
     expect(await judge(ask)).toMatchObject({ state: 'green', findings: [] });
   });
 
-  it('a finding that says what the design does is still kept', async () => {
-    const why = 'The counts reach the shelf only when a member presses Sync, and nobody is told when it fails.';
+  it.each([
+    'The counts reach the shelf only when a member presses Sync, and nobody is told when it fails.',
+    'The job does not say when it fails, so nobody is told the shelf is stale.',
+  ])('a finding that says what the design does is still kept — %s', async (why) => {
     const { ask } = model({ findings: [{ law: 'BL-LIBRARY-1', quote: QUOTE, why }] });
     const verdict = await judge(ask);
     expect(verdict.state).toBe('red');

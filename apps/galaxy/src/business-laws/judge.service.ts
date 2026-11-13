@@ -9,7 +9,9 @@
 //   spec word for word (whitespace and case aside, as the canon gate does), cites a law of its own batch and
 //   says what the design does that the law forbids; anything else is dropped, so it never makes a verdict
 //   red. The model is told that a sentence which restates a law, cites it or says how the design keeps it is
-//   no finding (bug #2696).
+//   no finding (bug #2696). A law binds only what the spec designs: a law the design does not touch, a gap in
+//   the spec or a sentence saying a law does not apply is no finding, and a why that only names what the spec
+//   does not describe is dropped (bug #2815).
 // - What it answers: `red` with each finding (the law's statement and Why as they are now, the spec's words,
 //   what the judge found broken in its own words, who owns the law), `green` with the laws and domains judged, or `neutral` with why, never red on its own
 //   failure: no model key, a model error, a reply out of shape.
@@ -61,12 +63,18 @@ const SYSTEM = [
   "You check a product spec against the product's business laws: rules of the product, each with the reason it exists.",
   'Report a finding only when what the spec designs breaks a law given below. Never report a law that is not given.',
   'A finding is something the spec designs that a law forbids. A sentence that restates a law, cites it, or says how the design keeps it is no finding, even when it uses the words of the law.',
+  'A law binds only what the spec designs. When the spec designs nothing a law speaks of, that law has no finding: a law about changes to the knowledge says nothing of a spec that changes only code (a job, a table, a page, a decision).',
+  'What the spec does not say is never a finding: a missing detail, case or explanation breaks no law. A sentence that says a law does not apply, and why, is no finding.',
   'Answer one JSON object and nothing else: {"findings": [{"law", "quote", "why"}]}.',
   '- law: the id of the law broken, exactly as given (e.g. "BL-QUOTES-1").',
   `- quote: the exact words of the spec that break it, copied character for character, at most ${MAX_QUOTE} characters.`,
-  '- why: one short sentence saying what the design does that the law forbids. When you cannot say it, there is no finding.',
+  '- why: one short sentence saying what the design does that the law forbids. When you cannot say it, there is no finding. A why about what the spec does not describe, say or explain is no finding.',
   'No finding when the spec breaks none: "findings": [].',
 ].join('\n');
+
+/** A why that names the spec's silence (it "does not describe…", "fails to specify…") says nothing the design does
+ *  that a law forbids: no finding (bug #2815). A why about what the design does ("nobody is told") is kept. */
+const SILENCE = /\b(?:does\s+not|doesn['’]t|never|fails\s+to)\s+(?:describe|design|explain|mention|specify|address|detail|clarify|define|cover)\b|\bspec\s+(?:does\s+not|doesn['’]t|never|fails\s+to)\s+(?:say|state)\b/i;
 
 /** Words as a quote is compared: whitespace and case aside. */
 const plain = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -102,7 +110,7 @@ function keptFindings(spec: string, reply: z.infer<typeof Reply>, batch: readonl
     const law = laws.get(finding.law.trim());
     const quote = finding.quote.trim();
     const broken = (finding.why ?? '').trim().slice(0, MAX_BROKEN);
-    if (!law || broken === '' || quote.length > MAX_QUOTE || !quoted(spec, quote)) return [];
+    if (!law || broken === '' || SILENCE.test(broken) || quote.length > MAX_QUOTE || !quoted(spec, quote)) return [];
     return [{ law: law.id, statement: law.statement, why: law.why ?? '', quote, broken, domain: law.domain, file: law.file, owners: [...owners] }];
   });
 }
