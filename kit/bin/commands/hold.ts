@@ -2,10 +2,13 @@
 // Reads the pull request's body through `gh`, takes each `Merge after <owner/repo>#<n>` line, asks `gh`
 // for each provider's state and prints one row per provider, then the verdict as the last line:
 // `clear` (exit 0), `held: …`, `fail: …` or `not judged: …` (exit 1). A provider `gh` cannot read is
-// never clear. It runs nothing of the provider and writes nothing.
+// never clear. A merged provider whose default branch's config declares `merge-after.served` (s3) is a
+// `probe` row naming each hook (exit 0 when only probes are left); `--json` hands each hook's text with
+// its inputs filled. It runs nothing of the provider and writes nothing.
 import { z } from 'zod';
 import { exitOf, mergeAfterLines, parsePullRef, ProviderStateSchema, refText, rowLine, rowOf, verdictOf } from '../../lib/hold/hold.ts';
-import type { HoldRow, ProviderRead, PullRef, Verdict } from '../../lib/hold/hold.ts';
+import type { HoldRow, PullRef, Verdict } from '../../lib/hold/hold.ts';
+import { readProbes, type FileRead, type ProbeRead } from '../../lib/hold/probe.ts';
 import { messageOf, propertyOf } from '../../lib/narrow.ts';
 import { plainText } from '../../lib/outbox/plain-text.ts';
 import { parseArgs, println, usageError } from '../args.ts';
@@ -30,13 +33,36 @@ function view(ref: PullRef, fields: string, { ctx, exec, env }: Io): string {
   return exec('gh', ['pr', 'view', String(ref.number), '--repo', ref.repo, '--json', fields], { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) });
 }
 
-/** The provider's state, or why it could not be read. */
-function readProvider(ref: PullRef, io: Io): ProviderRead {
+type Provider = z.infer<typeof ProviderStateSchema> | { failure: string };
+
+/** The provider's state and merge commit, or why it could not be read. */
+function readProvider(ref: PullRef, io: Io): Provider {
   try {
-    return { state: ProviderStateSchema.parse(JSON.parse(view(ref, 'state,mergedAt,mergeCommit', io))).state };
+    return ProviderStateSchema.parse(JSON.parse(view(ref, 'state,mergedAt,mergeCommit', io)));
   } catch (error) {
     return { failure: failure(error) };
   }
+}
+
+/** A file of `repo`'s default branch, raw, through `gh api`; GitHub's 404 is a file it does not hold. */
+function readFile(repo: string, path: string, { ctx, exec, env }: Io): FileRead {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  try {
+    const args = ['api', '-H', 'Accept: application/vnd.github.raw', `repos/${repo}/contents/${path}`];
+    return { text: exec('gh', args, { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) }) };
+  } catch (error) {
+    const why = failure(error);
+    return /\bHTTP 404\b/.test(why) ? { missing: true } : { failure: why };
+  }
+}
+
+/** The row of `provider`: for a merged one, with the probe its repository declares, read and never run. */
+function providerRow(provider: PullRef, consumer: PullRef, io: Io): HoldRow {
+  const read = readProvider(provider, io);
+  if ('failure' in read || read.state !== 'MERGED') return rowOf(provider, read);
+  const inputs = { provider: refText(provider), pr: String(provider.number), 'merge-sha': read.mergeCommit?.oid ?? '', consumer: refText(consumer) };
+  const probe: ProbeRead = readProbes(provider.repo, inputs, (path) => readFile(provider.repo, path, io));
+  return rowOf(provider, read, probe);
 }
 
 /** The consumer's body, or why it could not be read. */
@@ -74,7 +100,7 @@ export const hold: Command = {
       print(io, consumer, [], { kind: 'clear', line: 'clear · no Merge after line' }, json);
       return 0;
     }
-    const rows = providers.map((provider) => rowOf(provider, readProvider(provider, io)));
+    const rows = providers.map((provider) => providerRow(provider, consumer, io));
     const verdict = verdictOf(rows);
     print(io, consumer, rows, verdict, json);
     return exitOf(verdict);

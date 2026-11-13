@@ -1293,11 +1293,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "Reads the pull request's body through gh and takes every line Merge after <owner/repo>#<n> " +
       "(without <owner/repo>, the pull request's own repository), then asks gh for each provider's " +
       'state and prints one row per provider: open is held, merged is clear, closed without merging ' +
-      'is fail, and a provider gh cannot read is held and never clear. The last line is the verdict: ' +
-      'clear (exit 0), held: <owner/repo>#<n> <why>, fail: <owner/repo>#<n> <why> or not judged: ' +
-      'could not read <owner/repo>#<n>: <why> (exit 1). A body with no such line prints clear · no ' +
-      'Merge after line, exit 0. --json prints the rows and the verdict as one object. It runs ' +
-      'nothing of a provider, merges nothing and writes nothing.',
+      'is fail, and a provider gh cannot read is held and never clear. A merged provider whose default ' +
+      "branch's .omni-loop/config.yml declares hooks at merge-after.served is probe, naming each hook " +
+      'file as <owner/repo>:<path> for the agent to follow; a config or hook file it cannot read is not ' +
+      'judged. The last line is the verdict: clear (exit 0), probe: <owner/repo>#<n> follow <hooks> ' +
+      '(exit 0), held: <owner/repo>#<n> <why>, fail: <owner/repo>#<n> <why> or not judged: <why> ' +
+      '(exit 1). A body with no such line prints clear · no Merge after line, exit 0. --json prints ' +
+      "the rows and the verdict as one object, each probe row with its hooks' text, the inputs filled " +
+      'in. It runs nothing of a provider, merges nothing and writes nothing.',
   },
   {
     name: 'design',

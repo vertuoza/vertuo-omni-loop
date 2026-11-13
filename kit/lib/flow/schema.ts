@@ -31,6 +31,8 @@ const pointHooks = z.union([
   hookRef,
   z.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict(),
 ]);
+/** One point's hooks, as a config writes them: a bare path, or by mode. `omni hold` reads a provider's with it (PRD 2746). */
+export const PointHooksSchema = pointHooks;
 
 /** A hook as the file names it: a path, or `{ path, alias: claude }`. */
 export type HookRef = z.infer<typeof hookRef>;
