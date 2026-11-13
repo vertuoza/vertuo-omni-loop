@@ -106,13 +106,13 @@ describe('runnerApi().next()', () => {
 
   it('reads the job with the repository skills it carries', async () => {
     const { client, calls } = api(job({ id: 7, line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'] }));
-    expect(await client.next('r 1')).toEqual({ id: '7', line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'], github: null, sentByKey: null });
+    expect(await client.next('r 1')).toEqual({ id: '7', line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'], github: null, sentByKey: null, resume: null });
     expect(calls[0]?.url).toBe('https://omni.test/api/runners/next?runner=r+1');
   });
 
   it('reads a job with no allowed skills, or with none listed, as allowing none', async () => {
     expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null })).client.next('r1'))
-      .toEqual({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [], github: null, sentByKey: null });
+      .toEqual({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [], github: null, sentByKey: null, resume: null });
     expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', allowedSkills: null })).client.next('r1'))
       .toMatchObject({ allowedSkills: [] });
   });
@@ -131,7 +131,7 @@ describe("runnerApi().next(): a key's job and its GitHub App (PRD 2433)", () => 
 
   it("reads the app's token, its expiry, its bot login and its email, and the key's name", async () => {
     const claimed = await api(job({ ...BASE, github: GITHUB, sentByKey: 'deploy bot' })).client.next('r1');
-    expect(claimed).toEqual({ ...BASE, id: '7', github: GITHUB, sentByKey: 'deploy bot' });
+    expect(claimed).toEqual({ ...BASE, id: '7', github: GITHUB, sentByKey: 'deploy bot', resume: null });
   });
 
   it('reads a payload without github and sentByKey, or with both null, as a job with neither', async () => {

@@ -26,7 +26,16 @@
 // Nothing is removed before it is saved (PRD 2809, s2, `checkpoint.ts`): at a job's end, and before the sweep
 // removes a stranded folder, the work its worktrees hold that origin lacks goes into one git bundle beside the
 // folder, and the folder is kept for it, 7 days at most and within `--keep-budget` (5 GB unless given), the
-// oldest kept folder removed first. With no such work the folder goes as before. The sweep also
+// oldest kept folder removed first. With no such work the folder goes as before.
+//
+// A save leaves the runner (PRD 2809, s4, s5): once made, it is sent to the app (`sendSave`), its bundle to the private
+// bucket and its manifest recorded, or recorded kept on this runner when the bundle cannot leave; each sweep sends again
+// the kept saves that never reached the app. A resume's claim carries its chain's saves (`resume.ts`): before its session
+// starts they are fetched into the checkout as `omni-checkpoint/<branch>`, the note `~/logs/job-<id>.resume.md` says what
+// came back and what stayed behind, and the session's prompt, after the job's line, points at it. Every claimed job keeps
+// its chain beside its log (`job-<id>.chain.json`). A job the app refused a report of as lost, whose skill resumes, under its
+// third attempt, releases no claim at its end, nor at the sweep that finds it stranded: its resume takes them over. Any
+// other job of a chain releases the claims of the chain's earlier jobs with its own. The sweep also
 // updates the Omni plugin, and before each job the runner brings the plugin up to the omni the job's
 // repository pins, or fails the job with the reason before Claude starts (`plugin.ts`, PRD 2100).
 //
@@ -81,7 +90,7 @@ import type { PrdNumber } from '../ids.ts';
 import { runnerJobVariables, runnerSenderVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
-import type { AccountReport, HealthLimits, HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import type { AccountReport, HealthLimits, HealthReport, JobUpdate, RunnerApi, RunnerJob, Updated } from './api.ts';
 import { accountsReport, DEFAULT_LIMITS, machineReads, nextPause, noTokensPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
@@ -98,12 +107,15 @@ import type { TokenSource } from './tokens.ts';
 import { bugFixReading, fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
 import type { BugFixReading, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
-import { partsPath, readParts } from './turnover.ts';
+import { handoffPath, partsPath, readParts } from './turnover.ts';
 import type { PluginKeeper } from './plugin.ts';
-import { notReleased } from './release.ts';
+import { MAX_RELEASE_ERROR, MAX_RELEASED, notReleased } from './release.ts';
 import type { Released, Releaser } from './release.ts';
-import { KEEP_BUDGET_GB, saveJob, savedLine } from './checkpoint.ts';
-import type { Author } from './checkpoint.ts';
+import { KEEP_BUDGET_GB, saveJob, savedLine, savesIn, sendSave } from './checkpoint.ts';
+import type { Author, LocalSave, Sent } from './checkpoint.ts';
+import { CHECKPOINT_BYTES_MAX } from './checkpoint.manifest.ts';
+import { chainCarriesOn, chainOf, keepChain, lostWords, readChain, restoreSaves, resumedLine, resumeNote, resumeNotePath, resumePointer } from './resume.ts';
+import type { Chain } from './resume.ts';
 import { dropJobBranch, forgottenLine, keepWithin, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
 
@@ -201,6 +213,8 @@ type Loop = RunnerOptions & {
   running: number;
   /** The ids of the jobs a slot holds: the sweep leaves everything of theirs alone. */
   jobs: Set<string>;
+  /** The running jobs the app refused a report of as lost (PRD 2809): resumed elsewhere, so their chain keeps their claims. */
+  lost: Set<string>;
   /** The Omni plugin's care: the check before each job, and the update of the sweep. */
   plugin: PluginKeeper;
   limits: HealthLimits;
@@ -282,6 +296,7 @@ function loopOf(options: RunnerOptions): Loop {
     refused: () => refused,
     running: 0,
     jobs: new Set(),
+    lost: new Set(),
     plugin: pluginKeeper({ exec: options.exec, running: { version: options.version }, bundle: runningBundle(), print: (line) => { options.print(line); } }),
     limits: options.limits ?? DEFAULT_LIMITS,
     pause: { reason: null, quiet: 0 },
@@ -342,7 +357,7 @@ async function register(loop: Loop): Promise<string | null> {
  * report carries any: an app older than PRD 2102 refuses a field it does not know. A refusal that
  * carries none, or a second one, is the app's answer as it stands.
  */
-async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<Updated> {
   const { tokens, ...plain } = update;
   if (tokens === undefined) return loop.api.update(job, update);
   if (!loop.tokensOk) return loop.api.update(job, plain);
@@ -375,7 +390,7 @@ function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
  * is refused is sent again without them: an app older than PRD 2175, 2223, 2375, 2425 or 2508 refuses a field it
  * does not know, or an outcome word it has no value for, and the job's status must still reach it.
  */
-async function sendNewer(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+async function sendNewer(loop: Loop, job: string, update: JobUpdate): Promise<Updated> {
   const { released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps, ...rest } = update;
   const newer = [released, releaseError, outcome, slicesMerged, slicesTotal, fixedBy, prs, followUps];
   if (newer.every((field) => field === undefined)) return sendCounted(loop, job, update);
@@ -401,7 +416,7 @@ async function sendNewer(loop: Loop, job: string, update: JobUpdate): Promise<{ 
  * refused is sent again without them, and no later report carries any: an app older than PRD 2537 refuses a field
  * it does not know, and the job's status must still reach it.
  */
-async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
+async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<Updated> {
   const update = hideTokens(loop, job, raw);
   const { parts, ...unparted } = update;
   if (parts === undefined) return sendNewer(loop, job, update);
@@ -433,14 +448,16 @@ function withTokens(loop: Loop, update: JobUpdate, worktree: string): JobUpdate 
 }
 
 /**
- * Sends a running job's status, with the lines after the cursor: a cancel waiting comes back true.
- * The cursor moves only once the app answers. The app not answering is no cancel.
+ * Sends a running job's status, with the lines after the cursor: a cancel waiting comes back true, and so does a job the
+ * app ended meanwhile, which is noted when the app says its runner lost it (PRD 2809). The cursor moves only once the app
+ * answers. The app not answering is no cancel.
  */
 async function tick(loop: Loop, job: string, update: JobUpdate, live?: Live, log = ''): Promise<boolean> {
   const lines = live ? reportBatch(linesAfter(log, live.cursor, { ended: false })) : [];
   try {
-    const { cancel } = await sendUpdate(loop, job, live ? withLines(update, live, lines) : update);
+    const { cancel, ended } = await sendUpdate(loop, job, live ? withLines(update, live, lines) : update);
     if (live) live.cursor += lines.length;
+    if (ended !== undefined && lostWords(ended)) loop.lost.add(job);
     return cancel;
   } catch (error) {
     if (error instanceof RunnerRefused) loop.refuse(error);
@@ -549,14 +566,37 @@ function skillMissing(place: Place, base: string): JobUpdate | null {
 }
 
 /**
- * Saves the work `folder` holds that origin does not, before anything of it is removed (PRD 2809, s2): whether
- * it is kept for its save. `author` is the job's app, when the runner knows it.
+ * Saves the work `folder` holds that origin does not, before anything of it is removed (PRD 2809, s2): the save its
+ * folder is kept for, or `null` when there was nothing to save. `author` is the job's app, when the runner knows it.
  */
-function saved(loop: Loop, ran: { job: string; repo: string; checkout: string; folder: string; author: Author | null }): boolean {
+function saved(loop: Loop, ran: { job: string; repo: string; checkout: string; folder: string; author: Author | null }): LocalSave | null {
   const save = saveJob({ exec: loop.exec, runner: loop.name, now: loop.now(), ...ran });
   if (save !== null) loop.print(savedLine(save));
-  return save !== null;
+  return save;
 }
+
+/** The line a save sent to the app prints: in the bucket, or kept on this runner and why. */
+function sentLine(job: string, sent: Sent): string {
+  if (sent.kind === 'portable') return `job ${job}: its save went to the app`;
+  return `job ${job}: its save stays on this runner (${sent.why})${sent.recorded === null ? ', and the app heard nothing of it' : ''}`;
+}
+
+/**
+ * Sends a save to the app (PRD 2809, s4): its bundle to the private bucket and its manifest, the job's handoff note in it,
+ * masked; or its manifest alone, kept on this runner, when the bundle cannot leave. A runner whose app has no checkpoint
+ * calls keeps it, as before. Never throws.
+ */
+async function sent(loop: Loop, save: LocalSave): Promise<void> {
+  const api = loop.api.checkpoints;
+  if (api === undefined) return;
+  const handoff = readText(handoffPath(logOf(loop, save.job)));
+  const result = await sendSave({ save, api, handoff: handoff === '' ? null : handoff, secrets: maskedOf(loop, save.job), now: loop.now() });
+  loop.print(sentLine(save.job, result));
+}
+
+/** The kept saves the sweep sends again (PRD 2809, s4): not sent, not lost, with a bundle the bucket takes, of no running job. */
+const unsent = (loop: Loop, save: LocalSave): boolean =>
+  !loop.jobs.has(save.job) && save.lost === null && !save.sent && save.failed === null && save.bundle !== null && save.bundleBytes <= CHECKPOINT_BYTES_MAX;
 
 /** Keeps the runner's saves within their dates and its keep budget, printing each one it removed: those of the
  * running jobs aside, but for `ended`, the job whose folder was just saved. */
@@ -567,12 +607,14 @@ function keepSaves(loop: Loop, ended: string | null = null): void {
 }
 
 /**
- * Saves the job's work origin lacks first (PRD 2809, s2): with some, the folder and its branch are kept for
- * the save. Otherwise removes the job's worktree, the records left stale, then its branch unless it was pushed.
+ * Saves the job's work origin lacks first (PRD 2809, s2), then sends the save to the app (s4, s5): with some, the
+ * folder and its branch are kept for the save. Otherwise removes the job's worktree, the records left stale, then its
+ * branch unless it was pushed.
  */
-function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
+async function cleanUp(loop: Loop, job: RunnerJob, place: Place): Promise<void> {
   const author = job.github === null ? null : { name: job.github.login, email: job.github.email };
-  if (!saved(loop, { job: job.id, repo: job.repo, checkout: place.checkout, folder: place.worktree, author })) {
+  const save = saved(loop, { job: job.id, repo: job.repo, checkout: place.checkout, folder: place.worktree, author });
+  if (save === null) {
     try {
       loop.exec('git', ['-C', place.checkout, 'worktree', 'remove', '--force', place.worktree], QUIET);
     } catch {
@@ -580,6 +622,8 @@ function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
     }
     pruneWorktrees(loop.exec, place.checkout);
     dropJobBranch(loop.exec, place.checkout, `agent/job-${job.id}`);
+  } else {
+    await sent(loop, save);
   }
   keepSaves(loop, job.id);
 }
@@ -608,11 +652,14 @@ function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { 
   }
 }
 
-/** Writes the job's line and its log, empty or starting on `note`, then starts its session as `app`: whether it started. */
-function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null, app: Record<string, string>): boolean {
+/**
+ * Writes the job's line, `pointer` after it when the job is a resume (PRD 2809, s5: the session's prompt then points at
+ * its note), and its log, empty or starting on `note`, then starts its session as `app`: whether it started.
+ */
+function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null, app: Record<string, string>, pointer: string | null = null): boolean {
   const account = loop.chosen.get(job.id);
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
-  writeFileSync(place.line, `${job.line}\n`);
+  writeFileSync(place.line, pointer === null ? `${job.line}\n` : `${job.line}\n\n${pointer}\n`);
   writeFileSync(place.log, note === null ? '' : `${note}\n`);
   rmSync(place.exit, { force: true });
   try {
@@ -788,6 +835,31 @@ function freeAccount(loop: Loop, job: string): void {
   loop.secrets.delete(job);
 }
 
+/**
+ * Restores a resume's saves into the job's checkout and writes its note (PRD 2809, s5): the lines its session's prompt
+ * gets after the job's line, pointing at the note; `null` for a job that resumes none. A note that cannot be written
+ * prints why, and the job runs from what GitHub holds.
+ */
+async function resumed(loop: Loop, job: RunnerJob, place: Place): Promise<string | null> {
+  const resume = job.resume ?? null;
+  if (resume === null) return null;
+  const api = loop.api.checkpoints;
+  const restore = await restoreSaves({
+    exec: loop.exec, checkout: place.checkout, home: loop.home, runner: loop.name, resume,
+    download: api === undefined ? () => Promise.reject(new Error('this runner cannot download a save')) : (url) => api.download(url),
+  });
+  const path = resumeNotePath(loop.home, job.id);
+  try {
+    mkdirSync(join(loop.home, 'logs'), { recursive: true });
+    writeFileSync(path, resumeNote(job.id, resume, restore));
+  } catch (error) {
+    loop.print(`job ${job.id}: its resume note could not be written (${error instanceof Error ? error.message : String(error)})`);
+    return null;
+  }
+  loop.print(resumedLine(job.id, resume, restore));
+  return resumePointer(resume, path);
+}
+
 /** Runs `job` to its end, and answers its last status and its live lines, once it has a log. */
 async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; live: Live | null }> {
   const place = placeOf(loop, job);
@@ -803,11 +875,12 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
     if ('failed' in app) return { last: { status: 'failed', reason: app.failed }, live: null };
     const taken = takeAccount(loop, job);
     if (taken !== null) return { last: { status: 'failed', reason: taken }, live: null };
-    if (!startSession(loop, job, place, plugin.note, app.env)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
+    const pointer = await resumed(loop, job, place);
+    if (!startSession(loop, job, place, plugin.note, app.env, pointer)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
   } finally {
-    cleanUp(loop, job, place);
+    await cleanUp(loop, job, place);
   }
 }
 
@@ -842,32 +915,66 @@ function releaseLines(job: string, { released, releaseError }: Released): string
  * comment are the app's. A job that ran as an app and has no token now releases nothing, and says why: its
  * claims are never released as the machine's account. A job that ran as the machine is released as it always was.
  */
-async function releasedAs(loop: Loop, release: Releaser, ended: { id: string; repo: string; reason: string }, ran: boolean): Promise<Released> {
-  const file = ran ? githubTokenFile(loop.home, ended.id) : null;
+async function releasedAs(loop: Loop, release: Releaser, ended: { id: string; repo: string; reason: string }, ran: boolean, tokenOf: string = ended.id): Promise<Released> {
+  const file = ran ? githubTokenFile(loop.home, tokenOf) : null;
   let ghToken: string | null = null;
   let lacking: Released | null = null;
   if (ran) {
-    const kept = file === null ? null : await keepGithubToken(refreshOf(loop, ended.id, file));
+    const kept = file === null ? null : await keepGithubToken(refreshOf(loop, tokenOf, file));
     if (kept === null || kept.token === null) lacking = notReleased(`github app: ${kept === null ? 'the job has no token kept on this machine' : kept.failed}`);
     else ghToken = kept.token.token;
   }
   const done = lacking ?? release({ id: ended.id, runner: loop.name, repo: ended.repo, reason: ended.reason, ghToken });
-  const hide = (text: string): string => (ghToken === null ? text : maskTokens(text, jobTokens(loop.home, ended.id)));
+  const hide = (text: string): string => (ghToken === null ? text : maskTokens(text, jobTokens(loop.home, tokenOf)));
   for (const line of releaseLines(ended.id, done)) loop.print(hide(line));
+  return done;
+}
+
+/** Two releases as one report carries them: the numbers of both, at most 50, and what failed in either. */
+function bothReleased(first: Released, second: Released): Released {
+  const errors = [first.releaseError, second.releaseError].filter((error) => error !== null).join('; ');
+  const error = errors.length <= MAX_RELEASE_ERROR ? errors : `${errors.slice(0, MAX_RELEASE_ERROR - 1)}…`;
+  return { released: [...first.released, ...second.released].slice(0, MAX_RELEASED), releaseError: error === '' ? null : error };
+}
+
+/**
+ * Releases the claims of a job that ended, and those of the earlier jobs of its chain it never took over (PRD 2809), as
+ * the job's own app (`tokenOf`). Released by none, `null`, when the app lost the job and its chain carries on: its resume
+ * takes its claims over, and no other job may. Prints that.
+ */
+async function releaseChain(loop: Loop, release: Releaser, ended: { id: string; repo: string; reason: string; line: string }, chain: Chain, how: { lost: boolean; ran: boolean }): Promise<Released | null> {
+  if (how.lost && chainCarriesOn(ended.line, chain)) {
+    loop.print(`job ${ended.id}: its claims stay with its chain, whose next attempt takes them over`);
+    return null;
+  }
+  let done: Released = { released: [], releaseError: null };
+  for (const id of [ended.id, ...chain.chain]) done = bothReleased(done, await releasedAs(loop, release, { ...ended, id }, how.ran, ended.id));
   return done;
 }
 
 /** Releases the claims of `job`, which ended on `last`: `last` with what was released, or as it is when the runner releases nothing. */
 async function releasing(loop: Loop, job: RunnerJob, last: JobUpdate): Promise<JobUpdate> {
   if (loop.release === undefined) return last;
-  const done = await releasedAs(loop, loop.release, { id: job.id, repo: job.repo, reason: endReason(last) }, job.github !== null);
-  return { ...last, released: done.released, releaseError: done.releaseError };
+  const ended = { id: job.id, repo: job.repo, reason: endReason(last), line: job.line };
+  const done = await releaseChain(loop, loop.release, ended, chainOf(job.resume ?? null), { lost: loop.lost.has(job.id), ran: job.github !== null });
+  return done === null ? last : { ...last, released: done.released, releaseError: done.releaseError };
 }
 
 /** Whether the job left a token file: it ran as an app, whoever's the file is. */
 function ranAsApp(loop: Loop, job: string): boolean {
   const file = githubTokenFile(loop.home, job);
   return file !== null && readGithubToken(file) !== null;
+}
+
+/**
+ * Releases the claims of a stranded job the app marked lost, by its chain as the job kept it (PRD 2809): `null` when its
+ * chain carries on, its resume taking them over. A job of an older kit kept none, and is released as before.
+ */
+async function releasedLost(loop: Loop, release: Releaser, lost: { job: string; repo: string; ran: boolean }): Promise<Released | null> {
+  const chain = readChain(loop.home, lost.job);
+  const line = readText(join(loop.home, 'logs', `job-${lost.job}.line`)).split('\n')[0] ?? '';
+  const ended = { id: lost.job, repo: lost.repo, reason: 'runner lost', line };
+  return chain === null ? releasedAs(loop, release, ended, lost.ran) : releaseChain(loop, release, ended, chain, { lost: true, ran: lost.ran });
 }
 
 /**
@@ -880,8 +987,8 @@ async function releaseLost(loop: Loop, lost: { job: string; repo: string; ran: b
   if (loop.release === undefined) return;
   const { ran } = lost;
   try {
-    const done = await releasedAs(loop, loop.release, { id: lost.job, repo: lost.repo, reason: 'runner lost' }, ran);
-    if (done.released.length === 0 && done.releaseError === null) return;
+    const done = await releasedLost(loop, loop.release, lost);
+    if (done === null || (done.released.length === 0 && done.releaseError === null)) return;
     try {
       await loop.api.update(lost.job, hideTokens(loop, lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError }));
     } catch (error) {
@@ -911,6 +1018,16 @@ async function nextJob(loop: Loop, runner: string, wait: { ms: number }): Promis
   }
 }
 
+/** Keeps the claimed job's chain beside its log (PRD 2809), for the sweep that may find it stranded after a restart: one
+ * that cannot be written prints why, and the job runs. */
+function keepJobChain(loop: Loop, job: RunnerJob): void {
+  try {
+    keepChain(loop.home, job.id, chainOf(job.resume ?? null));
+  } catch (error) {
+    loop.print(`job ${job.id}: its chain could not be kept (${error instanceof Error ? error.message : String(error)})`);
+  }
+}
+
 /** One slot: waits for a job, runs it, and again, until the runner stops. */
 async function slot(loop: Loop, runner: string): Promise<void> {
   const wait = { ms: loop.firstMs };
@@ -923,6 +1040,7 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     loop.jobs.add(job.id);
     loop.print(`job ${job.id} claimed: ${job.line} (${job.repo})`);
     try {
+      keepJobChain(loop, job);
       const { last, live } = await runJob(loop, job);
       // A job whose session never started made no claim: it has nothing to release.
       const report = live === null ? last : await releasing(loop, job, last);
@@ -932,6 +1050,7 @@ async function slot(loop: Loop, runner: string): Promise<void> {
       // Once its last report is sent: the log is masked with the file until then.
       forgetJobToken(loop, job.id);
       freeAccount(loop, job.id);
+      loop.lost.delete(job.id);
       loop.jobs.delete(job.id);
       loop.running -= 1;
     }
@@ -1016,11 +1135,13 @@ async function sweeper(loop: Loop): Promise<void> {
   while (!loop.halt.aborted) {
     // Whether each ran as an app is read first: the sweep removes a token file older than `keepLogsDays`.
     const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs }).map((stranded) => ({ ...stranded, ran: ranAsApp(loop, stranded.job) }));
-    // Before the sweep removes a stranded folder, its work origin lacks is saved, and the folder kept for it (PRD 2809, s2).
+    // Before the sweep removes a stranded folder, its work origin lacks is saved, and the folder kept for it (PRD 2809, s2);
+    // then every kept save that has not reached the app is sent (again), those just made among them (s4, s5).
     for (const { job, repo, folder } of lost) {
       const checkout = loop.checkouts.get(repo);
       if (checkout !== undefined) saved(loop, { job, repo, checkout, folder, author: null });
     }
+    for (const save of savesIn(loop.home).filter((kept) => unsent(loop, kept))) await sent(loop, save);
     const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
     if (line !== null) loop.print(line);
     keepSaves(loop);
