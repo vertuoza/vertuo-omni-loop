@@ -470,3 +470,237 @@ One call in cleanUp and one in the sweep's pass, in s5 or a follow-up slice; no 
 ```
 
 <!-- /omni-outbox-settled: s4-03-send-save-wired-by-s5 -->
+
+<!-- omni-outbox-settled: s5-01-resume-note-in-the-prompt -->
+
+## s5-01-resume-note-in-the-prompt — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-13
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-resume-note-in-the-prompt
+prd: 2809
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-13
+wave: 4
+---
+
+## The question, in plain words
+
+When a job picks up the work of a job that was lost, how should its agent be told to read the note about what came back, before anything else?
+
+## The decision, in plain words
+
+The note is pointed at in the agent's first message, right after the job's own command. A side effect: if the job later has to switch to another account, it only switches to an account that accepts every kind of job.
+
+## The intro, for fun
+
+A relay runner needs the baton and a sticky note saying which lane to run in.
+
+## The punchline, for fun
+
+We stuck the note on the baton itself, which is not where batons expect notes.
+
+## The options, in plain words
+
+A. The note is pointed at after the job's line, in the line file; a resume turns over only to accounts that take any job (built)
+B. The runner passes the note as an option of the job's process, which adds it to the first message; the line stays one line
+C. Keep the pointer in the line file, and fix the job process to read the first line alone for the skill
+
+## What I had to decide
+
+Keep A, or choose B: the runner hands the note's path to the job's process as an option of its own, and the process adds it to the first message; the job's own command stays a single line.
+
+## What I did meanwhile
+
+runner.ts writes the job's line file as `<line>\n\n<pointer>`, the pointer naming ~/logs/job-<id>.resume.md (resumePointer in kit/lib/runner/resume.ts). job.ts, outside this slice's territory, reads the whole file as the line and sends it as the prompt, so the session reads the pointer after its line. The same file read by skillOf() in job.ts no longer reads as a fixed skill, so a turnover of a resume picks only accounts with no `takes` list.
+
+## What it costs to change later
+
+A constant: B is one flag in kit/bin/commands/runner.ts and job.ts (or a one-line fix in job.ts reading the first line for the skill), and the runner writing the line alone again. No stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives this slice runner.ts but not job.ts or the runner command, where a flag for the note would live.
+- (author) Whether any runner's accounts file restricts accounts with `takes` today is not known here.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-resume-note-in-the-prompt -->
+
+<!-- omni-outbox-settled: s5-04-checkpoint-rule-in-the-note -->
+
+## s5-04-checkpoint-rule-in-the-note — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-13
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-checkpoint-rule-in-the-note
+prd: 2809
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-13
+wave: 4
+---
+
+## The question, in plain words
+
+Where should the rule live that tells a job to first take back the saved work of a branch before touching it?
+
+## The decision, in plain words
+
+The rule is written in the note each resumed job reads first, and nowhere in the instructions the building skills read. A job that never got a note is never told it.
+
+## The intro, for fun
+
+Every recipe card says to preheat the oven, but only on the card you were handed.
+
+## The punchline, for fun
+
+Nobody reads the cookbook's foreword anyway.
+
+## The options, in plain words
+
+A. The rule is in the resume note alone (built)
+B. Also write it once in the runner guidance the resumable skills read, in a follow-up
+
+## What I had to decide
+
+Keep A, or choose B: also write the rule once in the kit's runner guidance the resumable skills read, as the spec's section on restoring says, in a follow-up outside this slice.
+
+## What I did meanwhile
+
+resumeNote() in kit/lib/runner/resume.ts writes the rule (git merge --ff-only omni-checkpoint/<branch>, or a merge when it diverged, or a checkout from the checkpoint when origin has no such branch) under each restored branch list, and the session's prompt points at the note. No skill or guidance file changed: none is in this slice's territory, nor in any slice of the plan.
+
+## What it costs to change later
+
+A paragraph in one guidance file, in a follow-up: no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec asks the rule to be written once in the kit's runner guidance, but the plan gives no slice that file.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-checkpoint-rule-in-the-note -->
+
+<!-- omni-outbox-settled: s5-03-keeper-runner-routing -->
+
+## s5-03-keeper-runner-routing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-13
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-13
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-keeper-runner-routing
+prd: 2809
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-13
+wave: 4
+---
+
+## The question, in plain words
+
+When a lost job's saved work could only be kept on the machine that lost it, and that machine is back online but busy, should the job that picks up the work wait for it?
+
+## The decision, in plain words
+
+It waits for that machine while the machine is online and allowed to take the job, even when all its slots are busy. Once the machine has been silent for a minute and a half, any machine takes the job and is told what stayed behind.
+
+## The intro, for fun
+
+The only person with the house keys is home, but on the phone.
+
+## The punchline, for fun
+
+We wait by the door rather than climb in through the window.
+
+## The options, in plain words
+
+A. The resume waits for its online keeper, busy or not (built)
+B. A busy keeper does not hold it: any free runner takes it, and its note says what stayed behind
+C. The keeper holds it for a set time only, then any runner takes it
+
+## What I had to decide
+
+Keep A, or choose B: a busy keeper does not hold the resume, which then goes to any free runner, its note saying what stayed on the keeper.
+
+## What I did meanwhile
+
+runner_claim() in supabase/migrations/20270120110000_runner_claim_resume.sql skips, for every runner but the keeper, a resume whose chain's newest local save (not deleted, still kept) is kept by a runner seen in the last 90 s, of the workspace, an App runner, holding the job's repository and its target. Free slots are not read; supabase/checks/runner_resume.sql proves the online, offline and expired cases.
+
+## What it costs to change later
+
+One condition in runner_claim(), changed by a follow-up migration: no row moves.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) How long a busy keeper may hold a resume is not bounded: a keeper whose slots stay full holds it until one frees.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-keeper-runner-routing -->
