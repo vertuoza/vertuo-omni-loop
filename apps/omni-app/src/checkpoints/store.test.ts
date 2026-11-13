@@ -8,7 +8,7 @@ type Call = { method: string; path: string; search: string; body: unknown };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 /** PostgREST and storage answering by `answers[path]` (a function of the query), or a refusal when it is null. */
-function dbFetch(answers: Record<string, unknown | ((search: string) => unknown)>) {
+function dbFetch(answers: Record<string, unknown>) {
   const calls: Call[] = [];
   const fetch: typeof globalThis.fetch = async (input, init) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
