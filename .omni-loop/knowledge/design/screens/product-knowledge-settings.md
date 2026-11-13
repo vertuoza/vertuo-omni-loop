@@ -59,4 +59,4 @@ It never changes · Set the product's key first.
 ## Source
 
 /omni:brainstorm, PRD 2707: .omni-loop/delivery/shipped/2707-product-mcp/before-after.html
-/omni:brainstorm, PRD 2784: .omni-loop/delivery/inbox/2784-product-key-setting/before-after.html
+/omni:brainstorm, PRD 2784: .omni-loop/delivery/shipped/2784-product-key-setting/before-after.html
