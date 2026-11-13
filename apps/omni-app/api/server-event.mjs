@@ -12896,6 +12896,7 @@ var ServerEventSchema = z56.object({
 });
 var SERVER_EVENT_TRIGGER = "server-event";
 var MAX_TRIES = 4;
+var GONE = /* @__PURE__ */ new Set([404, 410]);
 function serverEventJob({ event, dossier, at: at4 }) {
   const id = dossier.toLowerCase();
   return { kind: SERVER_EVENT_KIND, key: id, subject: id, payload: { event, dossier, at: at4 }, maxTries: MAX_TRIES, delaySeconds: REFRESH_DELAY_SECONDS };
@@ -12909,6 +12910,22 @@ async function keptOf(octokit, pull, prdId) {
   const read = await readPull2(octokit, { owner, repo, prNumber: parsePr(pull.number) });
   return productPrdOf(read.body)?.id === prdId ? { ...pull, headSha: read.headSha } : null;
 }
+var GONE_PULL = "gone";
+async function readTarget2({ octokitFor, log: log2 }, { installationId, prdId }, pull) {
+  const where = `${pull.repository}#${String(pull.number)}`;
+  try {
+    return await keptOf(await octokitFor(installationId), pull, prdId);
+  } catch (error) {
+    const status = statusOf(error);
+    if (GONE.has(status)) {
+      log2(`server event: ${where} is left out: GitHub answers ${String(status)}, it is gone or the App cannot read it`);
+      return GONE_PULL;
+    }
+    const refused7 = refusalIn2(error);
+    if (refused7) log2(`server event: ${where} waits for the GitHub budget: ${refused7.message}`);
+    throw error;
+  }
+}
 function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, log: log2 = noteTo("server-event-recheck") }) {
   return async (job) => {
     const { event: what, dossier } = ServerEventSchema.parse(job.payload);
@@ -12919,18 +12936,16 @@ function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, lo
     const targets = await readTargets2(dossier);
     if (!targets) return { outcome: "skipped", reason: `dossier ${dossier} is no product PRD's` };
     const kept3 = [];
+    let leftOut = 0;
     for (const pull of targets.pulls) {
-      const where = `${pull.repository}#${String(pull.number)}`;
-      try {
-        const found = await keptOf(await octokitFor(targets.installationId), pull, targets.prdId);
-        if (found) kept3.push(found);
-      } catch (error) {
-        const refused7 = refusalIn2(error);
-        if (refused7) log2(`server event: ${where} waits for the GitHub budget: ${refused7.message}`);
-        throw error;
-      }
+      const found = await readTarget2({ octokitFor, log: log2 }, targets, pull);
+      if (found === GONE_PULL) leftOut += 1;
+      else if (found) kept3.push(found);
     }
-    if (kept3.length === 0) return { outcome: "skipped", reason: `no open pull request names ${targets.prdId}` };
+    if (kept3.length === 0) {
+      const gone = leftOut === 0 ? "" : ` (${String(leftOut)} left out: GitHub answers 404 or 410 for them)`;
+      return { outcome: "skipped", reason: `no open pull request names ${targets.prdId}${gone}` };
+    }
     for (const { repository, number, headSha } of kept3) {
       const [owner = "", repo = ""] = repository.split("/");
       const request = { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER };
@@ -16274,12 +16289,12 @@ async function readTargets({ step, appOctokit, octokitFor, planSlug, scope }) {
   const targets = planTargets({ config: scope.config, plan: scope.prd.plan, planSlug, topic: scope.prd.topic });
   const read = [];
   for (const target2 of targets) {
-    read.push(await savedStep(step, `target-${target2.name}`, TargetReadSchema, () => readTarget2({ appOctokit, octokitFor }, target2)));
+    read.push(await savedStep(step, `target-${target2.name}`, TargetReadSchema, () => readTarget3({ appOctokit, octokitFor }, target2)));
   }
   return read;
 }
 var notRead = (target2, reason2) => ({ name: target2.name, repo: target2.slug ?? target2.name, read: false, reason: reason2 });
-async function readTarget2({ appOctokit, octokitFor }, target2) {
+async function readTarget3({ appOctokit, octokitFor }, target2) {
   if (target2.slug === null) return notRead(target2, "not a target in the plan section of the config");
   if (appOctokit === null) return notRead(target2, "the App cannot look up its installations here");
   const [owner = "", repo = ""] = target2.slug.split("/");
