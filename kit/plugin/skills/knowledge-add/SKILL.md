@@ -1,12 +1,12 @@
 ---
 name: knowledge-add
-description: Adds or edits one item of a product's knowledge from the terminal, one item at a time — a Statement or Never line (constituent), a Legal entry, a Glossary term, or a business law (add it, or `amend <id>`, as a signed pull request that is never merged). Turns what the person said into exactly one item, asks for every field they did not give and never fills one, shows the item whole and asks Yes / Change / Cancel, writes only on Yes with omni constituents or omni kb legal and glossary --json, prints the line and link, and only then takes the next item. Never writes under OMNI_UNATTENDED, never removes or retires. Triggers on "add a legal entry", "add a never line", "add a glossary term", "change the statement", "edit L-GDPR-5", "/omni:knowledge-add".
+description: Adds or edits one item of a product's knowledge from the terminal, one item at a time — a Statement or Never line (constituent), a Legal entry, a Glossary term, a persona, or a business law (add it, or `amend <id>`, as a signed pull request that is never merged). Turns what the person said into exactly one item, asks for every field they did not give and never fills one, shows the item whole and asks Yes / Change / Cancel, writes only on Yes with omni constituents, omni kb legal and glossary or omni business persona --json, prints the line and link, and only then takes the next item. Never writes under OMNI_UNATTENDED, never removes or retires. Triggers on "add a legal entry", "add a never line", "add a glossary term", "add a persona", "change the statement", "edit L-GDPR-5", "/omni:knowledge-add".
 ---
 
 # Knowledge add: one item, shown whole, written on Yes
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. A product's Knowledge tab holds its Constituents (a
-Statement and its Never lines), its Legal entries and its Glossary terms. This skill adds or edits
+Statement and its Never lines), its Legal entries, its Glossary terms and its Personas. This skill adds or edits
 **one** of them per Yes, from the terminal, with the commands that exist for it. The rules are the
 page's: the commands apply or propose as the section's owner decides, and this skill never decides
 that.
@@ -34,9 +34,13 @@ its fields.
 | Never line | `omni constituents add --never "<text>" --json` | `omni constituents edit never#<n> --text "<text>" --json` |
 | Legal entry | `omni kb legal add --code <CODE> --statement "<text>" --source "<law>" --json` | `omni kb legal edit L-<CODE>-<n> [--statement "<text>"] [--source "<law>"] --json` |
 | Glossary term | `omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>] --json` | `omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>] --json` |
+| Persona | `omni business persona add --name "<name>" --stance <stance> --trade "<trade>" --who "<text>" --usage "<text>" --json` | `omni business persona edit "<name>" [--name "<name>"] [--stance <stance>] [--trade "<trade>"] [--who "<text>"] [--usage "<text>"] --json` |
 
 Add `--product <name>` only when the repository is in more than one product and the person named one.
-A Statement is one line of at most 400 characters.
+A Statement is one line of at most 400 characters. A persona's stance is `enthusiastic`, `neutral` or
+`skeptical`, and its trade is lower-case words (`data analyst`): a trade of the drawer's list, or any
+other. A persona is any member's to add or edit, so it is always saved, never proposed; an edit finds
+it by its name, keeps its portrait and changes only the fields given.
 
 Said more than one thing ("add these three")? Keep the list, take the first item through steps 2 to 4,
 and the next only after the last one's line printed (step 5).
@@ -62,17 +66,19 @@ whole (id or the next number, statement, `Why:`, `Also:`) and written only on Ye
 ## 2. Ask for what is missing
 
 A field the person did not give is asked for, in one plain question, and never filled in by you: a
-Legal entry's code, statement and source law; a Glossary term's term and meaning; the text of a
+Legal entry's code, statement and source law; a Glossary term's term and meaning; a persona's name,
+stance, trade, who and usage (every one, for an add); the text of a
 Statement or a Never line; for an edit, the item's id and at least one field to change. **Avoid
 words** are left empty unless the person names them. To read an item's current id or text before an
-edit, run `omni constituents`, `omni kb legal` or `omni kb glossary`: the reads print them.
+edit, run `omni constituents`, `omni kb legal`, `omni kb glossary` or `omni business show` (its persona lines): the reads print them.
 
 ## 3. Show it whole, ask Yes / Change / Cancel
 
 Show the item whole: its kind, whether it adds or edits, the id it will get or edits (an add's id is
 shown as given by the product once saved, a Legal entry's as `L-<CODE>-<next number>` only when the
 read shows it), and every field with the exact words that will be written. Then ask **Yes / Change /
-Cancel**, with the tool your agent has for asking.
+Cancel**, with the tool your agent has for asking. A persona is shown with its name, stance, trade,
+who and usage.
 
 | answer | you do |
 |---|---|
@@ -85,7 +91,8 @@ Cancel**, with the tool your agent has for asking.
 Run the one command of the table with `--json`, with the person's words quoted exactly as shown. Then
 print what it said:
 
-- exit `0`, `done: applied`: `added <id> · <url>` or `edited <id> · <url>`;
+- exit `0`, `done: applied`: `added <id> · <url>` or `edited <id> · <url>` (a persona's id is
+  `persona:<name>`);
 - exit `0`, `done: proposed`: `proposed · waits for @<owner> · <url>` (a member who is not the
   section's owner or delegate proposes: say that it waits for the owner);
 - exit `1`: print the one line as is (a refusal in the database's own words, signed out
