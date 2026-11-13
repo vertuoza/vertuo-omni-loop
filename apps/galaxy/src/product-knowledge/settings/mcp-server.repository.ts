@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { KeyRefusal } from './product-key';
 
 // The MCP server card's storage (PRD 2707 s4; ADR-0095), on the client it is given, the signed-in person's, so
 // row-level security decides what each read returns. The switch is product_mcp_set(): only a workspace owner
@@ -6,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** The columns of the product the card draws. */
 export interface McpProductRow {
+  name: string;
   key: string | null;
   mcp_enabled: boolean;
   archived_at: string | null;
@@ -13,7 +15,7 @@ export interface McpProductRow {
 
 /** The product's key, switch and archive mark; null when it cannot be read or is none of the caller's. */
 export async function mcpProductOf(db: Pick<SupabaseClient, 'from'>, product: string): Promise<McpProductRow | null> {
-  const { data, error } = await db.from('products').select('key, mcp_enabled, archived_at').eq('id', product).maybeSingle();
+  const { data, error } = await db.from('products').select('name, key, mcp_enabled, archived_at').eq('id', product).maybeSingle();
   return error ? null : data;
 }
 
@@ -28,4 +30,13 @@ export async function roleIn(db: Pick<SupabaseClient, 'from'>, workspace: string
 export async function setMcp(db: Pick<SupabaseClient, 'rpc'>, product: string, on: boolean): Promise<boolean> {
   const { error } = await db.rpc('product_mcp_set', { p_product: product, p_on: on });
   return !error;
+}
+
+/** Sets the product's key, once, as the caller (product_set_key()); null when accepted, else why not. */
+export async function setKey(db: Pick<SupabaseClient, 'rpc'>, product: string, key: string): Promise<KeyRefusal | null> {
+  const { error } = await db.rpc('product_set_key', { p_product: product, p_key: key });
+  if (!error) return null;
+  if (/another product/i.test(error.message)) return 'taken';
+  if (/lowercase kebab-case/i.test(error.message)) return 'shape';
+  return 'refused';
 }
