@@ -414,6 +414,12 @@ const JobSchema = z.object({
   slicesTotal: z.number().int().nullable().optional(),
   /** The job it continues (PRD 2270): a `/omni:yolo-fix` queued once that job's answers were in; null for any other. */
   continues: IdSchema.nullable().optional(),
+  /** The job it resumes, which its runner lost (PRD 2809); null for any other job. */
+  resumes: IdSchema.nullable().optional(),
+  /** Which attempt of its chain it is, 1 to 3 (PRD 2809): 1 for a job someone sent. */
+  attempt: z.number().int().min(1).max(3).optional(),
+  /** Before it, no runner claims it: a resume's wait (PRD 2809); null for any other job. */
+  resumeAfter: z.string().nullable().optional(),
   /** Whom the API key that sent it said it acted for (PRD 2425); null when it said none, and for a person's job. */
   actingFor: z.string().nullable().optional(),
   /** The name of the API key that cancelled it (PRD 2425); null for a job no key cancelled. */

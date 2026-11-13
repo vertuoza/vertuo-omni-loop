@@ -634,6 +634,33 @@ describe('the Runners page\'s read', () => {
   });
 });
 
+// PRD 2809 s1: a job its runner lost queues its resume in the database (supabase/checks/runner_resume.sql proves it); the
+// page reads each job's attempt, the job a resume resumes and its wait, for the Lost · resuming rows to come.
+describe('a lost job and its resume, as the board reads them (PRD 2809)', () => {
+  const lost = () => jobRow({ line: '/omni:yolo 2803', status: 'failed', reason: 'runner lost', runner_id: SHARED, claimed_at: at(-600).toISOString(), running_at: at(-590).toISOString(), ended_at: at(-30).toISOString() });
+
+  it('carries a resume\'s attempt, the job it resumes and its wait', async () => {
+    const first = lost();
+    const resume = jobRow({ line: '/omni:yolo 2803', resumes: first.id, attempt: 2, resume_after: at(30).toISOString(), queued_at: at(-30).toISOString() });
+    const board = value(await world({ jobs: [first, resume] }).service.board(MO, WORKSPACE));
+    expect(board.jobs.find((j) => j.id === resume.id)).toMatchObject({ status: 'queued', resumes: first.id, attempt: 2, resumeAfter: at(30).toISOString() });
+    expect(board.jobs.find((j) => j.id === first.id)).toMatchObject({ status: 'failed', reason: 'runner lost', resumes: null, attempt: 1, resumeAfter: null });
+  });
+
+  it('reads a job someone sent as attempt 1, resuming nothing and waiting for nothing, though its row says none', async () => {
+    const sent = jobRow({ line: '/omni:wave 2803' });
+    const board = value(await world({ jobs: [sent] }).service.board(MO, WORKSPACE));
+    expect(board.jobs).toEqual([expect.objectContaining({ id: sent.id, resumes: null, attempt: 1, resumeAfter: null })]);
+  });
+
+  it('answers the runner that claims a resume as it answers any job: the same line, sent by the same person', async () => {
+    const first = lost();
+    const resume = jobRow({ line: '/omni:yolo 2803', resumes: first.id, attempt: 2, resume_after: at(-1).toISOString(), queued_at: at(-60).toISOString() });
+    const claimed = value(await world({ jobs: [first, resume] }).service.next(OLGA, SHARED));
+    expect(claimed).toMatchObject({ id: resume.id, line: '/omni:yolo 2803', sentBy: 'mo' });
+  });
+});
+
 // PRD 2175 s2: a job's last report says which claims its runner released, and why a release failed; a
 // job its runner lost takes that report after it ended, and nothing else.
 describe('a job\'s released claims (PRD 2175)', () => {
