@@ -102,7 +102,7 @@ Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Re
 Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · Omni App · Update the runner's kit · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
-health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
+health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged · Lost · resuming · went silent at · attempt · of 3 · after a loss · job · Resumed from the · save · branches · Started over: nothing was unsaved · files stayed on · Lost 3 times · Lost at · Keeps · until.
 
 ## Refusals
 

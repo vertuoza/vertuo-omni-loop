@@ -16,7 +16,7 @@ export function modelWords(model: string): string {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** An ISO time as `HH:MM`, UTC. */
-const clock = (iso: string): string => {
+export const clock = (iso: string): string => {
   const at = new Date(iso);
   return Number.isNaN(at.getTime()) ? iso : `${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())}`;
 };

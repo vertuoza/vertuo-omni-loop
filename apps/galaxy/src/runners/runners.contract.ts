@@ -646,7 +646,11 @@ export const PrdJobsSchema = z.object({ jobs: z.array(PrdJobSchema) });
 
 /** The Runners page's read: the workspace's runners, each with its health and its last hour of samples,
  * its jobs (queued and running first, then the last 50 that ended), and what the viewer may do there. */
-export type Board = { runners: Runner[]; jobs: Job[]; viewer: { id: string; owner: boolean; fleet: string | null } };
+export type Board = { runners: Runner[]; jobs: Job[]; viewer: { id: string; owner: boolean; fleet: string | null }; saves?: BoardSave[] };
+
+/** A job's save as the Runners page reads it (PRD 2809, s7), from its manifest: which job, the runner that made it by name, whether its
+ * bundle is in the bucket or stays on that runner, when it was made, until when a local one is kept, what it takes, and what it holds. */
+export type BoardSave = { job: string; runner: string; kind: 'portable' | 'local'; savedAt: string; keepUntil: string; bytes: number; branches: number; files: number };
 
 /** Why a call was refused, each with its status. */
 export const RUNNER_REFUSALS = { malformed: 400, 'signed-out': 401, forbidden: 403, missing: 404, conflict: 409, unavailable: 503, database: 500 } as const;
