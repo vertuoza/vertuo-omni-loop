@@ -278,7 +278,7 @@ before anything marks it ready:
 node .omni-loop/bin/omni.mjs hold <repo.slug>#<pr> --json
 ```
 
-It runs nothing of a provider and writes nothing. Read its last line, as the object's verdict:
+It runs nothing of a provider and writes nothing. Read the JSON object's `verdict.kind`:
 
 - **`clear`**, or `probe` once each hook it names was followed and passed (as `/omni:pr`'s Done row
   follows them): a step agent marks the PR ready through `/omni:pr`. Never mark it ready here.
