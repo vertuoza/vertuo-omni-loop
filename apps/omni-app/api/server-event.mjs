@@ -617,8 +617,8 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
       return storedObject(etag.kept);
     }
     const known = await stored((s) => s.budget(installation, resource));
-    const refused8 = refusal(known, priority, clock());
-    if (refused8) throw refused8;
+    const refused9 = refusal(known, priority, clock());
+    if (refused9) throw refused9;
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
     const answered = clock();
@@ -837,7 +837,8 @@ function rowsOf(schema, answer) {
 var SCHEDULES = Object.freeze([
   { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
   { kind: "escalation", periodMinutes: 60, maxTries: 3 },
-  { kind: "search-categorize", periodMinutes: 15, maxTries: 3 }
+  { kind: "search-categorize", periodMinutes: 15, maxTries: 3 },
+  { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 }
 ]);
 
 // apps/omni-app/src/jobs/ledger.ts
@@ -4574,16 +4575,16 @@ function compare(risky, accounts) {
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
   const accepted = /* @__PURE__ */ new Set();
-  const refused8 = /* @__PURE__ */ new Map();
+  const refused9 = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     const why = refusal2(entry);
     if (why === null) accepted.add(entryKey(entry));
-    else refused8.set(entryKey(entry), why);
+    else refused9.set(entryKey(entry), why);
   }
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change2) => accepted.has(entryKey(change2)));
   const unaccounted = risky.filter((change2) => !accepted.has(entryKey(change2))).map((change2) => {
-    const why = refused8.get(entryKey(change2));
+    const why = refused9.get(entryKey(change2));
     return why === void 0 ? change2 : { ...change2, refused: why };
   });
   const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
@@ -8595,14 +8596,14 @@ function relayFolder({
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   const moved = [];
-  const refused8 = [];
+  const refused9 = [];
   const taken = settledIds(ctx, outboxDir);
   for (const name of markdownFiles(join44(ctx.root, outboxDir))) taken.add(basename9(name, ".md"));
   for (const name of markdownFiles(dir)) {
     const from = join44(dir, name);
     const reason2 = itemRefusal({ laws, prd, file: `${outboxDir}/${name}`, name, text: readFileSync30(from, "utf8"), taken });
     if (reason2 !== null) {
-      refused8.push({ file: from, reason: reason2 });
+      refused9.push({ file: from, reason: reason2 });
       continue;
     }
     const to = `${outboxDir}/${name}`;
@@ -8617,14 +8618,14 @@ function relayFolder({
     const to = `${outboxDir}/${ACCOUNTS_DIR}/${name}`;
     const reason2 = accountRefusal({ prd, destination: join44(ctx.root, to), name: from, text: readFileSync30(from, "utf8") });
     if (reason2 !== null) {
-      refused8.push({ file: from, reason: reason2 });
+      refused9.push({ file: from, reason: reason2 });
       continue;
     }
     mkdirSync8(join44(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
     move(from, join44(ctx.root, to));
     moved.push({ from, to });
   }
-  return { moved, refused: refused8 };
+  return { moved, refused: refused9 };
 }
 
 // kit/lib/outbox/replies.ts
@@ -9158,14 +9159,14 @@ function serverOutboxStore({ ctx, connect, now }) {
       if (!isFolder(dir)) return null;
       const taken = new Set((await rows(product)).map((row) => row.item));
       const moved = [];
-      const refused8 = [];
+      const refused9 = [];
       for (const name of markdownFiles(dir)) {
         const from = join47(dir, name);
         const text17 = readFileSync33(from, "utf8");
         const id = name.slice(0, -".md".length);
         const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text17, taken });
         if (reason2 !== null) {
-          refused8.push({ file: from, reason: reason2 });
+          refused9.push({ file: from, reason: reason2 });
           continue;
         }
         await put2(product, text17, false);
@@ -9174,9 +9175,9 @@ function serverOutboxStore({ ctx, connect, now }) {
         moved.push({ from, to: refOf(product, id) });
       }
       for (const name of markdownFiles(join47(dir, ACCOUNTS_DIR))) {
-        refused8.push({ file: join47(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
+        refused9.push({ file: join47(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
       }
-      return { moved, refused: refused8 };
+      return { moved, refused: refused9 };
     },
     async gate(prd, { labels = [] }) {
       const product = productPrd(prd);
@@ -12325,8 +12326,8 @@ async function sayingBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
-    const refused8 = budgetRefusal(error);
-    if (refused8) log2(`outbox check of ${where} waits for the GitHub budget: ${refused8.message}`);
+    const refused9 = budgetRefusal(error);
+    if (refused9) log2(`outbox check of ${where} waits for the GitHub budget: ${refused9.message}`);
     throw error;
   }
 }
@@ -12925,8 +12926,8 @@ async function readTarget2({ octokitFor, log: log2 }, { installationId, prdId },
       log2(`server event: ${where} is left out: GitHub answers ${String(status)}, it is gone or the App cannot read it`);
       return GONE_PULL;
     }
-    const refused8 = refusalIn2(error);
-    if (refused8) log2(`server event: ${where} waits for the GitHub budget: ${refused8.message}`);
+    const refused9 = refusalIn2(error);
+    if (refused9) log2(`server event: ${where} waits for the GitHub budget: ${refused9.message}`);
     throw error;
   }
 }
@@ -14004,8 +14005,8 @@ function classificationSchema(summary2) {
       issue(["place"], `place "${reply.place}" is not "${PRODUCT_PLACE}" nor an existing domain \u2014 one of: ${places.join(", ")}`);
     }
     if (reply.kind === "rule") {
-      const refused8 = servesRefusal(reply, principles);
-      if (refused8) issue(["serves"], refused8);
+      const refused9 = servesRefusal(reply, principles);
+      if (refused9) issue(["serves"], refused9);
     }
     if (reply.kind === "covered") {
       const record = reply.covers.match(RECORD_ID);
@@ -17406,11 +17407,11 @@ var afterMerge = Object.freeze({
   },
   describe(facts) {
     if (!facts) return null;
-    const refused8 = (read) => facts.unread.find((entry) => entry.read === read);
-    const lines2 = [...bugLines(facts, refused8("bugs")), ...megaLine(facts)];
+    const refused9 = (read) => facts.unread.find((entry) => entry.read === read);
+    const lines2 = [...bugLines(facts, refused9("bugs")), ...megaLine(facts)];
     const fixUrl = new Map(facts.fixes.map((fix) => [fix.number, fix.url]));
     for (const bug of facts.bugs) lines2.push(bugLine(bug, fixUrl));
-    const fixesUnread = refused8("fixes");
+    const fixesUnread = refused9("fixes");
     if (fixesUnread) lines2.push(`- The pull requests merged after the merge were not read (GitHub answered ${fixesUnread.status}), so no fix is counted.`);
     lines2.push(...checkLines(facts.checks));
     for (const entry of facts.unread.filter((item) => item.read === "jobs")) {
@@ -20175,9 +20176,103 @@ function retroFailureHook({ octokitFor }) {
   return failureCommentHook(octokitFor, { schema: RetroPayloadSchema, marker: FAILURE_MARKER2, what: "The retro" });
 }
 
+// apps/omni-app/src/checkpoints/store.ts
+import { z as z78 } from "zod";
+var CHECKPOINT_BUCKET = "runner-checkpoints";
+var KeptRowSchema = z78.object({
+  id: z78.string().min(1),
+  job_id: z78.string().min(1),
+  storage_path: z78.string().min(1),
+  created_at: z78.string().min(1),
+  keep_until: z78.string().min(1)
+});
+var ResumeRowSchema = z78.object({ id: z78.string().min(1), resumes: z78.string().min(1) });
+var StatusRowSchema = z78.object({ id: z78.string().min(1), status: z78.string().min(1) });
+var OVER = ["done", "failed", "cancelled"];
+var MAX_RESUMES = 2;
+function refused7(error) {
+  return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+}
+function checkpointStore(connection) {
+  const db = serviceDb(connection);
+  return {
+    kept: async (offset, limit) => {
+      const rows = rowsOf(
+        KeptRowSchema,
+        await db.from("runner_checkpoints").select("id, job_id, storage_path, created_at, keep_until").eq("kind", "portable").is("deleted_at", null).not("storage_path", "is", null).order("created_at").order("id").range(offset, offset + limit - 1)
+      );
+      return rows.map((row) => ({ id: row.id, jobId: row.job_id, path: row.storage_path, createdAt: row.created_at, keepUntil: row.keep_until }));
+    },
+    ended: async (jobIds) => {
+      const last = new Map(jobIds.map((id) => [id, id]));
+      for (let step = 0; step < MAX_RESUMES; step += 1) {
+        const tips2 = [...new Set(last.values())];
+        if (tips2.length === 0) break;
+        const next = rowsOf(ResumeRowSchema, await db.from("runner_jobs").select("id, resumes").in("resumes", tips2));
+        if (next.length === 0) break;
+        const resumeOf = new Map(next.map((row) => [row.resumes, row.id]));
+        for (const [id, tip] of last) last.set(id, resumeOf.get(tip) ?? tip);
+      }
+      const tips = [...new Set(last.values())];
+      if (tips.length === 0) return /* @__PURE__ */ new Set();
+      const over = new Set(
+        rowsOf(StatusRowSchema, await db.from("runner_jobs").select("id, status").in("id", tips)).filter((row) => OVER.includes(row.status)).map((row) => row.id)
+      );
+      return new Set(jobIds.filter((id) => over.has(last.get(id) ?? id)));
+    },
+    remove: async (paths) => {
+      if (paths.length === 0) return;
+      const { error } = await db.storage.from(CHECKPOINT_BUCKET).remove([...paths]);
+      if (error) throw new Error(`the bucket refused: ${error.message}`);
+    },
+    stamp: async (ids, at4) => {
+      if (ids.length === 0) return;
+      const { error } = await db.from("runner_checkpoints").update({ deleted_at: at4.toISOString() }).in("id", [...ids]);
+      if (error) throw refused7(error);
+    }
+  };
+}
+
+// apps/omni-app/src/jobs/checkpoints-forget.ts
+var CHECKPOINTS_FORGET_KIND = "checkpoints-forget";
+var KEEP_MS = 7 * 24 * 60 * 60 * 1e3;
+var PAGE2 = 200;
+var MAX_PAGES3 = 10;
+function tooOld({ createdAt, keepUntil }, now) {
+  return now - Date.parse(createdAt) >= KEEP_MS || Date.parse(keepUntil) <= now;
+}
+function checkpointsForgetHandler({
+  store,
+  clock = Date.now,
+  log: log2 = noteTo("checkpoints-forget")
+}) {
+  return async () => {
+    const now = clock();
+    let forgotten = 0;
+    let offset = 0;
+    for (let page = 0; page < MAX_PAGES3; page += 1) {
+      const kept3 = await store.kept(offset, PAGE2);
+      const ended = await store.ended([...new Set(kept3.map((save) => save.jobId))]);
+      const doomed = kept3.filter((save) => ended.has(save.jobId) || tooOld(save, now));
+      if (doomed.length > 0) {
+        await store.remove(doomed.map((save) => save.path));
+        await store.stamp(
+          doomed.map((save) => save.id),
+          new Date(now)
+        );
+        forgotten += doomed.length;
+      }
+      offset += kept3.length - doomed.length;
+      if (kept3.length < PAGE2) break;
+    }
+    log2(`checkpoints forget: ${String(forgotten)} bundles deleted`);
+    return { outcome: "done" };
+  };
+}
+
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z78 } from "zod";
+import { z as z79 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -20320,9 +20415,9 @@ function knowledgeEntries(sources) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS = 6e4;
-var EmbedPayloadSchema = z78.object({
-  repository: z78.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z78.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z79.object({
+  repository: z79.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z79.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -20392,7 +20487,7 @@ function payloadOf2(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z80 } from "zod";
+import { z as z81 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash6 } from "node:crypto";
@@ -20427,12 +20522,12 @@ function packFiles(read) {
 import { mkdtempSync as mkdtempSync13, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync17, statSync as statSync16 } from "node:fs";
 import { tmpdir as tmpdir13 } from "node:os";
 import { join as join69 } from "node:path";
-import { z as z79 } from "zod";
-var PullFileSchema = z79.looseObject({ filename: z79.string().min(1), previous_filename: z79.string().nullish() });
+import { z as z80 } from "zod";
+var PullFileSchema = z80.looseObject({ filename: z80.string().min(1), previous_filename: z80.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z79.array(PullFileSchema).parse(data);
+    return z80.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -20512,12 +20607,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z80.object({
-  installationId: z80.number(),
-  owner: z80.string().min(1),
-  repo: z80.string().min(1),
-  sha: z80.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z80.string().min(1),
+var PackPayloadSchema = z81.object({
+  installationId: z81.number(),
+  owner: z81.string().min(1),
+  repo: z81.string().min(1),
+  sha: z81.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z81.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packHandler({
@@ -20659,9 +20754,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z81 } from "zod";
+import { z as z82 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z81.looseObject({ category: z81.string().nullable() });
+var ReplySchema2 = z82.looseObject({ category: z82.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -20684,12 +20779,12 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z82 } from "zod";
-var UngroupedRowSchema = z82.object({ id: z82.string().min(1), product_id: z82.string().min(1), workspace_id: z82.string().min(1), query: z82.string().min(1) });
-var NearestRowSchema = z82.object({ group_id: z82.string().min(1), cosine: z82.number() });
-var GroupIdSchema = z82.object({ id: z82.string().min(1) });
+import { z as z83 } from "zod";
+var UngroupedRowSchema = z83.object({ id: z83.string().min(1), product_id: z83.string().min(1), workspace_id: z83.string().min(1), query: z83.string().min(1) });
+var NearestRowSchema = z83.object({ group_id: z83.string().min(1), cosine: z83.number() });
+var GroupIdSchema = z83.object({ id: z83.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
-function refused7(error) {
+function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
 function searchStore(connection) {
@@ -20704,22 +20799,22 @@ function searchStore(connection) {
     },
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
-      if (error) throw refused7(error);
-      const [row] = z82.array(NearestRowSchema).parse(data);
+      if (error) throw refused8(error);
+      const [row] = z83.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
       const answer = await db.from("mcp_search_groups").insert({ product_id: productId, workspace_id: workspaceId, first_search_id: firstSearchId, question, model, embedding: vectorText(vector) }).select("id").single();
-      if (answer.error) throw refused7(answer.error);
+      if (answer.error) throw refused8(answer.error);
       return GroupIdSchema.parse(answer.data).id;
     },
     join: async (searchId, groupId) => {
       const { error } = await db.from("mcp_search_log").update({ group_id: groupId }).eq("id", searchId);
-      if (error) throw refused7(error);
+      if (error) throw refused8(error);
     },
     setCategory: async (searchId, category) => {
       const { error } = await db.from("mcp_search_log").update({ category }).eq("id", searchId);
-      if (error) throw refused7(error);
+      if (error) throw refused8(error);
     }
   };
 }
@@ -20783,6 +20878,7 @@ function liveWorkers(env, octokitFor) {
         embed: embedClient(supabase),
         categorize: galaxyCategorizer({ url: categorizeUrl(galaxyUrl), secret: env.searchCategorize?.secret })
       }),
+      [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),

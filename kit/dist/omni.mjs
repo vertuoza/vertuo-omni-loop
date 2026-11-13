@@ -631,8 +631,8 @@ var require_Node = __commonJS({
         };
         const res = toJS.toJS(this, "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count9, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count9);
+          for (const { count: count10, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count10);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
     };
@@ -741,13 +741,13 @@ var require_Alias = __commonJS({
         const anchor2 = anchors2 && source2 && anchors2.get(source2);
         return anchor2 ? anchor2.count * anchor2.aliasCount : 0;
       } else if (identity.isCollection(node3)) {
-        let count9 = 0;
+        let count10 = 0;
         for (const item2 of node3.items) {
           const c = getAliasCount(doc, item2, anchors2);
-          if (c > count9)
-            count9 = c;
+          if (c > count10)
+            count10 = c;
         }
-        return count9;
+        return count10;
       } else if (identity.isPair(node3)) {
         const kc = getAliasCount(doc, node3.key, anchors2);
         const vc = getAliasCount(doc, node3.value, anchors2);
@@ -3738,8 +3738,8 @@ var require_Document = __commonJS({
         };
         const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count: count9, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count9);
+          for (const { count: count10, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count10);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
       /**
@@ -3817,12 +3817,12 @@ var require_errors = __commonJS({
         lineStr = prev + lineStr;
       }
       if (/[^ ]/.test(lineStr)) {
-        let count9 = 1;
+        let count10 = 1;
         const end3 = error62.linePos[1];
         if (end3?.line === line2 && end3.col > col) {
-          count9 = Math.max(1, Math.min(end3.col - col, 80 - ci2));
+          count10 = Math.max(1, Math.min(end3.col - col, 80 - ci2));
         }
-        const pointer = " ".repeat(ci2) + "^".repeat(count9);
+        const pointer = " ".repeat(ci2) + "^".repeat(count10);
         error62.message += `:
 
 ${lineStr}
@@ -8696,14 +8696,14 @@ function codePointLength(str) {
   const units = str.length;
   if (!highSurrogate.test(str))
     return units;
-  let count9 = units;
+  let count10 = units;
   for (let i = 0; i < units - 1; i++) {
     if ((str.charCodeAt(i) & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
-      count9--;
+      count10--;
       i++;
     }
   }
-  return count9;
+  return count10;
 }
 function getLengthableOrigin(input2) {
   if (Array.isArray(input2))
@@ -13076,8 +13076,8 @@ function az_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/be.js
 init_define_OMNI_BUNDLE();
-function getBelarusianPlural(count9, one, few, many) {
-  const absCount = Math.abs(count9);
+function getBelarusianPlural(count10, one, few, many) {
+  const absCount = Math.abs(count10);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -15745,8 +15745,8 @@ function hu_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/hy.js
 init_define_OMNI_BUNDLE();
-function getArmenianPlural(count9, one, many) {
-  return Math.abs(count9) === 1 ? one : many;
+function getArmenianPlural(count10, one, many) {
+  return Math.abs(count10) === 1 ? one : many;
 }
 function withDefiniteArticle(word2) {
   if (!word2)
@@ -18509,8 +18509,8 @@ function ro_default() {
 
 // node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/ru.js
 init_define_OMNI_BUNDLE();
-function getRussianPlural(count9, one, few, many) {
-  const absCount = Math.abs(count9);
+function getRussianPlural(count10, one, few, many) {
+  const absCount = Math.abs(count10);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -29415,9 +29415,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     return { tokens: kept2, reply: fresh };
   }
   async function currentTokens() {
-    const held2 = tokens2.read(host);
-    if (tokens2.omniToken && (!held2?.access_token || stale(held2, now2()))) return (await trade(tokens2.omniToken)).tokens;
-    return held2;
+    const held3 = tokens2.read(host);
+    if (tokens2.omniToken && (!held3?.access_token || stale(held3, now2()))) return (await trade(tokens2.omniToken)).tokens;
+    return held3;
   }
   async function authorized(method, path, options) {
     const current = await currentTokens();
@@ -29729,12 +29729,12 @@ function readAll(file2) {
 var omniTokenTail = (token) => token.slice(-4);
 var NOT_TRADED_YET = { access_token: "", expires_at: 0 };
 function omniTokenStore(token) {
-  const held2 = /* @__PURE__ */ new Map();
+  const held3 = /* @__PURE__ */ new Map();
   return {
     omniToken: token,
-    read: (host) => held2.get(host) ?? NOT_TRADED_YET,
+    read: (host) => held3.get(host) ?? NOT_TRADED_YET,
     write(host, tokens2) {
-      held2.set(host, tokens2);
+      held3.set(host, tokens2);
     }
   };
 }
@@ -30522,9 +30522,9 @@ function registerCounts({ ctx }) {
     ...knowledge2.crossDomainFiles.length > 0 ? [crossDomainDir(ctx)] : []
   ];
   return folders.map((folder) => {
-    const held2 = knowledge2.entries.filter((entry3) => entry3.file.startsWith(`${folder}/`));
-    const proposals = held2.filter((entry3) => entry3.proposed !== null).length;
-    return { folder, laws: held2.length - proposals, proposals };
+    const held3 = knowledge2.entries.filter((entry3) => entry3.file.startsWith(`${folder}/`));
+    const proposals = held3.filter((entry3) => entry3.proposed !== null).length;
+    return { folder, laws: held3.length - proposals, proposals };
   });
 }
 function resolveId(id, { ctx }) {
@@ -33987,10 +33987,10 @@ function formatOutboxPrComment({
   const facts2 = { numberById, roundMarkers, banter };
   const lines4 = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
-    const count9 = sorted.length;
+    const count10 = sorted.length;
     const example = exampleNumber(sorted, numberById);
     lines4.push(
-      `**${count9} question${count9 === 1 ? "" : "s"} need${count9 === 1 ? "s" : ""} your decision**`,
+      `**${count10} question${count10 === 1 ? "" : "s"} need${count10 === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
       "",
@@ -34118,8 +34118,8 @@ function countsByRank(items) {
 function slackEscape(text18) {
   return text18.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
-function plural2(count9, singular, pluralForm = `${singular}s`) {
-  return `${count9} ${count9 === 1 ? singular : pluralForm}`;
+function plural2(count10, singular, pluralForm = `${singular}s`) {
+  return `${count10} ${count10 === 1 ? singular : pluralForm}`;
 }
 var SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
 function slackOwner({
@@ -34152,7 +34152,7 @@ function slackLine({
   const name3 = cleanTitle ? `PRD #${prd2} \xB7 ${slackEscape(cleanTitle)}` : `PRD #${prd2}`;
   const who2 = ownerText(owner);
   const head = who2 ? `*${name3}* \u2014 owner ${who2}` : `*${name3}*`;
-  const waiting = Object.values(counts2).reduce((sum, count9) => sum + count9, 0);
+  const waiting = Object.values(counts2).reduce((sum, count10) => sum + count10, 0);
   const parts = [];
   if (waiting > 0) {
     parts.push(`${waiting} question${waiting === 1 ? " needs" : "s need"} a decision`);
@@ -34408,7 +34408,7 @@ function planFor({ comments: all, items, adopted, markers }) {
   const { numbered, approved } = rawAnswers(all, markers, byNumber2, open3);
   const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
   const settle4 = [];
-  const held2 = [];
+  const held3 = [];
   for (const { number: number5, item: item2, adoptedEntry } of questions2) {
     const raw = numbered.get(number5) ?? approved.get(number5);
     if (!raw) continue;
@@ -34416,13 +34416,13 @@ function planFor({ comments: all, items, adopted, markers }) {
     if (judgement.verdict === null) {
       const lastRound = reaskedAt.get(number5);
       const due2 = lastRound === void 0 || time3(answer.approvedAt) > lastRound;
-      held2.push({ number: number5, item: item2, answer, due: due2 });
+      held3.push({ number: number5, item: item2, answer, due: due2 });
       continue;
     }
     if (adoptedEntry && judgement.verdict !== "drifted") continue;
     settle4.push({ number: number5, item: item2, answer, judgement, adoptedEntry });
   }
-  return { settle: settle4, held: held2, round: roundOf(held2, highestRound) };
+  return { settle: settle4, held: held3, round: roundOf(held3, highestRound) };
 }
 function rawAnswers(all, markers, byNumber2, open3) {
   const numbered = /* @__PURE__ */ new Map();
@@ -34466,8 +34466,8 @@ function readAnswer(raw, item2) {
   });
   return { answer, judgement };
 }
-function roundOf(held2, highestRound) {
-  const dueQuestions = held2.filter((question) => question.due);
+function roundOf(held3, highestRound) {
+  const dueQuestions = held3.filter((question) => question.due);
   if (dueQuestions.length === 0) return null;
   return {
     number: Math.max(highestRound, 1) + 1,
@@ -34954,15 +34954,15 @@ function writeTokenFile(file2, content) {
   renameSync2(next2, file2);
 }
 function saveGithubToken(file2, runner2, grant, page2) {
-  const held2 = readGithubToken(file2);
-  const same2 = held2 !== null && held2.runner === runner2;
-  const past3 = same2 ? held2.tokens.filter((entry3) => entry3.token !== grant.token) : [];
-  const asked = page2 ?? (same2 ? held2.page : void 0);
+  const held3 = readGithubToken(file2);
+  const same2 = held3 !== null && held3.runner === runner2;
+  const past3 = same2 ? held3.tokens.filter((entry3) => entry3.token !== grant.token) : [];
+  const asked = page2 ?? (same2 ? held3.page : void 0);
   writeTokenFile(file2, { runner: runner2, tokens: [...past3, { token: grant.token, expiresAt: grant.expiresAt }], ...asked === void 0 ? {} : { page: asked } });
 }
 function noteFailedRefresh(file2, runner2, retry) {
-  const held2 = readGithubToken(file2);
-  if (held2 !== null && held2.runner === runner2) writeTokenFile(file2, { ...held2, retry });
+  const held3 = readGithubToken(file2);
+  if (held3 !== null && held3.runner === runner2) writeTokenFile(file2, { ...held3, retry });
 }
 function forgetGithubToken(file2) {
   try {
@@ -34974,11 +34974,11 @@ function ownJobToken(job2, home) {
   if (job2 === null) return { refusal: "this session is not a runner job." };
   if (job2.runner === null) return { refusal: "this runner job names no runner." };
   const file2 = githubTokenFile(home, job2.job);
-  const held2 = file2 === null ? null : readGithubToken(file2);
-  const current = held2?.tokens.at(-1);
-  if (file2 === null || held2 === null || current === void 0) return { refusal: `job ${job2.job} does not run as a GitHub App.` };
-  if (held2.runner !== job2.runner) return { refusal: `the token of job ${job2.job} is another runner's.` };
-  return { file: file2, runner: job2.runner, job: job2.job, held: held2, current };
+  const held3 = file2 === null ? null : readGithubToken(file2);
+  const current = held3?.tokens.at(-1);
+  if (file2 === null || held3 === null || current === void 0) return { refusal: `job ${job2.job} does not run as a GitHub App.` };
+  if (held3.runner !== job2.runner) return { refusal: `the token of job ${job2.job} is another runner's.` };
+  return { file: file2, runner: job2.runner, job: job2.job, held: held3, current };
 }
 function jobGithubToken(job2, home) {
   const own2 = ownJobToken(job2, home);
@@ -35005,8 +35005,8 @@ function maskTokens(text18, tokens2) {
 }
 function jobTokens(home, job2) {
   const file2 = githubTokenFile(home, job2);
-  const held2 = file2 === null ? null : readGithubToken(file2);
-  return held2 === null ? [] : held2.tokens.map((entry3) => entry3.token);
+  const held3 = file2 === null ? null : readGithubToken(file2);
+  return held3 === null ? [] : held3.tokens.map((entry3) => entry3.token);
 }
 
 // kit/bin/schema.ts
@@ -35436,8 +35436,8 @@ function areasOf(lines4, scale) {
   faults.push(...idFaults(areas.map((area2) => area2.id)));
   const allowed = scale ? AREA_ROWS[scale] : void 0;
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {
-    const count9 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
-    faults.push(`Areas: ${count9}; a ${scale} concept has ${allowed.words}.`);
+    const count10 = areas.length === 0 ? "no area" : `${areas.length} area${areas.length === 1 ? "" : "s"}`;
+    faults.push(`Areas: ${count10}; a ${scale} concept has ${allowed.words}.`);
   }
   return { areas, faults };
 }
@@ -35510,8 +35510,8 @@ function citationProblems(citations, field3) {
 }
 function lineProblems(text18, field3) {
   if (!isText2(text18)) return [`${field3} must be a sentence.`];
-  const count9 = countSentences2(text18);
-  return count9 > MAX_SENTENCES ? [`${field3} holds ${count9} sentences; two at most.`] : [];
+  const count10 = countSentences2(text18);
+  return count10 > MAX_SENTENCES ? [`${field3} holds ${count10} sentences; two at most.`] : [];
 }
 function personaProblems(persona2, i) {
   const at2 = `personas[${i}]`;
@@ -38816,7 +38816,7 @@ var NO_COMMIT = /^[—–-]$/;
 function duplicateIds(slices) {
   const counts2 = /* @__PURE__ */ new Map();
   for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
-  return [...counts2.entries()].filter(([, count9]) => count9 > 1).map(([id]) => id);
+  return [...counts2.entries()].filter(([, count10]) => count10 > 1).map(([id]) => id);
 }
 function blockedByViolations(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
@@ -39439,11 +39439,11 @@ async function buildBoard(prd2, { ctx, reads: reads2, repo: repoFlag, now: now2 
     const inlineDone2 = inlineSlicesBuilt(ctx, exec, landings.map(({ branch }) => branch));
     return { slices, result: board2(await readPrs(repo, landed, reader), { landings: landed, inlineDone: inlineDone2 }), unreadable: [], landings };
   }
-  const chainOf = (name3) => landed === null ? null : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name3 }).map(
+  const chainOf2 = (name3) => landed === null ? null : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name3 }).map(
     (step3) => ({ landing: step3.planLanding, name: step3.name, branch: step3.branch, repo: name3 })
   );
   const { inlineBelow } = ctx.config.wave;
-  const across = await readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader, withFeature: inlineBelow > 0 });
+  const across = await readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf: chainOf2, reader, withFeature: inlineBelow > 0 });
   const chains = landed === null ? null : across.chains;
   const inlineDone = inlineSlicesInTargets({
     slices,
@@ -39478,10 +39478,10 @@ async function readPrs(slug, chain, reader, { withFeature = false } = {}) {
     )
   );
 }
-async function readAcrossRepos(slices, { known: known2, chainOf, reader, withFeature }) {
+async function readAcrossRepos(slices, { known: known2, chainOf: chainOf2, reader, withFeature }) {
   const out = { prs: [], repos: {}, unreadable: [], chains: [] };
   for (const name3 of new Set(slices.map((slice) => slice.repo))) {
-    const chain = chainOf(name3);
+    const chain = chainOf2(name3);
     out.chains.push(...chain ?? []);
     const key2 = String(name3);
     const slug = (typeof name3 === "string" ? known2.get(name3) : void 0) ?? null;
@@ -40156,14 +40156,14 @@ function readDecisions({
   for (const record2 of records) byNumber2.set(record2.number, [...byNumber2.get(record2.number) ?? [], record2.file]);
   const shared2 = [...byNumber2].filter(([, files]) => files.length > 1).map(([number5, files]) => ({ number: number5, files }));
   const highest = records.reduce((max, record2) => Math.max(max, Number(record2.number)), 0);
-  const held2 = new Set(records.map((record2) => record2.number));
+  const held3 = new Set(records.map((record2) => record2.number));
   const inherited = [];
   if (ctx.config) {
     for (const copy of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
       const own2 = readFolder(ctx.root, copy.ctx.layout.adrDir.replace(/\/+$/, ""), copy.level);
-      const taken = new Set(held2);
+      const taken = new Set(held3);
       for (const record2 of own2) if (!taken.has(record2.number)) inherited.push(record2);
-      for (const record2 of own2) held2.add(record2.number);
+      for (const record2 of own2) held3.add(record2.number);
     }
   }
   return { dir, records: [...records, ...inherited], shared: shared2, next: String(highest + 1).padStart(4, "0") };
@@ -40383,8 +40383,8 @@ function decideSubPrRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
   const actions = threadActions(state.threads);
   if (actions.length > 0) return { mode: "act", actions };
-  const held2 = state.threads.filter((thread) => thread.verdict === "asked").map((thread) => thread.id);
-  return held2.length > 0 ? { mode: "hold", actions: [], held: held2 } : { mode: "clear", actions: [] };
+  const held3 = state.threads.filter((thread) => thread.verdict === "asked").map((thread) => thread.id);
+  return held3.length > 0 ? { mode: "hold", actions: [], held: held3 } : { mode: "clear", actions: [] };
 }
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
@@ -43577,14 +43577,14 @@ function lzw(indices, minCode) {
   const end3 = clear + 1;
   const bytes2 = [];
   let buffer = 0;
-  let held2 = 0;
+  let held3 = 0;
   const emit = (code, size2) => {
-    buffer |= code << held2;
-    held2 += size2;
-    while (held2 >= 8) {
+    buffer |= code << held3;
+    held3 += size2;
+    while (held3 >= 8) {
       bytes2.push(buffer & 255);
       buffer >>>= 8;
-      held2 -= 8;
+      held3 -= 8;
     }
   };
   let size = minCode + 1;
@@ -43615,7 +43615,7 @@ function lzw(indices, minCode) {
   }
   emit(prefix, size);
   emit(end3, size);
-  if (held2 > 0) bytes2.push(buffer & 255);
+  if (held3 > 0) bytes2.push(buffer & 255);
   return bytes2;
 }
 function subBlocks(bytes2) {
@@ -44064,9 +44064,9 @@ async function pushProduct(rest, io) {
     seq = bugSeqArg(args.key, args.bug ?? "");
     if (seq === null) throw usageError(`omni bug push: --bug "${args.bug}" is not a bug of product ${args.key} (as 74 or ${args.key}-B74).`);
   }
-  const sent = await pushProductBug({ key: args.key, seq, repo, graded, askUrl: askUrl2, client });
-  if (!sent.ok) return refuse(io.stderr, sent.line);
-  println(io.stdout, bugPushedLines(sent.pushed));
+  const sent2 = await pushProductBug({ key: args.key, seq, repo, graded, askUrl: askUrl2, client });
+  if (!sent2.ok) return refuse(io.stderr, sent2.line);
+  println(io.stdout, bugPushedLines(sent2.pushed));
   return 0;
 }
 var bug = {
@@ -44385,8 +44385,8 @@ var JobsSchema = external_exports.object({
 });
 function minutes(value) {
   if (value === void 0) return DEFAULT_WAIT;
-  const count9 = Number(value);
-  if (Number.isFinite(count9) && count9 >= 0) return count9;
+  const count10 = Number(value);
+  if (Number.isFinite(count10) && count10 >= 0) return count10;
   throw usageError(`omni bug ci: --wait ${value} is not a number of minutes.`);
 }
 function askOf2(args) {
@@ -44564,7 +44564,7 @@ function stateViolation(section7) {
   if (STATES2.has(section7.state)) return null;
   return `${placeOf2(section7)} has data-state "${section7.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
 }
-var plural3 = (count9, one, many) => `${count9} ${count9 === 1 ? one : many}`;
+var plural3 = (count10, one, many) => `${count10} ${count10 === 1 ? one : many}`;
 function gradeBeforeAfter({ file: file2, html, prd: prd2 }) {
   const read3 = { marked: false, tabs: /* @__PURE__ */ new Set(), sections: [], diagrams: 0, loads: [] };
   walk(parseHtml(html), { service: null, tab: null }, read3);
@@ -44786,8 +44786,8 @@ function inboxAvoidWarnings({ ctx }) {
     if (!existsSync44(join65(ctx.root, file2))) continue;
     const text18 = readRepoFile(ctx, file2);
     for (const { word: word2, pattern } of patterns) {
-      const count9 = text18.match(pattern)?.length ?? 0;
-      if (count9 > 0) lines4.push(`${file2}: "${word2}" \xD7${count9} \u2192 say ${says.get(word2) ?? word2}`);
+      const count10 = text18.match(pattern)?.length ?? 0;
+      if (count10 > 0) lines4.push(`${file2}: "${word2}" \xD7${count10} \u2192 say ${says.get(word2) ?? word2}`);
     }
   }
   return lines4;
@@ -45071,9 +45071,9 @@ function headingAnchors(text18) {
     const match = !fenced && line2.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
     const base = (match[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
-    const count9 = seen.get(base) ?? 0;
-    seen.set(base, count9 + 1);
-    anchors.add(count9 === 0 ? base : `${base}-${count9}`);
+    const count10 = seen.get(base) ?? 0;
+    seen.set(base, count10 + 1);
+    anchors.add(count10 === 0 ? base : `${base}-${count10}`);
   }
   return anchors;
 }
@@ -45474,8 +45474,8 @@ async function verifyServedLegal({ ctx, entries: entries4, cwd, exec, reach: rea
   }
 }
 function judged2(read3, { served, laws: laws2, repo }) {
-  const held2 = new Set(read3.legal.map(({ id }) => id));
-  const legal = served.filter(({ id }) => !held2.has(id)).map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, which product ${read3.product} does not hold.`);
+  const held3 = new Set(read3.legal.map(({ id }) => id));
+  const legal = served.filter(({ id }) => !held3.has(id)).map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, which product ${read3.product} does not hold.`);
   const business2 = verifyBusinessLaws(laws2, { repo, domains: read3.domains, glossary: read3.glossary, lawHome: read3.lawHome });
   return { violations: [...legal, ...business2.violations], notes: business2.notes };
 }
@@ -46511,24 +46511,24 @@ function report3(stdout, title, violations, passLine) {
 }
 function checkInbox({ ctx, stdout }) {
   const violations = findInboxViolations({ ctx });
-  const count9 = ctx.layout.specFiles().length;
+  const count10 = ctx.layout.specFiles().length;
   const green2 = report3(
     stdout,
     "check inbox \u2014 an inbox file does not hold what it claims:",
     violations,
-    `check inbox \u2014 ${count9} inbox file(s), all well-formed.`
+    `check inbox \u2014 ${count10} inbox file(s), all well-formed.`
   );
   for (const warning of inboxAvoidWarnings({ ctx })) println(stdout, warning);
   return green2;
 }
 function checkOutbox({ ctx, stdout }) {
   const violations = findOutboxViolations({ ctx });
-  const count9 = outboxItemFiles({ ctx }).length;
+  const count10 = outboxItemFiles({ ctx }).length;
   return report3(
     stdout,
     "check outbox \u2014 an outbox item does not hold what it claims:",
     violations,
-    `check outbox \u2014 ${count9} open item(s), all well-formed.`
+    `check outbox \u2014 ${count10} open item(s), all well-formed.`
   );
 }
 async function checkKnowledge({ ctx, stdout, stderr, exec }, { cwd, reach: reach7 }) {
@@ -46548,14 +46548,14 @@ async function checkKnowledge({ ctx, stdout, stderr, exec }, { cwd, reach: reach
   const knowledge2 = readKnowledge({ ctx });
   const legal = await verifyServedLegal({ ctx, entries: knowledge2.entries, cwd, exec, reach: reach7 });
   for (const note of legal.notes) println(stdout, note);
-  const count9 = (kind2) => knowledge2.entries.filter((entry3) => entry3.kind === kind2).length;
+  const count10 = (kind2) => knowledge2.entries.filter((entry3) => entry3.kind === kind2).length;
   const lawCount = readBusinessLaws({ ctx }).length;
   const business2 = lawCount === 0 ? "" : `; ${lawCount} business law(s)`;
   return report3(
     stdout,
     title,
     [...violations, ...legal.violations],
-    `check knowledge \u2014 ${count9("principle")} principle(s), ${count9("rule")} rule(s), ${count9("invariant")} invariant(s), ${count9("contract")} contract(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed${business2}.`
+    `check knowledge \u2014 ${count10("principle")} principle(s), ${count10("rule")} rule(s), ${count10("invariant")} invariant(s), ${count10("contract")} contract(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed${business2}.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
@@ -46566,7 +46566,7 @@ function checkKb({ ctx, stdout, stderr, exec }) {
   const warnings = [...own2.warnings, ...copies.warnings];
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
   const { forms } = own2;
-  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count9]) => count9 > 0).map(([state, count9]) => `${count9} ${state}`);
+  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count10]) => count10 > 0).map(([state, count10]) => `${count10} ${state}`);
   const copied = copies.copies === 0 ? "" : `; ${copies.copies} imported ${copies.copies === 1 ? "copy" : "copies"} checked`;
   return report3(
     stdout,
@@ -47783,8 +47783,8 @@ function summarize2(items, { commits = null, app = false } = {}) {
     prdIssues,
     byTheApp: app ? byTheApp : null,
     commits: commits === null ? null : commits.length,
-    byRepo: tally(counted5, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count9]) => ({ repo, count: count9 })),
-    byMonth: tally(counted5, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count9]) => ({ month, count: count9 }))
+    byRepo: tally(counted5, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count10]) => ({ repo, count: count10 })),
+    byMonth: tally(counted5, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count10]) => ({ month, count: count10 }))
   };
 }
 
@@ -47957,7 +47957,7 @@ function cell(text18, width, gap = 1) {
 }
 var joined2 = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
 var shortName8 = (repo) => repo.slice(repo.indexOf("/") + 1);
-var counted = (count9, one, many) => `${count9} ${count9 === 1 ? one : many}`;
+var counted = (count10, one, many) => `${count10} ${count10 === 1 ? one : many}`;
 var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name: name3, scope, since, summary: summary2 }) {
   const { prs, prdIssues, byTheApp, commits, byRepo, byMonth } = summary2;
@@ -47975,8 +47975,8 @@ function creditsReport({ name: name3, scope, since, summary: summary2 }) {
   }
   if (commits !== null) lines4.push(`Co-authored commits on default branches: ${commits}`);
   lines4.push(
-    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count9 }) => `${shortName8(repo)} ${count9}`)),
-    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count9 }) => `${month} ${count9}`))
+    cell("By repo", LABEL) + joined2(byRepo.map(({ repo, count: count10 }) => `${shortName8(repo)} ${count10}`)),
+    cell("By month", LABEL) + joined2(byMonth.map(({ month, count: count10 }) => `${month} ${count10}`))
   );
   return lines4;
 }
@@ -48351,7 +48351,7 @@ function countWords(text18) {
 }
 var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
 var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
-var wordsOf = (count9) => `${count9} ${count9 === 1 ? "word" : "words"}`;
+var wordsOf = (count10) => `${count10} ${count10 === 1 ? "word" : "words"}`;
 var squash = (text18) => text18.replace(/\s+/g, " ").trim();
 function textOf4(node3, spaced) {
   if (node3.kind === "text") return node3.text;
@@ -49403,27 +49403,27 @@ function holdHealed(where) {
   const before2 = baseFiles.map((path) => ({ path, text: text18(path) }));
   const baseRecordings = before2.map(({ path, text: body }) => parseRecording(path, body));
   const ledger = readLedger(root, dir);
-  const held2 = readIndex(folder);
+  const held3 = readIndex(folder);
   const fresh = pairHealed(baseRecordings, readRecordings(root, dir)).filter(({ after }) => !ledger.some((done) => done.testId === after.testId && done.callIndex === after.callIndex && sameActions(done.actions, after.actions)));
   mkdirSync24(join87(folder, "files"), { recursive: true });
   for (const { before: was, after } of fresh) {
-    const heldAs = `files/${held2.length}.json`;
+    const heldAs = `files/${held3.length}.json`;
     writeFileSync34(join87(folder, heldAs), readFileSync68(join87(root, after.file), "utf8"));
-    held2.push({ testId: after.testId, callIndex: after.callIndex, summary: after.summary, file: after.file, was: was.file, actions: after.actions, heldAs });
+    held3.push({ testId: after.testId, callIndex: after.callIndex, summary: after.summary, file: after.file, was: was.file, actions: after.actions, heldAs });
     writeFileSync34(join87(root, was.file), text18(was.file));
     if (after.file !== was.file) rmSync12(join87(root, after.file), { force: true });
   }
-  writeFileSync34(join87(folder, "index.json"), `${JSON.stringify(held2, null, 2)}
+  writeFileSync34(join87(folder, "index.json"), `${JSON.stringify(held3, null, 2)}
 `);
-  return held2;
+  return held3;
 }
 function confirmHeld(where) {
   const { root, dir, exec } = where;
   const folder = holdFolder(where);
-  const held2 = readIndex(folder);
-  if (held2.length === 0) return [];
+  const held3 = readIndex(folder);
+  if (held3.length === 0) return [];
   const paths = /* @__PURE__ */ new Set();
-  for (const entry3 of held2) {
+  for (const entry3 of held3) {
     mkdirSync24(dirname19(join87(root, entry3.file)), { recursive: true });
     writeFileSync34(join87(root, entry3.file), readFileSync68(join87(folder, entry3.heldAs), "utf8"));
     paths.add(entry3.file);
@@ -49432,7 +49432,7 @@ function confirmHeld(where) {
       paths.add(entry3.was);
     }
   }
-  const ledger = [...readLedger(root, dir), ...held2.map(({ testId, callIndex, actions }) => ({ testId, callIndex, actions }))];
+  const ledger = [...readLedger(root, dir), ...held3.map(({ testId, callIndex, actions }) => ({ testId, callIndex, actions }))];
   const file2 = ledgerFile(dir);
   mkdirSync24(dirname19(join87(root, file2)), { recursive: true });
   writeFileSync34(join87(root, file2), `${JSON.stringify(ledger, null, 2)}
@@ -49440,15 +49440,15 @@ function confirmHeld(where) {
   paths.add(file2);
   const list6 = [...paths];
   exec("git", ["add", "-A", "--", ...list6], gitOptions(root));
-  exec("git", ["commit", "-q", "-m", `e2e: confirm ${held2.length} healed recording${held2.length === 1 ? "" : "s"} of PRD ${where.prd}`, "--", ...list6], gitOptions(root));
+  exec("git", ["commit", "-q", "-m", `e2e: confirm ${held3.length} healed recording${held3.length === 1 ? "" : "s"} of PRD ${where.prd}`, "--", ...list6], gitOptions(root));
   rmSync12(folder, { recursive: true, force: true });
-  return held2;
+  return held3;
 }
 function rejectHeld(where) {
   const folder = holdFolder(where);
-  const held2 = readIndex(folder);
+  const held3 = readIndex(folder);
   rmSync12(folder, { recursive: true, force: true });
-  return held2;
+  return held3;
 }
 
 // kit/lib/e2e/screenshots.ts
@@ -49625,8 +49625,8 @@ function hold(args, io) {
   const found2 = range("hold", args, io);
   if (!found2) return 1;
   return refusing(io, () => {
-    const held2 = holdHealed({ root: ctx.root, dir: found2.dir, prd: found2.prd, base: found2.base, exec });
-    println(stdout, JSON.stringify({ prd: found2.prd, held: held2.map((entry3) => ({ ...summary(entry3), summary: entry3.summary })) }, null, 2));
+    const held3 = holdHealed({ root: ctx.root, dir: found2.dir, prd: found2.prd, base: found2.base, exec });
+    println(stdout, JSON.stringify({ prd: found2.prd, held: held3.map((entry3) => ({ ...summary(entry3), summary: entry3.summary })) }, null, 2));
     return 0;
   });
 }
@@ -50284,7 +50284,7 @@ function releaseNoteReasons(ctx, prd2, dir, read3) {
   if (!existsSync60(join92(ctx.root, file2))) return [`no release note: ${file2}`];
   return gradeReleaseNote(read3(file2), { prd: prd2 }).map((rule) => `release note: ${rule}`);
 }
-function planShip(ctx, prd2, { files, read: read3, held: held2 = [] }) {
+function planShip(ctx, prd2, { files, read: read3, held: held3 = [] }) {
   const where = ctx.layout.whereIs(prd2);
   if (where?.state !== "inbox") {
     return { ok: false, reasons: [`PRD ${Number(prd2)} is not in the inbox (${where ? where.state : "nowhere"})`] };
@@ -50293,7 +50293,7 @@ function planShip(ctx, prd2, { files, read: read3, held: held2 = [] }) {
     ...openItemFiles(prd2, { ctx }).map((file2) => `open outbox item: ${file2}`),
     ...unreworkedDrift(prd2, { ctx }).map((entry3) => `drifted, not reworked: ${entry3.id}`),
     ...releaseNoteReasons(ctx, prd2, where.dir, read3),
-    ...held2
+    ...held3
   ];
   if (reasons2.length) return { ok: false, reasons: reasons2 };
   const { dirs } = ctx.layout;
@@ -50319,12 +50319,12 @@ var DirtyDeliveryError = class extends Error {
     this.name = "DirtyDeliveryError";
   }
 };
-function applyShip(ctx, prd2, { exec = execFileSync12, held: held2 = [] } = {}) {
+function applyShip(ctx, prd2, { exec = execFileSync12, held: held3 = [] } = {}) {
   const delivery = ctx.config.paths.delivery;
   const dirty = exec("git", ["status", "--porcelain", "--", delivery], { cwd: ctx.root, encoding: "utf8" });
   if (String(dirty).trim()) throw new DirtyDeliveryError(delivery);
   const read3 = (file2) => readFileSync71(join92(ctx.root, file2), "utf8");
-  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read: read3, held: held2 });
+  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read: read3, held: held3 });
   if (!plan2.ok) throw new Error(`Cannot ship PRD ${Number(prd2)}:
 ${plan2.reasons.map((r) => `  - ${r}`).join("\n")}`);
   for (const { from, to } of plan2.moves) {
@@ -53058,9 +53058,9 @@ function connect({ cwd, exec, stderr, tokens: tokens2, home, fetch, callMs }) {
   return { client, repo };
 }
 async function add3({ client, repo }, idea2, { stdout, stderr }) {
-  const sent = await attempt5(stderr, () => client.addIdea({ repo, ...idea2 }));
-  if (!sent) return;
-  const url2 = field(sent.reply, "url");
+  const sent2 = await attempt5(stderr, () => client.addIdea({ repo, ...idea2 }));
+  if (!sent2) return;
+  const url2 = field(sent2.reply, "url");
   if (typeof url2 === "string" && url2) println(stdout, url2);
   else println(stderr, "refused (no board in the reply)");
 }
@@ -53735,8 +53735,8 @@ async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   if (!askUrl2) return { outcome: "unset" };
   const host = credentialsHost(askUrl2);
   const store = credentials({ home });
-  const held2 = store.read(host);
-  if (held2) return { outcome: "already", host, email: who(held2) };
+  const held3 = store.read(host);
+  if (held3) return { outcome: "already", host, email: who(held3) };
   if (!interactive) return { outcome: "later", host, why: "no terminal" };
   let code;
   let line2;
@@ -54325,10 +54325,10 @@ async function businessLawsAt({ ctx, repo, home, getPack }) {
   const pack2 = await getPack(home);
   const folder = pack2.out[0];
   if (pack2.code !== 0 || folder === void 0) return { laws: null, errors: pack2.err.length > 0 ? pack2.err : [`no pack of ${home}`] };
-  const held2 = pack2.out.slice(1);
+  const held3 = pack2.out.slice(1);
   return {
     laws: readBusinessLaws({ ctx: { root: folder, layout: ctx.layout } }),
-    notes: [`law home: ${home} \u2014 read from its pack ${shaOf(folder)}`, ...held2, ...pack2.err]
+    notes: [`law home: ${home} \u2014 read from its pack ${shaOf(folder)}`, ...held3, ...pack2.err]
   };
 }
 
@@ -54746,12 +54746,12 @@ function rowsUnder(parent, built, printed4) {
   const rows2 = [];
   const shown6 = /* @__PURE__ */ new Map();
   for (const [at2, { edge, node: node3 }] of children.entries()) {
-    const count9 = shown6.get(edge.kind) ?? 0;
-    shown6.set(edge.kind, count9 + 1);
+    const count10 = shown6.get(edge.kind) ?? 0;
+    shown6.set(edge.kind, count10 + 1);
     const direction = directionOf(edge, parent.id);
-    if (count9 < LINES_PER_EDGE) {
+    if (count10 < LINES_PER_EDGE) {
       rows2.push({ indent: indent2, direction, edge: edge.kind, node: node3 }, ...rowsUnder(node3, built, printed4));
-    } else if (count9 === LINES_PER_EDGE) {
+    } else if (count10 === LINES_PER_EDGE) {
       const more = children.slice(at2).filter((child) => child.edge.kind === edge.kind).length;
       rows2.push({ indent: indent2, direction, edge: edge.kind, more });
     }
@@ -54998,7 +54998,7 @@ function staleness2(pack2, { readAt, order: order2 }) {
 async function packGet(input2) {
   const { root, repo, now: now2 } = input2;
   let pack2;
-  const held2 = [];
+  const held3 = [];
   try {
     const reply = PackReplySchema.safeParse(await input2.fetchPack());
     if (!reply.success) return { code: 1, out: [], err: [`the server answered a pack of ${repo} out of shape: ${reply.error.issues[0]?.path.join(".") ?? ""}`] };
@@ -55009,11 +55009,11 @@ async function packGet(input2) {
     const newest = newestPack(root, repo);
     if (newest === null) return { code: 1, out: [], err: [`no pack of ${packName(repo)}: the server is unreachable and nothing was fetched yet`] };
     pack2 = newest;
-    held2.push(`held \xB7 server unreachable \xB7 newest pack fetched: ${pack2.sha} \xB7 ${ageOf(pack2.committedAt, now2())} old`);
+    held3.push(`held \xB7 server unreachable \xB7 newest pack fetched: ${pack2.sha} \xB7 ${ageOf(pack2.committedAt, now2())} old`);
   }
   const { line: line2, note } = staleness2(pack2, input2);
   if (line2 !== null) return { code: 1, out: [], err: [line2] };
-  return { code: 0, out: [join107(root, pack2.folder), ...held2], err: note === null ? [] : [note] };
+  return { code: 0, out: [join107(root, pack2.folder), ...held3], err: note === null ? [] : [note] };
 }
 
 // kit/lib/product/index.ts
@@ -55490,7 +55490,7 @@ function copyLines(targets2) {
   return [
     `Imported copies: ${targets2.length}`,
     ...targets2.map(({ repo, folder, forms, registers }) => {
-      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count9]) => count9 > 0).map(([state, count9]) => `${count9} ${state}`);
+      const states = COPY_STATES.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count10]) => count10 > 0).map(([state, count10]) => `${count10} ${state}`);
       return `  ${repo.padEnd(width)}  ${[folder, ...states, `${registers.length} register folder(s)`].join(" \xB7 ")}`;
     })
   ];
@@ -55549,7 +55549,7 @@ function graphText({ domains, entries: entries4, links: links2, loose, unserved 
       const [kinds, status5] = columns2(counts2);
       return [name3, kinds, listed2 !== null && listed2.size > 0 && scope === "domain" && !listed2.has(name3) ? `${status5} \xB7 ${OFF_THE_LIST}` : status5];
     }),
-    ...[...pairs].map(([name3, held2]) => [name3, ...columns2(countsOf(held2))])
+    ...[...pairs].map(([name3, held3]) => [name3, ...columns2(countsOf(held3))])
   ];
   const nameWidth = Math.max(0, ...rows2.map(([name3]) => name3.length));
   const kindsWidth = Math.max(0, ...rows2.map(([, kinds]) => kinds.length));
@@ -57151,8 +57151,8 @@ function stalledPark(prd2, stalled, stallDays) {
 function building(prd2, board2, link3) {
   if (board2.takeable.length > 0) return act(prd2, "wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link3);
   const stalled = new Set(board2.stalled.map(({ id }) => id));
-  const held2 = board2.inFlight.filter((id) => !stalled.has(id));
-  if (held2.length > 0) return wait5(prd2, `another session holds the claim on ${ids(held2)}`, WAKE_HINTS.claim, link3);
+  const held3 = board2.inFlight.filter((id) => !stalled.has(id));
+  if (held3.length > 0) return wait5(prd2, `another session holds the claim on ${ids(held3)}`, WAKE_HINTS.claim, link3);
   if (board2.stalled.length > 0) return stalledPark(prd2, board2.stalled, board2.stallDays);
   if (board2.stuck.length > 0) return park(prd2, `waits on a person: ${ids(board2.stuck)} stuck`, link3);
   if (board2.unreadable.length > 0) return wait5(prd2, `cannot read ${ids(board2.unreadable)}`, WAKE_HINTS.unreadable, link3);
@@ -57231,8 +57231,8 @@ function stoppedAcross(facts2, prs, planPr) {
   const ended2 = endedAcross(facts2, prs, planPr);
   if (ended2 !== null) return ended2;
   if (phase02 !== null) return park(prd2, `waits on a reviewer: the phase-0 PR ${prRef(phase02.url)} is open`, phase02.url);
-  const held2 = gated(prd2, facts2.approval);
-  if (held2 !== null) return held2;
+  const held3 = gated(prd2, facts2.approval);
+  if (held3 !== null) return held3;
   if (prs.some((entry3) => entry3.pr === "unreadable")) return wait5(prd2, "github unreachable", WAKE_HINTS.unreadable);
   return readyAcross(prd2, prs);
 }
@@ -57577,8 +57577,8 @@ function formatFollowed(plan2, followed) {
 function formatPool(plan2, pool) {
   const launch = pool.steps.map(({ step: step3, verdict: verdict2 }) => `step ${step3.step}/${plan2.steps.length} \xB7 ${verdictLine2(verdict2)}`);
   const running = pool.running.map(({ step: step3, since }) => `  step ${step3.step} (${stepWhat(step3)}) running since ${since}${step3.repos ? ` \xB7 in ${step3.repos.join(", ")}` : ""}`);
-  const held2 = pool.held.map(({ step: step3, why: why3 }) => `  step ${step3.step} (${stepWhat(step3)}) held: ${why3}`);
-  return [...launch, ...running, ...held2];
+  const held3 = pool.held.map(({ step: step3, why: why3 }) => `  step ${step3.step} (${stepWhat(step3)}) held: ${why3}`);
+  return [...launch, ...running, ...held3];
 }
 
 // kit/lib/next/replan.ts
@@ -57950,15 +57950,15 @@ function buildingAndOutboxOf(inbox, features) {
 function landingsOf(features) {
   const landed = features.filter((feature) => feature.landing !== void 0);
   if (landed.length === 0) return void 0;
-  const count9 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
+  const count10 = Math.max(...landed.map((feature) => feature.landing?.landings ?? 0));
   const statuses = [];
-  for (let landing = 1; landing <= count9; landing += 1) {
+  for (let landing = 1; landing <= count10; landing += 1) {
     const own2 = landed.find((feature) => feature.landing?.landing === landing);
     const later = landed.some((feature) => (feature.landing?.landing ?? 0) > landing);
     const before2 = statuses.at(-1);
     statuses.push({
       landing,
-      landings: count9,
+      landings: count10,
       name: own2?.landing?.name ?? `landing-${landing}`,
       state: landingState(own2, later),
       waitsFor: before2 !== void 0 && before2.state !== "merged" ? before2.landing : null
@@ -57972,8 +57972,8 @@ function landingState(own2, later) {
   return own2.forked.length > 0 ? "merged" : "not started";
 }
 function prdOf3(phase02, taken) {
-  const held2 = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
-  return stage(held2, taken);
+  const held3 = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
+  return stage(held3, taken);
 }
 function yourNumbers(facts2, onBase, me) {
   const isMe = (email3) => email3.toLowerCase() === me;
@@ -58013,7 +58013,7 @@ function overviewFor(facts2) {
   const waitingNumbers = new Set(waiting.map(({ prd: prd3 }) => prd3));
   const taken = new Set([...facts2.shipped, ...facts2.inbox, ...server].map((folder) => folder.prd));
   const prd2 = stage([...waiting, ...prdOf3(facts2.phase0, taken)]);
-  const held2 = server.filter((entry3) => entry3.stage !== "inbox" && entry3.stage !== "prd").sort((a, b) => b.prd - a.prd).map(({ prd: number5, topic, lines: lines4 }) => ({ prd: number5, topic, lines: lines4 }));
+  const held3 = server.filter((entry3) => entry3.stage !== "inbox" && entry3.stage !== "prd").sort((a, b) => b.prd - a.prd).map(({ prd: number5, topic, lines: lines4 }) => ({ prd: number5, topic, lines: lines4 }));
   const inProgress = inbox.length + building2.length + outbox.length;
   const stages = { prd: prd2, inbox, building: building2, outbox, shipped, retro: retro2 };
   return {
@@ -58034,7 +58034,7 @@ function overviewFor(facts2) {
     inProgress: { total: inProgress, inbox: inbox.length, building: building2.length, outbox: outbox.length },
     yours: yoursOf(facts2, stages, onBase, waitingNumbers),
     rules: facts2.rules,
-    held: held2
+    held: held3
   };
 }
 
@@ -58399,25 +58399,25 @@ async function followKept(prds, kept2, { reader, out, json: json3, roadmap: road
   const live = liveOf(read3, gates);
   const { config: config3 } = reader.ctx;
   const pool = followSteps(plan2, live, config3.limits.parallelSteps, config3.generated ?? []);
-  const held2 = gates ? heldOf(gates, read3.verdicts) : [];
-  const ticked = { plan: plan2, replanned, followed: followPlan(plan2, live), pool, verdicts: read3.verdicts, held: held2, roadmap: roadmap2?.roadmap ?? null };
+  const held3 = gates ? heldOf(gates, read3.verdicts) : [];
+  const ticked = { plan: plan2, replanned, followed: followPlan(plan2, live), pool, verdicts: read3.verdicts, held: held3, roadmap: roadmap2?.roadmap ?? null };
   for (const line2 of json3 ? [JSON.stringify(tickJson(ticked), null, 2)] : tickLines(ticked)) out(line2);
   return 0;
 }
-function poolHeld(pool, held2) {
-  const gated2 = new Set(held2.map((one) => one.prd));
+function poolHeld(pool, held3) {
+  const gated2 = new Set(held3.map((one) => one.prd));
   return pool.held.filter(({ step: step3 }) => !gated2.has(step3.prd));
 }
-function tickLines({ plan: plan2, replanned, followed, pool, held: held2 }) {
-  const holds2 = followed.state === "step" ? held2.map((one) => `  ${one.gate === "park" ? "parked" : "held"}: PRD ${one.prd} \u2014 ${one.why}${one.link ? ` \u2014 ${one.link}` : ""}`) : [];
+function tickLines({ plan: plan2, replanned, followed, pool, held: held3 }) {
+  const holds2 = followed.state === "step" ? held3.map((one) => `  ${one.gate === "park" ? "parked" : "held"}: PRD ${one.prd} \u2014 ${one.why}${one.link ? ` \u2014 ${one.link}` : ""}`) : [];
   const shown6 = followed.state === "step" ? followed.step : null;
-  const rest = { ...pool, steps: pool.steps.filter(({ step: step3 }) => step3 !== shown6), held: poolHeld(pool, held2) };
+  const rest = { ...pool, steps: pool.steps.filter(({ step: step3 }) => step3 !== shown6), held: poolHeld(pool, held3) };
   return [...replanned === null ? [] : [replanned], ...formatFollowed(plan2, followed), ...holds2, ...formatPool(plan2, rest)];
 }
 function stepJson(step3, plan2) {
   return { step: step3.step, of: plan2.steps.length, prd: step3.prd, kind: step3.kind, wave: step3.wave, slices: step3.slices, ...step3.repos ? { repos: step3.repos } : {} };
 }
-function tickJson({ plan: plan2, replanned, followed, pool, verdicts, held: held2, roadmap: roadmap2 }) {
+function tickJson({ plan: plan2, replanned, followed, pool, verdicts, held: held3, roadmap: roadmap2 }) {
   const step3 = followed.state === "step" ? followed.step : null;
   return {
     plan: { version: plan2.version, steps: plan2.steps.length },
@@ -58430,7 +58430,7 @@ function tickJson({ plan: plan2, replanned, followed, pool, verdicts, held: held
     steps: pool.steps.map(({ step: one, verdict: verdict2 }) => ({ ...stepJson(one, plan2), verdict: verdict2 })),
     running: pool.running.map(({ step: one, since }) => ({ step: one.step, prd: one.prd, kind: one.kind, ...one.repos ? { repos: one.repos } : {}, since })),
     ...roadmap2 === null ? {} : { roadmap: roadmap2 },
-    held: [...held2, ...poolHeld(pool, held2).map(({ step: one, why: why3 }) => ({ step: one.step, prd: one.prd, why: why3 }))]
+    held: [...held3, ...poolHeld(pool, held3).map(({ step: one, why: why3 }) => ({ step: one.step, prd: one.prd, why: why3 }))]
   };
 }
 function samePrds(prds, plan2) {
@@ -58761,8 +58761,8 @@ function takeLockAt(path, now2) {
   return createLock(path, now2);
 }
 function releaseLockAt(path, owner) {
-  const held2 = attempt8(() => readLock(path)?.owner, null);
-  if (held2 === owner) rmSync16(path, { force: true });
+  const held3 = attempt8(() => readLock(path)?.owner, null);
+  if (held3 === owner) rmSync16(path, { force: true });
 }
 var oneLine6 = (error62) => (String(prop2(error62, "message") ?? error62).split("\n")[0] ?? "").trim() || "the board could not be built";
 function refreshBoard({ root, prd: prd2, now: now2, build }) {
@@ -59328,6 +59328,86 @@ import { join as join126 } from "node:path";
 
 // kit/lib/runner/api.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/runner/resume.claim.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/runner/checkpoint.manifest.ts
+init_define_OMNI_BUNDLE();
+var CHECKPOINT_BYTES_MAX = 100 * 1024 * 1024;
+var HANDOFF_BYTES_MAX = 8 * 1024;
+var CHECKPOINT_BRANCHES_MAX = 50;
+var CHECKPOINT_REF_PREFIX = "refs/heads/omni-checkpoint/";
+var bytesOf = (text18) => new TextEncoder().encode(text18).length;
+var noCredential = (text18) => maskSecrets(text18) === text18;
+var safeText = (max) => external_exports.string().refine((text18) => bytesOf(text18) <= max, `at most ${String(max)} bytes`).refine(noCredential, "no credential");
+var CommitSchema = external_exports.string().regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/, "a commit id");
+var DateSchema = external_exports.string().refine((value) => !Number.isNaN(Date.parse(value)), "a date");
+var CheckpointBranchSchema = external_exports.strictObject({
+  /** The branch the worktree was on, `null` when it was detached. */
+  branch: safeText(255).nullable(),
+  ref: safeText(512).refine((ref2) => ref2.startsWith(CHECKPOINT_REF_PREFIX) && ref2.length > CHECKPOINT_REF_PREFIX.length, "a ref under omni-checkpoint/"),
+  /** The worktree's path in the job's folder, `.` for the folder itself. */
+  path: safeText(1024),
+  /** The commit origin had that the saved work starts from, `null` when origin had none of it. */
+  base: CommitSchema.nullable(),
+  head: CommitSchema,
+  files: external_exports.number().int().nonnegative(),
+  commits: external_exports.number().int().nonnegative()
+});
+var CheckpointManifestSchema = external_exports.strictObject({
+  job: external_exports.string().min(1).max(64),
+  /** The runner that saved it, by name. */
+  runner: safeText(120),
+  repo: safeText(200),
+  kind: external_exports.enum(["portable", "local"]),
+  savedAt: DateSchema,
+  /** Until when the runner keeps its folder (a local save). */
+  keepUntil: DateSchema,
+  bundleBytes: external_exports.number().int().nonnegative(),
+  /** The folder and the bundle together: what the save takes of the runner's disk while it keeps it. */
+  bytes: external_exports.number().int().nonnegative(),
+  branches: external_exports.array(CheckpointBranchSchema).max(CHECKPOINT_BRANCHES_MAX),
+  /** The job's handoff note, masked and cut to 8 KB; `null` when it has none. */
+  handoff: safeText(HANDOFF_BYTES_MAX).nullable(),
+  /** Why the save, or its upload, failed; `null` when nothing did. */
+  failed: safeText(300).nullable()
+}).refine((manifest) => manifest.kind === "local" || manifest.bundleBytes <= CHECKPOINT_BYTES_MAX, { message: "a portable bundle is 100 MB at most", path: ["bundleBytes"] }).refine((manifest) => manifest.branches.length > 0 || manifest.failed !== null, { message: "a save names a branch, or why it failed", path: ["branches"] });
+function cutBytes(text18, max) {
+  const bytes2 = new TextEncoder().encode(text18);
+  if (bytes2.length <= max) return text18;
+  let end3 = max;
+  while (end3 > 0 && ((bytes2[end3] ?? 0) & 192) === 128) end3 -= 1;
+  return new TextDecoder().decode(bytes2.slice(0, end3));
+}
+function manifestHandoff(note, secrets) {
+  if (note === null || note.trim() === "") return null;
+  const known2 = [...new Set(secrets)].filter((secret) => secret !== "").sort((a, b) => b.length - a.length);
+  const own2 = known2.reduce((out, secret) => out.split(secret).join(MASK2), note);
+  return cutBytes(maskSecrets(own2), HANDOFF_BYTES_MAX);
+}
+
+// kit/lib/runner/resume.claim.ts
+var CHAIN_MAX = 2;
+var JobIdSchema = external_exports.string().min(1).max(64);
+var ResumeSaveSchema = external_exports.discriminatedUnion("kind", [
+  external_exports.object({
+    job: JobIdSchema,
+    kind: external_exports.literal("portable"),
+    manifest: CheckpointManifestSchema,
+    /** A signed download link of minutes; `null` when the app could not sign one. */
+    url: external_exports.url({ protocol: /^https?$/ }).nullable(),
+    expiresAt: external_exports.string().nullable()
+  }),
+  external_exports.object({ job: JobIdSchema, kind: external_exports.literal("local"), manifest: CheckpointManifestSchema })
+]);
+var ResumeClaimSchema = external_exports.object({
+  attempt: external_exports.number().int().min(2).max(3),
+  chain: external_exports.array(JobIdSchema).min(1).max(CHAIN_MAX),
+  saves: external_exports.array(ResumeSaveSchema).max(CHAIN_MAX)
+});
+
+// kit/lib/runner/api.ts
 var NO_SIGN_IN4 = "no sign-in (omni setup-token)";
 var CALL_MS2 = 1e4;
 var NEXT_MS = 65e3;
@@ -59359,7 +59439,10 @@ var JobSchema = external_exports.object({
   sentBy: external_exports.string().nullish().transform((value) => value ?? null),
   allowedSkills: external_exports.array(external_exports.string()).nullish().transform((value) => value ?? []),
   github: GithubGrantSchema.nullish().transform((value) => value ?? null),
-  sentByKey: external_exports.string().nullish().transform((value) => value ?? null)
+  sentByKey: external_exports.string().nullish().transform((value) => value ?? null),
+  // A resume's attempt, chain and saves (PRD 2809, s5): an older app sends none, and one the runner cannot read is
+  // none too, so the job still runs, starting over from what GitHub holds.
+  resume: ResumeClaimSchema.nullish().catch(null).transform((value) => value ?? null)
 });
 var UpdatedSchema = external_exports.object({ cancel: external_exports.boolean().optional() }).loose();
 var KitRunnerSchema = external_exports.object({
@@ -59440,8 +59523,8 @@ function transport({ askUrl: askUrl2, tokens: tokens2, fetch }) {
   }
   async function call(method, path, options = {}) {
     const timeoutMs = options.timeoutMs ?? CALL_MS2;
-    const held2 = tokens2.read(host)?.access_token;
-    const token = held2 ? held2 : await renewed2();
+    const held3 = tokens2.read(host)?.access_token;
+    const token = held3 ? held3 : await renewed2();
     let response = await send4(method, path, token, { ...options, timeoutMs });
     if (response.status === 401) response = await send4(method, path, await renewed2(), { ...options, timeoutMs });
     if (options.words === true && response.status !== 401 && response.status < 500 && !response.ok) {
@@ -59458,6 +59541,7 @@ function forbidden(response) {
 function runnerApi(wiring2) {
   const { call, json: json3, segment } = transport(wiring2);
   return {
+    checkpoints: checkpointApi(wiring2),
     async register(registration) {
       const reply = RegisteredSchema.safeParse(await json3(await call("POST", "/api/runners/register", { body: registration })));
       if (!reply.success) throw new RunnerRefused("refused (the app answered no runner id)");
@@ -59471,7 +59555,7 @@ function runnerApi(wiring2) {
     },
     async update(job2, update2) {
       const response = await call("POST", `/api/runners/jobs/${segment(job2)}`, { body: update2, allow: [409] });
-      if (response.status === 409) return { cancel: true };
+      if (response.status === 409) return { cancel: true, ended: refusalWords(409, await json3(response)) };
       const reply = UpdatedSchema.safeParse(await json3(response));
       return { cancel: reply.success && reply.data.cancel === true };
     },
@@ -59519,6 +59603,39 @@ var CheckpointLinkSchema = external_exports.object({
 });
 var RecordedSaveSchema = external_exports.object({ id: external_exports.string().min(1), kind: external_exports.enum(["portable", "local"]), keepUntil: external_exports.string() });
 var UPLOAD_MS = 10 * 6e4;
+function checkpointApi(wiring2) {
+  const { call, json: json3, segment } = transport(wiring2);
+  const route = (job2) => `/api/runners/jobs/${segment(job2)}/checkpoint`;
+  const storage = async (url2, init3) => {
+    let response;
+    try {
+      response = await wiring2.fetch(url2, { ...init3, signal: AbortSignal.timeout(UPLOAD_MS) });
+    } catch (error62) {
+      throw new RunnerUnreachable(timedOut4(error62) ? "the storage timed out" : "the storage is unreachable");
+    }
+    if (response.status >= 500) throw new RunnerUnreachable(`the storage answered ${String(response.status)}`);
+    if (!response.ok) throw new RunnerRefused(`the storage refused the bundle (${String(response.status)})`);
+    return response;
+  };
+  return {
+    async download(url2) {
+      return new Uint8Array(await (await storage(url2, { method: "GET" })).arrayBuffer());
+    },
+    async link(job2, bytes2) {
+      const reply = CheckpointLinkSchema.safeParse(await json3(await call("POST", route(job2), { body: { step: "link", bytes: bytes2 }, words: true })));
+      if (!reply.success) throw new RunnerRefused("refused (the app answered no link)");
+      return reply.data;
+    },
+    async upload(link3, bundle) {
+      await storage(link3.url, { method: "PUT", headers: { "content-type": "application/octet-stream", "x-upsert": "false" }, body: bundle });
+    },
+    async record(job2, save) {
+      const reply = RecordedSaveSchema.safeParse(await json3(await call("POST", route(job2), { body: { step: "record", ...save }, words: true })));
+      if (!reply.success) throw new RunnerRefused("refused (the app answered no save)");
+      return reply.data;
+    }
+  };
+}
 function jobQuestionsApi(wiring2) {
   const { call, json: json3, segment } = transport(wiring2);
   const route = (job2) => `/api/runners/jobs/${segment(job2)}/questions`;
@@ -59882,11 +59999,11 @@ function planMoved({
 var SHOWN = 3;
 function detailOf(row) {
   if (row.state === "moved") {
-    const count9 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
+    const count10 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
     const owners2 = row.slices.map((id) => `${id}'s`).join(", ");
     const where = row.slices.length === 1 ? "territory" : "territories";
     const shown6 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
-    return `${count9} under ${owners2} ${where} (${shown6})`;
+    return `${count10} under ${owners2} ${where} (${shown6})`;
   }
   return row.detail ?? "";
 }
@@ -59901,8 +60018,8 @@ function movedTable(rows2) {
 
 // kit/bin/commands/plan.ts
 var USAGE34 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
-function counted2(count9, singular, pluralForm) {
-  return `${count9} ${count9 === 1 ? singular : pluralForm}`;
+function counted2(count10, singular, pluralForm) {
+  return `${count10} ${count10 === 1 ? singular : pluralForm}`;
 }
 function readPlanText(prd2, { ctx, verb: verb2 }) {
   const planPath = ctx.layout.planPath(prd2);
@@ -60315,9 +60432,9 @@ function fileOf(dir, name3) {
   if (size > PITCH_FILE_MAX_BYTES) refuse3(`${name3}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name3, path, bytes: size, type: PITCH_FILES[name3] };
 }
-function wordsOf3(sent) {
+function wordsOf3(sent2) {
   const word2 = (key2) => {
-    const value = sent[key2];
+    const value = sent2[key2];
     const max = WORD_MAX[key2];
     if (typeof value !== "string" || !value.trim() || value.trim().length > max) return refuse3(`${PITCH_RUN_FILE}: ${key2} is 1 to ${max} characters`);
     return value.trim();
@@ -60327,14 +60444,14 @@ function wordsOf3(sent) {
 function readPitchRun(dir, prd2) {
   const file2 = join128(dir, PITCH_RUN_FILE);
   if (!existsSync81(file2)) return null;
-  const sent = parsedOrNull(readFileSync103(file2, "utf8"));
-  if (!isRecord6(sent)) return refuse3(`${PITCH_RUN_FILE} is not a JSON object`);
-  const { audience, look: look2, commit } = sent;
-  if (sent.prd !== void 0 && sent.prd !== prd2) refuse3(`${PITCH_RUN_FILE} is for PRD ${shown5(sent.prd)}, not ${prd2}`);
+  const sent2 = parsedOrNull(readFileSync103(file2, "utf8"));
+  if (!isRecord6(sent2)) return refuse3(`${PITCH_RUN_FILE} is not a JSON object`);
+  const { audience, look: look2, commit } = sent2;
+  if (sent2.prd !== void 0 && sent2.prd !== prd2) refuse3(`${PITCH_RUN_FILE} is for PRD ${shown5(sent2.prd)}, not ${prd2}`);
   if (!isOneOf(AUDIENCES, audience)) return refuse3(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
   if (!isOneOf(LOOKS, look2)) return refuse3(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look2)}`);
   if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse3(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
-  const words4 = wordsOf3(sent);
+  const words4 = wordsOf3(sent2);
   const files = keysOf(PITCH_FILES).map((name3) => fileOf(dir, name3));
   return { audience, look: look2, commit, ...words4, files };
 }
@@ -60477,7 +60594,7 @@ var WORD_LIMITS = Object.freeze({
 });
 var ACCENT_MARKER = "**";
 var countWords2 = (text18) => text18.split(ACCENT_MARKER).join("").trim().split(/\s+/).filter(Boolean).length;
-var plural5 = (count9, word2) => `${count9} ${word2}${count9 === 1 ? "" : "s"}`;
+var plural5 = (count10, word2) => `${count10} ${word2}${count10 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
@@ -60548,17 +60665,17 @@ function wipeErrors(scene2, index2) {
 function sceneWarnings(scene2, index2) {
   const words4 = wordsOf4(scene2, `scenes.${index2}`);
   const warnings = words4.flatMap(overLimit);
-  const count9 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
-  if (count9 / READ_WORDS_PER_SECOND > scene2.duration) {
-    const needed = Math.ceil(count9 / READ_WORDS_PER_SECOND);
-    warnings.push({ path: `scenes.${index2}`, message: `${plural5(count9, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
+  const count10 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
+  if (count10 / READ_WORDS_PER_SECOND > scene2.duration) {
+    const needed = Math.ceil(count10 / READ_WORDS_PER_SECOND);
+    warnings.push({ path: `scenes.${index2}`, message: `${plural5(count10, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
   }
   return warnings;
 }
 function overLimit({ path, text: text18, limit }) {
-  const count9 = countWords2(text18);
+  const count10 = countWords2(text18);
   const { max, name: name3 } = WORD_LIMITS[limit];
-  return count9 > max ? [{ path, message: `${plural5(count9, "word")}; ${name3} holds at most ${max}` }] : [];
+  return count10 > max ? [{ path, message: `${plural5(count10, "word")}; ${name3} holds at most ${max}` }] : [];
 }
 var WORD_FIELDS = Object.freeze([
   ["eyebrow", "eyebrow"],
@@ -60958,7 +61075,7 @@ function repositoryChromium(cwd) {
     throw new Error("Playwright is needed to capture frames: install playwright in the repository");
   };
 }
-var share = (count9, page2, pages) => Array.from({ length: count9 }, (_, n) => n).filter((n) => n % pages === page2);
+var share = (count10, page2, pages) => Array.from({ length: count10 }, (_, n) => n).filter((n) => n % pages === page2);
 async function capture(page2, url2, frames, dir) {
   await page2.goto(url2);
   for (const n of frames) {
@@ -60969,16 +61086,16 @@ async function capture(page2, url2, frames, dir) {
 var playwrightCapture = Object.freeze({
   kind: "capture",
   id: "playwright",
-  frames: async ({ url: url2, count: count9, width, height, pages = PAGES }, { dir, cwd, launch }) => {
+  frames: async ({ url: url2, count: count10, width, height, pages = PAGES }, { dir, cwd, launch }) => {
     const browser = await (launch ?? repositoryChromium(cwd))();
     try {
-      const lanes = Math.max(1, Math.min(pages, count9));
+      const lanes = Math.max(1, Math.min(pages, count10));
       const opened = await Promise.all(Array.from({ length: lanes }, () => browser.newPage({ viewport: { width, height } })));
-      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count9, lane, lanes), dir)));
+      await Promise.all(opened.map((page2, lane) => capture(page2, url2, share(count10, lane, lanes), dir)));
     } finally {
       await browser.close();
     }
-    return Array.from({ length: count9 }, (_, n) => join131(dir, frameFile(n)));
+    return Array.from({ length: count10 }, (_, n) => join131(dir, frameFile(n)));
   }
 });
 
@@ -61636,9 +61753,9 @@ function contactHtml(files) {
   const seek = `window.${PAGE_SEEK}=function(){return Promise.all(Array.from(document.images).map(function(i){return i.decode();}));};`;
   return `<!doctype html><html><head><meta charset="utf-8"><style>${style}</style></head><body>${tiles}${script(seek)}</body></html>`;
 }
-var contactSize = (count9) => ({
+var contactSize = (count10) => ({
   width: CONTACT.columns * CONTACT.width,
-  height: Math.max(1, Math.ceil(count9 / CONTACT.columns)) * CONTACT.height
+  height: Math.max(1, Math.ceil(count10 / CONTACT.columns)) * CONTACT.height
 });
 function runFile(dir, path) {
   const root = resolve10(dir);
@@ -62241,9 +62358,9 @@ async function pushProof({
   const tab = isRecord8(registered) ? registered.url : void 0;
   if (!isText8(tab)) throw new ProofReplyError("no link in the reply");
   const stable = (name3) => `${new URL(tab).origin}/api/proofs/${runId}/${name3}`;
-  const sent = (name3) => run2.files.some((file2) => file2.name === name3);
-  const clips = kind2 === "bug" ? BUG_CLIPS.filter(sent).map(stable) : [];
-  return { tab, ...sent(GIF) ? { gif: stable(GIF) } : {}, ...clips.length ? { clips } : {} };
+  const sent2 = (name3) => run2.files.some((file2) => file2.name === name3);
+  const clips = kind2 === "bug" ? BUG_CLIPS.filter(sent2).map(stable) : [];
+  return { tab, ...sent2(GIF) ? { gif: stable(GIF) } : {}, ...clips.length ? { clips } : {} };
 }
 
 // kit/lib/proof/run.ts
@@ -62312,8 +62429,8 @@ function extrasOf2(item2, at2, criterion) {
 }
 function criterionOf(item2, index2) {
   const at2 = `criterion ${index2 + 1}`;
-  const { text: text18, sent } = textOf8(item2, at2);
-  return extrasOf2(sent, at2, { text: text18, verdict: verdictOf2(sent, at2) });
+  const { text: text18, sent: sent2 } = textOf8(item2, at2);
+  return extrasOf2(sent2, at2, { text: text18, verdict: verdictOf2(sent2, at2) });
 }
 function fileOf2(dir, name3) {
   const path = join142(dir, name3);
@@ -62327,14 +62444,14 @@ function fileOf2(dir, name3) {
 function readRun(dir) {
   const file2 = join142(dir, RUN_FILE);
   if (!existsSync88(file2)) return null;
-  let sent;
+  let sent2;
   try {
-    sent = JSON.parse(readFileSync110(file2, "utf8"));
+    sent2 = JSON.parse(readFileSync110(file2, "utf8"));
   } catch {
-    sent = null;
+    sent2 = null;
   }
-  if (!isRecord9(sent)) return refuse4(`${RUN_FILE} is not a JSON object`);
-  const { commit, url: url2, criteria: given } = sent;
+  if (!isRecord9(sent2)) return refuse4(`${RUN_FILE} is not a JSON object`);
+  const { commit, url: url2, criteria: given } = sent2;
   if (typeof commit !== "string" || !COMMIT4.test(commit)) return refuse4(`${RUN_FILE}: commit is the hash of the commit the run proved`);
   if (!isHttpUrl(url2)) return refuse4(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
   if (!Array.isArray(given) || given.length === 0 || given.length > PROOF_CRITERIA_MAX) {
@@ -62722,8 +62839,8 @@ function problemOf(item2) {
   const issue2 = parsed2.error.issues[0];
   return `: ${issue2?.path.join(".") ?? "it"} is malformed: ${issue2?.message ?? "see omni help rewind"}.`;
 }
-function checkFindings(sent) {
-  const list6 = isRecord10(sent) && "findings" in sent ? sent.findings : sent;
+function checkFindings(sent2) {
+  const list6 = isRecord10(sent2) && "findings" in sent2 ? sent2.findings : sent2;
   if (!Array.isArray(list6) || list6.length === 0) return { ok: false, error: 'the file holds no finding: give a JSON array of findings, or {"findings": [...]}.' };
   const findings2 = [];
   for (const [at2, item2] of list6.entries()) {
@@ -62845,9 +62962,9 @@ async function facts(prd2, json3, io, options) {
 }
 async function push4(prd2, file2, io, options) {
   const stop = stopper(io, "push", " Nothing sent.");
-  const sent = fileJson(io.cwd, file2);
-  if ("error" in sent) return stop(sent.error);
-  const checked5 = checkFindings(sent.value);
+  const sent2 = fileJson(io.cwd, file2);
+  if ("error" in sent2) return stop(sent2.error);
+  const checked5 = checkFindings(sent2.value);
   if (!checked5.ok) return stop(checked5.error);
   return onPage(io, options, stop, async ({ client, repo }) => {
     await client.pushRewind({ repo, prd: prd2, findings: checked5.findings });
@@ -62855,11 +62972,11 @@ async function push4(prd2, file2, io, options) {
     return 0;
   });
 }
-async function outcome(finding, sent, io, options) {
-  const body = sent.outcome === "proposed" ? { outcome: sent.outcome, pr: sent.pr } : { outcome: sent.outcome, note: sent.note };
+async function outcome(finding, sent2, io, options) {
+  const body = sent2.outcome === "proposed" ? { outcome: sent2.outcome, pr: sent2.pr } : { outcome: sent2.outcome, note: sent2.note };
   return onPage(io, options, stopper(io, "outcome", " Nothing recorded."), async ({ client }) => {
     await client.outcomeRewind({ finding, body });
-    println(io.stdout, outcomeLine2(finding, sent));
+    println(io.stdout, outcomeLine2(finding, sent2));
     return 0;
   });
 }
@@ -62891,8 +63008,8 @@ var rewind = {
       return push4(prdArg("rewind", "the PRD", prdText), flags.file, io, options);
     }
     if (verb2 === "outcome") {
-      const { finding, sent } = outcomeArgs(rest);
-      return outcome(finding, sent, io, options);
+      const { finding, sent: sent2 } = outcomeArgs(rest);
+      return outcome(finding, sent2, io, options);
     }
     throw usageError(USAGE40);
   }
@@ -63343,7 +63460,7 @@ function answerCommand(rest, io) {
 var STATE_WORDS = { ok: "ok", fixed: "fixed", ticked: "ticked", waits: "waits on you" };
 function countLine(results) {
   const counts2 = PREREQUISITE_STATES.map((state) => [state, results.filter((result2) => result2.state === state).length]);
-  return counts2.filter(([, count9]) => count9 > 0).map(([state, count9]) => `${count9} ${state === "waits" ? count9 === 1 ? "waits on you" : "wait on you" : state}`).join(" \xB7 ");
+  return counts2.filter(([, count10]) => count10 > 0).map(([state, count10]) => `${count10} ${state === "waits" ? count10 === 1 ? "waits on you" : "wait on you" : state}`).join(" \xB7 ");
 }
 function byCategory(results) {
   return PREREQUISITE_CATEGORIES.map((category) => ({ category, rows: results.filter((result2) => result2.prerequisite.category === category) })).filter(({ rows: rows2 }) => rows2.length > 0);
@@ -63388,9 +63505,9 @@ async function runRoadmapPrerequisites({ ctx, repo }, n, prerequisites, fix, io)
   return runPrerequisites(prerequisites, { probes: (prerequisite) => probesFor(prerequisite, env), ticks: await readRoadmapTicks(ctx, repo, n, io), fix });
 }
 async function pushPrereqs(n, io, result2, json3) {
-  const sent = await sendPrereqs(n, io, result2);
-  if (sent.ok) println(json3 ? io.stderr : io.stdout, `roadmap ${n}: the page is updated \u2014 ${sent.url}`);
-  else println(io.stderr, `roadmap ${n}: the page is not updated (${sent.why})`);
+  const sent2 = await sendPrereqs(n, io, result2);
+  if (sent2.ok) println(json3 ? io.stderr : io.stdout, `roadmap ${n}: the page is updated \u2014 ${sent2.url}`);
+  else println(io.stderr, `roadmap ${n}: the page is not updated (${sent2.why})`);
 }
 async function sendPrereqs(n, io, { machine, checkedAt, rows: rows2 }) {
   const inputs = await pushInputs(n, io, { machine, checkedAt, rows: rows2 });
@@ -63520,9 +63637,9 @@ async function pushProduct2(rest, io) {
   if (graded.violations.length > 0) {
     return refuse6(io.stderr, formatFailure(`omni roadmap push \u2014 ${args.file}: nothing was sent:`, graded.violations.map((line2) => `${args.file}: ${line2}`)));
   }
-  const sent = await pushProductFile({ key: args.key, seq: target3.seq, repo: connected.repo, roadmap: graded.roadmap, document, askUrl: connected.askUrl, client: connected.client });
-  if (!sent.ok) return refuse6(io.stderr, sent.line);
-  println(io.stdout, pushedLines(sent.pushed));
+  const sent2 = await pushProductFile({ key: args.key, seq: target3.seq, repo: connected.repo, roadmap: graded.roadmap, document, askUrl: connected.askUrl, client: connected.client });
+  if (!sent2.ok) return refuse6(io.stderr, sent2.line);
+  println(io.stdout, pushedLines(sent2.pushed));
   return 0;
 }
 var verbs = {
@@ -63544,9 +63661,9 @@ var roadmap = {
 
 // kit/bin/commands/runner.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync125 } from "node:fs";
+import { readFileSync as readFileSync126 } from "node:fs";
 import { homedir as homedir9 } from "node:os";
-import { join as join162, resolve as resolve21 } from "node:path";
+import { join as join163, resolve as resolve21 } from "node:path";
 import { setTimeout as delay3 } from "node:timers/promises";
 
 // kit/lib/runner/checkpoint.ts
@@ -63554,50 +63671,6 @@ init_define_OMNI_BUNDLE();
 import { copyFileSync as copyFileSync7, existsSync as existsSync90, lstatSync, mkdtempSync as mkdtempSync5, readdirSync as readdirSync39, readFileSync as readFileSync114, realpathSync as realpathSync5, rmSync as rmSync19, statSync as statSync26, writeFileSync as writeFileSync56 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
 import { isAbsolute as isAbsolute13, join as join145, relative as relative7, resolve as resolve15, sep as sep5 } from "node:path";
-
-// kit/lib/runner/checkpoint.manifest.ts
-init_define_OMNI_BUNDLE();
-var CHECKPOINT_BYTES_MAX = 100 * 1024 * 1024;
-var HANDOFF_BYTES_MAX = 8 * 1024;
-var CHECKPOINT_BRANCHES_MAX = 50;
-var CHECKPOINT_REF_PREFIX = "refs/heads/omni-checkpoint/";
-var bytesOf = (text18) => new TextEncoder().encode(text18).length;
-var noCredential = (text18) => maskSecrets(text18) === text18;
-var safeText = (max) => external_exports.string().refine((text18) => bytesOf(text18) <= max, `at most ${String(max)} bytes`).refine(noCredential, "no credential");
-var CommitSchema = external_exports.string().regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/, "a commit id");
-var DateSchema = external_exports.string().refine((value) => !Number.isNaN(Date.parse(value)), "a date");
-var CheckpointBranchSchema = external_exports.strictObject({
-  /** The branch the worktree was on, `null` when it was detached. */
-  branch: safeText(255).nullable(),
-  ref: safeText(512).refine((ref2) => ref2.startsWith(CHECKPOINT_REF_PREFIX) && ref2.length > CHECKPOINT_REF_PREFIX.length, "a ref under omni-checkpoint/"),
-  /** The worktree's path in the job's folder, `.` for the folder itself. */
-  path: safeText(1024),
-  /** The commit origin had that the saved work starts from, `null` when origin had none of it. */
-  base: CommitSchema.nullable(),
-  head: CommitSchema,
-  files: external_exports.number().int().nonnegative(),
-  commits: external_exports.number().int().nonnegative()
-});
-var CheckpointManifestSchema = external_exports.strictObject({
-  job: external_exports.string().min(1).max(64),
-  /** The runner that saved it, by name. */
-  runner: safeText(120),
-  repo: safeText(200),
-  kind: external_exports.enum(["portable", "local"]),
-  savedAt: DateSchema,
-  /** Until when the runner keeps its folder (a local save). */
-  keepUntil: DateSchema,
-  bundleBytes: external_exports.number().int().nonnegative(),
-  /** The folder and the bundle together: what the save takes of the runner's disk while it keeps it. */
-  bytes: external_exports.number().int().nonnegative(),
-  branches: external_exports.array(CheckpointBranchSchema).max(CHECKPOINT_BRANCHES_MAX),
-  /** The job's handoff note, masked and cut to 8 KB; `null` when it has none. */
-  handoff: safeText(HANDOFF_BYTES_MAX).nullable(),
-  /** Why the save, or its upload, failed; `null` when nothing did. */
-  failed: safeText(300).nullable()
-}).refine((manifest) => manifest.kind === "local" || manifest.bundleBytes <= CHECKPOINT_BYTES_MAX, { message: "a portable bundle is 100 MB at most", path: ["bundleBytes"] }).refine((manifest) => manifest.branches.length > 0 || manifest.failed !== null, { message: "a save names a branch, or why it failed", path: ["branches"] });
-
-// kit/lib/runner/checkpoint.ts
 var KEEP_DAYS = 7;
 var KEEP_BUDGET_GB = 5;
 var DAY_MS2 = 24 * 60 * 60 * 1e3;
@@ -63800,6 +63873,43 @@ function keep(options, branches, bundle, failed5) {
   };
   writeSave(save);
   return save;
+}
+function manifestOf(save, kind2, handoff2, failed5) {
+  return {
+    job: save.job,
+    runner: save.runner,
+    repo: save.repo,
+    kind: kind2,
+    savedAt: save.savedAt,
+    keepUntil: save.keepUntil,
+    bundleBytes: save.bundleBytes,
+    bytes: save.bytes,
+    branches: save.branches.map(({ branch, ref: ref2, path, base, head, files, commits }) => ({ branch, ref: ref2, path, base, head, files, commits })),
+    handoff: handoff2,
+    failed: failed5
+  };
+}
+var whyOf3 = (error62) => (error62 instanceof Error ? error62.message : String(error62)).split("\n")[0] ?? "";
+async function sendSave({ save, api, handoff: handoff2, secrets, now: now2 }) {
+  const note = manifestHandoff(handoff2, secrets);
+  const local = async (why3) => {
+    try {
+      return { kind: "local", why: why3, recorded: await api.record(save.job, { kind: "local", manifest: manifestOf(save, "local", note, why3) }) };
+    } catch {
+      return { kind: "local", why: why3, recorded: null };
+    }
+  };
+  if (save.failed !== null || save.bundle === null) return local(save.failed ?? "the save holds no bundle");
+  if (save.bundleBytes > CHECKPOINT_BYTES_MAX) return local("the bundle is over 100 MB");
+  try {
+    const link3 = await api.link(save.job, save.bundleBytes);
+    await api.upload(link3, new Uint8Array(readFileSync114(save.bundle)));
+    const recorded = await api.record(save.job, { kind: "portable", path: link3.path, manifest: manifestOf(save, "portable", note, null) });
+    writeSave({ ...save, sent: { at: new Date(now2).toISOString(), path: link3.path } });
+    return { kind: "portable", why: null, recorded };
+  } catch (error62) {
+    return local(`the upload failed: ${whyOf3(error62)}`);
+  }
 }
 function saveJob(options) {
   const { exec, checkout, folder } = options;
@@ -64198,12 +64308,12 @@ function tokenSource({ projects, now: now2 = Date.now, readFile: readFile3 = (pa
     try {
       const stats = statSync27(path);
       if (!stats.isFile() || stats.mtimeMs < since) return [];
-      let held2 = cache.get(path);
-      if (held2?.size !== stats.size || held2.mtimeMs !== stats.mtimeMs) {
-        held2 = { size: stats.size, mtimeMs: stats.mtimeMs, entries: entriesOf(readFile3(path)) };
-        cache.set(path, held2);
+      let held3 = cache.get(path);
+      if (held3?.size !== stats.size || held3.mtimeMs !== stats.mtimeMs) {
+        held3 = { size: stats.size, mtimeMs: stats.mtimeMs, entries: entriesOf(readFile3(path)) };
+        cache.set(path, held3);
       }
-      return held2.entries;
+      return held3.entries;
     } catch (error62) {
       return missing(error62) ? [] : null;
     }
@@ -65102,13 +65212,13 @@ function standing(current, at2, why3) {
   return due(current, at2).expired ? { token: null, failed: `its token expired and no fresh one came (${why3})` } : { token: current, failed: why3 };
 }
 function look(file2, runner2, at2) {
-  const held2 = readGithubToken(file2);
-  if (held2 === null) return { done: { token: null, failed: "the job has no token kept on this machine" } };
-  if (held2.runner !== runner2) return { done: { token: null, failed: "the token of the job is another runner's" } };
-  const current = held2.tokens.at(-1);
+  const held3 = readGithubToken(file2);
+  if (held3 === null) return { done: { token: null, failed: "the job has no token kept on this machine" } };
+  if (held3.runner !== runner2) return { done: { token: null, failed: "the token of the job is another runner's" } };
+  const current = held3.tokens.at(-1);
   if (current === void 0) return { done: { token: null, failed: "the job has no token kept on this machine" } };
   if (!due(current, at2).soon) return { done: { token: current, failed: null } };
-  if (held2.retry !== void 0 && held2.retry.at > at2) return { done: standing(current, at2, held2.retry.why) };
+  if (held3.retry !== void 0 && held3.retry.at > at2) return { done: standing(current, at2, held3.retry.why) };
   return { current };
 }
 function isStale(path) {
@@ -66071,13 +66181,13 @@ function linesAfter(log, cursor, { ended: ended2 }) {
 }
 function reportBatch(lines4) {
   let bytes2 = 2;
-  let count9 = 0;
+  let count10 = 0;
   for (const line2 of lines4.slice(0, REPORT_LINES)) {
-    bytes2 += Buffer.byteLength(JSON.stringify(line2)) + (count9 > 0 ? 1 : 0);
+    bytes2 += Buffer.byteLength(JSON.stringify(line2)) + (count10 > 0 ? 1 : 0);
     if (bytes2 > REPORT_BYTES) break;
-    count9 += 1;
+    count10 += 1;
   }
-  return lines4.slice(0, count9);
+  return lines4.slice(0, count10);
 }
 var escape4 = (text18) => text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var DONE_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Done: (?:ok|error) · /;
@@ -66301,8 +66411,8 @@ function releaser({ exec, checkouts, env = {} }) {
 
 // kit/lib/runner/runner.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync97, mkdirSync as mkdirSync43, readFileSync as readFileSync124, rmSync as rmSync24, writeFileSync as writeFileSync63 } from "node:fs";
-import { join as join160 } from "node:path";
+import { existsSync as existsSync98, mkdirSync as mkdirSync44, readFileSync as readFileSync125, rmSync as rmSync25, writeFileSync as writeFileSync64 } from "node:fs";
+import { join as join161 } from "node:path";
 
 // kit/lib/runner/github-app.ts
 init_define_OMNI_BUNDLE();
@@ -66369,12 +66479,190 @@ function githubJobEnv({ bot, tokenCommand, shimDir, path }) {
   };
 }
 
+// kit/lib/runner/resume.ts
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync97, mkdirSync as mkdirSync43, mkdtempSync as mkdtempSync6, readFileSync as readFileSync124, rmSync as rmSync23, writeFileSync as writeFileSync63 } from "node:fs";
+import { tmpdir as tmpdir6 } from "node:os";
+import { join as join159 } from "node:path";
+var MAX_ATTEMPTS = 3;
+var QUIET16 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var ChainSchema = external_exports.object({ attempt: external_exports.number().int().min(1).max(MAX_ATTEMPTS), chain: external_exports.array(external_exports.string()) });
+var FIRST = Object.freeze({ attempt: 1, chain: [] });
+var chainPath = (home, job2) => join159(home, "logs", `job-${job2}.chain.json`);
+var resumeNotePath = (home, job2) => join159(home, "logs", `job-${job2}.resume.md`);
+var chainOf = (resume) => resume === null ? FIRST : { attempt: resume.attempt, chain: [...resume.chain] };
+function keepChain(home, job2, chain) {
+  mkdirSync43(join159(home, "logs"), { recursive: true });
+  writeFileSync63(chainPath(home, job2), `${JSON.stringify(chain)}
+`);
+}
+function readChain(home, job2) {
+  try {
+    const read3 = ChainSchema.safeParse(JSON.parse(readFileSync124(chainPath(home, job2), "utf8")));
+    return read3.success ? read3.data : null;
+  } catch {
+    return null;
+  }
+}
+function chainCarriesOn(line2, chain) {
+  const checked5 = checkRunnerLine(line2);
+  return checked5.ok && checked5.kind === "omni" && RESUMABLE_SKILLS.includes(checked5.skill) && chain.attempt < MAX_ATTEMPTS;
+}
+var lostWords = (words4) => /\bfailed, runner lost\b/.test(words4);
+var whyOf4 = (error62) => (error62 instanceof Error ? error62.message : String(error62)).split("\n")[0] ?? "";
+function allBehind(save, why3) {
+  const { job: job2, runner: runner2, branches, failed: failed5 } = save.manifest;
+  if (branches.length === 0) return [{ job: job2, runner: runner2, branch: null, files: 0, commits: 0, why: failed5 ?? why3 }];
+  return branches.map(({ branch, files, commits }) => ({ job: job2, runner: runner2, branch, files, commits, why: why3 }));
+}
+function resolves(exec, checkout, ref2) {
+  try {
+    exec("git", ["-C", checkout, "rev-parse", "--verify", "-q", `${ref2}^{commit}`], QUIET16);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function ancestor(exec, checkout, older2, newer) {
+  try {
+    exec("git", ["-C", checkout, "merge-base", "--is-ancestor", older2, newer], QUIET16);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function standingOf(exec, checkout, branch, ref2) {
+  if (branch === null) return "detached";
+  const theirs = `refs/remotes/origin/${branch}`;
+  if (!resolves(exec, checkout, theirs)) return "new";
+  if (ancestor(exec, checkout, ref2, theirs)) return "on origin";
+  return ancestor(exec, checkout, theirs, ref2) ? "fast-forward" : "diverged";
+}
+function fetchBundle(exec, checkout, file2, manifest) {
+  const refs2 = manifest.branches.map(({ ref: ref2 }) => `+${ref2}:${ref2}`);
+  exec("git", ["-C", checkout, "fetch", "-q", "--no-tags", "--no-write-fetch-head", file2, ...refs2], QUIET16);
+}
+async function bundleOf(options, save) {
+  if (save.kind === "portable") {
+    if (save.url === null) return { why: "the app gave no link to its bundle" };
+    let bytes2;
+    try {
+      bytes2 = await options.download(save.url);
+    } catch (error62) {
+      return { why: `its bundle could not be downloaded: ${whyOf4(error62)}` };
+    }
+    const scratch = mkdtempSync6(join159(tmpdir6(), "omni-resume-"));
+    const file2 = join159(scratch, "checkpoint.bundle");
+    writeFileSync63(file2, bytes2);
+    return { file: file2, scratch };
+  }
+  if (save.manifest.runner !== options.runner) return { why: `its save stayed on ${save.manifest.runner}` };
+  const kept2 = savesIn(options.home).find((local) => local.job === save.job);
+  if (kept2 === void 0 || kept2.bundle === null || !existsSync97(kept2.bundle)) return { why: `its save is no longer on ${options.runner}` };
+  if (kept2.lost !== null) return { why: `its save on ${options.runner} went ${kept2.lost.why}` };
+  return { file: kept2.bundle, scratch: null };
+}
+async function restoreOne(options, save) {
+  if (save.manifest.branches.length === 0) return { restored: [], behind: allBehind(save, "its save failed") };
+  const bundle = await bundleOf(options, save);
+  if ("why" in bundle) return { restored: [], behind: allBehind(save, bundle.why) };
+  try {
+    fetchBundle(options.exec, options.checkout, bundle.file, save.manifest);
+  } catch (error62) {
+    return { restored: [], behind: allBehind(save, `its bundle could not be fetched: ${whyOf4(error62)}`) };
+  } finally {
+    if (bundle.scratch !== null) rmSync23(bundle.scratch, { recursive: true, force: true });
+  }
+  const { job: job2, runner: runner2 } = save.manifest;
+  return {
+    restored: save.manifest.branches.map(({ branch, ref: ref2, path, files, commits }) => ({ job: job2, runner: runner2, branch, ref: ref2, path, files, commits, standing: standingOf(options.exec, options.checkout, branch, ref2) })),
+    behind: []
+  };
+}
+async function restoreSaves(options) {
+  const byRef = /* @__PURE__ */ new Map();
+  const behind = [];
+  let handoff2 = null;
+  for (const save of options.resume.saves) {
+    const one = await restoreOne(options, save);
+    for (const branch of one.restored) {
+      byRef.delete(branch.ref);
+      byRef.set(branch.ref, branch);
+    }
+    behind.push(...one.behind);
+    handoff2 = save.manifest.handoff ?? handoff2;
+  }
+  const back = new Set([...byRef.values()].map(({ branch }) => branch));
+  return { restored: [...byRef.values()], behind: behind.filter(({ branch }) => branch === null || !back.has(branch)), handoff: handoff2 };
+}
+var count8 = (n, one, many) => `${String(n)} ${n === 1 ? one : many}`;
+var shortRef = (ref2) => ref2.replace(/^refs\/heads\//, "");
+var held2 = ({ files, commits }) => `${count8(files, "file", "files")}, ${count8(commits, "commit", "commits")}`;
+var STANDING = {
+  "fast-forward": (branch) => `fast-forwards from origin's \`${branch}\``,
+  "on origin": (branch) => `origin's \`${branch}\` already holds it: nothing to take`,
+  diverged: (branch) => `diverged from origin's \`${branch}\`: merge it`,
+  new: () => "origin has no such branch: check it out from the checkpoint",
+  detached: () => "was detached: check it out from the checkpoint"
+};
+function restoredLine(restored) {
+  const name3 = restored.branch === null ? `\`${restored.path}\` (detached)` : `\`${restored.branch}\``;
+  return `- ${name3} as \`${shortRef(restored.ref)}\` (job ${restored.job} on ${restored.runner}): ${held2(restored)}; ${STANDING[restored.standing](restored.branch ?? "")}.`;
+}
+function behindLine(left) {
+  if (left.branch === null && left.files === 0 && left.commits === 0) return `- The save of job ${left.job} on ${left.runner}: ${left.why}.`;
+  const what = left.branch === null ? "a detached worktree" : left.branch;
+  return `- ${count8(left.files, "file", "files")} and ${count8(left.commits, "commit", "commits")} on ${what} stayed on ${left.runner} (job ${left.job}): ${left.why}.`;
+}
+function resumeNote(job2, resume, { restored, behind, handoff: handoff2 }) {
+  const earlier = resume.chain.map((id) => `\`${id}\``).join(", ");
+  const lost = resume.chain.at(-1) ?? "";
+  const lines4 = [
+    `# Job ${job2}: attempt ${String(resume.attempt)} of ${String(MAX_ATTEMPTS)}`,
+    "",
+    `This job resumes job \`${lost}\`, which its runner lost. Its chain's earlier jobs: ${earlier}. Start from what GitHub holds and the saves below.`,
+    "",
+    "## The saved branches",
+    "",
+    ...restored.length === 0 ? ["Nothing was saved: start over from what GitHub holds."] : restored.map(restoredLine),
+    ""
+  ];
+  if (restored.length > 0) {
+    lines4.push(
+      "## The rule",
+      "",
+      "After you check out a branch listed above, and before anything else, take its checkpoint:",
+      "",
+      "    git merge --ff-only omni-checkpoint/<branch>",
+      "",
+      "When it diverged from origin's, `git merge omni-checkpoint/<branch>` instead, and resolve. A branch origin has not got is",
+      "checked out from its checkpoint (`git switch -c <branch> omni-checkpoint/<branch>`). Push it once taken.",
+      ""
+    );
+  }
+  if (behind.length > 0) lines4.push("## What stayed behind", "", ...behind.map(behindLine), "");
+  lines4.push(
+    "## The claims",
+    "",
+    `A claim whose status comment names job ${earlier} is this chain's: take it over as this job's (its \`job:\` line rewritten to \`${job2}\`) and build on it. No other job takes it.`,
+    ""
+  );
+  if (handoff2 !== null) lines4.push("## The handoff note", "", handoff2, "");
+  return `${lines4.join("\n").trimEnd()}
+`;
+}
+var resumePointer = (resume, path) => `This job is attempt ${String(resume.attempt)} of ${String(MAX_ATTEMPTS)}: it resumes job ${resume.chain.at(-1) ?? ""}, which its runner lost. Before anything else, read ${path} and follow it.`;
+function resumedLine(job2, resume, { restored, behind }) {
+  const back = restored.length === 0 ? "nothing saved came back" : `${count8(restored.length, "branch", "branches")} came back`;
+  return `job ${job2}: attempt ${String(resume.attempt)} of ${String(MAX_ATTEMPTS)}, ${back}${behind.length === 0 ? "" : ` \xB7 ${String(behind.length)} stayed behind`}`;
+}
+
 // kit/lib/runner/sweep.ts
 init_define_OMNI_BUNDLE();
-import { lstatSync as lstatSync2, readdirSync as readdirSync43, rmSync as rmSync23 } from "node:fs";
-import { join as join159 } from "node:path";
+import { lstatSync as lstatSync2, readdirSync as readdirSync43, rmSync as rmSync24 } from "node:fs";
+import { join as join160 } from "node:path";
 var DAY_MS4 = 24 * 60 * 60 * 1e3;
-var QUIET16 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var QUIET17 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var ID5 = "[A-Za-z0-9_-]+";
 var JOB_ID2 = new RegExp(`^${ID5}$`);
 var JOB_BRANCH = new RegExp(`^agent/job-(${ID5})$`);
@@ -66396,7 +66684,7 @@ function worktreeJob(name3, repoNames) {
 }
 function originBranches(exec, checkout) {
   try {
-    const out = exec("git", ["-C", checkout, "ls-remote", "--heads", "origin"], QUIET16);
+    const out = exec("git", ["-C", checkout, "ls-remote", "--heads", "origin"], QUIET17);
     return new Set(out.split("\n").map((line2) => /\trefs\/heads\/(.+)$/.exec(line2)?.[1]).filter((name3) => name3 !== void 0));
   } catch {
     return null;
@@ -66404,7 +66692,7 @@ function originBranches(exec, checkout) {
 }
 function hasUpstream(exec, checkout, branch) {
   try {
-    return exec("git", ["-C", checkout, "for-each-ref", "--format=%(upstream)", `refs/heads/${branch}`], QUIET16).trim() !== "";
+    return exec("git", ["-C", checkout, "for-each-ref", "--format=%(upstream)", `refs/heads/${branch}`], QUIET17).trim() !== "";
   } catch {
     return true;
   }
@@ -66414,7 +66702,7 @@ function branchPushed(exec, checkout, branch) {
 }
 function deleteBranch(exec, checkout, branch) {
   try {
-    exec("git", ["-C", checkout, "branch", "-D", branch], QUIET16);
+    exec("git", ["-C", checkout, "branch", "-D", branch], QUIET17);
     return true;
   } catch {
     return false;
@@ -66422,7 +66710,7 @@ function deleteBranch(exec, checkout, branch) {
 }
 function pruneWorktrees(exec, checkout) {
   try {
-    exec("git", ["-C", checkout, "worktree", "prune"], QUIET16);
+    exec("git", ["-C", checkout, "worktree", "prune"], QUIET17);
   } catch {
   }
 }
@@ -66430,37 +66718,37 @@ function dropJobBranch(exec, checkout, branch) {
   return !branchPushed(exec, checkout, branch) && deleteBranch(exec, checkout, branch);
 }
 function strandedJobs({ home, checkouts, running }) {
-  const wt = join159(home, "wt");
+  const wt = join160(home, "wt");
   const stranded = [];
   for (const name3 of namesIn(wt)) {
-    const repo = [...checkouts.keys()].find((held2) => worktreeJob(name3, [held2.split("/").at(-1) ?? held2]) !== null);
+    const repo = [...checkouts.keys()].find((held3) => worktreeJob(name3, [held3.split("/").at(-1) ?? held3]) !== null);
     const job2 = repo === void 0 ? null : worktreeJob(name3, [repo.split("/").at(-1) ?? repo]);
-    const folder = join159(wt, name3);
+    const folder = join160(wt, name3);
     if (repo === void 0 || job2 === null || running.has(job2) || !lstatSync2(folder).isDirectory() || isKept(folder)) continue;
     stranded.push({ job: job2, repo, folder });
   }
   return stranded;
 }
 function sweepWorktrees({ home, checkouts, running }) {
-  const wt = join159(home, "wt");
+  const wt = join160(home, "wt");
   const repoNames = [...checkouts.keys()].map((repo) => repo.split("/").at(-1) ?? repo);
-  let count9 = 0;
+  let count10 = 0;
   let bytes2 = 0;
   for (const name3 of namesIn(wt)) {
     const job2 = worktreeJob(name3, repoNames);
-    const path = join159(wt, name3);
+    const path = join160(wt, name3);
     if (job2 === null || running.has(job2) || !lstatSync2(path).isDirectory() || isKept(path)) continue;
     const size = sizeOf(path);
-    rmSync23(path, { recursive: true, force: true });
-    count9 += 1;
+    rmSync24(path, { recursive: true, force: true });
+    count10 += 1;
     bytes2 += size;
   }
-  return { count: count9, bytes: bytes2 };
+  return { count: count10, bytes: bytes2 };
 }
 function sweepBranches({ exec, running }, checkout) {
   let names;
   try {
-    names = exec("git", ["-C", checkout, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads/agent/"], QUIET16).split("\n");
+    names = exec("git", ["-C", checkout, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads/agent/"], QUIET17).split("\n");
   } catch {
     return 0;
   }
@@ -66471,49 +66759,49 @@ function sweepBranches({ exec, running }, checkout) {
   return candidates2.filter((name3) => !onOrigin.has(name3) && deleteBranch(exec, checkout, name3)).length;
 }
 function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
-  const logs = join159(home, "logs");
-  let count9 = 0;
+  const logs = join160(home, "logs");
+  let count10 = 0;
   let bytes2 = 0;
   for (const name3 of namesIn(logs)) {
     const job2 = JOB_LOG.exec(name3)?.[1];
     if (job2 === void 0 || running.has(job2)) continue;
-    const path = join159(logs, name3);
+    const path = join160(logs, name3);
     const stat = lstatSync2(path);
     if (!stat.isFile() || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS4) continue;
-    rmSync23(path, { force: true });
-    count9 += 1;
+    rmSync24(path, { force: true });
+    count10 += 1;
     bytes2 += stat.size;
   }
-  return { count: count9, bytes: bytes2 };
+  return { count: count10, bytes: bytes2 };
 }
 function sweep2(options) {
   const worktrees2 = sweepWorktrees(options);
   const kept2 = savesIn(options.home).filter((save) => save.lost === null).map((save) => save.job);
-  const held2 = { ...options, running: /* @__PURE__ */ new Set([...options.running, ...kept2]) };
+  const held3 = { ...options, running: /* @__PURE__ */ new Set([...options.running, ...kept2]) };
   let branches = 0;
   for (const checkout of options.checkouts.values()) {
     pruneWorktrees(options.exec, checkout);
-    branches += sweepBranches(held2, checkout);
+    branches += sweepBranches(held3, checkout);
   }
   const logs = sweepLogs(options);
   return { worktrees: worktrees2.count, branches, logs: logs.count, bytes: worktrees2.bytes + logs.bytes };
 }
-var count8 = (n, one, many) => `${String(n)} ${n === 1 ? one : many}`;
+var count9 = (n, one, many) => `${String(n)} ${n === 1 ? one : many}`;
 function sweptLine(swept) {
   if (swept.worktrees + swept.branches + swept.logs === 0) return null;
-  const what = [count8(swept.worktrees, "worktree", "worktrees"), count8(swept.branches, "branch", "branches"), count8(swept.logs, "log file", "log files")];
+  const what = [count9(swept.worktrees, "worktree", "worktrees"), count9(swept.branches, "branch", "branches"), count9(swept.logs, "log file", "log files")];
   return `swept: ${what.join(", ")} \xB7 ${sizeText(swept.bytes)} freed`;
 }
 function dropKept({ exec, checkouts }, save) {
   if (save.lost === null) {
-    rmSync23(save.folder, { recursive: true, force: true });
+    rmSync24(save.folder, { recursive: true, force: true });
     const checkout = checkouts.get(save.repo);
     if (checkout !== void 0) {
       pruneWorktrees(exec, checkout);
       dropJobBranch(exec, checkout, `agent/job-${save.job}`);
     }
   }
-  if (save.bundle !== null) rmSync23(save.bundle, { force: true });
+  if (save.bundle !== null) rmSync24(save.bundle, { force: true });
 }
 function keepWithin(options) {
   const { home, running, now: now2, budgetBytes } = options;
@@ -66522,7 +66810,7 @@ function keepWithin(options) {
   const expired2 = (save) => Date.parse(save.keepUntil) <= now2;
   for (const save of saves.filter(expired2)) {
     dropKept(options, save);
-    rmSync23(savePaths(save.folder).manifest, { force: true });
+    rmSync24(savePaths(save.folder).manifest, { force: true });
     forgotten.push({ save, why: "expired" });
   }
   const kept2 = saves.filter((save) => save.lost === null && !expired2(save)).sort((a, b) => a.savedAt.localeCompare(b.savedAt));
@@ -66563,10 +66851,10 @@ var sleepFor = (ms, signal) => new Promise((resolve25) => {
 function withLines(update2, live, lines4) {
   return lines4.length === 0 ? update2 : { ...update2, from: live.cursor + 1, lines: [...lines4] };
 }
-var QUIET17 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var QUIET18 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var readText4 = (path) => {
   try {
-    return readFileSync124(path, "utf8");
+    return readFileSync125(path, "utf8");
   } catch {
     return "";
   }
@@ -66598,6 +66886,7 @@ function loopOf(options) {
     refused: () => refused4,
     running: 0,
     jobs: /* @__PURE__ */ new Set(),
+    lost: /* @__PURE__ */ new Set(),
     plugin: pluginKeeper({ exec: options.exec, running: { version: options.version }, bundle: runningBundle(), print: (line2) => {
       options.print(line2);
     } }),
@@ -66606,7 +66895,7 @@ function loopOf(options) {
     waiting: /* @__PURE__ */ new Set(),
     noTokens: null,
     accountsOff: false,
-    counts: options.tokens ?? tokenSource({ projects: join160(options.home, ".claude", "projects"), now: options.now ?? Date.now }),
+    counts: options.tokens ?? tokenSource({ projects: join161(options.home, ".claude", "projects"), now: options.now ?? Date.now }),
     tokensOk: false,
     tokensOff: false,
     partsOff: false,
@@ -66703,7 +66992,7 @@ async function sendUpdate(loop2, job2, raw) {
     return sendNewer(loop2, job2, unparted);
   }
 }
-var logOf = (loop2, job2) => join160(loop2.home, "logs", `job-${job2}.log`);
+var logOf = (loop2, job2) => join161(loop2.home, "logs", `job-${job2}.log`);
 function withParts(loop2, update2, job2) {
   if (loop2.partsOff) return update2;
   const parts = readParts(partsPath(logOf(loop2, job2)))?.parts ?? [];
@@ -66717,8 +67006,9 @@ function withTokens(loop2, update2, worktree) {
 async function tick2(loop2, job2, update2, live, log = "") {
   const lines4 = live ? reportBatch(linesAfter(log, live.cursor, { ended: false })) : [];
   try {
-    const { cancel } = await sendUpdate(loop2, job2, live ? withLines(update2, live, lines4) : update2);
+    const { cancel, ended: ended2 } = await sendUpdate(loop2, job2, live ? withLines(update2, live, lines4) : update2);
     if (live) live.cursor += lines4.length;
+    if (ended2 !== void 0 && lostWords(ended2)) loop2.lost.add(job2);
     return cancel;
   } catch (error62) {
     if (error62 instanceof RunnerRefused) loop2.refuse(error62);
@@ -66761,70 +67051,85 @@ async function finish(loop2, job2, update2, live) {
 }
 function defaultBranch(exec, checkout) {
   try {
-    return exec("git", ["-C", checkout, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], QUIET17).trim().replace(/^origin\//, "");
+    return exec("git", ["-C", checkout, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], QUIET18).trim().replace(/^origin\//, "");
   } catch {
   }
   try {
-    const out = exec("git", ["-C", checkout, "ls-remote", "--symref", "origin", "HEAD"], QUIET17);
+    const out = exec("git", ["-C", checkout, "ls-remote", "--symref", "origin", "HEAD"], QUIET18);
     return /^ref: refs\/heads\/(\S+)\s+HEAD/m.exec(out)?.[1] ?? "main";
   } catch {
     return "main";
   }
 }
 function worktreeOf(loop2, job2) {
-  return join160(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
+  return join161(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
 }
 function placeOf5(loop2, job2) {
   const line2 = checkRunnerLine(job2.line, job2.allowedSkills);
   if (!line2.ok) return { status: "failed", reason: `refused: ${line2.reason}` };
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };
-  const logs = join160(loop2.home, "logs");
+  const logs = join161(loop2.home, "logs");
   return {
     checkout,
     worktree: worktreeOf(loop2, job2),
     session: `job-${job2.id}`,
-    line: join160(logs, `job-${job2.id}.line`),
-    log: join160(logs, `job-${job2.id}.log`),
-    exit: join160(logs, `job-${job2.id}.exit`),
+    line: join161(logs, `job-${job2.id}.line`),
+    log: join161(logs, `job-${job2.id}.log`),
+    exit: join161(logs, `job-${job2.id}.exit`),
     skill: line2.kind === "repository" ? line2.skill : null
   };
 }
 function makeWorktree(loop2, job2, place) {
   try {
-    loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET17);
+    loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET18);
     const base = defaultBranch(loop2.exec, place.checkout);
-    mkdirSync43(join160(loop2.home, "wt"), { recursive: true });
-    loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET17);
+    mkdirSync44(join161(loop2.home, "wt"), { recursive: true });
+    loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET18);
     return base;
   } catch {
     return null;
   }
 }
 function skillMissing(place, base) {
-  if (place.skill === null || existsSync97(join160(place.worktree, ".claude", "skills", place.skill, "SKILL.md"))) return null;
+  if (place.skill === null || existsSync98(join161(place.worktree, ".claude", "skills", place.skill, "SKILL.md"))) return null;
   return { status: "failed", reason: `refused: /${place.skill} is not on ${base}` };
 }
 function saved(loop2, ran) {
   const save = saveJob({ exec: loop2.exec, runner: loop2.name, now: loop2.now(), ...ran });
   if (save !== null) loop2.print(savedLine(save));
-  return save !== null;
+  return save;
 }
+function sentLine(job2, sent2) {
+  if (sent2.kind === "portable") return `job ${job2}: its save went to the app`;
+  return `job ${job2}: its save stays on this runner (${sent2.why})${sent2.recorded === null ? ", and the app heard nothing of it" : ""}`;
+}
+async function sent(loop2, save) {
+  const api = loop2.api.checkpoints;
+  if (api === void 0) return;
+  const handoff2 = readText4(handoffPath(logOf(loop2, save.job)));
+  const result2 = await sendSave({ save, api, handoff: handoff2 === "" ? null : handoff2, secrets: maskedOf(loop2, save.job), now: loop2.now() });
+  loop2.print(sentLine(save.job, result2));
+}
+var unsent = (loop2, save) => !loop2.jobs.has(save.job) && save.lost === null && !save.sent && save.failed === null && save.bundle !== null && save.bundleBytes <= CHECKPOINT_BYTES_MAX;
 function keepSaves(loop2, ended2 = null) {
   const running = new Set([...loop2.jobs].filter((id) => id !== ended2));
   const forgotten = keepWithin({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running, now: loop2.now(), budgetBytes: loop2.keepBudgetBytes ?? KEEP_BUDGET_GB * GB2 });
   for (const line2 of forgotten.map(forgottenLine)) if (line2 !== null) loop2.print(line2);
 }
-function cleanUp(loop2, job2, place) {
+async function cleanUp(loop2, job2, place) {
   const author = job2.github === null ? null : { name: job2.github.login, email: job2.github.email };
-  if (!saved(loop2, { job: job2.id, repo: job2.repo, checkout: place.checkout, folder: place.worktree, author })) {
+  const save = saved(loop2, { job: job2.id, repo: job2.repo, checkout: place.checkout, folder: place.worktree, author });
+  if (save === null) {
     try {
-      loop2.exec("git", ["-C", place.checkout, "worktree", "remove", "--force", place.worktree], QUIET17);
+      loop2.exec("git", ["-C", place.checkout, "worktree", "remove", "--force", place.worktree], QUIET18);
     } catch {
-      rmSync24(place.worktree, { recursive: true, force: true });
+      rmSync25(place.worktree, { recursive: true, force: true });
     }
     pruneWorktrees(loop2.exec, place.checkout);
     dropJobBranch(loop2.exec, place.checkout, `agent/job-${job2.id}`);
+  } else {
+    await sent(loop2, save);
   }
   keepSaves(loop2, job2.id);
 }
@@ -66842,14 +67147,17 @@ function asApp(loop2, job2) {
     return { failed: "github app: the token could not be kept on this machine" };
   }
 }
-function startSession(loop2, job2, place, note, app) {
+function startSession(loop2, job2, place, note, app, pointer = null) {
   const account = loop2.chosen.get(job2.id);
-  mkdirSync43(join160(loop2.home, "logs"), { recursive: true });
-  writeFileSync63(place.line, `${job2.line}
+  mkdirSync44(join161(loop2.home, "logs"), { recursive: true });
+  writeFileSync64(place.line, pointer === null ? `${job2.line}
+` : `${job2.line}
+
+${pointer}
 `);
-  writeFileSync63(place.log, note === null ? "" : `${note}
+  writeFileSync64(place.log, note === null ? "" : `${note}
 `);
-  rmSync24(place.exit, { force: true });
+  rmSync25(place.exit, { force: true });
   try {
     loop2.terminal.start({
       name: place.session,
@@ -66877,8 +67185,8 @@ async function withSlices(loop2, job2, place, update2) {
   const checked5 = checkRunnerLine(job2.line);
   if (!checked5.ok || checked5.skill !== "yolo" && checked5.skill !== "yolo-fix") return update2;
   try {
-    const count9 = await loop2.slices(parsePrd(checked5.args.trim()), place.worktree);
-    return count9 === null ? update2 : { ...update2, slicesMerged: count9.merged, slicesTotal: count9.total };
+    const count10 = await loop2.slices(parsePrd(checked5.args.trim()), place.worktree);
+    return count10 === null ? update2 : { ...update2, slicesMerged: count10.merged, slicesTotal: count10.total };
   } catch {
     return update2;
   }
@@ -66936,7 +67244,7 @@ async function watch3(loop2, job2, place, live) {
   for (; ; ) {
     await loop2.sleep(loop2.tickMs);
     const log = readLog(loop2, job2.id, place.log);
-    if (existsSync97(place.exit)) return withSlices(loop2, job2, place, ended(log, readText4(place.exit), job2, turnedOver(place)));
+    if (existsSync98(place.exit)) return withSlices(loop2, job2, place, ended(log, readText4(place.exit), job2, turnedOver(place)));
     if (!loop2.terminal.alive(place.session)) return vanished(readLog(loop2, job2.id, place.log), job2);
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, job2.id, place, failedWithPrs({ status: "failed", reason: "timeout" }, log, job2.line));
     const noApp = await appLacking(loop2, job2);
@@ -66948,7 +67256,7 @@ function takeAccount(loop2, job2) {
   if (!loop2.accounts.file) return null;
   const line2 = checkRunnerLine(job2.line, job2.allowedSkills);
   const skill = line2.ok && line2.kind === "omni" ? line2.skill : null;
-  const projects = join160(loop2.home, ".claude", "projects");
+  const projects = join161(loop2.home, ".claude", "projects");
   const chosen = chooseAccount({
     accounts: loop2.accounts.accounts,
     book: loop2.book,
@@ -66973,6 +67281,29 @@ function freeAccount(loop2, job2) {
   loop2.chosen.delete(job2);
   loop2.secrets.delete(job2);
 }
+async function resumed(loop2, job2, place) {
+  const resume = job2.resume ?? null;
+  if (resume === null) return null;
+  const api = loop2.api.checkpoints;
+  const restore2 = await restoreSaves({
+    exec: loop2.exec,
+    checkout: place.checkout,
+    home: loop2.home,
+    runner: loop2.name,
+    resume,
+    download: api === void 0 ? () => Promise.reject(new Error("this runner cannot download a save")) : (url2) => api.download(url2)
+  });
+  const path = resumeNotePath(loop2.home, job2.id);
+  try {
+    mkdirSync44(join161(loop2.home, "logs"), { recursive: true });
+    writeFileSync64(path, resumeNote(job2.id, resume, restore2));
+  } catch (error62) {
+    loop2.print(`job ${job2.id}: its resume note could not be written (${error62 instanceof Error ? error62.message : String(error62)})`);
+    return null;
+  }
+  loop2.print(resumedLine(job2.id, resume, restore2));
+  return resumePointer(resume, path);
+}
 async function runJob(loop2, job2) {
   const place = placeOf5(loop2, job2);
   if ("status" in place) return { last: place, live: null };
@@ -66987,11 +67318,12 @@ async function runJob(loop2, job2) {
     if ("failed" in app) return { last: { status: "failed", reason: app.failed }, live: null };
     const taken = takeAccount(loop2, job2);
     if (taken !== null) return { last: { status: "failed", reason: taken }, live: null };
-    if (!startSession(loop2, job2, place, plugin.note, app.env)) return { last: { status: "failed", reason: "the tmux session could not be started" }, live: null };
+    const pointer = await resumed(loop2, job2, place);
+    if (!startSession(loop2, job2, place, plugin.note, app.env, pointer)) return { last: { status: "failed", reason: "the tmux session could not be started" }, live: null };
     const live = { log: place.log, cursor: 0 };
     return { last: await watch3(loop2, job2, place, live), live };
   } finally {
-    cleanUp(loop2, job2, place);
+    await cleanUp(loop2, job2, place);
   }
 }
 function forgetJobToken(loop2, job2) {
@@ -67011,35 +67343,56 @@ function releaseLines(job2, { released, releaseError }) {
     ...releaseError === null ? [] : [`job ${job2} could not release its claims: ${releaseError}`]
   ];
 }
-async function releasedAs(loop2, release2, ended2, ran) {
-  const file2 = ran ? githubTokenFile(loop2.home, ended2.id) : null;
+async function releasedAs(loop2, release2, ended2, ran, tokenOf2 = ended2.id) {
+  const file2 = ran ? githubTokenFile(loop2.home, tokenOf2) : null;
   let ghToken = null;
   let lacking = null;
   if (ran) {
-    const kept2 = file2 === null ? null : await keepGithubToken(refreshOf(loop2, ended2.id, file2));
+    const kept2 = file2 === null ? null : await keepGithubToken(refreshOf(loop2, tokenOf2, file2));
     if (kept2 === null || kept2.token === null) lacking = notReleased(`github app: ${kept2 === null ? "the job has no token kept on this machine" : kept2.failed}`);
     else ghToken = kept2.token.token;
   }
   const done = lacking ?? release2({ id: ended2.id, runner: loop2.name, repo: ended2.repo, reason: ended2.reason, ghToken });
-  const hide2 = (text18) => ghToken === null ? text18 : maskTokens(text18, jobTokens(loop2.home, ended2.id));
+  const hide2 = (text18) => ghToken === null ? text18 : maskTokens(text18, jobTokens(loop2.home, tokenOf2));
   for (const line2 of releaseLines(ended2.id, done)) loop2.print(hide2(line2));
+  return done;
+}
+function bothReleased(first, second) {
+  const errors = [first.releaseError, second.releaseError].filter((error63) => error63 !== null).join("; ");
+  const error62 = errors.length <= MAX_RELEASE_ERROR ? errors : `${errors.slice(0, MAX_RELEASE_ERROR - 1)}\u2026`;
+  return { released: [...first.released, ...second.released].slice(0, MAX_RELEASED), releaseError: error62 === "" ? null : error62 };
+}
+async function releaseChain(loop2, release2, ended2, chain, how) {
+  if (how.lost && chainCarriesOn(ended2.line, chain)) {
+    loop2.print(`job ${ended2.id}: its claims stay with its chain, whose next attempt takes them over`);
+    return null;
+  }
+  let done = { released: [], releaseError: null };
+  for (const id of [ended2.id, ...chain.chain]) done = bothReleased(done, await releasedAs(loop2, release2, { ...ended2, id }, how.ran, ended2.id));
   return done;
 }
 async function releasing(loop2, job2, last) {
   if (loop2.release === void 0) return last;
-  const done = await releasedAs(loop2, loop2.release, { id: job2.id, repo: job2.repo, reason: endReason(last) }, job2.github !== null);
-  return { ...last, released: done.released, releaseError: done.releaseError };
+  const ended2 = { id: job2.id, repo: job2.repo, reason: endReason(last), line: job2.line };
+  const done = await releaseChain(loop2, loop2.release, ended2, chainOf(job2.resume ?? null), { lost: loop2.lost.has(job2.id), ran: job2.github !== null });
+  return done === null ? last : { ...last, released: done.released, releaseError: done.releaseError };
 }
 function ranAsApp(loop2, job2) {
   const file2 = githubTokenFile(loop2.home, job2);
   return file2 !== null && readGithubToken(file2) !== null;
 }
+async function releasedLost(loop2, release2, lost) {
+  const chain = readChain(loop2.home, lost.job);
+  const line2 = readText4(join161(loop2.home, "logs", `job-${lost.job}.line`)).split("\n")[0] ?? "";
+  const ended2 = { id: lost.job, repo: lost.repo, reason: "runner lost", line: line2 };
+  return chain === null ? releasedAs(loop2, release2, ended2, lost.ran) : releaseChain(loop2, release2, ended2, chain, { lost: true, ran: lost.ran });
+}
 async function releaseLost(loop2, lost) {
   if (loop2.release === void 0) return;
   const { ran } = lost;
   try {
-    const done = await releasedAs(loop2, loop2.release, { id: lost.job, repo: lost.repo, reason: "runner lost" }, ran);
-    if (done.released.length === 0 && done.releaseError === null) return;
+    const done = await releasedLost(loop2, loop2.release, lost);
+    if (done === null || done.released.length === 0 && done.releaseError === null) return;
     try {
       await loop2.api.update(lost.job, hideTokens(loop2, lost.job, { status: "failed", released: done.released, releaseError: done.releaseError }));
     } catch (error62) {
@@ -67065,6 +67418,13 @@ async function nextJob(loop2, runner2, wait6) {
     return null;
   }
 }
+function keepJobChain(loop2, job2) {
+  try {
+    keepChain(loop2.home, job2.id, chainOf(job2.resume ?? null));
+  } catch (error62) {
+    loop2.print(`job ${job2.id}: its chain could not be kept (${error62 instanceof Error ? error62.message : String(error62)})`);
+  }
+}
 async function slot(loop2, runner2) {
   const wait6 = { ms: loop2.firstMs };
   while (!loop2.halt.aborted) {
@@ -67076,6 +67436,7 @@ async function slot(loop2, runner2) {
     loop2.jobs.add(job2.id);
     loop2.print(`job ${job2.id} claimed: ${job2.line} (${job2.repo})`);
     try {
+      keepJobChain(loop2, job2);
       const { last, live } = await runJob(loop2, job2);
       const report7 = live === null ? last : await releasing(loop2, job2, last);
       await finish(loop2, job2.id, withParts(loop2, withTokens(loop2, report7, worktreeOf(loop2, job2)), job2.id), live);
@@ -67083,6 +67444,7 @@ async function slot(loop2, runner2) {
     } finally {
       forgetJobToken(loop2, job2.id);
       freeAccount(loop2, job2.id);
+      loop2.lost.delete(job2.id);
       loop2.jobs.delete(job2.id);
       loop2.running -= 1;
     }
@@ -67102,9 +67464,9 @@ function decideTokens(loop2) {
   const accounts = accountsReport(loop2.accounts.accounts, loop2.book);
   const reason2 = noTokensPause(accounts);
   if (reason2 !== null && loop2.noTokens === null) loop2.print(`paused: ${reason2}`);
-  const resumed = reason2 === null && loop2.noTokens !== null;
+  const resumed2 = reason2 === null && loop2.noTokens !== null;
   loop2.noTokens = reason2;
-  if (resumed) {
+  if (resumed2) {
     loop2.print("resumed");
     wake(loop2);
   }
@@ -67152,6 +67514,7 @@ async function sweeper(loop2) {
       const checkout = loop2.checkouts.get(repo);
       if (checkout !== void 0) saved(loop2, { job: job2, repo, checkout, folder, author: null });
     }
+    for (const save of savesIn(loop2.home).filter((kept2) => unsent(loop2, kept2))) await sent(loop2, save);
     const line2 = sweptLine(sweep2({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running: loop2.jobs, keepLogsDays, now: loop2.now() }));
     if (line2 !== null) loop2.print(line2);
     keepSaves(loop2);
@@ -67243,8 +67606,8 @@ function missingTool(exec, claude = "login") {
 
 // kit/bin/commands/runner-follow.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync44, rmSync as rmSync25, writeFileSync as writeFileSync64 } from "node:fs";
-import { join as join161 } from "node:path";
+import { mkdirSync as mkdirSync45, rmSync as rmSync26, writeFileSync as writeFileSync65 } from "node:fs";
+import { join as join162 } from "node:path";
 import { setTimeout as delay2 } from "node:timers/promises";
 
 // kit/lib/runner/follow.ts
@@ -67302,9 +67665,9 @@ function milestones(previous, job2, lines4, merged, page2) {
   const read3 = readLines(lines4, seen, job2.repo);
   if (read3.waitingStarted) out.push("waiting for approval");
   for (const pr of read3.prs.slice(seen.prs.length)) out.push(`PR: ${pr}`);
-  let count9 = seen.merged;
-  if (merged !== null && merged.total > 0 && merged.merged > count9) {
-    count9 = merged.merged;
+  let count10 = seen.merged;
+  if (merged !== null && merged.total > 0 && merged.merged > count10) {
+    count10 = merged.merged;
     out.push(`${String(merged.merged)}/${String(merged.total)} slices merged`);
   }
   let ended2 = seen.ended;
@@ -67314,7 +67677,7 @@ function milestones(previous, job2, lines4, merged, page2) {
     out.push(page2 === null ? last : `${last} \xB7 ${page2}`);
     if (job2.outcome === "stopped" && job2.status === "done" && job2.line !== void 0) out.push(`send it again: omni runner send '${job2.line}'`);
   }
-  return { lines: out, seen: { queued: true, claimedBy, waiting: read3.waiting, prs: read3.prs, merged: count9, ended: ended2 } };
+  return { lines: out, seen: { queued: true, claimedBy, waiting: read3.waiting, prs: read3.prs, merged: count10, ended: ended2 } };
 }
 function isEnded(job2) {
   return job2.status === "done" || job2.status === "failed" || job2.status === "cancelled";
@@ -67433,7 +67796,7 @@ async function pageOf4(prd2, at2, fetch) {
     return null;
   }
 }
-var followFile = (root, prd2) => join161(root, LOCAL_DIR, "runner-follow", `${String(prd2)}.json`);
+var followFile = (root, prd2) => join162(root, LOCAL_DIR, "runner-follow", `${String(prd2)}.json`);
 async function newLines2(run2, job2) {
   const lines4 = [];
   for (; ; ) {
@@ -67448,9 +67811,9 @@ async function newLines2(run2, job2) {
 function remember(run2, job2, line2) {
   const { root } = run2.at;
   ensureLocalDir(root);
-  mkdirSync44(join161(root, LOCAL_DIR, "runner-follow"), { recursive: true });
+  mkdirSync45(join162(root, LOCAL_DIR, "runner-follow"), { recursive: true });
   const at2 = new Date((run2.io.now ?? Date.now)()).toISOString();
-  writeFileSync64(followFile(root, run2.prd), `${JSON.stringify({ prd: Number(run2.prd), runner: job2.runner, line: line2, at: at2 }, null, 2)}
+  writeFileSync65(followFile(root, run2.prd), `${JSON.stringify({ prd: Number(run2.prd), runner: job2.runner, line: line2, at: at2 }, null, 2)}
 `);
 }
 async function jobOf(run2) {
@@ -67516,7 +67879,7 @@ async function followCommand(args, io) {
     return await follow2({ prd: prd2, at: at2, io, seen: null, job: null, cursor: 0, merged: null, reads: 0 }, stop.signal);
   } finally {
     stop.release();
-    rmSync25(followFile(at2.root, prd2), { force: true });
+    rmSync26(followFile(at2.root, prd2), { force: true });
   }
 }
 
@@ -67653,7 +68016,7 @@ async function start2(args, io) {
 var t3InstancesOf = ({ accounts }) => accounts.flatMap((account) => account.instance === null ? [] : [account.instance]);
 function tokenCounts(home, accounts, now2) {
   const folders = t3ClaudeProjects(t3HomeOf(home), home, t3InstancesOf(accounts));
-  return folders.length === 0 ? void 0 : tokenSource({ projects: [join162(home, ".claude", "projects"), ...folders], now: now2 });
+  return folders.length === 0 ? void 0 : tokenSource({ projects: [join163(home, ".claude", "projects"), ...folders], now: now2 });
 }
 function t3Notes(home, accounts) {
   const note = t3InstancesOf(accounts).length === 0 ? null : t3SignInNote(home);
@@ -67756,7 +68119,7 @@ function refused3(stderr, words4) {
 }
 function textOf14(cwd, path) {
   try {
-    return { text: readFileSync125(resolve21(cwd, path), "utf8") };
+    return { text: readFileSync126(resolve21(cwd, path), "utf8") };
   } catch {
     return { refusal: `cannot read ${path}.` };
   }
@@ -67808,8 +68171,8 @@ async function askOnJob(args, io) {
   if ("refusal" in lead) return refused3(stderr, lead.refusal);
   const page2 = questionsPage(io);
   if ("refusal" in page2) return refused3(stderr, page2.refusal);
-  const sent = await throughApp(() => page2.client.ask(jobId, { issue: flags.issue, lead: lead.lead, questions: questions2.questions }));
-  if ("refusal" in sent) return refused3(stderr, sent.refusal);
+  const sent2 = await throughApp(() => page2.client.ask(jobId, { issue: flags.issue, lead: lead.lead, questions: questions2.questions }));
+  if ("refusal" in sent2) return refused3(stderr, sent2.refusal);
   println(stdout, waitingLine2(page2.askUrl, jobId));
   return 0;
 }
@@ -67884,8 +68247,8 @@ var runner = {
 
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync126, writeFileSync as writeFileSync65 } from "node:fs";
-import { join as join163 } from "node:path";
+import { readFileSync as readFileSync127, writeFileSync as writeFileSync66 } from "node:fs";
+import { join as join164 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -68080,7 +68443,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync126(join163(ctx.root, path), "utf8");
+    return readFileSync127(join164(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -68157,7 +68520,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync65(join163(ctx.root, settledFile), closedText);
+  writeFileSync66(join164(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -68248,10 +68611,10 @@ function eachOf(fact, what, findings2) {
   if (isUnchecked(fact)) return [notChecked(fact, what)];
   return (fact ?? []).flatMap(findings2);
 }
-function behindRed({ branch, defaultBranch: defaultBranch2, remote, linked: linked2 }, count9, age) {
+function behindRed({ branch, defaultBranch: defaultBranch2, remote, linked: linked2 }, count10, age) {
   const onDefault = !linked2 && branch === defaultBranch2;
-  const who2 = onDefault ? defaultBranch2 : `${branch ?? "HEAD"} is ${count9} behind ${remote}/${defaultBranch2}`;
-  const text18 = onDefault ? `${who2} is ${count9} behind, the oldest ${age} old` : `${who2}, the oldest ${age} old`;
+  const who2 = onDefault ? defaultBranch2 : `${branch ?? "HEAD"} is ${count10} behind ${remote}/${defaultBranch2}`;
+  const text18 = onDefault ? `${who2} is ${count10} behind, the oldest ${age} old` : `${who2}, the oldest ${age} old`;
   return linked2 ? red(text18, null) : red(text18, SYNC_FIX, "fast-forward");
 }
 function behindFinding(facts2, now2, redAfter) {
@@ -68699,18 +69062,18 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/ship-review.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync98, readFileSync as readFileSync127 } from "node:fs";
-import { join as join164 } from "node:path";
+import { existsSync as existsSync99, readFileSync as readFileSync128 } from "node:fs";
+import { join as join165 } from "node:path";
 function pullOf2(url2) {
   const number5 = /\/pull\/(\d+)#[^#]*$/.exec(url2)?.[1];
   return number5 === void 0 ? url2 : `PR #${number5}`;
 }
 function itemsOf(ctx, prd2) {
-  const open3 = openItemFiles(prd2, { ctx }).map((file2) => ({ text: readFileSync127(join164(ctx.root, file2), "utf8"), verdict: null }));
+  const open3 = openItemFiles(prd2, { ctx }).map((file2) => ({ text: readFileSync128(join165(ctx.root, file2), "utf8"), verdict: null }));
   const dir = ctx.layout.outboxDir(prd2);
-  const ledger = dir === null ? null : join164(ctx.root, dir, SETTLED_FILE);
-  if (ledger === null || !existsSync98(ledger)) return open3;
-  const settled2 = parseSettledEntries(readFileSync127(ledger, "utf8"), ctx.markers).map((entry3) => ({ text: entry3.itemText, verdict: entry3.verdict ?? null }));
+  const ledger = dir === null ? null : join165(ctx.root, dir, SETTLED_FILE);
+  if (ledger === null || !existsSync99(ledger)) return open3;
+  const settled2 = parseSettledEntries(readFileSync128(ledger, "utf8"), ctx.markers).map((entry3) => ({ text: entry3.itemText, verdict: entry3.verdict ?? null }));
   return [...open3, ...settled2];
 }
 function reviewPromises(ctx, prd2) {
@@ -68719,7 +69082,7 @@ function reviewPromises(ctx, prd2) {
     return point2 === null || verdict2 === "drifted" ? [] : [point2];
   });
   if (promised2.length === 0) return [];
-  const sources2 = new Set(readFollowUps(join164(ctx.root, ctx.config.paths.delivery, FOLLOW_UPS_DIR)).map((point2) => point2.source));
+  const sources2 = new Set(readFollowUps(join165(ctx.root, ctx.config.paths.delivery, FOLLOW_UPS_DIR)).map((point2) => point2.source));
   return promised2.flatMap(({ url: url2, note }) => {
     const source2 = reviewSource(prd2, url2);
     if (sources2.has(source2)) return [];
@@ -68768,7 +69131,7 @@ var sign = {
 // kit/bin/commands/status.ts
 init_define_OMNI_BUNDLE();
 import { appendFileSync as appendFileSync2 } from "node:fs";
-import { join as join165 } from "node:path";
+import { join as join166 } from "node:path";
 
 // kit/lib/status/format.ts
 init_define_OMNI_BUNDLE();
@@ -68791,7 +69154,7 @@ var STAGE_WORDS = Object.freeze({
   retro: "retro"
 });
 var IDEA_COUNT = "on the app";
-var plural6 = (count9, word2) => `${count9} ${word2}${count9 === 1 ? "" : "s"}`;
+var plural6 = (count10, word2) => `${count10} ${word2}${count10 === 1 ? "" : "s"}`;
 function fetchedAgo(fetchedAt2, now2) {
   if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
   const age = Math.max(0, now2 - fetchedAt2);
@@ -68824,7 +69187,7 @@ function bar({ bar: { delivered, total, percent, filled: filled2 }, inProgress }
   const top2 = `${LABEL3}${cells4}  ${delivered} of ${total} \xB7 ${percent}%`;
   if (inProgress.total === 0) return [top2, `${UNDER_BAR}nothing in progress`];
   const counted5 = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]];
-  const parts = counted5.filter(([count9]) => count9 > 0).map(([count9, where]) => `${count9} ${where}`);
+  const parts = counted5.filter(([count10]) => count10 > 0).map(([count10, where]) => `${count10} ${where}`);
   const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
   for (const part of parts.slice(1)) {
     const joined3 = `${under.at(-1)}, ${part}`;
@@ -68862,9 +69225,9 @@ function rows(entries4) {
   ]);
 }
 function landingLines(landings) {
-  return landings.map(({ landing, landings: count9, name: name3, state, waitsFor }) => {
+  return landings.map(({ landing, landings: count10, name: name3, state, waitsFor }) => {
     const waits2 = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
-    return cut6(`${UNDER_BAR}landing ${landing}/${count9} ${name3}: ${state}${waits2}`, WIDTH);
+    return cut6(`${UNDER_BAR}landing ${landing}/${count10} ${name3}: ${state}${waits2}`, WIDTH);
   });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
@@ -68898,8 +69261,8 @@ function yours({ state, email: email3, rows: inFlight3, shipped }) {
   if (inFlight3.length === 0 && shipped.length === 0) return [heading2, `${INDENT2}none yet`];
   return [heading2, ...inFlight3.length ? rows(inFlight3) : [], ...shipped.length ? shippedRow(shipped) : []];
 }
-function heldLines(held2) {
-  return held2.flatMap(({ prd: prd2, topic, lines: lines4 }) => [
+function heldLines(held3) {
+  return held3.flatMap(({ prd: prd2, topic, lines: lines4 }) => [
     cut6(`${INDENT2}${"held".padEnd(UNDER_BAR.length - INDENT2.length)}#${prd2} ${topic}`, WIDTH),
     ...lines4.map((line2) => `${UNDER_BAR}${line2}`)
   ]);
@@ -68934,7 +69297,7 @@ async function overview({ ctx, stdout, exec, fetch, gate }) {
     throw usageError(`omni status: cannot read ${names.remote} or ${names.local}; run omni status --fetch`);
   }
   const server = await serverPrds(ctx, new Set(facts2.shipped.map(({ prd: prd2 }) => prd2)), gateApproval(ctx, gate));
-  const points = readFollowUps(join165(ctx.root, ctx.config.paths.delivery, FOLLOW_UPS_DIR));
+  const points = readFollowUps(join166(ctx.root, ctx.config.paths.delivery, FOLLOW_UPS_DIR));
   const followUps = points[0] === void 0 ? null : { count: points.length, oldest: points[0].date };
   println(stdout, formatOverview(overviewFor({ ...facts2, server }), { now: Date.now(), followUps }));
   return 0;
@@ -69432,9 +69795,9 @@ function fit3(line2, width) {
   }
   return `${out}${open3 ? RESET : ""}${CUT}`;
 }
-function itemsPart(count9) {
-  if (count9 === null || count9 === void 0 || !(count9 > 0)) return null;
-  return `${count9} open item${count9 === 1 ? "" : "s"}`;
+function itemsPart(count10) {
+  if (count10 === null || count10 === void 0 || !(count10 > 0)) return null;
+  return `${count10} open item${count10 === 1 ? "" : "s"}`;
 }
 function wavePart(slices) {
   if (!isList(slices) || slices.length === 0) return null;
@@ -69787,8 +70150,8 @@ function unpushedOf(io, tracking, hasTracking) {
   const local = `refs/heads/${io.defaultBranch}`;
   if (gitOut(io, ["rev-parse", "--verify", "--quiet", local]) === null) return 0;
   if (!hasTracking) return { notChecked: `no ${io.remote}/${io.defaultBranch}` };
-  const count9 = Number.parseInt(gitOut(io, ["rev-list", "--count", `${tracking}..${local}`]) ?? "", 10);
-  return Number.isNaN(count9) ? { notChecked: "git rev-list failed" } : count9;
+  const count10 = Number.parseInt(gitOut(io, ["rev-list", "--count", `${tracking}..${local}`]) ?? "", 10);
+  return Number.isNaN(count10) ? { notChecked: "git rev-list failed" } : count10;
 }
 function mainFacts(io) {
   const linked2 = isLinked(io);
@@ -69830,17 +70193,17 @@ function fixOthers({ record: record2, kitRepo, actions }) {
     return [done ? WORDS2[step3].done : WORDS2[step3].left, ...lines4.map((line2) => `    ${line2}`)];
   });
 }
-var QUIET18 = (cwd, timeout) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...timeout ? { timeout } : {} });
+var QUIET19 = (cwd, timeout) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...timeout ? { timeout } : {} });
 function gitOut2(io, args) {
   try {
-    return io.exec("git", args, QUIET18(io.cwd)).trim();
+    return io.exec("git", args, QUIET19(io.cwd)).trim();
   } catch {
     return null;
   }
 }
 function gitDo(io, args, timeout) {
   try {
-    io.exec("git", args, QUIET18(io.cwd, timeout));
+    io.exec("git", args, QUIET19(io.cwd, timeout));
     return null;
   } catch (error62) {
     const said2 = [propertyOf(error62, "stderr"), propertyOf(error62, "stdout")].map((text18) => typeof text18 === "string" || text18 instanceof Buffer ? text18.toString() : "");
@@ -69853,8 +70216,8 @@ var counted4 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function unpushedHere(io, branch) {
   const upstream2 = branch === null ? null : gitOut2(io, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", `${branch}@{upstream}`]);
   const range2 = upstream2 ? [`${upstream2}..HEAD`] : ["HEAD", "--not", "--remotes"];
-  const count9 = Number.parseInt(gitOut2(io, ["rev-list", "--count", ...range2]) ?? "", 10);
-  return Number.isNaN(count9) ? null : { count: count9, where: upstream2 ?? "any remote" };
+  const count10 = Number.parseInt(gitOut2(io, ["rev-list", "--count", ...range2]) ?? "", 10);
+  return Number.isNaN(count10) ? null : { count: count10, where: upstream2 ?? "any remote" };
 }
 function changedHold({ changed }) {
   if (isUnchecked(changed)) return `the changed files: not checked (${changed.notChecked})`;
@@ -69902,8 +70265,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/sync/kit.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync128 } from "node:fs";
-import { join as join166 } from "node:path";
+import { readFileSync as readFileSync129 } from "node:fs";
+import { join as join167 } from "node:path";
 
 // kit/lib/sync/setup.ts
 init_define_OMNI_BUNDLE();
@@ -69927,8 +70290,8 @@ function afterFailure(error62) {
   return { notChecked: code === "ETIMEDOUT" ? "timed out" : "claude plugin list failed" };
 }
 function claudePlugins(io) {
-  const held2 = memo2.get(io);
-  if (held2 !== void 0) return held2;
+  const held3 = memo2.get(io);
+  if (held3 !== void 0) return held3;
   const options = { cwd: io.cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: CLAUDE_BUDGET_MS };
   let read3;
   try {
@@ -69977,7 +70340,7 @@ var setupFacts = (io) => Promise.resolve(processUnderTest() ? ALL_DONE : setupFa
 // kit/lib/sync/kit.ts
 var GH_BUDGET_MS = 5e3;
 var BIN_MAX_BYTES = 64 * 1024 * 1024;
-var TARGET_KITS_FILE = join166(".omni-loop", "local", "sync-targets.json");
+var TARGET_KITS_FILE = join167(".omni-loop", "local", "sync-targets.json");
 var TargetKitsSchema = external_exports.record(external_exports.string(), external_exports.object({ sha: external_exports.string(), version: external_exports.string().nullable() }));
 var ProductTargetsCopySchema = external_exports.looseObject({ targets: external_exports.array(external_exports.looseObject({ repo: external_exports.string() })) });
 function whyFailed(error62, command2) {
@@ -70026,7 +70389,7 @@ function targetRepos({ root, config: config3 }) {
   const planned = config3.plan?.targets ?? [];
   if (planned.length > 0) return planned.map((target3) => target3.repo);
   try {
-    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync128(join166(root, PRODUCT_TARGETS_FILE), "utf8")));
+    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync129(join167(root, PRODUCT_TARGETS_FILE), "utf8")));
     return copy.targets.map((target3) => target3.repo).filter((repo) => repo !== config3.repo.slug);
   } catch {
     return [];
@@ -70034,7 +70397,7 @@ function targetRepos({ root, config: config3 }) {
 }
 function readTargetKits(root) {
   try {
-    return TargetKitsSchema.parse(JSON.parse(readFileSync128(join166(root, TARGET_KITS_FILE), "utf8")));
+    return TargetKitsSchema.parse(JSON.parse(readFileSync129(join167(root, TARGET_KITS_FILE), "utf8")));
   } catch {
     return {};
   }
@@ -70065,7 +70428,7 @@ function targetsOf2(io) {
   const facts2 = repos.map((repo) => targetKit(io, repo, kept2, found2));
   try {
     ensureLocalDir(io.root);
-    writeJsonAt(join166(io.root, TARGET_KITS_FILE), found2);
+    writeJsonAt(join167(io.root, TARGET_KITS_FILE), found2);
   } catch {
   }
   return facts2;
@@ -70081,10 +70444,10 @@ var kitFacts = (io) => Promise.resolve(processUnderTest() ? { na: NOT_CHECKED_YE
 init_define_OMNI_BUNDLE();
 import { resolve as resolve23 } from "node:path";
 var GH_BUDGET_MS2 = 1e4;
-var QUIET19 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+var QUIET20 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function gitLines(exec, cwd, args) {
   try {
-    return exec("git", args, { cwd, ...QUIET19 }).split("\n").map((line2) => line2.trim()).filter(Boolean);
+    return exec("git", args, { cwd, ...QUIET20 }).split("\n").map((line2) => line2.trim()).filter(Boolean);
   } catch {
     return null;
   }
@@ -70134,8 +70497,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/omni-settings/copy.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync45, readFileSync as readFileSync129, rmSync as rmSync26, writeFileSync as writeFileSync66 } from "node:fs";
-import { dirname as dirname31, join as join167 } from "node:path";
+import { mkdirSync as mkdirSync46, readFileSync as readFileSync130, rmSync as rmSync27, writeFileSync as writeFileSync67 } from "node:fs";
+import { dirname as dirname31, join as join168 } from "node:path";
 
 // kit/lib/omni-settings/layout.ts
 init_define_OMNI_BUNDLE();
@@ -70222,19 +70585,19 @@ function writeSettingsCopy({ root, files, source: source2 }) {
   const from = SettingsSourceSchema.parse(source2);
   const { pages, skipped: skipped4 } = sortFiles(files);
   const folder = levelFolder("omni settings");
-  const absolute = join167(root, folder);
+  const absolute = join168(root, folder);
   ensureLocalDir(root);
-  mkdirSync45(absolute, { recursive: true });
-  rmSync26(join167(absolute, "playbook"), { recursive: true, force: true });
-  rmSync26(join167(absolute, defined(formRelativePath("decisions"), "the decisions form\u2019s path")), { force: true });
+  mkdirSync46(absolute, { recursive: true });
+  rmSync27(join168(absolute, "playbook"), { recursive: true, force: true });
+  rmSync27(join168(absolute, defined(formRelativePath("decisions"), "the decisions form\u2019s path")), { force: true });
   for (const page2 of pages) {
-    const path = join167(absolute, defined(formRelativePath(page2.form), `the path of ${page2.form}`));
-    mkdirSync45(dirname31(path), { recursive: true });
-    writeFileSync66(path, page2.text);
+    const path = join168(absolute, defined(formRelativePath(page2.form), `the path of ${page2.form}`));
+    mkdirSync46(dirname31(path), { recursive: true });
+    writeFileSync67(path, page2.text);
   }
   const written = pages.map(({ form: form2 }) => form2);
   const record2 = RecordSchema.parse({ ...from, forms: written, skipped: skipped4 });
-  writeFileSync66(join167(absolute, SETTINGS_COPY_RECORD), `${JSON.stringify(record2, null, 2)}
+  writeFileSync67(join168(absolute, SETTINGS_COPY_RECORD), `${JSON.stringify(record2, null, 2)}
 `);
   return { folder, written, skipped: skipped4 };
 }
@@ -70486,12 +70849,12 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync99, mkdtempSync as mkdtempSync6, readFileSync as readFileSync130, rmSync as rmSync27 } from "node:fs";
-import { tmpdir as tmpdir6 } from "node:os";
-import { join as join168 } from "node:path";
+import { existsSync as existsSync100, mkdtempSync as mkdtempSync7, readFileSync as readFileSync131, rmSync as rmSync28 } from "node:fs";
+import { tmpdir as tmpdir7 } from "node:os";
+import { join as join169 } from "node:path";
 var USAGE54 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync6(join168(tmpdir6(), "omni-update-"));
+  const dir = mkdtempSync7(join169(tmpdir7(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -70503,7 +70866,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
-    rmSync27(dir, { recursive: true, force: true });
+    rmSync28(dir, { recursive: true, force: true });
   }
 }
 function rootOf(cwd, exec) {
@@ -70514,10 +70877,10 @@ function rootOf(cwd, exec) {
   }
 }
 function claudeListed(root) {
-  const file2 = root ? join168(root, CONFIG_FILE) : null;
-  if (!file2 || !existsSync99(file2)) return true;
+  const file2 = root ? join169(root, CONFIG_FILE) : null;
+  if (!file2 || !existsSync100(file2)) return true;
   try {
-    return parseConfig(readFileSync130(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
+    return parseConfig(readFileSync131(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
   } catch {
     return true;
   }
@@ -70604,7 +70967,7 @@ var visual = branchVerdictCommand({
 
 // kit/bin/commands/worktrees.ts
 init_define_OMNI_BUNDLE();
-import { join as join169 } from "node:path";
+import { join as join170 } from "node:path";
 
 // kit/lib/worktrees/engine.ts
 init_define_OMNI_BUNDLE();
@@ -70816,9 +71179,9 @@ async function worktreesHint(seams) {
   const unpushed = heads.length === 0 ? /* @__PURE__ */ new Set() : seams.host.unpushed(heads);
   const pushed = kit.filter(({ head }) => head !== null && !unpushed.has(head));
   const clean = await Promise.all(pushed.map(({ path }) => isClean(seams.host, path)));
-  const count9 = clean.filter(Boolean).length;
-  if (count9 === 0) return null;
-  return `${count9} ${count9 === 1 ? "worktree" : "worktrees"} of the kit can be removed: omni worktrees prune`;
+  const count10 = clean.filter(Boolean).length;
+  if (count10 === 0) return null;
+  return `${count10} ${count10 === 1 ? "worktree" : "worktrees"} of the kit can be removed: omni worktrees prune`;
 }
 
 // kit/lib/worktrees/host.ts
@@ -70941,7 +71304,7 @@ function callOf(args) {
 }
 function prdOfTopic(ctx) {
   const { inbox, shipped } = ctx.layout.dirs;
-  const folders = [...prdFoldersIn(join169(ctx.root, inbox)), ...prdFoldersIn(join169(ctx.root, shipped))];
+  const folders = [...prdFoldersIn(join170(ctx.root, inbox)), ...prdFoldersIn(join170(ctx.root, shipped))];
   return (topic) => folders.find(({ name: name3 }) => parseFolderName(name3)?.topic === topic)?.prd ?? null;
 }
 function omniBoard(ctx, io) {

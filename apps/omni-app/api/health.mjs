@@ -210,7 +210,8 @@ function serviceDb({ url, key, fetch }) {
 var SCHEDULES = Object.freeze([
   { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
   { kind: "escalation", periodMinutes: 60, maxTries: 3 },
-  { kind: "search-categorize", periodMinutes: 15, maxTries: 3 }
+  { kind: "search-categorize", periodMinutes: 15, maxTries: 3 },
+  { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 }
 ]);
 
 // apps/omni-app/src/jobs/ledger.ts
