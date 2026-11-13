@@ -3138,6 +3138,7 @@ export type Database = {
           id: number
           kind: string
           legal_id: string | null
+          persona_id: string | null
           product_id: string
           proposal_id: string | null
           workspace_id: string
@@ -3153,6 +3154,7 @@ export type Database = {
           id?: never
           kind: string
           legal_id?: string | null
+          persona_id?: string | null
           product_id: string
           proposal_id?: string | null
           workspace_id: string
@@ -3168,6 +3170,7 @@ export type Database = {
           id?: never
           kind?: string
           legal_id?: string | null
+          persona_id?: string | null
           product_id?: string
           proposal_id?: string | null
           workspace_id?: string
@@ -3192,6 +3195,13 @@ export type Database = {
             columns: ["legal_id"]
             isOneToOne: false
             referencedRelation: "product_legal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_events_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
             referencedColumns: ["id"]
           },
           {
@@ -6417,6 +6427,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      persona_event_fields: {
+        Args: { p: Database["public"]["Tables"]["personas"]["Row"] }
+        Returns: Json
+      }
       persona_fields: {
         Args: {
           p_avatar: Json
@@ -6427,6 +6441,40 @@ export type Database = {
           p_who: string
         }
         Returns: Record<string, unknown>
+      }
+      persona_find: {
+        Args: { p_name: string; p_product: string; p_workspace: string }
+        Returns: {
+          avatar: Json
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          name: string
+          ordinal: number
+          product_id: string
+          stance: string
+          trade: string
+          updated_at: string
+          usage: string
+          who: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "personas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      persona_log: {
+        Args: {
+          p_action: string
+          p_after: Json
+          p_before: Json
+          p_persona: Database["public"]["Tables"]["personas"]["Row"]
+        }
+        Returns: undefined
       }
       persona_of: {
         Args: { p_deleted: boolean; p_persona: string; p_workspace: string }
@@ -6478,6 +6526,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      persona_stance_rename: { Args: never; Returns: number }
       pitch_asset_product: { Args: { path: string }; Returns: string }
       pitch_dossier_shipped: { Args: { p_dossier: string }; Returns: boolean }
       pitch_files: { Args: never; Returns: string[] }

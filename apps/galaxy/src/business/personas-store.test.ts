@@ -70,6 +70,7 @@ describe('the persona functions', () => {
     for (const field of ['name', 'stance', 'trade', 'avatar', 'who', 'usage', 'product']) {
       expect(personaRefusalOf({ code: '22023', hint: field }), field).toBe(INVALID_PERSONA_FIELD[field]);
     }
+     expect(INVALID_PERSONA_FIELD.stance).toBe('Pick a stance: enthusiastic, neutral or skeptical.');
   });
 });
 

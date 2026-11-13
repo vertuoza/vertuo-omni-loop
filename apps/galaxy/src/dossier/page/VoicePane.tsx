@@ -12,7 +12,7 @@ import type { VoiceCell, VoiceRow, VoiceView } from './voice';
 // of the PRD. At 393 px the grid scrolls inside its own box, never the page (dossier.css).
 
 export const REWORK_LABEL = 'Rework with this feedback';
-const STANCE_LABEL = { excited: 'Excited', neutral: 'Neutral', skeptical: 'Skeptical' } as const;
+const STANCE_LABEL = { enthusiastic: 'Enthusiastic', neutral: 'Neutral', skeptical: 'Skeptical' } as const;
 const MOVE_WORDS = { '▲': 'up', '▼': 'down', '=': 'the same' } as const;
 
 function Portrait({ row }: { row: VoiceRow }) {

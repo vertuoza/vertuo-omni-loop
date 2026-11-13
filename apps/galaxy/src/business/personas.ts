@@ -15,9 +15,10 @@ import { at, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 // UNDO_MS. A new persona starts on an avatar picked at random for its trade: the seed comes with the
 // action, so the reducer stays pure.
 
-export type Stance = 'excited' | 'neutral' | 'skeptical';
+/** PRD 2779 renamed `excited` to `enthusiastic`; a row from before the rename still reads. */
+export type Stance = 'enthusiastic' | 'neutral' | 'skeptical';
 
-export const STANCES: readonly Stance[] = ['excited', 'neutral', 'skeptical'];
+export const STANCES: readonly Stance[] = ['enthusiastic', 'neutral', 'skeptical'];
 
 /** A persona's own fields, as a person gives them. */
 export interface PersonaFields {
@@ -64,13 +65,17 @@ export const TEXT_MAX = 400;
 
 const isStance = (s: unknown): s is Stance => isOneOf(STANCES, s);
 
+/** A stored stance as the page reads it: `excited` (before PRD 2779's rename) is `enthusiastic`, and
+ * anything else it cannot name is neutral. */
+const stanceOf = (stored: string): Stance => (stored === 'excited' ? 'enthusiastic' : isStance(stored) ? stored : 'neutral');
+
 export function personaOf(row: StoredPersona): Persona {
   return {
     id: row.id,
     product: row.product_id,
     ordinal: Number(row.ordinal),
     name: row.name,
-    stance: isStance(row.stance) ? row.stance : 'neutral',
+    stance: stanceOf(row.stance),
     trade: row.trade,
     avatar: row.avatar,
     who: row.who ?? '',

@@ -13,13 +13,15 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 // objection, outlined with how it was settled, or none when nobody objected, and its fit line.
 
 const STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
-const STANCES = ['excited', 'neutral', 'skeptical'] as const;
+/** PRD 2779 renamed `excited` to `enthusiastic`: a file may say either, and reads as the new word. */
+const STANCES = ['enthusiastic', 'neutral', 'skeptical'] as const;
+const stanceSchema = z.enum([...STANCES, 'excited']).transform((stance) => (stance === 'excited' ? 'enthusiastic' : stance));
 const SETTLED = ['accepted', 'saved-as-claim', 'just-this-run', 'none'] as const;
 
 const citations = z.array(z.string().min(1)).min(1);
 const personaSchema = z.object({
   name: z.string().trim().min(1),
-  stance: z.enum(STANCES),
+  stance: stanceSchema,
   score: z.number().int().min(1).max(5),
   reaction: z.string().trim().min(1),
   citations,

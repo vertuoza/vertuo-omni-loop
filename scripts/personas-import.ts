@@ -5,10 +5,11 @@
 // SUPABASE_SERVICE_ROLE_KEY: `node --env-file=apps/galaxy/.env.local scripts/personas-import.ts …`.
 //
 // The file is a JSON array of personas:
-//   { "product": "<product name>", "name", "stance": "excited|neutral|skeptical", "trade": "<trade id>",
+//   { "product": "<product name>", "name", "stance": "enthusiastic|neutral|skeptical", "trade": "<trade id>",
 //     "who", "usage", "avatar": { "v": 1, "skin", "hair", "hairColor", "outfit", "accessory" } }
 // `product` may be left out when the workspace has one product; `avatar` may be left out, and one is
 // picked from the row's product and name, the same every run; `who` and `usage` default to empty.
+// `excited`, the stance's word before PRD 2779, is still taken, and added as `enthusiastic`.
 //
 // Without --write it is a dry run: it prints the workspace's name and every row it would add, and
 // writes nothing. Every row is checked first, as public.persona_fields() does, against the trades and
@@ -27,7 +28,7 @@ import { EnvError, readEnv, processEnv, requireGroup, SUPABASE, type EnvSource, 
 import { plainText } from '../kit/lib/outbox/plain-text.ts';
 import { parseOrThrow } from '../kit/lib/schema/parse-or-throw.ts';
 
-const STANCES = ['excited', 'neutral', 'skeptical'] as const;
+const STANCES = ['enthusiastic', 'neutral', 'skeptical'] as const;
 const KEYS = ['product', 'name', 'stance', 'trade', 'who', 'usage', 'avatar'];
 const TRADES = new Set<string>(PERSONA_TRADES.map((t) => t.id));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -65,7 +66,7 @@ const isStance = (v: unknown): v is Stance => STANCES.some((stance) => stance ==
 /** Each field's rule, the same as public.persona_fields(): the field's error, or null. */
 const FIELD_RULES: { [F in keyof Persona]: (v: Persona[F]) => string | null } = {
   name: nameError,
-  stance: (v) => (isStance(v) ? null : 'stance: excited, neutral or skeptical'),
+  stance: (v) => (isStance(v) ? null : 'stance: enthusiastic, neutral or skeptical'),
   trade: (v) => (typeof v === 'string' && TRADES.has(v) ? null : `trade: one of ${[...TRADES].join(', ')}`),
   who: textError('who'),
   usage: textError('usage'),
@@ -116,7 +117,7 @@ function productOf(raw: Record<string, unknown>, products: Product[]): { product
 function personaOf(raw: Record<string, unknown>, product: Product): Persona {
   return {
     name: trimmed(raw.name),
-    stance: raw.stance,
+    stance: raw.stance === 'excited' ? 'enthusiastic' : raw.stance,
     trade: typeof raw.trade === 'string' ? raw.trade.trim() : raw.trade,
     avatar: raw.avatar === undefined ? randomAvatar(`${product.id}/${trimmed(raw.name)}`) : raw.avatar,
     who: trimmed(raw.who),
