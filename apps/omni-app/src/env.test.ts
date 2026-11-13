@@ -27,6 +27,7 @@ describe('readEnv — the GitHub App', () => {
       constituentJudge: null,
       lawJudge: null,
       businessLawsJudge: null,
+      searchCategorize: null,
       cron: null,
       galaxyUrl: DEFAULT_GALAXY_URL,
     });
@@ -46,6 +47,7 @@ describe('readEnv — the GitHub App', () => {
       CONSTITUENT_JUDGE_SECRET: 'judge',
       LAW_JUDGE_SECRET: 'laws',
       BUSINESS_LAWS_JUDGE_SECRET: 'business',
+      SEARCH_CATEGORIZE_SECRET: 'categorize',
       CRON_SECRET: 'cron',
       GALAXY_URL: 'https://galaxy.example/',
     });
@@ -59,6 +61,7 @@ describe('readEnv — the GitHub App', () => {
       constituentJudge: { secret: 'judge' },
       lawJudge: { secret: 'laws' },
       businessLawsJudge: { secret: 'business' },
+      searchCategorize: { secret: 'categorize' },
       cron: { secret: 'cron' },
       galaxyUrl: 'https://galaxy.example',
     });

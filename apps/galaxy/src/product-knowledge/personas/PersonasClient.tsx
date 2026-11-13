@@ -36,7 +36,7 @@ function useCast(source: WriteSource, personas: Persona[], newProduct: string, a
   const handlers: PersonaHandlers = {
     open: () => { act({ type: 'new', product: newProduct, seed: `${Date.now()}-${Math.random()}` }); },
     edit: (p) => { act({ type: 'edit', persona: p.id, seed: `${Date.now()}-${Math.random()}` }); },
-    change: (fields) => { act({ type: 'change', fields }); },
+    change: (fields, other) => { act({ type: 'change', fields, other }); },
     shuffle: () => { act({ type: 'shuffle' }); },
     close: () => { act({ type: 'close' }); },
     save: () => {

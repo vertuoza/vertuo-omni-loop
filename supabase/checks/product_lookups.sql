@@ -53,7 +53,7 @@ insert into public.claims (workspace_id, business_id, product_id, seq, kind, val
   ('00000000-0000-4000-8000-000001364300', '00000000-0000-4000-8000-0000013643f0', '00000000-0000-4000-8000-0000013643e1', 2, 'offering', 'Phones', 'pick', 'confirmed'),
   ('00000000-0000-4000-8000-000001364300', '00000000-0000-4000-8000-0000013643f0', '00000000-0000-4000-8000-0000013643e2', 3, 'offering', 'Quotes', 'pick', 'confirmed');
 insert into public.personas (workspace_id, product_id, name, stance, trade, avatar) values
-  ('00000000-0000-4000-8000-000001364300', '00000000-0000-4000-8000-0000013643e1', 'Rider', 'excited', 'driver',
+  ('00000000-0000-4000-8000-000001364300', '00000000-0000-4000-8000-0000013643e1', 'Rider', 'enthusiastic', 'driver',
    jsonb_build_object('v', 1, 'skin', 0, 'hair', 2, 'hairColor', 1, 'outfit', 3, 'accessory', 0)),
   ('00000000-0000-4000-8000-000001364300', '00000000-0000-4000-8000-0000013643e2', 'Estimator', 'neutral', 'builder',
    jsonb_build_object('v', 1, 'skin', 1, 'hair', 2, 'hairColor', 1, 'outfit', 3, 'accessory', 0));

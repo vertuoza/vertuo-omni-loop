@@ -61,6 +61,24 @@ describe('the knowledge change\'s storage', () => {
     expect(await knowledgeApiRepository(fakeDb({ data: [], error: null }).db).constituent('p-1', { kind: 'never', seq: 9 })).toEqual({ ok: true, value: null });
   });
 
+  it('finds, adds and edits a persona through persona_find(), persona_add() and persona_edit(), every field sent', async () => {
+    const row = { id: 'pe-1', product_id: 'p-1', ordinal: 1, name: 'Ada', stance: 'skeptical', trade: 'data analyst', avatar: { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 }, who: 'w', usage: 'u' };
+    const { db, calls } = fakeDb({ data: row, error: null });
+    const store = knowledgeApiRepository(db);
+    const fields = { name: 'Ada', stance: 'skeptical', trade: 'data analyst', avatar: row.avatar, who: 'w', usage: 'u' };
+    expect(await store.findPersona('w-1', 'p-1', 'Ada')).toMatchObject({ ok: true, value: { id: 'pe-1', name: 'Ada' } });
+    expect(await store.addPersona('w-1', 'p-1', fields)).toMatchObject({ ok: true });
+    expect(await store.editPersona('w-1', 'pe-1', fields)).toMatchObject({ ok: true });
+    const args = '"p_name":"Ada","p_stance":"skeptical","p_trade":"data analyst","p_avatar":{"v":1,"skin":0,"hair":0,"hairColor":0,"outfit":0,"accessory":0},"p_who":"w","p_usage":"u"';
+    expect(calls).toEqual([
+      'rpc persona_find {"p_workspace":"w-1","p_product":"p-1","p_name":"Ada"}',
+      `rpc persona_add {"p_workspace":"w-1","p_product":"p-1",${args}}`,
+      `rpc persona_edit {"p_workspace":"w-1","p_persona":"pe-1",${args}}`,
+    ]);
+    const several = fakeDb({ data: null, error: { code: 'P0003', message: 'several personas are named "Ada": edit it on the Knowledge tab' } });
+    expect(await knowledgeApiRepository(several.db).findPersona('w-1', 'p-1', 'Ada')).toMatchObject({ ok: false, code: 'P0003' });
+  });
+
   it('adds and edits a constituent through constituent_add() and constituent_edit(), answering its kind and number', async () => {
     const { db, calls } = fakeDb({ data: ROW, error: null });
     const store = knowledgeApiRepository(db);

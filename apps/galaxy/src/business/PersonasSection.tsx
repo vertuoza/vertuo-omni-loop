@@ -1,10 +1,10 @@
 import type { SubmitEvent } from 'react';
-import { PERSONA_TRADES, personaGrid, type PersonaAvatar } from '@omni/design';
+import { PERSONA_TRADES, personaGrid, TRADE_MAX, validPersonaTrade, type PersonaAvatar } from '@omni/design';
 import { pixelSvg } from '../design/pixel-svg';
 import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { hasProducts, type Product } from './model';
 import {
-  drawable, NAME_MAX, PICKER_SIZE, pickerOf, sameAvatar, STANCES, TEXT_MAX, tradeLabel, viewPersonas,
+  NAME_MAX, PICKER_SIZE, pickerOf, portraitTrade, sameAvatar, STANCES, TEXT_MAX, tradeLabel, tradeProblem, viewPersonas,
   type Persona, type PersonaFields, type PersonasState, type Stance,
 } from './personas';
 
@@ -22,7 +22,7 @@ export interface PersonaHandlers {
   /** + Add a persona. */
   open: () => void;
   edit: (persona: Persona) => void;
-  change: (fields: Partial<PersonaFields>) => void;
+  change: (fields: Partial<PersonaFields>, other?: boolean) => void;
   shuffle: () => void;
   close: () => void;
   save: () => void;
@@ -38,7 +38,7 @@ export const NO_PERSONAS = 'No personas yet — agents carry on';
 const PERSONAS_HINT = 'Who agents picture when they design. Describe a kind of customer, never a real one by name.';
 export const SHUFFLE = '⟳ Shuffle';
 export const UNDO = 'Undo';
-const STANCE_LABEL: Readonly<Record<Stance, string>> = { excited: 'Excited', neutral: 'Neutral', skeptical: 'Skeptical' };
+const STANCE_LABEL: Readonly<Record<Stance, string>> = { enthusiastic: 'Enthusiastic', neutral: 'Neutral', skeptical: 'Skeptical' };
 
 export interface PersonasSectionProps {
   state: PersonasState;
@@ -49,9 +49,13 @@ export interface PersonasSectionProps {
 }
 
 const Portrait = ({ trade, avatar, scale, title }: { trade: string; avatar: PersonaAvatar; scale: number; title: string }) =>
-  drawable(trade)
-    ? <span className="business-portrait" dangerouslySetInnerHTML={{ __html: pixelSvg(personaGrid(trade, avatar), { scale, title }) }} />
-    : <span className="business-portrait business-portrait-none" role="img" aria-label={title} />;
+  <span className="business-portrait" dangerouslySetInnerHTML={{ __html: pixelSvg(personaGrid(portraitTrade(trade), avatar), { scale, title }) }} />;
+
+/** The select's value for Other…: a trade id is lower-case, so no listed one can be it. */
+const OTHER_VALUE = 'Other…';
+/** What a trade is called while an Other trade is still empty. */
+const OTHER_LABEL = 'Other trade';
+const labelOf = (trade: string) => tradeLabel(trade) || OTHER_LABEL;
 
 function StanceChip({ stance }: { stance: Stance }) {
   return <span className="business-stance" data-stance={stance}>{STANCE_LABEL[stance]}</span>;
@@ -79,7 +83,7 @@ export function Card({ persona, busy, on }: { persona: Persona; busy: boolean; o
 function Picker({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
   const drawer = defined(state.drawer, 'the open drawer');
   const { trade, avatar } = drawer.fields;
-  const label = tradeLabel(trade);
+  const label = labelOf(trade);
   return (
     <div className="business-persona-picker" role="group" aria-labelledby="business-persona-portrait">
       <div className="business-persona-picker-head">
@@ -108,6 +112,43 @@ function Picker({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
   );
 }
 
+/** The trade: the list, then Other… and its text field with the live check of the trade rule. */
+function TradeFields({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
+  const drawer = defined(state.drawer, 'the open drawer');
+  const f = drawer.fields;
+  return (
+    <>
+      <label className="business-persona-field">
+        <span className="business-type-label">Trade</span>
+        <select
+          name="trade"
+          value={drawer.other ? OTHER_VALUE : f.trade}
+          disabled={state.busy}
+          onChange={(e) => {
+            const picked = e.currentTarget.value;
+            if (picked === OTHER_VALUE) on.change({ trade: '' }, true);
+            else on.change({ trade: picked }, false);
+          }}
+        >
+          {PERSONA_TRADES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          <option value={OTHER_VALUE}>{OTHER_VALUE}</option>
+        </select>
+      </label>
+      {drawer.other && (
+        <label className="business-persona-field">
+          <span className="business-type-label">Other trade</span>
+          <input
+            name="other-trade" type="text" value={f.trade} maxLength={TRADE_MAX} required autoComplete="off" disabled={state.busy}
+            aria-invalid={tradeProblem(f.trade) !== null} aria-describedby={tradeProblem(f.trade) ? 'business-other-trade-rule' : undefined}
+            onChange={(e) => { on.change({ trade: e.currentTarget.value }); }}
+          />
+          {tradeProblem(f.trade) && <span id="business-other-trade-rule" className="business-refusal" role="alert">{tradeProblem(f.trade)}</span>}
+        </label>
+      )}
+    </>
+  );
+}
+
 export function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
   const drawer = defined(state.drawer, 'the open drawer');
   const f = drawer.fields;
@@ -115,12 +156,13 @@ export function Drawer({ state, on }: { state: PersonasState; on: PersonaHandler
   const title = editing ? `Edit ${f.name.trim() || 'persona'}` : 'Add a persona';
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!validPersonaTrade(f.trade)) return;
     on.save();
   };
   return (
     <form className="business-persona-drawer" aria-label={title} onSubmit={submit}>
       <div className="business-persona-chosen">
-        <Portrait trade={f.trade} avatar={f.avatar} scale={4} title={`${f.name.trim() || 'New persona'}, ${tradeLabel(f.trade)}`} />
+        <Portrait trade={f.trade} avatar={f.avatar} scale={4} title={`${f.name.trim() || 'New persona'}, ${labelOf(f.trade)}`} />
       </div>
       <div className="business-persona-fields">
         <h3>{title}</h3>
@@ -138,13 +180,7 @@ export function Drawer({ state, on }: { state: PersonasState; on: PersonaHandler
             ))}
           </div>
         </div>
-        <label className="business-persona-field">
-          <span className="business-type-label">Trade</span>
-          <select name="trade" value={f.trade} disabled={state.busy} onChange={(e) => { on.change({ trade: e.currentTarget.value }); }}>
-            {!drawable(f.trade) && <option value={f.trade}>{f.trade}</option>}
-            {PERSONA_TRADES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-        </label>
+        <TradeFields state={state} on={on} />
         <label className="business-persona-field">
           <span className="business-type-label">Who they are</span>
           <textarea name="who" rows={3} value={f.who} maxLength={TEXT_MAX} disabled={state.busy} onChange={(e) => { on.change({ who: e.currentTarget.value }); }} />

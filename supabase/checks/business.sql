@@ -1058,6 +1058,11 @@ begin
                                                                            where l.repository = 'initech/nimbus-apps')) then
     raise exception 'FAIL: the App does not read the product''s knowledge: % % %', got->'legal', got->'glossary', got->>'knowledgeEventId';
   end if;
+  -- PRD 2779: Marc, added last, is the product's newest knowledge event, so a persona change re-judges.
+  if got->>'knowledgeEventId' is distinct from (select e.id::text from public.product_knowledge_events e join public.personas p on p.id = e.persona_id
+                                                 where e.kind = 'persona' and e.action = 'added' and p.name = 'Marc') then
+    raise exception 'FAIL: a persona''s change is not the product''s newest knowledge event: %', got->>'knowledgeEventId';
+  end if;
   -- PRD 2632 s2: and its law home: erp holds several repositories and no plan repository, so none.
   if got->'lawHome' is distinct from 'null'::jsonb then
     raise exception 'FAIL: the App does not read the product''s law home: %', got->'lawHome';

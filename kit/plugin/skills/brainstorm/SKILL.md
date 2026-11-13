@@ -214,7 +214,8 @@ its page's Product picker changes it until it is approved.
 ## The voice
 
 Only when step 0's read listed personas. They speak for the people the product is sold to: all of
-them up to five, or the five that differ most in stance and trade. Every line the voice says cites a
+them up to five, or the five that differ most in stance and trade. A stance in `voice.json` is
+`enthusiastic`, `neutral` or `skeptical`. Every line the voice says cites a
 `persona:<name>` or a claim id; it never states a business fact the claims do not hold.
 
 **The objection.** When the design is shown (the Bounded design in chat, or the Architectural

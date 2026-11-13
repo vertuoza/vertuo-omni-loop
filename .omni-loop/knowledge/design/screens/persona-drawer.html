@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Persona drawer</title><style>body{margin:0;padding:16px;background:#f5f4fc;color:#17153d;font:14px/1.5 system-ui,sans-serif} :root{--muted:#4f5486} 
+.mk { --g:#f5f4fc; --s:#ffffff; --k:#eceaf8; --l:#d9d6ee; --ls:#85819f; --i:#17153d; --m:#4f5486; --pl:#6a2fd0; --ps:#efe7ff; --op:#ffffff; --r:#b3122f;
+  background:var(--g); color:var(--i); border:1px solid var(--l); border-radius:8px; padding:12px; font:14px/1.5 system-ui,sans-serif; }
+.mk .drawer { display:grid; grid-template-columns:72px 1fr; gap:12px; background:var(--s); border:1px solid var(--ls); border-radius:6px; padding:12px; }
+.mk h5 { margin:0 0 8px; font-size:15px; }
+.mk .f { margin:0 0 8px; } .mk .lb { display:block; font-size:12px; color:var(--m); margin-bottom:2px; }
+.mk .in { display:block; width:100%; border:1px solid var(--ls); border-radius:4px; padding:4px 6px; background:var(--s); color:var(--i); min-height:28px; }
+.mk .chips { display:flex; gap:6px; flex-wrap:wrap; } .mk .chip { border:1px solid var(--ls); border-radius:999px; padding:1px 10px; font-size:13px; }
+.mk .chip.on { background:var(--ps); border-color:var(--pl); font-weight:600; }
+.mk .list { border:1px solid var(--ls); border-radius:4px; background:var(--s); font-size:13px; max-height:none; }
+.mk .list div { padding:1px 8px; } .mk .list .sel { background:var(--ps); font-weight:600; } .mk .list .new { color:var(--pl); }
+.mk .hint { font-size:12px; color:var(--r); margin-top:2px; }
+.mk .acts { display:flex; gap:8px; margin-top:8px; } .mk .btn { border-radius:4px; padding:4px 14px; border:1px solid var(--pl); }
+.mk .btn.p { background:var(--pl); color:var(--op); } .mk .btn.q { background:transparent; color:var(--pl); }
+.mk .card { display:flex; gap:10px; align-items:center; background:var(--s); border:1px solid var(--l); border-radius:6px; padding:8px; margin-top:8px; }
+.mk .card .t { color:var(--m); font-size:13px; } .mk svg { image-rendering:pixelated; }
+.term { background:#07061c; color:#e6e9ed; border-radius:6px; padding:10px 12px; font:13px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:0; }
+.cap { font-size:13px; color:var(--muted); margin:6px 0 0; }
+</style></head>
+<body>
+<p>Persona drawer, draft (PRD 2779): editing a listed trade, then adding an Other trade.</p>
+<div class="mk" data-screen="persona-drawer">
+<div class="drawer"><div><svg width="64" height="64" viewBox="0 0 16 16" role="img" aria-label="Lea, Journalist" shape-rendering="crispEdges"><rect x="5" y="2" width="6" height="2" fill="#3b2a1e"/><rect x="5" y="4" width="6" height="5" fill="#c98b5e"/><rect x="6" y="6" width="1" height="1" fill="#17153d"/><rect x="9" y="6" width="1" height="1" fill="#17153d"/><rect x="7" y="9" width="2" height="1" fill="#c98b5e"/><rect x="3" y="10" width="10" height="6" fill="#3d7a52"/><rect x="11" y="10" width="4" height="4" fill="#ffffff"/><rect x="12" y="11" width="2" height="2" fill="#4ee08a"/></svg></div><div>
+<h5>Edit Lea</h5>
+<div class="f"><span class="lb">Name</span><span class="in">Lea</span></div>
+<div class="f"><span class="lb">Stance</span><div class="chips"><span class="chip on">Enthusiastic</span><span class="chip">Neutral</span><span class="chip">Skeptical</span></div></div>
+<div class="f"><span class="lb">Trade</span><div class="list"><div class="">Builder</div><div class="">Plumber</div><div class="">Heating engineer</div><div class="">Electrician</div><div class="">Carpenter</div><div class="">Roofer</div><div class="">Painter</div><div class="">Site foreman</div><div class="">Office manager</div><div class="">Accountant</div><div class="">Doctor</div><div class="">Nurse</div><div class="">Shopkeeper</div><div class="">Driver</div><div class="">Developer</div><div class="sel">Journalist</div><div class="new">Supplier</div><div class="new">Economist</div><div class="new">Finance</div><div class="new">Marketing</div><div class="new">Data analyst</div><div class="new">Other…</div></div></div>
+<div class="acts"><span class="btn p" data-primary>Save</span><span class="btn q">Cancel</span></div>
+</div>
+<p style="margin-top:16px">Other…</p>
+<div class="mk" data-screen="persona-drawer">
+<div class="drawer"><div><svg width="64" height="64" viewBox="0 0 16 16" role="img" aria-label="Rui, credit risk analyst" shape-rendering="crispEdges"><rect x="5" y="2" width="6" height="2" fill="#3b2a1e"/><rect x="5" y="4" width="6" height="5" fill="#c98b5e"/><rect x="6" y="6" width="1" height="1" fill="#17153d"/><rect x="9" y="6" width="1" height="1" fill="#17153d"/><rect x="7" y="9" width="2" height="1" fill="#c98b5e"/><rect x="3" y="10" width="10" height="6" fill="#6b6f8a"/></svg></div><div>
+<h5>Add a persona</h5>
+<div class="f"><span class="lb">Name</span><span class="in">Rui</span></div>
+<div class="f"><span class="lb">Stance</span><div class="chips"><span class="chip">Enthusiastic</span><span class="chip">Neutral</span><span class="chip on">Skeptical</span></div></div>
+<div class="f"><span class="lb">Trade</span><span class="in">Other…</span></div>
+<div class="f"><span class="lb">Other trade</span><span class="in">credit risk analyst</span><div class="hint" style="color:var(--m)">Lower-case words, spaces or hyphens</div></div>
+<div class="acts"><span class="btn p" data-primary>Save</span><span class="btn q">Cancel</span></div>
+</div>
+</body></html>

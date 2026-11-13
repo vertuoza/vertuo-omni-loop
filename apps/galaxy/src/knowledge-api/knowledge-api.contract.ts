@@ -17,6 +17,10 @@
 //     domains edit       entry the key, fields {name?, meaning?}: the key never changes, nothing is retired here
 //     constituent add    fields {statement} or {never}: the Statement, or a Never line
 //     constituent edit   entry `statement` or `never#<n>`, fields {text}
+//     persona add        fields {name, stance, trade, who, usage} (PRD 2779); the portrait is picked at random
+//                        for the trade, and the answer's id is the name
+//     persona edit       entry the persona's name, fields {name?, stance?, trade?, who?, usage?}: the portrait is kept;
+//                        always `applied` (personas have no owner, BL-PRODUCTKNOWLEDGE-1)
 // - The answer: `applied` (the change is saved; id is the item's, url its page) or `proposed` (a member
 //   who is not the section's owner or delegate; id null, url the section's list, waitsFor the owner's
 //   login, or null while the section names nobody and its workspace's owners decide). waitsFor is null for
@@ -85,22 +89,35 @@ const ConstituentEdit = z.strictObject({
   fields: z.strictObject({ text: text(400) }),
 });
 
+/** A persona's fields as a person gives them; the database checks each one (and takes `excited` for `enthusiastic`). */
+const PERSONA_FIELDS = { name: text(80), stance: text(40), trade: text(80), who: text(800), usage: text(800) };
+const PersonaAdd = z.strictObject({
+  ...WHERE, kind: z.literal('persona'), action: z.literal('add'),
+  fields: z.strictObject(PERSONA_FIELDS),
+});
+const PersonaEdit = z.strictObject({
+  ...WHERE, kind: z.literal('persona'), action: z.literal('edit'), entry: ENTRY,
+  fields: z.strictObject(PERSONA_FIELDS).partial().refine(some, SOME),
+});
+
 /** Each change, by its kind and action. */
 export const CHANGES = {
   legal: { add: LegalAdd, edit: LegalEdit },
   glossary: { add: GlossaryAdd, edit: GlossaryEdit },
   domains: { add: DomainsAdd, edit: DomainsEdit },
   constituent: { add: ConstituentAdd, edit: ConstituentEdit },
+  persona: { add: PersonaAdd, edit: PersonaEdit },
 } as const;
 
 /** What picks a change's schema. */
-export const ChangeHeadSchema = z.object({ kind: z.enum(['legal', 'glossary', 'domains', 'constituent']), action: z.enum(['add', 'edit']) });
+export const ChangeHeadSchema = z.object({ kind: z.enum(['legal', 'glossary', 'domains', 'constituent', 'persona']), action: z.enum(['add', 'edit']) });
 
 export type LegalChange = z.infer<typeof LegalAdd> | z.infer<typeof LegalEdit>;
 export type GlossaryChange = z.infer<typeof GlossaryAdd> | z.infer<typeof GlossaryEdit>;
 export type DomainsChange = z.infer<typeof DomainsAdd> | z.infer<typeof DomainsEdit>;
 export type ConstituentChange = z.infer<typeof ConstituentAdd> | z.infer<typeof ConstituentEdit>;
-export type KnowledgeChange = LegalChange | GlossaryChange | DomainsChange | ConstituentChange;
+export type PersonaChange = z.infer<typeof PersonaAdd> | z.infer<typeof PersonaEdit>;
+export type KnowledgeChange = LegalChange | GlossaryChange | DomainsChange | ConstituentChange | PersonaChange;
 
 export const KnowledgeChangeReplySchema = z.strictObject({
   done: z.enum(['applied', 'proposed']),

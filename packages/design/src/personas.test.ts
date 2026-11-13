@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  PERSONA_TRADES, PERSONA_AVATAR_RANGES, PERSONA_PRESETS, PERSONA_VARIATIONS,
+  PERSONA_TRADES, PERSONA_AVATAR_RANGES, TRADE_RULE, TRADE_MAX, validPersonaTrade, hasOwnBust, GENERIC_TRADE, PERSONA_PRESETS, PERSONA_VARIATIONS,
   personaGrid, randomAvatar, personaVariations, validPersonaAvatar,
 } from './personas.ts';
 import type { PersonaAvatar, PersonaTrade } from './personas.ts';
@@ -8,6 +8,7 @@ import type { PersonaAvatar, PersonaTrade } from './personas.ts';
 const TRADES: PersonaTrade[] = [
   'builder', 'plumber', 'heating', 'electrician', 'carpenter', 'roofer', 'painter', 'foreman',
   'office', 'accountant', 'doctor', 'nurse', 'shopkeeper', 'driver', 'developer',
+  'journalist', 'supplier', 'economist', 'finance', 'marketing', 'data analyst',
 ];
 
 const every = (): PersonaAvatar[] => {
@@ -23,15 +24,25 @@ const every = (): PersonaAvatar[] => {
 const key = (g: { pixels: (string | null)[] }): string => g.pixels.map((p) => p ?? '-').join('');
 
 describe('persona trades', () => {
-  it('has the fifteen trades of the spec, each a short lower-case word with a label', () => {
+  it('has the twenty-one trades of the spec, each passing the trade rule, with a label', () => {
     expect(PERSONA_TRADES.map((t) => t.id)).toEqual(TRADES);
+    expect(PERSONA_TRADES).toHaveLength(21);
     for (const { id, label } of PERSONA_TRADES) {
-      expect(id).toMatch(/^[a-z]{1,16}$/);
+      expect(validPersonaTrade(id)).toBe(true);
       expect(label.length).toBeGreaterThan(0);
     }
+    expect(PERSONA_TRADES.find((t) => t.id === 'data analyst')?.label).toBe('Data analyst');
     expect(PERSONA_TRADES.find((t) => t.id === 'heating')?.label).toBe('Heating engineer');
     expect(PERSONA_TRADES.find((t) => t.id === 'foreman')?.label).toBe('Site foreman');
     expect(PERSONA_TRADES.find((t) => t.id === 'office')?.label).toBe('Office manager');
+  });
+});
+
+describe('the trade rule', () => {
+  it('takes lower-case words with single spaces or hyphens, at most 40 characters', () => {
+    for (const ok of ['plumber', 'data analyst', 'credit-risk analyst', 'credit risk analyst', 'a'.repeat(TRADE_MAX)]) expect(validPersonaTrade(ok), ok).toBe(true);
+    for (const bad of ['', 'Data', ' analyst', 'analyst-', 'a  b', 'a--b', 'a1', 'a'.repeat(TRADE_MAX + 1)]) expect(validPersonaTrade(bad), bad).toBe(false);
+    expect(TRADE_RULE.test('data analyst')).toBe(true);
   });
 });
 
@@ -53,7 +64,7 @@ describe('persona avatar ranges', () => {
     expect(PERSONA_PRESETS.hair).toHaveLength(r.hair.max + 1);
     expect(PERSONA_PRESETS.hairColor).toHaveLength(r.hairColor.max + 1);
     expect(PERSONA_PRESETS.accessory).toEqual(['none', 'cap', 'glasses', 'helmet']);
-    for (const t of TRADES) expect(PERSONA_PRESETS.outfit[t]).toHaveLength(r.outfit.max + 1);
+    for (const t of [...TRADES, GENERIC_TRADE] as const) expect(PERSONA_PRESETS.outfit[t]).toHaveLength(r.outfit.max + 1);
     expect(PERSONA_VARIATIONS).toBe(6 * 6 * 4 * 4 * 4);
   });
 
@@ -78,9 +89,26 @@ describe('personaGrid', () => {
     }
   });
 
-  it('gives each trade a body of its own', () => {
+  it('gives each trade, and the generic bust, a body of its own', () => {
     const a: PersonaAvatar = { v: 1, skin: 1, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
-    expect(new Set(TRADES.map((t) => key(personaGrid(t, a)))).size).toBe(TRADES.length);
+    expect(new Set([...TRADES, GENERIC_TRADE].map((t) => key(personaGrid(t, a)))).size).toBe(TRADES.length + 1);
+  });
+
+  it('draws any other valid trade with the generic bust, and no listed trade that way', () => {
+    const a: PersonaAvatar = { v: 1, skin: 1, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
+    expect(key(personaGrid('credit risk analyst', a))).toBe(key(personaGrid(GENERIC_TRADE, a)));
+    expect(hasOwnBust('credit risk analyst')).toBe(false);
+    for (const t of TRADES) expect(hasOwnBust(t)).toBe(true);
+  });
+
+  it('draws the generic bust for every avatar in the ranges, each its own', () => {
+    const seen = new Set<string>();
+    for (const a of every()) {
+      const g = personaGrid(GENERIC_TRADE, a);
+      expect(g.pixels.filter(Boolean).length).toBeGreaterThan(32 * 32 * 0.3);
+      seen.add(key(g));
+    }
+    expect(seen.size).toBe(PERSONA_VARIATIONS);
   });
 
   it('always gives the same grid for the same trade and avatar', () => {
@@ -89,7 +117,7 @@ describe('personaGrid', () => {
   });
 
   it('gives two different avatars two different grids', () => {
-    for (const trade of ['builder', 'doctor', 'developer']) {
+    for (const trade of ['builder', 'doctor', 'developer', 'journalist', 'supplier', 'economist', 'finance', 'marketing', 'data analyst']) {
       const seen = new Map<string, string>();
       for (const a of every()) {
         const k = key(personaGrid(trade, a));
@@ -102,7 +130,8 @@ describe('personaGrid', () => {
 
   it('refuses an unknown trade and an avatar out of range', () => {
     const a: PersonaAvatar = { v: 1, skin: 0, hair: 0, hairColor: 0, outfit: 0, accessory: 0 };
-    expect(() => personaGrid('astronaut', a)).toThrow(/astronaut/);
+    expect(() => personaGrid('Astronaut', a)).toThrow(/Astronaut/);
+    expect(() => personaGrid('a  b', a)).toThrow(/persona trade/);
     expect(() => personaGrid('builder', { ...a, skin: 9 })).toThrow(/avatar/);
   });
 });

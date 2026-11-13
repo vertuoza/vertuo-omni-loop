@@ -41,6 +41,14 @@ describe('the knowledge-add skill in this repository', () => {
     expect(flat).toContain('Only after the line of step 4 printed does the next item start');
   });
 
+  it('has the Persona row (PRD 2779): shown whole, one persona per Yes, every field asked for, written with omni business persona', () => {
+    expect(text).toContain('| Persona | `omni business persona add');
+    expect(text).toContain('omni business persona edit "<name>"');
+    expect(flat).toContain('A persona is shown with its name, stance, trade, who and usage');
+    expect(flat).toContain("a persona's name, stance, trade, who and usage (every one, for an add)");
+    expect(flat).toContain('enthusiastic`, `neutral` or `skeptical`');
+  });
+
   it('runs the commands of s2 and s3 with --json', () => {
     for (const command of ['omni constituents add', 'omni constituents edit', 'omni kb legal add', 'omni kb legal edit', 'omni kb glossary add', 'omni kb glossary edit']) {
       expect(text, command).toContain(command);

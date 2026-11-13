@@ -13,7 +13,7 @@
         },
         {
           "name": "Sofia",
-          "stance": "excited",
+          "stance": "enthusiastic",
           "score": 4,
           "reaction": "Seeing every site in one place is what I lose an hour a day to.",
           "citations": ["persona:Sofia", "trade#1"]
@@ -40,7 +40,7 @@
         },
         {
           "name": "Sofia",
-          "stance": "excited",
+          "stance": "enthusiastic",
           "score": 4,
           "reaction": "Still every site in one place.",
           "citations": ["persona:Sofia"]
@@ -67,7 +67,7 @@
         },
         {
           "name": "Sofia",
-          "stance": "excited",
+          "stance": "enthusiastic",
           "score": 5,
           "reaction": "The holding view is back. Now it fits us both.",
           "citations": ["persona:Sofia", "size#3"]
@@ -94,7 +94,7 @@
         },
         {
           "name": "Sofia",
-          "stance": "excited",
+          "stance": "enthusiastic",
           "score": 5,
           "reaction": "Exactly the release note I hoped for.",
           "citations": ["persona:Sofia"]

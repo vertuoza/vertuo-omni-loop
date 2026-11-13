@@ -124,6 +124,9 @@ function world() {
       constituents.push({ id: `c-${kind}-${String(seq)}`, product, kind, seq, text });
       return Promise.resolve({ ok: true, value: { kind, seq } });
     },
+    findPersona: () => Promise.resolve(NOT_OWNER),
+    addPersona: () => Promise.resolve(NOT_OWNER),
+    editPersona: () => Promise.resolve(NOT_OWNER),
     editConstituent: (_workspace, id, text): Promise<Stored<ConstituentKey>> => {
       written.push(`${who} edits constituent ${id} ${text}`);
       if (!OWNERS.has(who)) return Promise.resolve(NOT_OWNER);
@@ -318,7 +321,7 @@ describe('POST /api/knowledge/changes: the edge (PRD 2268)', () => {
     const { deps, written } = world();
     const malformed = async (body: unknown) => answer(await postKnowledgeChange(post(body), deps()));
     expect(await malformed('not json')).toEqual({ status: 400, cache: 'no-store', body: { error: 'The body must be a JSON object.' } });
-    expect((await malformed({ ...vatAdd, kind: 'persona' })).body).toEqual({ error: 'A knowledge change names its kind (legal, glossary, domains or constituent) and its action (add or edit).' });
+    expect((await malformed({ ...vatAdd, kind: 'planet' })).body).toEqual({ error: 'A knowledge change names its kind (legal, glossary, domains, constituent or persona) and its action (add or edit).' });
     expect((await malformed({ ...vatAdd, action: 'retire' })).status).toBe(400);
     expect((await malformed({ ...vatAdd, entry: 'L-VAT-1' })).body).toEqual({ error: 'A knowledge change does not carry entry.' });
     expect((await malformed({ ...vatAdd, repo: 'kp-org' })).body).toEqual({ error: 'A knowledge change\'s `repo` is malformed: the repository as owner/name.' });

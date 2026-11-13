@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { SavedConstituentRow, type ConstituentKind } from '../constituents/model';
+import { StoredPersona } from '../business/personas';
 
 // A terminal's knowledge change, its storage (PRD 2268 s1; ADR-0095), on the client it is given: the
 // caller's own, acting as their access token, never a service key, so the database decides who may change
@@ -36,6 +37,11 @@ async function parsed<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: str
   return read.success ? { ok: true, value: read.data } : { ok: false, code: 'shape', message: `${what} answered out of shape` };
 }
 
+/** A persona's fields as the persona functions take them (supabase/migrations/*_open_personas.sql). */
+export type PersonaArgs = { name: string; stance: string; trade: string; avatar: unknown; who: string; usage: string };
+
+const personaArgs = (f: PersonaArgs) => ({ p_name: f.name, p_stance: f.stance, p_trade: f.trade, p_avatar: f.avatar, p_who: f.who, p_usage: f.usage });
+
 const keyOfRow = (row: z.infer<typeof SavedConstituentRow>): ConstituentKey => ({ kind: row.kind, seq: row.seq });
 
 export function knowledgeApiRepository(db: KnowledgeApiDb) {
@@ -62,6 +68,21 @@ export function knowledgeApiRepository(db: KnowledgeApiDb) {
     async editConstituent(workspace: string, constituent: string, text: string): Promise<Stored<ConstituentKey>> {
       const saved = await parsed(db.rpc('constituent_edit', { p_workspace: workspace, p_constituent: constituent, p_text: text }), SavedConstituentRow, 'constituent_edit');
       return saved.ok ? { ok: true, value: keyOfRow(saved.value) } : saved;
+    },
+
+    /** The one live persona named `name` in the product (persona_find(): P0002 for none, P0003 for several). */
+    findPersona(workspace: string, product: string, name: string): Promise<Stored<StoredPersona>> {
+      return parsed(db.rpc('persona_find', { p_workspace: workspace, p_product: product, p_name: name }), StoredPersona, 'persona_find');
+    },
+
+    /** A member adds a persona. */
+    addPersona(workspace: string, product: string, fields: PersonaArgs): Promise<Stored<StoredPersona>> {
+      return parsed(db.rpc('persona_add', { p_workspace: workspace, p_product: product, ...personaArgs(fields) }), StoredPersona, 'persona_add');
+    },
+
+    /** A member rewrites a persona: every field is sent, the unchanged ones as they are stored. */
+    editPersona(workspace: string, persona: string, fields: PersonaArgs): Promise<Stored<StoredPersona>> {
+      return parsed(db.rpc('persona_edit', { p_workspace: workspace, p_persona: persona, ...personaArgs(fields) }), StoredPersona, 'persona_edit');
     },
   };
 }

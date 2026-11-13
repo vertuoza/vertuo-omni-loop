@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PERSONA_TRADES, randomAvatar, validPersonaAvatar } from '@omni/design';
 import {
-  canUndo, initialPersonasState, personaOf, personasReducer, pickerOf, sameAvatar, UNDO_MS, viewPersonas,
+  canUndo, initialPersonasState, personaOf, personasReducer, pickerOf, portraitTrade, sameAvatar, tradeProblem, UNDO_MS, viewPersonas,
   type Persona, type PersonasAction, type PersonasState,
 } from './personas';
 import { sure } from '../arcade/test/sure';
@@ -20,6 +20,11 @@ describe('a stored row', () => {
   it('reads as a persona, its ordinal a number and empty texts empty', () => {
     expect(personaOf({ id: 'x', product_id: 'p-1', ordinal: '7', name: 'Ann', stance: 'skeptical', trade: 'doctor', avatar: AVATAR, who: null, usage: 'Quotes' }))
       .toEqual({ id: 'x', product: 'p-1', ordinal: 7, name: 'Ann', stance: 'skeptical', trade: 'doctor', avatar: AVATAR, who: '', usage: 'Quotes' });
+    // PRD 2779: a row from before the rename reads as enthusiastic.
+    expect(personaOf({ id: 'x', product_id: 'p-1', ordinal: 7, name: 'Ann', stance: 'excited', trade: 'doctor', avatar: AVATAR, who: null, usage: null }).stance)
+      .toBe('enthusiastic');
+    expect(personaOf({ id: 'x', product_id: 'p-1', ordinal: 7, name: 'Ann', stance: 'enthusiastic', trade: 'doctor', avatar: AVATAR, who: null, usage: null }).stance)
+      .toBe('enthusiastic');
   });
 });
 
@@ -83,6 +88,31 @@ describe('the drawer', () => {
     const s = after([{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'refused', message: 'No' }, { type: 'close' }]);
     expect(s.drawer).toBeNull();
     expect(s.refusal).toBeNull();
+  });
+});
+
+describe('an Other… trade', () => {
+  it('starts a drawer on the list, goes Other… with an empty field, and comes back to the list', () => {
+    expect(after([{ type: 'new', product: 'p-1', seed: 'a' }]).drawer?.other).toBe(false);
+    const other = after([{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'change', fields: { trade: '' }, other: true }, { type: 'change', fields: { trade: 'credit risk analyst' } }]);
+    expect(other.drawer).toMatchObject({ other: true, fields: { trade: 'credit risk analyst' } });
+    expect(after([{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'change', fields: { trade: '' }, other: true }, { type: 'change', fields: { trade: 'nurse' }, other: false }]).drawer)
+      .toMatchObject({ other: false, fields: { trade: 'nurse' } });
+  });
+
+  it('opens a persona of an unlisted trade as Other…, and a listed one on the list', () => {
+    const s = initialPersonasState([persona(1, { trade: 'data analyst' }), persona(2, { trade: 'credit risk analyst' })]);
+    expect(personasReducer(s, { type: 'edit', persona: 'pe-1', seed: 'e' }).drawer?.other).toBe(false);
+    expect(personasReducer(s, { type: 'edit', persona: 'pe-2', seed: 'e' }).drawer?.other).toBe(true);
+  });
+
+  it('says what is wrong with a trade only once one is typed, and draws the generic bust while it is', () => {
+    expect(tradeProblem('')).toBeNull();
+    expect(tradeProblem('credit risk analyst')).toBeNull();
+    for (const bad of ['Credit', 'analyst-', 'a  b', 'a'.repeat(41)]) expect(tradeProblem(bad)).toMatch(/^Lower-case words/);
+    expect(portraitTrade('')).toBe('generic');
+    expect(portraitTrade('Credit')).toBe('generic');
+    expect(portraitTrade('nurse')).toBe('nurse');
   });
 });
 
