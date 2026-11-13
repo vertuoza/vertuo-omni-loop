@@ -987,6 +987,142 @@
           "state": "open"
         }
       }
+    },
+    {
+      "run": "day-14",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 1089,
+        "title": "Repository flow — rules, areas and hooks that tailor the loop per repository",
+        "topic": "repo-flow",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/1089-repo-flow"
+      },
+      "featurePr": {
+        "number": 1090,
+        "title": "feat(kit): repository flow — rules, areas and hooks (PRD 1089)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/1090",
+        "openedAt": "2026-10-06T07:18:21Z",
+        "mergedAt": "2026-10-06T10:30:42Z",
+        "mergeSha": "995a2c3ffa1b515d61edefee71a724f9dd5151fa"
+      },
+      "kinds": {
+        "after-merge": {
+          "bugs": [],
+          "checks": {
+            "commit": "995a2c3",
+            "green": 2,
+            "jobs": [
+              {
+                "conclusion": "success",
+                "name": "sync",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37450263882/job/112224848460",
+                "workflow": "releases"
+              },
+              {
+                "conclusion": "success",
+                "name": "release",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/37450263816/job/112224843893",
+                "workflow": "release"
+              }
+            ],
+            "other": 0,
+            "read": true,
+            "red": 0,
+            "status": null,
+            "total": 2
+          },
+          "days": 14,
+          "fixed": 0,
+          "fixes": [],
+          "from": "2026-10-06T10:30:42.000Z",
+          "linked": 0,
+          "prd": 1089,
+          "to": "2026-10-20T10:30:42.000Z",
+          "total": 0,
+          "unread": []
+        }
+      },
+      "findings": [],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "Three slices edited the same undeclared app entry file, which shows a planning gap: common registration files beyond tests are not yet declared as shared ground."
+      },
+      "lessons": [
+        {
+          "text": "When several slices each register something in one entry file or extend one command file, the plan declares that file as shared ground, or gives it to a single slice that lays it down first.",
+          "findings": [
+            "territory:s1",
+            "territory:s3",
+            "territory:s6",
+            "churn:kit/bin/commands/flow.ts:34-34"
+          ]
+        }
+      ],
+      "issues": {}
     }
   ]
 }
