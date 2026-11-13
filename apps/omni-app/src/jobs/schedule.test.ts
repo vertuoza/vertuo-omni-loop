@@ -40,8 +40,8 @@ describe('scheduledJobs — the job of the current slot of each schedule', () =>
   });
 
   it('holds the Engineering board’s collector every 15 minutes and the escalation every hour, 3 tries each (s2), and the search categorizer every 15 minutes (omni-loop-7 s3)', () => {
-    expect(SCHEDULES).toEqual([STATS, ESCALATION, { kind: 'search-categorize', periodMinutes: 15, maxTries: 3 }]);
-    expect(scheduledJobs(SCHEDULES, at('2027-01-15T09:20:00.000Z')).map((job) => job.key)).toEqual(['pr-stats@2027-01-15T09:15:00.000Z', 'escalation@2027-01-15T09:00:00.000Z', 'search-categorize@2027-01-15T09:15:00.000Z']);
+    expect(SCHEDULES).toEqual([STATS, ESCALATION, { kind: 'search-categorize', periodMinutes: 15, maxTries: 3 }, { kind: 'checkpoints-forget', periodMinutes: 60, maxTries: 3 }]);
+    expect(scheduledJobs(SCHEDULES, at('2027-01-15T09:20:00.000Z')).map((job) => job.key)).toEqual(['pr-stats@2027-01-15T09:15:00.000Z', 'escalation@2027-01-15T09:00:00.000Z', 'search-categorize@2027-01-15T09:15:00.000Z', 'checkpoints-forget@2027-01-15T09:00:00.000Z']);
   });
 });
 
