@@ -3,7 +3,8 @@ import { answerApproval, type ApprovalDeps } from './approval-api';
 
 // The approval route tells the terminal where a product PRD's spec stands with its business laws (bug #2696),
 // with a stubbed Supabase client: a GET of a product PRD carries `laws` as the caller reads it; a read that
-// fails, or has nothing to say, leaves it out and never fails the approval's read. Beside the route's own
+// fails, or has nothing to say, leaves it out and never fails the approval's read. A repository's PRD carries
+// it too since bug #2793 (./approval-api.repo-laws.test.ts). Beside the route's own
 // tests (./approval-api.test.ts), which stay as they are.
 
 const DOSSIER = '11111111-1111-4111-8111-111111111111';
@@ -35,13 +36,10 @@ describe('GET /api/dossiers/approval — the business laws of a product PRD', ()
     expect(w.asked).toEqual([DOSSIER]);
   });
 
-  it('leaves it out with nothing to say, when the read fails, and for a repository\'s PRD', async () => {
+  it('leaves it out with nothing to say, and when the read fails', async () => {
     const bare = { status: 200, body: { url: `https://omni.example/prd/${DOSSIER}`, approval: null } };
     expect(await world(() => Promise.resolve(null)).get('prd=mobile-12')).toEqual(bare);
     expect(await world(() => Promise.reject(new Error('down'))).get('prd=mobile-12')).toEqual(bare);
     expect(await world().get('prd=mobile-12')).toEqual(bare);
-    const repo = world(() => Promise.resolve(RED));
-    expect(await repo.get('repo=acme/widgets&prd=7')).toEqual(bare);
-    expect(repo.asked).toEqual([]);
   });
 });

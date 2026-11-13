@@ -11,6 +11,8 @@
 //   with the spec's title. It names the draft to number when one is recorded for it and the session
 //   id, read in the same order but never generated (`../../lib/dossier/draft.ts`), prints the dossier's link and the versions it added, and records
 //   the draft as numbered. A draft the server no longer has is forgotten, and the push goes by the key.
+//   Since bug #2793 it then prints the spec's business laws verdict as a product PRD's push does
+//   (`./dossier-product.ts`, `reportLaws`), once the spec is judged; a verdict it cannot read prints nothing.
 // - `link <n>` prints PRD n's link (PRD 413): it asks the app by the repository and the number, so it
 //   works on a machine that never opened or pushed the dossier, and prints `none` when the app has
 //   none. Only when the app cannot be reached does it fall back to a numbered entry for n in the local
@@ -59,7 +61,7 @@ import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
 import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { isOneOf } from '../../lib/narrow.ts';
 import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
-import { PRODUCT_USAGE, productCallOf, runProductCall } from './dossier-product.ts';
+import { PRODUCT_USAGE, productCallOf, reportLaws, runProductCall } from './dossier-product.ts';
 import type { ProductCall } from './dossier-product.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
 
@@ -73,7 +75,7 @@ type DossierOptions = {
   now?: () => number;
   /** PRD 1548: the scratch space `get` writes in; the system's when not given. */
   scratch?: string | undefined;
-  /** Bug #2696: waits between two reads of a product PRD's verdict after a push; the clock's when not given. */
+  /** Bug #2696: waits between two reads of a PRD's verdict after a push; the clock's when not given. */
   pause?: ((ms: number) => Promise<void>) | undefined;
 };
 
@@ -90,6 +92,8 @@ type VerbIo = {
   stdout: Out;
   stderr: Out;
   now: () => number;
+  /** Bug #2793: waits between two reads of a PRD's verdict after a push. */
+  pause: (ms: number) => Promise<void>;
 };
 
 const USAGE = `usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status | ${PRODUCT_USAGE}`;
@@ -187,7 +191,7 @@ async function pushFix(issue: IssueNumber, kind: FixKind, { ctx, repo, client, r
   return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
 
-async function push(prd: PrdNumber, product: string | null, { ctx, repo, client, home, session, stdout, stderr }: VerbIo): Promise<number> {
+async function push(prd: PrdNumber, product: string | null, { ctx, repo, client, home, session, stdout, stderr, pause }: VerbIo): Promise<number> {
   const folder = readDossierFolder(ctx, prd);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd} has no inbox or shipped folder.`);
   const where = home ?? ctx.root;
@@ -217,7 +221,9 @@ async function push(prd: PrdNumber, product: string | null, { ctx, repo, client,
   if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
     markNumbered(where, draft.id, { prd, id, url });
   }
-  return reportPush(result, folder.tooLarge, { stdout, stderr });
+  const code = reportPush(result, folder.tooLarge, { stdout, stderr });
+  await reportLaws(String(prd), () => client.readApproval({ repo, prd }), { stdout, pause });
+  return code;
 }
 
 /** The last link this computer recorded for PRD n, or null. It records PRDs only: a fix has none. */
@@ -324,7 +330,7 @@ export const dossier = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, vars, reads, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now, scratch, pause }: FreeIo & DossierOptions,
+    { cwd, stdout, stderr, exec, vars, reads, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now, scratch, pause = (ms) => sleep(ms) }: FreeIo & DossierOptions,
   ) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind', 'product', 'from', 'title'], booleans: ['new'] });
     const [verb = '', ...rest] = positional;
@@ -360,7 +366,7 @@ export const dossier = {
       return 1;
     }
     const loop = reads ?? omniLoopReads({ askUrl: toggle.askUrl, tokens, home, fetch, callMs: callMs ?? ISSUE_TITLE_MS });
-    const options: VerbIo = { ctx, repo, client, reads: loop, home: mainCheckout(ctx.root, exec), session: vars.agentSession, stdout, stderr, now };
+    const options: VerbIo = { ctx, repo, client, reads: loop, home: mainCheckout(ctx.root, exec), session: vars.agentSession, stdout, stderr, now, pause };
     // `named` is set for `push` and `link`, the two verbs that read a number, and null for `open`.
     if (named === null) return open(title, options);
     if (verb === 'link') return link(named.kind === 'prd' ? named.prd : named.issue, named.kind, options);

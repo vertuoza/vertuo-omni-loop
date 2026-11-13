@@ -626,6 +626,15 @@ When step 1's product question picked a product, this first push carries it: run
 `/omni:dossier-push` says; **No product**, or no question asked, sends none. Only this first push
 names a product: every later push leaves it out. Whatever it prints, carry on.
 
+**The business laws.** The page judges the pushed spec against its product's business laws, and a red
+holds the approval. Read the verdict before handing off: run `node .omni-loop/bin/omni.mjs prd <n>`
+(the push itself prints it too, once judged). On `laws: red`, each line under it names a law, the
+spec's words that break it and why: change the spec so it keeps each named law, or, when the law
+itself should change, ask its owner for the amendment with `/omni:knowledge-add amend <id>` and say
+so in the hand-off. Commit the spec, push the feature branch, follow `/omni:dossier-push <n>` again,
+and read it again with `omni prd <n>`, until it is not red. `laws: not judged yet` is read once more,
+then carried on, as is `laws: green`, `laws: not judged · <why>` or no `laws:` line at all.
+
 With `--concept`, then follow `/omni:dossier-push <concept> --kind concept` from this worktree too:
 the concept's page gets the `concept.md` whose area now names PRD n, so its Areas tab links that
 area to its PRD at once. Whatever it prints, carry on to step 8: a push that was skipped or refused
@@ -850,6 +859,10 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
 5. **Commit** the three files (and any draft screen item 3 changed) as `docs(prd): rework <topic> from the voice`, signed (**Signing**),
    run `node .omni-loop/bin/omni.mjs check inbox` until it is green, push the feature branch, then
    follow `/omni:dossier-push <n>` from this worktree: each file that changed becomes a new version.
+   **The business laws.** Then run `node .omni-loop/bin/omni.mjs prd <n>`: on `laws: red`, change the
+   spec to keep each named law (or ask for the amendment with `/omni:knowledge-add amend <id>`),
+   commit, push and follow `/omni:dossier-push <n>` again, and read it again, until it is not red,
+   as step 7 says. `laws: not judged yet` is read once more, then carried on.
 6. **The review.** When the phase-0 PR is open, take the three files onto its branch as step 9
    item 1 does, commit as `docs(phase-0): rework <topic>`, signed, and prove it with
    `node .omni-loop/bin/omni.mjs phase0 <n>` before pushing. When it has merged, cut a new branch
