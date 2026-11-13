@@ -4,26 +4,166 @@
       "stage": "design",
       "date": "2026-11-13",
       "personas": [
-        {"name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "One more form to fill before I get my MCP server is exactly the fluff I expect from this tool.", "citations": ["persona:B-E DEv"]},
-        {"name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "A confirm step before a value that can never change is the least I expect; a silent typo would live in production for good.", "citations": ["persona:F-E Developer"]},
-        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One key per product, set by an owner and shown to everyone, keeps the teams naming PRDs the same way.", "citations": ["persona:Lead Engineer"]},
-        {"name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "No more waiting for someone to run SQL before my product gets its PRDs and its MCP server.", "citations": ["persona:Paul - Product Manager"]},
-        {"name": "Irisa", "stance": "neutral", "score": 4, "reaction": "A line on the MCP card telling me the key comes first tells me what to do without knowing the database.", "citations": ["persona:Irisa"]}
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "One more form to fill before I get my MCP server is exactly the fluff I expect from this tool.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A confirm step before a value that can never change is the least I expect; a silent typo would live in production for good.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One key per product, set by an owner and shown to everyone, keeps the teams naming PRDs the same way.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "No more waiting for someone to run SQL before my product gets its PRDs and its MCP server.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A line on the MCP card telling me the key comes first tells me what to do without knowing the database.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
-      "objection": {"persona": "B-E DEv", "text": "One more form to fill before I get my MCP server is exactly the fluff I expect from this tool. Fill the key in from the product's name so I just press the button.", "citations": ["persona:B-E DEv"], "settled": "accepted"},
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "One more form to fill before I get my MCP server is exactly the fluff I expect from this tool. Fill the key in from the product's name so I just press the button.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
       "fit": "Fits the product managers and the lead engineer; the skeptical back-end developer wants no typing, met by the prefill."
     },
     {
       "stage": "spec",
       "date": "2026-11-13",
       "personas": [
-        {"name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Prefilled from the name, it is two clicks; I can live with that.", "citations": ["persona:B-E DEv"]},
-        {"name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The confirm step names the PRD ids and the address, and the database still refuses a bad key, so the page cannot lie to me.", "citations": ["persona:F-E Developer"]},
-        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One key per product, set by an owner and shown to everyone, keeps the teams naming PRDs the same way.", "citations": ["persona:Lead Engineer"]},
-        {"name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "No more waiting for someone to run SQL before my product gets its PRDs and its MCP server.", "citations": ["persona:Paul - Product Manager"]},
-        {"name": "Irisa", "stance": "neutral", "score": 4, "reaction": "A line on the MCP card telling me the key comes first, with a link to it, tells me what to do.", "citations": ["persona:Irisa"]}
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Prefilled from the name, it is two clicks; I can live with that.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The confirm step names the PRD ids and the address, and the database still refuses a bad key, so the page cannot lie to me.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One key per product, set by an owner and shown to everyone, keeps the teams naming PRDs the same way.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "No more waiting for someone to run SQL before my product gets its PRDs and its MCP server.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A line on the MCP card telling me the key comes first, with a link to it, tells me what to do.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "fit": "Fits every persona once the key is prefilled and confirmed."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-13",
+      "personas": [
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The key is filled in from the name, so it is two clicks; still a step before the MCP server, but a short one.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The confirm step names the key and the database still refuses a bad one, so the page cannot set a typo by accident.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every member sees the same key on Settings, so the teams name the product the same way.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "No more waiting for someone to run SQL before my product gets its MCP server.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The MCP card now tells me the key comes first and links to it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "Fits every persona; the prefill answers the back-end developer's objection."
     }
   ]
 }
