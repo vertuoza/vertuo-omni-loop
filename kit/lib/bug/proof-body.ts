@@ -156,7 +156,7 @@ function provedOnFaults(section: string): string[] {
  * line's. An earlier line is never a fault, it stays as it was written; `undefined` when the After
  * line cites none.
  */
-function citedCommit(section: string): string | undefined {
+export function citedCommit(section: string): string | undefined {
   const after = AFTER_CITES.exec(section)?.[1];
   if (after === undefined) return undefined;
   const reproved = [...section.matchAll(RE_PROVED)].map((match) => match[1] ?? '');

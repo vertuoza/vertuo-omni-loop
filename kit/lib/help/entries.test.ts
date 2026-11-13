@@ -304,7 +304,8 @@ describe('the help table in this repository', () => {
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
     const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
     assertDefined(bug, 'bug');
-    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]', 'omni bug ci <n> --pr <pr> --reproduction <sha> --fix <sha>', '  --test <name> --out <dir> [--wait <minutes>]'] });
+    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]', 'omni bug ci <n> --pr <pr> --reproduction <sha> --fix <sha>', '  --test <name> --out <dir> [--wait <minutes>]', 'omni bug check --product <key> <file> --body-file <body> --pr <owner/repo>#<n>'] });
+    expect(bug.detail).toMatch(/--pr <owner\/repo>#<n>/);
     expect(bug.detail).toMatch(/omni bug ci is level B/);
     expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
   });
@@ -316,7 +317,7 @@ describe('the help table in this repository', () => {
       return entry.detail;
     };
     const bug = detail('bug');
-    for (const words of [/--body-file/, /open pull request of the current branch/, /GIF not produced - <reason>/, /not a draft/, /## Fixes\s+section is not checked/, /with no ffmpeg/, /640×360/, /same bytes every run/, /could not write <path>/, /level C reason is not red not proven here/]) {
+    for (const words of [/--body-file/, /open pull request of the current branch/, /GIF not produced - <reason>/, /not a draft/, /## Fixes\s+section is checked for its proof/, /with no ffmpeg/, /640×360/, /same bytes every run/, /could not write <path>/, /level C reason is not red not proven here/]) {
       expect(bug, String(words)).toMatch(words);
     }
     expect(detail('proof')).toMatch(/one stable link per clip, before first/);

@@ -20,13 +20,16 @@
 //
 // `omni bug check --product <key> <file> --body-file <body>` (PRD 2578) also grades the body of the fix
 // pull request of the target where the bug shows: its `## Proof`, by the same rule as `omni bug <n>`.
-// A product bug has no record pull request, so that is where its proof sits.
+// A product bug has no record pull request, so that is where its proof sits. It needs `--pr <owner/repo>#<n>`
+// (PRD 2741), that fix pull request, and refuses a proof citing any commit but its head.
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { gradeBugFile, bugSeqArg, bugPushedLines, pushProductBug } from '../../lib/bug/product.ts';
-import { openPullRequest, proofFaults } from '../../lib/bug/proof-body.ts';
+import type { PullRef } from '../../lib/bug/fixes.ts';
+import { fixesPulls, readPullHead, rowHeadFaults } from '../../lib/bug/fixes.ts';
+import { citedCommit, openPullRequest, proofFaults, proofSection } from '../../lib/bug/proof-body.ts';
 import type { Head, ProofSource } from '../../lib/bug/proof-body.ts';
 import { bugVerdict, parseSections } from '../../lib/bug/verdict.ts';
 import { stillOpenBullets, stillOpenViolations } from '../../lib/bug/still-open.ts';
@@ -47,7 +50,7 @@ type BugOptions = { tokens?: TokenStore | undefined; home?: string | undefined; 
 const USAGE = [
   'usage: omni bug <n> [--base <ref>] [--body-file <file>]',
   '       omni bug film <n> --before <file> --after <file> [--out <dir>]',
-  '       omni bug check --product <key> (--bug <n> | --new) <file> [--body-file <body>]',
+  '       omni bug check --product <key> (--bug <n> | --new) <file> [--body-file <body> --pr <owner/repo>#<n>]',
   '       omni bug push --product <key> (--new | --bug <n>) <file>',
 ].join('\n');
 
@@ -81,17 +84,39 @@ function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
   const file = flags['body-file'];
   const written: ProofSource | undefined = file === undefined ? undefined : { kind: 'file', body: readUserFile('bug', ctx, file) };
   const base = rangeBase('bug', ctx, flags, exec);
+  const graded: { source?: ProofSource; fixes?: boolean } = {};
   const verdict = bugVerdict({
     ctx,
     issue,
     changed: loggedPaths(ctx.root, base, exec),
     commits: ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec),
     laws: fixLaws(ctx, issue, base, exec),
-    proof: ({ fixes }) => proofFaults(proofSource({ ctx, exec, written, base, fixes }), issue),
+    proof: ({ fixes }) => {
+      const source = proofSource({ ctx, exec, written, base, fixes });
+      Object.assign(graded, { source, fixes });
+      return proofFaults(source, issue);
+    },
   });
-  println(stdout, verdict.ok ? 'ok' : 'not ok');
-  for (const failure of verdict.failures) println(stdout, `- ${failure}`);
-  return verdict.ok ? 0 : 1;
+  const rows = graded.fixes === true && graded.source !== undefined ? rowsHeadFaults({ ctx, exec, source: graded.source, folder: verdict.folder }) : [];
+  const failures = [...verdict.failures, ...rows];
+  println(stdout, failures.length === 0 ? 'ok' : 'not ok');
+  for (const failure of failures) println(stdout, `- ${failure}`);
+  return failures.length === 0 ? 0 : 1;
+}
+
+/**
+ * A `## Fixes` record's proof must cite the head of one of its rows' pull requests (PRD 2741): the code
+ * is in those pull requests, not on this branch. Asks gh nothing for a proof that cites no commit (a
+ * not-produced one, or the fault `proofFaults` already gave) or a record whose rows name no pull request.
+ */
+function rowsHeadFaults({ ctx, exec, source, folder }: { ctx: Context; exec: ExecText; source: ProofSource; folder: string | null }): string[] {
+  if (source.kind === 'none' || folder === null) return [];
+  const section = proofSection(source.body);
+  const cited = section === undefined ? undefined : citedCommit(section);
+  const fixes = parseSections(readFileSync(join(ctx.root, folder, 'bug.md'), 'utf8')).get('Fixes');
+  if (cited === undefined || fixes === undefined) return [];
+  const rows = fixesPulls(ctx.config, fixes).map(({ repo, number }) => ({ label: `${repo}#${number}`, head: readPullHead({ exec, root: ctx.root, repo, number }) }));
+  return rowHeadFaults(cited, rows);
 }
 
 /** Prints the one line a call stops with: exit 1. */
@@ -103,24 +128,46 @@ function refuse(stderr: Out, line: string): number {
 /** What a product verb is handed: this checkout's context and the injected options. */
 type ProductIo = FreeIo & BugOptions & Pick<CommandIo, 'ctx'>;
 
-type ProductArgs = { key: string; file: string; bug: string | null; create: boolean; bodyFile: string | null };
+type ProductArgs = { key: string; file: string; bug: string | null; create: boolean; bodyFile: string | null; pr: PullRef | null };
+
+const PULL_REQUEST = /^([\w.-]+\/[\w.-]+)#(\d+)$/;
+
+type ProductFlags = { new?: true; bug?: string; 'body-file'?: string; pr?: string };
+
+/** The usage error the flags of `check` earn: the proof's body and the pull request it belongs to go together. */
+function checkFault(flags: ProductFlags): string | null {
+  const pr = flags.pr;
+  const body = flags['body-file'];
+  if (flags.new === true && flags.bug !== undefined) return 'omni bug check: --new and --bug are two ways to name the bug: give one.';
+  if (body !== undefined && pr === undefined) return 'omni bug check: --body-file needs --pr <owner/repo>#<n>, the fix pull request it belongs to';
+  if (pr === undefined) return null;
+  if (!PULL_REQUEST.test(pr)) return `omni bug check: --pr "${pr}" is not a pull request (as acme/api#41).`;
+  return body === undefined ? 'omni bug check: --pr is for a --body-file.' : null;
+}
+
+/** The pull request `--pr` names, or null when none was given. */
+function pullArg(value: string | undefined): PullRef | null {
+  const match = PULL_REQUEST.exec(value ?? '');
+  return match === null ? null : { repo: match[1] ?? '', number: Number(match[2]) };
+}
 
 /** The usage error a flag combination earns, or null when `check` or `push` may take it. */
-function flagFault(verb: 'check' | 'push', flags: { new?: true; bug?: string; 'body-file'?: string }): string | null {
-  if (verb === 'check') return flags.new === true && flags.bug !== undefined ? 'omni bug check: --new and --bug are two ways to name the bug: give one.' : null;
+function flagFault(verb: 'check' | 'push', flags: ProductFlags): string | null {
+  if (verb === 'check') return checkFault(flags);
+  if (flags.pr !== undefined) return 'omni bug push: --pr is for check.';
   if (flags['body-file'] !== undefined) return 'omni bug push: --body-file is for check.';
   if (flags.new === true && flags.bug !== undefined) return 'omni bug push: --new and --bug are two ways to name the bug: give one.';
   return flags.new !== true && flags.bug === undefined ? 'omni bug push: say where it goes: --new for the next bug of the product, or --bug <n>.' : null;
 }
 
 function productArgs(verb: 'check' | 'push', rest: string[]): ProductArgs {
-  const { positional, flags } = parseArgs(`bug ${verb}`, rest, { values: ['product', 'bug', 'body-file'], booleans: ['new'] });
+  const { positional, flags } = parseArgs(`bug ${verb}`, rest, { values: ['product', 'bug', 'body-file', 'pr'], booleans: ['new'] });
   const key = flags.product ?? '';
   if (!isProductKey(key)) throw usageError(`omni bug ${verb}: --product "${key}" needs a product key (lowercase kebab-case, as mobile).`);
   if (positional.length !== 1) throw usageError(USAGE);
   const fault = flagFault(verb, flags);
   if (fault !== null) throw usageError(fault);
-  return { key, file: positional[0] ?? '', bug: flags.bug ?? null, create: flags.new === true, bodyFile: flags['body-file'] ?? null };
+  return { key, file: positional[0] ?? '', bug: flags.bug ?? null, create: flags.new === true, bodyFile: flags['body-file'] ?? null, pr: pullArg(flags.pr) };
 }
 
 /** What a product verb starts from: its arguments, the record read, the connection and the grade; or its exit code. */
@@ -157,7 +204,8 @@ async function checkProduct(rest: string[], io: ProductIo): Promise<number> {
   const prepared = await prepare('check', rest, io);
   if (typeof prepared === 'number') return prepared;
   const { args, graded } = prepared;
-  const proof = args.bodyFile === null ? [] : proofFaults({ kind: 'file', body: readUserFile('bug check', io.ctx, args.bodyFile) }, parseIssue(1));
+  const head = args.pr === null ? undefined : readPullHead({ exec: io.exec, root: io.ctx.root, ...args.pr });
+  const proof = args.bodyFile === null ? [] : proofFaults({ kind: 'file', body: readUserFile('bug check', io.ctx, args.bodyFile), head }, parseIssue(1));
   const lines = [...(graded.ok ? graded.violations : graded.lines), ...proof, ...stillOpenLines(args, io, prepared.record)];
   if (lines.length > 0) {
     println(io.stdout, formatFailure(`omni bug check — ${args.file}: violation(s):`, lines.map((line) => `${args.file}: ${line}`)));
