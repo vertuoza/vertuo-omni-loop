@@ -96,7 +96,8 @@ const KINDS: readonly string[] = ['region', 'offering', 'size', 'trade', 'rival'
 const READ_KINDS: readonly unknown[] = [...KINDS, 'never'];
 const SOURCES: readonly unknown[] = ['pick', 'suggestion', 'evidence', 'answer'];
 const STATES: readonly unknown[] = ['confirmed', 'contradicted'];
-const STANCES: readonly unknown[] = ['excited', 'neutral', 'skeptical'];
+/** A persona's stance: enthusiastic since PRD 2779; `excited` is what a server that has not renamed it still sends. */
+const STANCES: readonly unknown[] = ['enthusiastic', 'excited', 'neutral', 'skeptical'];
 const BLANK = '___';
 const CONTRADICTED = '  (contradicted: evidence disagrees, nobody answered yet)';
 

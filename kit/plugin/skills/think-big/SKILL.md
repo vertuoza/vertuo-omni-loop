@@ -125,7 +125,8 @@ only under `<scratch>`, never in the repository; spawn no agent of your own.
   this at 7am on Monday, on site, on my phone?", said in their own situation.
 - **User, from the personas.** When the fuel sheet lists the product's personas (step 2), the User
   panelists are those personas: all of them up to five, or the five that differ most in stance and
-  trade, so a product with twelve does not flood a board. Each gets the User card above filled from
+  trade, so a product with twelve does not flood a board. A stance is enthusiastic, neutral or
+  skeptical. Each gets the User card above filled from
   its own name, stance, who and usage, never invented past them; it scores and debates by name, and
   cites `persona:<name>` or a claim id in each post. Without personas, the Users are drawn from the
   brief and the product's knowledge, as above.

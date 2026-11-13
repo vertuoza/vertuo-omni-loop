@@ -1674,7 +1674,7 @@ describe('omni kb legal | glossary (PRD 1795)', () => {
     const server = page(200);
     const legal = await know(root, ['kb', 'legal'], server);
     expect(legal).toEqual({ code: 0, out: 'L-INVOICING-1  An invoice is kept ten years.  (source: Code de commerce; owner: @jane)\n', err: '' });
-    expect(server.urls).toEqual(['https://omni.test/api/business?repo=acme%2Fwidgets']);
+    expect(server.urls).toEqual(['https://omni.test/api/business?repo=acme%2Fwidgets&stances=2']);
     const glossary = await know(root, ['kb', 'glossary'], page(200));
     expect(glossary.out).toBe('Credit note: A document that cancels part of an invoice.  (avoid: refund, rebate)\n');
     expect(JSON.parse(read(LOCAL))).toEqual({

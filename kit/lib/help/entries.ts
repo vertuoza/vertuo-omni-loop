@@ -550,7 +550,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'answered yet, is marked as such and left out of the sentence. --json prints them for an agent, ' +
       'each with its state (confirmed or contradicted). Under the claims come the product\'s personas, ' +
       'one line each (name, stance, trade, who they are and how they use it), and --json carries them ' +
-      'as personas, [] when there are none. With no business, ' +
+      'as personas, [] when there are none. A stance is enthusiastic, neutral or skeptical (a persona ' +
+      'still sent as excited reads the same), and a trade is any text the product gave it. With no business, ' +
       'no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: ' +
       'agents carry on without it. cited logs the claims an agent cited, by which skill and in which ' +
       'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0. ' +
