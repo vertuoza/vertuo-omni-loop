@@ -15,6 +15,8 @@ import { mcpProductOf, roleIn } from './mcp-server.repository';
 
 export interface McpCardRead {
   card: McpCard;
+  /** The product's name, which the Product key card suggests its key from. */
+  name: string;
   source: WriteSource;
 }
 
@@ -34,12 +36,12 @@ export async function loadMcpCard(product: string): Promise<McpCardRead | null> 
   const reader = await knowledgeReader();
   const origin = await originOf();
   if (reader.kind === 'demo') {
-    return { card: { key: 'demo', on: false, owner: true, archived: false, origin, missing: [] }, source: { kind: 'demo' } };
+    return { card: { key: 'demo', on: false, owner: true, archived: false, origin, missing: [] }, name: 'Demo', source: { kind: 'demo' } };
   }
   if (reader.kind !== 'database') return null;
   const { db, me, workspace } = reader;
   const [stored, role, held] = await Promise.all([mcpProductOf(db, product), roleIn(db, workspace, me), productRepositoriesOf(db, product)]);
   if (stored === null) return null;
   const missing = stored.mcp_enabled && held !== null ? await withoutPack(db, held.repositories) : [];
-  return { card: cardFrom(stored, role, origin, missing), source: writeSourceOf(reader) };
+  return { card: cardFrom(stored, role, origin, missing), name: stored.name, source: writeSourceOf(reader) };
 }
