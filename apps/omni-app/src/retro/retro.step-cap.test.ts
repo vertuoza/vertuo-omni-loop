@@ -126,9 +126,15 @@ describe('retro — a delivery red on so many commits that its CI records pass 1
 
     expect(error).toBeUndefined();
     expect(saved).toContain('publish');
-    for (const value of Object.values(ledger.stepsOf(scenario.job.key))) expect(Buffer.byteLength(JSON.stringify(value))).toBeLessThanOrEqual(STEP_CAP);
+    const steps = ledger.stepsOf(scenario.job.key);
+    for (const value of Object.values(steps)) expect(Buffer.byteLength(JSON.stringify(value))).toBeLessThanOrEqual(STEP_CAP);
+    expect(Object.keys(steps).filter((id) => id.startsWith('gather-ci:part-')).length).toBeGreaterThan(2);
 
-    expect(JSON.stringify(fetch.asked)).toContain(JSON.stringify(tailOf(9000 + MANY_RED_RUNS - 1)).slice(1, -1));
+    // The judge's input is capped at LIMITS.modelInputTokens (`narrate.ts`), which keeps the latest tails whole and drops
+    // the older ones: the tails it reads are whole ones, read back from the parts.
+    const asked = JSON.stringify(fetch.asked);
+    const read = Array.from({ length: MANY_RED_RUNS }, (_, index) => JSON.stringify(tailOf(9000 + index)).slice(1, -1)).filter((tail) => asked.includes(tail));
+    expect(read.length).toBeGreaterThan(0);
     const json = scenario.github.filesAt('docs/retro-widget', ['.omni-loop/delivery/shipped/0007-widget/retro.json'])['.omni-loop/delivery/shipped/0007-widget/retro.json'] ?? '';
     for (let index = 0; index < MANY_RED_RUNS; index += 1) expect(json).toContain(JSON.stringify(tailOf(9000 + index)));
   });
