@@ -18614,10 +18614,10 @@ function joinAnd(parts) {
 function code(path) {
   return `\`${path}\``;
 }
-function groupBy(items, keyOf) {
+function groupBy(items, keyOf2) {
   const groups = /* @__PURE__ */ new Map();
   for (const item of items) {
-    const key = keyOf(item);
+    const key = keyOf2(item);
     const group2 = groups.get(key) ?? [];
     groups.set(key, group2);
     group2.push(item);
@@ -19007,6 +19007,51 @@ function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) })
   };
 }
 
+// apps/omni-app/src/retro/excerpts.ts
+var EXCERPT = "excerpt";
+function withoutExcerpts(value) {
+  return strip(value);
+}
+function withExcerptsOf(saved, fresh) {
+  const excerpts = excerptsIn(asSaved(fresh));
+  return excerpts.size === 0 ? saved : putBack(saved, excerpts);
+}
+function strip(value) {
+  if (Array.isArray(value)) return value.map(strip);
+  if (!isObject2(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== EXCERPT).map(([key, item]) => [key, strip(item)])
+  );
+}
+function excerptsIn(value, found = /* @__PURE__ */ new Map()) {
+  if (Array.isArray(value)) for (const item of value) excerptsIn(item, found);
+  else if (isObject2(value)) {
+    const excerpt = value[EXCERPT];
+    if (typeof excerpt === "string" && excerpt !== "") found.set(keyOf(strip(value)), excerpt);
+    for (const item of Object.values(value)) excerptsIn(item, found);
+  }
+  return found;
+}
+function putBack(value, excerpts) {
+  if (Array.isArray(value)) return value.map((item) => putBack(item, excerpts));
+  if (!isObject2(value)) return value;
+  const out = Object.fromEntries(Object.entries(value).map(([key, item]) => [key, putBack(item, excerpts)]));
+  if (EXCERPT in value) return out;
+  const excerpt = excerpts.get(keyOf(strip(value)));
+  return excerpt === void 0 ? out : { ...out, [EXCERPT]: excerpt };
+}
+function keyOf(value) {
+  if (Array.isArray(value)) return `[${value.map(keyOf).join(",")}]`;
+  if (isObject2(value)) {
+    const keys = Object.keys(value).filter((key) => value[key] !== void 0).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${keyOf(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+function isObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 // kit/lib/playbook/lines.ts
 var LINE_MAX = 240;
 var BOLD_HEAD = /^\*\*(.+?)\*\*\s*/;
@@ -19062,7 +19107,7 @@ var BACKTICK_SPAN2 = /`([^`\n]+)`/g;
 var TRAILING = /[.,;:!?]+$/;
 function guard({ reply, sheet }) {
   if (!reply) return { prose: null, dropped: [] };
-  const given = isObject2(reply) ? reply : {};
+  const given = isObject3(reply) ? reply : {};
   const evidence = evidenceOf(sheet);
   const dropped = [];
   const check = (field4, value, cap) => {
@@ -19074,7 +19119,7 @@ function guard({ reply, sheet }) {
   };
   const prose = { findings: {}, lessons: [] };
   if (given.summary !== void 0) prose.summary = check("summary", given.summary, FIELD_CAPS.summary);
-  const findings = isObject2(given.findings) ? given.findings : {};
+  const findings = isObject3(given.findings) ? given.findings : {};
   let unknown = false;
   for (const [id, words] of Object.entries(findings)) {
     if (!evidence.ids.has(id)) {
@@ -19083,7 +19128,7 @@ function guard({ reply, sheet }) {
     }
     const kept3 = {};
     for (const name of FINDING_FIELDS) {
-      const value = isObject2(words) ? words[name] : void 0;
+      const value = isObject3(words) ? words[name] : void 0;
       if (value !== void 0) kept3[name] = check(`findings.${id}.${name}`, value, FIELD_CAPS[name]);
     }
     prose.findings[id] = kept3;
@@ -19091,7 +19136,7 @@ function guard({ reply, sheet }) {
   if (unknown) dropped.push({ field: "findings", reason: DROPPED.unknownFinding });
   const lessons2 = Array.isArray(given.lessons) ? given.lessons : [];
   lessons2.forEach((lesson, index) => {
-    const entry = isObject2(lesson) ? lesson : {};
+    const entry = isObject3(lesson) ? lesson : {};
     const cited = Array.isArray(entry.findings) ? entry.findings : [];
     const known = cited.filter((id) => typeof id === "string" && evidence.ids.has(id));
     const reason2 = refusal3(entry.text, FIELD_CAPS.lesson, evidence) ?? (cited.length === 0 ? DROPPED.noFinding : known.length < cited.length ? DROPPED.unknownFinding : null);
@@ -19117,7 +19162,7 @@ function judge2(reply, findings, prose, evidence, dropped) {
   let keptOne = false;
   for (const [id, kept3] of Object.entries(prose.findings)) {
     const given = findings[id];
-    const read = marksOf(isObject2(given) ? given : {}, kept3, `findings.${id}`, evidence);
+    const read = marksOf(isObject3(given) ? given : {}, kept3, `findings.${id}`, evidence);
     if (!read.ok) return failed3(read);
     if (read.marks.keep) keptOne = true;
     judged4[id] = read.marks;
@@ -19127,7 +19172,7 @@ function judge2(reply, findings, prose, evidence, dropped) {
   return { worthIt: head.worthIt, reason: head.reason };
 }
 function verdictOf(verdict, evidence) {
-  if (!isObject2(verdict)) return { ok: false, field: "verdict", reason: DROPPED.noVerdict };
+  if (!isObject3(verdict)) return { ok: false, field: "verdict", reason: DROPPED.noVerdict };
   if (typeof verdict.worthIt !== "boolean") return { ok: false, field: "verdict.worthIt", reason: DROPPED.notYesOrNo };
   const reasonRefused = refusal3(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
   if (reasonRefused !== null || typeof verdict.reason !== "string") return { ok: false, field: "verdict.reason", reason: reasonRefused ?? DROPPED.notText };
@@ -19181,7 +19226,7 @@ function evidenceOf(sheet) {
   }
   return { ids, urls, holds: (span) => texts.some((text17) => text17.includes(span)) };
 }
-function isObject2(value) {
+function isObject3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function escape5(text17) {
@@ -19899,11 +19944,16 @@ async function factSheet(input, id, folder) {
   }
   const targets = await targetRecords(input);
   const before2 = earlier?.sheet.findings ?? [];
-  return savedStep(step, id("facts"), FactSheetSchema, () => {
-    const own = detect({ run, pr, prd, config, pulls, records, kinds });
-    const whole = withTargets(own, { planSlug: `${owner}/${repo}`, targets, run, kinds, scope });
-    return inFolder2(numberedAfter(whole, before2.length), folder);
-  });
+  let sheet;
+  const made = () => {
+    sheet ??= inFolder2(
+      numberedAfter(withTargets(detect({ run, pr, prd, config, pulls, records, kinds }), { planSlug: `${owner}/${repo}`, targets, run, kinds, scope }), before2.length),
+      folder
+    );
+    return sheet;
+  };
+  const saved = await savedStep(step, id("facts"), FactSheetSchema, () => FactSheetSchema.parse(withoutExcerpts(made())));
+  return FactSheetSchema.parse(withExcerptsOf(saved, made()));
 }
 async function targetRecords({ step, octokitFor, run, kinds, scope }) {
   if (run !== MERGE_RUN) return [];

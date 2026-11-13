@@ -71,4 +71,34 @@ describe('retro — a large repository on the job ledger (#2780)', () => {
     expect(saved).toContain('facts');
     expect(saved).toContain('publish');
   });
+
+  it('saves no log tail in the step "facts", and still gives the judge and retro.json every one', async () => {
+    const scenario = widgetScenario();
+    const ledger = cappedLedger();
+    const fetch = judge();
+    const { error } = await retroRunner({ octokitFor: () => scenario.github.octokit, openrouter: readEnv(JUDGE_ENV).openrouter, fetch, kinds }, scenario.job, {
+      ledger,
+    }).execute();
+    expect(error).toBeUndefined();
+
+    const facts = JSON.stringify(ledger.stepsOf(scenario.job.key).facts);
+    expect(facts).not.toContain('timed out waiting');
+    expect(Buffer.byteLength(facts)).toBeLessThan(STEP_CAP / 4);
+
+    expect(JSON.stringify(fetch.asked)).toContain(JSON.stringify(tailOf(9000 + RED_RUNS - 1)).slice(1, -1));
+    const json = scenario.github.filesAt('docs/retro-widget', ['.omni-loop/delivery/shipped/0007-widget/retro.json'])['.omni-loop/delivery/shipped/0007-widget/retro.json'] ?? '';
+    for (let index = 0; index < RED_RUNS; index += 1) expect(json).toContain(JSON.stringify(tailOf(9000 + index)));
+  });
+
+  it('reads the same sheet back on a retry: the tails put back from the gathers’ saved records', async () => {
+    const scenario = widgetScenario();
+    const ledger = cappedLedger();
+    const deps = { octokitFor: () => scenario.github.octokit, openrouter: null, kinds };
+    const first = await retroRunner(deps, scenario.job, { ledger }).execute();
+    const again = await retroRunner(deps, scenario.job, { ledger }).execute();
+    expect(first.error).toBeUndefined();
+    expect(again.error).toBeUndefined();
+    expect(again.saved).toEqual([]);
+    expect(again.result).toEqual(first.result);
+  });
 });
