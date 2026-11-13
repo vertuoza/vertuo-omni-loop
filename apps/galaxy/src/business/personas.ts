@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { PERSONA_TRADES, personaVariations, randomAvatar, validPersonaAvatar, type PersonaAvatar } from '@omni/design';
+import {
+  GENERIC_TRADE, hasOwnBust, PERSONA_TRADES, personaVariations, randomAvatar, TRADE_RULE_LINE, validPersonaAvatar, validPersonaTrade,
+  type PersonaAvatar,
+} from '@omni/design';
 import { hasProducts, type Product } from './model';
 import { at, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
@@ -86,8 +89,13 @@ export function personaOf(row: StoredPersona): Persona {
 /** A trade's label, or the id itself for a trade this page cannot name. */
 export const tradeLabel = (trade: string) => PERSONA_TRADES.find((t) => t.id === trade)?.label ?? trade;
 
-/** True when the page can draw the trade: the database takes any short lower-case word. */
-export const drawable = (trade: string) => PERSONA_TRADES.some((t) => t.id === trade);
+/** The trade a portrait is drawn with: the trade itself when it follows the rule (a listed one has its
+ * own bust, any other the generic one), the generic one while an Other trade is still being typed. */
+export const portraitTrade = (trade: string) => (validPersonaTrade(trade) ? trade : GENERIC_TRADE);
+
+/** What the Other trade field says is wrong with `trade`, or null: nothing typed yet is not wrong. */
+export const tradeProblem = (trade: string): string | null => (trade === '' || validPersonaTrade(trade) ? null : TRADE_RULE_LINE);
+
 
 /** An avatar's version, read as a number: the type names one version, a stored row may hold another. */
 const versionOf = (avatar: PersonaAvatar): number => avatar.v;
@@ -111,6 +119,8 @@ export interface PersonaDrawer {
   /** The product a new persona joins. */
   product: string | null;
   fields: PersonaFields;
+  /** The trade is an Other… one, typed in its own field rather than picked from the list. */
+  other: boolean;
   /** What orders the picker's variations. */
   seed: string;
   /** The picker's page: Shuffle shows the next. */
@@ -133,7 +143,8 @@ export type PersonasAction =
   /** + Add a persona: a drawer for `product`, on an avatar `seed` picks. */
   | { type: 'new'; product: string | null; seed: string }
   | { type: 'edit'; persona: string; seed: string }
-  | { type: 'change'; fields: Partial<PersonaFields> }
+  /** A field changed; `other` says the trade is, or is no longer, an Other… one. */
+  | { type: 'change'; fields: Partial<PersonaFields>; other?: boolean | undefined }
   | { type: 'shuffle' }
   | { type: 'close' }
   | { type: 'busy' }
@@ -169,15 +180,17 @@ type Handlers = { [T in keyof ActionOf]: (state: PersonasState, action: ActionOf
 
 const HANDLERS: Handlers = {
   'new': (state, { product, seed }) => ({
-    ...state, refusal: null, drawer: { editing: null, product, fields: blankFields(seed), seed, page: 0 },
+    ...state, refusal: null, drawer: { editing: null, product, fields: blankFields(seed), other: false, seed, page: 0 },
   }),
   'edit': (state, { persona, seed }) => {
     const found = state.personas.find((p) => p.id === persona);
     if (!found) return state;
     const { name, stance, trade, avatar, who, usage } = found;
-    return { ...state, refusal: null, drawer: { editing: found.id, product: found.product, fields: { name, stance, trade, avatar, who, usage }, seed, page: 0 } };
+    return { ...state, refusal: null, drawer: { editing: found.id, product: found.product, fields: { name, stance, trade, avatar, who, usage }, other: !hasOwnBust(trade), seed, page: 0 } };
   },
-  'change': (state, { fields }) => (state.drawer ? { ...state, drawer: { ...state.drawer, fields: { ...state.drawer.fields, ...fields } } } : state),
+  'change': (state, { fields, other }) => (state.drawer
+    ? { ...state, drawer: { ...state.drawer, other: other ?? state.drawer.other, fields: { ...state.drawer.fields, ...fields } } }
+    : state),
   'shuffle': (state) => (state.drawer ? { ...state, drawer: { ...state.drawer, page: state.drawer.page + 1 } } : state),
   'close': (state) => ({ ...state, drawer: null, refusal: null }),
   'busy': (state) => ({ ...state, busy: true, refusal: null }),

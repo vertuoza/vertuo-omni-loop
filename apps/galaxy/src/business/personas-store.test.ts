@@ -94,6 +94,9 @@ describe('the demo', () => {
     expect(await port.add('p-1', { ...FIELDS, who: 'x'.repeat(401) })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.who });
     expect(await port.add('p-1', { ...FIELDS, usage: 'x'.repeat(401) })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.usage });
     expect(await port.add('p-1', { ...FIELDS, avatar: { ...AVATAR, skin: 6 } })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.avatar });
-    expect(await port.add('p-1', { ...FIELDS, trade: 'Site Foreman' })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.trade });
+    for (const trade of ['Site Foreman', 'Credit', ' analyst', 'analyst-', 'a  b', 'a'.repeat(41)]) {
+      expect(await port.add('p-1', { ...FIELDS, trade })).toEqual({ ok: false, message: INVALID_PERSONA_FIELD.trade });
+    }
+    expect(await port.add('p-1', { ...FIELDS, trade: 'credit risk analyst' })).toMatchObject({ ok: true, persona: { trade: 'credit risk analyst' } });
   });
 });
