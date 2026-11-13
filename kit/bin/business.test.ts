@@ -45,7 +45,7 @@ const FILLED = {
 const persona = (name: string, stance: string, trade: string, who: string, usage: string) => ({ name, stance, trade, who, usage });
 const CAST = [
   persona('Marc', 'skeptical', 'plumber', 'Runs a company of five plumbers', 'Mostly the quotes'),
-  persona('Lea', 'excited', 'office', 'Keeps the office of a builder', 'The dashboard, every morning'),
+  persona('Lea', 'enthusiastic', 'office', 'Keeps the office of a builder', 'The dashboard, every morning'),
 ];
 
 let server: FakeAskServer;
@@ -108,6 +108,12 @@ describe('omni business show', () => {
     expect(server.calls.map(({ method, path, authorization }) => ({ method, path, authorization }))).toEqual([
       { method: 'GET', path: '/api/business', authorization: 'Bearer access-1' },
     ]);
+  });
+
+  it('reads excited too, what a server that has not renamed the stance sends, and any trade text', async () => {
+    const body = { ...FILLED, personas: [persona('Ada', 'excited', 'credit risk analyst', 'Scores loans', 'The risk report')] };
+    const c = await checkout({ business: () => ({ body }) });
+    expect((await show(['show'], c)).out).toContain('  persona     Ada (excited, credit risk analyst): Scores loans — uses: The risk report');
   });
 
   it('asks for this repository by its slug', async () => {
@@ -225,7 +231,7 @@ describe('omni business show', () => {
       'We sell ___ to ___-person ___ in Belgium, up against ___.',
       '  region#1  Belgium',
       '  persona   Marc (skeptical, plumber): Runs a company of five plumbers — uses: Mostly the quotes',
-      '  persona   Lea (excited, office): Keeps the office of a builder — uses: The dashboard, every morning',
+      '  persona   Lea (enthusiastic, office): Keeps the office of a builder — uses: The dashboard, every morning',
       '',
     ].join('\n'));
   });
