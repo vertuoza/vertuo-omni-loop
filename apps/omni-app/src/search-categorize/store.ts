@@ -2,7 +2,7 @@
 // `SUPABASE_SERVICE_ROLE_KEY`): the App has no person's session.
 //
 //   ungrouped    the searches with no group: `search_knowledge` calls that kept a question (the ungrouped index of
-//                20270120090000_mcp_search_groups.sql), the oldest first, at most `limit`
+//                20270120093000_mcp_search_groups.sql), the oldest first, at most `limit`
 //   nearest      mcp_search_group_nearest(): the product's nearest group of a model to a vector, with its cosine
 //   addGroup     a group started by a search: its question, its vector and the model that made it; its id
 //   join         sets a search's group
