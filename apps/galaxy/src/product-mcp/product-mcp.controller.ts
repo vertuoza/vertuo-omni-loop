@@ -22,6 +22,11 @@
 // (`later`: Next's after() in production), so the log never slows or changes an answer; a write that fails is
 // one error line, and is dropped. A call refused by the key check, or whose knowledge could not be read, adds
 // no row.
+//
+// A get_knowledge that found its entry then marks the search it follows (PRD omni-loop-6 s2): the latest
+// search_knowledge of the same key and product, asked within the 10 minutes before it, that returned that id and
+// has no opened rank yet, gets the id as its `opened_id` and the id's rank among its hits as `opened_rank`. It is
+// done in the same after-the-answer task; a failing update is one error line and changes no answer.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
@@ -40,7 +45,11 @@ export type ProductMcpDeps = {
   /** The model and the workspace's vectors, or null when this deployment has none: every search is then by words. */
   meaning?: Meaning | null;
   /** Where each answered call is logged (PRD omni-loop-6 s1), or null when this deployment keeps no log. */
-  searchLog?: { add: (row: SearchLogRow) => Promise<void> } | null;
+  searchLog?: {
+    add: (row: SearchLogRow) => Promise<void>;
+    /** Marks the search `id` was a hit of, from the same key and product within 10 minutes (PRD omni-loop-6 s2). */
+    open: (keyId: string, productId: string, id: string, askedAt: string) => Promise<void>;
+  } | null;
   /** Runs `task` once the answer is sent (Next's after()); by default, at once, unawaited. */
   later?: (task: () => Promise<void>) => void;
 };
@@ -74,9 +83,18 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
     const log = deps.searchLog;
     if (log === undefined || log === null) return;
     const later = deps.later ?? ((task) => { void task(); });
-    later(() => log.add(row).catch((error: unknown) => {
-      deps.log(`product mcp: search log not written: ${error instanceof Error ? error.message : String(error)}`);
-    }));
+    later(async () => {
+      await log.add(row).catch((error: unknown) => {
+        deps.log(`product mcp: search log not written: ${error instanceof Error ? error.message : String(error)}`);
+      });
+      // A get_knowledge that found its entry opens the search it follows (PRD omni-loop-6 s2); a failure is one
+      // line and never changes an answer already sent.
+      const [opened] = row.tool === 'get_knowledge' ? row.hit_ids : [];
+      if (opened === undefined) return;
+      await log.open(row.api_key_id, row.product_id, opened, row.asked_at).catch((error: unknown) => {
+        deps.log(`product mcp: opened rank not written: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    });
   };
 
   /** The tool's answer over the knowledge read now, or the one line of a key that does not work or a read that failed. */
