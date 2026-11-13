@@ -263,6 +263,13 @@ column reads `inline`, the outcome `built`.
    (`<slug>#<sub-PR> <title>`), each body keeping its `omni sign footer` line. Rewrite the plan PR's
    status comment as `/omni:wave` step 5 item 4 does. Never mark any feature PR ready.
 
+   **The `Merge after` lines.** Keep each consumer target's PR body carrying one
+   `Merge after <owner/repo>#<n>` line for each provider target the plan makes it wait for (a slice
+   blocked by a slice of another target), `<owner/repo>` being the provider's `<slug>` and `<n>` its
+   target feature PR, in the plan's order, as `/omni:mega-bug-fix` writes them. Add a missing one
+   with `gh pr edit <n> --repo <slug> --body-file <file>`, keeping the body's `Part of` line, its
+   **Slices** checklist and its `omni sign footer` line, and writing no line twice.
+
 ## 6. Report
 
 As `/omni:wave` step 6: the PRD's page first (run `node .omni-loop/bin/omni.mjs dossier link <n>`;

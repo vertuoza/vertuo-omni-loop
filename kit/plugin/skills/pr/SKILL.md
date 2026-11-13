@@ -75,7 +75,9 @@ In a link line, `{prd}` is the PRD's issue number. Every PR an agent owns also c
 this lifecycle with `labels.phase0` and `prLinks.phase0`.
 
 **Flow points.** A repository may hook the loop at named points (the `flow` of its config). This
-skill has one, `pr.open` (**Opening: point `pr.open`**). At it, run
+skill has two: `pr.open` (**Opening: point `pr.open`**), and `merge-after.served`, a provider
+repository's probe, followed before a pull request is marked ready (**Held by a provider**). At
+`pr.open`, run
 `node .omni-loop/bin/omni.mjs flow show pr.open` and follow what it prints: every `before` hook,
 then the kit's step (or, when it prints `kitStep: replaced`, the `replace` hook in its place), then
 every `after` hook. A hook is Markdown to follow; an input it leaves as `{name}` is filled from this
@@ -185,6 +187,33 @@ differences.
   later run of that commit ran its jobs, `gh run rerun <its id>` and watch again. A check that only
   skipped or was cancelled is never green.
 - `/omni:pr` owns `gh pr ready` for a sub-PR, and runs it only once the preflight is green.
+- **Held by a provider** (PRD 2746). A pull request whose body carries a `Merge after
+  <owner/repo>#<n>` line is never marked ready before that provider is merged and served. Every
+  skill runs `node .omni-loop/bin/omni.mjs hold <owner/repo>#<n> --json` before `gh pr ready` on such
+  a pull request (`<owner/repo>#<n>` being the pull request to mark ready), and reads its verdict:
+  - `clear`: mark it ready.
+  - `probe`: the provider's repository says what served means, at its point `merge-after.served`.
+    Run `node .omni-loop/bin/omni.mjs flow show merge-after.served` for the point's inputs and its
+    verdict line, then follow each hook of each `probe` row, in order, from its `text` (`{provider}`,
+    `{pr}`, `{merge-sha}` and `{consumer}` already filled in), as any hook (**Flow points**). Write
+    its output, the verdict line last, to a scratch file and run
+    `node .omni-loop/bin/omni.mjs flow verdict merge-after.served --from <file>`: `ok` passes that
+    hook; `wait merge-after.served <why>` and `not ok merge-after.served <why>` do not. Mark it ready
+    only when every row is `clear` or every hook of it passes.
+  - `held`, `not judged`, or a probe's `wait`: it **stays a draft**, never marked ready, and spends no
+    attempt. The status comment carries the line
+    `waiting for <owner/repo>#<n> to be served: <why>`, `<why>` being what `omni hold` printed for
+    that row (or the probe's verdict), rewritten each time the hold is read again. It states a fact,
+    never a decision: merging stays the person's.
+  - `fail` (a provider closed without merging) or a probe's `not ok`: it stays a draft with the same
+    line, and the skill raises **one high outbox item naming both pull requests**: the consumer cannot
+    be served as planned, a person's decision. In a PRD's run, through
+    `node .omni-loop/bin/omni.mjs item new --prd <n> --slice <the consumer's slice> --file <file> --json`,
+    `hardToRevert: true` by rule (no Jev step); in a bug fix's run, by hand in the fix's folder, as
+    `/omni:bug-fix` writes its items, `rank: high`. A later read that finds it raised raises none again.
+
+  A pull request already ready is never moved back to draft by the hold. The hold has no override an
+  agent sets: only a person marks a held pull request ready.
 - A **sub-PR** is merged into its feature branch by the orchestrator (`/omni:wave`), one at a time:
   check `baseRefName` is not the default branch and `headRefName` is a slice branch (`branches.slice`),
   never a landing's, then its review threads (`/omni:wave` step 4, item 5: a thread left asked holds
@@ -450,7 +479,7 @@ workflow; when the app is not installed, that check is simply absent.
 | checks pending | Watch in the background (below), then loop. |
 | a counted check red, other than `ci.outboxContext` | Fix it (below). |
 | only `ci.outboxContext` red | Not a failure to fix: run `node .omni-loop/bin/omni.mjs status <prd>`. Red only for items a person must answer is the gate doing its job; say so in the status comment and stop. Anything else, fix it through the outbox, never by adding `labels.outboxGo`. |
-| every counted check green and `mergeable: MERGEABLE` | Done. A standalone PR gets `gh pr ready <n>` if it is still a draft. A feature PR stays in draft (see **Merging and ready**). `gh pr edit <n> --remove-label "<labels.inProgress>"`, final status comment. Stop. |
+| every counted check green and `mergeable: MERGEABLE` | Done. A standalone PR gets `gh pr ready <n>` if it is still a draft, once **Held by a provider** lets it (`omni hold` before `gh pr ready`; held, it stays a draft with its waiting line). A feature PR stays in draft (see **Merging and ready**). `gh pr edit <n> --remove-label "<labels.inProgress>"`, final status comment. Stop. |
 
 **Watch in the background.** A foreground command is killed after at most 10 minutes. Run the watch
 in the background and act when it ends (in Claude: Bash with `run_in_background: true`):

@@ -154,7 +154,7 @@ describe('resolveTerritory', () => {
 
   it('names every point of the catalog, with no hook where none applies', () => {
     const { hooks } = resolveTerritory(flowOf(''), ['src/a.php']);
-    expect(Object.keys(hooks)).toHaveLength(12);
+    expect(Object.keys(hooks)).toHaveLength(13);
     expect(hooks['do-work.test']).toEqual({ before: [], replace: null, after: [] });
   });
 

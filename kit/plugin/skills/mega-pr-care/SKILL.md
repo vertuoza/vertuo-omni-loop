@@ -168,6 +168,14 @@ the order given. What differs:
   the gate to read is the plan PR's.
 - **A bug-fix PR** goes into its target's default branch, not a feature branch: its round is the
   same, and a fix it makes stays inside the bug's fix plan.
+- **Held by a provider.** For a PR whose body carries a `Merge after` line, each round runs
+  `node .omni-loop/bin/omni.mjs hold <owner/repo>#<n> --json` and follows it as `/omni:pr`'s
+  **Held by a provider** says: each probe it names through `flow show merge-after.served` and
+  `flow verdict merge-after.served`. Held, its status comment carries
+  `waiting for <owner/repo>#<n> to be served: <why>` (**4. The status comment**), dropped once every
+  row is clear or passes. This skill never marks a PR ready (**Guardrails**): the skill that does
+  runs the same hold again before it marks one, and a held PR stays a draft. A `fail` raises one
+  high outbox item naming both pull requests, in the plan repository's outbox, once.
 
 ## 3. Review threads
 
@@ -201,7 +209,7 @@ marker and rewritten in place, never `gh pr comment --edit-last`, with the care 
 
 The PRD page reads it from the plan PR, as it does today. A PR that waits on another keeps, under
 the care line, the line `waits on <slug>#<pr>` (the exact form `care state` reads) until a `rerun`
-drops it.
+drops it, and a held one its `waiting for` line (**2. A round**) until the hold clears.
 
 **The plan PR's target table.** Each round also rewrites the plan PR body's **Target pull requests,
 in merge order** section from the list, one line per target, landing and bug-fix PR, in its order:
