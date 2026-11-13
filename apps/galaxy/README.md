@@ -1796,7 +1796,7 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    - OpenRouter: `OPENROUTER_API_KEY`
    - the shared secrets: `STAGES_SYNC_SECRET`, `STAGE_EVENT_SECRET`, `SECRETS_MASTER_KEY`,
      `CONSTITUENT_JUDGE_SECRET`, `LAW_JUDGE_SECRET`, `BUSINESS_LAWS_JUDGE_SECRET` (PRD 2632: signs
-     omni-app's call to `POST /api/business-laws/judge`), `BUSINESS_RECHECK_SECRET`
+     omni-app's call to `POST /api/business-laws/judge`), `BUSINESS_RECHECK_SECRET`, `SEARCH_CATEGORIZE_SECRET` (PRD omni-loop-7: signs omni-app's call to `POST /api/search/categorize`)
    - the approval alerts: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push), `RESEND_API_KEY`,
      `RESEND_FROM` (email)
    - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each
