@@ -1092,6 +1092,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni bug film <n> --before <file> --after <file> [--out <dir>]',
       'omni bug ci <n> --pr <pr> --reproduction <sha> --fix <sha>',
       '  --test <name> --out <dir> [--wait <minutes>]',
+      'omni bug check --product <key> <file> --body-file <body> --pr <owner/repo>#<n>',
     ],
     summary: 'grade a bug fix branch and its pull request, film its before and after, or read them from CI',
     detail:
@@ -1106,7 +1107,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'proof on an open pull request that is not a draft is refused, and so is one whose level B ' +
       'reason is not a line omni bug ci prints, or whose level C reason is not red not proven here, ' +
       'an old pinned omni, or the line omni bug film or omni proof push exits 1 with. A record with a ## Fixes ' +
-      'section is not checked for a proof. It runs no test. Prints ok, or not ok with one line per ' +
+      "section is checked for its proof against the heads of its rows' pull requests: the commit it " +
+      'cites must be the head of one of them. omni bug check --product <key> <file> --body-file <body> ' +
+      'grades the body of a product bug\'s fix pull request, which --pr <owner/repo>#<n> names: the commit ' +
+      "the proof cites must be that pull request's head. " + 'It runs no test. Prints ok, or not ok with one line per ' +
       'failed check; exit 2 when --body-file cannot be read. --base defaults to ' +
       '{remote}/{defaultBranch}. omni bug film makes the fix\'s ' +
       'before/after GIF. From two .txt outputs of the reproduction (red, then green) the kit draws it ' +
