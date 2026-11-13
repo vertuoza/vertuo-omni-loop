@@ -114,7 +114,7 @@ function Groups({ category, domains }: { category: CategorySummary; domains: rea
   const shown = category.groups.slice(0, MOST_GROUPS);
   const left = category.groups.length - shown.length;
   return (
-    <div data-region="groups">
+    <div className="kn-groups" data-region="groups">
       <h3>{categoryLabel(category.category, domains)}: most-asked questions</h3>
       <p className="ask-muted">Each group holds near-identical questions, headed by the first one asked. Open one to read its questions.</p>
       {shown.map((group) => <Group key={group.key} group={group} />)}
