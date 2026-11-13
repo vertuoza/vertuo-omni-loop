@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operation Room Tour</title>
+<style>
+/* Ask's reading tokens, copied by value from packages/design/src/tokens.ts (ASK.omni / light / dark). */
+:root{
+  --ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;
+  --ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;
+  --body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --px:"Press Start 2P","Courier New",ui-monospace,monospace;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--line-strong:#85819f;
+  --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasma-soft:#efe7ff;--on-plasma:#ffffff;
+  --cyan:#0b6f86;--green:#15703f;--red:#b3122f;--fleet:#1f6fc4;color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--line-strong:#6d6acc;
+  --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasma-soft:#2a1d66;--on-plasma:#0e0d33;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--ground)}
+body{margin:0;background:var(--ground);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased}
+::selection{background:var(--plasma);color:var(--on-plasma)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:4px}
+a{color:var(--cyan);text-underline-offset:3px}
+button{font:inherit;color:inherit}
+*{scrollbar-color:var(--line-strong) var(--sunk)}
+.num,time,.t{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:.86em}
+svg.px{image-rendering:pixelated;shape-rendering:crispEdges;flex:none;display:inline-block;vertical-align:middle}
+
+/* ---------- the page's own explanation (outside every screen) ---------- */
+.strip{border-bottom:1px solid var(--line);background:var(--sunk);padding:14px 24px 16px}
+.strip-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;justify-content:space-between}
+.strip h1{margin:0;font:700 19px/1.3 var(--body)}
+.strip h1 span{color:var(--muted);font-weight:600}
+.strip-nav{display:flex;flex-wrap:wrap;gap:6px}
+.strip-nav button{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 13px/1.4 var(--body);color:var(--muted);cursor:pointer}
+.strip-nav button[aria-current="true"]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.narr{margin:8px 0 0;max-width:78ch;font-size:15px;line-height:1.55;color:var(--muted)}
+.narr b{color:var(--ink)}
+.narr[hidden]{display:none}
+
+/* ---------- app shell (nav/sidebar.css, nav/app-bar.css) ---------- */
+.shell{display:grid;grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto 1fr;min-height:calc(100vh - 90px)}
+.side{grid-row:1/span 2;display:grid;align-content:start;gap:18px;padding:16px;background:var(--surface);border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.wordmark{font:10px/1 var(--px);letter-spacing:.04em;color:var(--plasma)}
+.ws{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.grp-label{margin:0 0 4px;padding:0 10px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.side ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.side-item{display:flex;width:100%;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:1px solid transparent;background:none;font:700 15px/1.3 var(--body);color:var(--ink);text-decoration:none;cursor:pointer;text-align:left}
+.side-item:hover{background:var(--sunk)}
+.side-item[aria-current="page"]{color:var(--plasma);border-color:var(--plasma);background:var(--ground)}
+.side-item svg{color:var(--muted)}
+.side-item[aria-current="page"] svg{color:var(--plasma)}
+.badge{margin-left:auto;min-width:20px;padding:3px 6px;border-radius:999px;font:700 12px/1 var(--body);text-align:center;color:var(--on-plasma);background:var(--plasma)}
+.side-foot{border-top:1px solid var(--line);padding-top:12px;font:500 12px/1.2 var(--mono);color:var(--muted)}
+.bar{grid-column:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong)}
+.tile{display:inline-grid;place-items:center;width:40px;height:40px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--sunk)}
+.trail{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin:0;padding:0;list-style:none;font:600 15px/1.3 var(--body);color:var(--muted)}
+.trail .here{font-size:16px;font-weight:700;color:var(--ink)}
+.bar-end{margin-left:auto;display:flex;align-items:center;gap:12px}
+.switch{display:inline-flex;border:1.5px solid var(--line-strong);border-radius:6px;overflow:hidden}
+.switch button{padding:6px 10px;border:0;background:transparent;color:var(--muted);font:700 13px/1 var(--body);cursor:pointer}
+.switch button[aria-pressed="true"]{background:var(--plasma);color:var(--on-plasma)}
+.avatar{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:50%;background:var(--sunk);font:700 14px/1 var(--body)}
+.main{grid-column:2;padding:24px;min-width:0}
+
+/* ---------- fleet header + tabs ---------- */
+.fleet-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.mascot{display:inline-grid;place-items:center;width:52px;height:44px;border-radius:8px;background:var(--sunk);border:1.5px solid var(--fleet)}
+.fleet-head h2{margin:0;font:700 26px/1.2 var(--body);letter-spacing:-.01em}
+.fleet-meta{margin:0;color:var(--muted);font-size:15px}
+.tabs{display:flex;gap:4px;margin:18px 0 22px;border-bottom:2px solid var(--line-strong);overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;font:700 15px/1.2 var(--body);color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
+
+[data-screen][hidden]{display:none!important}
+h3{margin:0 0 10px;font:700 18px/1.3 var(--body)}
+.section{margin:0 0 28px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--body);cursor:pointer;text-decoration:none;transition:background-color .15s,border-color .15s}
+.btn:hover{border-color:var(--ink)}
+.btn[data-primary]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.btn[data-primary]:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.quiet{background:transparent}
+.link{background:none;border:0;padding:0;color:var(--cyan);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit}
+
+/* waiting strip */
+.yours{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:12px 16px;margin:0 0 22px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
+.yours p{margin:0;font-weight:700}
+.yours .sub{font-weight:400;color:var(--muted);font-size:15px}
+.yours .btn{margin-left:auto}
+
+/* now lines */
+.now{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.now li{display:grid;grid-template-columns:minmax(150px,200px) minmax(130px,170px) minmax(0,1fr) auto;align-items:center;gap:6px 16px;padding:10px 16px;border-top:1px solid var(--line)}
+.now li:first-child{border-top:0}
+.role{display:inline-flex;align-items:center;gap:8px;font-weight:700}
+.role svg{color:var(--ink)}
+.holder{color:var(--muted);font-size:15px}
+.holder b{color:var(--ink);font-weight:600}
+.doing{min-width:0}
+.state{display:inline-block;padding:2px 9px;border-radius:999px;border:1.5px solid var(--line-strong);font:700 12.5px/1.5 var(--body);color:var(--muted);white-space:nowrap}
+.state.go{border-color:var(--green);color:var(--green)}
+.state.you{border-color:var(--plasma);background:var(--plasma);color:var(--on-plasma)}
+.state.warn{border-color:var(--red);color:var(--red)}
+.state.ok{border-color:var(--green);color:var(--green)}
+.state.person{border-style:dashed}
+.filter-me{background:none;border:0;padding:0;cursor:pointer;color:var(--cyan);font:600 14px/1 var(--body);text-decoration:underline;text-underline-offset:3px}
+.clean{margin:10px 2px 0;font-size:15px;color:var(--muted)}
+.clean b{color:var(--ink);font-weight:600}
+
+/* ledger */
+.ledger-head{display:flex;flex-wrap:wrap;align-items:end;gap:10px 24px;margin:0 0 12px}
+.ledger-head h3{margin:0}
+.filters{display:flex;flex-wrap:wrap;gap:10px 22px}
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0;border:0}
+.chips legend{float:left;margin-right:6px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.chip{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 14px/1.4 var(--body);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+table.ledger{width:100%;border-collapse:collapse;font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ledger th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line-strong);background:var(--sunk)}
+.ledger td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+.ledger tr.row:hover td{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
+.ledger td.t{white-space:nowrap;color:var(--muted);font-family:var(--mono);font-size:13.5px;padding-top:12px}
+.ledger td.who{white-space:nowrap}
+.ledger .sig{display:block;font-size:12.5px;color:var(--muted);font-weight:400}
+.ledger tr.ready td{background:color-mix(in srgb,var(--plasma-soft) 80%,transparent)}
+.ready-txt{font-weight:700}
+.open-ready{background:none;border:0;padding:0;text-align:left;font:700 15px/1.45 var(--body);color:var(--ink);cursor:pointer;text-decoration:underline;text-decoration-color:var(--plasma);text-underline-offset:4px}
+.expand{background:none;border:1.5px solid var(--line-strong);border-radius:6px;padding:1px 8px;margin-left:8px;font:600 12.5px/1.4 var(--body);color:var(--ink);cursor:pointer;white-space:nowrap}
+.expand[aria-expanded="true"]{border-color:var(--plasma);color:var(--plasma)}
+tr.detail td{border-top:0;padding-top:0;background:var(--sunk)}
+tr.detail[hidden]{display:none}
+.verdict{display:grid;gap:6px;padding:12px 14px;margin:0 0 4px;border-radius:8px}
+.verdict p{margin:0}
+.verdict ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.verdict .rnd{color:var(--muted);font-size:14px}
+.empty{padding:20px 16px;text-align:left;color:var(--muted)}
+.empty[hidden]{display:none}
+tr.arrive td{animation:arrive 250ms var(--ease) both}
+tr.arrive td{background:var(--plasma-soft)}
+tr.arrive.settled td{background:transparent;transition:background-color 1.6s ease-out}
+@keyframes arrive{from{transform:translateY(-14px);opacity:.25}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){tr.arrive td{animation:none}tr.arrive.settled td{transition:none}}
+
+/* ready checks */
+.back{display:inline-flex;align-items:center;gap:6px;margin:0 0 14px}
+.checks-head h2{margin:0;font:700 24px/1.25 var(--body)}
+.checks-head .prd{margin:2px 0 0;color:var(--muted)}
+.ready-line{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:14px 0 18px}
+.checks{list-style:none;margin:0 0 18px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.checks li{padding:12px 16px;border-top:1px solid var(--line)}
+.checks li:first-child{border-top:0}
+.check-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.check-row .lbl{font-weight:700;flex:1 1 220px}
+.tick{color:var(--green)}
+.proof{margin:8px 0 2px 32px;padding:8px 12px;border-radius:8px;background:var(--sunk);font-size:15px;color:var(--muted)}
+.proof[hidden]{display:none}
+.proof b{color:var(--ink);font-weight:600}
+.merge-note{max-width:900px;display:grid;gap:2px;padding:12px 16px;margin:0 0 20px;border:1.5px dashed var(--line-strong);border-radius:10px}
+.merge-note p{margin:0}
+.merge-note p+p{color:var(--muted)}
+.signed{margin:0 0 18px;color:var(--muted);font-size:15px}
+
+/* team */
+.seats{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:15px}
+.seats th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--line-strong)}
+.seats td{padding:12px 14px;border-top:1px solid var(--line);vertical-align:top}
+.seats ul{margin:0;padding-left:18px;display:grid;gap:2px}
+.seats select{font:600 14.5px/1.3 var(--body);color:var(--ink);background:var(--sunk);border:1.5px solid var(--line-strong);border-radius:6px;padding:5px 8px;max-width:100%}
+.skill{display:inline-block;margin:0 4px 4px 0;padding:1px 7px;border-radius:5px;background:var(--sunk);border:1px solid var(--line);font:500 13px/1.5 var(--mono);color:var(--ink)}
+.persons{display:grid;gap:8px;max-width:900px;margin:0;padding:0;list-style:none}
+.persons li{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:4px 16px;padding:12px 16px;border:1px solid var(--line);border-radius:10px}
+.persons .why{color:var(--muted)}
+.save-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:16px 0 0}
+.save-row .note{color:var(--muted);font-size:15px}
+
+/* missions */
+.mission-list{list-style:none;margin:0 0 26px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.mission-list li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-top:1px solid var(--line)}
+.mission-list li:first-child{border-top:0}
+.mission-list .name{font-weight:700;flex:1 1 240px}
+.start{max-width:900px;padding:18px 20px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface)}
+.start[hidden],.running[hidden]{display:none}
+.pick{display:grid;gap:8px;margin:0 0 18px;padding:0;border:0}
+.pick legend,.lab{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;padding:0}
+.opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:10px 14px;border:1.5px solid var(--line-strong);border-radius:8px;cursor:pointer}
+.opt:has(input:checked){border-color:var(--plasma);background:var(--plasma-soft)}
+.opt.off{opacity:.6;cursor:not-allowed;border-style:dashed}
+.opt input{accent-color:var(--plasma);margin:0}
+.opt .n{font-weight:700}
+.opt .m{color:var(--muted);font-size:14.5px;margin-left:auto}
+.seat-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;padding:0;list-style:none}
+.seat-chips li{display:inline-flex;align-items:center;gap:7px;padding:4px 11px 4px 8px;border:1.5px solid var(--line-strong);border-radius:999px;font-size:14px;font-weight:600}
+.seat-chips li span{color:var(--muted);font-weight:400}
+.eta{display:grid;gap:0;margin:0 0 18px;padding:10px 14px;border-radius:8px;background:var(--sunk)}
+.eta p{margin:0}
+.eta p+p{color:var(--muted);font-size:15px}
+.running{max-width:900px;padding:18px 20px;border:1.5px solid var(--green);border-radius:12px;background:var(--surface)}
+.running.paused{border-color:var(--line-strong);border-style:dashed}
+.run-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 12px}
+.run-head h3{margin:0}
+.prds{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:0}
+.prds li{display:grid;grid-template-columns:70px 1fr auto;gap:4px 12px;padding:9px 0;border-top:1px solid var(--line);align-items:center}
+.prds li:first-child{border-top:0}
+.prds .id{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.run-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.paused-line{margin:0 0 12px;color:var(--muted)}
+.paused-line[hidden]{display:none}
+
+/* toast (outside every screen) */
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,0);max-width:min(560px,calc(100vw - 32px));padding:10px 16px;border-radius:8px;background:var(--ink);color:var(--ground);font-size:15px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+
+/* ---------- phone ---------- */
+.phone-stage{display:none;padding:24px 16px 40px;justify-content:center}
+body.is-phone .phone-stage{display:flex}
+body.is-phone .shell{display:none}
+.phone{width:393px;max-width:100%;border:10px solid #000;border-radius:38px;overflow:hidden;background:var(--ground);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.phone-scroll{height:760px;max-height:78vh;overflow-y:auto}
+.p-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong);position:sticky;top:0;z-index:2}
+.p-menu{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:6px;background:var(--surface);cursor:pointer}
+.p-trail{font:600 14px/1.3 var(--body);color:var(--muted)}
+.p-trail b{color:var(--ink)}
+.p-main{padding:16px}
+.p-main .fleet-head h2{font-size:21px}
+.p-main .tabs{margin:12px 0 16px}
+.p-main .tab{padding:9px 10px;font-size:14px}
+.p-now{list-style:none;margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.p-now li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
+.p-now li:first-child{border-top:0}
+.p-now .doing{grid-column:1/-1;color:var(--muted);font-size:14.5px}
+.p-yours{display:grid;gap:8px;padding:12px;margin:0 0 16px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
+.p-yours p{margin:0;font-weight:700}
+.p-yours .btn{justify-content:center}
+.p-rows{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.p-rows li{display:grid;gap:3px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
+.p-rows li:first-child{border-top:0}
+.p-rows .meta{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.p-rows .meta .t{font-family:var(--mono)}
+.p-rows .meta .state{margin-left:auto}
+
+/* ---------- desk breakpoints ---------- */
+@media (max-width:1100px){
+  .now li{grid-template-columns:minmax(140px,180px) minmax(0,1fr) auto}
+  .now .holder{grid-column:1}
+  .now .doing{grid-column:2;grid-row:1/span 2}
+  .now .state-cell{grid-column:3;grid-row:1/span 2}
+}
+@media (max-width:899.98px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .bar,.main{grid-column:1}
+  .main{padding:16px}
+  .strip{padding:12px 16px}
+  .now li{grid-template-columns:1fr auto}
+  .now .holder,.now .doing{grid-column:1/-1;grid-row:auto}
+  .now .state-cell{grid-column:2;grid-row:1}
+  table.ledger thead{display:none}
+  table.ledger,table.ledger tbody,table.ledger tr,table.ledger td{display:block;width:100%}
+  table.ledger tr.row{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;padding:10px 12px;border-top:1px solid var(--line)}
+  table.ledger td{border:0;padding:0}
+  table.ledger td.t{grid-column:1;padding-top:0}
+  table.ledger td.who{grid-column:2}
+  table.ledger td.st{grid-column:3;grid-row:1}
+  table.ledger td.what,table.ledger td.lnk{grid-column:1/-1}
+  .seats thead{display:none}
+  .seats,.seats tbody,.seats tr,.seats td{display:block;width:100%}
+  .seats tr{padding:12px 14px;border-top:1px solid var(--line)}
+  .seats td{border:0;padding:3px 0}
+  .persons li{grid-template-columns:1fr}
+  .yours .btn{margin-left:0}
+}
+/* tour */
+.tourbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:10px}
+.dots{display:flex;gap:6px;margin:0;padding:0;list-style:none}
+.dots button{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line-strong);background:transparent;color:var(--muted);font:700 13px/1 var(--body);cursor:pointer}
+.dots button[aria-current="step"]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.dots button.seen{color:var(--ink)}
+.step-count{font:600 14px/1 var(--body);color:var(--muted)}
+.keys{font-size:13px;color:var(--muted)}
+.purpose{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.purpose code{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+[data-screen]{animation:none}
+.branch{max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:14px 16px;margin:0 0 18px}
+.branch h3{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.writers{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:0}
+.writers li{display:grid;grid-template-columns:64px 1fr auto;gap:4px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.writers li:first-child{border-top:0}
+.writers .t{font-family:var(--mono);font-size:13.5px;color:var(--muted)}
+.writers li.holding{background:var(--plasma-soft);margin:0 -16px;padding:9px 16px}
+.rule-line{margin:0 0 18px;color:var(--muted)}
+.facts{list-style:none;margin:0 0 18px;padding:0;max-width:900px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.facts li{padding:12px 16px;border-left:1px solid var(--line)}
+.facts li:first-child{border-left:0}
+.facts .k{display:block;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.facts .v{font:700 20px/1.3 var(--body);font-variant-numeric:tabular-nums}
+.verdict-card{max-width:900px;border:1.5px solid var(--red);border-radius:10px;background:var(--surface);padding:14px 16px;margin:0 0 18px}
+.verdict-card ol{margin:6px 0 8px;padding-left:22px;display:grid;gap:4px}
+.verdict-card p{margin:0}
+.rounds{display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--muted);font-size:15px}
+.pip{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--line-strong)}
+.pip.used{background:var(--red);border-color:var(--red)}
+.mission-line{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 0 18px;color:var(--muted)}
+.mission-line b{color:var(--ink)}
+@media (max-width:899.98px){.facts li{border-left:0;border-top:1px solid var(--line)}.facts li:first-child{border-top:0}}
+</style>
+</head>
+<body>
+
+<header class="strip">
+  <div class="strip-top">
+    <h1>The Operation Room <span>— a vision tour of the Fleet section</span></h1>
+    <div class="tourbar">
+      <button type="button" class="btn quiet" id="back">‹ Back</button>
+      <ol class="dots" id="dots" aria-label="Moments"></ol>
+      <button type="button" class="btn quiet" id="next">Next ›</button>
+      <span class="keys">← → keys work too</span>
+    </div>
+  </div>
+  <p class="narr" data-narr="1"><b>1 · Monday 00:30. Irisa starts a mission.</b> Only an approved roadmap can start one: R12, Billing in every region, four PRDs. The page shows which seats will work it, one honest line of when it is likely ready and whether it will ask her, and one button. After that the mission runs on the Blue Fleet's runners; Irisa closes her laptop.</p>
+  <p class="narr" data-narr="2" hidden><b>2 · 07:00. The laptop was closed all night.</b> The Fleet opens on the Operation room: one "now" line per seat, then the ledger, newest first, every row signed by its seat — "Engineer · agent", never a first name. Nothing here imitates a person: no chat, no standup, no "I". Time first; the team in plain view.</p>
+  <p class="narr" data-narr="3" hidden><b>3 · 03:10. Reviewer · agent sends PR 2817 back.</b> The Reviewer seat checks the Engineer's work before it becomes a real PR. Its hand-off is a typed verdict, pass or changes, with at most five findings, shown in full rather than as a count. A pair goes round at most twice; a finding seen twice stops the mission and asks a person.</p>
+  <p class="narr" data-narr="4" hidden><b>4 · 02:30. QA · agent fixes a bug itself.</b> The person asked for this: QA may fix what it finds. To do it, QA takes the branch, so there is one writer at a time, then hands the branch back to the Engineer. The ledger shows who held the branch, and when.</p>
+  <p class="narr" data-narr="5" hidden><b>5 · Friday 09:02. A runner went silent.</b> box-1 stopped answering. Today that job would simply fail and its worktree be swept away. In the Operation room the work carries on from its last save on box-3: a few minutes redone, nothing lost, nothing done twice. The clean-up line says what is still kept, by whom, until when, how big.</p>
+  <p class="narr" data-narr="6" hidden><b>6 · Waiting, said plainly.</b> When the runners are full or the model provider's limit is reached, a seat waits instead of failing or looping. The room says what it waits for, until when, and that no tokens are spent meanwhile. Nothing to do; the one action is to be told when it moves.</p>
+  <p class="narr" data-narr="7" hidden><b>7 · PR 2817 is ready for review: 5 of 5.</b> "Ready" is a claim with five proofs under it, each one tap away. Ready for review is not merged: the Engineer agent stops here, and only a person merges.</p>
+  <p class="narr" data-narr="8" hidden><b>8 · Seats.</b> The crew list, agents first: who holds each seat, what it runs today, and its limits in sentences, so nobody guesses how far an agent goes. The PM and Architect seats are a person's today, and the page says why. From here the tour returns to the room.</p>
+  <p class="purpose">Kept on purpose: the word pass flags <code>reviewer</code> (the glossary gives it to Approver); the person chose "Reviewer" and a later PRD adds it to the glossary.</p>
+</header>
+
+<div class="shell" id="shell">
+  <aside class="side" aria-label="Sidebar">
+    <div>
+      <span class="brand"><span data-sprite="crest" data-scale="4"></span><span class="wordmark">OMNI LOOP</span></span>
+      <p class="ws">Northwind</p>
+    </div>
+    <nav aria-label="Sections">
+      <p class="grp-label">Dashboard</p>
+      <ul>
+        <li><span class="side-item"><span data-sprite="home"></span>Home</span></li>
+        <li><span class="side-item" aria-current="page"><span data-sprite="ship"></span>Fleet</span></li>
+        <li><span class="side-item"><span data-sprite="loop"></span>Loop</span></li>
+        <li><span class="side-item"><span data-sprite="box"></span>Runners</span></li>
+        <li><span class="side-item"><span data-sprite="grid"></span>Workspace</span></li>
+      </ul>
+      <p class="grp-label" style="margin-top:18px">Work</p>
+      <ul>
+        <li><span class="side-item"><span data-sprite="map"></span>Roadmaps</span></li>
+        <li><span class="side-item"><span data-sprite="doc"></span>PRDs<span class="badge">4</span></span></li>
+        <li><span class="side-item"><span data-sprite="hour"></span>Waiting<span class="badge" id="wait-badge">1</span></span></li>
+      </ul>
+    </nav>
+    <p class="side-foot">Omni Loop v0.0.622</p>
+  </aside>
+
+  <div class="bar">
+    <span class="tile" data-sprite="ship" data-scale="3"></span>
+    <ol class="trail" aria-label="Trail">
+      <li>Dashboard</li><li aria-hidden="true">›</li><li>Fleet</li><li aria-hidden="true">›</li><li class="here" id="trail-here">Missions</li>
+    </ol>
+    <div class="bar-end">
+      <div class="switch" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="omni" aria-pressed="true">Omni</button>
+        <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+      </div>
+      <span class="avatar" title="Irisa" aria-label="Irisa">I</span>
+    </div>
+  </div>
+
+  <main class="main">
+    <div class="fleet-head">
+      <span class="mascot" data-sprite="whale" data-scale="2" aria-hidden="true"></span>
+      <div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission</p></div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Fleet">
+      <button type="button" class="tab" role="tab" data-tab="room" data-step="2">Operation room</button>
+      <button type="button" class="tab" role="tab" data-tab="missions" data-step="1">Missions</button>
+      <button type="button" class="tab" role="tab" data-tab="seats" data-step="8">Seats</button>
+      <button type="button" class="tab" role="tab" data-tab="board" disabled title="Today's board, unchanged">Board</button>
+    </div>
+
+    <!-- 1 -->
+    <section data-screen="start-mission" data-n="1" data-tabname="missions" aria-label="Start a mission">
+      <div class="start">
+        <h3>Start a mission</h3>
+        <fieldset class="pick">
+          <legend>From an approved roadmap</legend>
+          <label class="opt"><input type="radio" name="rm" checked><span class="n">R12 · Billing in every region</span><span class="m">4 PRDs · approved Nov 12</span></label>
+          <label class="opt off"><input type="radio" name="rm" disabled><span class="n">R13 · Mobile quick wins</span><span class="m">Not approved yet</span></label>
+        </fieldset>
+        <p class="lab">Seats on this mission</p>
+        <ul class="seat-chips">
+          <li><span data-role-mark="engineer"></span>Engineer <span>agent</span></li>
+          <li><span data-role-mark="reviewer"></span>Reviewer <span>agent</span></li>
+          <li><span data-role-mark="qa"></span>QA <span>agent</span></li>
+          <li><span data-role-mark="pm"></span>PM <span>Irisa</span></li>
+          <li><span data-role-mark="architect"></span>Architect <span>Sam</span></li>
+        </ul>
+        <div class="eta">
+          <p><b>Likely ready for review Monday 9am.</b></p>
+          <p>May ask you once.</p>
+        </div>
+        <button type="button" class="btn" data-primary data-next>Start mission</button>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section data-screen="room-0700" data-n="2" data-tabname="room" aria-label="Operation room at 07:00">
+      <p class="mission-line"><span class="state go">Running</span><b>R12 · Billing in every region</b><span>since 00:30</span></p>
+      <div class="section">
+        <h3>Now</h3>
+        <ul class="now">
+          <li><span class="role"><span data-role-mark="engineer"></span>Engineer</span><span class="holder"><b>Engineer</b> · agent</span><span class="doing">Building PRD 2804 on box-2.</span><span class="state-cell"><span class="state go">Working</span></span></li>
+          <li><span class="role"><span data-role-mark="reviewer"></span>Reviewer</span><span class="holder"><b>Reviewer</b> · agent</span><span class="doing">Nothing to review yet.</span><span class="state-cell"><span class="state">Idle</span></span></li>
+          <li><span class="role"><span data-role-mark="qa"></span>QA</span><span class="holder"><b>QA</b> · agent</span><span class="doing">All three runners are busy.</span><span class="state-cell"><span class="state">Waiting for room</span></span></li>
+          <li><span class="role"><span data-role-mark="pm"></span>PM</span><span class="holder"><b>Irisa</b> · person · you</span><span class="doing">PR 2817 waits for you.</span><span class="state-cell"><span class="state you">Waiting for you</span></span></li>
+          <li><span class="role"><span data-role-mark="architect"></span>Architect</span><span class="holder"><b>Sam</b> · person</span><span class="doing">A person does this today.</span><span class="state-cell"><span class="state person">Idle</span></span></li>
+        </ul>
+        <p class="clean"><b>Clean-up:</b> nothing to clean up.</p>
+      </div>
+      <h3>Ledger</h3>
+      <table class="ledger" aria-label="Ledger, newest first">
+        <thead><tr><th scope="col">Time</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Link</th><th scope="col">State</th></tr></thead>
+        <tbody>
+          <tr class="row ready"><td class="t">07:00</td><td class="who"><span class="role"><span data-role-mark="engineer"></span>Engineer</span><span class="sig">agent</span></td><td class="what" data-content>PR 2817 ready for review · 5 of 5 checks</td><td class="lnk">PR 2817</td><td class="st"><span class="state ok">Ready</span></td></tr>
+          <tr class="row"><td class="t">05:55</td><td class="who"><span class="role"><span data-role-mark="reviewer"></span>Reviewer</span><span class="sig">agent</span></td><td class="what" data-content>Passed PR 2817 on round 2.</td><td class="lnk">PR 2817</td><td class="st"><span class="state ok">Pass</span></td></tr>
+          <tr class="row"><td class="t">04:20</td><td class="who"><span class="role"><span data-role-mark="engineer"></span>Engineer</span><span class="sig">agent</span></td><td class="what" data-content>Reverted the loosened test. Fixed the slow query.</td><td class="lnk">PR 2817</td><td class="st"><span class="state">Fixed</span></td></tr>
+          <tr class="row"><td class="t">03:10</td><td class="who"><span class="role"><span data-role-mark="reviewer"></span>Reviewer</span><span class="sig">agent</span></td><td class="what" data-content>Sent PR 2817 back: a test was loosened (timeout 5s → 30s).</td><td class="lnk">PR 2817</td><td class="st"><span class="state warn">Changes</span></td></tr>
+          <tr class="row"><td class="t">02:30</td><td class="who"><span class="role"><span data-role-mark="qa"></span>QA</span><span class="sig">agent</span></td><td class="what" data-content>Took the branch, fixed low contrast, handed it back.</td><td class="lnk">PRD 2803</td><td class="st"><span class="state">Handed back</span></td></tr>
+          <tr class="row"><td class="t">00:30</td><td class="who"><span class="role"><span data-role-mark="pm"></span>Irisa</span><span class="sig">PM · person</span></td><td class="what" data-content>Started the mission from roadmap R12.</td><td class="lnk">R12</td><td class="st"><span class="state go">Started</span></td></tr>
+        </tbody>
+      </table>
+      <p style="margin:16px 0 0"><button type="button" class="btn" data-primary data-next>Open the 03:10 row</button></p>
+    </section>
+
+    <!-- 3 -->
+    <section data-screen="reviewer-sends-back" data-n="3" data-tabname="room" aria-label="Reviewer sends PR 2817 back">
+      <table class="ledger" aria-label="Ledger row at 03:10">
+        <tbody>
+          <tr class="row"><td class="t">03:10</td><td class="who"><span class="role"><span data-role-mark="reviewer"></span>Reviewer</span><span class="sig">agent</span></td><td class="what" data-content>Sent PR 2817 back: a test was loosened (timeout 5s → 30s).</td><td class="lnk">PR 2817</td><td class="st"><span class="state warn">Changes</span></td></tr>
+        </tbody>
+      </table>
+      <div class="verdict-card" style="margin-top:14px">
+        <p><b>Verdict: changes.</b> Two findings.</p>
+        <ol data-content>
+          <li><span class="mono">quote.test.ts</span>: timeout raised from 5s to 30s.</li>
+          <li><span class="mono">QuoteHeader.css</span>: one colour hard-coded.</li>
+        </ol>
+        <div class="rounds"><span class="pip used"></span><span class="pip"></span><span>Round 1 of 2</span></div>
+      </div>
+      <p class="rule-line" style="margin:0">At most two rounds.</p><p class="rule-line">Then it asks you.</p>
+      <table class="ledger" aria-label="What came next">
+        <tbody>
+          <tr class="row"><td class="t">04:20</td><td class="who"><span class="role"><span data-role-mark="engineer"></span>Engineer</span><span class="sig">agent</span></td><td class="what" data-content>Reverted the loosened test. Fixed the slow query.</td><td class="lnk">PR 2817</td><td class="st"><span class="state">Fixed</span></td></tr>
+          <tr class="row"><td class="t">05:55</td><td class="who"><span class="role"><span data-role-mark="reviewer"></span>Reviewer</span><span class="sig">agent</span></td><td class="what" data-content>Passed PR 2817 on round 2.</td><td class="lnk">PR 2817</td><td class="st"><span class="state ok">Pass</span></td></tr>
+        </tbody>
+      </table>
+      <p style="margin:16px 0 0"><button type="button" class="btn" data-primary data-next>Follow the branch</button></p>
+    </section>
+
+    <!-- 4 -->
+    <section data-screen="qa-takes-branch" data-n="4" data-tabname="room" aria-label="QA takes the branch">
+      <div class="branch">
+        <h3><span class="mono">prd-2803-dark-quote</span><span class="state">One writer at a time</span></h3>
+        <ul class="writers">
+          <li><span class="t">01:45</span><span class="role"><span data-role-mark="engineer"></span>Engineer · agent</span><span class="state">Writing</span></li>
+          <li class="holding"><span class="t">02:10</span><span class="role"><span data-role-mark="qa"></span>QA · agent</span><span class="state go">Took the branch</span></li>
+          <li><span class="t">02:30</span><span class="role"><span data-role-mark="engineer"></span>Engineer · agent</span><span class="state">Got it back</span></li>
+        </ul>
+      </div>
+      <table class="ledger" aria-label="Ledger rows for the branch">
+        <tbody>
+          <tr class="row"><td class="t">02:30</td><td class="who"><span class="role"><span data-role-mark="qa"></span>QA</span><span class="sig">agent</span></td><td class="what" data-content>Fixed low contrast on the quote total. Handed back.</td><td class="lnk">PRD 2803</td><td class="st"><span class="state">Handed back</span></td></tr>
+          <tr class="row"><td class="t">02:10</td><td class="who"><span class="role"><span data-role-mark="qa"></span>QA</span><span class="sig">agent</span></td><td class="what" data-content>Found low contrast in dark mode. Took the branch.</td><td class="lnk">PRD 2803</td><td class="st"><span class="state go">Fixing</span></td></tr>
+        </tbody>
+      </table>
+      <p style="margin:16px 0 0"><button type="button" class="btn" data-primary data-next>See Friday's restart</button></p>
+    </section>
+
+    <!-- 5 -->
+    <section data-screen="runner-silent" data-n="5" data-tabname="room" aria-label="A runner went silent">
+      <ul class="facts">
+        <li><span class="k">Silent</span><span class="v">box-1 · 09:00</span></li>
+        <li><span class="k">Resumed</span><span class="v">box-3 · 09:02</span></li>
+        <li><span class="k">Redone</span><span class="v">4 minutes</span></li>
+        <li><span class="k">Lost</span><span class="v">Nothing</span></li>
+      </ul>
+      <table class="ledger" aria-label="Ledger rows for the restart">
+        <tbody>
+          <tr class="row"><td class="t">Fri 09:02</td><td class="who"><span class="role"><span data-role-mark="engineer"></span>Engineer</span><span class="sig">agent</span></td><td class="what" data-content>Resumed on box-3 from the 08:56 save.</td><td class="lnk">PRD 2798</td><td class="st"><span class="state go">Resumed</span></td></tr>
+          <tr class="row"><td class="t">Fri 09:00</td><td class="who"><span class="role"><span data-role-mark="engineer"></span>Engineer</span><span class="sig">agent</span></td><td class="what" data-content>box-1 went silent. Its last save is kept.</td><td class="lnk">PRD 2798</td><td class="st"><span class="state warn">Runner silent</span></td></tr>
+        </tbody>
+      </table>
+      <p class="clean"><b>Clean-up:</b> box-1 keeps one save.</p>
+      <p class="clean" data-content>PRD 2798 · Engineer · until Sat 09:00 · 38 MB</p>
+      <p style="margin:16px 0 0"><button type="button" class="btn" data-primary data-next>See a wait</button></p>
+    </section>
+
+    <!-- 6 -->
+    <section data-screen="waiting-room" data-n="6" data-tabname="room" aria-label="Waiting for room">
+      <ul class="now">
+        <li><span class="role"><span data-role-mark="qa"></span>QA</span><span class="holder"><b>QA</b> · agent</span><span class="doing">All three runners are busy.</span><span class="state-cell"><span class="state">Waiting for room</span></span></li>
+        <li><span class="role"><span data-role-mark="reviewer"></span>Reviewer</span><span class="holder"><b>Reviewer</b> · agent</span><span class="doing">Provider limit reached until 09:00.</span><span class="state-cell"><span class="state">Waiting until 09:00</span></span></li>
+      </ul>
+      <ul class="facts" style="margin-top:18px">
+        <li><span class="k">Tokens spent waiting</span><span class="v">0</span></li>
+        <li><span class="k">Next try</span><span class="v">09:00</span></li>
+        <li><span class="k">Jobs lost</span><span class="v">0</span></li>
+      </ul>
+      <button type="button" class="btn" data-primary data-next>Tell me when it moves</button>
+    </section>
+
+    <!-- 7 -->
+    <section data-screen="ready-checks" data-n="7" data-tabname="room" aria-label="Ready checks for PR 2817">
+      <div class="checks-head">
+        <h2>PR 2817</h2>
+        <p class="prd">PRD 2803</p>
+        <p class="prd">Dark mode on the quote screen</p>
+      </div>
+      <div class="ready-line">
+        <span class="state ok">Ready for review · 5 of 5</span>
+        <span class="signed">Engineer · agent · 07:00</span>
+      </div>
+      <ul class="checks">
+        <li><div class="check-row"><span class="tick" data-sprite="tick"></span><span class="lbl">CI green on the latest commit</span><button type="button" class="link" aria-expanded="false" aria-controls="p1">Run 8841</button></div><p class="proof" id="p1" data-hide-init><b>Commit a41f9c2</b> · 14 jobs green</p></li>
+        <li><div class="check-row"><span class="tick" data-sprite="tick"></span><span class="lbl">Full tests and lint ran</span><button type="button" class="link" aria-expanded="false" aria-controls="p2">Test log</button></div><p class="proof" id="p2" data-hide-init><b>1,284 tests</b> · lint clean</p></li>
+        <li><div class="check-row"><span class="tick" data-sprite="tick"></span><span class="lbl">Each success criterion has its proof</span><button type="button" class="link" aria-expanded="false" aria-controls="p3">3 proofs</button></div><p class="proof" id="p3" data-hide-init><b>3 of 3 criteria</b> · Omni, Light, Dark</p></li>
+        <li><div class="check-row"><span class="tick" data-sprite="tick"></span><span class="lbl">No test was loosened</span><button type="button" class="link" aria-expanded="false" aria-controls="p4">Test diff</button></div><p class="proof" id="p4" data-hide-init><b>0 loosened</b> · 1 caught at 03:10</p></li>
+        <li><div class="check-row"><span class="tick" data-sprite="tick"></span><span class="lbl">The change stayed in its area</span><button type="button" class="link" aria-expanded="false" aria-controls="p5">7 files</button></div><p class="proof" id="p5" data-hide-init><b>7 files</b> · all under the quote screen</p></li>
+      </ul>
+      <div class="merge-note"><p><b>Ready for review, not merged.</b></p><p>Only a person merges.</p></div>
+      <button type="button" class="btn" data-primary data-next>Review PR 2817</button>
+    </section>
+
+    <!-- 8 -->
+    <section data-screen="seats" data-n="8" data-tabname="seats" aria-label="Seats">
+      <table class="seats">
+        <thead><tr><th scope="col">Seat</th><th scope="col">Held by</th><th scope="col">Runs today</th><th scope="col">Limits</th></tr></thead>
+        <tbody>
+          <tr><td><span class="role"><span data-role-mark="engineer"></span>Engineer</span></td><td>agent</td><td><span class="skill">/omni:yolo</span><span class="skill">/omni:pr-care</span></td><td><ul><li>Owns the branch and PR.</li><li>Stops at ready for review.</li><li>Never merges.</li></ul></td></tr>
+          <tr><td><span class="role"><span data-role-mark="reviewer"></span>Reviewer</span></td><td>agent</td><td><span class="skill">pre-PR review</span></td><td><ul><li>Sends work back at most twice.</li><li>Then asks you.</li><li>At most 5 findings each time.</li></ul></td></tr>
+          <tr><td><span class="role"><span data-role-mark="qa"></span>QA</span></td><td>agent</td><td><span class="skill">/omni:prove</span><span class="skill">/omni:bug-fix</span></td><td><ul><li>May fix a bug itself.</li><li>Takes the branch while fixing.</li><li>Then hands it back.</li></ul></td></tr>
+          <tr><td><span class="role"><span data-role-mark="pm"></span>PM</span></td><td>Irisa · person</td><td><span class="skill">/omni:brainstorm</span><span class="skill">/omni:roadmap</span></td><td><ul><li>A person does this today.</li><li>No PM skill runs unattended yet.</li></ul></td></tr>
+          <tr><td><span class="role"><span data-role-mark="architect"></span>Architect</span></td><td>Sam · person</td><td><span class="skill">/omni:plan</span><span class="skill">/omni:tech-review</span></td><td><ul><li>A person does this today.</li><li>ADR reviews still need a person.</li></ul></td></tr>
+        </tbody>
+      </table>
+      <p style="margin:16px 0 0"><button type="button" class="btn" data-primary data-next>Back to the room</button></p>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var P={
+    pm:["11111100","11111110","11111100","10000000","10000000","10000000","10000000","00000000"],
+    architect:["00011000","00100100","00100100","00011000","00100100","01000010","10000001","00000000"],
+    engineer:["00000000","00100100","01000010","10000001","01000010","00100100","00000000","00000000"],
+    qa:["01110000","10001000","10001000","10001000","01110000","00001100","00000110","00000011"],
+    reviewer:["00000000","00111100","01000010","10011001","10011001","01000010","00111100","00000000"],
+    crest:["00111100","01111110","11100111","11000011","11000011","11100111","01111110","00111100"],
+    home:["00011000","00111100","01111110","11111111","01100110","01100110","01111110","00000000"],
+    ship:["00011000","00011000","00111100","01111110","11111111","00111100","00100100","00000000"],
+    loop:["00111100","01000010","10000001","10000101","10000011","01000111","00111100","00000000"],
+    box:["11111111","10000001","10110101","10000001","11111111","10000001","10110101","11111111"],
+    grid:["11101110","11101110","11101110","00000000","11101110","11101110","11101110","00000000"],
+    gear:["00011000","01111110","01100110","11000011","11000011","01100110","01111110","00011000"],
+    map:["11000110","10111010","10010010","10010010","10010010","10111010","11000110","00000000"],
+    doc:["11111000","10000100","10111110","10000010","10111010","10000010","11111110","00000000"],
+    hour:["11111110","01000100","00101000","00010000","00101000","01000100","11111110","00000000"],
+    ask:["00111100","01000010","00000010","00001100","00010000","00000000","00010000","00000000"],
+    book:["01111110","01000010","01011010","01000010","01011010","01000010","01111110","00000000"],
+    menu:["00000000","11111111","00000000","11111111","00000000","11111111","00000000","00000000"],
+    tick:["00000000","00000001","00000011","10000110","11001100","01111000","00110000","00000000"],
+    whale:["0000000000000110","0000000000001100","0001111111001100","0011111111111000","0111111111111100","1111101111111100","1111111111111000","1111111111110000","0111111111100000","0001111110000000"]
+  };
+  function svg(name,scale,color){
+    var p=P[name]; if(!p)return "";
+    scale=scale||2; var w=p[0].length, h=p.length, out="";
+    for(var y=0;y<h;y++){var row=p[y], x=0;
+      while(x<w){ if(row[x]==="1"){var s=x; while(x<w&&row[x]==="1")x++; out+='<rect x="'+s+'" y="'+y+'" width="'+(x-s)+'" height="1"/>';} else x++; }
+    }
+    var extra=name==="whale"?'<rect x="5" y="5" width="1" height="1" fill="var(--ground)"/>':"";
+    return '<svg class="px" aria-hidden="true" width="'+(w*scale)+'" height="'+(h*scale)+'" viewBox="0 0 '+w+' '+h+'" fill="'+(color||"currentColor")+'">'+out+extra+'</svg>';
+  }
+  function paint(root){
+    $$("[data-sprite]",root).forEach(function(el){
+      if(el.dataset.done)return; el.dataset.done="1";
+      var n=el.dataset.sprite, c=n==="crest"?"var(--plasma)":n==="whale"?"var(--fleet)":null;
+      el.insertAdjacentHTML("afterbegin",svg(n,+(el.dataset.scale||2),c));
+    });
+    $$("[data-role-mark]",root).forEach(function(el){
+      if(el.dataset.done)return; el.dataset.done="1";
+      el.style.display="inline-flex";
+      el.innerHTML=svg(el.dataset.roleMark,2);
+    });
+  }
+  paint(document);
+  $$("[data-hide-init]").forEach(function(el){el.hidden=true});
+  var toastT;
+  function toast(m){var t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove("on")},2400)}
+  $$("[data-theme-set]").forEach(function(b){b.addEventListener("click",function(){var v=b.dataset.themeSet;
+    if(v==="omni")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",v);
+    $$("[data-theme-set]").forEach(function(x){x.setAttribute("aria-pressed",String(x===b))})})});
+
+  var screens=$$("[data-screen]"), N=screens.length, cur=1, seen={};
+  var TRAIL={missions:"Missions",room:"Operation room",seats:"Seats"};
+  var dots=$("#dots");
+  screens.forEach(function(s,i){var li=document.createElement("li");var b=document.createElement("button");b.type="button";b.textContent=i+1;b.setAttribute("aria-label","Moment "+(i+1)+": "+s.getAttribute("aria-label"));b.addEventListener("click",function(){go(i+1)});li.appendChild(b);dots.appendChild(li)});
+  function go(n){
+    cur=Math.max(1,Math.min(N,n)); seen[cur]=1;
+    screens.forEach(function(s){s.hidden=+s.dataset.n!==cur});
+    $$("[data-narr]").forEach(function(p){p.hidden=+p.dataset.narr!==cur});
+    $$("#dots button").forEach(function(b,i){if(i+1===cur)b.setAttribute("aria-current","step");else b.removeAttribute("aria-current");b.classList.toggle("seen",!!seen[i+1])});
+    var tab=screens[cur-1].dataset.tabname;
+    $("#trail-here").textContent=TRAIL[tab]+(cur===7?" › PR 2817":"");
+    $$(".tab[data-tab]").forEach(function(t){t.setAttribute("aria-selected",String(t.dataset.tab===tab))});
+    $("#back").disabled=cur===1; $("#next").textContent=cur===N?"Start again ›":"Next ›";
+    $("#wait-badge").textContent=cur>=2&&cur<=7?"1":"0";
+    try{history.replaceState(null,"","#"+cur)}catch(e){}
+  }
+  $("#back").addEventListener("click",function(){go(cur-1)});
+  $("#next").addEventListener("click",function(){go(cur===N?1:cur+1)});
+  document.addEventListener("keydown",function(e){
+    if(e.target.closest&&e.target.closest("input,select,textarea"))return;
+    if(e.key==="ArrowRight"){go(cur===N?1:cur+1)}else if(e.key==="ArrowLeft"){go(cur-1)}
+  });
+  document.addEventListener("click",function(e){
+    var p=e.target.closest("[data-next]");
+    if(p){var n=+p.closest("[data-screen]").dataset.n;
+      if(n===1)toast("Mission R12 started. Close the laptop.");
+      if(n===6)toast("You'll get one note when it moves.");
+      if(n===7)toast("PR 2817 opens on GitHub, for your review.");
+      go(n===N?2:n+1);return;}
+    var t=e.target.closest(".tab[data-step]"); if(t){go(+t.dataset.step);return;}
+    var c=e.target.closest(".checks [aria-controls]");
+    if(c){var o=c.getAttribute("aria-expanded")!=="true";c.setAttribute("aria-expanded",String(o));$("#"+c.getAttribute("aria-controls")).hidden=!o;}
+  });
+  var h=parseInt((location.hash||"").slice(1),10);
+  go(h>=1&&h<=N?h:1);
+})();
+</script>
+</body>
+</html>

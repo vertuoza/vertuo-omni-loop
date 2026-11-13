@@ -5,6 +5,7 @@ import { loadBusinessPage } from '../../business/load';
 import { Section } from '../KnowledgeLists';
 import { Unreadable } from '../constituents/Unreadable';
 import { McpServerCard } from './McpServerCard';
+import { ProductKeyCard } from './ProductKeyCard';
 import { loadMcpCard } from './mcp-server-load';
 
 // The Settings section of the Knowledge home (PRD 2240 s6): what Settings › Business held per product,
@@ -20,7 +21,7 @@ export function SettingsPanel({ id }: { id: string }) {
     <>
       <p className="ask-muted">{SETTINGS_LEDE}</p>
       <Settings id={id} />
-      <McpServer id={id} />
+      <ProductKeyAndMcp id={id} />
     </>
   );
 }
@@ -40,9 +41,16 @@ async function Settings({ id }: { id: string }) {
   );
 }
 
-async function McpServer({ id }: { id: string }) {
+async function ProductKeyAndMcp({ id }: { id: string }) {
   const read = await loadMcpCard(id);
-  return read === null ? null : <McpServerCard card={read.card} product={id} source={read.source} />;
+  if (read === null) return null;
+  const { card, name, source } = read;
+  return (
+    <>
+      <ProductKeyCard card={{ name, key: card.key, owner: card.owner, archived: card.archived }} product={id} source={source} />
+      <McpServerCard card={card} product={id} source={source} />
+    </>
+  );
 }
 
 function Unavailable() {

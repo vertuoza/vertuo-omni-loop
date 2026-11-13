@@ -1,5 +1,6 @@
 // A PRD's business laws verdict, as the terminal reads it (bug #2696): the approval route's `laws`, where a
-// product PRD's latest spec stands with the business laws of its law home. `pending` while the spec has no
+// PRD's latest spec stands with the business laws of its law home, a product PRD's or, since bug #2793, a
+// repository PRD's. `pending` while the spec has no
 // verdict yet; else the verdict, a red with each finding: the law, the spec's words and what the judge found
 // broken. Read leniently: a reply with no `laws`, or one out of shape, reads as none, never as a failure.
 import { z } from 'zod';

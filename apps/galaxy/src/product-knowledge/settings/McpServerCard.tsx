@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import type { WriteSource } from '../constituents/knowledge-reader';
 import { switchServer } from './mcp-port';
 import {
-  claudeCodeCommand, cursorEntry, KEYS_HREF, KEYS_LABEL, mcpUrl, MCP_TITLE, noKnowledgeLine, OFF_LINES, OFF_NOTE, ON_LINE, type McpCard,
+  claudeCodeCommand, cursorEntry, KEY_CARD_HREF, KEYS_HREF, KEYS_LABEL, mcpUrl, MCP_TITLE, NO_KEY_LINE, noKnowledgeLine, OFF_LINES, OFF_NOTE, ON_LINE, type McpCard,
 } from './mcp-server';
 
 // The MCP server card of Product settings (PRD 2707 s4; the draft screen product-knowledge-settings): whether
@@ -22,6 +22,12 @@ function CopyButton({ label, text }: { label: string; text: string }) {
   return (
     <button type="button" className="ask-button" onClick={() => { void navigator.clipboard.writeText(text); }}>{label}</button>
   );
+}
+
+/** The Off state: two lines while the product has a key, one line to the Product key card while it has none. */
+function OffLines({ hasKey }: { hasKey: boolean }) {
+  if (!hasKey) return <p className="ask-muted"><a href={KEY_CARD_HREF}>{NO_KEY_LINE}</a></p>;
+  return <>{OFF_LINES.map((line) => <p key={line} className="ask-muted">{line}</p>)}</>;
 }
 
 export function McpServerCard({ card, product, source }: Props) {
@@ -60,7 +66,7 @@ export function McpServerCard({ card, product, source }: Props) {
           {card.missing.map((repository) => <p key={repository} className="ask-muted" data-mcp-missing>{noKnowledgeLine(repository)}</p>)}
         </>
       ) : (
-        OFF_LINES.map((line) => <p key={line} className="ask-muted">{line}</p>)
+        <OffLines hasKey={card.key !== null} />
       )}
       {canSwitch ? (
         <>
