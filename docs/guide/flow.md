@@ -404,6 +404,13 @@ keeps every skill it names calling `omni flow show` there.
 | `bug-fix.review` | `/omni:bug-fix` after the guard and before mutation, and `/omni:mega-bug-fix` in each target; handed `{issue}`, `{branch}`, `{base}` | ✓ | — | — |
 | `bug-fix.proof` | `/omni:bug-fix` step 12, once the draft pull request holds the fix, and `/omni:mega-bug-fix` once, in the target where the bug shows, after every target's pull request holds its fix (`{targets}` hands it all of them, and the record's pull request carries the proof); handed `{issue}`, `{base}`, `{head}`, `{pr}`, `{targets}`, `{reproduction}`, `{out}` | ✓ | ✓ | `before.*` and `after.*` in `{out}`, an `env:` line, the verdict line |
 | `yolo.ready` | `/omni:yolo`, `/omni:ultra-yolo`, before the feature PR is marked ready | ✓ | — | — |
+| `merge-after.served` | declared in a **provider** repository's config, in its default area; `omni hold` names its hook for a merged provider and the skills that would mark a consumer ready (`/omni:pr`, `/omni:ultra-yolo`, `/omni:mega-bug-fix`, `/omni:mega-pr-care`) follow it; handed `{provider}`, `{pr}`, `{merge-sha}`, `{consumer}` | — | ✓ | `omni-hook merge-after.served: pass`, `wait <why>` or `fail <why>` |
+
+`merge-after.served` is the one point whose verdict may also be `wait <why>`: not yet, ask again. It
+says what "served" means for the provider (a schema that shows the new field, a version endpoint that
+reports the merge commit), and a provider with no hook needs nothing more than merged. A consumer
+pull request waiting on it stays a draft; [Merge after](/docs/several-repositories#hold-a-consumer-until-its-provider-is-served)
+says how. Every other point keeps `pass` and `fail`.
 
 ### How a point runs
 

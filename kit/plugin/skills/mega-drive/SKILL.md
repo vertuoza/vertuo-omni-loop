@@ -200,6 +200,22 @@ node .omni-loop/bin/omni.mjs loop push park --prd <prd> --who "<who>" --what "<w
 only the entries of `held` that carry a `gate`, the PRD's issue being the plan repository's. The
 pool's entries are never parked.
 
+**Held on a provider,** as `/omni:drive` step 3's **Held on a provider**, for each target feature PR
+that carries a `Merge after <owner/repo>#<n>` line. Each tick, for each target PR of a PRD that is
+open and not ready, read the hold first:
+
+```bash
+node .omni-loop/bin/omni.mjs hold <owner/repo>#<pr> --json
+```
+
+It reads GitHub only and runs nothing of a provider. On `held`, `fail` or `not judged` it parks it:
+the PRD's line on the **plan PR's status comment** (the target PR's own when the PRD has no plan PR) reads
+`- loop: parked · waiting for <owner/repo>#<n> to be served: <why>`, naming the target PR by
+repository, rewritten each tick. Once it reads `clear` (or every probe passed), the next tick marks
+it ready through `/omni:pr`; never mark it ready here. A probe still on `wait` past `limits.stallDays`
+is reported stuck on that line, naming the provider and the last reason; a provider closed unmerged
+is the one high outbox item the skill that read it raised. Nothing else notifies anyone.
+
 ## 4. Record the tick
 
 As `/omni:drive` step 4: one tick per step launched, and one per step that finished since the

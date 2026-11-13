@@ -275,6 +275,42 @@ the guard that keeps the bug from coming back.
 A PRD whose spec was merged without a plan, as a roadmap leaves them, is planned first: the plan says
 which slice lands in which target, and `omni plan check` grades it before the first wave.
 
+## Hold a consumer until its provider is served
+
+One of the pull requests of a feature may need another's to be merged first: a **provider** adds a
+field, an endpoint or a column, and a **consumer** reads it. A consumer's pull request body says so
+with one line per provider, `Merge after <owner/repo>#<n>`. `/omni:ultra-yolo` and `/omni:ultra-wave`
+write those lines for each provider target the plan makes a consumer wait for, as `/omni:mega-bug-fix`
+does for a fix. A pull request with no such line is never held.
+
+To read where one stands, type:
+
+```bash terminal agent
+omni hold demo-org/web#88
+```
+
+With `demo-org/web#88` saying `Merge after demo-org/api#41`, it prints one row per provider and a last
+line:
+
+```text
+demo-org/api#41   open                       held
+held: demo-org/api#41 open
+```
+
+An open provider is `held`; a merged one is `clear`, unless the provider's repository says how to tell
+that it is served, in which case the row is `probe` and names the hook; a provider closed without
+merging is `fail`; one GitHub cannot be asked about is `not judged`, and is never counted as clear.
+It reads and runs nothing of the provider. The skills that would mark the consumer ready run it first,
+follow each probe it names, and leave the pull request a draft unless every row is clear or passes,
+with `waiting for demo-org/api#41 to be served: <why>` on the status comment. A provider closed
+without merging raises one high outbox item naming both pull requests.
+
+The provider declares its probe once, in its own config, at the point
+[`merge-after.served`](/docs/flow#the-points); a probe that answers `wait` is asked again. `/loop /omni:mega-drive`
+and `/omni:drive` park a held PRD on that line, run `omni hold` again each tick and mark the pull
+request ready once it is clear. A probe still waiting after `limits.stallDays` is reported stuck on the
+status comment, naming the provider and the last reason. Nothing else notifies anyone, and merging stays yours.
+
 ## Drive it
 
 To leave several multi-repository PRDs building without typing each next command, drive them from
