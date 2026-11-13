@@ -2219,11 +2219,68 @@ export type Database = {
           },
         ]
       }
+      mcp_search_groups: {
+        Row: {
+          created_at: string
+          embedding: string
+          first_search_id: string | null
+          id: string
+          model: string
+          product_id: string
+          question: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          first_search_id?: string | null
+          id?: string
+          model: string
+          product_id: string
+          question: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          first_search_id?: string | null
+          id?: string
+          model?: string
+          product_id?: string
+          question?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_search_groups_first_search_id_fkey"
+            columns: ["first_search_id"]
+            isOneToOne: false
+            referencedRelation: "mcp_search_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mcp_search_groups_product_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "mcp_search_groups_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mcp_search_log: {
         Row: {
           api_key_id: string | null
           asked_at: string
+          category: string | null
           filters: Json
+          group_id: string | null
           hit_ids: string[]
           id: string
           mode: string | null
@@ -2238,7 +2295,9 @@ export type Database = {
         Insert: {
           api_key_id?: string | null
           asked_at?: string
+          category?: string | null
           filters?: Json
+          group_id?: string | null
           hit_ids?: string[]
           id?: string
           mode?: string | null
@@ -2253,7 +2312,9 @@ export type Database = {
         Update: {
           api_key_id?: string | null
           asked_at?: string
+          category?: string | null
           filters?: Json
+          group_id?: string | null
           hit_ids?: string[]
           id?: string
           mode?: string | null
@@ -2272,6 +2333,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "agent_tokens"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mcp_search_log_group_fkey"
+            columns: ["group_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "mcp_search_groups"
+            referencedColumns: ["id", "product_id"]
           },
           {
             foreignKeyName: "mcp_search_log_product_fkey"
@@ -6199,6 +6267,13 @@ export type Database = {
       loop_push: {
         Args: { p_body?: Json; p_event: string; p_loop?: string }
         Returns: Json
+      }
+      mcp_search_group_nearest: {
+        Args: { p_model: string; p_product: string; p_query: string }
+        Returns: {
+          cosine: number
+          group_id: string
+        }[]
       }
       mcp_search_log_forget: { Args: never; Returns: number }
       member_login: {
