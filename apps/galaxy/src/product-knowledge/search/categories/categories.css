@@ -1,0 +1,11 @@
+/* The Search section's Categories view (PRD omni-loop-7 s4): the views' tabs, the open category's row, its groups. */
+.kn-views { margin: 0 0 10px; }
+.kn-table tr[data-open='true'] { background: var(--ask-sunk); }
+.kn-category { font-weight: 600; }
+.kn-group { border-bottom: 1px solid var(--ask-line, #e5e5e5); }
+.kn-group > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 10px 4px; cursor: pointer; }
+.kn-group-question { flex: 1 1 24ch; min-width: 0; }
+.kn-group-count { font-weight: 600; white-space: nowrap; }
+.kn-group-rank { font-size: 13px; white-space: nowrap; }
+.kn-group[open] > summary { font-weight: 600; }
+.kn-group > .kn-scroll { margin: 0 0 12px; }
