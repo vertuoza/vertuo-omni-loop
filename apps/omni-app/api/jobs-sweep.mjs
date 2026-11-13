@@ -70,12 +70,12 @@ function readGroup(source, group2, production) {
       }]
     };
   }
-  const parsed2 = group2.schema.safeParse(raw);
-  if (parsed2.success) return { value: parsed2.data, problems: [] };
+  const parsed3 = group2.schema.safeParse(raw);
+  if (parsed3.success) return { value: parsed3.data, problems: [] };
   const byKey = new Map(all.map((member) => [member.key, member.name]));
   return {
     value: null,
-    problems: parsed2.error.issues.map((issue) => {
+    problems: parsed3.error.issues.map((issue) => {
       const name = byKey.get(String(issue.path[0] ?? "")) ?? group2.label;
       return { variables: [name], reason: `${name} is not valid: ${issue.message}` };
     })
@@ -275,9 +275,9 @@ function runCheck(check, value) {
   try {
     if (value === void 0) return { errors: ["the reply must be one JSON object"], reply: null };
     if (check && typeof check === "object" && typeof check.safeParse === "function") {
-      const parsed2 = check.safeParse(value, { error: KIT_MESSAGES });
-      if (parsed2.success) return { errors: [], reply: parsed2.data };
-      const issues = parsed2.error?.issues ?? [];
+      const parsed3 = check.safeParse(value, { error: KIT_MESSAGES });
+      if (parsed3.success) return { errors: [], reply: parsed3.data };
+      const issues = parsed3.error?.issues ?? [];
       const errors = issues.map((issue) => `${issue.path?.length ? issue.path.join(".") : "(root)"}: ${issue.message}`);
       return { errors: errors.length ? errors : ["the reply does not fit the schema"], reply: null };
     }
@@ -657,9 +657,9 @@ function refused(what, error) {
 }
 function rowOf(schema, data, table) {
   if (data === null) return null;
-  const parsed2 = schema.safeParse(data);
-  if (!parsed2.success) throw new Error(`${table} answered an unexpected row (${parsed2.error.issues.map((issue) => `${issue.path.join(".") || "(the row)"} ${issue.code}`).join("; ")})`);
-  return parsed2.data;
+  const parsed3 = schema.safeParse(data);
+  if (!parsed3.success) throw new Error(`${table} answered an unexpected row (${parsed3.error.issues.map((issue) => `${issue.path.join(".") || "(the row)"} ${issue.code}`).join("; ")})`);
+  return parsed3.data;
 }
 function supabaseGithubStore(db) {
   return {
@@ -1862,9 +1862,9 @@ import { z as z9 } from "zod";
 
 // kit/lib/schema/parse-or-throw.ts
 function parseOrThrow(schema, value, shape) {
-  const parsed2 = schema.safeParse(value, { error: KIT_MESSAGES });
-  if (parsed2.success) return parsed2.data;
-  const issue = parsed2.error.issues[0];
+  const parsed3 = schema.safeParse(value, { error: KIT_MESSAGES });
+  if (parsed3.success) return parsed3.data;
+  const issue = parsed3.error.issues[0];
   const field4 = issue && issue.path.length ? `${issue.path.join(".")}: ` : "";
   throw new Error(`${shape}: ${field4}${issue?.message ?? "invalid"}`);
 }
@@ -2790,8 +2790,8 @@ function parseFolderName(name) {
 function prdFoldersIn(absolute) {
   if (!existsSync4(absolute)) return [];
   return readdirSync2(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).flatMap((entry) => {
-    const parsed2 = parseFolderName(entry.name);
-    return parsed2 ? [{ name: entry.name, prd: parsed2.prd }] : [];
+    const parsed3 = parseFolderName(entry.name);
+    return parsed3 ? [{ name: entry.name, prd: parsed3.prd }] : [];
   }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 }
 function foldersLayout(root, paths) {
@@ -4323,9 +4323,9 @@ function briefingFiles({ ctx }) {
   const files = /* @__PURE__ */ new Set([own]);
   const absolute = join16(ctx.root, own);
   if (!existsSync10(absolute)) return [...files];
-  const parsed2 = parseForm(readFileSync10(absolute, "utf8"), { file: own });
-  if (!parsed2.ok) return [...files];
-  const { pointsTo, slots } = parsed2.form;
+  const parsed3 = parseForm(readFileSync10(absolute, "utf8"), { file: own });
+  if (!parsed3.ok) return [...files];
+  const { pointsTo, slots } = parsed3.form;
   const pointers = [pointsTo, ...slots.map((slot) => slot.body.kind === "pointer" ? slot.body.see.path : null)];
   for (const pointer of pointers) {
     if (pointer === null) continue;
@@ -4659,8 +4659,8 @@ function readAccounts(prd, { ctx }) {
   const prdPrefix = `${outboxDir}/`;
   const ranks = /* @__PURE__ */ new Map();
   for (const path of outboxItemFiles({ ctx }).filter((file) => file.startsWith(prdPrefix))) {
-    const parsed2 = parseOutboxItem(readRepoFile(ctx, path));
-    ranks.set(basename2(path, ".md"), parsed2.ok ? parsed2.item.rank : null);
+    const parsed3 = parseOutboxItem(readRepoFile(ctx, path));
+    ranks.set(basename2(path, ".md"), parsed3.ok ? parsed3.item.rank : null);
   }
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (existsSync11(`${ctx.root}/${settledFile}`)) {
@@ -4672,9 +4672,9 @@ function readAccounts(prd, { ctx }) {
   return names.map((name) => {
     const file = `${dir}/${name}`;
     const text17 = readRepoFile(ctx, file);
-    const parsed2 = parseAccount(text17, { file });
-    if (!parsed2.ok) return parsed2;
-    const unresolved = parsed2.account.entries.flatMap(
+    const parsed3 = parseAccount(text17, { file });
+    if (!parsed3.ok) return parsed3;
+    const unresolved = parsed3.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
     );
     if (unresolved.length > 0) {
@@ -4688,10 +4688,10 @@ function readAccounts(prd, { ctx }) {
         )
       };
     }
-    const entries = parsed2.account.entries.map(
+    const entries = parsed3.account.entries.map(
       (entry) => entry.account.kind === "item" ? { ...entry, account: { ...entry.account, rank: ranks.get(entry.account.id) ?? null } } : entry
     );
-    return { ok: true, account: { ...parsed2.account, entries } };
+    return { ok: true, account: { ...parsed3.account, entries } };
   });
 }
 var LAW_RULES = ["law-proof", "law-text", "test-removed", "law-demoted", BRIEFING_TEXT];
@@ -4742,8 +4742,8 @@ function openItemFiles(prd, { ctx }) {
 }
 function describeItem(file, { ctx }) {
   const text17 = readRepoFile(ctx, file);
-  const parsed2 = parseOutboxItem(text17, { file });
-  return parsed2.ok ? { file, id: parsed2.item.id, rank: parsed2.item.rank } : { file, id: null, rank: null };
+  const parsed3 = parseOutboxItem(text17, { file });
+  return parsed3.ok ? { file, id: parsed3.item.id, rank: parsed3.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
   return openItemFiles(prd, { ctx }).map((file) => describeItem(file, { ctx }));
@@ -4899,8 +4899,8 @@ function openItemsForPrd(prd, { ctx }) {
   const items = [];
   for (const file of outboxItemFiles({ ctx })) {
     if (!file.startsWith(prefix)) continue;
-    const parsed2 = parseOutboxItem(readRepoFile(ctx, file), { file });
-    if (parsed2.ok) items.push(parsed2.item);
+    const parsed3 = parseOutboxItem(readRepoFile(ctx, file), { file });
+    if (parsed3.ok) items.push(parsed3.item);
   }
   return items;
 }
@@ -5072,9 +5072,9 @@ function firstSentence(text17) {
   return (match ? match[0] : trimmed3).trim();
 }
 function answeredQuestionText(entry) {
-  const parsed2 = parseOutboxItem(entry.itemText, { file: null });
-  if (!parsed2.ok) return "";
-  const { sections } = parsed2.item;
+  const parsed3 = parseOutboxItem(entry.itemText, { file: null });
+  if (!parsed3.ok) return "";
+  const { sections } = parsed3.item;
   return sections.questionPlain ?? firstSentence(sections.whatIHadToDecide);
 }
 var REWORKED_BY = /reworked by #(\d+)/;
@@ -5209,8 +5209,8 @@ function openQuestionLines(item, { number, round, banter }) {
   return lines2;
 }
 function adoptedItem(entry) {
-  const parsed2 = parseOutboxItem(entry.itemText, { file: null });
-  return parsed2.ok ? parsed2.item : null;
+  const parsed3 = parseOutboxItem(entry.itemText, { file: null });
+  return parsed3.ok ? parsed3.item : null;
 }
 function adoptedQuestionLines(entry, { number, round, banter }) {
   const item = adoptedItem(entry);
@@ -5776,9 +5776,9 @@ function parseSpec(text17, { file = null } = {}) {
   const errors = [];
   const { data, errors: lineErrors } = parseFrontMatterLines(rawFrontMatter ?? "");
   errors.push(...lineErrors.map((message) => withFile2(file, message)));
-  const parsed2 = SpecFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
-  if (!parsed2.success) {
-    for (const issue of parsed2.error.issues) {
+  const parsed3 = SpecFrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
+  if (!parsed3.success) {
+    for (const issue of parsed3.error.issues) {
       if (issue.code === "unrecognized_keys") {
         for (const key of issue.keys) {
           errors.push(withFile2(file, unrecognizedKeyMessage(key)));
@@ -5789,8 +5789,8 @@ function parseSpec(text17, { file = null } = {}) {
       errors.push(withFile2(file, `${field4}: ${issue.message}`));
     }
   }
-  if (errors.length > 0 || !parsed2.success) return { ok: false, errors };
-  const fm = parsed2.data;
+  if (errors.length > 0 || !parsed3.success) return { ok: false, errors };
+  const fm = parsed3.data;
   const record = {
     prd: fm.prd,
     title: fm.title,
@@ -5881,9 +5881,9 @@ var FrontMatterSchema2 = z20.object({
 function frontMatter(raw, schema) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const parsed2 = schema.safeParse(data, { error: KIT_MESSAGES });
-  if (parsed2.success) return { data: parsed2.data, errors };
-  for (const issue of parsed2.error.issues) {
+  const parsed3 = schema.safeParse(data, { error: KIT_MESSAGES });
+  if (parsed3.success) return { data: parsed3.data, errors };
+  for (const issue of parsed3.error.issues) {
     if (issue.code === "unrecognized_keys") {
       for (const key of issue.keys) {
         errors.push(`front matter: unexpected field "${key}"; it holds roadmap, title, milestone, and an optional product, target and source.`);
@@ -6272,15 +6272,15 @@ function prdFacts(ctx, prd) {
   const specFile = ctx.layout.specPath(prd);
   if (specFile === null) return "no-folder";
   if (!existsSync16(join21(ctx.root, specFile))) return "unreadable";
-  const parsed2 = parseSpec(readRepoFile(ctx, specFile), { file: specFile });
-  return parsed2.ok ? { blockedBy: parsed2.record.blockedBy } : "unreadable";
+  const parsed3 = parseSpec(readRepoFile(ctx, specFile), { file: specFile });
+  return parsed3.ok ? { blockedBy: parsed3.record.blockedBy } : "unreadable";
 }
 function gradeRoadmapFile(ctx, entry) {
   const at4 = (message) => `${entry.file}: ${message}`;
   if (!existsSync16(join21(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at4("roadmap.md is missing.")] };
-  const parsed2 = parseRoadmap(readRepoFile(ctx, entry.file));
-  if (!parsed2.ok) return { ...entry, roadmap: null, violations: parsed2.errors.map(at4) };
-  const { roadmap } = parsed2;
+  const parsed3 = parseRoadmap(readRepoFile(ctx, entry.file));
+  if (!parsed3.ok) return { ...entry, roadmap: null, violations: parsed3.errors.map(at4) };
+  const { roadmap } = parsed3;
   const violations = [];
   if (roadmap.roadmap !== entry.number) {
     violations.push(`roadmap ${roadmap.roadmap} does not agree with its folder's number, ${entry.number}.`);
@@ -6419,11 +6419,11 @@ function knownAreas(ctx) {
   );
 }
 function violationsForFile(file, folder, text17, ctx) {
-  const parsed2 = parseSpec(text17, { file });
-  if (!parsed2.ok) {
-    return { record: null, violations: parsed2.errors };
+  const parsed3 = parseSpec(text17, { file });
+  if (!parsed3.ok) {
+    return { record: null, violations: parsed3.errors };
   }
-  const { record } = parsed2;
+  const { record } = parsed3;
   const violations = [];
   const folderPrd = parseFolderName(folder)?.prd;
   if (folderPrd !== void 0 && record.prd !== folderPrd) {
@@ -6626,8 +6626,8 @@ function prdDirs(config) {
   return [inbox, shipped];
 }
 function prdOfTopic(topic, folderNames2, config) {
-  const parsed2 = folderNames2.map(parseFolderName).find((folder) => folder?.topic === topic);
-  if (parsed2) return { number: parsed2.prd };
+  const parsed3 = folderNames2.map(parseFolderName).find((folder) => folder?.topic === topic);
+  if (parsed3) return { number: parsed3.prd };
   return { skip: `No PRD folder for the topic \`${topic}\` under \`${config.paths.delivery}\`.` };
 }
 var CLOSES = /Closes #\d+/;
@@ -7103,8 +7103,8 @@ async function prdFolder(octokit, { owner, repo, sha, dirs, topic }) {
   for (const state of ["shipped", "inbox"]) {
     const entries = await listFolder(octokit, { owner, repo, ref: sha, path: dirs[state] }) ?? [];
     for (const entry of entries) {
-      const parsed2 = entry.type === "tree" ? parseFolderName(entry.name) : null;
-      if (parsed2?.topic === topic) return { state, name: entry.name, prd: parsed2.prd };
+      const parsed3 = entry.type === "tree" ? parseFolderName(entry.name) : null;
+      if (parsed3?.topic === topic) return { state, name: entry.name, prd: parsed3.prd };
     }
   }
   return null;
@@ -7593,7 +7593,7 @@ var HeadSchema = z25.strictObject({ [PARTS]: z25.strictObject({ hash: z25.string
 async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const saved = await step.run(id, async () => {
     const text17 = JSON.stringify(asSaved(await fn()));
-    if (Buffer.byteLength(text17) <= budget) return JSON.parse(text17);
+    if (Buffer.byteLength(text17) <= budget) return parsed(text17);
     const hash = hashOf(text17);
     const parts = partsOf(text17, budget);
     for (const [index, part] of parts.entries()) await step.run(partId(id, hash, index), () => part);
@@ -7640,7 +7640,11 @@ async function joined(step, id, { hash, count: count2 }) {
   }
   const text17 = parts.join("");
   if (hashOf(text17) !== hash) throw new Error(`The step "${id}" came back with parts that do not make the value saved.`);
-  return JSON.parse(text17);
+  return parsed(text17);
+}
+function parsed(text17) {
+  const value = JSON.parse(text17);
+  return value;
 }
 function partId(id, hash, index) {
   return `${id}:part-${hash}-${String(index + 1)}`;
@@ -10865,15 +10869,15 @@ function readFolder(root, dir, level) {
   const names = existsSync21(absolute) ? readdirSync12(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const parsed2 = parseDecisionRecord(file, readFileSync18(join28(root, file), "utf8"));
+    const parsed3 = parseDecisionRecord(file, readFileSync18(join28(root, file), "utf8"));
     return {
       ...level === "repo" ? {} : { level },
-      number: parsed2.number,
-      file: parsed2.file,
-      title: parsed2.title,
-      prd: parsed2.prd,
-      ...parsed2.layers === void 0 ? {} : { layers: parsed2.layers },
-      ...parsed2.domain === void 0 ? {} : { domain: parsed2.domain }
+      number: parsed3.number,
+      file: parsed3.file,
+      title: parsed3.title,
+      prd: parsed3.prd,
+      ...parsed3.layers === void 0 ? {} : { layers: parsed3.layers },
+      ...parsed3.domain === void 0 ? {} : { domain: parsed3.domain }
     };
   });
 }
@@ -11310,9 +11314,9 @@ function contentViolations(name, text17) {
   });
 }
 function gradeReleaseNote(text17, { prd }) {
-  const parsed2 = parseReleaseNote(text17);
-  if (!parsed2.ok) return parsed2.errors;
-  const { note } = parsed2;
+  const parsed3 = parseReleaseNote(text17);
+  if (!parsed3.ok) return parsed3.errors;
+  const { note } = parsed3;
   const out = [];
   if (note.prd !== Number(prd)) out.push(`prd ${note.prd} is not its folder's number, ${Number(prd)}`);
   if (note.version !== null && note.version !== INITIAL_VERSION) {
@@ -11455,9 +11459,9 @@ function describe(file, detail) {
   return `${file}: ${detail}`;
 }
 function checkItemText(file, text17, { laws }) {
-  const parsed2 = parseItem(text17, file);
-  if (!parsed2.ok) return parsed2.errors;
-  const { item } = parsed2;
+  const parsed3 = parseItem(text17, file);
+  if (!parsed3.ok) return parsed3.errors;
+  const { item } = parsed3;
   const violations = [];
   const resolved = resolveBearsOn(item.bearsOn, laws);
   if (!resolved.ok) {
@@ -11624,20 +11628,20 @@ function settleAtMerge({
   const deletes = [];
   for (const file of openItemFiles(prd, { ctx })) {
     const itemText = readRepoFile(ctx, file);
-    const parsed2 = parseItem(itemText, file);
-    if (!parsed2.ok) {
-      errors.push(...parsed2.errors);
+    const parsed3 = parseItem(itemText, file);
+    if (!parsed3.ok) {
+      errors.push(...parsed3.errors);
       continue;
     }
     const entry = renderSettledEntry({
-      item: parsed2.item,
+      item: parsed3.item,
       itemText,
       answer,
       judgement: JUDGEMENT,
       markers: ctx.markers,
       closed: `yes \u2014 adopted at the merge by @${facts.by}`
     });
-    entries.push({ id: parsed2.item.id, from: "open", entry });
+    entries.push({ id: parsed3.item.id, from: "open", entry });
     deletes.push(file);
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -12511,11 +12515,11 @@ function writtenBack(entry) {
   return entry.became.length > 0 || (entry.fields[STAYS_HERE_FIELD] ?? "").trim().length > 0;
 }
 function toCandidate(entry, ledgerFile) {
-  const parsed2 = parseOutboxItem(entry.itemText, { file: null });
+  const parsed3 = parseOutboxItem(entry.itemText, { file: null });
   return {
     id: entry.id,
     ledgerFile,
-    item: parsed2.ok ? parsed2.item : null,
+    item: parsed3.ok ? parsed3.item : null,
     itemText: entry.itemText,
     answer: entry.answerText,
     verdict: entry.verdict ?? null,
@@ -12524,7 +12528,7 @@ function toCandidate(entry, ledgerFile) {
     channel: entry.fields.Channel ?? null,
     channelUrl: entry.fields["Channel URL"] ?? null,
     closed: entry.fields.Closed ?? null,
-    rank: entry.fields.Rank ?? (parsed2.ok ? parsed2.item.rank : null) ?? null
+    rank: entry.fields.Rank ?? (parsed3.ok ? parsed3.item.rank : null) ?? null
   };
 }
 function candidatesFromLedger(text17, { markers, ledgerFile = null }) {
@@ -13173,11 +13177,11 @@ var RefSchema3 = z35.looseObject({ object: z35.looseObject({ sha: z35.string() }
 var OpenPullSchema = z35.looseObject({ head: z35.looseObject({ ref: z35.string().nullish() }).nullish() });
 var CommitSchema2 = z35.looseObject({ message: z35.string().nullish() });
 function parsedOr(schema, value, context) {
-  const parsed2 = schema.safeParse(value);
-  if (parsed2.success) return parsed2.data;
-  const [issue] = parsed2.error.issues;
+  const parsed3 = schema.safeParse(value);
+  if (parsed3.success) return parsed3.data;
+  const [issue] = parsed3.error.issues;
   const field4 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
-  throw new Error(`${context}: ${field4}: ${issue?.message ?? parsed2.error.message}`);
+  throw new Error(`${context}: ${field4}: ${issue?.message ?? parsed3.error.message}`);
 }
 var MergeSchema2 = z35.object({ by: z35.string(), at: z35.string(), pr: PrNumberSchema, url: z35.string().exactOptional() });
 var QualifiedSchema2 = z35.union([
@@ -14703,10 +14707,10 @@ function embedHandler({
   };
 }
 function payloadOf(raw) {
-  const parsed2 = EmbedPayloadSchema.safeParse(raw);
-  if (parsed2.success) return parsed2.data;
-  const [issue] = parsed2.error.issues;
-  throw new Error(`The embed job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed2.error.message}`);
+  const parsed3 = EmbedPayloadSchema.safeParse(raw);
+  if (parsed3.success) return parsed3.data;
+  const [issue] = parsed3.error.issues;
+  throw new Error(`The embed job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed3.error.message}`);
 }
 
 // apps/omni-app/src/jobs/pack.ts
@@ -14750,10 +14754,10 @@ function packHandler({
   };
 }
 function payloadOf2(raw) {
-  const parsed2 = PackPayloadSchema.safeParse(raw);
-  if (parsed2.success) return parsed2.data;
-  const [issue] = parsed2.error.issues;
-  throw new Error(`The pack job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed2.error.message}`);
+  const parsed3 = PackPayloadSchema.safeParse(raw);
+  if (parsed3.success) return parsed3.data;
+  const [issue] = parsed3.error.issues;
+  throw new Error(`The pack job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed3.error.message}`);
 }
 var labelOf = (repository, { prNumber, sha }) => prNumber === void 0 ? `${repository}@${sha.slice(0, 7)}` : `${repository}#${String(prNumber)}`;
 async function qualifyMerge(octokit, { owner, repo, prNumber }) {
@@ -15180,8 +15184,8 @@ var LawsSchema = z44.union([
   z44.object({ state: z44.enum(["green", "red", "neutral"]), reason: text9, judgedAt: z44.string().optional(), findings: z44.array(FindingSchema2).catch([]) })
 ]);
 function parseLaws(value) {
-  const parsed2 = LawsSchema.safeParse(value);
-  return parsed2.success ? parsed2.data : null;
+  const parsed3 = LawsSchema.safeParse(value);
+  return parsed3.success ? parsed3.data : null;
 }
 
 // kit/lib/approval/approval.ts
@@ -15200,8 +15204,8 @@ var techWaitsOn = (tech) => tech && tech.state !== "approved" ? tech.login : nul
 var waitingForTech = (login) => `waiting for ${login}'s tech approval`;
 var UNREACHABLE_LINE = "server unreachable \xB7 held, not failed";
 function parseApprovalReply(body) {
-  const parsed2 = ApprovalReplySchema.safeParse(body);
-  return parsed2.success ? parsed2.data : null;
+  const parsed3 = ApprovalReplySchema.safeParse(body);
+  return parsed3.success ? parsed3.data : null;
 }
 function treeFileOf(ctx, prd, file) {
   const kept3 = ARTIFACT_KINDS.find((entry) => entry.kind === file.kind);
@@ -15342,10 +15346,10 @@ var PullAtSchema = z47.object({
   headSha: z47.string().min(1)
 });
 function checkPayloadOf(schema, kind, raw) {
-  const parsed2 = schema.safeParse(raw);
-  if (parsed2.success) return parsed2.data;
-  const [issue] = parsed2.error.issues;
-  throw new Error(`The ${kind} job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed2.error.message}`);
+  const parsed3 = schema.safeParse(raw);
+  if (parsed3.success) return parsed3.data;
+  const [issue] = parsed3.error.issues;
+  throw new Error(`The ${kind} job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed3.error.message}`);
 }
 var CanonFactsSchema = z47.object({
   prd: PrdNumberSchema,
@@ -16419,9 +16423,9 @@ function itemRefusal({
 }) {
   const violations = checkItemText(file, text17, { laws });
   if (violations.length > 0) return violations.join("; ");
-  const parsed2 = parseOutboxItem(text17, { file });
-  if (!parsed2.ok) return parsed2.errors.join("; ");
-  const { item } = parsed2;
+  const parsed3 = parseOutboxItem(text17, { file });
+  if (!parsed3.ok) return parsed3.errors.join("; ");
+  const { item } = parsed3;
   if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
   if (`${item.id}.md` !== name) return `its file name is not its id ${item.id}`;
   if (taken.has(item.id)) return `${item.id} is already in the outbox of PRD ${prd}`;
@@ -16433,9 +16437,9 @@ function accountRefusal({
   name,
   text: text17
 }) {
-  const parsed2 = parseAccount(text17, { file: name });
-  if (!parsed2.ok) return parsed2.errors.join("; ");
-  if (parsed2.account.prd !== prd) return `it belongs to PRD ${parsed2.account.prd}, not PRD ${prd}`;
+  const parsed3 = parseAccount(text17, { file: name });
+  if (!parsed3.ok) return parsed3.errors.join("; ");
+  if (parsed3.account.prd !== prd) return `it belongs to PRD ${parsed3.account.prd}, not PRD ${prd}`;
   if (existsSync42(destination)) return `an account of that name is already in the outbox of PRD ${prd}`;
   return null;
 }
@@ -16589,8 +16593,8 @@ function answerableQuestions(numbering, items, adopted) {
   const itemsById = new Map(items.map((item) => [item.id, item]));
   const adoptedById = /* @__PURE__ */ new Map();
   for (const entry of adopted) {
-    const parsed2 = parseItem(entry.itemText, null);
-    if (parsed2.ok) adoptedById.set(entry.id, { entry, item: parsed2.item });
+    const parsed3 = parseItem(entry.itemText, null);
+    if (parsed3.ok) adoptedById.set(entry.id, { entry, item: parsed3.item });
   }
   const questions = [];
   for (const entry of numbering) {
@@ -16911,8 +16915,8 @@ function productPrd(prd) {
   return prd;
 }
 function parsedRow(prd, row) {
-  const parsed2 = parseOutboxItem(row.body, { file: refOf2(prd, row.item) });
-  return parsed2.ok ? parsed2.item : null;
+  const parsed3 = parseOutboxItem(row.body, { file: refOf2(prd, row.item) });
+  return parsed3.ok ? parsed3.item : null;
 }
 function settledEntriesOf(row) {
   if (row.settlement === null) return [];
@@ -16973,9 +16977,9 @@ function serverOutboxStore({ ctx, connect, now }) {
       return ref;
     },
     async adopt(itemText) {
-      const parsed2 = parseOutboxItem(itemText, { file: null });
-      if (!parsed2.ok) return { ok: false, errors: parsed2.errors };
-      const { item } = parsed2;
+      const parsed3 = parseOutboxItem(itemText, { file: null });
+      if (!parsed3.ok) return { ok: false, errors: parsed3.errors };
+      const { item } = parsed3;
       if (item.rank !== "medium") {
         return { ok: false, errors: [`${item.id}: only a "medium" item is adopted at raise time \u2014 this one is ranked "${item.rank}" and is written as an open item instead.`] };
       }
@@ -17341,15 +17345,15 @@ var ConstituentsSchema = z57.looseObject({
 });
 var FindingSchema3 = z57.looseObject({ quote: z57.string(), claims: z57.array(z57.string()), why: z57.unknown().optional() });
 var ReplyPersonaSchema = z57.looseObject({ name: z57.unknown().optional(), line: z57.unknown().optional() });
-function parsed(schema, what, value) {
+function parsed2(schema, what, value) {
   const result = schema.safeParse(value);
   if (result.success) return result.data;
   const [issue] = result.error.issues;
   const field4 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
   throw new Error(`the ${what} read is malformed: ${field4}: ${issue?.message ?? result.error.message}`);
 }
-var parseBusiness = (value) => parsed(BusinessSchema, "business", value);
-var parseConstituents = (value) => parsed(ConstituentsSchema, "constituents", value);
+var parseBusiness = (value) => parsed2(BusinessSchema, "business", value);
+var parseConstituents = (value) => parsed2(ConstituentsSchema, "constituents", value);
 
 // apps/omni-app/src/canon/canon.ts
 var CheckedReplySchema = z58.object({
@@ -17405,10 +17409,10 @@ function checkReply2(value) {
   if (!value || typeof value !== "object") return { errors: ["the reply must be one JSON object"], reply: null };
   const items = "findings" in value ? value.findings : void 0;
   if (!Array.isArray(items)) return { errors: ["findings: an array"], reply: null };
-  const parsed2 = items.map((item) => FindingSchema3.safeParse(item));
-  const errors = parsed2.flatMap((result, i) => result.success ? [] : [`findings.${i}: {"quote": string, "claims": string[], "why": string}`]);
+  const parsed3 = items.map((item) => FindingSchema3.safeParse(item));
+  const errors = parsed3.flatMap((result, i) => result.success ? [] : [`findings.${i}: {"quote": string, "claims": string[], "why": string}`]);
   if (errors.length > 0) return { errors, reply: null };
-  const findings = parsed2.flatMap(
+  const findings = parsed3.flatMap(
     (result) => result.success ? [{ quote: result.data.quote.trim(), claims: result.data.claims.map((id) => id.trim()), why: text13(result.data.why) }] : []
   );
   const persona = ReplyPersonaSchema.safeParse("persona" in value ? value.persona ?? {} : {});
@@ -18975,8 +18979,8 @@ function inboxPrd({ head, config, topic }) {
   const dir = join66(head, createContext(head, config).layout.dirs.inbox);
   if (!existsSync48(dir)) return null;
   for (const entry of readdirSync22(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-    const parsed2 = entry.isDirectory() ? parseFolderName(entry.name) : null;
-    if (parsed2?.topic === topic) return parsed2.prd;
+    const parsed3 = entry.isDirectory() ? parseFolderName(entry.name) : null;
+    if (parsed3?.topic === topic) return parsed3.prd;
   }
   return null;
 }
@@ -19444,12 +19448,12 @@ async function post(fetch2, endpoint, key, texts, timeoutMs) {
 }
 async function vectorsOf(response, count2) {
   if (!response.ok) throw new Error(`embed answered ${String(response.status)}`);
-  const parsed2 = AnswerSchema2.safeParse(await response.json().catch(() => null));
-  if (!parsed2.success) {
-    const [issue] = parsed2.error.issues;
+  const parsed3 = AnswerSchema2.safeParse(await response.json().catch(() => null));
+  if (!parsed3.success) {
+    const [issue] = parsed3.error.issues;
     throw new Error(`embed answered out of shape: ${issue?.path.join(".") || "(answer)"}: ${issue?.message ?? "malformed"}`);
   }
-  const { vectors } = parsed2.data;
+  const { vectors } = parsed3.data;
   if (vectors.length !== count2) throw new Error(`embed answered ${String(vectors.length)} vectors for ${String(count2)} texts`);
   return vectors;
 }
@@ -20037,9 +20041,9 @@ function parseAnswer(schema, value, what) {
   return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
 }
 function parsedOr2(schema, value, context) {
-  const parsed2 = schema.safeParse(value);
-  if (parsed2.success) return parsed2.data;
-  throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
+  const parsed3 = schema.safeParse(value);
+  if (parsed3.success) return parsed3.data;
+  throw new Error(`${context}: ${firstIssue(parsed3.error)}`);
 }
 var BudgetSchema = z77.object({
   limit: z77.number().exactOptional(),
@@ -21154,9 +21158,9 @@ function jobsSweepRoute(env, { logger = log, jobs = liveJobs(env, logger), clock
       return json(200, { ok: true, ...body });
     }),
     POST: guarded(async (request, ledger, endsAt) => {
-      const parsed2 = ReplayBodySchema.safeParse(await request.json().catch(() => null));
-      if (!parsed2.success) return json(400, { error: 'expected {"replay": "<job id>"}' });
-      const replayed = await ledger.replay(parsed2.data.replay);
+      const parsed3 = ReplayBodySchema.safeParse(await request.json().catch(() => null));
+      if (!parsed3.success) return json(400, { error: 'expected {"replay": "<job id>"}' });
+      const replayed = await ledger.replay(parsed3.data.replay);
       if (!replayed.replayed) return json(409, { ok: false, replayed: false, reason: replayed.reason });
       return json(200, { ok: true, replayed: true, id: replayed.id, run: await ledger.run(endsAt) });
     }),

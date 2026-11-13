@@ -37,7 +37,7 @@ export async function savedStepInParts<T>(
 ): Promise<T> {
   const saved = await step.run(id, async () => {
     const text = JSON.stringify(asSaved(await fn()));
-    if (Buffer.byteLength(text) <= budget) return JSON.parse(text) as unknown;
+    if (Buffer.byteLength(text) <= budget) return parsed(text);
     const hash = hashOf(text);
     const parts = partsOf(text, budget);
     for (const [index, part] of parts.entries()) await step.run(partId(id, hash, index), () => part);
@@ -95,7 +95,13 @@ async function joined(step: StepRun, id: string, { hash, count }: Head): Promise
   }
   const text = parts.join('');
   if (hashOf(text) !== hash) throw new Error(`The step "${id}" came back with parts that do not make the value saved.`);
-  return JSON.parse(text) as unknown;
+  return parsed(text);
+}
+
+/** JSON text read back as a value of no known shape yet: the schema reads it. */
+function parsed(text: string): unknown {
+  const value: unknown = JSON.parse(text);
+  return value;
 }
 
 /** The id of part `index` (from 0) of the step `id`, whose whole text has the hash `hash`. */
