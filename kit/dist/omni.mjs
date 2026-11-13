@@ -59512,6 +59512,13 @@ function runnerApi(wiring2) {
     }
   };
 }
+var CheckpointLinkSchema = external_exports.object({
+  path: external_exports.string().min(1),
+  url: external_exports.url({ protocol: /^https?$/ }),
+  expiresAt: external_exports.string().refine((value) => !Number.isNaN(Date.parse(value)), "a date")
+});
+var RecordedSaveSchema = external_exports.object({ id: external_exports.string().min(1), kind: external_exports.enum(["portable", "local"]), keepUntil: external_exports.string() });
+var UPLOAD_MS = 10 * 6e4;
 function jobQuestionsApi(wiring2) {
   const { call, json: json3, segment } = transport(wiring2);
   const route = (job2) => `/api/runners/jobs/${segment(job2)}/questions`;
@@ -63547,6 +63554,50 @@ init_define_OMNI_BUNDLE();
 import { copyFileSync as copyFileSync7, existsSync as existsSync90, lstatSync, mkdtempSync as mkdtempSync5, readdirSync as readdirSync39, readFileSync as readFileSync114, realpathSync as realpathSync5, rmSync as rmSync19, statSync as statSync26, writeFileSync as writeFileSync56 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
 import { isAbsolute as isAbsolute13, join as join145, relative as relative7, resolve as resolve15, sep as sep5 } from "node:path";
+
+// kit/lib/runner/checkpoint.manifest.ts
+init_define_OMNI_BUNDLE();
+var CHECKPOINT_BYTES_MAX = 100 * 1024 * 1024;
+var HANDOFF_BYTES_MAX = 8 * 1024;
+var CHECKPOINT_BRANCHES_MAX = 50;
+var CHECKPOINT_REF_PREFIX = "refs/heads/omni-checkpoint/";
+var bytesOf = (text18) => new TextEncoder().encode(text18).length;
+var noCredential = (text18) => maskSecrets(text18) === text18;
+var safeText = (max) => external_exports.string().refine((text18) => bytesOf(text18) <= max, `at most ${String(max)} bytes`).refine(noCredential, "no credential");
+var CommitSchema = external_exports.string().regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/, "a commit id");
+var DateSchema = external_exports.string().refine((value) => !Number.isNaN(Date.parse(value)), "a date");
+var CheckpointBranchSchema = external_exports.strictObject({
+  /** The branch the worktree was on, `null` when it was detached. */
+  branch: safeText(255).nullable(),
+  ref: safeText(512).refine((ref2) => ref2.startsWith(CHECKPOINT_REF_PREFIX) && ref2.length > CHECKPOINT_REF_PREFIX.length, "a ref under omni-checkpoint/"),
+  /** The worktree's path in the job's folder, `.` for the folder itself. */
+  path: safeText(1024),
+  /** The commit origin had that the saved work starts from, `null` when origin had none of it. */
+  base: CommitSchema.nullable(),
+  head: CommitSchema,
+  files: external_exports.number().int().nonnegative(),
+  commits: external_exports.number().int().nonnegative()
+});
+var CheckpointManifestSchema = external_exports.strictObject({
+  job: external_exports.string().min(1).max(64),
+  /** The runner that saved it, by name. */
+  runner: safeText(120),
+  repo: safeText(200),
+  kind: external_exports.enum(["portable", "local"]),
+  savedAt: DateSchema,
+  /** Until when the runner keeps its folder (a local save). */
+  keepUntil: DateSchema,
+  bundleBytes: external_exports.number().int().nonnegative(),
+  /** The folder and the bundle together: what the save takes of the runner's disk while it keeps it. */
+  bytes: external_exports.number().int().nonnegative(),
+  branches: external_exports.array(CheckpointBranchSchema).max(CHECKPOINT_BRANCHES_MAX),
+  /** The job's handoff note, masked and cut to 8 KB; `null` when it has none. */
+  handoff: safeText(HANDOFF_BYTES_MAX).nullable(),
+  /** Why the save, or its upload, failed; `null` when nothing did. */
+  failed: safeText(300).nullable()
+}).refine((manifest) => manifest.kind === "local" || manifest.bundleBytes <= CHECKPOINT_BYTES_MAX, { message: "a portable bundle is 100 MB at most", path: ["bundleBytes"] }).refine((manifest) => manifest.branches.length > 0 || manifest.failed !== null, { message: "a save names a branch, or why it failed", path: ["branches"] });
+
+// kit/lib/runner/checkpoint.ts
 var KEEP_DAYS = 7;
 var KEEP_BUDGET_GB = 5;
 var DAY_MS2 = 24 * 60 * 60 * 1e3;
@@ -63580,7 +63631,9 @@ var LocalSaveSchema = external_exports.object({
   /** Why the save failed, its folder kept all the same; `null` when it did not. */
   failed: external_exports.string().nullable(),
   /** When the folder went before its date, over the keep budget, and why; `null` while it is kept. */
-  lost: external_exports.object({ at: external_exports.string(), why: external_exports.string() }).nullable()
+  lost: external_exports.object({ at: external_exports.string(), why: external_exports.string() }).nullable(),
+  /** When its bundle reached the app's bucket, and at which path (PRD 2809, s4); absent or `null` while it did not. */
+  sent: external_exports.object({ at: external_exports.string(), path: external_exports.string() }).nullish()
 });
 function savePaths(folder) {
   return { manifest: `${folder}.checkpoint.json`, bundle: `${folder}.checkpoint.bundle` };
