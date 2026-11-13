@@ -286,7 +286,8 @@ describe('sendSave', () => {
       const why = `the upload failed: ${(fail.upload ?? fail.link).message}`;
       expect(sent).toMatchObject({ kind: 'local', why, recorded: { kind: 'local' } });
       expect(calls.record).toHaveLength(1);
-      expect(calls.record[0]?.save).toEqual({ kind: 'local', manifest: expect.objectContaining({ kind: 'local', failed: why, bytes: save.bytes, keepUntil: save.keepUntil, runner: 'box-1' }) });
+      expect(calls.record[0]?.save).toMatchObject({ kind: 'local', manifest: { kind: 'local', failed: why, bytes: save.bytes, keepUntil: save.keepUntil, runner: 'box-1' } });
+      expect(calls.record[0]?.save).not.toHaveProperty('path');
       expect(existsSync(f.folder)).toBe(true);
       expect(readSave(savePaths(f.folder).manifest)?.sent ?? null).toBeNull();
     }
