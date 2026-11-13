@@ -50,7 +50,7 @@ const KNOWLEDGE: AccessRow['knowledge'] = {
 const NEVER = [{ seq: 6, body: 'Never locks a workspace in.' }];
 const SHA = 'a'.repeat(40);
 
-async function world({ database = true, failing = false, logFails = false }: { database?: boolean; failing?: boolean; logFails?: boolean } = {}) {
+async function world({ database = true, failing = false, logFails = false, openFails = false }: { database?: boolean; failing?: boolean; logFails?: boolean; openFails?: boolean } = {}) {
   const hashes = { live: await hashApiKey(LIVE), narrow: await hashApiKey(NARROW), other: await hashApiKey(OTHER), revoked: await hashApiKey(REVOKED) };
   // What the store holds now; a test changes it between two calls.
   const state = {
@@ -91,6 +91,8 @@ async function world({ database = true, failing = false, logFails = false }: { d
   // The search log (PRD omni-loop-6 s1): the rows written, and the tasks left for after the answer, run by flush().
   const rows: SearchLogRow[] = [];
   const pending: (() => Promise<void>)[] = [];
+  // The searches an opened rank can mark, as the table holds them, and what the log was asked to open.
+  const opened: { keyId: string; productId: string; id: string; askedAt: string }[] = [];
   const deps: ProductMcpDeps = {
     service: database ? productMcpService(repository) : null,
     log: (line) => { logged.push(line); },
@@ -98,6 +100,11 @@ async function world({ database = true, failing = false, logFails = false }: { d
       add: (row) => {
         if (logFails) return Promise.reject(new Error('mcp_search_log: the database refused: boom'));
         rows.push(row);
+        return Promise.resolve();
+      },
+      open: (keyId, productId, id, askedAt) => {
+        if (openFails) return Promise.reject(new Error('mcp_search_log: the database refused: no update'));
+        opened.push({ keyId, productId, id, askedAt });
         return Promise.resolve();
       },
     },
@@ -145,7 +152,7 @@ async function world({ database = true, failing = false, logFails = false }: { d
     return (await productMcpService(repository).read(access)).entries;
   };
 
-  return { state, calls, logged, deps, post, connect, ask, call, entries, rows, pending, flush, hashes };
+  return { state, calls, logged, deps, post, connect, ask, call, entries, rows, opened, pending, flush, hashes };
 }
 
 const INITIALIZE = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'probe', version: '1' } } };
@@ -486,5 +493,41 @@ describe('/api/products/<key>/mcp logs each search it answers (PRD omni-loop-6 s
     w.deps.searchLog = null;
     expect(await w.call(LIVE, 'search_knowledge', { query: 'quote' })).toEqual(before);
     expect(w.pending).toEqual([]);
+  });
+});
+
+describe('/api/products/<key>/mcp opens the search a get_knowledge follows (PRD omni-loop-6 s2)', () => {
+  it('a get_knowledge that found its entry asks the log to open it, once the answer is sent, for its key, product and id', async () => {
+    const w = await world();
+    const { text } = await w.call(LIVE, 'get_knowledge', { id: 'bl-quotes-1' });
+    expect(text).toContain('BL-QUOTES-1');
+    expect(w.opened).toEqual([]);
+    await w.flush();
+    expect(w.opened).toEqual([{ keyId: 'k-live', productId: 'p-acme', id: 'BL-QUOTES-1', askedAt: w.rows[0]?.asked_at }]);
+  });
+
+  it('a search, a listing, or a get_knowledge the product does not hold opens nothing', async () => {
+    const w = await world();
+    await w.call(LIVE, 'search_knowledge', { query: 'api key' });
+    await w.call(LIVE, 'search_knowledge', {});
+    await w.call(LIVE, 'get_knowledge', { id: 'widgets/ADR-9999' });
+    await w.flush();
+    expect(w.opened).toEqual([]);
+  });
+
+  it('a call refused by the key check opens nothing', async () => {
+    const w = await world();
+    await w.call(REVOKED, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    await w.flush();
+    expect(w.opened).toEqual([]);
+  });
+
+  it('with the update failing, the get_knowledge answers exactly as before, and the failure is logged as an error', async () => {
+    const before = await (await world()).call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    const w = await world({ openFails: true });
+    expect(await w.call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' })).toEqual(before);
+    await w.flush();
+    expect(w.rows).toHaveLength(1);
+    expect(w.logged).toEqual(['product mcp: opened rank not written: mcp_search_log: the database refused: no update']);
   });
 });

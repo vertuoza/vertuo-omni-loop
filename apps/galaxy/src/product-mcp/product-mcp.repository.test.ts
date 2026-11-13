@@ -133,3 +133,35 @@ describe('searchLogRepository (PRD omni-loop-6 s1)', () => {
       .rejects.toThrow('mcp_search_log: the database refused: permission denied');
   });
 });
+
+describe('searchLogRepository.open (PRD omni-loop-6 s2)', () => {
+  const ASKED = '2026-11-13T10:30:00.000Z';
+  const search = (id: string, hits: string[]) => ({ id, hit_ids: hits });
+
+  it('reads the key\'s searches of the product from the 10 minutes before, and sets the opened id and rank on the latest that returned the id', async () => {
+    const { db, lines } = fakeDb([
+      { data: [search('s-2', ['x', 'y']), search('s-1', ['a', 'b', 'c'])], error: null },
+      { data: null, error: null },
+    ]);
+    await searchLogRepository(db).open('k-live', 'p-acme', 'c', ASKED);
+    expect(lines).toEqual([
+      'from("mcp_search_log").select("id, hit_ids").eq("api_key_id","k-live").eq("product_id","p-acme").eq("tool","search_knowledge")'
+        + '.is("opened_id",null).gte("asked_at","2026-11-13T10:20:00.000Z").lte("asked_at","2026-11-13T10:30:00.000Z")'
+        + '.order("asked_at",{"ascending":false}).limit(50)',
+      'from("mcp_search_log").update({"opened_id":"c","opened_rank":3}).eq("id","s-1")',
+    ]);
+  });
+
+  it('sets nothing when no search of the window returned the id', async () => {
+    const { db, lines } = fakeDb([{ data: [search('s-1', ['a'])], error: null }]);
+    await searchLogRepository(db).open('k-live', 'p-acme', 'z', ASKED);
+    expect(lines).toHaveLength(1);
+  });
+
+  it('throws, naming the table, when the read or the update is refused', async () => {
+    await expect(searchLogRepository(fakeDb([{ data: null, error: { message: 'boom' } }]).db).open('k', 'p', 'a', ASKED))
+      .rejects.toThrow('mcp_search_log: the database refused: boom');
+    await expect(searchLogRepository(fakeDb([{ data: [search('s-1', ['a'])], error: null }, { data: null, error: { message: 'nope' } }]).db).open('k', 'p', 'a', ASKED))
+      .rejects.toThrow('mcp_search_log: the database refused: nope');
+  });
+});
