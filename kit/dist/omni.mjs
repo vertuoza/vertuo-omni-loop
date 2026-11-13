@@ -63777,6 +63777,7 @@ import { dirname as dirname28, join as join146, resolve as resolve16 } from "nod
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
 var RUNNABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "bug-fix", "mega-bug-fix", "visual-fix", "plan", "pitch", "prove", "retro-apply", "rewind", "knowledge-add", "rewind-apply"]);
+var RESUMABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "wave", "do-work", "pr-care", "bug-fix"]);
 var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "plan", "pitch", "prove"]);
 var LINE_MAX2 = 200;
 var SKILL_NAME_MAX = 64;
