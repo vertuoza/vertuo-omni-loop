@@ -1,0 +1,1318 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Round 1 board</title><style>:root{--bg:#14121c;--surface:#1c1928;--raise:#242036;--edge:#363050;--text:#ece9f5;--muted:#b4adca;--accent:#a99bff;--ok:#6fd49a;--warn:#f0bf5a;--bad:#ff8a80}
+@media (prefers-color-scheme:light){:root{--bg:#f7f6fb;--surface:#fff;--raise:#f0eef7;--edge:#d9d5e8;--text:#1d1a2a;--muted:#5b5570;--accent:#5b47d6;--ok:#1d7a47;--warn:#8a5a00;--bad:#b3261e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif}
+.board{max-width:1440px;margin:0 auto;padding:24px 16px 120px}
+.bh h1{font-size:28px;margin:4px 0 8px}.kick{color:var(--muted);font-size:13px;letter-spacing:.04em;text-transform:uppercase;margin:0}
+.lede{max-width:80ch;color:var(--muted)}
+.consensus{background:var(--surface);border:1px solid var(--edge);border-radius:10px;padding:16px 20px;margin:20px 0 32px}
+.consensus h2{font-size:18px;margin:0 0 8px}.consensus li{margin:4px 0;max-width:110ch}
+.concept{border-top:1px solid var(--edge);padding:28px 0 20px}
+.ch{display:flex;gap:14px;align-items:center}.ch h2{margin:0;font-size:22px}
+.letter{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--bg);font-weight:700;font-size:20px;flex:none}
+.meta{margin:0;color:var(--muted);font-size:14px}
+.wow{max-width:100ch}
+.arch summary{cursor:pointer;color:var(--accent)}.arch p{max-width:100ch;color:var(--muted)}
+.cardwrap{margin:12px 0;overflow-x:auto}
+.verdict{overflow-x:auto}
+table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%}
+th,td{border-bottom:1px solid var(--edge);padding:5px 8px;text-align:left;vertical-align:top}
+td:not(.st){text-align:center;font-variant-numeric:tabular-nums;width:72px}
+tr.avg th,tr.avg td{font-weight:700}
+.dissent p{max-width:110ch;margin:8px 0}
+.voice{border-left:3px solid var(--warn);margin:12px 0;padding:6px 14px;background:var(--raise);max-width:100ch}
+.voice p{margin:0}.voice cite{color:var(--muted);font-size:13px}
+.react{border:1px solid var(--edge);border-radius:8px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+.react legend{color:var(--muted);font-size:13px;padding:0 4px}
+.react select,.react .note{background:var(--raise);color:var(--text);border:1px solid var(--edge);border-radius:6px;padding:6px 8px;font:inherit}
+.react .note{flex:1 1 220px;min-width:0}
+.copy{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--edge);padding:12px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:0 -16px}
+.copy button{background:var(--accent);color:var(--bg);border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer}
+.copy output{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:14px;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body><p data-omni-reactions>Round 1 answer: I think we are getting WAY too hight, I was more expecting a &quot;Fleet&quot; section where you can drive &quot;mission&quot;.
+
+The fleet would come with an engineer team and a PM
+
+- PM in charge of brainstorming / business knowledge / go to market / generating the video
+- Full stack engineer that would drive the implementation on the back-end following the repo compliance leveragin all omni-loop stack, take care of the pull-request, replying on code review, fixing CI, fixing bugs etc etc 
+- An architect that would see if what the full stack engineer is doing complies with the current architecture and help the PM to plan the session properly according to the rules setup in omni-loop
+- A QA that would review the work done and / or bug fix it self and handover the result to the full stack engineer
+- A reviewer that would review the P-R done by the full stack engineer before it reaches the actual P-R, to avoid wrong pull-request
+
+All of this would have a Fleet operation room where you could see who is doing what when in a ledge.</p><main class="board"><header class="bh"><p class="kick">think-big · mission supervisor · platform · vast</p><h1>Round 1: go wide</h1><p class="lede">Eight concepts from four lenses (strangler, clean slate, tooling first, contrarian). The panel debated once and cross-talked once. Feasibility is not scored this round. Scores are 1 to 5, after the cross-talk. React per concept, then press Copy my reactions and paste the line back.</p></header><section class="consensus"><h2>Where the panel stands</h2><ul><li><strong>B Relay Baton leads</strong> for every panelist but the F-E Developer: runner jobs that cannot be lost (epoch, lease, checkpoint before cleanup) fix the wound that is real today (cleanup deletes work; restart marks jobs failed).</li><li><strong>Parts everyone wants in the winner, whatever it is:</strong> C's pure reducer and replay harness under the hood ("Save as a test" in the runner's Terminal, not the PM page); E's mandate as a pure validator that also defines <em>ready</em> (CI run, full test and lint, each success criterion's evidence) and refuses any repair that loosens a test; D only as the Start step, one ETA line, no chart; H's "stopped" block word for word.</li><li><strong>New rules the panel adopted:</strong> every worktree, ref and bundle has an owner, a TTL and a disk budget, shown on the page (B-E DEv); the page opens on the PRD's name and "2 moved · 3 ready for review · 1 waits on you", readable at 393 px (Irisa, Paul); one moment of motion, the hand-off, once (Craft); rules in sentences, ids behind Inspect.</li><li><strong>The Skeptic's open questions</strong> that split the field for round 2: can <code>omni next</code> decide without a checkout (App-side supervisor) or must deciding run on a runner; can a checkpoint travel to another runner and be useful; does a reconcile fit the App's 240 s budget and GitHub's rate budget; does every artefact have an owner, a TTL and a disk budget.</li></ul></section><article class="concept" id="c-A" data-letter="A"><header class="ch"><span class="letter">A</span><div><h2>Shadow Drive</h2><p class="meta">strangler lens · axis: control first: shadow /omni:drive on the server until they agree, then cut over</p></div></header><p class="wow"><strong>Wow moment.</strong> Before the fleet ever starts a job, the mission page says the fleet would have started the same 23 steps as your laptop, in the same order, and one press hands the loop over on the same tick.</p><details class="arch"><summary>How it works</summary><p>A <code>mission</code> kind on the App's job ledger (lane = mission) calls the unchanged pure core (decideNext, followPlan, replan, roadmapGates) and ends <code>later</code> at the core's wake. Shadow mode only records; live mode inserts runner_jobs under a unique dispatch key; the ledger's stale-claim refusal plus a mission epoch fence old writers. Order: page fed by laptop ticks, shadow, per-mission cut-over, checkpoint before cleanup, retro triggers.</p></details><div class="cardwrap"><style>
+.sb-a{--bg:#15131f;--surface:#1d1a2c;--raise:#25213a;--edge:#373152;--text:#ece9f5;--muted:#b4adca;--accent:#a99bff;--accent-ink:#15131f;--ok:#6fd49a;--warn:#f0bf5a;--bad:#ff8a80;--new:#7fd0ff;
+font-family:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;background:var(--bg);color:var(--text);padding:24px;line-height:1.55;font-size:15px;max-width:1360px;margin:0 auto;box-sizing:border-box}
+.sb-a *{box-sizing:border-box}
+.sb-a h1{font-size:22px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+.sb-a .wow{color:var(--muted);margin:0 0 20px;max-width:75ch}
+.sb-a .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.sb-a .row{grid-template-columns:1fr}}
+.sb-a figure{margin:0;background:var(--surface);border:1px solid var(--edge);border-radius:8px;padding:16px}
+.sb-a figcaption,.sb-a .cap{color:var(--muted);font-size:13.5px;margin-top:10px;max-width:75ch}
+.sb-a svg{width:100%;height:auto;display:block}
+.sb-a svg text{font-family:inherit;fill:var(--text);font-size:12px}
+.sb-a svg .m{fill:var(--muted);font-size:11px}
+.sb-a svg .b{fill:var(--raise);stroke:var(--edge)}
+.sb-a svg .n{fill:var(--raise);stroke:var(--new);stroke-width:1.5}
+.sb-a svg .o{fill:none;stroke:var(--edge);stroke-dasharray:4 3}
+.sb-a svg .l{stroke:var(--muted);stroke-width:1.2;fill:none}
+.sb-a svg .la{stroke:var(--new);stroke-width:1.5;fill:none}
+.sb-a svg .lb{stroke:var(--bad);stroke-width:1.5;fill:none;stroke-dasharray:3 3}
+.sb-a .screen{background:var(--surface);border:1px solid var(--edge);border-radius:8px;overflow:hidden}
+.sb-a .bar{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--edge);font-size:13px;color:var(--muted)}
+.sb-a .bar b{font-family:ui-monospace,"JetBrains Mono",monospace;letter-spacing:.08em;color:var(--text);font-size:12px}
+.sb-a .pg{padding:20px 22px 24px}
+.sb-a .pg h2{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}
+.sb-a .sub{color:var(--muted);margin:0 0 16px;font-size:14px}
+.sb-a .state{background:var(--raise);border:1px solid var(--edge);border-radius:6px;padding:12px 14px;margin:0 0 18px}
+.sb-a .state p{margin:0}
+.sb-a .state p+p{margin-top:6px;color:var(--muted);font-size:14px}
+.sb-a h3{font-size:15px;margin:20px 0 8px}
+.sb-a table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.sb-a th{text-align:left;font-weight:600;color:var(--muted);font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--edge)}
+.sb-a td{padding:7px 8px;border-bottom:1px solid var(--edge);vertical-align:top}
+.sb-a .t{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:13px;color:var(--muted);white-space:nowrap}
+.sb-a .ok{color:var(--ok)}.sb-a .warn{color:var(--warn)}.sb-a .bad{color:var(--bad)}
+.sb-a .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;align-items:center}
+.sb-a button{font:inherit;font-size:14px;border-radius:6px;padding:8px 14px;border:1px solid var(--edge);background:transparent;color:var(--text);cursor:pointer}
+.sb-a button[data-primary]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.sb-a button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sb-a .note{font-size:13.5px;color:var(--muted);margin-top:14px}
+.sb-a ul.tl{list-style:none;margin:0;padding:0}
+.sb-a ul.tl li{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--edge);font-size:14px}
+.sb-a ul.tl li span:last-child small{display:block;color:var(--muted);font-size:13px}
+.sb-a .meter{display:flex;gap:18px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.sb-a .meter b{color:var(--text);font-weight:600}
+</style>
+<section class="sb-a" aria-label="Storyboard: Shadow Drive">
+<h1>Shadow Drive</h1>
+<p class="wow">Before the fleet starts a single job, the mission page shows that it would have started the same steps as your laptop, in the same order. One press hands the loop over, and the fleet carries on from the same tick.</p>
+<div class="row">
+<figure>
+<svg viewBox="0 0 560 470" role="img" aria-label="Target architecture of Shadow Drive">
+<defs><marker id="a-a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#b4adca"/></marker><marker id="a-a1n" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#7fd0ff"/></marker></defs>
+<text x="0" y="14" class="m">LAPTOP (watches after cut-over)</text>
+<rect x="0" y="22" width="170" height="62" rx="6" class="o"/>
+<text x="12" y="44">/omni:drive</text><text x="12" y="62" class="m">loop_ticks via omni loop push</text><text x="12" y="77" class="m">stops deciding at cut-over</text>
+<text x="200" y="14" class="m">OMNI APP · existing ledger</text>
+<rect x="200" y="22" width="360" height="236" rx="6" class="o"/>
+<rect x="214" y="36" width="160" height="58" rx="5" class="b"/><text x="226" y="56">background_jobs</text><text x="226" y="73" class="m">claim · lease 300 s · 55000</text><text x="226" y="87" class="m">later = next wake</text>
+<rect x="390" y="36" width="156" height="58" rx="5" class="n"/><text x="402" y="56">kind: mission</text><text x="402" y="73" class="m">lane = mission id</text><text x="402" y="87" class="m">≤1 dispatch per run</text>
+<rect x="214" y="112" width="332" height="58" rx="5" class="b"/><text x="226" y="130">pure core, unchanged</text><text x="226" y="146" class="m">decideNext · followPlan · replan · roadmapGates</text><text x="226" y="162" class="m">server LoopReads; re-reads state, never the payload</text>
+<rect x="214" y="186" width="160" height="58" rx="5" class="n"/><text x="226" y="206">missions</text><text x="226" y="223" class="m">epoch · mode: shadow | live</text><text x="226" y="237" class="m">mission_events (no transcript)</text>
+<rect x="390" y="186" width="156" height="58" rx="5" class="n"/><text x="402" y="206">fleet_capacity</text><text x="402" y="223" class="m">units per provider account</text><text x="402" y="237" class="m">waits, never fails</text>
+<path d="M170 52 H200" class="l" marker-end="url(#a-a1)"/>
+<text x="0" y="104" class="m">shadow: compare</text><path d="M85 84 V214 H214" class="l" marker-end="url(#a-a1)"/>
+<path d="M468 94 V112" class="la" marker-end="url(#a-a1n)"/>
+<path d="M380 170 V186" class="la" marker-end="url(#a-a1n)"/>
+<text x="200" y="290" class="m">RUNNER FLEET · existing</text>
+<rect x="200" y="298" width="360" height="92" rx="6" class="o"/>
+<rect x="214" y="312" width="160" height="64" rx="5" class="b"/><text x="226" y="332">runner_jobs</text><text x="226" y="349" class="m">+ dispatch_key, unique</text><text x="226" y="364" class="m">mission:id:step:n:attempt:k</text>
+<rect x="390" y="312" width="156" height="64" rx="5" class="b"/><text x="402" y="332">runners · turnover</text><text x="402" y="349" class="m">claim skip-locked</text><text x="402" y="364" class="m">later: ckpt before cleanUp</text>
+<path d="M294 244 V312" class="la" marker-end="url(#a-a1n)"/><text x="300" y="282" class="m">live only: insert with event, one tx</text>
+<path d="M374 344 H390" class="l" marker-end="url(#a-a1)"/>
+<path d="M546 344 H556 V140 H546" class="l" marker-end="url(#a-a1)"/><text x="476" y="268" class="m">job ends → wake</text>
+<rect x="0" y="312" width="170" height="64" rx="5" class="b"/><text x="12" y="332">retro (ledger job)</text><text x="12" y="349" class="m">+ triggers: 2 fails, no progress</text><text x="12" y="364" class="m">1 repair / finding / day</text>
+<path d="M214 232 H186 V330 H170" class="l" marker-end="url(#a-a1)"/>
+<text x="0" y="414" class="m">Blue edge: new. Dashed frame: today's system. Order of the strangle:</text>
+<text x="0" y="432" class="m">1 mission row fed by laptop ticks · 2 shadow supervisor · 3 cut-over per mission</text>
+<text x="0" y="450" class="m">4 checkpoint before cleanUp · 5 retro triggers · then /omni:drive only watches</text>
+</svg>
+<figcaption>The supervisor is a new kind on the App's own job ledger, so leases, fencing (55000) and day-long waits come for free. It calls the same pure decision core the laptop calls today, which is what makes shadowing possible: two deciders, one function, compared tick by tick.</figcaption>
+</figure>
+<div data-screen="mission-shadow" class="screen">
+<div class="bar"><b>OMNI</b><span>Roadmaps</span><span>›</span><span>R12 Knowledge search</span><span>›</span><span>Mission</span></div>
+<div class="pg">
+<h2>Mission for roadmap R12</h2>
+<p class="sub">Approved 4 Nov · 5 PRDs · 2 shipped</p>
+<div class="state"><p>The fleet is shadowing your laptop.</p><p>23 of 23 steps matched since Tuesday.</p><p>Your laptop still decides.</p></div>
+<h3>Last steps, side by side</h3>
+<table>
+<thead><tr><th>Time</th><th>Your laptop started</th><th>The fleet would start</th><th></th></tr></thead>
+<tbody>
+<tr><td class="t">09:41</td><td>Wave 2 of PRD 2801</td><td>Wave 2 of PRD 2801</td><td class="ok">Same</td></tr>
+<tr><td class="t">09:46</td><td>Care for PR 2812</td><td>Care for PR 2812</td><td class="ok">Same</td></tr>
+<tr><td class="t">10:20</td><td>Nothing: CI running</td><td>Nothing, wake at 10:25</td><td class="ok">Same</td></tr>
+<tr><td class="t">10:25</td><td>Wave 3 of PRD 2801</td><td>Wave 3 of PRD 2801</td><td class="ok">Same</td></tr>
+</tbody>
+</table>
+<h3>If the fleet takes over</h3>
+<div class="meter"><span><b>3 of 12</b> fleet units free</span><span><b>2</b> accounts with tokens left</span><span><b>1</b> step at a time</span></div>
+<p class="note">Your laptop stops at its next tick.</p><p class="note">Nothing is started twice.</p><p class="note">PRD 2799: ready for review, not merged.</p>
+<div class="acts"><button type="button" data-primary>Hand the loop to the fleet</button><button type="button">Keep shadowing</button></div>
+</div>
+</div>
+</div>
+<p class="cap">On hand-over, the laptop's loop stops at its next tick and the fleet starts from the same plan, so nothing is started twice; merging stays a person's. Key screen: the mission's page on the Omni app, read at a desk the morning a PM decides whether to trust the fleet. The one decision on it is the cut-over; a mismatch row (none here) would say which input differed and keep the button off. Strangled pieces: <code>/omni:drive</code>'s deciding role, <code>loop-plan.json</code> (now <code>loop_plans</code>), the retro job's single trigger.</p>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>2</td><td>4</td><td>4</td><td>4</td><td class="st">A rollout plan, not a concept; fold it into the winner.</td></tr><tr><th scope="row">Craft</th><td>3</td><td>4</td><td>3</td><td>4</td><td class="st">Right place, right sentences; wrong colours, the mismatch state is missing.</td></tr><tr><th scope="row">Skeptic</th><td>3</td><td>3</td><td>4</td><td>5</td><td class="st">Safest road; prove it offline by replaying recorded loop ticks.</td></tr><tr><th scope="row">Value</th><td>3</td><td>4</td><td>4</td><td>5</td><td class="st">Best onboarding road, not what people pay for.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>3</td><td>2</td><td>4</td><td>3</td><td class="st">A migration step, not my product.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>2</td><td>3</td><td>4</td><td>4</td><td class="st">Right adoption path, wrong Monday screen.</td></tr><tr><th scope="row">persona:Irisa</th><td>2</td><td>2</td><td>3</td><td>3</td><td class="st">Plumbing for engineers, not my Monday.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>2</td><td>3</td><td>4</td><td>4</td><td class="st">Boring, which is a compliment.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>2</td><td>2</td><td>4</td><td>4</td><td class="st">Safe plumbing that does nothing for my queue.</td></tr><tr class="avg"><th scope="row">Mean</th><td>2.4</td><td>3.0</td><td>3.8</td><td>4.0</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> A rollout path, not a product: keep its offline replay of loop ticks as the proof that a server-side decider agrees with today&#x27;s loop.</p><p><strong>Dissent.</strong> Skeptic and Value still rate its Fit 5: it is the most honest cut-over on the board.</p></div><blockquote class="voice"><p>Its first phase keeps my laptop deciding, the very thing I want to stop, so a weekend with the lid shut moves nothing.</p><cite>persona:Paul - Product Manager</cite></blockquote><fieldset class="react"><legend>Your reaction to A</legend><label><input type="radio" name="r-A" value="keep"> Keep</label><label><input type="radio" name="r-A" value="kill"> Kill</label><label><input type="radio" name="r-A" value="merge"> Merge into</label><label><input type="radio" name="r-A" value="push"> Push further</label><select aria-label="Merge A into" data-into="A"><option value="">letter</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select><input type="text" class="note" data-note="A" placeholder="Note (optional)" aria-label="Note on A"></fieldset></article><article class="concept" id="c-B" data-letter="B"><header class="ch"><span class="letter">B</span><div><h2>Relay Baton</h2><p class="meta">strangler lens · axis: work first: runner jobs become unlosable; a mission is a chain of continues jobs and a thin relay</p></div></header><p class="wow"><strong>Wow moment.</strong> Pull a runner&#x27;s plug mid-slice, and the page later reads: box-2 went silent at 02:14, box-3 carried on from 02:08, nothing was lost.</p><details class="arch"><summary>How it works</summary><p>Claim returns an epoch and a lease; older epochs get 409. Turnover's handoff note grows into a checkpoint: a pushed ref when it can travel, a local-only note naming what cannot. Cleanup never removes unsaved work. A lost job with a pushed checkpoint is requeued as attempt k+1 by a <code>mission-relay</code> ledger job under a unique dispatch key. Capacity counted in units per runner and account; out of tokens waits, never fails. Retro scoped to the failing step, one repair, then stop and ask.</p></details><div class="cardwrap"><style>
+.sb-b{--bg:#15131f;--surface:#1d1a2c;--raise:#25213a;--edge:#373152;--text:#ece9f5;--muted:#b4adca;--accent:#a99bff;--accent-ink:#15131f;--ok:#6fd49a;--warn:#f0bf5a;--bad:#ff8a80;--new:#7fd0ff;
+font-family:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;background:var(--bg);color:var(--text);padding:24px;line-height:1.55;font-size:15px;max-width:1360px;margin:0 auto;box-sizing:border-box}
+.sb-b *{box-sizing:border-box}
+.sb-b h1{font-size:22px;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+.sb-b .wow{color:var(--muted);margin:0 0 20px;max-width:75ch}
+.sb-b .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.sb-b .row{grid-template-columns:1fr}}
+.sb-b figure{margin:0;background:var(--surface);border:1px solid var(--edge);border-radius:8px;padding:16px}
+.sb-b figcaption,.sb-b .cap{color:var(--muted);font-size:13.5px;margin-top:10px;max-width:75ch}
+.sb-b svg{width:100%;height:auto;display:block}
+.sb-b svg text{font-family:inherit;fill:var(--text);font-size:12px}
+.sb-b svg .m{fill:var(--muted);font-size:11px}
+.sb-b svg .b{fill:var(--raise);stroke:var(--edge)}
+.sb-b svg .n{fill:var(--raise);stroke:var(--new);stroke-width:1.5}
+.sb-b svg .o{fill:none;stroke:var(--edge);stroke-dasharray:4 3}
+.sb-b svg .l{stroke:var(--muted);stroke-width:1.2;fill:none}
+.sb-b svg .la{stroke:var(--new);stroke-width:1.5;fill:none}
+.sb-b svg .lb{stroke:var(--bad);stroke-width:1.5;fill:none;stroke-dasharray:3 3}
+.sb-b .screen{background:var(--surface);border:1px solid var(--edge);border-radius:8px;overflow:hidden}
+.sb-b .bar{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--edge);font-size:13px;color:var(--muted)}
+.sb-b .bar b{font-family:ui-monospace,"JetBrains Mono",monospace;letter-spacing:.08em;color:var(--text);font-size:12px}
+.sb-b .pg{padding:20px 22px 24px}
+.sb-b .pg h2{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}
+.sb-b .sub{color:var(--muted);margin:0 0 16px;font-size:14px}
+.sb-b .state{background:var(--raise);border:1px solid var(--edge);border-radius:6px;padding:12px 14px;margin:0 0 18px}
+.sb-b .state p{margin:0}
+.sb-b .state p+p{margin-top:6px;color:var(--muted);font-size:14px}
+.sb-b h3{font-size:15px;margin:20px 0 8px}
+.sb-b table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.sb-b th{text-align:left;font-weight:600;color:var(--muted);font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--edge)}
+.sb-b td{padding:7px 8px;border-bottom:1px solid var(--edge);vertical-align:top}
+.sb-b .t{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:13px;color:var(--muted);white-space:nowrap}
+.sb-b .ok{color:var(--ok)}.sb-b .warn{color:var(--warn)}.sb-b .bad{color:var(--bad)}
+.sb-b .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;align-items:center}
+.sb-b button{font:inherit;font-size:14px;border-radius:6px;padding:8px 14px;border:1px solid var(--edge);background:transparent;color:var(--text);cursor:pointer}
+.sb-b button[data-primary]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.sb-b button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sb-b .note{font-size:13.5px;color:var(--muted);margin-top:14px}
+.sb-b ul.tl{list-style:none;margin:0;padding:0}
+.sb-b ul.tl li{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--edge);font-size:14px}
+.sb-b ul.tl li span:last-child small{display:block;color:var(--muted);font-size:13px}
+.sb-b .meter{display:flex;gap:18px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.sb-b .meter b{color:var(--text);font-weight:600}
+</style>
+<section class="sb-b" aria-label="Storyboard: Relay Baton">
+<h1>Relay Baton</h1>
+<p class="wow">Pull a runner's plug in the middle of a slice. A few minutes later another runner picks up the same branch from its last checkpoint, and the mission page reads: box-2 went silent at 02:14, box-3 carried on from 02:08, nothing was lost.</p>
+<div class="row">
+<figure>
+<svg viewBox="0 0 560 480" role="img" aria-label="Target architecture of Relay Baton">
+<defs><marker id="b-a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#b4adca"/></marker><marker id="b-a2n" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#7fd0ff"/></marker><marker id="b-a2b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#ff8a80"/></marker></defs>
+<text x="0" y="14" class="m">THE MISSION = a chain of runner_jobs linked by continues</text>
+<rect x="0" y="24" width="120" height="62" rx="6" class="b"/><text x="10" y="44">s3 · attempt 1</text><text x="10" y="61" class="m">box-2 · epoch 7</text><text x="10" y="76" class="bad" style="fill:#ff8a80">lost 02:14</text>
+<rect x="146" y="24" width="120" height="62" rx="6" class="n"/><text x="156" y="44">s3 · attempt 2</text><text x="156" y="61" class="m">box-3 · epoch 8</text><text x="156" y="76" class="m">from ckpt 02:08</text>
+<rect x="292" y="24" width="120" height="62" rx="6" class="b"/><text x="302" y="44">s4 · attempt 1</text><text x="302" y="61" class="m">box-3 · epoch 9</text><text x="302" y="76" class="m">failed twice</text>
+<rect x="438" y="24" width="122" height="62" rx="6" class="n"/><text x="448" y="44">retro, scoped</text><text x="448" y="61" class="m">1 repair line</text><text x="448" y="76" class="m">then a person</text>
+<path d="M120 55 H146" class="la" marker-end="url(#b-a2n)"/><path d="M266 55 H292" class="l" marker-end="url(#b-a2)"/><path d="M412 55 H438" class="l" marker-end="url(#b-a2)"/>
+<text x="0" y="122" class="m">RUNNER · kit/lib/runner, grown</text>
+<rect x="0" y="130" width="260" height="196" rx="6" class="o"/>
+<rect x="12" y="142" width="236" height="52" rx="5" class="n"/><text x="24" y="162">checkpoint (from turnover's note)</text><text x="24" y="180" class="m">each handoff, every 10 min, before cleanUp</text>
+<rect x="12" y="204" width="236" height="52" rx="5" class="n"/><text x="24" y="224">portable: push omni/ckpt/m/step/epoch</text><text x="24" y="242" class="m">local-only: says what cannot travel</text>
+<rect x="12" y="266" width="236" height="48" rx="5" class="b"/><text x="24" y="286">cleanUp</text><text x="24" y="302" class="m">refuses to remove unsaved work</text>
+<path d="M130 194 V204" class="la" marker-end="url(#b-a2n)"/><path d="M130 256 V266" class="l" marker-end="url(#b-a2)"/>
+<text x="290" y="122" class="m">OMNI APP · runner API + ledger</text>
+<rect x="290" y="130" width="270" height="196" rx="6" class="o"/>
+<rect x="302" y="142" width="246" height="52" rx="5" class="n"/><text x="314" y="162">claim returns epoch + lease</text><text x="314" y="180" class="m">poll, push, finish carry it; older = 409</text>
+<rect x="302" y="204" width="246" height="52" rx="5" class="b"/><text x="314" y="224">runners_mark_lost</text><text x="314" y="242" class="m">lost + portable ckpt → requeue k+1</text>
+<rect x="302" y="266" width="246" height="48" rx="5" class="n"/><text x="314" y="286">ledger kind: mission-relay</text><text x="314" y="302" class="m">lane = mission · decideNext · 1 baton</text>
+<path d="M425 256 V266" class="l" marker-end="url(#b-a2)"/>
+<path d="M248 168 H302" class="la" marker-end="url(#b-a2n)"/><text x="252" y="160" class="m">epoch</text>
+<path d="M60 86 V100 H560" class="lb"/><text x="60" y="112" class="m" style="fill:#ff8a80">a stale box-2 writes with epoch 7: refused</text>
+<text x="0" y="356" class="m">FLEET COUNT</text>
+<rect x="0" y="364" width="560" height="44" rx="6" class="b"/><text x="12" y="384">claim counts units: a wave = 3, care = 1, against runner slots and per-account tokens</text><text x="12" y="400" class="m">queue wait is never a try; out of tokens = queued with the reason, never failed</text>
+
+<text x="0" y="436" class="m">Blue edge: new. Dashed frame: today's system. Order of the strangle:</text>
+<text x="0" y="454" class="m">1 epoch + lease on runner_jobs · 2 checkpoint in turnover and cleanUp · 3 requeue lost from ckpt</text>
+<text x="0" y="472" class="m">4 missions as named chains + relay · 5 laptop drive sends batons, then only watches</text>
+</svg>
+<figcaption>The supervisor is not a scheduler that runs on a clock; it is a relay that wakes when a job ends, hands one baton on and goes back to sleep. Every guarantee lives with the work itself: a job knows its epoch, its checkpoint and its units, so a mission is only a name for a chain that already survives.</figcaption>
+</figure>
+<div data-screen="mission-baton" class="screen">
+<div class="bar"><b>OMNI</b><span>Roadmaps</span><span>›</span><span>R12 Knowledge search</span><span>›</span><span>Mission</span></div>
+<div class="pg">
+<h2>Mission for roadmap R12</h2>
+<p class="sub">On the fleet since Tuesday</p>
+<div class="state"><p>The mission is waiting for you.</p><p>s4 of PRD 2801 failed twice.</p><p>Its one repair did not fix it.</p><p>A second repair needs you.</p></div>
+<h3>While you were away</h3>
+<ul class="tl">
+<li><span class="t">22:10</span><span>s3 started on box-2</span></li>
+<li><span class="t">02:14</span><span><span class="warn">box-2 went silent.</span> <small>Last checkpoint pushed at 02:08.</small></span></li>
+<li><span class="t">02:17</span><span>box-3 carried on from 02:08</span></li><li><span class="t">02:19</span><span>box-2's late writes were refused</span></li>
+<li><span class="t">05:40</span><span class="ok">s3 ready for review, not merged</span></li>
+<li><span class="t">06:02</span><span><span class="bad">s4 failed twice</span> <small>Retro: login test times out on box-3.</small></span></li><li><span class="t">06:05</span><span>Repair tried: a longer login wait</span></li>
+<li><span class="t">06:31</span><span class="bad">The repair failed. Mission stopped.</span></li>
+</ul>
+<div class="acts"><button type="button" data-primary>Answer and resume</button><button type="button">Inspect s4</button><button type="button">Pause the mission</button></div>
+<p class="note">2 of 12 fleet units in use</p>
+</div>
+</div>
+</div>
+<p class="cap">Under the hood: box-2 held six minutes of unpushed work, named in the mission record; the retro ran on s4 only; a second repair is not allowed without a person, so nothing else was started. The record keeps what happened and who did it, never a transcript or a key. Key screen: the mission's page read at a desk with the laptop just reopened. It says what moved, what was saved, what was refused, and why the mission stopped instead of looping. Strangled pieces: "runner lost" as a final failure, cleanUp that deletes work, turnover's local-only note, the retro job's whole-PRD scope.</p>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>4</td><td>5</td><td>4</td><td>5</td><td class="st">The strongest story; now my screenshot moment, with F&#x27;s table and E at the door.</td></tr><tr><th scope="row">Craft</th><td>4</td><td>5</td><td>4</td><td>4</td><td class="st">The page to beat; repaint it in Ask&#x27;s tokens.</td></tr><tr><th scope="row">Skeptic</th><td>4</td><td>5</td><td>4</td><td>5</td><td class="st">The one I would start with; cleanup pushes first, then a kept worktree with a TTL.</td></tr><tr><th scope="row">Value</th><td>4</td><td>5</td><td>4</td><td>5</td><td class="st">The core of the paid product: nothing lost, and ready means proven.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>4</td><td>5</td><td>4</td><td>4</td><td class="st">Yes: what laptop closed should feel like.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>4</td><td>5</td><td>4</td><td>5</td><td class="st">I&#x27;d show this one at standup.</td></tr><tr><th scope="row">persona:Irisa</th><td>4</td><td>5</td><td>4</td><td>5</td><td class="st">My pick; translate the last 20% of jargon.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>3</td><td>5</td><td>4</td><td>4</td><td class="st">Yes, if it never trades lost work for a full disk.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>3</td><td>3</td><td>4</td><td>4</td><td class="st">Keeps the work, but its example repair worries me.</td></tr><tr class="avg"><th scope="row">Mean</th><td>3.8</td><td>4.8</td><td>4.0</td><td>4.6</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> The leader: it fixes today&#x27;s real loss of work and its page is the one people would open at 7am.</p><p><strong>Dissent.</strong> F-E Developer: its sample repair was a longer timeout, which is slop; a repair must never loosen a test. B-E DEv: a kept worktree is a disk-full ticket without a TTL and a budget.</p></div><blockquote class="voice"><p>The card&#x27;s own repair was a longer login wait: loosening a test until it passes is exactly the slop that lands in my review queue.</p><cite>persona:F-E Developer</cite></blockquote><fieldset class="react"><legend>Your reaction to B</legend><label><input type="radio" name="r-B" value="keep"> Keep</label><label><input type="radio" name="r-B" value="kill"> Kill</label><label><input type="radio" name="r-B" value="merge"> Merge into</label><label><input type="radio" name="r-B" value="push"> Push further</label><select aria-label="Merge B into" data-into="B"><option value="">letter</option><option>A</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select><input type="text" class="note" data-note="B" placeholder="Note (optional)" aria-label="Note on B"></fieldset></article><article class="concept" id="c-C" data-letter="C"><header class="ch"><span class="letter">C</span><div><h2>Flight Recorder</h2><p class="meta">tooling first lens · axis: trust from the past: the mission is its event log; every incident can become a test</p></div></header><p class="wow"><strong>Wow moment.</strong> Pull the plug on a runner mid-slice; the page tells what followed in sentences, and one press turns it into a test that makes the same decisions on a fake fleet.</p><details class="arch"><summary>How it works</summary><p>An append-only <code>mission_events</code> log; the supervisor is a pure <code>reduce(events, snapshot)</code> in kit/lib/mission, run as an App ledger kind. Dispatch and the runner job written in one transaction under <code>mission:&lt;id&gt;:step:&lt;n&gt;:attempt:&lt;k&gt;</code>; storage refuses an older epoch. A checkpoint ref pushed before cleanup. Retro triggered by queries on the log; at most 2 verified repairs. Migration: today's drive ticks feed the log first.</p></details><div class="cardwrap"><section class="sb-c" aria-label="Storyboard: Flight Recorder">
+<style>
+.sb-c{--ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;--ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;--badge:#ff3ea5;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;
+  --read:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  background:var(--ground);color:var(--ink);font:16px/1.6 var(--read);padding:28px 16px;box-sizing:border-box}
+.sb-c *{box-sizing:border-box}
+.sb-c ::selection{background:var(--plasma);color:var(--on-plasma)}
+.sb-c .cap{max-width:1180px;margin:0 auto 22px}
+.sb-c .cap h2{font-size:1.6rem;line-height:1.2;margin:0 0 6px;font-weight:700}
+.sb-c .cap p{margin:0;color:var(--muted);max-width:72ch}
+.sb-c .cap b{color:var(--ink);font-weight:600}
+.sb-c .grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;align-items:start}
+@media (max-width:900px){.sb-c .grid{grid-template-columns:1fr}}
+.sb-c .panel h3{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+.sb-c .arch{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:14px}
+.sb-c .arch svg{display:block;width:100%;height:auto}
+.sb-c .arch figcaption{color:var(--muted);font-size:.9rem;margin-top:10px;line-height:1.5}
+.sb-c .notes{margin:14px 0 0;padding:0;list-style:none;color:var(--muted);font-size:.92rem}
+.sb-c .notes li{padding:6px 0;border-top:1px solid var(--line)}
+.sb-c .notes b{color:var(--ink);font-weight:600}
+/* the key screen */
+.sb-c [data-screen]{background:var(--ground);border:1px solid var(--line-strong);border-radius:10px;overflow:hidden}
+.sb-c .bar{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);font-size:.9rem;color:var(--muted)}
+.sb-c .bar .mark{font-family:var(--mono);font-weight:700;color:var(--plasma);letter-spacing:.08em;font-size:.8rem}
+.sb-c .bar nav{display:flex;gap:14px}
+.sb-c .bar nav span[aria-current]{color:var(--ink);text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--plasma)}
+.sb-c .body{padding:22px 22px 18px}
+.sb-c .crumb{color:var(--muted);font-size:.88rem;margin:0 0 4px}
+.sb-c .body h1{font-size:1.45rem;line-height:1.25;margin:0 0 8px;font-weight:700}
+.sb-c .state{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin:0 0 16px;font-size:.9rem;color:var(--muted)}
+.sb-c .chip{border:1px solid var(--line-strong);border-radius:999px;padding:1px 10px;color:var(--ink);font-size:.85rem}
+.sb-c .chip.ok{border-color:var(--green);color:var(--green)}
+.sb-c .lead{margin:0 0 16px;max-width:66ch}
+.sb-c .lead em{font-style:normal;color:var(--green)}
+.sb-c .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 20px}
+.sb-c button{font:inherit;font-size:.95rem;border-radius:8px;padding:8px 16px;cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+.sb-c button[data-primary]{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma);font-weight:700}
+.sb-c button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.sb-c .actions small{color:var(--muted);font-size:.85rem}
+.sb-c .log{border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.sb-c .log header{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:.88rem;color:var(--muted)}
+.sb-c .log ol{list-style:none;margin:0;padding:4px 0}
+.sb-c .log li{display:grid;grid-template-columns:3.2em 4.6em 1fr;gap:10px;padding:6px 14px;font-size:.9rem;align-items:baseline}
+.sb-c .log li.inc{background:var(--plasma-soft)}
+.sb-c .seq,.sb-c .t{font-family:var(--mono);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.sb-c .ev b{font-weight:600}
+.sb-c .ev .k{font-family:var(--mono);font-size:.78rem;padding:0 6px;border-radius:4px;border:1px solid var(--line-strong);margin-right:6px;color:var(--muted)}
+.sb-c .ev .k.red{color:var(--red);border-color:var(--red)}
+.sb-c .ev .k.grn{color:var(--green);border-color:var(--green)}
+.sb-c .ev .k.cy{color:var(--cyan);border-color:var(--cyan)}
+.sb-c .ev .why{display:block;color:var(--muted);font-size:.85rem}
+.sb-c .log footer{padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+.sb-c .cap2{max-width:1180px;margin:18px auto 0;color:var(--muted);font-size:.9rem}
+</style>
+
+<div class="cap">
+  <h2>Flight Recorder</h2>
+  <p><b>Trust from the past.</b> The mission is an append-only event log, and the supervisor is a pure function of it. Any tick that ran in production replays offline on a fake fleet and makes the same decision, so every incident can become a test.</p>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h3>Target architecture</h3>
+    <figure class="arch" style="margin:0">
+      <svg viewBox="0 0 520 470" role="img" aria-labelledby="c-fr-t">
+        <title id="c-fr-t">The mission log at the centre: the App supervisor writes decisions to it, runners write fenced events to it, and the replay harness reads it.</title>
+        <defs>
+          <marker id="c-fr-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a90d6"/></marker>
+          <marker id="c-fr-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff6b86"/></marker>
+        </defs>
+        <g font-family="system-ui,sans-serif" font-size="12" fill="#f2f4ff">
+          <!-- wakes -->
+          <rect x="10" y="14" width="150" height="58" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="22" y="36" font-weight="700">Wakes</text>
+          <text x="22" y="54" fill="#8a90d6" font-size="11">cron 1 min · job end · webhook</text>
+          <!-- supervisor -->
+          <rect x="190" y="10" width="320" height="104" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="204" y="32" font-weight="700">Supervisor · App ledger kind "mission"</text>
+          <rect x="204" y="44" width="140" height="56" rx="6" fill="#2a2350" stroke="#ffd84a"/>
+          <text x="214" y="64" font-weight="700" fill="#ffd84a">reduce()</text>
+          <text x="214" y="82" fill="#f2f4ff" font-size="11">pure · kit/lib/mission</text>
+          <text x="214" y="95" fill="#8a90d6" font-size="10.5">decideNext · planLoop</text>
+          <text x="356" y="62" fill="#8a90d6" font-size="11">lease 300 s → reconcile</text>
+          <text x="356" y="78" fill="#8a90d6" font-size="11">re-read state, not payload</text>
+          <text x="356" y="94" fill="#8a90d6" font-size="11">≤ 1 dispatch · later(due)</text>
+          <line x1="160" y1="43" x2="188" y2="43" stroke="#8a90d6" marker-end="url(#c-fr-a)"/>
+          <!-- log -->
+          <rect x="120" y="160" width="280" height="132" rx="8" fill="#0e0d33" stroke="#ffd84a" stroke-width="1.5"/>
+          <text x="134" y="182" font-weight="700" fill="#ffd84a">mission_events (append-only)</text>
+          <g font-family="ui-monospace,Menlo,monospace" font-size="10.5" fill="#8a90d6">
+            <text x="134" y="202">41 dispatch  step 7 · epoch 3</text>
+            <text x="134" y="218">42 heartbeat box-1 · ckpt a91f</text>
+            <text x="134" y="234" fill="#ff6b86">43 lease_expired box-1</text>
+            <text x="134" y="250" fill="#ff6b86">44 fenced  write epoch 3 refused</text>
+            <text x="134" y="266" fill="#4ee08a">45 dispatch  step 7 · epoch 4</text>
+            <text x="134" y="282">provenance only · no transcript</text>
+          </g>
+          <line x1="280" y1="114" x2="280" y2="158" stroke="#8a90d6" marker-end="url(#c-fr-a)"/>
+          <text x="288" y="140" fill="#8a90d6" font-size="11">decision + runner job, one transaction</text>
+          <!-- runners -->
+          <rect x="10" y="340" width="230" height="118" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="22" y="362" font-weight="700">Runner fleet</text>
+          <text x="22" y="380" fill="#8a90d6" font-size="11">claim key mission:m4:step:7:attempt:4</text>
+          <text x="22" y="396" fill="#8a90d6" font-size="11">every write carries the epoch</text>
+          <text x="22" y="412" fill="#8a90d6" font-size="11">checkpoint before cleanup:</text>
+          <text x="22" y="428" fill="#8a90d6" font-size="11">push checkpoint/m4/7 (portable)</text>
+          <text x="22" y="444" fill="#8a90d6" font-size="11">or bundle on box (local-only)</text>
+          <line x1="150" y1="338" x2="190" y2="294" stroke="#ff6b86" marker-end="url(#c-fr-r)"/>
+          <text x="40" y="318" fill="#ff6b86" font-size="11">stale epoch → 55000</text>
+          <!-- harness -->
+          <rect x="280" y="340" width="230" height="118" rx="8" fill="#120f3a" stroke="#6ff0ff"/>
+          <text x="292" y="362" font-weight="700" fill="#6ff0ff">Replay harness (vitest)</text>
+          <text x="292" y="380" fill="#8a90d6" font-size="11">FakeFleet · seeded clock</text>
+          <text x="292" y="396" fill="#8a90d6" font-size="11">fake providers with quotas</text>
+          <text x="292" y="412" fill="#8a90d6" font-size="11">chaos: kill box-2 at t+40</text>
+          <text x="292" y="428" fill="#8a90d6" font-size="11">expire lease · exhaust claude</text>
+          <text x="292" y="444" fill="#8a90d6" font-size="11">no model call, ever</text>
+          <line x1="360" y1="294" x2="390" y2="338" stroke="#6ff0ff" marker-end="url(#c-fr-a)"/>
+          <text x="400" y="320" fill="#6ff0ff" font-size="11">same log → same decisions</text>
+          <!-- retro -->
+          <rect x="420" y="170" width="94" height="112" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="430" y="190" font-weight="700">Retro</text>
+          <text x="430" y="208" fill="#8a90d6" font-size="10.5">log queries:</text>
+          <text x="430" y="223" fill="#8a90d6" font-size="10.5">2 fails · 3 idle</text>
+          <text x="430" y="238" fill="#8a90d6" font-size="10.5">ticks · milestone</text>
+          <text x="430" y="256" fill="#8a90d6" font-size="10.5">≤ 2 repairs,</text>
+          <text x="430" y="271" fill="#8a90d6" font-size="10.5">then blocked</text>
+          <line x1="400" y1="226" x2="418" y2="226" stroke="#8a90d6" marker-end="url(#c-fr-a)"/>
+        </g>
+      </svg>
+      <figcaption>The log is the only thing every part agrees on. The supervisor writes decisions to it, runners write fenced events to it, and the harness replays it.</figcaption>
+    </figure>
+    <ul class="notes">
+      <li><b>Idempotent dispatch:</b> a unique key per step and attempt. A repeated tick hits the constraint and does nothing.</li>
+      <li><b>Capacity:</b> claim and release are events on a fleet ledger of units; one job may hold 2.</li>
+      <li><b>Migration:</b> today's <code>/omni:drive</code> ticks feed the log first; the App supervisor takes over the same log later.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>The key screen · a mission's page</h3>
+    <div data-screen="mission-log">
+      <div class="bar"><span class="mark">OMNI</span><nav><span>Dashboard</span><span aria-current="page">Missions</span><span>Runners</span><span>Waiting</span></nav></div>
+      <div class="body">
+        <p class="crumb">Missions › Roadmap R4 · Runner fleet hardening</p>
+        <h1>Mission R4 is running again</h1>
+        <p class="state"><span class="chip ok">Running</span><span>s3 · attempt 4 · box-2</span><span>3 of 8 units held</span></p>
+        <p class="lead">box-1 went silent. s3 resumed on box-2.</p>
+        <p class="lead"><em>Nothing lost: 4 minutes redone.</em></p>
+        <div class="actions">
+          <button type="button" data-primary>Save as a test</button>
+          <button type="button">Pause mission</button>
+        </div>
+        <section class="log" aria-label="Mission events">
+          <header><span>Events 39 to 47 of 47</span><span>Replayed offline: same decisions</span></header>
+          <ol>
+            <li><span class="seq">39</span><span class="t">13:41</span><span class="ev"><span class="k">dispatch</span><b>s3 sent to box-1</b><span class="why">epoch 3 · 2 units</span></span></li>
+            <li><span class="seq">40</span><span class="t">13:58</span><span class="ev"><span class="k cy">checkpoint</span><b>Pushed checkpoint/r4/s3</b><span class="why">portable · commit a91f20c</span></span></li>
+            <li class="inc"><span class="seq">41</span><span class="t">14:03</span><span class="ev"><span class="k red">lost</span><b>box-1 silent for 90 s</b><span class="why">its lease expires at 14:07</span></span></li>
+            <li class="inc"><span class="seq">42</span><span class="t">14:07</span><span class="ev"><span class="k red">fenced</span><b>A write from box-1 was refused</b><span class="why">epoch 3; mission at epoch 4</span></span></li>
+            <li class="inc"><span class="seq">43</span><span class="t">14:07</span><span class="ev"><span class="k grn">dispatch</span><b>s3 sent to box-2 from a91f20c</b><span class="why">epoch 4 · sent once</span></span></li>
+            <li><span class="seq">44</span><span class="t">14:08</span><span class="ev"><span class="k">capacity</span><b>2 units moved from box-1 to box-2</b><span class="why">box-1 holds none until it registers again</span></span></li>
+            <li><span class="seq">47</span><span class="t">14:12</span><span class="ev"><span class="k">wake</span><b>Next look at 14:17</b><span class="why">waiting on s3's checks</span></span></li>
+          </ol>
+          <footer>No transcript. No credential.</footer>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="cap2">Outside the screen: box-1 went silent at 14:02 while building s3; its lease ran out, its late write was refused (epoch 3 against the mission's epoch 4), and s3 restarted on box-2 from the checkpoint pushed at 13:58, sent once under the key r4:s3:4. Save as a test replays these events on a fake fleet and calls no model. Events name jobs, runners and commits, never a transcript or a credential.</p>
+<p class="cap2">The wow: a runner is unplugged mid-slice, the page tells the story in sentences, and one press turns the story into a test the CI runs from then on.</p>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>4</td><td>4</td><td>4</td><td>5</td><td class="st">Keep Save as a test whatever we crown.</td></tr><tr><th scope="row">Craft</th><td>4</td><td>3</td><td>3</td><td>3</td><td class="st">A strong back end shown on the wrong screen.</td></tr><tr><th scope="row">Skeptic</th><td>4</td><td>4</td><td>5</td><td>4</td><td class="st">Adopt its harness whichever concept wins; hash each tick&#x27;s snapshot.</td></tr><tr><th scope="row">Value</th><td>4</td><td>3</td><td>5</td><td>4</td><td class="st">The floor under whichever concept wins.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>3</td><td>3</td><td>4</td><td>3</td><td class="st">Right engine, wrong front for me.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>3</td><td>4</td><td>5</td><td>4</td><td class="st">The floor, not the face.</td></tr><tr><th scope="row">persona:Irisa</th><td>3</td><td>2</td><td>4</td><td>3</td><td class="st">Useful floor, unreadable face.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>4</td><td>4</td><td>5</td><td>4</td><td class="st">The floor under any winner; I&#x27;d trust a red test, not a page.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>3</td><td>3</td><td>5</td><td>4</td><td class="st">The right place to keep proof, but nothing goes in it yet.</td></tr><tr class="avg"><th scope="row">Mean</th><td>3.6</td><td>3.3</td><td>4.4</td><td>3.8</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> Everyone wants it underneath the winner: pure reducer, replay, fake fleet with chaos, Save as a test in the Terminal.</p><p><strong>Dissent.</strong> Nobody wants it as the face: the log&#x27;s words (epoch, fenced, lease) are not a PM&#x27;s words.</p></div><blockquote class="voice"><p>Epoch 3 fenced, lease expires, units moved: exactly the words I don&#x27;t master, on the page I open to see my quick win.</p><cite>persona:Irisa</cite></blockquote><fieldset class="react"><legend>Your reaction to C</legend><label><input type="radio" name="r-C" value="keep"> Keep</label><label><input type="radio" name="r-C" value="kill"> Kill</label><label><input type="radio" name="r-C" value="merge"> Merge into</label><label><input type="radio" name="r-C" value="push"> Push further</label><select aria-label="Merge C into" data-into="C"><option value="">letter</option><option>A</option><option>B</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select><input type="text" class="note" data-note="C" placeholder="Note (optional)" aria-label="Note on C"></fieldset></article><article class="concept" id="c-D" data-letter="D"><header class="ch"><span class="letter">D</span><div><h2>Dress Rehearsal</h2><p class="meta">tooling first lens · axis: trust from the future: the simulator ships in the product; drift from the rehearsal starts a retro</p></div></header><p class="wow"><strong>Wow moment.</strong> Before you press Start, Omni runs the whole roadmap on a copy of your fleet, with a runner lost and the quota gone, and shows where it will wait and ask you.</p><details class="arch"><summary>How it works</summary><p>One supervisor behind a <code>Fleet</code> port with <code>SimFleet</code> (a fleet model from 14 days of jobs, seeded clock, chaos) and <code>RealFleet</code>. Unique dispatch keys, rising epochs, a fleet-wide <code>capacity_units</code> ledger beside the prediction. A repair is a changed policy rehearsed again first, at most 2 per finding. Migration: <code>omni mission rehearse --roadmap &lt;n&gt;</code> runs read-only on the laptop first.</p></details><div class="cardwrap"><section class="sb2" aria-label="Storyboard: Dress Rehearsal">
+<style>
+.sb2{--ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;--ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;--badge:#ff3ea5;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;
+  --read:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  background:var(--ground);color:var(--ink);font:16px/1.6 var(--read);padding:28px 16px;box-sizing:border-box}
+.sb2 *{box-sizing:border-box}
+.sb2 ::selection{background:var(--plasma);color:var(--on-plasma)}
+.sb2 .cap{max-width:1180px;margin:0 auto 22px}
+.sb2 .cap h2{font-size:1.6rem;line-height:1.2;margin:0 0 6px;font-weight:700}
+.sb2 .cap p{margin:0;color:var(--muted);max-width:72ch}
+.sb2 .cap b{color:var(--ink);font-weight:600}
+.sb2 .grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;align-items:start}
+@media (max-width:900px){.sb2 .grid{grid-template-columns:1fr}}
+.sb2 .panel h3{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+.sb2 .arch{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:14px;margin:0}
+.sb2 .arch svg{display:block;width:100%;height:auto}
+.sb2 .arch figcaption{color:var(--muted);font-size:.9rem;margin-top:10px;line-height:1.5}
+.sb2 .notes{margin:14px 0 0;padding:0;list-style:none;color:var(--muted);font-size:.92rem}
+.sb2 .notes li{padding:6px 0;border-top:1px solid var(--line)}
+.sb2 .notes b{color:var(--ink);font-weight:600}
+.sb2 [data-screen]{background:var(--ground);border:1px solid var(--line-strong);border-radius:10px;overflow:hidden}
+.sb2 .bar{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);font-size:.9rem;color:var(--muted)}
+.sb2 .bar .mark{font-family:var(--mono);font-weight:700;color:var(--plasma);letter-spacing:.08em;font-size:.8rem}
+.sb2 .bar nav{display:flex;gap:14px}
+.sb2 .bar nav span[aria-current]{color:var(--ink);text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--plasma)}
+.sb2 .body{padding:22px 22px 18px}
+.sb2 .crumb{color:var(--muted);font-size:.88rem;margin:0 0 4px}
+.sb2 .body h1{font-size:1.45rem;line-height:1.25;margin:0 0 8px;font-weight:700}
+.sb2 .lead{margin:0 0 14px;max-width:66ch}
+.sb2 .chaos{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;padding:0;list-style:none;font-size:.85rem}
+.sb2 .chaos li{border:1px solid var(--line-strong);border-radius:999px;padding:1px 10px;color:var(--ink)}
+.sb2 .chaos li.on{border-color:var(--red);color:var(--red)}
+.sb2 .chart{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:12px 14px 8px;margin:0 0 16px}
+.sb2 .chart header{display:flex;justify-content:space-between;gap:12px;font-size:.88rem;color:var(--muted);margin-bottom:6px}
+.sb2 .chart svg{display:block;width:100%;height:auto}
+.sb2 .stops{margin:0 0 18px}
+.sb2 .stops h2{font-size:1.02rem;margin:0 0 6px;font-weight:700}
+.sb2 .stops ol{margin:0;padding-left:1.2em}
+.sb2 .stops li{margin:0 0 6px;max-width:66ch}
+.sb2 .stops li .t{margin:0}
+.sb2 .stops li span{display:block;color:var(--muted);font-size:.88rem}
+.sb2 .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sb2 button{font:inherit;font-size:.95rem;border-radius:8px;padding:8px 16px;cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+.sb2 button[data-primary]{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma);font-weight:700}
+.sb2 button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.sb2 .actions small{color:var(--muted);font-size:.85rem;flex-basis:100%}
+.sb2 .cap2{max-width:1180px;margin:18px auto 0;color:var(--muted);font-size:.9rem}
+</style>
+
+<div class="cap">
+  <h2>Dress Rehearsal</h2>
+  <p><b>Trust from the future.</b> The fake fleet ships in the product. Before a mission starts, and after every change of plan, the supervisor runs the whole roadmap on a model of your fleet with chaos turned on. The live run is then held to its rehearsal, and drifting from it starts a retro.</p>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h3>Target architecture</h3>
+    <figure class="arch">
+      <svg viewBox="0 0 520 470" role="img" aria-labelledby="d-dr-t">
+        <title id="d-dr-t">One supervisor behind a Fleet port with two adapters: SimFleet for the rehearsal and RealFleet for the run. A drift check compares them and feeds the retro.</title>
+        <defs>
+          <marker id="d-dr-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a90d6"/></marker>
+        </defs>
+        <g font-family="system-ui,sans-serif" font-size="12" fill="#f2f4ff">
+          <!-- mission -->
+          <rect x="10" y="10" width="500" height="58" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="24" y="32" font-weight="700">Mission · pinned approved roadmap + its rehearsal</text>
+          <text x="24" y="52" fill="#8a90d6" font-size="11">a changed roadmap voids both · start · pause · resume · inspect</text>
+          <!-- supervisor -->
+          <rect x="140" y="100" width="240" height="84" rx="8" fill="#2a2350" stroke="#ffd84a" stroke-width="1.5"/>
+          <text x="156" y="122" font-weight="700" fill="#ffd84a">Supervisor (one code path)</text>
+          <text x="156" y="140" fill="#f2f4ff" font-size="11">lease → reconcile → plan → ≤ 1 dispatch</text>
+          <text x="156" y="156" fill="#8a90d6" font-size="11">App ledger kind "mission" · later(due)</text>
+          <text x="156" y="172" fill="#8a90d6" font-size="11">talks only to the Fleet port</text>
+          <line x1="260" y1="68" x2="260" y2="98" stroke="#8a90d6" marker-end="url(#d-dr-a)"/>
+          <!-- port -->
+          <rect x="140" y="210" width="240" height="30" rx="6" fill="#0e0d33" stroke="#5a60c4"/>
+          <text x="208" y="230" font-weight="700">Fleet port</text>
+          <line x1="260" y1="184" x2="260" y2="208" stroke="#8a90d6" marker-end="url(#d-dr-a)"/>
+          <!-- sim -->
+          <rect x="10" y="272" width="240" height="142" rx="8" fill="#120f3a" stroke="#6ff0ff"/>
+          <text x="22" y="294" font-weight="700" fill="#6ff0ff">SimFleet (rehearsal)</text>
+          <text x="22" y="312" fill="#8a90d6" font-size="11">fleet model from 14 days of jobs:</text>
+          <text x="22" y="328" fill="#8a90d6" font-size="11">runners, slots, unit cost per skill,</text>
+          <text x="22" y="344" fill="#8a90d6" font-size="11">provider quotas · seeded clock</text>
+          <text x="22" y="364" fill="#ff6b86" font-size="11">chaos: runner lost · lease expired</text>
+          <text x="22" y="380" fill="#ff6b86" font-size="11">provider exhausted · CI red twice</text>
+          <text x="22" y="400" fill="#8a90d6" font-size="11">same harness the CI runs; no model</text>
+          <line x1="200" y1="240" x2="150" y2="270" stroke="#8a90d6" marker-end="url(#d-dr-a)"/>
+          <!-- real -->
+          <rect x="270" y="272" width="240" height="142" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+          <text x="282" y="294" font-weight="700">RealFleet (the run)</text>
+          <text x="282" y="312" fill="#8a90d6" font-size="11">runner_jobs + mission_dispatches</text>
+          <text x="282" y="328" fill="#8a90d6" font-size="11">unique step key, one transaction</text>
+          <text x="282" y="344" fill="#8a90d6" font-size="11">lease token with a rising epoch;</text>
+          <text x="282" y="360" fill="#8a90d6" font-size="11">stale epoch refused by storage</text>
+          <text x="282" y="376" fill="#8a90d6" font-size="11">checkpoint: portable or local-only</text>
+          <text x="282" y="396" fill="#8a90d6" font-size="11">capacity_units ledger, fleet-wide</text>
+          <line x1="320" y1="240" x2="370" y2="270" stroke="#8a90d6" marker-end="url(#d-dr-a)"/>
+          <!-- drift -->
+          <rect x="120" y="432" width="280" height="30" rx="6" fill="#0e0d33" stroke="#ff3ea5"/>
+          <text x="134" y="452" fill="#ff3ea5" font-weight="700" font-size="11.5">drift check: run vs rehearsal → retro</text>
+          <line x1="130" y1="414" x2="160" y2="430" stroke="#8a90d6" marker-end="url(#d-dr-a)"/>
+          <line x1="390" y1="414" x2="360" y2="430" stroke="#8a90d6" marker-end="url(#d-dr-a)"/>
+        </g>
+      </svg>
+      <figcaption>The supervisor cannot tell a rehearsal from a run: only the adapter behind the Fleet port changes. What the rehearsal predicts is what the run is checked against.</figcaption>
+    </figure>
+    <ul class="notes">
+      <li><b>Bounded repair:</b> a repair is a changed policy, re-rehearsed on the sim before it runs; at most 2 per finding, then the mission stops and explains.</li>
+      <li><b>Capacity:</b> units held per runner, per provider and per mission, the same numbers the rehearsal drew.</li>
+      <li><b>Migration:</b> <code>omni mission rehearse --roadmap &lt;n&gt;</code> runs on the laptop first, read-only; the App supervisor comes after.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>The key screen · starting a mission</h3>
+    <div data-screen="mission-rehearsal">
+      <div class="bar"><span class="mark">OMNI</span><nav><span>Dashboard</span><span aria-current="page">Roadmaps</span><span>Runners</span><span>Waiting</span></nav></div>
+      <div class="body">
+        <p class="crumb">Roadmaps › R4 · approved 11 Nov</p>
+        <h1>R4 rehearsed: about 2 days</h1>
+        <p class="lead">Rehearsed on a copy of your fleet.</p>
+        <p class="lead">Needs you twice. Peaks at 6 units.</p>
+        <ul class="chaos" aria-label="Trouble in this rehearsal">
+          <li class="on">box-2 lost at hour 5</li>
+          <li class="on">Claude quota gone at hour 3</li>
+          <li>Lease expired once</li>
+          <li>CI red twice on 2812</li>
+        </ul>
+        <section class="chart" aria-label="Units held over time">
+          <header><span>Units held, rehearsed</span><span>Limit 8</span></header>
+          <svg viewBox="0 0 480 140" role="img" aria-labelledby="d-dr-c">
+            <title id="d-dr-c">Units held over 46 hours</title>
+            <g font-family="system-ui,sans-serif" font-size="10.5" fill="#8a90d6">
+              <line x1="30" y1="20" x2="470" y2="20" stroke="#5a60c4" stroke-dasharray="4 4"/>
+              <text x="2" y="24">8</text><text x="2" y="114">0</text>
+              <line x1="30" y1="110" x2="470" y2="110" stroke="#1a2170"/>
+              <rect x="66" y="20" width="18" height="90" fill="#2a2350"/>
+              <text x="58" y="132">quota out</text>
+              <line x1="102" y1="20" x2="102" y2="110" stroke="#ff6b86" stroke-dasharray="3 3"/>
+              <text x="108" y="34" fill="#ff6b86">box-2 lost</text>
+              <polyline fill="none" stroke="#ffd84a" stroke-width="2" points="30,110 40,76 52,43 66,43 66,110 84,110 84,65 102,43 102,76 140,65 200,54 260,65 320,43 360,76 400,88 440,99 460,110"/>
+              <text x="30" y="132">0 h</text><text x="230" y="132">24 h</text><text x="440" y="132">46 h</text>
+            </g>
+          </svg>
+        </section>
+        <section class="stops">
+          <h2>Where it will stop and ask you</h2>
+          <ol>
+            <li><p class="t">PRD 2812 outbox · hour 18</p><span>The mission waits; it never guesses.</span></li>
+            <li><p class="t">PRD 2815 ready for review · hour 44</p><span>Ready is not merged. You merge.</span></li>
+          </ol>
+        </section>
+        <div class="actions">
+          <button type="button" data-primary>Start mission</button>
+          <button type="button">Rehearse again</button>
+          <small>No model called.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="cap2">Outside the screen: the rehearsal ran R4's 5 PRDs on a copy of the 3 runners with trouble turned on; the run needs a person twice (a medium decision on the fleet cap in PRD 2812's outbox, and PRD 2815 ready for review, which is not merged) and never holds more than 6 of 8 units. The chart: units climb to 6, drop to 0 while the quota is out, dip when box-2 is lost, end near hour 46. If the run drifts from the rehearsal by more than one step, the mission pauses and says why.</p>
+<p class="cap2">The wow: before pressing Start, the person sees the mission survive a lost runner and an empty quota on a copy of their own fleet, and then watches the real run keep to it.</p>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>4</td><td>3</td><td>4</td><td>4</td><td class="st">Now the Start step: one ETA line, no chart.</td></tr><tr><th scope="row">Craft</th><td>4</td><td>3</td><td>3</td><td>3</td><td class="st">A test harness, not a key screen.</td></tr><tr><th scope="row">Skeptic</th><td>5</td><td>2</td><td>4</td><td>3</td><td class="st">A test harness dressed as a product; the forecast is noise at our volume.</td></tr><tr><th scope="row">Value</th><td>5</td><td>3</td><td>4</td><td>3</td><td class="st">A good sales demo; valuable only as the Start step.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>5</td><td>4</td><td>3</td><td>3</td><td class="st">I want it as the Start step, not the whole mission.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>4</td><td>2</td><td>4</td><td>3</td><td class="st">A manager demo, not my tool.</td></tr><tr><th scope="row">persona:Irisa</th><td>4</td><td>3</td><td>3</td><td>2</td><td class="st">Keep the ETA line, drop the chart.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>3</td><td>2</td><td>3</td><td>2</td><td class="st">Fluff on a good harness.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>3</td><td>1</td><td>3</td><td>2</td><td class="st">It plans when my queue fills, not what lands in it.</td></tr><tr class="avg"><th scope="row">Mean</th><td>4.1</td><td>2.6</td><td>3.4</td><td>2.8</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> Keep its SimFleet as the chaos test harness and, at most, one ETA line at Start; drop the forecast chart and the drift trigger.</p><p><strong>Dissent.</strong> Paul still scores its Wow 5: it is the only card that lets him start the next roadmap from his phone.</p></div><blockquote class="voice"><p>It turns ready for review into a date on a chart and treats a missed date as a reason to repair: that rewards marking work ready on schedule.</p><cite>persona:F-E Developer</cite></blockquote><fieldset class="react"><legend>Your reaction to D</legend><label><input type="radio" name="r-D" value="keep"> Keep</label><label><input type="radio" name="r-D" value="kill"> Kill</label><label><input type="radio" name="r-D" value="merge"> Merge into</label><label><input type="radio" name="r-D" value="push"> Push further</label><select aria-label="Merge D into" data-into="D"><option value="">letter</option><option>A</option><option>B</option><option>C</option><option>E</option><option>F</option><option>G</option><option>H</option></select><input type="text" class="note" data-note="D" placeholder="Note (optional)" aria-label="Note on D"></fieldset></article><article class="concept" id="c-E" data-letter="E"><header class="ch"><span class="letter">E</span><div><h2>Mandate</h2><p class="meta">clean slate lens · axis: where judgment lives: an agent proposes typed actions; plain code validates them against a signed mandate</p></div></header><p class="wow"><strong>Wow moment.</strong> The page lists every move the planner proposed beside the rule that let it through or stopped it; a sixth repair reads refused, the mandate allows five, with one button to allow it once.</p><details class="arch"><summary>How it works</summary><p>A <code>mandate-check</code> ledger kind queues a planning job on a runner that runs <code>omni next --json</code> and returns typed actions (dispatch, wait, retro, repair, block). A pure <code>validate(action, mandate, state)</code> accepts or refuses each with a rule id; accepted actions become runner jobs under a unique key. A generation number fences stale proposals; units held fleet-wide per provider. Caps are rules of the mandate; a move past a cap waits for a person; rule changes only proposed, as outbox items.</p></details><div class="cardwrap"><section class="cs1" aria-label="Mandate, storyboard card">
+<style>
+.cs1{
+  --ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;
+  --ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;
+  --read:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  background:var(--ground);color:var(--ink);font:16px/1.6 var(--read);
+  padding:32px 16px;box-sizing:border-box;max-width:1440px;margin:0 auto;
+}
+.cs1 *{box-sizing:border-box}
+.cs1 ::selection{background:var(--plasma);color:var(--on-plasma)}
+.cs1 .cs-head{max-width:900px;margin:0 0 24px}
+.cs1 .cs-head h2{font-size:28px;line-height:1.2;margin:0 0 8px;font-weight:700;text-wrap:balance}
+.cs1 .cs-head p{margin:0;color:var(--muted)}
+.cs1 .cs-grid{display:grid;grid-template-columns:1fr;gap:24px}
+@media (min-width:1100px){.cs1 .cs-grid{grid-template-columns:minmax(0,5fr) minmax(0,6fr)}}
+.cs1 figure{margin:0;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:16px}
+.cs1 figure svg{display:block;width:100%;height:auto}
+.cs1 figcaption{color:var(--muted);font-size:14px;margin-top:8px}
+.cs1 .cs-cap{max-width:900px;margin-top:24px;color:var(--muted);font-size:15px}
+.cs1 .cs-cap strong{color:var(--ink)}
+/* the screen */
+.cs1 [data-screen]{background:var(--ground);border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+.cs1 .bar{display:flex;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+.cs1 .mark{font:700 12px/1 var(--mono);letter-spacing:.12em;color:var(--plasma)}
+.cs1 .bar nav{display:flex;gap:16px;font-size:14px;color:var(--muted)}
+.cs1 .bar nav b{color:var(--ink);font-weight:600}
+.cs1 .page{padding:32px 24px;max-width:900px}
+.cs1 .crumb{font-size:14px;color:var(--muted);margin:0 0 4px}
+.cs1 h1{font-size:30px;line-height:1.2;margin:0 0 12px;text-wrap:balance}
+.cs1 .lede{margin:0 0 24px;max-width:68ch}
+.cs1 .ask{background:var(--plasma-soft);border:1px solid var(--line-strong);border-radius:8px;padding:16px 20px;margin:0 0 32px}
+.cs1 .ask h2{font-size:18px;margin:0 0 4px}
+.cs1 .ask p{margin:0 0 8px;max-width:68ch}
+.cs1 .rule{font-size:14px;color:var(--muted);margin:0 0 14px}
+.cs1 .rule code{font:13px var(--mono);color:var(--cyan)}
+.cs1 .acts{display:flex;flex-wrap:wrap;gap:12px}
+.cs1 .btn{font:600 15px/1 var(--read);padding:10px 16px;border-radius:6px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);text-decoration:none}
+.cs1 .btn[data-primary]{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma)}
+.cs1 .btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.cs1 h3{font-size:18px;margin:40px 0 4px}
+.cs1 h3:first-of-type{margin-top:0}
+.cs1 .sub{color:var(--muted);font-size:14px;margin:0 0 12px;max-width:68ch}
+.cs1 table{width:100%;border-collapse:collapse;font-size:15px}
+.cs1 th{text-align:left;font-weight:600;font-size:13px;color:var(--muted);padding:6px 10px 6px 0;border-bottom:1px solid var(--line)}
+.cs1 td{padding:9px 10px 9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.cs1 td.t{font:13px/1.7 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cs1 td code{font:13px var(--mono);color:var(--cyan)}
+.cs1 .v-ok{color:var(--green);white-space:nowrap}
+.cs1 .v-no{color:var(--red);white-space:nowrap}
+.cs1 .v-wait{color:var(--plasma);white-space:nowrap}
+.cs1 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border-top:1px solid var(--line);margin:0}
+.cs1 .facts div{padding:10px 0;border-bottom:1px solid var(--line)}
+.cs1 .facts dt{font-size:13px;color:var(--muted)} .cs1 .facts dd{margin:0}
+.cs1 .absent{color:var(--muted);font-size:14px;margin:24px 0 0;max-width:68ch}
+</style>
+
+<header class="cs-head">
+  <h2>Mandate: the agent proposes, the contract decides</h2>
+  <p>Clean slate, concept 1. A planning job on a runner proposes typed moves; plain code checks each one against the mandate a person signed.</p>
+</header>
+
+<div class="cs-grid">
+<figure>
+<svg viewBox="0 0 560 600" role="img" aria-labelledby="e-cs1-svg-t">
+  <title id="e-cs1-svg-t">Mandate architecture: a person signs a mandate when the roadmap is approved; a planning job on a runner proposes typed actions; a pure validator on the App accepts or refuses each against the mandate, citing a rule; accepted actions become keyed runner jobs; refused ones wait for the person.</title>
+  <defs>
+    <marker id="e-cs1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a90d6"/></marker>
+  </defs>
+  <g font-family="Atkinson Hyperlegible Next,system-ui,sans-serif" font-size="12" fill="#f2f4ff">
+    <!-- person + mandate -->
+    <rect x="20" y="16" width="160" height="56" rx="6" fill="#120f3a" stroke="#5a60c4"/>
+    <text x="100" y="38" text-anchor="middle" font-weight="700">a person</text>
+    <text x="100" y="56" text-anchor="middle" fill="#8a90d6" font-size="11">approves the roadmap</text>
+    <path d="M180 44H218" stroke="#8a90d6" marker-end="url(#e-cs1-a)"/>
+    <rect x="220" y="12" width="320" height="64" rx="6" fill="#2a2350" stroke="#ffd84a"/>
+    <text x="380" y="32" text-anchor="middle" font-weight="700">mandate (signed, versioned)</text>
+    <text x="380" y="50" text-anchor="middle" fill="#8a90d6" font-size="11">roadmap pin · skills · units per provider</text>
+    <text x="380" y="66" text-anchor="middle" fill="#8a90d6" font-size="11">repairs 2 / step, 5 / mission · deadline · who to ask</text>
+
+    <!-- app -->
+    <rect x="200" y="100" width="340" height="244" rx="6" fill="none" stroke="#1a2170" stroke-dasharray="4 4"/>
+    <text x="212" y="118" fill="#8a90d6" font-size="11">OMNI APP · JOB LEDGER · mandate-check, one lane</text>
+    <path d="M380 76V128" stroke="#ffd84a" stroke-dasharray="3 3" marker-end="url(#e-cs1-a)"/>
+    <rect x="220" y="130" width="300" height="64" rx="6" fill="#2a2350" stroke="#ffd84a"/>
+    <text x="370" y="152" text-anchor="middle" font-weight="700">validate(action, mandate, state)</text>
+    <text x="370" y="170" text-anchor="middle" fill="#8a90d6" font-size="11">pure · accept or refuse, always with a rule id</text>
+    <text x="370" y="186" text-anchor="middle" fill="#8a90d6" font-size="11">tested on fake planner output, no model call</text>
+
+    <rect x="220" y="214" width="140" height="64" rx="6" fill="#120f3a" stroke="#4ee08a"/>
+    <text x="290" y="234" text-anchor="middle">accepted</text>
+    <text x="290" y="252" text-anchor="middle" fill="#8a90d6" font-size="11">keyed job, once</text>
+    <text x="290" y="268" text-anchor="middle" fill="#8a90d6" font-size="11">units held</text>
+    <rect x="380" y="214" width="140" height="64" rx="6" fill="#120f3a" stroke="#ff6b86"/>
+    <text x="450" y="234" text-anchor="middle">refused</text>
+    <text x="450" y="252" text-anchor="middle" fill="#8a90d6" font-size="11">wait with a due date,</text>
+    <text x="450" y="268" text-anchor="middle" fill="#8a90d6" font-size="11">or held for a person</text>
+    <path d="M330 194V212M410 194V212" stroke="#8a90d6" marker-end="url(#e-cs1-a)"/>
+    <text x="370" y="300" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10.5" fill="#6ff0ff">mandate:42:proposal:17:action:2</text>
+    <text x="370" y="318" text-anchor="middle" fill="#8a90d6" font-size="11">proposal pinned to generation 9;</text>
+    <text x="370" y="334" text-anchor="middle" fill="#8a90d6" font-size="11">an older one is refused by the database</text>
+
+    <!-- planner on runner -->
+    <rect x="20" y="100" width="160" height="164" rx="6" fill="#120f3a" stroke="#5a60c4"/>
+    <text x="100" y="122" text-anchor="middle" font-weight="700">planning job</text>
+    <text x="100" y="138" text-anchor="middle" fill="#8a90d6" font-size="11">on a runner, with a checkout</text>
+    <text x="100" y="160" text-anchor="middle" fill="#8a90d6" font-size="11">reads omni next --json</text>
+    <text x="100" y="176" text-anchor="middle" fill="#8a90d6" font-size="11">and the retro's findings</text>
+    <text x="100" y="200" text-anchor="middle" fill="#8a90d6" font-size="11">returns typed actions:</text>
+    <text x="100" y="218" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10.5" fill="#6ff0ff">dispatch · wait · retro</text>
+    <text x="100" y="234" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10.5" fill="#6ff0ff">repair · block</text>
+    <text x="100" y="252" text-anchor="middle" fill="#8a90d6" font-size="11">proposes, never acts</text>
+    <path d="M180 162H218" stroke="#8a90d6" marker-end="url(#e-cs1-a)"/>
+    <path d="M220 182Q200 300 100 266" stroke="#8a90d6" fill="none" stroke-dasharray="3 3" marker-end="url(#e-cs1-a)"/>
+    <text x="150" y="296" fill="#8a90d6" font-size="11" text-anchor="middle">plan used up → new job</text>
+
+    <!-- fleet -->
+    <path d="M290 278V368" stroke="#8a90d6" marker-end="url(#e-cs1-a)"/>
+    <rect x="20" y="372" width="520" height="70" rx="6" fill="#120f3a" stroke="#5a60c4"/>
+    <text x="280" y="392" text-anchor="middle" font-weight="700">fleet: runners claim as today</text>
+    <text x="280" y="410" text-anchor="middle" fill="#8a90d6" font-size="11">units held fleet-wide per provider account · a wave of 3 slices holds 4</text>
+    <text x="280" y="428" text-anchor="middle" fill="#8a90d6" font-size="11">end report must name a pushed branch or a bundle, or cleanup is not acknowledged</text>
+
+    <!-- bounded repair -->
+    <rect x="20" y="462" width="520" height="122" rx="6" fill="#120f3a" stroke="#ff6b86"/>
+    <text x="280" y="484" text-anchor="middle" font-weight="700">bounded by the mandate, not by the planner's judgment</text>
+    <text x="280" y="506" text-anchor="middle" fill="#8a90d6" font-size="11">retro only on a trigger: failure, repeat, no progress, milestone</text>
+    <text x="280" y="524" text-anchor="middle" fill="#8a90d6" font-size="11">findings checked by a Zod schema, deduped by fingerprint</text>
+    <text x="280" y="542" text-anchor="middle" fill="#8a90d6" font-size="11">a fingerprint seen twice forces block</text>
+    <text x="280" y="560" text-anchor="middle" fill="#8a90d6" font-size="11">beyond the caps: held on the page for a person to allow once</text>
+    <text x="280" y="576" text-anchor="middle" fill="#8a90d6" font-size="11">a rule change is proposed as an outbox item, never written</text>
+  </g>
+</svg>
+<figcaption>Target architecture. The supervisor holds no judgment of its own: it is a validator between an agent that proposes and a fleet that acts.</figcaption>
+</figure>
+
+<div data-screen="mission-mandate">
+  <div class="bar">
+    <span class="mark">OMNI LOOP</span>
+    <nav aria-label="Sections"><span>Dashboard</span><b>Missions</b><span>Runners</span><span>Waiting</span></nav>
+  </div>
+  <div class="page">
+    <p class="crumb">Roadmap R12 · Billing in every region</p>
+    <h1>One move waits for you</h1>
+    <p class="lede">3 PRDs ready for review. 0 merged.</p>
+
+    <div class="ask">
+      <h2>A sixth repair on PRD 2804</h2>
+      <p>Retry the currency check, narrower.</p>
+      <p class="rule">Refused by <code>repairs.perMission</code> · proposal 17, Sunday 16:06</p>
+      <div class="acts">
+        <a class="btn" data-primary href="#allow">Allow one more repair</a>
+        <a class="btn" href="#stop">Stop PRD 2804</a>
+      </div>
+    </div>
+
+    <h3>Moves since you left</h3>
+    <p class="sub">Each move and its rule.</p>
+    <table>
+      <thead><tr><th>When</th><th>Proposed</th><th>Verdict</th><th>Rule</th></tr></thead>
+      <tbody>
+        <tr><td class="t">Sat 02:15</td><td>Restart slice 3 of PRD 2802</td><td class="v-ok">Made</td><td><code>tries.perStep</code> 2 of 3</td></tr>
+        <tr><td class="t">Sat 02:31</td><td>A late report from box-2</td><td class="v-no">Refused</td><td><code>generation</code> 8, now 9</td></tr>
+        <tr><td class="t">Sat 09:02</td><td>Start PRD 2805 with 4 units</td><td class="v-wait">Waits</td><td><code>units.accountA</code> full until 14:00</td></tr>
+        <tr><td class="t">Sun 11:40</td><td>Open PR 2817 for PRD 2803</td><td class="v-ok">Made</td><td><code>skills</code> /omni:yolo</td></tr>
+        <tr><td class="t">Sun 16:05</td><td>Merge PR 2817</td><td class="v-no">Refused</td><td><code>never.merge</code> only a person merges</td></tr>
+        <tr><td class="t">Sun 16:06</td><td>A sixth repair on PRD 2804</td><td class="v-wait">Held for you</td><td><code>repairs.perMission</code> 5 of 5</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The mandate</h3>
+    <dl class="facts">
+      <div><dt>Signed</dt><dd>Phase-0 PR 2790</dd></div>
+      <div><dt>Units</dt><dd>6 of 12 held now</dd></div>
+      <div><dt>Repairs</dt><dd>5 of 5 used</dd></div>
+      <div><dt>Ends</dt><dd>28 November</dd></div>
+    </dl>
+    <p class="absent">No transcript, no credential kept.</p>
+  </div>
+</div>
+</div>
+
+<p class="cs-cap"><strong>Why this direction.</strong> Today's question is "can an agent run the roadmap alone?". The mandate makes it "what may it do alone?", answered once by a person and enforced by ordinary code. The agent stays clever where it helps, planning in a checkout, and has no power of its own: every move passes a pure function with a named rule, so a refusal is always explained and a loop always hits a cap. The cost: one planning job per batch of moves takes a runner slot.</p>
+<p class="cs-cap">Read with the laptop just reopened: since Friday the mission made 14 moves inside its mandate; the one that went past it (a sixth repair, where the mandate allows five for the whole mission) was held, not made. Only a person merges, so "Merge PR 2817" shows up as a refusal. The planner's reasoning stays on its runner; only its typed moves reach the page.</p>
+<p class="cs-cap">On purpose: the Rule column shows rule ids (<code>repairs.perMission</code>) inside the screen. Naming the rule that decided is this concept's direction.</p>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>3</td><td>5</td><td>3</td><td>5</td><td class="st">The backbone of the PM-agent future; it needs a better face.</td></tr><tr><th scope="row">Craft</th><td>4</td><td>4</td><td>3</td><td>4</td><td class="st">The best answer to what may it do alone; rules as sentences, ids behind Inspect.</td></tr><tr><th scope="row">Skeptic</th><td>4</td><td>4</td><td>4</td><td>3</td><td class="st">A pure fence on top of whichever decider wins, not a decider.</td></tr><tr><th scope="row">Value</th><td>4</td><td>5</td><td>4</td><td>4</td><td class="st">The gate that defines ready: CI, tests, evidence, no loosened test.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>4</td><td>5</td><td>3</td><td>4</td><td class="st">The best waiting-on-me of the eight; signing it is my Start button.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>3</td><td>4</td><td>4</td><td>4</td><td class="st">Take its fence, not its planning job.</td></tr><tr><th scope="row">persona:Irisa</th><td>3</td><td>4</td><td>3</td><td>4</td><td class="st">The right unblock button, the wrong words.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>3</td><td>4</td><td>4</td><td>3</td><td class="st">Steal the fence.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>4</td><td>5</td><td>4</td><td>3</td><td class="st">My pick: code decides what counts as ready, not the agent.</td></tr><tr class="avg"><th scope="row">Mean</th><td>3.6</td><td>4.4</td><td>3.6</td><td>3.8</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> Its pure validator is wanted in every winner, and now also defines ready; its planning job on a runner for every move is not.</p><p><strong>Dissent.</strong> F-E Developer picks E outright, over B: what reaches review matters more to him than what survives a crash.</p></div><blockquote class="voice"><p>A planning job on a runner for every decision is one more job to go silent at 3am, and then the mission can&#x27;t even decide to wait.</p><cite>persona:B-E DEv</cite></blockquote><fieldset class="react"><legend>Your reaction to E</legend><label><input type="radio" name="r-E" value="keep"> Keep</label><label><input type="radio" name="r-E" value="kill"> Kill</label><label><input type="radio" name="r-E" value="merge"> Merge into</label><label><input type="radio" name="r-E" value="push"> Push further</label><select aria-label="Merge E into" data-into="E"><option value="">letter</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option><option>G</option><option>H</option></select><input type="text" class="note" data-note="E" placeholder="Note (optional)" aria-label="Note on E"></fieldset></article><article class="concept" id="c-F" data-letter="F"><header class="ch"><span class="letter">F</span><div><h2>Git Baton</h2><p class="meta">clean slate lens · axis: continuity lives in the work: a baton (git ref plus manifest) in the repository; planning runs on the holder</p></div></header><p class="wow"><strong>Wow moment.</strong> A runner died at 3am halfway through a slice; forty seconds later another runner picked up the exact commit it had saved, and the page shows the baton changing hands.</p><details class="arch"><summary>How it works</summary><p>The work lives at <code>refs/omni/missions/&lt;id&gt;/&lt;step&gt;</code>. The baton holder runs <code>omni next --json</code> and writes the next step into the manifest, so planning needs no rewrite. Dispatch keyed by the baton's commit; a stale runner is refused twice, by its older epoch in the database and by <code>--force-with-lease</code> on the ref. Capacity is seats per provider; none free means wait. A repair is a new baton forked from the last good one, at most 2 per step and 5 per mission.</p></details><div class="cardwrap"><section class="cs2" aria-label="Git Baton, storyboard card">
+<style>
+.cs2{
+  --ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;
+  --ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;
+  --read:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  background:var(--ground);color:var(--ink);font:16px/1.6 var(--read);
+  padding:32px 16px;box-sizing:border-box;max-width:1440px;margin:0 auto;
+}
+.cs2 *{box-sizing:border-box}
+.cs2 ::selection{background:var(--plasma);color:var(--on-plasma)}
+.cs2 .cs-head{max-width:900px;margin:0 0 24px}
+.cs2 .cs-head h2{font-size:28px;line-height:1.2;margin:0 0 8px;font-weight:700;text-wrap:balance}
+.cs2 .cs-head p{margin:0;color:var(--muted)}
+.cs2 .cs-grid{display:grid;grid-template-columns:1fr;gap:24px}
+@media (min-width:1100px){.cs2 .cs-grid{grid-template-columns:minmax(0,5fr) minmax(0,6fr)}}
+.cs2 figure{margin:0;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:16px}
+.cs2 figure svg{display:block;width:100%;height:auto}
+.cs2 figcaption{color:var(--muted);font-size:14px;margin-top:8px}
+.cs2 .cs-cap{max-width:900px;margin-top:24px;color:var(--muted);font-size:15px}
+.cs2 .cs-cap strong{color:var(--ink)}
+/* the screen */
+.cs2 [data-screen]{background:var(--ground);border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+.cs2 .bar{display:flex;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+.cs2 .mark{font:700 12px/1 var(--mono);letter-spacing:.12em;color:var(--plasma)}
+.cs2 .bar nav{display:flex;gap:16px;font-size:14px;color:var(--muted)}
+.cs2 .bar nav b{color:var(--ink);font-weight:600}
+.cs2 .page{padding:32px 24px;max-width:900px}
+.cs2 .crumb{font-size:14px;color:var(--muted);margin:0 0 4px}
+.cs2 h1{font-size:30px;line-height:1.2;margin:0 0 12px;text-wrap:balance}
+.cs2 .lede{margin:0 0 20px;max-width:68ch}
+.cs2 .acts{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 32px}
+.cs2 .btn{font:600 15px/1 var(--read);padding:10px 16px;border-radius:6px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);text-decoration:none}
+.cs2 .btn[data-primary]{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma)}
+.cs2 .btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.cs2 h2.s{font-size:18px;margin:36px 0 4px}
+.cs2 h2.s:first-of-type{margin-top:0}
+.cs2 .sub{color:var(--muted);font-size:14px;margin:0 0 14px;max-width:68ch}
+/* the relay */
+.cs2 ol.relay{list-style:none;margin:0;padding:0;position:relative}
+.cs2 ol.relay li{position:relative;padding:0 0 18px 28px}
+.cs2 ol.relay li::before{content:"";position:absolute;left:5px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--sunk);border:2px solid var(--line-strong)}
+.cs2 ol.relay li::after{content:"";position:absolute;left:10px;top:22px;bottom:2px;width:1px;background:var(--line-strong)}
+.cs2 ol.relay li:last-child::after{display:none}
+.cs2 ol.relay li.lost::before{border-color:var(--red)}
+.cs2 ol.relay li.now::before{background:var(--plasma);border-color:var(--plasma)}
+.cs2 .row{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.cs2 .t{font:13px/1.6 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.cs2 .sha{font:13px/1.6 var(--mono);color:var(--cyan)}
+.cs2 .note{display:block;color:var(--muted);font-size:14px}
+.cs2 .tag{font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--muted)}
+.cs2 .tag.port{color:var(--green);border-color:var(--green)}
+.cs2 .tag.red{color:var(--red);border-color:var(--red)}
+.cs2 table{width:100%;border-collapse:collapse;font-size:15px}
+.cs2 th{text-align:left;font-weight:600;font-size:13px;color:var(--muted);padding:6px 8px 6px 0;border-bottom:1px solid var(--line)}
+.cs2 td{padding:8px 8px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.cs2 td.n{font-variant-numeric:tabular-nums}
+.cs2 .absent{color:var(--muted);font-size:14px;margin:24px 0 0;max-width:68ch}
+</style>
+
+<header class="cs-head">
+  <h2>Git Baton: the work carries the mission</h2>
+  <p>Clean slate, concept 2. Continuity lives in a git ref pushed to the repository; jobs are short leases on it.</p>
+</header>
+
+<div class="cs-grid">
+<figure>
+<svg viewBox="0 0 560 600" role="img" aria-labelledby="f-cs2-svg-t">
+  <title id="f-cs2-svg-t">Git Baton architecture: each step's work is a baton ref in the repository with a manifest; a thin relay on the App hands it on, keyed by its commit; a stale runner is refused by the database and by git.</title>
+  <defs>
+    <marker id="f-cs2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a90d6"/></marker>
+  </defs>
+  <g font-family="Atkinson Hyperlegible Next,system-ui,sans-serif" font-size="12" fill="#f2f4ff">
+    <!-- columns -->
+    <text x="20" y="22" fill="#8a90d6" font-size="11">REPOSITORY (GitHub)</text>
+    <text x="210" y="22" fill="#8a90d6" font-size="11">OMNI APP · thin relay</text>
+    <text x="400" y="22" fill="#8a90d6" font-size="11">FLEET</text>
+
+    <!-- repo: baton chain -->
+    <rect x="20" y="32" width="170" height="372" rx="6" fill="none" stroke="#1a2170" stroke-dasharray="4 4"/>
+    <text x="105" y="54" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#8a90d6">refs/omni/missions/42/9</text>
+    <g fill="#120f3a" stroke="#5a60c4">
+      <rect x="40" y="66" width="130" height="50" rx="4"/>
+      <rect x="40" y="156" width="130" height="50" rx="4"/>
+    </g>
+    <rect x="40" y="246" width="130" height="50" rx="4" fill="#2a2350" stroke="#ffd84a"/>
+    <text x="105" y="86" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" fill="#6ff0ff">7c01e4a</text>
+    <text x="105" y="104" text-anchor="middle" fill="#8a90d6" font-size="11">baton.json · box-2</text>
+    <text x="105" y="176" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" fill="#6ff0ff">a41f9c2</text>
+    <text x="105" y="194" text-anchor="middle" fill="#8a90d6" font-size="11">saved 03:09 · box-2</text>
+    <text x="105" y="266" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" fill="#6ff0ff">e90b3d5</text>
+    <text x="105" y="284" text-anchor="middle" fill="#f2f4ff" font-size="11">box-3 holds it now</text>
+    <path d="M105 116V154M105 206V244" stroke="#5a60c4" marker-end="url(#f-cs2-a)"/>
+    <text x="105" y="322" text-anchor="middle" fill="#8a90d6" font-size="11">manifest: step, checks run,</text>
+    <text x="105" y="338" text-anchor="middle" fill="#8a90d6" font-size="11">next line, open question</text>
+    <text x="105" y="362" text-anchor="middle" fill="#8a90d6" font-size="11">never on a branch</text>
+    <text x="105" y="378" text-anchor="middle" fill="#8a90d6" font-size="11">a person reviews</text>
+
+    <!-- relay -->
+    <rect x="210" y="66" width="170" height="92" rx="6" fill="#2a2350" stroke="#ffd84a"/>
+    <text x="295" y="88" text-anchor="middle" font-weight="700">relay tick</text>
+    <text x="295" y="106" text-anchor="middle" fill="#8a90d6" font-size="11">woken: baton dropped,</text>
+    <text x="295" y="122" text-anchor="middle" fill="#8a90d6" font-size="11">lease expired, cron, control</text>
+    <text x="295" y="140" text-anchor="middle" fill="#8a90d6" font-size="11">plans nothing itself</text>
+
+    <rect x="210" y="176" width="170" height="70" rx="6" fill="#120f3a" stroke="#5a60c4"/>
+    <text x="295" y="196" text-anchor="middle">check the manifest</text>
+    <text x="295" y="214" text-anchor="middle" fill="#8a90d6" font-size="11">line on the allow-list,</text>
+    <text x="295" y="230" text-anchor="middle" fill="#8a90d6" font-size="11">roadmap approval pinned</text>
+    <path d="M295 158V174" stroke="#8a90d6" marker-end="url(#f-cs2-a)"/>
+
+    <rect x="210" y="264" width="170" height="70" rx="6" fill="#120f3a" stroke="#5a60c4"/>
+    <text x="295" y="284" text-anchor="middle">hand on, once</text>
+    <text x="295" y="302" text-anchor="middle" fill="#8a90d6" font-size="11">job keyed by the baton's sha</text>
+    <text x="295" y="318" text-anchor="middle" fill="#8a90d6" font-size="11">batons: holder · epoch</text>
+    <path d="M295 246V262" stroke="#8a90d6" marker-end="url(#f-cs2-a)"/>
+    <path d="M170 191H208" stroke="#6ff0ff" stroke-dasharray="3 3" marker-end="url(#f-cs2-a)"/>
+
+    <!-- fleet -->
+    <rect x="400" y="66" width="140" height="70" rx="6" fill="#120f3a" stroke="#ff6b86"/>
+    <text x="470" y="88" text-anchor="middle">box-2, lost 03:12</text>
+    <text x="470" y="106" text-anchor="middle" fill="#8a90d6" font-size="11">back at 03:31: push</text>
+    <text x="470" y="122" text-anchor="middle" fill="#ff6b86" font-size="11">refused twice</text>
+
+    <rect x="400" y="264" width="140" height="70" rx="6" fill="#120f3a" stroke="#4ee08a"/>
+    <text x="470" y="286" text-anchor="middle">box-3</text>
+    <text x="470" y="304" text-anchor="middle" fill="#8a90d6" font-size="11">fetches a41f9c2,</text>
+    <text x="470" y="320" text-anchor="middle" fill="#8a90d6" font-size="11">carries on</text>
+    <path d="M380 299H398" stroke="#8a90d6" marker-end="url(#f-cs2-a)"/>
+    <path d="M400 290Q330 240 172 186" stroke="#4ee08a" fill="none" stroke-dasharray="2 3"/>
+    <path d="M400 316Q290 340 172 280" stroke="#4ee08a" fill="none" marker-end="url(#f-cs2-a)"/>
+    <text x="470" y="356" text-anchor="middle" fill="#8a90d6" font-size="11">push every few minutes</text>
+    <text x="470" y="372" text-anchor="middle" fill="#8a90d6" font-size="11">and before cleanup</text>
+
+    <!-- seats -->
+    <rect x="400" y="160" width="140" height="80" rx="6" fill="#120f3a" stroke="#5a60c4"/>
+    <text x="470" y="180" text-anchor="middle">seats per provider</text>
+    <text x="470" y="198" text-anchor="middle" fill="#8a90d6" font-size="11">a wave of 3 = 4 seats</text>
+    <text x="470" y="214" text-anchor="middle" fill="#8a90d6" font-size="11">none free → wait,</text>
+    <text x="470" y="230" text-anchor="middle" fill="#8a90d6" font-size="11">never fail</text>
+
+    <!-- fencing band -->
+    <rect x="20" y="424" width="520" height="62" rx="6" fill="#120f3a" stroke="#ff6b86"/>
+    <text x="280" y="444" text-anchor="middle" font-weight="700">fenced twice</text>
+    <text x="280" y="462" text-anchor="middle" fill="#8a90d6" font-size="11">the database refuses a report under an older epoch;</text>
+    <text x="280" y="478" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10.5" fill="#6ff0ff">git push --force-with-lease=&lt;ref&gt;:&lt;sha handed out&gt;</text>
+
+    <!-- retro -->
+    <rect x="20" y="504" width="520" height="80" rx="6" fill="#120f3a" stroke="#5a60c4"/>
+    <text x="280" y="524" text-anchor="middle" font-weight="700">retro reads the chain, not a transcript</text>
+    <text x="280" y="542" text-anchor="middle" fill="#8a90d6" font-size="11">diffs, checks, manifests → Zod findings with a fingerprint</text>
+    <text x="280" y="558" text-anchor="middle" fill="#8a90d6" font-size="11">repair = a new baton forked from the last good one, narrower line</text>
+    <text x="280" y="574" text-anchor="middle" fill="#8a90d6" font-size="11">2 forks per step, 5 per mission; a fingerprint seen twice blocks and explains</text>
+  </g>
+</svg>
+<figcaption>Target architecture. Planning runs where the checkout is: the holder writes the next line into the baton; the App only checks it and hands it on.</figcaption>
+</figure>
+
+<div data-screen="mission-relay">
+  <div class="bar">
+    <span class="mark">OMNI LOOP</span>
+    <nav aria-label="Sections"><span>Dashboard</span><b>Missions</b><span>Runners</span><span>Waiting</span></nav>
+  </div>
+  <div class="page">
+    <p class="crumb">Roadmap R12 · Billing in every region</p>
+    <h1>PRD 2802: slice 3 on box-3</h1>
+    <p class="lede">2 PRDs ready for review. 0 merged.</p>
+    <div class="acts">
+      <a class="btn" data-primary href="#review">Review PR 2817</a>
+      <a class="btn" href="#pause">Pause mission</a>
+    </div>
+
+    <h2 class="s">The baton for slice 3</h2>
+    <p class="sub">Saved to the repository as it goes.</p>
+    <ol class="relay">
+      <li><div class="row"><span class="t">02:40</span><span>Box-2 took the baton</span><span class="sha">7c01e4a</span></div><span class="note">Handed out: 4 seats, account A.</span></li>
+      <li><div class="row"><span class="t">03:09</span><span>Box-2 saved its work</span><span class="sha">a41f9c2</span><span class="tag port">portable</span></div><span class="note">2 tests written, 1 passing.</span></li>
+      <li class="lost"><div class="row"><span class="t">03:12</span><span>Box-2 went silent</span><span class="tag red">lost</span></div><span class="note">3 minutes lost. Everything before kept.</span></li>
+      <li><div class="row"><span class="t">03:13</span><span>Box-3 picked up the baton</span><span class="sha">a41f9c2</span></div><span class="note">Resumed from the saved commit.</span></li>
+      <li><div class="row"><span class="t">03:31</span><span>Box-2 came back and tried to push</span><span class="tag">refused</span></div><span class="note">The baton had moved on.</span></li>
+      <li class="now"><div class="row"><span class="t">08:52</span><span>Box-3 saved its work</span><span class="sha">e90b3d5</span><span class="tag port">portable</span></div><span class="note">Slice tests pass. Next: open its PR.</span></li>
+    </ol>
+
+    <h2 class="s">The rest of the roadmap</h2>
+    <table>
+      <thead><tr><th>PRD</th><th>Where it stands</th><th>Repairs</th></tr></thead>
+      <tbody>
+        <tr><td>2801</td><td>Ready for review, PR 2811</td><td class="n">0 of 2</td></tr>
+        <tr><td>2802</td><td>Building, slice 3 of 5</td><td class="n">0 of 2</td></tr>
+        <tr><td>2803</td><td>Ready for review, PR 2817</td><td class="n">1 of 2</td></tr>
+        <tr><td>2804</td><td>Waiting for seats until 14:00</td><td class="n">0 of 2</td></tr>
+        <tr><td>2805</td><td>Not started: it waits on 2802</td><td class="n">—</td></tr>
+      </tbody>
+    </table>
+    <p class="absent">No transcript, no credential kept.</p>
+  </div>
+</div>
+</div>
+
+<p class="cs-cap"><strong>Why this direction.</strong> Today a lost runner loses its worktree; here the worktree is never the only copy. A baton is pushed before any cleanup, so a restart costs minutes, not a slice. The App stays thin and keeps today's checkout-bound planning, run by the holder. The cost: the repository carries mission refs, and a repository that refuses them falls back to an uploaded bundle marked local-only.</p>
+<p class="cs-cap">Read with the laptop just reopened: overnight a runner was lost but its work was not. Whoever holds the baton carries on from its last commit, so only the few minutes since the last save are redone. When box-2 came back, both git (the lease on the ref) and the mission (its older epoch) turned it away. Only a person merges, so the ready PRDs wait on a review.</p>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>4</td><td>4</td><td>5</td><td>4</td><td class="st">Merge it with B: the baton should live in git, swept on merge.</td></tr><tr><th scope="row">Craft</th><td>4</td><td>4</td><td>4</td><td>3</td><td class="st">The natural partner for B: B&#x27;s sentences above F&#x27;s PRD table.</td></tr><tr><th scope="row">Skeptic</th><td>5</td><td>5</td><td>4</td><td>3</td><td class="st">B with stronger fencing; B plus a chore until the refs prove clean and CI-free.</td></tr><tr><th scope="row">Value</th><td>5</td><td>4</td><td>4</td><td>3</td><td class="st">Take its shape (repair as a fresh fork), not refs in customer repositories.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>4</td><td>4</td><td>4</td><td>4</td><td class="st">Good, with the PRD table first.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>4</td><td>4</td><td>4</td><td>3</td><td class="st">Yes, if the refs never touch CI and clean themselves up.</td></tr><tr><th scope="row">persona:Irisa</th><td>4</td><td>4</td><td>4</td><td>4</td><td class="st">Second pick, if the refs stay invisible to me.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>4</td><td>4</td><td>4</td><td>2</td><td class="st">B plus ref clutter in my repos.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>4</td><td>4</td><td>4</td><td>2</td><td class="st">The best repair shape: a fresh fork, only the final diff reaches me.</td></tr><tr class="avg"><th scope="row">Mean</th><td>4.2</td><td>4.1</td><td>4.1</td><td>3.1</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> Its fencing in git and its repair-as-fresh-fork are admired; its frequent refs in customer repositories are the risk. Most read it as B&#x27;s partner, not a rival.</p><p><strong>Dissent.</strong> The Skeptic and Value gave it Wow 5; the B-E DEv and F-E Developer give it Fit 2 over ref clutter and CI noise.</p></div><blockquote class="voice"><p>Frequent pushes to refs/omni/* in every repository turn a rare stale-branch ping into a weekly chore, with CI noise on top.</p><cite>persona:B-E DEv</cite></blockquote><fieldset class="react"><legend>Your reaction to F</legend><label><input type="radio" name="r-F" value="keep"> Keep</label><label><input type="radio" name="r-F" value="kill"> Kill</label><label><input type="radio" name="r-F" value="merge"> Merge into</label><label><input type="radio" name="r-F" value="push"> Push further</label><select aria-label="Merge F into" data-into="F"><option value="">letter</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>G</option><option>H</option></select><input type="text" class="note" data-note="F" placeholder="Note (optional)" aria-label="Note on F"></fieldset></article><article class="concept" id="c-G" data-letter="G"><header class="ch"><span class="letter">G</span><div><h2>Turn Taking</h2><p class="meta">contrarian lens · axis: who supervises: no supervisor service; any free runner takes a short model-free turn</p></div></header><p class="wow"><strong>Wow moment.</strong> We switched the App&#x27;s cron off and the mission kept moving: the runners took turns, and the one that reached for a turn already taken simply stood back.</p><details class="arch"><summary>How it works</summary><p>The runner's 40 s long-poll hands out a due turn (skip-locked, epoch +1); the runner runs <code>omni mission turn</code> in its own checkout, today's drive tick with no Claude session, so <code>omni next</code> needs no move. Each turn sends at most one job under a stable key; older epochs refused. A turn spends no tokens, so it still runs and explains the wait when every account is at its limit. The retro is a deterministic fold over Zod-checked exit notes; repairs capped at 2 per cause, 6 per mission.</p></details><div class="cardwrap"><section class="sb-g" aria-label="Storyboard: Turn Taking">
+<style>
+.sb-g{--ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;--ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--magenta:#ff3ea5;
+  --read:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--pixel:"Press Start 2P",var(--mono);
+  background:var(--ground);color:var(--ink);font:16px/1.6 var(--read);padding:28px 16px;box-sizing:border-box}
+.sb-g *{box-sizing:border-box}
+.sb-g ::selection{background:var(--plasma);color:var(--on-plasma)}
+.sb-g .cap{max-width:1180px;margin:0 auto 22px}
+.sb-g .cap h2{font-size:1.6rem;line-height:1.2;margin:0 0 6px;font-weight:700;text-wrap:balance}
+.sb-g .cap p{margin:0;color:var(--muted);max-width:72ch}
+.sb-g .cap b{color:var(--ink);font-weight:600}
+.sb-g .grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;align-items:start}
+@media (max-width:900px){.sb-g .grid{grid-template-columns:1fr}}
+.sb-g .panel h3{font-size:.95rem;color:var(--muted);margin:0 0 10px;font-weight:600}
+.sb-g .arch{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:14px;margin:0}
+.sb-g .arch svg{display:block;width:100%;height:auto}
+.sb-g .arch figcaption{color:var(--muted);font-size:.9rem;margin-top:10px;line-height:1.5}
+.sb-g .notes{margin:14px 0 0;padding:0;list-style:none;color:var(--muted);font-size:.92rem}
+.sb-g .notes li{padding:6px 0;border-top:1px solid var(--line)}
+.sb-g .notes b{color:var(--ink);font-weight:600}
+.sb-g [data-screen]{background:var(--ground);border:1px solid var(--line-strong);border-radius:10px;overflow:hidden}
+.sb-g .bar{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);font-size:.9rem;color:var(--muted);flex-wrap:wrap}
+.sb-g .bar .mark{font-family:var(--pixel);color:var(--plasma);font-size:.62rem;letter-spacing:.04em}
+.sb-g .bar nav{display:flex;gap:14px;flex-wrap:wrap}
+.sb-g .bar nav span[aria-current]{color:var(--ink);text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--plasma)}
+.sb-g .body{padding:22px 22px 18px}
+.sb-g .crumb{color:var(--muted);font-size:.88rem;margin:0 0 4px}
+.sb-g .body h1{font-size:1.45rem;line-height:1.25;margin:0 0 8px;font-weight:700;text-wrap:balance}
+.sb-g .state{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin:0 0 14px;font-size:.9rem;color:var(--muted)}
+.sb-g .chip{border:1px solid var(--line-strong);border-radius:999px;padding:1px 10px;color:var(--ink);font-size:.85rem}
+.sb-g .chip.ok{border-color:var(--green);color:var(--green)}
+.sb-g .chip.stop{border-color:var(--red);color:var(--red)}
+.sb-g .lead{margin:0 0 16px;max-width:66ch}
+.sb-g .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 20px}
+.sb-g button{font:inherit;font-size:.95rem;border-radius:8px;padding:8px 16px;cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+.sb-g button[data-primary]{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma);font-weight:700}
+.sb-g button:hover{border-color:var(--ink)}
+.sb-g button[data-primary]:hover{filter:brightness(1.06)}
+.sb-g button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.sb-g .body h2{font-size:1.05rem;margin:22px 0 8px;font-weight:700}
+.sb-g ol.log{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.sb-g ol.log li{display:grid;grid-template-columns:4.2rem minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.95rem}
+.sb-g ol.log time,.sb-g ol.log .sha{font-family:var(--mono);font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:2px}
+.sb-g ol.log p{margin:0}
+.sb-g ol.log .by{display:block;color:var(--muted);font-size:.85rem}
+.sb-g ol.log .stood{color:var(--muted)}
+.sb-g code{font-family:var(--mono);font-size:.85em;background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.sb-g .notice{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:.93rem;color:var(--muted)}
+.sb-g .notice b{color:var(--ink)}
+.sb-g .budget{display:flex;gap:18px;flex-wrap:wrap;font-size:.9rem;color:var(--muted);margin:0}
+.sb-g .budget b{color:var(--ink);font-variant-numeric:tabular-nums}
+.sb-g svg text{font-family:var(--read)}
+</style>
+
+<div class="cap">
+  <h2>Turn Taking: no supervisor runs anywhere; the runners take turns</h2>
+  <p><b>Contrarian, concept 1.</b> The brief assumed a supervisor in the App. Here supervision is a
+  short, model-free <b>turn</b> that any online runner with a free slot takes in its own checkout, so
+  today's <code>omni next</code> runs unchanged. A turn sends at most one job, keyed so it can never be
+  sent twice, and a runner that reaches for a taken turn stands back.</p>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h3>The architecture</h3>
+    <figure class="arch">
+      <svg viewBox="0 0 520 470" role="img" aria-labelledby="t1a t1b">
+        <title id="g-t1a">Turn Taking architecture</title>
+        <desc id="g-t1b">Runners poll the App. When a mission's turn is due, one runner takes it with a new epoch, runs omni mission turn in its checkout, and sends at most one keyed job. Another runner reaching for the same turn is told it is taken. Jobs end with an exit note; repeated notes spend the repair budget.</desc>
+        <defs>
+          <marker id="g-a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8a90d6"/></marker>
+          <marker id="g-a1y" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffd84a"/></marker>
+        </defs>
+        <!-- App -->
+        <rect x="150" y="14" width="220" height="132" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+        <text x="260" y="36" text-anchor="middle" fill="#f2f4ff" font-size="14" font-weight="700">The App (no supervisor)</text>
+        <text x="166" y="60" fill="#8a90d6" font-size="12">missions: epoch, turn due at,</text>
+        <text x="166" y="76" fill="#8a90d6" font-size="12">repair budget left</text>
+        <text x="166" y="98" fill="#8a90d6" font-size="12">runner_jobs: unique key</text>
+        <text x="166" y="114" fill="#8a90d6" font-size="12">mission:id:step:n:attempt:k</text>
+        <text x="166" y="136" fill="#8a90d6" font-size="12">fleet units per account</text>
+        <!-- runners -->
+        <rect x="14" y="214" width="150" height="112" rx="8" fill="#2a2350" stroke="#ffd84a"/>
+        <text x="89" y="236" text-anchor="middle" fill="#f2f4ff" font-size="13" font-weight="700">box-2 · takes the turn</text>
+        <text x="26" y="258" fill="#f2f4ff" font-size="12">epoch 14</text>
+        <text x="26" y="276" fill="#8a90d6" font-size="12">omni mission turn</text>
+        <text x="26" y="292" fill="#8a90d6" font-size="12">in its own checkout</text>
+        <text x="26" y="312" fill="#8a90d6" font-size="12">0 model units · ~10 s</text>
+        <rect x="185" y="214" width="150" height="112" rx="8" fill="#120f3a" stroke="#5a60c4" stroke-dasharray="4 4"/>
+        <text x="260" y="236" text-anchor="middle" fill="#8a90d6" font-size="13" font-weight="700">box-3 · stands back</text>
+        <text x="197" y="262" fill="#8a90d6" font-size="12">asked for the same turn</text>
+        <text x="197" y="280" fill="#8a90d6" font-size="12">answer: taken</text>
+        <text x="197" y="298" fill="#8a90d6" font-size="12">keeps its slot for work</text>
+        <rect x="356" y="214" width="150" height="112" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+        <text x="431" y="236" text-anchor="middle" fill="#f2f4ff" font-size="13" font-weight="700">box-1 · runs the job</text>
+        <text x="368" y="258" fill="#8a90d6" font-size="12">carries epoch 14</text>
+        <text x="368" y="276" fill="#8a90d6" font-size="12">checkpoint ref pushed</text>
+        <text x="368" y="292" fill="#8a90d6" font-size="12">before cleanup</text>
+        <text x="368" y="312" fill="#8a90d6" font-size="12">ends with an exit note</text>
+        <!-- arrows -->
+        <path d="M150 120 C 100 140, 89 170, 89 210" fill="none" stroke="#ffd84a" stroke-width="1.6" marker-end="url(#g-a1y)"/>
+        <text x="20" y="160" fill="#ffd84a" font-size="12">turn due: take it</text>
+        <path d="M260 146 L260 210" fill="none" stroke="#8a90d6" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#g-a1)"/>
+        <text x="266" y="186" fill="#8a90d6" font-size="12">taken</text>
+        <path d="M164 300 C 230 380, 330 380, 400 330" fill="none" stroke="#ffd84a" stroke-width="1.6" marker-end="url(#g-a1y)"/>
+        <text x="196" y="372" fill="#ffd84a" font-size="12">≤ 1 keyed job per turn</text>
+        <path d="M431 214 C 431 170, 400 130, 372 110" fill="none" stroke="#8a90d6" stroke-width="1.4" marker-end="url(#g-a1)"/>
+        <text x="420" y="166" fill="#8a90d6" font-size="12">end, epoch 14</text>
+        <!-- retro strip -->
+        <rect x="14" y="398" width="492" height="58" rx="8" fill="#0e0d33" stroke="#1a2170"/>
+        <text x="28" y="420" fill="#f2f4ff" font-size="12.5" font-weight="700">Retro is a fold, not an agent</text>
+        <text x="28" y="440" fill="#8a90d6" font-size="12">exit notes → same cause twice → one repair (2 per cause, 6 per mission) → stop and explain</text>
+      </svg>
+      <figcaption>An older epoch is refused on every write. Nothing in the App wakes a mission: the
+      runners' own long-poll does, and the App's ledger only sweeps a turn whose lease ran out.</figcaption>
+    </figure>
+    <ul class="notes">
+      <li><b>Laptop closed:</b> the turn runs on whichever runner is free; the laptop is not on the path.</li>
+      <li><b>Out of tokens:</b> a turn spends none, so it still runs and says when the limit resets.</li>
+      <li><b>Migration:</b> <code>omni mission turn</code> is today's drive tick, run from the CLI first.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>The one key screen: the mission page</h3>
+    <div data-screen="mission-turns">
+      <div class="bar"><span class="mark">OMNI</span>
+        <nav><span>Dashboard</span><span aria-current="page">Missions</span><span>Runners</span><span>Waiting</span></nav>
+      </div>
+      <div class="body">
+        <p class="crumb">Missions › Roadmap R4</p>
+        <h1>Checkout redesign</h1>
+        <p class="state"><span class="chip ok">Moving</span><span>3 of 7 PRDs ready for review</span><span>None merged: only a person merges</span></p>
+        <p class="lead">No supervisor. Free runners take turns.</p>
+        <div class="actions">
+          <button type="button" data-primary>Pause the mission</button>
+          <button type="button">Open turn 41</button>
+        </div>
+        <p class="budget"><span>Next turn <b>14:22</b></span><span>Repairs left <b>4 of 6</b></span><span>Runners taking turns <b>3</b></span></p>
+
+        <h2>Recent turns</h2>
+        <ol class="log">
+          <li><time>14:02</time><div><p>Sent slice s3 to box-1.</p><span class="by">Turn 41 · box-2 · epoch 14</span></div></li>
+          <li><time>14:02</time><div><p class="stood">box-3 stood back: turn taken.</p><span class="by">No job sent twice</span></div></li>
+          <li><time>13:40</time><div><p>Waiting: Claude limit resets 15:00.</p><span class="by">Turn 40 · no tokens spent</span></div></li>
+          <li><time>12:55</time><div><p>Slice s2 failed twice, same cause.</p><span class="by">One repair sent · 2 left</span></div></li>
+          <li><time>11:31</time><div><p>box-4 silent; s2 resumed from checkpoint.</p><span class="by">Turn 38 · box-1</span></div></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>4</td><td>3</td><td>3</td><td>3</td><td class="st">A provocative mechanism; keep stood back as copy.</td></tr><tr><th scope="row">Craft</th><td>3</td><td>3</td><td>3</td><td>3</td><td class="st">Belongs under the hood; needs no screen of its own.</td></tr><tr><th scope="row">Skeptic</th><td>4</td><td>4</td><td>4</td><td>3</td><td class="st">Clever, but availability depends on the fleet; refuse turns from an older kit.</td></tr><tr><th scope="row">Value</th><td>4</td><td>4</td><td>4</td><td>3</td><td class="st">A clever fallback, the wrong centre.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>3</td><td>3</td><td>3</td><td>3</td><td class="st">Fine plumbing I shouldn&#x27;t see.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>4</td><td>3</td><td>3</td><td>2</td><td class="st">Clever, hard to support across teams.</td></tr><tr><th scope="row">persona:Irisa</th><td>3</td><td>3</td><td>3</td><td>3</td><td class="st">Good wait message, too much engine on the page.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>3</td><td>3</td><td>3</td><td>2</td><td class="st">Clever, and I&#x27;d be the one debugging it.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>3</td><td>2</td><td>3</td><td>3</td><td class="st">Too many repairs, and the agent marks its own homework.</td></tr><tr class="avg"><th scope="row">Mean</th><td>3.4</td><td>3.1</td><td>3.2</td><td>2.8</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> Its model-free turn is a smart answer to deciding where a checkout exists; keep that idea as a fallback, not the centre.</p><p><strong>Dissent.</strong> None strong; the Skeptic and Value see it as the way to keep deciding when the App cannot reach a checkout.</p></div><blockquote class="voice"><p>Boxes on different kit versions taking turns is the opposite of cohesion: when something odd happens I&#x27;d have to ask which box decided, on which version.</p><cite>persona:Lead Engineer</cite></blockquote><fieldset class="react"><legend>Your reaction to G</legend><label><input type="radio" name="r-G" value="keep"> Keep</label><label><input type="radio" name="r-G" value="kill"> Kill</label><label><input type="radio" name="r-G" value="merge"> Merge into</label><label><input type="radio" name="r-G" value="push"> Push further</label><select aria-label="Merge G into" data-into="G"><option value="">letter</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>H</option></select><input type="text" class="note" data-note="G" placeholder="Note (optional)" aria-label="Note on G"></fieldset></article><article class="concept" id="c-H" data-letter="H"><header class="ch"><span class="letter">H</span><div><h2>Logbook in the Repository</h2><p class="meta">contrarian lens · axis: where the mission lives: a git ref in the repository it delivers, not the App&#x27;s database</p></div></header><p class="wow"><strong>Wow moment.</strong> Omni was down for an afternoon and nothing was lost: git log on the mission&#x27;s ref told the whole story, and a stale runner&#x27;s late write was refused by git itself.</p><details class="arch"><summary>How it works</summary><p>Each commit on the mission ref is one Zod-checked logbook entry (no transcript, no credential); the commit a writer read is its fencing token. A stateless <code>mission-wake</code> ledger job writes the entry first, then inserts the job keyed by it. Checkpoints are refs named after the entry that sent the job. The App keeps only fleet capacity. Repair limits read from config.yml on main, which only a person merges; a retro can only propose a change as a PR.</p></details><div class="cardwrap"><section class="sb-h" aria-label="Storyboard: Logbook in the Repository">
+<style>
+.sb-h{--ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;--ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--magenta:#ff3ea5;
+  --read:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--pixel:"Press Start 2P",var(--mono);
+  background:var(--ground);color:var(--ink);font:16px/1.6 var(--read);padding:28px 16px;box-sizing:border-box}
+.sb-h *{box-sizing:border-box}
+.sb-h ::selection{background:var(--plasma);color:var(--on-plasma)}
+.sb-h .cap{max-width:1180px;margin:0 auto 22px}
+.sb-h .cap h2{font-size:1.6rem;line-height:1.2;margin:0 0 6px;font-weight:700;text-wrap:balance}
+.sb-h .cap p{margin:0;color:var(--muted);max-width:72ch}
+.sb-h .cap b{color:var(--ink);font-weight:600}
+.sb-h .grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;align-items:start}
+@media (max-width:900px){.sb-h .grid{grid-template-columns:1fr}}
+.sb-h .panel h3{font-size:.95rem;color:var(--muted);margin:0 0 10px;font-weight:600}
+.sb-h .arch{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:14px;margin:0}
+.sb-h .arch svg{display:block;width:100%;height:auto}
+.sb-h .arch figcaption{color:var(--muted);font-size:.9rem;margin-top:10px;line-height:1.5}
+.sb-h .notes{margin:14px 0 0;padding:0;list-style:none;color:var(--muted);font-size:.92rem}
+.sb-h .notes li{padding:6px 0;border-top:1px solid var(--line)}
+.sb-h .notes b{color:var(--ink);font-weight:600}
+.sb-h [data-screen]{background:var(--ground);border:1px solid var(--line-strong);border-radius:10px;overflow:hidden}
+.sb-h .bar{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);font-size:.9rem;color:var(--muted);flex-wrap:wrap}
+.sb-h .bar .mark{font-family:var(--pixel);color:var(--plasma);font-size:.62rem;letter-spacing:.04em}
+.sb-h .bar nav{display:flex;gap:14px;flex-wrap:wrap}
+.sb-h .bar nav span[aria-current]{color:var(--ink);text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--plasma)}
+.sb-h .body{padding:22px 22px 18px}
+.sb-h .crumb{color:var(--muted);font-size:.88rem;margin:0 0 4px}
+.sb-h .body h1{font-size:1.45rem;line-height:1.25;margin:0 0 8px;font-weight:700;text-wrap:balance}
+.sb-h .state{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin:0 0 14px;font-size:.9rem;color:var(--muted)}
+.sb-h .chip{border:1px solid var(--line-strong);border-radius:999px;padding:1px 10px;color:var(--ink);font-size:.85rem}
+.sb-h .chip.ok{border-color:var(--green);color:var(--green)}
+.sb-h .chip.stop{border-color:var(--red);color:var(--red)}
+.sb-h .lead{margin:0 0 16px;max-width:66ch}
+.sb-h .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 20px}
+.sb-h button{font:inherit;font-size:.95rem;border-radius:8px;padding:8px 16px;cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+.sb-h button[data-primary]{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma);font-weight:700}
+.sb-h button:hover{border-color:var(--ink)}
+.sb-h button[data-primary]:hover{filter:brightness(1.06)}
+.sb-h button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.sb-h .body h2{font-size:1.05rem;margin:22px 0 8px;font-weight:700}
+.sb-h ol.log{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.sb-h ol.log li{display:grid;grid-template-columns:4.2rem minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.95rem}
+.sb-h ol.log time,.sb-h ol.log .sha{font-family:var(--mono);font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:2px}
+.sb-h ol.log p{margin:0}
+.sb-h ol.log .by{display:block;color:var(--muted);font-size:.85rem}
+.sb-h ol.log .stood{color:var(--muted)}
+.sb-h code{font-family:var(--mono);font-size:.85em;background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.sb-h .notice{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:.93rem;color:var(--muted)}
+.sb-h .notice b{color:var(--ink)}
+.sb-h .budget{display:flex;gap:18px;flex-wrap:wrap;font-size:.9rem;color:var(--muted);margin:0}
+.sb-h .budget b{color:var(--ink);font-variant-numeric:tabular-nums}
+.sb-h svg text{font-family:var(--read)}
+</style>
+
+<div class="cap">
+  <h2>Logbook in the Repository: the mission is a ref, and git is the fence</h2>
+  <p><b>Contrarian, concept 2.</b> The brief assumed the mission lives in the App's database. Here it
+  lives in the repository it delivers, at <code>refs/omni/missions/r4</code>: each commit is one
+  logbook entry, and the commit a writer read is its fencing token. A stale write is not a
+  fast-forward, so git refuses it. The App only wakes and reads; the repair rules come from the
+  default branch, which only a person merges.</p>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h3>The architecture</h3>
+    <figure class="arch">
+      <svg viewBox="0 0 520 470" role="img" aria-labelledby="t2a t2b">
+        <title id="h-t2a">Logbook in the Repository architecture</title>
+        <desc id="h-t2b">A chain of commits on a mission ref in the repository. The App's wake job reads the head, decides, and writes the next entry with a fast-forward update. A runner holding an older head is refused. Checkpoints are refs named by the entry that sent the job. Repair rules are read from the default branch.</desc>
+        <defs>
+          <marker id="h-b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8a90d6"/></marker>
+          <marker id="h-b1y" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffd84a"/></marker>
+          <marker id="h-b1r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff6b86"/></marker>
+        </defs>
+        <!-- repository band -->
+        <rect x="14" y="14" width="492" height="196" rx="8" fill="#0e0d33" stroke="#5a60c4"/>
+        <text x="28" y="36" fill="#f2f4ff" font-size="14" font-weight="700">The repository</text>
+        <text x="28" y="58" fill="#8a90d6" font-size="12">refs/omni/missions/r4 · one commit per entry</text>
+        <line x1="44" y1="92" x2="420" y2="92" stroke="#5a60c4" stroke-width="2"/>
+        <circle cx="60" cy="92" r="8" fill="#120f3a" stroke="#5a60c4" stroke-width="2"/>
+        <circle cx="150" cy="92" r="8" fill="#120f3a" stroke="#5a60c4" stroke-width="2"/>
+        <circle cx="240" cy="92" r="8" fill="#120f3a" stroke="#5a60c4" stroke-width="2"/>
+        <circle cx="330" cy="92" r="8" fill="#120f3a" stroke="#5a60c4" stroke-width="2"/>
+        <circle cx="420" cy="92" r="9" fill="#ffd84a" stroke="#ffd84a" stroke-width="2"/>
+        <text x="420" y="120" text-anchor="middle" fill="#ffd84a" font-size="12">head · 41</text>
+        <text x="330" y="120" text-anchor="middle" fill="#8a90d6" font-size="12">40</text>
+        <text x="150" y="120" text-anchor="middle" fill="#8a90d6" font-size="12">38</text>
+        <text x="28" y="150" fill="#8a90d6" font-size="12">each tree: mission.json + entries/n.json (who, why, refs;</text>
+        <text x="28" y="166" fill="#8a90d6" font-size="12">no transcript, no credential: unknown fields refused)</text>
+        <text x="28" y="192" fill="#8a90d6" font-size="12">refs/omni/checkpoints/r4/&lt;entry&gt; · saved work, named by its entry</text>
+        <!-- default branch -->
+        <rect x="14" y="226" width="200" height="66" rx="8" fill="#120f3a" stroke="#4ee08a"/>
+        <text x="26" y="248" fill="#4ee08a" font-size="13" font-weight="700">main · only a person merges</text>
+        <text x="26" y="268" fill="#8a90d6" font-size="12">repair limits in config.yml</text>
+        <text x="26" y="284" fill="#8a90d6" font-size="12">read, never written by a mission</text>
+        <!-- App -->
+        <rect x="240" y="236" width="266" height="96" rx="8" fill="#2a2350" stroke="#ffd84a"/>
+        <text x="254" y="258" fill="#f2f4ff" font-size="13" font-weight="700">The App · mission-wake (stateless)</text>
+        <text x="254" y="278" fill="#8a90d6" font-size="12">reads head → decides → writes entry 42</text>
+        <text x="254" y="296" fill="#8a90d6" font-size="12">then inserts the job keyed by entry 42</text>
+        <text x="254" y="316" fill="#8a90d6" font-size="12">keeps only fleet capacity, across repos</text>
+        <path d="M380 236 C 400 190, 420 150, 420 104" fill="none" stroke="#ffd84a" stroke-width="1.6" marker-end="url(#h-b1y)"/>
+        <text x="428" y="170" fill="#ffd84a" font-size="12">fast-forward</text>
+        <path d="M214 258 C 228 258, 232 270, 238 276" fill="none" stroke="#8a90d6" stroke-width="1.4" marker-end="url(#h-b1)"/>
+        <!-- runners -->
+        <rect x="240" y="356" width="130" height="100" rx="8" fill="#120f3a" stroke="#5a60c4"/>
+        <text x="252" y="378" fill="#f2f4ff" font-size="13" font-weight="700">box-1</text>
+        <text x="252" y="398" fill="#8a90d6" font-size="12">read head 41</text>
+        <text x="252" y="416" fill="#8a90d6" font-size="12">pushes checkpoint,</text>
+        <text x="252" y="434" fill="#8a90d6" font-size="12">writes entry 42: ok</text>
+        <rect x="384" y="356" width="122" height="100" rx="8" fill="#120f3a" stroke="#ff6b86" stroke-dasharray="4 4"/>
+        <text x="396" y="378" fill="#ff6b86" font-size="13" font-weight="700">box-3 · stale</text>
+        <text x="396" y="398" fill="#8a90d6" font-size="12">read head 38</text>
+        <text x="396" y="416" fill="#8a90d6" font-size="12">write refused:</text>
+        <text x="396" y="434" fill="#8a90d6" font-size="12">not a fast-forward</text>
+        <path d="M445 356 C 470 260, 470 160, 432 100" fill="none" stroke="#ff6b86" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#h-b1r)"/>
+        <!-- laptop -->
+        <rect x="14" y="356" width="200" height="100" rx="8" fill="#120f3a" stroke="#1a2170"/>
+        <text x="26" y="378" fill="#f2f4ff" font-size="13" font-weight="700">Anyone with git</text>
+        <text x="26" y="398" fill="#8a90d6" font-size="12">git log the mission ref</text>
+        <text x="26" y="416" fill="#8a90d6" font-size="12">reads the whole story,</text>
+        <text x="26" y="434" fill="#8a90d6" font-size="12">even with Omni down</text>
+      </svg>
+      <figcaption>The parent commit is the fencing token: a writer that read an older head cannot
+      move the ref. The job is sent only after its entry is written, keyed by that entry, so a
+      replayed wake finds both and sends nothing.</figcaption>
+    </figure>
+    <ul class="notes">
+      <li><b>Laptop closed:</b> the App's ledger wakes the mission; the laptop only reads the ref.</li>
+      <li><b>Bounded repair:</b> limits live on <code>main</code>; a retro's proposal is a pull request a person reads.</li>
+      <li><b>Migration:</b> today's drive writes the same ref first, before the App wakes any mission.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>The one key screen: the mission's logbook</h3>
+    <div data-screen="mission-logbook">
+      <div class="bar"><span class="mark">OMNI</span>
+        <nav><span>Dashboard</span><span aria-current="page">Missions</span><span>Runners</span><span>Waiting</span></nav>
+      </div>
+      <div class="body">
+        <p class="crumb">Missions › Roadmap R4</p>
+        <h1>Checkout redesign</h1>
+        <p class="state"><span class="chip stop">Stopped</span><span>3 of 7 PRDs ready for review</span><span>None merged: only a person merges</span></p>
+        <p class="lead">Stopped: one cause failed three times.</p>
+        <div class="notice"><p class="budget">Limit set on <code>main</code>: two repairs.</p><p class="budget">Proposed fix: <b>PR 2817</b>, shared payment fixture.</p></div>
+        <div class="actions">
+          <button type="button" data-primary>Resume the mission</button>
+          <button type="button">Read the proposed fix</button>
+        </div>
+
+        <h2>Logbook</h2>
+        <ol class="log">
+          <li><span class="sha">41 a9c3e</span><div><p>Stopped: same cause, three times.</p><span class="by">The App · entries 37–40</span></div></li>
+          <li><span class="sha">—</span><div><p class="stood">box-3 refused: older head.</p><span class="by">Work kept at checkpoint 38</span></div></li>
+          <li><span class="sha">40 71d0b</span><div><p>Repair 2 of 2 ended, still failing.</p><span class="by">box-1 · checkpoint pushed</span></div></li>
+          <li><span class="sha">39 e2f18</span><div><p>Sent repair 2 of 2 to box-1.</p><span class="by">The App · job keyed here</span></div></li>
+        </ol>
+        <p class="budget"><span>Stored in <b>refs/omni/missions/r4</b></span><span>The App keeps no copy</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+</div><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>3</td><td>4</td><td>3</td><td>3</td><td class="st">A durability layer under F, not a concept to crown.</td></tr><tr><th scope="row">Craft</th><td>3</td><td>3</td><td>4</td><td>3</td><td class="st">Worth one block (the stopped state), not the whole screen.</td></tr><tr><th scope="row">Skeptic</th><td>4</td><td>3</td><td>4</td><td>2</td><td class="st">A good audit trail, a fragile source of truth; product roadmaps have no single repository.</td></tr><tr><th scope="row">Value</th><td>4</td><td>3</td><td>4</td><td>2</td><td class="st">An export feature, not the store.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>2</td><td>2</td><td>3</td><td>2</td><td class="st">An engineer&#x27;s answer to a PM&#x27;s question.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>3</td><td>2</td><td>3</td><td>2</td><td class="st">An audit mirror, not the store.</td></tr><tr><th scope="row">persona:Irisa</th><td>2</td><td>2</td><td>3</td><td>2</td><td class="st">Safe, but leaves me stuck.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>3</td><td>2</td><td>3</td><td>2</td><td class="st">An audit mirror, never the store.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>3</td><td>3</td><td>4</td><td>2</td><td class="st">Honest rules, more review work for me.</td></tr><tr class="avg"><th scope="row">Mean</th><td>3.0</td><td>2.7</td><td>3.4</td><td>2.2</td><td></td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> Keep its stopped block and its rule that limits live on main; the logbook itself at most as an export.</p><p><strong>Dissent.</strong> None: no panelist would crown it.</p></div><blockquote class="voice"><p>Its only way out of a stop is a pull request to main and a merge, so a PM can&#x27;t unblock her own quick win without an engineer.</p><cite>persona:Irisa</cite></blockquote><fieldset class="react"><legend>Your reaction to H</legend><label><input type="radio" name="r-H" value="keep"> Keep</label><label><input type="radio" name="r-H" value="kill"> Kill</label><label><input type="radio" name="r-H" value="merge"> Merge into</label><label><input type="radio" name="r-H" value="push"> Push further</label><select aria-label="Merge H into" data-into="H"><option value="">letter</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select><input type="text" class="note" data-note="H" placeholder="Note (optional)" aria-label="Note on H"></fieldset></article><footer class="copy"><button type="button" id="copy">Copy my reactions</button><output id="line" aria-live="polite"></output></footer></main><script>(function(){
+  var b=document.getElementById('copy'),o=document.getElementById('line');
+  function line(){
+    var keep=[],kill=[],merge=[],push=[];
+    document.querySelectorAll('article.concept').forEach(function(a){
+      var L=a.dataset.letter,r=a.querySelector('input[type=radio]:checked'),n=a.querySelector('.note').value.trim(),into=a.querySelector('select').value;
+      if(!r){if(n)push.push(L+': '+n);return}
+      if(r.value==='keep')keep.push(L+(n?' ('+n+')':''));
+      else if(r.value==='kill')kill.push(L);
+      else if(r.value==='merge')merge.push(L+'→'+(into||'?')+(n?' ('+n+')':''));
+      else push.push(L+(n?': '+n:''));
+    });
+    var p=[];if(keep.length)p.push('keep '+keep.join(' '));if(merge.length)p.push('merge '+merge.join(' '));if(push.length)p.push('push '+push.join(' · '));if(kill.length)p.push('kill '+kill.join(' '));
+    return p.join(' · ')||'no reactions yet';
+  }
+  b.addEventListener('click',function(){var t=line();o.textContent=t;try{navigator.clipboard.writeText(t).then(function(){o.textContent=t+'  (copied)'},function(){})}catch(e){}});
+})();
+</script></body></html>
