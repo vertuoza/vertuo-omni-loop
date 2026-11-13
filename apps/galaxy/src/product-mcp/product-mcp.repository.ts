@@ -17,6 +17,7 @@
 // (supabase/migrations/20270119090000_mcp_search_log.sql), which only the service role may write: a row holds
 // the API key's id, which product_mcp_for_key() answers as `key_id`, never the key.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SearchLogRow } from './product-mcp.contract';
 import { z } from 'zod';
 
 /** What the reads need: the tables and the functions. */
@@ -126,25 +127,6 @@ export function knowledgeVectorsRepository(db: ProductMcpDb) {
 
 export type KnowledgeVectorsRepository = ReturnType<typeof knowledgeVectorsRepository>;
 
-/** One row of mcp_search_log, as the route writes it once its answer is sent (PRD omni-loop-6 s1). */
-export type SearchLogRow = {
-  product_id: string;
-  workspace_id: string;
-  /** The served key's id, never the key nor its hash (L-GDPR-2). */
-  api_key_id: string;
-  tool: 'search_knowledge' | 'get_knowledge';
-  /** The search's `query` (null for a listing), or the `id` a get_knowledge asked. */
-  query: string | null;
-  filters: { kind?: string; domain?: string; repo?: string };
-  mode: 'meaning' | 'words' | null;
-  /** How many entries the search ranked; for a get_knowledge, 1 when found, else 0. */
-  total: number;
-  /** The hits' ids in rank order; for a get_knowledge, the id found. */
-  hit_ids: string[];
-  /** When the call came in. */
-  asked_at: string;
-};
-
 /** The search log of a product's MCP, on the service role's client. */
 export function searchLogRepository(db: ProductMcpDb) {
   return {
@@ -154,5 +136,3 @@ export function searchLogRepository(db: ProductMcpDb) {
     },
   };
 }
-
-export type SearchLogRepository = ReturnType<typeof searchLogRepository>;

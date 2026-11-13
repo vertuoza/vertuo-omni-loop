@@ -27,9 +27,8 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { z } from 'zod';
 import { hashApiKey, isApiKeyShaped } from '../public-api/keys/secret';
 import {
-  KEY_REFUSED, KNOWLEDGE_KINDS, NO_DATABASE, NOT_HERE, NOT_READ, noEntryLine, GetAnswerSchema, SearchAnswerSchema,
+  KEY_REFUSED, KNOWLEDGE_KINDS, NO_DATABASE, NOT_HERE, NOT_READ, noEntryLine, GetAnswerSchema, SearchAnswerSchema, type SearchLogRow,
 } from './product-mcp.contract';
-import type { SearchLogRepository, SearchLogRow } from './product-mcp.repository';
 import type { KnowledgeRead, ProductMcpService, Resolution } from './product-mcp.service';
 import { searchByMeaning, type Meaning } from './search-meaning';
 
@@ -41,7 +40,7 @@ export type ProductMcpDeps = {
   /** The model and the workspace's vectors, or null when this deployment has none: every search is then by words. */
   meaning?: Meaning | null;
   /** Where each answered call is logged (PRD omni-loop-6 s1), or null when this deployment keeps no log. */
-  searchLog?: Pick<SearchLogRepository, 'add'> | null;
+  searchLog?: { add: (row: SearchLogRow) => Promise<void> } | null;
   /** Runs `task` once the answer is sent (Next's after()); by default, at once, unawaited. */
   later?: (task: () => Promise<void>) => void;
 };

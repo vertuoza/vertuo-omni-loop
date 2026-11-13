@@ -6,8 +6,8 @@ import { embedText } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import { describe, expect, it } from 'vitest';
 import { hashApiKey } from '../public-api/keys/secret';
 import { handleProductMcp, type ProductMcpDeps } from './product-mcp.controller';
-import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema } from './product-mcp.contract';
-import type { AccessRow, ProductMcpRepository, SearchLogRow } from './product-mcp.repository';
+import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema, type SearchLogRow } from './product-mcp.contract';
+import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
 import { MEANING_BUDGET_MS, type Meaning } from './search-meaning';
 
