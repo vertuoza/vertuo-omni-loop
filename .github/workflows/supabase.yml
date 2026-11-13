@@ -485,6 +485,13 @@ jobs:
         # service role adds rows and fills the opened rank; product_mcp_for_key() answers the key's id, never the
         # key; the nightly forget deletes the rows older than 90 days alone (PRD omni-loop-6).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mcp_search_log.sql
+      - name: Who reads and writes a search's category and group, and how long a group is kept
+        # A member of the product's workspace reads its groups and its searches' category and group, another
+        # workspace's member and anon none; only the service role adds groups and sets the two; a search never
+        # joins another product's group; the nearest group is the product's and the model's alone;
+        # `search-category` is a Jev decision; the nightly forget deletes a group none of whose searches is
+        # left (PRD omni-loop-7).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mcp_search_groups.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

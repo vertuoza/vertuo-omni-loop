@@ -31,7 +31,7 @@ import { runDue, type RunSummary } from './worker.ts';
 
 /** The groups the route reads: its own, and those the checks' worker reads (./pr-checks.ts). */
 export type SweepEnv = Pick<AppEnv, 'cron'> &
-  Partial<Pick<AppEnv, 'supabase' | 'githubApp' | 'openrouter' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
+  Partial<Pick<AppEnv, 'supabase' | 'githubApp' | 'openrouter' | 'constituentJudge' | 'businessLawsJudge' | 'searchCategorize' | 'stageEvents' | 'galaxyUrl'>>;
 
 /** What the route does on the ledger. */
 export type SweepJobs = {

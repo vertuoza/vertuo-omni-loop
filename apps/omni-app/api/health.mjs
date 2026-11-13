@@ -157,13 +157,14 @@ var STAGE_EVENTS = secretGroup("the stage events", "STAGE_EVENT_SECRET");
 var CONSTITUENT_JUDGE = secretGroup("the constituent judge", "CONSTITUENT_JUDGE_SECRET");
 var LAW_JUDGE = secretGroup("the law judge", "LAW_JUDGE_SECRET");
 var BUSINESS_LAWS_JUDGE = secretGroup("the business laws judge", "BUSINESS_LAWS_JUDGE_SECRET");
+var SEARCH_CATEGORIZE = secretGroup("the search categorizer", "SEARCH_CATEGORIZE_SECRET");
 var CRON = secretGroup("the cron secret", "CRON_SECRET");
 var GALAXY = envGroup({
   label: "galaxy",
   schema: z3.object({ url: z3.url().optional() }),
   variables: { url: "GALAXY_URL" }
 });
-var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, CRON, GALAXY]);
+var VARIABLES = variablesOf([WEBHOOK, GITHUB_APP, SUPABASE, OPENROUTER, STAGE_EVENTS, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, SEARCH_CATEGORIZE, CRON, GALAXY]);
 var PLATFORM_VARIABLES = variablesOf([VERCEL]);
 function readEnv(source) {
   const production = envReader(source).group(VERCEL)?.name === "production";
@@ -178,6 +179,7 @@ function readEnv(source) {
     constituentJudge: reader.group(CONSTITUENT_JUDGE),
     lawJudge: reader.group(LAW_JUDGE),
     businessLawsJudge: reader.group(BUSINESS_LAWS_JUDGE),
+    searchCategorize: reader.group(SEARCH_CATEGORIZE),
     cron: reader.group(CRON),
     galaxyUrl: (reader.group(GALAXY)?.url ?? DEFAULT_GALAXY_URL).replace(/\/+$/, "")
   };
@@ -207,7 +209,8 @@ function serviceDb({ url, key, fetch }) {
 // apps/omni-app/src/jobs/schedule.ts
 var SCHEDULES = Object.freeze([
   { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
-  { kind: "escalation", periodMinutes: 60, maxTries: 3 }
+  { kind: "escalation", periodMinutes: 60, maxTries: 3 },
+  { kind: "search-categorize", periodMinutes: 15, maxTries: 3 }
 ]);
 
 // apps/omni-app/src/jobs/ledger.ts
