@@ -20,7 +20,7 @@ in the database". A product made on the page has no key, so:
 - its MCP server card shows **Off** with no **Turn on**, even to a workspace owner
   (`McpServerCard.tsx`: `canSwitch` needs `card.key !== null`), and nothing says why;
 - it has no product PRD, since a product PRD's id needs the key;
-- the only way out is SQL on production, which is how Vertuo Insight got `insight` on 2026-11-13.
+- the only way out is SQL on production, run by hand.
 
 ## Solution
 
@@ -38,7 +38,7 @@ with the MCP card's read, as the signed-in person.
 
 - **The suggestion** (`suggestKey(name)`, pure): the name lowercased, accents dropped, every run of
   other characters made one `-`, each part stripped of its leading digits, empty parts dropped, cut at
-  40 characters on a part boundary. `Vertuo Insight` → `vertuo-insight`; `Field App 2` → `field-app`.
+  40 characters on a part boundary. `Acme Insight` → `acme-insight`; `Field App 2` → `field-app`.
   When nothing is left, the field starts empty. The owner edits it freely before **Set key**.
 - **The check in the field,** before the confirm step, mirrors the function's shape rule: lowercase
   kebab-case of at most 40 characters, each part starting with a letter. A key that fails it keeps
@@ -131,7 +131,7 @@ form; a CLI command to set a key; personas; the two bugs above.
 ## Acceptance criteria
 
 - A workspace owner on a product with no key sees the Product key card with a field prefilled from the
-  product's name (`Vertuo Insight` → `vertuo-insight`) and **Set key**.
+  product's name (`Acme Insight` → `acme-insight`) and **Set key**.
 - **Set key** shows the confirm step naming `<key>-1` and `/api/products/<key>/mcp`; **Back** returns
   to the field unchanged; **Set for good** sets the key, and after the refresh the card shows the key
   and the MCP card shows **Turn on**.
