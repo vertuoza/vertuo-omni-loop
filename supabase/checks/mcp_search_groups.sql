@@ -1,5 +1,5 @@
 -- A product's logged searches get a category and a group: who reads and writes them, which group is nearest,
--- and how long a group is kept (PRD omni-loop-7 s1, 20270120090000_mcp_search_groups.sql). The supabase
+-- and how long a group is kept (PRD omni-loop-7 s1, 20270120093000_mcp_search_groups.sql). The supabase
 -- workflow runs it on every pull request, after `supabase db start` has applied the migrations and the demo
 -- seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/mcp_search_groups.sql
