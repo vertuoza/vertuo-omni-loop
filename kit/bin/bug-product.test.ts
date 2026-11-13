@@ -1,7 +1,7 @@
 // `omni bug check --product <key> <file>` and `omni bug push --product <key> (--new | --bug <n>) <file>`
 // (PRD 2011, s6), through `main()` with a fetch that answers as `POST /api/fixes` does: a check answers the
 // product's repositories, a push the bug's id.
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../lib/ask/schema.ts';
@@ -68,6 +68,44 @@ describe('omni bug check --product', () => {
     const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md'], repoWith(record('acme/shop')), app().fetch);
     expect(code).toBe(1);
     expect(out).toContain('bug.md: Fixes row 1: acme/shop is not a repository of product mobile (acme/app, acme/api).');
+  });
+});
+
+describe('omni bug check --product, ## Still open (PRD 2739)', () => {
+  const POINT = 'The export job retries a 4xx forever.';
+  const withPoint = () => `${record('acme/api')}\n## Still open\n\n- ${POINT}\n`;
+  const FILE = '.omni-loop/delivery/follow-ups/2026-11-12-the-export-job-retries-a-4xx.md';
+  const file = (source: string) => `---\nsource: ${source}\ndate: 2026-11-12\n---\n\n${POINT}\n`;
+
+  it('refuses a point with no follow-up file of source <key>-B<n>, naming it', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', '--bug', '74', 'bug.md'], repoWith(withPoint()), app().fetch);
+    expect(code).toBe(1);
+    expect(out).toContain(`bug.md: "${POINT}" is still open but has no follow-up: omni follow-up add --source 'mobile-B74' --text '${POINT}'`);
+  });
+
+  it('passes once the file exists', async () => {
+    const root = repoWith(withPoint());
+    mkdirSync(join(root, '.omni-loop/delivery/follow-ups'), { recursive: true });
+    writeFileSync(join(root, FILE), file('mobile-B74'));
+    const { code } = await omni(['bug', 'check', '--product', 'mobile', '--bug', 'mobile-B74', 'bug.md'], root, app().fetch);
+    expect(code).toBe(0);
+  });
+
+  it('skips the check with --new and says so in one line', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', '--new', 'bug.md'], repoWith(withPoint()), app().fetch);
+    expect(code).toBe(0);
+    expect(out).toContain('--new, the Still open points are not checked');
+  });
+
+  it('does not judge points when no bug is named', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md'], repoWith(withPoint()), app().fetch);
+    expect(code).toBe(1);
+    expect(out).toContain('need --bug <n>');
+  });
+
+  it('passes a record with no Still open section', async () => {
+    const { code } = await omni(['bug', 'check', '--product', 'mobile', '--bug', '74', 'bug.md'], repoWith(record('acme/api')), app().fetch);
+    expect(code).toBe(0);
   });
 });
 

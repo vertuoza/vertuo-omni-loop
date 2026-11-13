@@ -708,3 +708,13 @@ Source: pull request #2633, merging PRD 2632 with PRD 2608: the two specs do not
 Enforced by: supabase/checks/business_law_verdicts.sql, apps/galaxy/src/approval/approval-api.business-laws.test.ts
 Stated: 2026-11-04
 Decided: @pierrederval, 2026-11-04
+
+## BR-PRODUCT-130
+
+`omni ship` looks at review replies only when the PRD's pull requests carry a review: a repository that never reviews ships without being blocked, and without a "not judged" line.
+
+Serves: P-PRODUCT-3
+Source: .omni-loop/delivery/shipped/2739-follow-ups/outbox/settled.md, entry s3-03-ship-tests-outside-territory, PRD #2739
+Enforced by: kit/lib/delivery/ship-review.test.ts
+Stated: 2026-11-12
+Decided: @pierrederval, 2026-11-12, on PR #2740

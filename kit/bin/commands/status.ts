@@ -13,10 +13,12 @@
 // <key>-<n>` is a product PRD's gate, read from its rows on the Omni page; while the server cannot be
 // reached it holds, exit 1, with the held line.
 import { appendFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { gateApproval } from '../../lib/delivery/prd.ts';
 import type { GateOptions } from '../../lib/delivery/prd.ts';
+import { FOLLOW_UPS_DIR, readFollowUps } from '../../lib/follow-ups/follow-ups.ts';
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
 import { formatReport } from '../../lib/outbox/status.ts';
 import { serverFailure } from '../../lib/outbox/server-store.ts';
@@ -44,7 +46,9 @@ async function overview({ ctx, stdout, exec, fetch, gate }: { ctx: Context; stdo
     throw usageError(`omni status: cannot read ${names.remote} or ${names.local}; run omni status --fetch`);
   }
   const server = await serverPrds(ctx, new Set(facts.shipped.map(({ prd }) => prd)), gateApproval(ctx, gate));
-  println(stdout, formatOverview(overviewFor({ ...facts, server }), { now: Date.now() }));
+  const points = readFollowUps(join(ctx.root, ctx.config.paths.delivery, FOLLOW_UPS_DIR));
+  const followUps = points[0] === undefined ? null : { count: points.length, oldest: points[0].date };
+  println(stdout, formatOverview(overviewFor({ ...facts, server }), { now: Date.now(), followUps }));
   return 0;
 }
 

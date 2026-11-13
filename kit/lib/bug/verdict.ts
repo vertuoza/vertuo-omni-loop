@@ -7,7 +7,8 @@
  * with one line a person can act on:
  *
  * 1. Exactly one such folder exists for the issue, and it holds `bug.md`.
- * 2. `bug.md` has the five sections — Triage, Reproduction, Fix, Guard, Mutation — none empty.
+ * 2. `bug.md` has the five sections — Triage, Reproduction, Fix, Guard, Mutation — none empty. An
+ *    optional `## Still open` follows `## Mutation`.
  * 3. Triage names a risk that is one of the four levels.
  * 4. Reproduction has a **File:** line naming a file that exists and that the branch changes, and a
  *    non-empty **Red:** line.
@@ -17,7 +18,8 @@
  *    `outbox/`, and an account naming it: the lines `laws` gives for the folder.
  * 6. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
- * 7. When given a way to grade it (PRD 2100), the pull request's body carries its proof
+ * 7. A `## Still open` section (PRD 2739), when there is one, has a follow-up file for each bullet.
+ * 8. When given a way to grade it (PRD 2100), the pull request's body carries its proof
  *    (`./proof-body.ts`), one more line per fault. A record with a `## Fixes` section is graded the
  *    same way (PRD 2578): its pull request carries the one proof of a mega bug fix.
  *
@@ -27,6 +29,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { fixVerdict, issuePrefix, numberedFolders } from '../fix-verdict.ts';
 import { boldField, fixesViolations } from './fixes.ts';
+import { stillOpenViolations } from './still-open.ts';
 import type { FixesConfig } from './fixes.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
@@ -125,7 +128,7 @@ function recordSections(ctx: { root: string }, record: string): ReadonlyMap<stri
   return isFile(ctx, record) ? parseSections(readFileSync(join(ctx.root, record), 'utf8')) : undefined;
 }
 
-function recordViolations(ctx: BugContext, record: string, changed: Set<string> | undefined): string[] {
+function recordViolations(ctx: BugContext, record: string, changed: Set<string> | undefined, issue: IssueNumber): string[] {
   const sections = recordSections(ctx, record);
   if (sections === undefined) return [`${record}: missing.`];
   const triage = sections.get('Triage');
@@ -133,6 +136,9 @@ function recordViolations(ctx: BugContext, record: string, changed: Set<string> 
     ...sectionViolations(record, sections),
     ...(triage ? triageViolations(record, triage) : []),
     ...reproductionsViolations(ctx, record, sections, changed),
+    ...stillOpenViolations({
+      record, body: sections.get('Still open'), source: `bug #${issue}`, deliveryDir: join(ctx.root, ctx.config.paths.delivery),
+    }),
   ];
 }
 
@@ -153,7 +159,7 @@ export function bugVerdict({ ctx, issue, changed, commits, laws, proof }: {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   const verdict = fixVerdict({
     ctx, number: issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
-    grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD}`, changedSet), ...(laws?.(folder) ?? [])],
+    grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD}`, changedSet, issue), ...(laws?.(folder) ?? [])],
   });
   const failures = proof === undefined ? verdict.failures : [...verdict.failures, ...proof()];
   return { ok: failures.length === 0, folder: verdict.folder, failures };

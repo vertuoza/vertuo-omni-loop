@@ -23,12 +23,11 @@ Use this page when deciding where code goes, and what it may depend on.
 ## Layout
 <!-- slot: layout · required · by: invade · verified: 2026-10-20 -->
 A pnpm workspace (`pnpm-workspace.yaml`): the root package holds the kit (`kit/`) and the game
-layer (`game/`); `apps/*` and `packages/*` hold the rest. The README's layout table names every
-workspace package but two: `apps/omni-app` (the GitHub App) and `packages/github` (`@omni/github`).
+layer (`game/`); `apps/*` and `packages/*` hold the rest (`AGENTS.md` lists every package).
 
 - `kit/`: the `omni` CLI's source in `kit/bin` and `kit/lib`, the kit defaults in `kit/templates`,
   the plugin's skills in `kit/plugin`, the HUD plugin in `kit/plugin-hud`, the pitch's render engine
-  in `kit/pitch-engine` (a React page, PRD 1108), and the committed builds `kit/dist/omni.mjs` and `kit/dist/pitch-engine/`, which
+  in `kit/pitch-engine`, and the builds `kit/dist/omni.mjs` and `kit/dist/pitch-engine/`, which
   `pnpm kit:build` writes. This repository's own `.omni-loop/bin/omni.mjs` is a shim onto the
   source, not the bundle, so the skills run today's code here.
 - `.omni-loop/`: this repository's own loop: its config, its delivery folder (each PRD's spec,
@@ -90,9 +89,9 @@ Anything not listed is refused; a type-only import counts.
   devDependency, bundled into that page: a repository using the kit installs none.
 - The GitHub App reuses the kit's gate unchanged and never runs repository code: it reads only YAML
   and Markdown, through the kit's schemas (apps/omni-app/README.md).
-- A GitHub App job may wait for days. It ends `later`, due at a date, and keeps its finished steps on
-  the job ledger, so a run after the wait carries on from its last saved step. The retro's second look
-  is one wait of 14 days; nothing caps how long a run waits, and no function sleeps (PRD omni-loop-4).
+- A GitHub App job may wait for days: it ends `later`, due at a date, and keeps its finished steps on
+  the job ledger, so the next run carries on from the last one. Nothing caps a wait, and no function
+  sleeps (PRD omni-loop-4).
 - `kit/` holds only the kit that ships to other repositories. A check or tool about this
   repository as a whole (its TypeScript guard, `pnpm schemas:verify`) lives in `scripts/`, never under
   `kit/`, so the kit's rule against naming the game needs no exception (settled item s11-01, PRD 942).
