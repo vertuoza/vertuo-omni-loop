@@ -34,6 +34,18 @@ describe('the judge\'s model', () => {
     expect(await lawsModel({ key: 'k', fetch: stubFetch(new Error('offline')).fetch })({ system: '', user: '' })).toEqual({ ok: false, why: 'OpenRouter could not be reached' });
   });
 
+  it('reads the last fenced answer when the model corrects itself in its reply (#2806)', async () => {
+    const first = '{"findings": [{"law": "BL-X-1", "quote": "the cart is emptied at midnight", "why": "it breaks the law"}]}';
+    const corrected = [
+      '```json', first, '```',
+      '',
+      'Wait, let me reconsider. The spec keeps the cart, so this is not a finding.',
+      '',
+      '```json', '{"findings": []}', '```',
+    ].join('\n');
+    expect(await lawsModel({ key: 'k', fetch: stubFetch(answer(corrected)).fetch })({ system: '', user: '' })).toEqual({ ok: true, reply: { findings: [] } });
+  });
+
   it('is none without OPENROUTER_API_KEY', () => {
     expect(lawsModelFromEnv(null)).toBeNull();
     expect(lawsModelFromEnv({ key: 'k' })).toBeTypeOf('function');
