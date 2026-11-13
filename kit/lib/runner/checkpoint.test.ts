@@ -9,7 +9,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ExecText } from '../context.ts';
-import { KEEP_DAYS, readSave, saveJob, savePaths, worktreesIn } from './checkpoint.ts';
+import { RunnerRefused, RunnerUnreachable } from './api.ts';
+import type { CheckpointApi, SaveRecord } from './api.ts';
+import { KEEP_DAYS, readSave, saveJob, savePaths, sendSave, worktreesIn } from './checkpoint.ts';
+import { CHECKPOINT_BYTES_MAX, CheckpointManifestSchema } from './checkpoint.manifest.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse('2026-11-13T12:00:00Z');
@@ -218,6 +221,122 @@ describe('saveJob', () => {
     expect(save).toMatchObject({ kind: 'local', bundle: null, bundleBytes: 0, branches: [], failed: 'the save failed: no space left on device' });
     expect(existsSync(savePaths(f.folder).bundle)).toBe(false);
     expect(readSave(savePaths(f.folder).manifest)).toEqual(save);
+  });
+});
+
+// Sending a save to the app (PRD 2809, s4): the bundle goes through a signed link to the private bucket and its
+// manifest is recorded `portable`; a failed or refused upload, a bundle over 100 MB, or a save that failed records
+// it `local`, the folder kept. Nothing here throws: a save the app could not hear of stays on the runner.
+describe('sendSave', () => {
+  const LINK = { path: 'w/7/b.bundle', url: 'https://store.test/upload/sign/runner-checkpoints/w/7/b.bundle?token=t', expiresAt: '2026-11-13T14:00:00.000Z' };
+  const TOKEN = ['ghs', 'fakeTokenOfTheJob0123456789ABCDEF'].join('_');
+
+  /** A fake app: what each call was given, and how each answers (`fail` names the call that throws). */
+  function fakeApi(fail: { link?: Error; upload?: Error; record?: (save: SaveRecord) => Error | null } = {}) {
+    const calls: { link: { job: string; bytes: number }[]; upload: Uint8Array[]; record: { job: string; save: SaveRecord }[] } = { link: [], upload: [], record: [] };
+    const api: CheckpointApi = {
+      link(job, bytes) {
+        calls.link.push({ job, bytes });
+        return fail.link ? Promise.reject(fail.link) : Promise.resolve(LINK);
+      },
+      upload(_link, bundle) {
+        calls.upload.push(bundle);
+        return fail.upload ? Promise.reject(fail.upload) : Promise.resolve();
+      },
+      record(job, save) {
+        calls.record.push({ job, save });
+        const refused = fail.record?.(save) ?? null;
+        return refused ? Promise.reject(refused) : Promise.resolve({ id: 'c1', kind: save.kind, keepUntil: '2026-11-20T12:00:00.000Z' });
+      },
+    };
+    return { api, calls };
+  }
+
+  function savedWork() {
+    const f = fixture();
+    writeFileSync(join(f.folder, 'work.md'), 'work\n');
+    writeFileSync(join(f.nested, 'slice.md'), 'slice\n');
+    const save = f.save();
+    if (save === null) throw new Error('the fixture saved nothing');
+    return { f, save };
+  }
+
+  it('uploads the bundle as it is and records it portable, its manifest naming no folder and holding no file', async () => {
+    const { f, save } = savedWork();
+    const { api, calls } = fakeApi();
+    const sent = await sendSave({ save, api, handoff: null, secrets: [], now: NOW });
+    expect(sent).toEqual({ kind: 'portable', why: null, recorded: { id: 'c1', kind: 'portable', keepUntil: '2026-11-20T12:00:00.000Z' } });
+    expect(calls.link).toEqual([{ job: '7', bytes: save.bundleBytes }]);
+    expect(Buffer.from(calls.upload[0] ?? []).equals(readFileSync(String(save.bundle)))).toBe(true);
+    const recorded = calls.record[0]?.save;
+    expect(recorded).toMatchObject({ kind: 'portable', path: LINK.path });
+    const manifest = CheckpointManifestSchema.parse(recorded?.manifest);
+    expect(manifest).toMatchObject({ job: '7', runner: 'box-1', repo: 'acme/widgets', kind: 'portable', keepUntil: save.keepUntil, bundleBytes: save.bundleBytes, bytes: save.bytes, failed: null, handoff: null });
+    expect(manifest.branches.map(({ branch, ref, files }) => ({ branch, ref, files }))).toEqual(save.branches.map(({ branch, ref, files }) => ({ branch, ref, files })));
+    expect(JSON.stringify(recorded)).not.toContain(f.root);
+    // The runner's own manifest says where the bundle went.
+    expect(readSave(savePaths(f.folder).manifest)?.sent).toEqual({ at: new Date(NOW).toISOString(), path: LINK.path });
+  });
+
+  it('records the save local, the folder kept, when the upload fails or the app refuses the link', async () => {
+    for (const fail of [{ upload: new RunnerUnreachable('the storage is unreachable') }, { link: new RunnerRefused('This job was claimed by none of your runners.') }]) {
+      const { f, save } = savedWork();
+      const { api, calls } = fakeApi(fail);
+      const sent = await sendSave({ save, api, handoff: null, secrets: [], now: NOW });
+      const why = `the upload failed: ${(fail.upload ?? fail.link).message}`;
+      expect(sent).toMatchObject({ kind: 'local', why, recorded: { kind: 'local' } });
+      expect(calls.record).toHaveLength(1);
+      expect(calls.record[0]?.save).toEqual({ kind: 'local', manifest: expect.objectContaining({ kind: 'local', failed: why, bytes: save.bytes, keepUntil: save.keepUntil, runner: 'box-1' }) });
+      expect(existsSync(f.folder)).toBe(true);
+      expect(readSave(savePaths(f.folder).manifest)?.sent ?? null).toBeNull();
+    }
+  });
+
+  it('records a portable save local when the app refuses its record, and sends nothing for a bundle over 100 MB', async () => {
+    const refused = savedWork();
+    const portableRefused = fakeApi({ record: (save) => (save.kind === 'portable' ? new RunnerRefused('No bundle was uploaded at this path.') : null) });
+    expect(await sendSave({ save: refused.save, api: portableRefused.api, handoff: null, secrets: [], now: NOW }))
+      .toMatchObject({ kind: 'local', why: 'the upload failed: No bundle was uploaded at this path.' });
+    expect(portableRefused.calls.record.map(({ save }) => save.kind)).toEqual(['portable', 'local']);
+
+    const { save } = savedWork();
+    const { api, calls } = fakeApi();
+    const big = { ...save, bundleBytes: CHECKPOINT_BYTES_MAX + 1 };
+    expect(await sendSave({ save: big, api, handoff: null, secrets: [], now: NOW })).toMatchObject({ kind: 'local', why: 'the bundle is over 100 MB' });
+    expect(calls.link).toEqual([]);
+    expect(calls.upload).toEqual([]);
+  });
+
+  it('records a save that failed local, with its why, and asks for no link', async () => {
+    const f = fixture();
+    writeFileSync(join(f.folder, 'work.md'), 'work\n');
+    const failing: ExecText = (file, args, options) => {
+      if (args.includes('bundle')) throw new Error('no space left on device');
+      return exec(file, args, options);
+    };
+    const save = f.save({ exec: failing });
+    if (save === null) throw new Error('the fixture saved nothing');
+    const { api, calls } = fakeApi();
+    expect(await sendSave({ save, api, handoff: null, secrets: [], now: NOW })).toMatchObject({ kind: 'local', why: 'the save failed: no space left on device' });
+    expect(calls.link).toEqual([]);
+    expect(calls.record[0]?.save.manifest).toMatchObject({ kind: 'local', branches: [], failed: 'the save failed: no space left on device' });
+  });
+
+  it('sends the handoff note masked and cut to 8 KB, with no credential', async () => {
+    const { save } = savedWork();
+    const { api, calls } = fakeApi();
+    await sendSave({ save, api, handoff: `Next: s4. Pushed with ${TOKEN}, key acct-key-99.\n${'x'.repeat(9000)}`, secrets: ['acct-key-99'], now: NOW });
+    const handoff = calls.record[0]?.save.manifest.handoff ?? '';
+    expect(handoff.startsWith('Next: s4.')).toBe(true);
+    expect(handoff).not.toContain(TOKEN);
+    expect(handoff).not.toContain('acct-key-99');
+    expect(new TextEncoder().encode(handoff).length).toBeLessThanOrEqual(8 * 1024);
+  });
+
+  it('never throws: a save the app hears nothing of stays local, unrecorded', async () => {
+    const { save } = savedWork();
+    const { api } = fakeApi({ link: new RunnerUnreachable('omni.test is unreachable'), record: () => new RunnerUnreachable('omni.test is unreachable') });
+    expect(await sendSave({ save, api, handoff: null, secrets: [], now: NOW })).toEqual({ kind: 'local', why: 'the upload failed: omni.test is unreachable', recorded: null });
   });
 });
 

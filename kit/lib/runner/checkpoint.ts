@@ -16,6 +16,10 @@
 //    kept folder at that date, or the oldest first while the kept saves pass the runner's `--keep-budget`, its
 //    manifest then saying what was lost (`sweep.ts`). A save that fails keeps the folder all the same, its
 //    manifest saying why.
+// 5. `sendSave` (s4) sends it: a signed upload link from the app (`POST /api/runners/jobs/<id>/checkpoint`), the
+//    bundle to the private bucket `runner-checkpoints`, then its manifest (`checkpoint.manifest.ts`, the handoff note
+//    masked and cut to 8 KB) recorded `portable`, the runner's own manifest saying where it went (`sent`). A save that
+//    failed, a bundle over 100 MB, or an upload that fails or is refused is recorded `local` instead, saying why.
 //
 // The bundle is made in a scratch bare repository that borrows the checkout's objects, so not a ref of the
 // checkout is written. The snapshot is authored by the job's app when the runner knows it, else by the runner.
@@ -26,6 +30,9 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import type { ExecText } from '../context.ts';
 import { processEnv } from '../env/read.ts';
+import type { CheckpointApi, RecordedSave } from './api.ts';
+import { CHECKPOINT_BYTES_MAX, manifestHandoff } from './checkpoint.manifest.ts';
+import type { CheckpointManifest } from './checkpoint.manifest.ts';
 
 /** How many days a local save is kept on the runner. */
 export const KEEP_DAYS = 7;
@@ -67,6 +74,8 @@ const LocalSaveSchema = z.object({
   failed: z.string().nullable(),
   /** When the folder went before its date, over the keep budget, and why; `null` while it is kept. */
   lost: z.object({ at: z.string(), why: z.string() }).nullable(),
+  /** When its bundle reached the app's bucket, and at which path (PRD 2809, s4); absent or `null` while it did not. */
+  sent: z.object({ at: z.string(), path: z.string() }).nullish(),
 });
 
 /** One worktree's saved work. */
@@ -308,6 +317,58 @@ function keep(options: SaveOptions, branches: SavedBranch[], bundle: string | nu
   };
   writeSave(save);
   return save;
+}
+
+/** What `sendSave` needs: the save, the app's checkpoint calls, the job's handoff note as written and the secrets to mask in it. */
+export type SendOptions = {
+  save: LocalSave;
+  api: CheckpointApi;
+  handoff: string | null;
+  /** The job's tokens and its accounts' keys: never in a manifest. */
+  secrets: readonly string[];
+  now: number;
+};
+
+/** Where a save ended up: in the bucket (`portable`), or on its runner (`local`, and why), as the app recorded it, or `null` when the app heard nothing of it. */
+export type Sent = { kind: 'portable'; why: null; recorded: RecordedSave } | { kind: 'local'; why: string; recorded: RecordedSave | null };
+
+/** The manifest of `save` as the app reads it: no folder of the runner, the handoff masked and cut. */
+function manifestOf(save: LocalSave, kind: CheckpointManifest['kind'], handoff: string | null, failed: string | null): CheckpointManifest {
+  return {
+    job: save.job, runner: save.runner, repo: save.repo, kind, savedAt: save.savedAt, keepUntil: save.keepUntil, bundleBytes: save.bundleBytes, bytes: save.bytes,
+    branches: save.branches.map(({ branch, ref, path, base, head, files, commits }) => ({ branch, ref, path, base, head, files, commits })),
+    handoff, failed,
+  };
+}
+
+const whyOf = (error: unknown): string => (error instanceof Error ? error.message : String(error)).split('\n')[0] ?? '';
+
+/**
+ * Sends a save to the app (PRD 2809, s4): the bundle through a signed link to the private bucket, then its manifest
+ * recorded `portable`, the runner's own manifest saying where it went. A save that failed, a bundle over 100 MB, or an
+ * upload that fails or is refused is recorded `local`, saying why, and its folder stays as it is. Never throws: when the
+ * app hears nothing, the save stays local, unrecorded.
+ */
+export async function sendSave({ save, api, handoff, secrets, now }: SendOptions): Promise<Sent> {
+  const note = manifestHandoff(handoff, secrets);
+  const local = async (why: string): Promise<Sent> => {
+    try {
+      return { kind: 'local', why, recorded: await api.record(save.job, { kind: 'local', manifest: manifestOf(save, 'local', note, why) }) };
+    } catch {
+      return { kind: 'local', why, recorded: null };
+    }
+  };
+  if (save.failed !== null || save.bundle === null) return local(save.failed ?? 'the save holds no bundle');
+  if (save.bundleBytes > CHECKPOINT_BYTES_MAX) return local('the bundle is over 100 MB');
+  try {
+    const link = await api.link(save.job, save.bundleBytes);
+    await api.upload(link, new Uint8Array(readFileSync(save.bundle)));
+    const recorded = await api.record(save.job, { kind: 'portable', path: link.path, manifest: manifestOf(save, 'portable', note, null) });
+    writeSave({ ...save, sent: { at: new Date(now).toISOString(), path: link.path } });
+    return { kind: 'portable', why: null, recorded };
+  } catch (error) {
+    return local(`the upload failed: ${whyOf(error)}`);
+  }
 }
 
 /**
