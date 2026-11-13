@@ -21,17 +21,31 @@ const ROW = {
   manifest: MANIFEST, bytes: 2048, storage_path: PATH, keep_until: '2027-01-27T10:00:00+00:00', deleted_at: null, created_at: '2027-01-20T10:00:00+00:00', updated_at: '2027-01-20T10:00:00+00:00',
 };
 
-function fakeDb({ rpc = { data: ROW, error: null }, sign = { data: { signedUrl: 'https://store.test/sign?token=t', token: 't', path: PATH }, error: null } }: { rpc?: Answer; sign?: Answer } = {}) {
+function fakeDb({ rpc = { data: ROW, error: null }, sign = { data: { signedUrl: 'https://store.test/sign?token=t', token: 't', path: PATH }, error: null }, rows = { data: [ROW], error: null } }: { rpc?: Answer; sign?: Answer; rows?: Answer } = {}) {
   const calls: unknown[] = [];
   const db = {
     rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push({ rpc: fn, args });
       return Promise.resolve(rpc);
     },
+    from: (table: string) => ({
+      select: (columns: string) => ({
+        in: (column: string, values: string[]) => ({
+          is: (nulled: string, value: null) => {
+            calls.push({ table, columns, in: [column, values], is: [nulled, value] });
+            return Promise.resolve(rows);
+          },
+        }),
+      }),
+    }),
     storage: {
       from: (bucket: string) => ({
         createSignedUploadUrl: (path: string) => {
           calls.push({ bucket, sign: path });
+          return Promise.resolve(sign);
+        },
+        createSignedUrl: (path: string, seconds: number) => {
+          calls.push({ bucket, download: path, seconds });
           return Promise.resolve(sign);
         },
       }),
@@ -76,5 +90,37 @@ describe('checkpointsRepository().record()', () => {
     await expect(checkpointsRepository(fakeDb({ rpc: { data: null, error: { code: '42501', message: 'permission denied' } } }).db).record(SAVE))
       .rejects.toThrow('runner_checkpoint_record: permission denied');
     await expect(checkpointsRepository(fakeDb({ rpc: { data: { id: 1 }, error: null } }).db).record(SAVE)).rejects.toThrow('runner_checkpoint_record answered out of shape');
+  });
+});
+
+// PRD 2809, s5: what the claim of a resume carries.
+describe('checkpointsRepository().savesOf()', () => {
+  it('reads the saves of the jobs asked whose bundle was not deleted, a manifest out of shape as none', async () => {
+    const { db, calls } = fakeDb({ rows: { data: [ROW, { ...ROW, id: '00000000-0000-4000-8000-000028090c02', manifest: { job: JOB } }], error: null } });
+    const read = await checkpointsRepository(db).savesOf([JOB]);
+    expect(read.map((row) => row.manifest)).toEqual([MANIFEST, null]);
+    expect(calls).toEqual([{
+      table: 'runner_checkpoints', columns: 'id, job_id, workspace_id, runner_id, kind, manifest, bytes, storage_path, keep_until, deleted_at', in: ['job_id', [JOB]], is: ['deleted_at', null],
+    }]);
+  });
+
+  it('asks nothing for no job, and throws, naming the table, when the database refuses', async () => {
+    const { db, calls } = fakeDb();
+    expect(await checkpointsRepository(db).savesOf([])).toEqual([]);
+    expect(calls).toEqual([]);
+    await expect(checkpointsRepository(fakeDb({ rows: { data: null, error: { message: 'permission denied' } } }).db).savesOf([JOB])).rejects.toThrow('runner_checkpoints: permission denied');
+  });
+});
+
+describe('checkpointsRepository().signDownload()', () => {
+  it('asks the bucket runner-checkpoints for a download link at the path for so many seconds, and answers it', async () => {
+    const { db, calls } = fakeDb();
+    expect(await checkpointsRepository(db).signDownload(PATH, 600)).toEqual({ url: 'https://store.test/sign?token=t' });
+    expect(calls).toEqual([{ bucket: 'runner-checkpoints', download: PATH, seconds: 600 }]);
+  });
+
+  it('throws, naming the bucket, when the storage gives no link', async () => {
+    const { db } = fakeDb({ sign: { data: null, error: { message: 'Object not found' } } });
+    await expect(checkpointsRepository(db).signDownload(PATH, 600)).rejects.toThrow('runner-checkpoints: Object not found');
   });
 });

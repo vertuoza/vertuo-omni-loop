@@ -11,7 +11,8 @@
 -- a job whose cancel was asked, a refusal, the skill's own failure, a timeout, a done job, a skill outside
 -- the resumable ones or a repository's own skill. runner_claim() hands out no job before its resume_after,
 -- and the resume once it has passed. A member reads the new columns, another workspace nothing, and nobody
--- signed in writes them. Any `FAIL:` stops the run.
+-- signed in writes them. A resume whose chain's local save a runner keeps goes to that runner while it is
+-- online, to any runner once it is not, and a save past its keep date holds nothing back (s5). Any `FAIL:` stops the run.
 
 begin;
 
@@ -247,6 +248,78 @@ begin
   -- P1 and R1 ended lost with box-1, and are still failed runner lost.
   if (select count(*) from public.runner_jobs where id in ('00000000-0000-4000-8000-0000028092d7', '00000000-0000-4000-8000-0000028092d8') and status = 'failed' and reason = 'runner lost') <> 2 then
     raise exception 'FAIL: the plan and the repository''s own skill were not lost with box-1';
+  end if;
+end $$;
+
+reset role;
+
+-- ── A chain's local save: its resume goes to the runner that keeps it, while it is online (PRD 2809, s5) ──
+-- W1 /omni:wave 2812 and E1 /omni:wave 2813, Mo's, to any runner, run on box-1 and are lost. Box-1 kept W1's save on its
+-- disk (local, not deleted, kept 7 days); E1's local save is past its keep date. Each resume is queued first.
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by, status, runner_id, claimed_at, running_at, queued_at) values
+  ('00000000-0000-4000-8000-0000028092f1', '00000000-0000-4000-8000-000002809001', '/omni:wave 2812', 'resume-check/app', '00000000-0000-4000-8000-0000028090b1', 'running', '00000000-0000-4000-8000-0000028091a1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '3 hours'),
+  ('00000000-0000-4000-8000-0000028092f5', '00000000-0000-4000-8000-000002809001', '/omni:wave 2813', 'resume-check/app', '00000000-0000-4000-8000-0000028090b1', 'running', '00000000-0000-4000-8000-0000028091a1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '3 hours');
+insert into public.runner_checkpoints (job_id, workspace_id, runner_id, kind, manifest, bytes, keep_until) values
+  ('00000000-0000-4000-8000-0000028092f1', '00000000-0000-4000-8000-000002809001', '00000000-0000-4000-8000-0000028091a1', 'local',
+   '{"job": "00000000-0000-4000-8000-0000028092f1", "kind": "local"}', 4096, now() + interval '7 days'),
+  ('00000000-0000-4000-8000-0000028092f5', '00000000-0000-4000-8000-000002809001', '00000000-0000-4000-8000-0000028091a1', 'local',
+   '{"job": "00000000-0000-4000-8000-0000028092f5", "kind": "local"}', 4096, now() - interval '1 second');
+
+set local role service_role;
+
+do $$
+declare
+  w1     constant uuid := '00000000-0000-4000-8000-0000028092f1';
+  box1   constant uuid := '00000000-0000-4000-8000-0000028091a1';
+  box3   constant uuid := '00000000-0000-4000-8000-0000028091a3';
+  w2     uuid;
+  w3     uuid;
+  got    uuid;
+begin
+  update public.runner_jobs set status = 'failed', reason = 'runner lost', ended_at = now() where id = w1;
+  w2 := (select id from public.runner_jobs where resumes = w1);
+  update public.runner_jobs set resume_after = now() - interval '1 second', queued_at = now() - interval '2 hours' where id = w2;
+
+  -- Box-1 is back online: box-3 claims whatever else waits for it, never W2.
+  update public.runners set last_seen_at = now() where id = box1;
+  for i in 1..3 loop
+    got := (select id from public.runner_claim(box3));
+    if got = w2 then
+      raise exception 'FAIL: box-3 claimed the resume of a chain whose local save box-1 keeps, while box-1 is online';
+    end if;
+  end loop;
+  -- Box-1 claims it: the save is on its disk.
+  got := (select id from public.runner_claim(box1));
+  if got is distinct from w2 then
+    raise exception 'FAIL: box-1, which keeps the chain''s local save, claimed %, not the resume', got;
+  end if;
+
+  -- W2 is lost too: W3's chain still holds W1's save on box-1, now silent. Any runner takes W3, box-3 here.
+  update public.runner_jobs set status = 'running', running_at = now() where id = w2;
+  update public.runner_jobs set status = 'failed', reason = 'runner lost', ended_at = now() where id = w2;
+  w3 := (select id from public.runner_jobs where resumes = w2);
+  update public.runner_jobs set resume_after = now() - interval '1 second', queued_at = now() - interval '2 hours' where id = w3;
+  update public.runners set last_seen_at = now() - interval '91 seconds' where id = box1;
+  got := (select id from public.runner_claim(box3));
+  if got is distinct from w3 then
+    raise exception 'FAIL: box-3 claimed %, not the resume whose save keeper, box-1, is offline', got;
+  end if;
+end $$;
+
+do $$
+declare
+  e1   constant uuid := '00000000-0000-4000-8000-0000028092f5';
+  e2   uuid;
+  got  uuid;
+begin
+  -- A local save past its keep date holds nothing back: box-1 online, box-3 takes E2.
+  update public.runners set last_seen_at = now() where id = '00000000-0000-4000-8000-0000028091a1';
+  update public.runner_jobs set status = 'failed', reason = 'runner lost', ended_at = now() where id = e1;
+  e2 := (select id from public.runner_jobs where resumes = e1);
+  update public.runner_jobs set resume_after = now() - interval '1 second', queued_at = now() - interval '2 hours' where id = e2;
+  got := (select id from public.runner_claim('00000000-0000-4000-8000-0000028091a3'));
+  if got is distinct from e2 then
+    raise exception 'FAIL: box-3 claimed %, not the resume whose only local save is past its keep date', got;
   end if;
 end $$;
 

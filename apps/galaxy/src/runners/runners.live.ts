@@ -45,7 +45,7 @@ const productRepos = (products: ProductsRepository): ProductRepos => async (work
 function liveRunnersService(): RunnersService | null {
   if (!supabaseEnv() || serverEnv().serviceRole === null) return null;
   const db = serviceDb();
-  return runnersService(runnersRepository(db), clock, omniGithub(), liveNotifier(), productRepos(productsRepository(db)));
+  return runnersService(runnersRepository(db), clock, omniGithub(), liveNotifier(), productRepos(productsRepository(db)), checkpointsRepository(db));
 }
 
 /** A job's save (PRD 2809, s4) over the service role's client, which signs the upload links; null when this deployment has none. */

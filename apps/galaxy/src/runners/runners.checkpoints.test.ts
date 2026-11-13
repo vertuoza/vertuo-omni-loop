@@ -39,7 +39,7 @@ function fakeCheckpoints() {
   const uploaded: string[] = [];
   const signed: string[] = [];
   const saves: CheckpointRow[] = [];
-  const repository: CheckpointsRepository = {
+  const repository: Pick<CheckpointsRepository, 'signUpload' | 'record'> = {
     signUpload: (path) => {
       signed.push(path);
       return Promise.resolve({ url: `https://store.test/storage/v1/object/upload/sign/runner-checkpoints/${path}?token=signed` });
