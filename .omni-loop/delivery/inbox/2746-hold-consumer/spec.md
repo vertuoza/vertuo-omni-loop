@@ -87,8 +87,12 @@ needs nothing more than merged. `wait` is new to this point: it means "not yet, 
 - **Before ready.** `/omni:pr` (its Done row), ultra-yolo's finish, `/omni:mega-bug-fix` and
   `/omni:mega-pr-care` run `omni hold` on the pull request before `gh pr ready`. On `probe` they
   follow each named hook, with its inputs filled in, and read its verdict line. They mark the pull
-  request ready only when every row is `clear` or `pass`. Otherwise it stays a **draft**, and its
-  status comment says `waiting for <owner/repo>#<n> to be served: <why>`.
+  request ready only when every row is `clear` or `pass`. Otherwise it stays a **draft**, and the
+  agent's own status comment (the one it already keeps on the pull request, signed as the agent)
+  reports what it read: `waiting for <owner/repo>#<n> to be served: <why>`, `<why>` being the line
+  `omni hold` printed for that row. It is a fact read from GitHub or the probe, never a decision: it
+  says nothing about whether to merge, which stays the person's, and it is rewritten each time the
+  hold is read again, as the status comment always is.
 - **The loops.** `/omni:drive` and `/omni:mega-drive` park a PRD whose pull request is held on that
   line, the way a blocked PRD is parked today, and run `omni hold` again each tick; once it is clear
   (or every probe passes), the next tick marks it ready through `/omni:pr`.
@@ -207,7 +211,7 @@ Rollback: revert the feature PR and release.
   user. Kept: `omni hold` and the skills only keep a draft or mark ready; nothing merges. Changing it
   needs @pierrederval or @dervalp to approve the pull request on GitHub.
 - BL-APPROVALS-1 — An approval covers exactly the files the approver read; a later change voids it. Kept: the hold reads pull request states and never changes an approved file.
-- BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: the hold writes only the agent's own status comment and outbox item.
+- BL-ASK-1 — An answer a person gave is never changed or reworded afterwards. Kept: the hold reads a person's words and never writes them. It edits no comment, review, answer or outbox reply a person wrote, and no line of a pull request body a person wrote; the `Merge after` lines it reads are written by the skills. What it writes is its own: the status comment, which reports what `omni hold` read and states no decision, and, for a closed provider, a new high outbox item that asks the person, whose answer is then kept as given.
 - BL-GATE-1 — A check that ends without deciding says so, never a pass. Kept: a provider `gh` cannot read, or a hook file that cannot be read, prints `not judged: <why>`, never `clear`, and the consumer stays a draft; a probe on `wait` is not finished, never passed.
 
 ## Acceptance criteria
