@@ -75,3 +75,21 @@ export const KEY_REFUSED = 'This API key does not work here. Make one on Setting
 export const noEntryLine = (id: string, product: string): string =>
   `No knowledge entry ${id} in ${product}. Search for it with search_knowledge.`;
 
+/** One row of mcp_search_log, as the route writes it once its answer is sent (PRD omni-loop-6 s1). */
+export type SearchLogRow = {
+  product_id: string;
+  workspace_id: string;
+  /** The served key's id, never the key nor its hash (L-GDPR-2). */
+  api_key_id: string;
+  tool: 'search_knowledge' | 'get_knowledge';
+  /** The search's `query` (null for a listing), or the `id` a get_knowledge asked. */
+  query: string | null;
+  filters: { kind?: string; domain?: string; repo?: string };
+  mode: SearchMode | null;
+  /** How many entries the search ranked; for a get_knowledge, 1 when found, else 0. */
+  total: number;
+  /** The hits' ids in rank order; for a get_knowledge, the id found. */
+  hit_ids: string[];
+  /** When the call came in. */
+  asked_at: string;
+};

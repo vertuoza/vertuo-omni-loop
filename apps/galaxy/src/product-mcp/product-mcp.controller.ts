@@ -15,12 +15,19 @@
 // Nothing is kept between requests: the next call after a person leaves, or the server is turned off, reads
 // nothing, and the first call after a merge reads its pack. The workspace's vectors are read only after the
 // key check served the request, and only that workspace's (search-meaning.ts).
+//
+// Every call the key check served and the knowledge answered adds one row to the search log (PRD omni-loop-6
+// s1): the product, its workspace, the key's id (never the key), the tool, the query or the id asked, the
+// filters, the mode, the total and the hits' ids in rank order. The row is written after the answer is sent
+// (`later`: Next's after() in production), so the log never slows or changes an answer; a write that fails is
+// one error line, and is dropped. A call refused by the key check, or whose knowledge could not be read, adds
+// no row.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
 import { hashApiKey, isApiKeyShaped } from '../public-api/keys/secret';
 import {
-  KEY_REFUSED, KNOWLEDGE_KINDS, NO_DATABASE, NOT_HERE, NOT_READ, noEntryLine, GetAnswerSchema, SearchAnswerSchema,
+  KEY_REFUSED, KNOWLEDGE_KINDS, NO_DATABASE, NOT_HERE, NOT_READ, noEntryLine, GetAnswerSchema, SearchAnswerSchema, type SearchLogRow,
 } from './product-mcp.contract';
 import type { KnowledgeRead, ProductMcpService, Resolution } from './product-mcp.service';
 import { searchByMeaning, type Meaning } from './search-meaning';
@@ -32,7 +39,14 @@ export type ProductMcpDeps = {
   log: (message: string) => void;
   /** The model and the workspace's vectors, or null when this deployment has none: every search is then by words. */
   meaning?: Meaning | null;
+  /** Where each answered call is logged (PRD omni-loop-6 s1), or null when this deployment keeps no log. */
+  searchLog?: { add: (row: SearchLogRow) => Promise<void> } | null;
+  /** Runs `task` once the answer is sent (Next's after()); by default, at once, unawaited. */
+  later?: (task: () => Promise<void>) => void;
 };
+
+/** What a tool answers, and the part of its log row the tool alone knows. */
+type Answered = { body: string; isError?: boolean; logged: Pick<SearchLogRow, 'tool' | 'query' | 'filters' | 'mode' | 'total' | 'hit_ids'> };
 
 const INSTRUCTIONS = [
   'The knowledge of this product, across every repository of it: its business laws, the decisions behind its architecture (ADRs), its rules and invariants, its Legal entries, its terms and its Never lines.',
@@ -55,9 +69,20 @@ const text = (body: string, isError = false) => ({ content: [{ type: 'text' as c
 function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: ProductMcpDeps & { service: ProductMcpService }): McpServer {
   const mcp = new McpServer({ name: 'omni-product-knowledge', version: '1.0.0' }, { instructions: INSTRUCTIONS });
 
+  /** Logs the answered call once the answer is sent; a failure is one line, never a changed answer. */
+  const record = (row: SearchLogRow): void => {
+    const log = deps.searchLog;
+    if (log === undefined || log === null) return;
+    const later = deps.later ?? ((task) => { void task(); });
+    later(() => log.add(row).catch((error: unknown) => {
+      deps.log(`product mcp: search log not written: ${error instanceof Error ? error.message : String(error)}`);
+    }));
+  };
+
   /** The tool's answer over the knowledge read now, or the one line of a key that does not work or a read that failed. */
-  const answered = async (work: (read: KnowledgeRead, workspace: string) => { body: string; isError?: boolean } | Promise<{ body: string; isError?: boolean }>) => {
+  const answered = async (work: (read: KnowledgeRead, workspace: string) => Answered | Promise<Answered>) => {
     if (resolution.kind === 'refused') return text(KEY_REFUSED, true);
+    const askedAt = new Date().toISOString();
     let read: KnowledgeRead;
     try {
       read = await deps.service.read(resolution.access);
@@ -65,7 +90,9 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
       deps.log(`product mcp: ${error instanceof Error ? error.message : String(error)}`);
       return text(NOT_READ, true);
     }
-    const { body, isError = false } = await work(read, resolution.access.product.workspace_id);
+    const { product, key_id: keyId } = resolution.access;
+    const { body, isError = false, logged } = await work(read, product.workspace_id);
+    record({ product_id: product.id, workspace_id: product.workspace_id, api_key_id: keyId, ...logged, asked_at: askedAt });
     return text(body, isError);
   };
 
@@ -86,7 +113,18 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
     annotations: { readOnlyHint: true, openWorldHint: false },
   }, async (query) => answered(async (read, workspace) => {
     const found = await searchByMeaning(read.entries, query, workspace, deps.meaning ?? null, deps.log);
-    return { body: JSON.stringify(SearchAnswerSchema.parse({ ...found, repositories: read.repositories })) };
+    const { kind, domain, repo } = query;
+    return {
+      body: JSON.stringify(SearchAnswerSchema.parse({ ...found, repositories: read.repositories })),
+      logged: {
+        tool: 'search_knowledge',
+        query: query.query ?? null,
+        filters: { ...(kind === undefined ? {} : { kind }), ...(domain === undefined ? {} : { domain }), ...(repo === undefined ? {} : { repo }) },
+        mode: found.mode ?? null,
+        total: found.total,
+        hit_ids: found.hits.map((hit) => hit.id),
+      },
+    };
   }));
 
   mcp.registerTool('get_knowledge', {
@@ -98,8 +136,12 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
     annotations: { readOnlyHint: true, openWorldHint: false },
   }, async ({ id }) => answered((read) => {
     const entry = read.entries.find((e) => e.id === id) ?? read.entries.find((e) => e.id.toLowerCase() === id.toLowerCase());
-    if (entry === undefined) return { body: noEntryLine(id, read.product), isError: true };
-    return { body: JSON.stringify(GetAnswerSchema.parse({ entry, repositories: read.repositories })) };
+    const logged = { tool: 'get_knowledge', query: id, filters: {}, mode: null } as const;
+    if (entry === undefined) return { body: noEntryLine(id, read.product), isError: true, logged: { ...logged, total: 0, hit_ids: [] } };
+    return {
+      body: JSON.stringify(GetAnswerSchema.parse({ entry, repositories: read.repositories })),
+      logged: { ...logged, total: 1, hit_ids: [entry.id] },
+    };
   }));
 
   return mcp;

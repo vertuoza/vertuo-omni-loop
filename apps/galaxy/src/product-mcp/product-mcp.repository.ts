@@ -12,7 +12,12 @@
 // knowledge_vectors_put() and knowledge_nearest() (supabase/migrations/20270118090000_knowledge_vectors.sql),
 // the service role's alone, each taking the workspace and reading only its rows (BR-PRODUCT-63). They are
 // asked only once the key check has served the request.
+//
+// The search log (PRD omni-loop-6 s1) is one insert into mcp_search_log
+// (supabase/migrations/20270119090000_mcp_search_log.sql), which only the service role may write: a row holds
+// the API key's id, which product_mcp_for_key() answers as `key_id`, never the key.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SearchLogRow } from './product-mcp.contract';
 import { z } from 'zod';
 
 /** What the reads need: the tables and the functions. */
@@ -33,6 +38,8 @@ const TermRow = z.object({ term: z.string(), meaning: z.string(), avoid: z.array
 
 const AccessRow = z.object({
   product: z.object({ id: z.string(), key: z.string(), name: z.string(), workspace_id: z.string() }),
+  /** The id of the key served (PRD omni-loop-6), never the key. */
+  key_id: z.string(),
   repositories: z.array(PackRef),
   law_home: PackRef.nullable(),
   // product_knowledge_for_agents() of the product, as the agent link reads it: the Legal entries with each
@@ -119,3 +126,13 @@ export function knowledgeVectorsRepository(db: ProductMcpDb) {
 }
 
 export type KnowledgeVectorsRepository = ReturnType<typeof knowledgeVectorsRepository>;
+
+/** The search log of a product's MCP, on the service role's client. */
+export function searchLogRepository(db: ProductMcpDb) {
+  return {
+    /** Adds one row; a refusal throws, naming the table. */
+    async add(row: SearchLogRow): Promise<void> {
+      await read(db.from('mcp_search_log').insert(row), z.unknown(), 'mcp_search_log');
+    },
+  };
+}
