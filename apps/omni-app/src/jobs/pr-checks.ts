@@ -17,7 +17,7 @@
 //   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's (which
 //                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, and
-//                    `search-categorize`, PRD omni-loop-7 s3, ./schedule.ts), and
+//                    `search-categorize`, PRD omni-loop-7 s3, and `checkpoints-forget`, PRD 2809 s6, ./schedule.ts), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
 //                    refreshes the four checks' jobs of a product PRD's target pull requests, and the
@@ -62,6 +62,8 @@ import { MAIN_WATCH_KIND, mainWatchHandler } from '../main-watch/main-watch.ts';
 import { mainWatchStore } from '../main-watch/store.ts';
 import { RETRO_KIND, retroFailureHook, retroHandler } from '../retro/retro.ts';
 import { runnerQueue } from '../retro/runner-queue.ts';
+import { checkpointStore } from '../checkpoints/store.ts';
+import { CHECKPOINTS_FORGET_KIND, checkpointsForgetHandler } from './checkpoints-forget.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { embedHandler, EMBED_KIND } from './embed.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
@@ -200,6 +202,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
         embed: embedClient(supabase),
         categorize: galaxyCategorizer({ url: categorizeUrl(galaxyUrl), secret: env.searchCategorize?.secret }),
       }),
+      [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
