@@ -480,6 +480,11 @@ jobs:
         # names only the absent hashes; `nearest` orders the hashes given by cosine distance within one
         # workspace's vectors alone; `forget` deletes only the vectors unused for 90 days (PRD 2728).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_vectors.sql
+      - name: Who reads and writes a product's MCP search log, and how long it keeps a row
+        # A member of the product's workspace reads its rows, another workspace's member and anon none; only the
+        # service role adds rows and fills the opened rank; product_mcp_for_key() answers the key's id, never the
+        # key; the nightly forget deletes the rows older than 90 days alone (PRD omni-loop-6).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mcp_search_log.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

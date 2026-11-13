@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { knowledgeVectorsRepository, productMcpRepository, type ProductMcpDb } from './product-mcp.repository';
+import { knowledgeVectorsRepository, productMcpRepository, searchLogRepository, type ProductMcpDb } from './product-mcp.repository';
 
 // A product's MCP server's storage (PRD 2707 s3): the calls it sends on the service role's client, each
 // answer parsed where it comes in. A fake client records each call as one line and answers in order.
@@ -29,6 +29,7 @@ function fakeDb(answers: Answer[]) {
 const HASH = 'a'.repeat(64);
 const ACCESS = {
   product: { id: 'p-acme', key: 'acme-app', name: 'Acme App', workspace_id: 'w-acme' },
+  key_id: 'k-live',
   repositories: [{ repo: 'acme/api', pack_id: null, sha: null, committed_at: null }],
   law_home: { repo: 'acme/widgets', pack_id: 'k-1', sha: 'c'.repeat(40), committed_at: '2026-11-09T10:00:00Z' },
   knowledge: {
@@ -111,5 +112,24 @@ describe('knowledgeVectorsRepository', () => {
   it('throws, naming the call, on an answer out of shape', async () => {
     await expect(knowledgeVectorsRepository(fakeDb([{ data: [{ sha: 1 }], error: null }]).db).nearest('w', 'gte-small', [SHA], [1], 1))
       .rejects.toThrow('knowledge_nearest answered out of shape');
+  });
+});
+
+describe('searchLogRepository (PRD omni-loop-6 s1)', () => {
+  const ROW = {
+    product_id: 'p-acme', workspace_id: 'w-acme', api_key_id: 'k-live', tool: 'search_knowledge' as const,
+    query: 'api key', filters: { kind: 'adr' }, mode: 'meaning' as const, total: 2, hit_ids: ['api/ADR-0012', 'widgets/ADR-0067'],
+    asked_at: '2026-11-13T10:00:00.000Z',
+  };
+
+  it('adds one row to mcp_search_log, as it is given', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await searchLogRepository(db).add(ROW);
+    expect(lines).toEqual([`from("mcp_search_log").insert(${JSON.stringify(ROW)})`]);
+  });
+
+  it('throws, naming the table, when the database refuses the row', async () => {
+    await expect(searchLogRepository(fakeDb([{ data: null, error: { code: '42501', message: 'permission denied' } }]).db).add(ROW))
+      .rejects.toThrow('mcp_search_log: the database refused: permission denied');
   });
 });
