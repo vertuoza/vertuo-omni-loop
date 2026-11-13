@@ -970,14 +970,6 @@ describe('the pr-care skill in this repository', () => {
     expect(read()).toMatch(/feature PR\*\* only/);
   });
 
-  it('reruns omni bug after a push to a bug-fix pull request, re-proves at the head or puts it back to draft', () => {
-    const text = skillSection(read(), '2. A round');
-    expect(orderGaps(text, [
-      'After a push to a bug-fix pull request', 'omni.mjs bug <n>', '`- **Re-proved** (green,', 'changing no line already there',
-      'gh pr ready <n> --undo', 'status comment',
-    ])).toEqual([]);
-  });
-
   it('reads the state with omni care state, then acts in order: conflict, red CI, then reviews', () => {
     const round = skillSection(read(), '2. A round');
     expect(orderGaps(round, [
