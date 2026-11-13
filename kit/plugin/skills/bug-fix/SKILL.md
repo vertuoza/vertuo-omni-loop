@@ -718,6 +718,13 @@ open step 7's draft on the reproduction alone first, and only then commit the fi
    pull request ready to get a CI run. A red CI run on the fix commit is one more attempt at the fix:
    back to step 8, and once its fix is pushed, the ladder and steps 5 to 7 run again on the new head.
 
+   **The After line cites the head.** At the moment the body is checked, the `After the fix` line
+   cites the head commit of the pull request (the open pull request's head, or `git rev-parse HEAD`
+   with `--body-file` and no pull request yet), and `omni bug` refuses any other commit. A commit
+   pushed after the proof makes the proof stale: run the reproduction again at the new head and add a
+   `- **Re-proved** (green, `<short sha>`): `<the passing line>`` line under the proof, changing no line
+   already there.
+
    The body's shape:
 
    ```markdown

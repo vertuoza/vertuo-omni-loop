@@ -970,6 +970,14 @@ describe('the pr-care skill in this repository', () => {
     expect(read()).toMatch(/feature PR\*\* only/);
   });
 
+  it('reruns omni bug after a push to a bug-fix pull request, re-proves at the head or puts it back to draft', () => {
+    const text = skillSection(read(), '2. A round');
+    expect(orderGaps(text, [
+      'After a push to a bug-fix pull request', 'omni.mjs bug <n>', '`- **Re-proved** (green,', 'changing no line already there',
+      'gh pr ready <pr> --undo', 'status comment',
+    ])).toEqual([]);
+  });
+
   it('reads the state with omni care state, then acts in order: conflict, red CI, then reviews', () => {
     const round = skillSection(read(), '2. A round');
     expect(orderGaps(round, [
@@ -1012,7 +1020,7 @@ describe('the pr-care skill in this repository', () => {
     for (const phrase of ['merged', 'closed', 'the person stops it']) expect(stop, phrase).toContain(phrase);
     expect(skillSection(text, 'Guardrails')).toMatch(/Never merge/);
     expect(text).not.toMatch(/\bgh pr merge\b/);
-    expect(text).not.toMatch(/\bgh pr ready\b(?! <n> --undo)/);
+    expect(text).not.toMatch(/\bgh pr ready\b(?! <(?:n|pr)> --undo)/);
   });
 });
 

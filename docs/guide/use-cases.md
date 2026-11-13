@@ -182,6 +182,12 @@ When none of the three works, the pull request stays a draft, and its proof is o
 one's reason. Before the pull request is marked ready, `omni bug` checks that its body carries that
 proof. It is never marked ready just to get a CI run.
 
+A proof is only good at the head that merges. The **After the fix** line names the commit it ran on,
+and `omni bug` refuses a proof whose newest green commit is not the head of the pull request. When a
+commit lands after the proof (a review fix, a rebase), `/omni:pr-care` runs the reproduction again at
+the new head and adds a **Re-proved** line under the proof, never rewriting a line already there; if
+the reproduction is red, the pull request goes back to draft.
+
 On `demo-org/nimbus-web`, the hook deploys each pull request to its own preview and films the bug
 there:
 

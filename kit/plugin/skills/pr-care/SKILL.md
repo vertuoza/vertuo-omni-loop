@@ -10,7 +10,7 @@ branch shape or command you can read with `omni config <key>`. `<remote>` is `re
 
 This skill looks after the **feature PR** only: the one pull request PRD n sends to the default
 branch. For a PRD of several landings, that is the first **landing PR** still open (the one
-`care state` names), and the chain of landing PRs behind it, kept stacked as each one merges. Phase-0 PRs, sub-PRs, retro, knowledge and fix PRs are out of its scope; a sub-PR's review threads are judged by `/omni:wave` before it merges the sub-PR, with **3. Review threads** below. A person runs it in
+`care state` names), and the chain of landing PRs behind it, kept stacked as each one merges. Phase-0 PRs, sub-PRs, retro and knowledge PRs are out of its scope, and a bug-fix PR is looked after only for its proof (**After a push to a bug-fix pull request**); a sub-PR's review threads are judged by `/omni:wave` before it merges the sub-PR, with **3. Review threads** below. A person runs it in
 a terminal and leaves it running: it watches on this machine, needs no new secret or runner, and
 stops when the terminal does, which the PRD page's watcher line makes visible.
 
@@ -194,6 +194,23 @@ after it, in order). Landing n is `after`, landing n+1 is the action's own.
    `human steps` names the landing and the files. The landings after it stay as they are.
 5. Then switch the worktree back to the PR care looks after (`pr.head`) before the next action.
 
+### After a push to a bug-fix pull request
+
+A proof is only good at the head that merges (PRD 2741). After every push this skill makes to a bug-fix
+pull request (a branch matching `branches.fix`, or a body with `## Proof` and `## Bug`), run
+`node .omni-loop/bin/omni.mjs bug <n>` again, in the worktree. It prints `ok`, or refuses.
+
+1. When the only fault is the cited green (the proof cites green at an older commit, or a commit that
+   is not the head), run the reproduction (the record's **File:**) at the new head. On green, add one
+   line under the last line of `## Proof`'s proof, `- **Re-proved** (green, `<new short sha>`): `<the new
+   passing line>``, changing no line already there, the After line included. Put the body back with
+   `gh pr edit <pr> --body-file <file>` and run `omni bug <n>` once more. The body keeps the line `omni sign footer` prints, as it was.
+2. When the reproduction is red, or `omni bug` still refuses, put the pull request back to draft with
+   `gh pr ready <pr> --undo` and say why in the status comment. Never merge, and never mark it ready.
+
+The GIF is not filmed again: the newest green line is the claim bound to the head. A pull request
+whose proof was not produced is left as `omni bug` grades it.
+
 ## 3. Review threads
 
 Each `judge` action names a thread id; its comments are in the state's `threads` entry with that id
@@ -306,7 +323,7 @@ thread ended as: `#<pr.number>: merged. 4 fixed, 2 pushed back, 1 asked.`
   is `/omni:yolo`'s. A landing PR is no different, whatever its base.
 - **Never force-push a landing branch** but through **The landing chain**, with
   `--force-with-lease`, and never while a wave holds claims.
-- **Never add `labels.outboxGo`,** and never touch a PR other than PRD n's feature PR.
+- **Never add `labels.outboxGo`,** and never touch a PR other than PRD n's feature PR, bar a bug-fix PR's proof.
 - **Never resolve a thread without a reply** that says why, and never resolve an asked one.
 - **Never promise a point for later as `pushed-back`:** a reply that offers to do it afterwards is
   `later`, so the point is kept and a person agrees to it.
