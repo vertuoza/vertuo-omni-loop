@@ -540,6 +540,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni business show [--json]',
       'omni business cited <id>… --by <skill> [--ref <text>]',
       'omni business claim add --kind <k> --value <v> --state <s> --ref <text>',
+      'omni business persona add --name <text> --stance <stance> --trade <trade>',
+      '  --who <text> --usage <text> [--product <name>] [--json]',
+      'omni business persona edit "<name>" [--name <text>] [--stance <stance>]',
+      '  [--trade <trade>] [--who <text>] [--usage <text>] [--product <name>] [--json]',
     ],
     label: 'omni business show',
     summary: 'the business this repository serves, as agents read it',
@@ -558,7 +562,15 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'claim add stores a claim a person gave as an answer (region, offering, size, trade or rival), its ' +
       'receipt the skill and the run: proposed, for a member to confirm on the Business page, or ' +
       'confirmed; a value the business already holds is named, not stored twice, and a failed call ' +
-      'prints a skip line and exits 0.',
+      'prints a skip line and exits 0. persona add and persona edit write one persona of the product as ' +
+      'you, signed in with omni signin: a stance is enthusiastic, neutral or skeptical, a trade any lower-case ' +
+      'words (data analyst), and add needs every flag. An add gets a random portrait for its trade; edit finds ' +
+      'the persona by its name, keeps its portrait and changes only the flags given, so it needs one at least. ' +
+      'They print added persona:<name> or edited persona:<name> with its link on the Knowledge tab; --json ' +
+      "prints the page's answer; --product names the product when the repository is in several. A refusal " +
+      '(no persona of that name, two of that name, a value the database refuses), a sign-out or an unreachable ' +
+      'page is one line and exit 1; a missing flag, an edit with no field or an unknown stance is a usage ' +
+      'error, exit 2. Any member may write a persona, and none is removed from the terminal.',
   },
   {
     name: 'constituents',
