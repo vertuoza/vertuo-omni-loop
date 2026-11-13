@@ -27,7 +27,7 @@ import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { gradeBugFile, bugSeqArg, bugPushedLines, pushProductBug } from '../../lib/bug/product.ts';
 import { openPullRequest, proofFaults } from '../../lib/bug/proof-body.ts';
-import type { ProofSource } from '../../lib/bug/proof-body.ts';
+import type { Head, ProofSource } from '../../lib/bug/proof-body.ts';
 import { bugVerdict, parseSections } from '../../lib/bug/verdict.ts';
 import { stillOpenBullets, stillOpenViolations } from '../../lib/bug/still-open.ts';
 import { formatFailure, formatPass } from '../../lib/check-report.ts';
@@ -37,6 +37,7 @@ import { issueArg, parseArgs, println, readUserFile, usageError } from '../args.
 import { fixLaws, loggedPaths, rangeBase, rangeCommits } from '../branch-range.ts';
 import { synchronous } from '../synchronous.ts';
 import { loadContext } from '../../lib/context.ts';
+import type { Context, ExecText } from '../../lib/context.ts';
 import type { CommandIo, FreeCommand, FreeIo, Out } from '../io.ts';
 import { film } from './bug-film.ts';
 
@@ -49,6 +50,28 @@ const USAGE = [
   '       omni bug check --product <key> (--bug <n> | --new) <file> [--body-file <body>]',
   '       omni bug push --product <key> (--new | --bug <n>) <file>',
 ].join('\n');
+
+/** The local head and the commits since `base`, oldest first: what a body given in a file is proven at (PRD 2741). */
+function localHead(root: string, base: string, exec: ExecText): Head {
+  try {
+    const run = (args: string[]) => exec('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    const commits = run(['rev-list', '--reverse', `${base}..HEAD`]).split('\n').filter(Boolean);
+    return { kind: 'read', sha: run(['rev-parse', 'HEAD']), commits, subject: 'the local HEAD', of: 'this branch' };
+  } catch (error) {
+    return { kind: 'unread', label: 'this branch', why: error instanceof Error ? error.message.split('\n')[0] ?? 'git failed' : 'git failed' };
+  }
+}
+
+/**
+ * The body to grade, with the head its proof must cite: the local `HEAD` for a body in a file, the open
+ * pull request's head otherwise. A `## Fixes` record's code is in its rows' pull requests, not here, so
+ * its head is not read (PRD 2741, s2).
+ */
+function proofSource({ ctx, exec, written, base, fixes }: { ctx: Context; exec: ExecText; written: ProofSource | undefined; base: string; fixes: boolean }): ProofSource {
+  const source = written ?? openPullRequest({ root: ctx.root, exec, repo: ctx.config.repo.slug ?? undefined });
+  if (fixes || source.kind === 'none') return source.kind === 'pull-request' ? { ...source, head: undefined } : source;
+  return source.kind === 'file' ? { ...source, head: localHead(ctx.root, base, exec) } : source;
+}
 
 /** Grades the fix of issue `<n>` on the current branch; the exit code. */
 function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
@@ -64,7 +87,7 @@ function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
     changed: loggedPaths(ctx.root, base, exec),
     commits: ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec),
     laws: fixLaws(ctx, issue, base, exec),
-    proof: () => proofFaults(written ?? openPullRequest({ root: ctx.root, exec }), issue),
+    proof: ({ fixes }) => proofFaults(proofSource({ ctx, exec, written, base, fixes }), issue),
   });
   println(stdout, verdict.ok ? 'ok' : 'not ok');
   for (const failure of verdict.failures) println(stdout, `- ${failure}`);
