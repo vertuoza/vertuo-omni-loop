@@ -196,6 +196,22 @@ and what can run next:
 omni board 7
 ```
 
+## Open points
+
+A fix or a review often sees more than it fixes. Each point it leaves open goes in
+`.omni-loop/delivery/follow-ups/`, one file per point, named by its date and its first words. A
+bug fix writes its points on the fix branch, and a review reply that postpones a comment writes its
+point on the feature branch, so each one merges with the change that raised it.
+
+- `omni follow-up list` prints the open points, oldest first. `omni status` shows how many there are
+  and the oldest, under the bar of each PRD line.
+- Nothing opens a GitHub issue or sends a notification for a point. The workspace's members read the
+  list and decide what deserves an issue.
+- A person closes a point by deleting its file, in any pull request, or by opening an issue for it
+  first. The loop never deletes one.
+- A bug record that lists a point under `## Still open` refuses to close without its file, and a
+  PRD refuses to ship while a postponed review comment has none.
+
 ## Which skill runs which
 
 ![Which skill runs which: you type /omni:brainstorm, /omni:yolo and /omni:yolo-fix; they run /omni:plan, /omni:wave, /omni:do-work and the dossier skills; every pull request goes through /omni:pr; for a milestone of several PRDs, you type /omni:roadmap, then /loop /omni:drive --roadmap](diagrams/skills.svg)

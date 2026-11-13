@@ -196,7 +196,7 @@ describe('ci — gather', () => {
     expect(records.unread).toEqual([]);
   });
 
-  it('lets any other GitHub failure fail the step, so Inngest retries it', async () => {
+  it('lets any other GitHub failure fail the step, so the ledger retries it', async () => {
     await expect(gathered({ s3Runs: runsOf('feat/widget--s3', [], 502) })).rejects.toThrow('recorded 502');
   });
 

@@ -94,7 +94,7 @@ const VOICE_V1 = JSON.stringify({
       stage: 'design', date: '2026-09-25',
       personas: [
         said('Marc', 'skeptical', 2, 'I answer from the van. A page I have to open is one more thing.', 'size#2'),
-        said('Sofia', 'excited', 4, 'Reading the question on a real page is what I wanted.'),
+        said('Sofia', 'enthusiastic', 4, 'Reading the question on a real page is what I wanted.'),
         said('Els', 'neutral', 3, 'Fine, if the terminal still works when the page does not.'),
       ],
       objection: { persona: 'Marc', text: 'Let me answer from my phone, or I will not answer at all.', citations: ['persona:Marc', 'size#2'], settled: 'accepted' },
@@ -104,7 +104,7 @@ const VOICE_V1 = JSON.stringify({
       stage: 'spec', date: '2026-09-26',
       personas: [
         said('Marc', 'skeptical', 4, 'It works on my phone now.', 'size#2'),
-        said('Sofia', 'excited', 4, 'Still the page I wanted.'),
+        said('Sofia', 'enthusiastic', 4, 'Still the page I wanted.'),
         said('Els', 'neutral', 2, 'A tab per terminal is a lot of tabs for one foreman.', 'trade#1'),
       ],
       objection: { persona: 'Els', text: 'Six terminals means six tabs, and I will lose the one that matters.', citations: ['persona:Els', 'trade#1'], settled: 'just-this-run' },
@@ -114,7 +114,7 @@ const VOICE_V1 = JSON.stringify({
       stage: 'rework-1', date: '2026-09-27',
       personas: [
         said('Marc', 'neutral', 4, 'Same as before, and that is fine.'),
-        said('Sofia', 'excited', 5, 'The waiting tab now stands out.'),
+        said('Sofia', 'enthusiastic', 5, 'The waiting tab now stands out.'),
         said('Els', 'neutral', 4, 'The tab that waits is marked, so I find it.', 'trade#1'),
       ],
       objection: null,

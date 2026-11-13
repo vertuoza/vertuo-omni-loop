@@ -169,6 +169,19 @@ export async function productPrdOf(
   return typeof dossier === 'string' ? dossier : null;
 }
 
+/** Bug #2758: the dossier of product roadmap `<key>-R<seq>` (PRD 2011) as the caller reads it, or null. Row-level
+ * security keeps it to the caller's workspaces; of two products of theirs keyed `key`, the oldest's comes first. */
+export async function productRoadmapOf(db: Pick<SupabaseClient, 'from'>, { key, seq }: { key: string; seq: number }): Promise<string | null> {
+  const products = settle<Array<{ id: string }>>('read the products', await db.from('products').select('id').eq('key', key)
+    .order('created_at', { ascending: true })) ?? [];
+  for (const { id } of products) {
+    const found = settle<{ id: string }>('find the product roadmap', await db.from('dossiers').select('id')
+      .eq('product_id', id).eq('kind', 'roadmap').eq('product_seq', seq).maybeSingle());
+    if (found) return found.id;
+  }
+  return null;
+}
+
 export type DossierStore = ReturnType<typeof dossierStore>;
 
 // ── Reading, as a member (PRD 216's page to share) ──────────────────────────────
@@ -238,7 +251,7 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
 
     /** PRD 1548: the latest version of `kind` of the dossier, whole — its id, its number among its kind's,
      * its hash, its content and when it was added — or null when it has none the caller may read. */
-    async latest(dossierId: string, kind: ArtifactKind): Promise<LatestContent | null> {
+    async latest(dossierId: string, kind: ArtifactKind | 'roadmap'): Promise<LatestContent | null> {
       const ofKind = settle<Array<{ id: string; sha256: string; created_at: string }>>('read the versions', await db.from('dossier_versions')
         .select('id, sha256, created_at').eq('dossier_id', dossierId).eq('kind', kind)
         .order('created_at', { ascending: true }).order('id', { ascending: true })) ?? [];

@@ -1,6 +1,6 @@
 import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
-import { CheckRequestDataSchema } from '../inngest-client.ts';
+import { CheckRequestDataSchema } from '../jobs/payloads.ts';
 import { readIssue } from '../inbox-check/github.ts';
 import { readPull } from './github.ts';
 import { messageOf, statusOf } from './github-schema.ts';

@@ -81,7 +81,7 @@ export { FAKE_WORKSPACE, type FakeAccount };
 
 export type FakeDossier = {
   /** Null for a product PRD (PRD 1548), keyed by its product and its number instead. */
-  id: string; workspace_id: string; home_repo: string | null; prd: PrdNumber | null; kind: PushKind; title: string;
+  id: string; workspace_id: string; home_repo: string | null; prd: PrdNumber | null; kind: PushKind | 'roadmap'; title: string;
   opened_by: string | null; claude_session_id: string | null; created_at: string; numbered_at: string | null;
   /** PRD 1364: its product, or none. */
   product_id?: string | null;
@@ -684,5 +684,19 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return id;
   }
 
-  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, seedProduct, sha256 };
+  /** A roadmap born on the server (PRD 2011): a dossier of kind roadmap, numbered `seq` on product `product`,
+   * with no repository, and a `roadmap` version of each of `versions`, oldest first. */
+  function seedProductRoadmap({ product, seq, title, versions }: { product: string; seq: number; title: string; versions: string[] }): FakeDossier {
+    const owner = tables.products.find((p) => p.id === product);
+    if (!owner) throw new Error(`no product ${product}`);
+    const dossier: FakeDossier = {
+      id: newId(), workspace_id: owner.workspace_id, home_repo: null, prd: null, kind: 'roadmap', title, opened_by: null,
+      claude_session_id: null, created_at: stamp(), numbered_at: stamp(), product_id: product, product_seq: seq, birthplace: 'server',
+    };
+    tables.dossiers.push(dossier);
+    for (const content of versions) addVersion(dossier, 'roadmap', content, { source: 'kit' });
+    return dossier;
+  }
+
+  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, seedProduct, seedProductRoadmap, sha256 };
 }

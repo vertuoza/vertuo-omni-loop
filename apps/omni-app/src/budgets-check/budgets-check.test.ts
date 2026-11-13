@@ -16,7 +16,7 @@ import { createContext } from 'omni-loop/kit/lib/context.ts';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { formText, makeRepo } from 'omni-loop/kit/test/fixture.ts';
 import { main } from 'omni-loop/kit/bin/omni.ts';
-import { BUDGETS_EXTERNAL_ID } from '../inngest-client.ts';
+import { BUDGETS_EXTERNAL_ID } from '../jobs/payloads.ts';
 import { checkRunAt, claimedJob, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { serverEventRecheck } from '../jobs/pr-checks.ts';
 import { SERVER_EVENT_KIND, serverEventHandler, serverEventJob } from '../server-event/job.ts';

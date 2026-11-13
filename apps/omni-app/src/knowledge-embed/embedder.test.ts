@@ -1,6 +1,7 @@
 // The client of the `embed` Edge Function (PRD 2728 s4) against a stubbed fetch: no test calls Supabase or a model.
 import { describe, expect, it } from 'vitest';
-import { EMBED_DIMENSIONS, embedClient, embedUrl } from './embedder.ts';
+import { EMBED_BATCH, EMBED_DIMENSIONS } from 'omni-loop/kit/lib/knowledge/embed-contract.ts';
+import { embedClient, embedUrl } from './embedder.ts';
 
 const vector = (seed: number) => Array.from({ length: EMBED_DIMENSIONS }, (_, i) => (i === seed ? 1 : 0));
 
@@ -39,9 +40,9 @@ describe('embedClient', () => {
     expect(sent).toHaveLength(0);
   });
 
-  it('refuses more than 64 texts a call, unsent', async () => {
+  it(`refuses more than ${String(EMBED_BATCH)} texts a call, unsent`, async () => {
     const { fetch, sent } = stub(() => ({ body: {} }));
-    await expect(embedClient(connection(fetch))(Array.from({ length: 65 }, () => 'x'))).rejects.toThrow('at most 64 texts');
+    await expect(embedClient(connection(fetch))(Array.from({ length: EMBED_BATCH + 1 }, () => 'x'))).rejects.toThrow(`at most ${String(EMBED_BATCH)} texts`);
     expect(sent).toHaveLength(0);
   });
 

@@ -1,12 +1,12 @@
 // `omni bug check --product <key> <file>` and `omni bug push --product <key> (--new | --bug <n>) <file>`
 // (PRD 2011, s6), through `main()` with a fetch that answers as `POST /api/fixes` does: a check answers the
 // product's repositories, a push the bug's id.
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../lib/ask/schema.ts';
-import { makeRepo } from '../test/fixture.ts';
-import type { FetchInit } from '../test/fixture.ts';
+import { makeRepo, realExec } from '../test/fixture.ts';
+import type { FakeExec, FetchInit } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
 const BASE = 'https://omni.example';
@@ -41,10 +41,10 @@ const record = (repository: string) => [
   `| 1 | ${repository} | #41 | the token is read once |`, '', '## Reproduction', '', `- **${repository}:** api.test.ts — red`, '', '## Guard', '', `- **${repository}:** api.test.ts`, '',
 ].join('\n');
 
-async function omni(argv: string[], root: string, fetch: unknown) {
+async function omni(argv: string[], root: string, fetch: unknown, exec?: FakeExec) {
   const out: string[] = [];
   const err: string[] = [];
-  const code = await main(argv, { cwd: root, env: {}, tokens: tokens(), fetch, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
+  const code = await main(argv, { cwd: root, env: {}, tokens: tokens(), fetch, ...(exec === undefined ? {} : { exec }), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
   return { code, out: out.join(''), err: err.join('') };
 }
 
@@ -71,6 +71,44 @@ describe('omni bug check --product', () => {
   });
 });
 
+describe('omni bug check --product, ## Still open (PRD 2739)', () => {
+  const POINT = 'The export job retries a 4xx forever.';
+  const withPoint = () => `${record('acme/api')}\n## Still open\n\n- ${POINT}\n`;
+  const FILE = '.omni-loop/delivery/follow-ups/2026-11-12-the-export-job-retries-a-4xx.md';
+  const file = (source: string) => `---\nsource: ${source}\ndate: 2026-11-12\n---\n\n${POINT}\n`;
+
+  it('refuses a point with no follow-up file of source <key>-B<n>, naming it', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', '--bug', '74', 'bug.md'], repoWith(withPoint()), app().fetch);
+    expect(code).toBe(1);
+    expect(out).toContain(`bug.md: "${POINT}" is still open but has no follow-up: omni follow-up add --source 'mobile-B74' --text '${POINT}'`);
+  });
+
+  it('passes once the file exists', async () => {
+    const root = repoWith(withPoint());
+    mkdirSync(join(root, '.omni-loop/delivery/follow-ups'), { recursive: true });
+    writeFileSync(join(root, FILE), file('mobile-B74'));
+    const { code } = await omni(['bug', 'check', '--product', 'mobile', '--bug', 'mobile-B74', 'bug.md'], root, app().fetch);
+    expect(code).toBe(0);
+  });
+
+  it('skips the check with --new and says so in one line', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', '--new', 'bug.md'], repoWith(withPoint()), app().fetch);
+    expect(code).toBe(0);
+    expect(out).toContain('--new, the Still open points are not checked');
+  });
+
+  it('does not judge points when no bug is named', async () => {
+    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md'], repoWith(withPoint()), app().fetch);
+    expect(code).toBe(1);
+    expect(out).toContain('need --bug <n>');
+  });
+
+  it('passes a record with no Still open section', async () => {
+    const { code } = await omni(['bug', 'check', '--product', 'mobile', '--bug', '74', 'bug.md'], repoWith(record('acme/api')), app().fetch);
+    expect(code).toBe(0);
+  });
+});
+
 describe('omni bug check --product --body-file (PRD 2578)', () => {
   const GIF = 'https://omni.example/api/proofs/9f0c1d2e-0000-4000-8000-000000000001/preview.gif';
   const withProof = (lines: string[]) => ['Fixes mobile-B74', '', '## Proof', '', `![Before and after the fix](${GIF})`, '', ...lines, ''].join('\n');
@@ -86,27 +124,77 @@ describe('omni bug check --product --body-file (PRD 2578)', () => {
     return root;
   }
 
-  it('grades the proof of the fix pull request beside the rows, and passes a body that has it', async () => {
-    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'body.md'], repoWithBody(withProof(PASSING)), app().fetch);
+  const HEAD = 'a1b2c3d'.padEnd(40, '0');
+  const PR = ['--pr', 'acme/api#41'];
+  const BODY = ['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'body.md'];
+  /** A `gh pr view <n> --repo <slug>` that answers the head `HEAD`, or fails as told; `calls` are the argument lists it was given. */
+  function gh(answer: Error | string = JSON.stringify({ headRefOid: HEAD, commits: [{ oid: HEAD }] })) {
+    const calls: string[][] = [];
+    const exec: FakeExec = (file, args, options) => {
+      if (file !== 'gh') return realExec(file, args, options);
+      calls.push([file, ...args]);
+      if (answer instanceof Error) throw answer;
+      return answer;
+    };
+    return { calls, exec };
+  }
+
+  it('grades the proof of the fix pull request beside the rows, and passes a body that cites its head (PRD 2741)', async () => {
+    const fake = gh();
+    const { code, out } = await omni([...BODY, ...PR], repoWithBody(withProof(PASSING)), app().fetch, fake.exec);
     expect(code).toBe(0);
     expect(out).toContain('1 Fixes row(s)');
+    expect(fake.calls).toEqual([['gh', 'pr', 'view', '41', '--repo', 'acme/api', '--json', 'headRefOid,commits']]);
+  });
+
+  it('refuses a proof citing a commit that is not the head of the pull request --pr names', async () => {
+    const other = 'e'.repeat(40);
+    const fake = gh(JSON.stringify({ headRefOid: other, commits: [{ oid: HEAD }, { oid: other }] }));
+    const { code, out } = await omni([...BODY, ...PR], repoWithBody(withProof(PASSING)), app().fetch, fake.exec);
+    expect(code).toBe(1);
+    expect(out).toContain("the proof cites green at a1b2c3d, but acme/api#41's head is eeeeeee (1 commits later): run the reproduction again at the head and add a Re-proved line");
+  });
+
+  it('is one fault, not a pass, when gh cannot read the head', async () => {
+    const { code, out } = await omni([...BODY, ...PR], repoWithBody(withProof(PASSING)), app().fetch, gh(new Error('no sign-in')).exec);
+    expect(code).toBe(1);
+    expect(out).toContain('not judged: could not read the head of acme/api#41: no sign-in');
+  });
+
+  it('is a usage error, exit 2, for --body-file without --pr', async () => {
+    const fake = gh();
+    const { code, err, out } = await omni(BODY, repoWithBody(withProof(PASSING)), app().fetch, fake.exec);
+    expect(code).toBe(2);
+    expect(err).toContain('omni bug check: --body-file needs --pr <owner/repo>#<n>, the fix pull request it belongs to');
+    expect(out).toBe('');
+    expect(fake.calls).toEqual([]);
+  });
+
+  it('is a usage error for a --pr that is no pull request, or one given with no body', async () => {
+    const root = repoWithBody(withProof(PASSING));
+    const bad = await omni([...BODY, '--pr', 'api#41'], root, app().fetch);
+    expect(bad.code).toBe(2);
+    expect(bad.err).toContain('--pr "api#41" is not a pull request');
+    const alone = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', ...PR], root, app().fetch);
+    expect(alone.code).toBe(2);
+    expect(alone.err).toContain('--pr is for a --body-file');
   });
 
   it('refuses a body without its proof', async () => {
-    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'body.md'], repoWithBody('Fixes mobile-B74\n'), app().fetch);
+    const { code, out } = await omni([...BODY, ...PR], repoWithBody('Fixes mobile-B74\n'), app().fetch, gh().exec);
     expect(code).toBe(1);
     expect(out).toContain('bug.md: no ## Proof section');
   });
 
   it('refuses a GIF without its Proved on line', async () => {
-    const { code, out } = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'body.md'], repoWithBody(withProof(PASSING.slice(0, 2))), app().fetch);
+    const { code, out } = await omni([...BODY, ...PR], repoWithBody(withProof(PASSING.slice(0, 2))), app().fetch, gh().exec);
     expect(code).toBe(1);
     expect(out).toContain('## Proof has no "Proved on" line');
   });
 
   it('is a usage error for a body file that cannot be read, and runs as before without the flag', async () => {
     const root = repoWith(record('acme/api'));
-    const missing = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'nope.md'], root, app().fetch);
+    const missing = await omni(['bug', 'check', '--product', 'mobile', 'bug.md', '--body-file', 'nope.md', ...PR], root, app().fetch, gh().exec);
     expect(missing.code).toBe(2);
     expect((await omni(['bug', 'check', '--product', 'mobile', 'bug.md'], root, app().fetch)).code).toBe(0);
   });

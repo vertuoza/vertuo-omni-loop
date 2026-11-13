@@ -23,6 +23,9 @@ export const ON_LINE = 'Any workspace API key reads its knowledge.';
 export const OFF_NOTE = 'Stops agents on their next call.';
 export const KEYS_HREF = '/app/settings/api-keys';
 export const KEYS_LABEL = 'Settings › API keys';
+/** With no key the server cannot be on: one line, linked to the Product key card (PRD 2784 s2). */
+export const NO_KEY_LINE = 'Set the product’s key first.';
+export const KEY_CARD_HREF = '#product-key';
 
 /** The server's URL, or null when the product has no key. */
 export const mcpUrl = (origin: string, key: string | null): string | null =>

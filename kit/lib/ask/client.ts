@@ -57,6 +57,9 @@ const timedOut = (error: unknown): boolean =>
 
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
+/** How long a knowledge write may take: `/api/knowledge/changes` runs up to its 30 s `maxDuration`, and a write
+ * cut sooner may still be saved, so a retry would add it twice (#2805). */
+export const WRITE_TIMEOUT_MS = 30_000;
 /** How long a knowledge pack's read may take: it carries a whole knowledge folder. */
 const PACK_TIMEOUT_MS = 30_000;
 
@@ -432,6 +435,11 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      *   content: string, createdAt: string }>} */
     getDossier: ({ key, seq, kind, repo }: { key: string; seq: number; kind: string; repo: string | null }) =>
       call('GET', `/api/dossiers/get?${new URLSearchParams({ product: key, prd: String(seq), kind, ...(repo ? { repo } : {}) })}`),
+    /** Bug #2758: product roadmap `<key>-R<seq>`'s latest roadmap.md, whole (PRD 2011); a 404 when there is none.
+     * @returns {Promise<{ id: string, roadmap: string, url: string, kind: 'roadmap', version: number, sha256: string,
+     *   content: string, createdAt: string }>} */
+    getRoadmap: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
+      call('GET', `/api/dossiers/get?${new URLSearchParams({ product: key, roadmap: String(seq), kind: 'roadmap', ...(repo ? { repo } : {}) })}`),
     /** PRD 1548 s7: product PRD `<key>-<seq>`'s outbox items, each with its settlement or none; a 404 when
      * there is no such PRD. `../outbox/server-store.ts` reads the reply. */
     readOutboxItems: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
@@ -525,7 +533,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      *   claims: Array<{ id: string, kind: string, value: string, source: string, receipt: string | null, lastSeen: string | null }>,
      *   lawHome?: string | null }>} PRD 2632: `lawHome` is the repository (owner/name) the product's business laws live in;
      * a reply without it (an older server) reads as none. */
-    readBusiness: (repo: string) => call('GET', `/api/business?${new URLSearchParams({ repo })}`),
+    readBusiness: (repo: string) => call('GET', `/api/business?${new URLSearchParams({ repo, stances: '2' })}`),
     /** PRD 871: the live Statement and Never lines of the product agents in `repo` (owner/name) work on.
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
@@ -533,15 +541,16 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 2417: the tech playbook of the settings repository of the workspace `repo` (owner/name) belongs to, as the
      * caller; `../omni-settings/schema.ts` shapes the answer, and `../omni-settings/sync.ts` reads it. */
     readOmniSettings: (repo: string) => call('GET', `/api/omni-settings/playbook?${new URLSearchParams({ repo })}`),
-    /** PRD 2268: adds or edits one Legal entry, Glossary term or domain (PRD 2583) of the product `repo` belongs to (`product`, when
+    /** PRD 2268: adds or edits one Legal entry, Glossary term, domain (PRD 2583) or persona (PRD 2779) of the product `repo` belongs to (`product`, when
      * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
      * `entry` names the item an edit changes, by the id or term the reads print.
      * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
     changeKnowledge: ({ repo, product, kind, action, entry, fields }: {
-      repo: string; product?: string | undefined; kind: 'legal' | 'glossary' | 'domains' | 'constituent'; action: 'add' | 'edit'; entry?: string | undefined; fields: Record<string, unknown>;
+      repo: string; product?: string | undefined; kind: 'legal' | 'glossary' | 'domains' | 'constituent' | 'persona'; action: 'add' | 'edit'; entry?: string | undefined; fields: Record<string, unknown>;
     }) =>
       call('POST', '/api/knowledge/changes', {
         body: { repo, ...(product === undefined ? {} : { product }), kind, action, ...(entry === undefined ? {} : { entry }), fields },
+        timeoutMs: WRITE_TIMEOUT_MS,
       }),
     /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
      * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */

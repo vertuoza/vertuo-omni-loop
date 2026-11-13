@@ -163,6 +163,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unless the verdict is asked. Needs gh logged in.',
   },
   {
+    name: 'follow-up',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni follow-up add --source <source> --text <text> [--repos <owner/name>,…]',
+      'omni follow-up list [--json]',
+    ],
+    summary: 'keep the open points a fix or a review leaves, one file each',
+    detail:
+      "add writes one file in the delivery folder's follow-ups/, named <date>-<first words>.md, with " +
+      "its source (bug #<n>, <key>-B<n> or PRD #<n> · <thread url>), the day and the point's text " +
+      '(at most 300 characters), and prints its path. It exits 1 naming the file when the same ' +
+      'source and text are already filed, and 2 for an empty or over-long text or a source of no ' +
+      'known shape. --repos names the repositories the point lives in, at most ten. list prints each ' +
+      "point's date, source and first line, oldest first, or none; --json prints the same as JSON. " +
+      'A person closes a point by deleting its file. Neither verb touches the network, opens an ' +
+      'issue or notifies anyone.',
+  },
+  {
     name: 'next',
     kind: 'command',
     who: 'you',
@@ -399,7 +418,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'you',
     usage: [
       'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
-      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>', 'omni dossier get <key>-R<n> roadmap',
     ],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
@@ -419,7 +438,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'lives on the Omni page and in no repository: push --product <key> --new creates the product\'s next ' +
       'PRD from the files of --from and prints its id; push <key>-<n> saves the edited files of --from as ' +
       'new versions; get <key>-<n> <kind> writes the latest spec, plan, before-after or voice to a scratch ' +
-      'file and prints its path and its sha256, and holds while the server is down. It never holds up the ' +
+      'file and prints its path and its sha256, and holds while the server is down; get <key>-R<n> roadmap ' +
+      'does the same with a product roadmap\'s roadmap.md, which /omni:drive --roadmap reads its rows from. ' +
+      'It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
@@ -519,6 +540,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni business show [--json]',
       'omni business cited <id>… --by <skill> [--ref <text>]',
       'omni business claim add --kind <k> --value <v> --state <s> --ref <text>',
+      'omni business persona add --name <text> --stance <stance> --trade <trade>',
+      '  --who <text> --usage <text> [--product <name>] [--json]',
+      'omni business persona edit "<name>" [--name <text>] [--stance <stance>]',
+      '  [--trade <trade>] [--who <text>] [--usage <text>] [--product <name>] [--json]',
     ],
     label: 'omni business show',
     summary: 'the business this repository serves, as agents read it',
@@ -529,14 +554,23 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'answered yet, is marked as such and left out of the sentence. --json prints them for an agent, ' +
       'each with its state (confirmed or contradicted). Under the claims come the product\'s personas, ' +
       'one line each (name, stance, trade, who they are and how they use it), and --json carries them ' +
-      'as personas, [] when there are none. With no business, ' +
+      'as personas, [] when there are none. A stance is enthusiastic, neutral or skeptical (a persona ' +
+      'still sent as excited reads the same), and a trade is any text the product gave it. With no business, ' +
       'no sign-in, the Omni page unreachable or a refusal, it prints one line saying so and exits 0: ' +
       'agents carry on without it. cited logs the claims an agent cited, by which skill and in which ' +
       'run, so the page shows how often each one is cited; a failed call prints a skip line and exits 0. ' +
       'claim add stores a claim a person gave as an answer (region, offering, size, trade or rival), its ' +
       'receipt the skill and the run: proposed, for a member to confirm on the Business page, or ' +
       'confirmed; a value the business already holds is named, not stored twice, and a failed call ' +
-      'prints a skip line and exits 0.',
+      'prints a skip line and exits 0. persona add and persona edit write one persona of the product as ' +
+      'you, signed in with omni signin: a stance is enthusiastic, neutral or skeptical, a trade any lower-case ' +
+      'words (data analyst), and add needs every flag. An add gets a random portrait for its trade; edit finds ' +
+      'the persona by its name, keeps its portrait and changes only the flags given, so it needs one at least. ' +
+      'They print added persona:<name> or edited persona:<name> with its link on the Knowledge tab; --json ' +
+      "prints the page's answer; --product names the product when the repository is in several. A refusal " +
+      '(no persona of that name, two of that name, a value the database refuses), a sign-out or an unreachable ' +
+      'page is one line and exit 1; a missing flag, an edit with no field or an unknown stance is a usage ' +
+      'error, exit 2. Any member may write a persona, and none is removed from the terminal.',
   },
   {
     name: 'constituents',
@@ -1071,6 +1105,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'omni bug film <n> --before <file> --after <file> [--out <dir>]',
       'omni bug ci <n> --pr <pr> --reproduction <sha> --fix <sha>',
       '  --test <name> --out <dir> [--wait <minutes>]',
+      'omni bug check --product <key> <file> --body-file <body> --pr <owner/repo>#<n>',
     ],
     summary: 'grade a bug fix branch and its pull request, film its before and after, or read them from CI',
     detail:
@@ -1085,7 +1120,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'proof on an open pull request that is not a draft is refused, and so is one whose level B ' +
       'reason is not a line omni bug ci prints, or whose level C reason is not red not proven here, ' +
       'an old pinned omni, or the line omni bug film or omni proof push exits 1 with. A record with a ## Fixes ' +
-      'section is not checked for a proof. It runs no test. Prints ok, or not ok with one line per ' +
+      "section is checked for its proof against the heads of its rows' pull requests: the commit it " +
+      'cites must be the head of one of them. omni bug check --product <key> <file> --body-file <body> ' +
+      'grades the body of a product bug\'s fix pull request, which --pr <owner/repo>#<n> names: the commit ' +
+      "the proof cites must be that pull request's head. " + 'It runs no test. Prints ok, or not ok with one line per ' +
       'failed check; exit 2 when --body-file cannot be read. --base defaults to ' +
       '{remote}/{defaultBranch}. omni bug film makes the fix\'s ' +
       'before/after GIF. From two .txt outputs of the reproduction (red, then green) the kit draws it ' +

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ExecText } from '../context.ts';
 import { parseIssue, parsePr } from '../ids.ts';
 import { openPullRequest, proofFaults, proofSection } from './proof-body.ts';
+import type { Head } from './proof-body.ts';
 import type { ProofSource } from './proof-body.ts';
 
 const ISSUE = parseIssue(12);
@@ -241,6 +242,54 @@ describe('proofFaults', () => {
   });
 });
 
+describe('proofFaults at the head (PRD 2741)', () => {
+  const head = (sha: string, commits: string[] = [sha]): Head => ({ kind: 'read', sha, commits, subject: "#7's head", of: '#7' });
+  const at = (h: Head | undefined, ...lines: string[]) => proofFaults({ kind: 'file', body: ['## Proof', IMAGE, ...lines, PROVED].join('\n'), head: h }, ISSUE);
+  const BEFORE = '- **Before the fix** (red): `boom`';
+  const after = (sha: string) => `- **After the fix** (green, \`${sha}\`): \`ok\``;
+  const reproved = (sha: string) => `- **Re-proved** (green, \`${sha}\`): \`ok\``;
+  const FULL = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
+  const NO_COMMIT = '## Proof\'s "After the fix" line cites no commit: write (green, <short sha>) of the head';
+  const later = (cited: string, n: number) =>
+    `the proof cites green at ${cited}, but #7's head is a1b2c3d (${n} commits later): run the reproduction again at the head and add a Re-proved line`;
+
+  it('reads the commit the After line cites, 7 to 40 hex characters', () => {
+    expect(at(head(FULL), BEFORE, after('a1b2c3d'))).toEqual([]);
+    expect(at(head(FULL), BEFORE, after(FULL))).toEqual([]);
+    expect(at(head(FULL), BEFORE, after('A1B2C3D'))).toEqual([]);
+  });
+
+  it('is a fault of its own when a produced proof cites no commit, with or without a head', () => {
+    expect(at(undefined, BEFORE, '- **After the fix** (green): `ok`')).toEqual([NO_COMMIT]);
+    expect(at(head(FULL), BEFORE, '- **After the fix** (green, `a1b2c`): `ok`')).toEqual([NO_COMMIT]);
+  });
+
+  it('cites the last Re-proved line and leaves the older lines alone (BL-ASK-1)', () => {
+    const commits = ['1111111aa', FULL];
+    expect(at(head(FULL, commits), BEFORE, after('1111111'), reproved('a1b2c3d'))).toEqual([]);
+    expect(at(head(FULL, commits), BEFORE, after('1111111'), reproved('a1b2c3d'), reproved('1111111'))).toEqual([later('1111111', 1)]);
+  });
+
+  it('counts the commits after the cited one, and names a commit that is not the pull request\'s', () => {
+    const commits = ['1111111aa', '2222222bb', FULL];
+    expect(at(head(FULL, commits), BEFORE, after('1111111'))).toEqual([later('1111111', 2)]);
+    expect(at(head(FULL, commits), BEFORE, after('9999999'))).toEqual([
+      'the proof cites green at 9999999, but #7\'s head is a1b2c3d (9999999 is not a commit of #7): run the reproduction again at the head and add a Re-proved line',
+    ]);
+  });
+
+  it('is one fault, never a pass, when the head could not be read', () => {
+    expect(at({ kind: 'unread', label: 'demo-org/api#7', why: 'no such pull request' }, BEFORE, after('a1b2c3d'))).toEqual([
+      'not judged: could not read the head of demo-org/api#7: no such pull request',
+    ]);
+  });
+
+  it('adds nothing to a proof that was not produced', () => {
+    const body = '## Proof\nGIF not produced - A: no hook; B: job e2e skipped; C: red not proven here';
+    expect(proofFaults({ kind: 'file', body, head: head(FULL) }, ISSUE)).toEqual([]);
+  });
+});
+
 describe('openPullRequest', () => {
   type Call = { file: string; args: readonly string[]; cwd: unknown };
 
@@ -257,16 +306,29 @@ describe('openPullRequest', () => {
   const read = (answer: string | Error) => openPullRequest({ root: '/repo', exec: exec(answer).run });
   const json = (over: Record<string, unknown> = {}) => JSON.stringify({ body: 'the body', isDraft: false, state: 'OPEN', number: 34, ...over });
 
-  it('runs gh pr view for the checked-out branch, in the root, asking for body, isDraft, state and number', () => {
+  it('runs gh pr view for the checked-out branch, in the root, asking for body, isDraft, state, number, headRefOid and commits', () => {
     const fake = exec(json());
     openPullRequest({ root: '/repo', exec: fake.run });
-    expect(fake.calls).toEqual([{ file: 'gh', args: ['pr', 'view', '--json', 'body,isDraft,state,number'], cwd: '/repo' }]);
+    expect(fake.calls).toEqual([{ file: 'gh', args: ['pr', 'view', '--json', 'body,isDraft,state,number,headRefOid,commits'], cwd: '/repo' }]);
   });
 
   it('is the pull request an OPEN answer names, with its body, number and draft state', () => {
-    expect(read(json())).toEqual({ kind: 'pull-request', body: 'the body', pr: PR, isDraft: false });
+    expect(read(json())).toMatchObject({ kind: 'pull-request', body: 'the body', pr: PR, isDraft: false });
     expect(read(json({ isDraft: true }))).toMatchObject({ isDraft: true });
     expect(read(json({ body: null }))).toMatchObject({ body: '' });
+  });
+
+  it('carries the head and the commits of the pull request, oldest first', () => {
+    const answer = json({ headRefOid: 'bbbbbbb1', commits: [{ oid: 'aaaaaaa1' }, { oid: 'bbbbbbb1' }] });
+    expect(openPullRequest({ root: '/repo', exec: exec(answer).run, repo: 'demo-org/api' })).toMatchObject({
+      head: { kind: 'read', sha: 'bbbbbbb1', commits: ['aaaaaaa1', 'bbbbbbb1'], subject: "#34's head", of: '#34' },
+    });
+  });
+
+  it('names an unreadable head by repository and number', () => {
+    expect(openPullRequest({ root: '/repo', exec: exec(json()).run, repo: 'demo-org/api' })).toMatchObject({
+      head: { kind: 'unread', label: 'demo-org/api#34' },
+    });
   });
 
   it.each([

@@ -1,5 +1,5 @@
 // `fix-row-stamp` as a job of the ledger (PRD omni-loop-3 s3; PRD 2011 s7, acceptance 5): what the `fixRowStamp`
-// Inngest function did, moved over. `/api/github` adds one job for a pull request closed, merged or not, or
+// function did, moved over. `/api/github` adds one job for a pull request closed, merged or not, or
 // reopened (../webhook/webhook.ts), keyed `<owner/name>#<pr>@<what>@<when>`, lower case, in no lane, with 4 tries;
 // its payload is the stamp's facts (where, which pull request, what happened to it and when, the record its body
 // names), never a token (L-GDPR-2). A run stamps the Fixes rows of every bug record born on the server whose

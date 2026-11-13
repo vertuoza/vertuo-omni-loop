@@ -18,7 +18,7 @@
 //               retro's own issues name the PRD), is no regression. Its source is the issue's number.
 //
 // A read GitHub refuses (403, 404, 410) is named in `unread` (`ci`, `reverts`, `regressions`), never
-// read as quiet; any other failure is thrown, so Inngest retries the step. Nothing here writes.
+// read as quiet; any other failure is thrown, so the ledger retries the job. Nothing here writes.
 import { z } from 'zod';
 import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';

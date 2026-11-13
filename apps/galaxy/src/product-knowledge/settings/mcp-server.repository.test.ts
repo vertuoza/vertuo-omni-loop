@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { mcpProductOf, roleIn, setMcp } from './mcp-server.repository';
+import { mcpProductOf, roleIn, setKey, setMcp } from './mcp-server.repository';
 import { switchServer } from './mcp-port';
 
 const created = vi.hoisted(() => ({ rpc: [] as unknown[][] }));
@@ -34,6 +34,21 @@ describe('the MCP server card storage', () => {
     expect(await setMcp({ rpc }, 'p-1', true)).toBe(true);
     expect(await setMcp({ rpc }, 'p-1', false)).toBe(false);
     expect(rpc).toHaveBeenCalledWith('product_mcp_set', { p_product: 'p-1', p_on: true });
+  });
+});
+
+describe('setKey', () => {
+  it('calls product_set_key and maps each refusal to its reason', async () => {
+    const rpc = vi.fn()
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: { code: '22023', message: 'Key: another product of this workspace is acme.' } })
+      .mockResolvedValueOnce({ error: { code: '22023', message: 'Key: lowercase kebab-case of at most 40 characters, each part starting with a letter.' } })
+      .mockResolvedValueOnce({ error: { code: '42501', message: 'Only an owner.' } });
+    expect(await setKey({ rpc }, 'p-1', 'acme')).toBeNull();
+    expect(rpc).toHaveBeenCalledWith('product_set_key', { p_product: 'p-1', p_key: 'acme' });
+    expect(await setKey({ rpc }, 'p-1', 'acme')).toBe('taken');
+    expect(await setKey({ rpc }, 'p-1', 'Acme')).toBe('shape');
+    expect(await setKey({ rpc }, 'p-1', 'acme')).toBe('refused');
   });
 });
 

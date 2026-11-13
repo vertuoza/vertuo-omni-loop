@@ -17,6 +17,7 @@ import { checkRunAt, commitOf, fakeGitHub, outputOf } from '../outbox-check/fake
 import { runOutboxCheck } from '../outbox-check/outbox-check.ts';
 import { ESCALATION_KIND, escalationHandler } from './job.ts';
 import { recordLines } from './record.ts';
+import { memorySteps } from '../saved-step.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
 const fixture = (name: string) => join(FIXTURES, name);
@@ -466,6 +467,39 @@ describe('the hourly sweep: asks more people, never decides', () => {
     expect((await handler(escalationJob())).outcome).toBe('done');
     expect(asks(github)).toHaveLength(1);
     expect(recordOf(github).map(({ step }) => step)).toEqual([1, 1]);
+  });
+
+  it('a try cut short carries on from the next repository: a repository already swept is not swept again (bug #2756)', async () => {
+    const github = featureGitHub();
+    await run(github, MONDAY);
+    const { app, installation } = sweepGitHub(github);
+    const deferred = new GithubDeferred(Date.parse(WEDNESDAY_LATER) + 15 * 60_000);
+    let refuse = true;
+    const listed: string[] = [];
+    const twoRepositories = {
+      request: async (route: string, params: Params = {}): Promise<{ data: unknown }> => {
+        if (route === 'GET /installation/repositories') {
+          return { data: { repositories: params.page === 1 ? [{ name: 'widgets', owner: { login: 'acme' } }, { name: 'gadgets', owner: { login: 'acme' } }] : [] } };
+        }
+        if (route === 'GET /repos/{owner}/{repo}/pulls' && params.page === 1) listed.push(String(params.repo));
+        if (route === 'GET /repos/{owner}/{repo}/pulls' && params.repo === 'gadgets') {
+          if (refuse) throw new Error('Request failed', { cause: deferred });
+          return { data: [] };
+        }
+        return installation.request(route, params);
+      },
+    };
+    const handler = escalationHandler({ octokitFor: () => twoRepositories, appOctokit: () => app, clock: () => new Date(WEDNESDAY_LATER).getTime(), log: () => undefined });
+    const step = memorySteps();
+
+    await expect(handler(escalationJob(), { step })).rejects.toThrow('Request failed');
+    expect(listed).toEqual(['widgets', 'gadgets']);
+    expect(asks(github)).toHaveLength(1);
+
+    refuse = false;
+    expect((await handler(escalationJob(), { step })).outcome).toBe('done');
+    expect(listed).toEqual(['widgets', 'gadgets', 'gadgets']);
+    expect(asks(github)).toHaveLength(1);
   });
 
   it('is added every hour, one job per slot, in its own lane, with 3 tries, and the worker runs it', () => {

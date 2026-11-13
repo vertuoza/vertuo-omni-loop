@@ -145,7 +145,7 @@ checkout (exit 2: the key is not one, print its line and stop); without `--produ
 `## Fixes` with `—` for every pull request, `## Reproduction`, `## Guard`, `## Mutation`), one
 Reproduction and one Guard line per row, each keyed by the repository. Then:
 
-1. **Check it:** `node .omni-loop/bin/omni.mjs bug check --product <key> <file>`, until it prints
+1. **Check it:** `node .omni-loop/bin/omni.mjs bug check --product <key> --new <file>`, until it prints
    `ok`: a row naming a repository outside the product is refused by name.
 2. **Create it:** `node .omni-loop/bin/omni.mjs bug push --product <key> --new <file>`. It prints
    the new id, `<key>-B<n>`, on a line of its own, then the bug's page link. A refusal (no such
@@ -163,9 +163,9 @@ Reproduction and one Guard line per row, each keyed by the repository. Then:
    keyword**: `Fixes <key>-B<n>` names a record that is not a GitHub issue, so it closes nothing. A
    consumer's PR adds one `Merge after <slug>#<pr>` line per PR before it, in the plan's order.
 4. **Write each PR into its row**, at once: edit `bug.md`'s `## Fixes` table, then
-   `node .omni-loop/bin/omni.mjs bug check --product <key> <file>` and
+   `node .omni-loop/bin/omni.mjs bug check --product <key> --bug <n> <file>` and
    `node .omni-loop/bin/omni.mjs bug push --product <key> --bug <n> <file>`. A file that did not
-   change adds no version.
+   change adds no version. The `## Still open` files (step 8b) are written now, with the number.
 
 **The merge is the App's.** There is no record PR to merge last: the App stamps `merged_at` on the row
 whose repository and PR match when a fix PR merges, and the record ships when the last row is merged.
@@ -173,9 +173,17 @@ A person merges the PRs in the order the `Merge after` lines give.
 
 **The one proof (step 7b) goes on the fix PR of the target where the bug shows**, there being no
 record PR: write that PR's body with its `## Proof` to a file, and run
-`node .omni-loop/bin/omni.mjs bug check --product <key> <file> --body-file <body>`, until it prints
-`ok`: it grades the proof by the same rule as `omni bug <n>`, and runs as before without the flag.
+`node .omni-loop/bin/omni.mjs bug check --product <key> <file> --body-file <body> --pr <owner/repo>#<n>`, until it prints
+`ok`: it grades the proof by the same rule as `omni bug <n>`, and runs as before without the flag (add
+`--bug <n>` when the record has a `## Still open` section).
 Then `gh pr edit <pr> --repo <slug> --body-file <body>`. The other target PRs carry none.
+
+The proof's After line cites the head at the moment the body is checked, and `omni bug` refuses any
+other commit. A product proof is graded against the fix pull request's head, so give
+`--pr <owner/repo>#<n>` with `--body-file`: `omni bug check --product <key> <file> --body-file <body>
+--pr <owner/repo>#<n>`. A `## Fixes` record's proof must cite the head of one of its rows' pull
+requests. A later commit voids the proof until the reproduction runs again at the new head and a
+`- **Re-proved** (green, `<short sha>`): `<passing line>`` line is added under it.
 
 **Step 10, the hand-off,** names the bug id and its page, each PR in merge order, and what was proven
 and what was not, per target. `omni bug <n>` and `omni check` read a repository's issue and folder: the
@@ -420,6 +428,14 @@ per target, keyed by the target's name, in the plan's order:
 - **<provider name>:** not run in a target
 - **<consumer name>:** not run in a target
 ```
+
+## 8b. The points left open
+
+As `/omni:bug-fix` step 11 (PRD 2739): every `Follow-up:` line is also a `- ` bullet of an optional
+`## Still open` section, after `## Mutation`, and gets a file on the record's fix branch before the PR
+leaves draft: `node .omni-loop/bin/omni.mjs follow-up add --source 'bug #<n>' --text '<the bullet>' --repos <owner/name>,…`.
+For a `--product <key>` record, `omni bug check --product <key> --bug <n> <file>` looks for source
+`<key>-B<n>` (`--new` skips the check, as the bug has no number yet; add the files once it has).
 
 ## 9. Ship the record
 

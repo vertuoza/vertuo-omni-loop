@@ -155,7 +155,10 @@ describe('the plan repository, as before the product way', () => {
       write('.omni-loop/delivery/bugs/0012-double-save/bug.md', record(repository));
       execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
       execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', `docs(delivery): the record of bug #12 across the targets (#12)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${trailer}\n`], { cwd: root, stdio: 'ignore' });
-      return omni(root, ['bug', '12', '--base', base, '--body-file', proofBody]);
+      // The row's pull request is at the commit the proof cites (PRD 2741).
+      const rowHead = (file: string, args: readonly string[], options?: ExecFileSyncOptions) =>
+        file === 'gh' ? JSON.stringify({ headRefOid: 'a1b2c3d'.padEnd(40, '0') }) : realExec(file, args, options);
+      return omni(root, ['bug', '12', '--base', base, '--body-file', proofBody], { exec: rowHead });
     };
     const ok = await bugAt('backend');
     expect({ code: ok.code, ok: /^ok$/m.test(ok.out)}).toEqual({ code: 0, ok: true});

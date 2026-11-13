@@ -1,4 +1,4 @@
-// `retro`: the job of the ledger wiring the retro's units (PRD 72, "Flow"; moved off Inngest by PRD omni-loop-4
+// `retro`: the job of the ledger wiring the retro's units (PRD 72, "Flow"; moved to the ledger by PRD omni-loop-4
 // s3). `/api/github` adds one job for a pull request merged into the default branch, keyed `<owner/name>#<pr>`,
 // lower case, in the lane `<owner/name>`: one retro at a time per repository, so two runs never number the same
 // ids, and a retro waiting for its day 14 holds nothing up (a lane holds only a running job). Its payload is
@@ -9,8 +9,12 @@
 //   steps "target-<name>"   a multi-repository PRD's targets (PRD 1130, `targets.read.ts`): each one's
 //                           installation, looked up as the App, then its feature PRs and sub-PRs
 //   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`), then
-//                           "gather-<kind>-<name>" for each target read, as its installation
-//   step "facts"            `detect`: the fact sheet — saved, so a retry never changes a number
+//                           "gather-<kind>-<name>" for each target read, as its installation; records over
+//                           the ledger's budget saved in parts ("<step>:part-<hash>-<k>", `../saved-parts.ts`),
+//                           so a delivery red on many commits stays under its 1 MB a step (#2786)
+//   step "facts"           `detect`: the fact sheet — saved, so a retry never changes a number; saved without
+//                           its excerpts (the red runs' log tails, `excerpts.ts`), put back from the gathers'
+//                           saved records as it is read, so a step stays under the ledger's 1 MB (#2780)
 //   step "gather-knowledge" what the judge compares with (PRD 487): the knowledge summary and the
 //                           lessons of the retros already merged, both at the merge commit
 //   step "narrate"          the model's prose and its verdict, from this Vercel function
@@ -53,7 +57,7 @@
 // when the merge run opened none. Not worth it, it rewrites the verdict comment.
 //
 // A retro owed at the switch (PRD omni-loop-4 s3, spec "What is owed at the switch"): a feature PR merged in the
-// last fourteen days with no `retro` job gets one from the hourly comparison, `owed`. Inngest may already have
+// last fourteen days with no `retro` job gets one from the hourly comparison, `owed`. The earlier runner may already have
 // published its merge run: when its retro PR or its verdict comment exists, the merge run reads its facts and
 // words again but publishes nothing, comments on no target, and goes straight to its day-14 wait.
 //
@@ -74,10 +78,12 @@ import type { NewJob } from '../jobs/ledger.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { detect } from './detect.ts';
+import { withExcerptsOf, withoutExcerpts } from './excerpts.ts';
 import { knowledgeSummary } from 'omni-loop/kit/lib/knowledge/classify.ts';
 import { playbookLines } from 'omni-loop/kit/lib/playbook/lines.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';
+import { savedStepInParts } from '../saved-parts.ts';
 import { memorySteps, savedStep, type StepRun } from '../saved-step.ts';
 import { failureCommentHook, upsertComment } from '../verdict-comment/verdict-comment.ts';
 import { listPullsInto } from './github.ts';
@@ -130,7 +136,7 @@ export const RETRO_KIND = 'retro';
 export const MERGE_RUN = 'merge';
 export const FOLLOW_UP_RUN = 'day-14';
 
-/** A retro's tries (Inngest's 3 retries, and the first): the 4th that throws fails it. */
+/** A retro's tries (3 retries, and the first): the 4th that throws fails it. */
 const MAX_TRIES = 4;
 
 /** The prefix of the failure comment's marker. The config may be what failed to read, so the kit's default. */
@@ -344,7 +350,7 @@ async function publishedBefore({ step, github, owner, repo, pr, prd, config }: R
 }
 
 /**
- * The merge run of a retro Inngest already published: its facts and words, and what it published then, kept as
+ * The merge run of a retro the earlier runner already published: its facts and words, and what it published then, kept as
  * found. Nothing is written again: no issue, no commit, no comment, none on a target.
  */
 function keptRun(sheet: FactSheet, { prose, known, verdict, base }: Judged, { pr, comment }: Before): RunResult {
@@ -375,15 +381,21 @@ async function factSheet(input: RunInput, id: StepId, folder: string): Promise<F
   const { step, github, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier } = input;
   const records: Record<string, unknown> = {};
   for (const kind of kinds) {
-    records[kind.id] = await savedStep(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
+    records[kind.id] = await savedStepInParts(step, id(`gather-${kind.id}`), kind.records.nullable(), async () => (await kind.gather(await github(), scope)) ?? null);
   }
   const targets = await targetRecords(input);
   const before = earlier?.sheet.findings ?? [];
-  return savedStep(step, id('facts'), FactSheetSchema, () => {
-    const own = detect({ run, pr, prd, config, pulls, records, kinds });
-    const whole = withTargets(own, { planSlug: `${owner}/${repo}`, targets, run, kinds, scope });
-    return inFolder(numberedAfter(whole, before.length), folder);
-  });
+  let sheet: FactSheet | undefined;
+  const made = (): FactSheet => {
+    sheet ??= inFolder(
+      numberedAfter(withTargets(detect({ run, pr, prd, config, pulls, records, kinds }), { planSlug: `${owner}/${repo}`, targets, run, kinds, scope }), before.length),
+      folder,
+    );
+    return sheet;
+  };
+  // Saved without its excerpts, copies of what the gather steps saved (#2780), then put back from the same sheet.
+  const saved = await savedStep(step, id('facts'), FactSheetSchema, () => FactSheetSchema.parse(withoutExcerpts(made())));
+  return FactSheetSchema.parse(withExcerptsOf(saved, made()));
 }
 
 /** What each target's kinds gathered, in the merge run only (PRD 1130); a target not read gathers nothing. */

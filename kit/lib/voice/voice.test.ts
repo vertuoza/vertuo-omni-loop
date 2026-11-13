@@ -35,6 +35,12 @@ describe('parseVoice', () => {
     expect([0, 1, 2, 3].map((index) => dig(EXAMPLE_VOICE, 'rounds', index, 'stage'))).toEqual(['design', 'spec', 'rework-1', 'shipped']);
   });
 
+  it('reads both stance words: enthusiastic, and the excited a voice.json wrote before PRD 2779', () => {
+    expect(dig(EXAMPLE_VOICE, 'rounds', 0, 'personas', 1, 'stance')).toBe('enthusiastic');
+    expect(parseVoice(edited([['rounds', 0, 'personas', 1, 'stance'], 'enthusiastic'])).ok).toBe(true);
+    expect(parseVoice(edited([['rounds', 0, 'personas', 1, 'stance'], 'excited'])).ok).toBe(true);
+  });
+
   it('accepts a round without an objection and without a fit line', () => {
     const parsed = parseVoice(edited([['rounds', 1, 'objection'], null], [['rounds', 1, 'fit'], null]));
     expect(parsed.ok).toBe(true);
@@ -84,7 +90,7 @@ describe('parseVoice', () => {
 
   it('refuses a bad stance, date, objection and settlement', () => {
     expect(parseVoice(edited([['rounds', 0, 'personas', 0, 'stance'], 'angry'])).errors).toEqual([
-      'round design: personas[0].stance must be one of excited, neutral, skeptical.',
+      'round design: personas[0].stance must be one of enthusiastic, neutral, skeptical.',
     ]);
     expect(parseVoice(edited([['rounds', 0, 'date'], '30/09/2026'])).errors).toEqual([
       'round design: date must be YYYY-MM-DD.',

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { GithubDeferred } from '@omni/github';
 import { afterAll, describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { APPROVED_EXTERNAL_ID } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID } from '../jobs/payloads.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import { runDue } from '../jobs/worker.ts';
 import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
@@ -66,7 +66,7 @@ const jobOf = (data: Record<string, unknown> = payload, tries = 1): ClaimedJob =
 });
 
 describe('pr-approved — the handler (acceptance 6)', () => {
-  it('posts the check run as the Inngest function does and ends done', async () => {
+  it('posts the check run as the function does and ends done', async () => {
     const { github, readRecord } = setUp();
     const handler = approvedHandler({ octokitFor: () => github.octokit, readRecord, galaxyUrl: GALAXY, now: () => NOW, log: () => undefined });
     expect(await handler(jobOf())).toEqual({ outcome: 'done' });

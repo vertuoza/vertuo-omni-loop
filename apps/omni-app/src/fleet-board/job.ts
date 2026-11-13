@@ -1,4 +1,4 @@
-// `fleet-board` as a job of the ledger (PRD omni-loop-3 s3; PRD 2530 s2): what the `fleetBoard` Inngest function
+// `fleet-board` as a job of the ledger (PRD omni-loop-3 s3; PRD 2530 s2): what the `fleetBoard` function
 // did, moved over. A pull request the loop signed, into the default branch, goes on the GitHub project board of its
 // author's fleet. `/api/github` adds one job per pull request (../webhook/webhook.ts), keyed `<owner/name>#<pr>`,
 // lower case, in no lane, with 4 tries; its payload is the request (./events.ts), never a token (L-GDPR-2). A run

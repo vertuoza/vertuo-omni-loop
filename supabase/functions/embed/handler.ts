@@ -7,7 +7,8 @@
 //   of `SUPABASE_SECRET_KEYS`, the new `sb_secret_…` keys, which are not JWTs). `verify_jwt` is off
 //   (supabase/config.toml) because the gateway refuses a key that is not a JWT. Anyone else gets 401 before
 //   the body is read.
-// - At most 64 texts per call (more is refused whole, 413), each cut to 2,000 characters, never refused.
+// - At most 8 texts per call (more is refused whole, 413), each cut to 2,000 characters, never refused. gte-small
+//   cannot embed more within an Edge Function's CPU budget: 64 a call answered 546 in production (bug 2748).
 // - Nothing it receives is logged, and no answer repeats it: a text may be a workspace's private knowledge.
 
 /** The model, as Supabase's `Supabase.ai.Session('gte-small')` runs it. */
@@ -17,7 +18,7 @@ export interface EmbedSession {
 
 export const MODEL = 'gte-small';
 export const DIMENSIONS = 384;
-export const MAX_TEXTS = 64;
+export const MAX_TEXTS = 8;
 export const MAX_CHARACTERS = 2000;
 
 const answer = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>

@@ -15,6 +15,8 @@
 //   then `sha256 <hash>`. The hash is the kit's own of the content, and a content that does not hash as
 //   the server says is refused. Each version read is kept as the last-read copy `omni prd <id> --show`
 //   answers from while the server is down; `get` never does: while the server is down it holds, exit 1.
+// - `get <key>-R<n> roadmap` (bug #2758) writes a product roadmap's latest roadmap.md the same way, for
+//   `/omni:drive --roadmap <key>-R<n>` to read its rows from. No last-read copy is kept of it.
 //
 // Each sends the repository it runs from (`repo.slug`, when set), which only chooses between two of the
 // caller's workspaces holding the key. Exit 1 is one line, as every other verb's (`off`, `no sign-in`,
@@ -27,9 +29,9 @@ import { lawsLines, parseLaws } from '../../lib/approval/laws.ts';
 import type { Laws } from '../../lib/approval/laws.ts';
 import type { ArtifactKind } from '../../lib/dossier/folder.ts';
 import { sha256 } from '../../lib/dossier/folder.ts';
-import { isPrdKind, parseLatest, PRD_KINDS, readFilesFolder, rememberLatest, writeScratch } from '../../lib/dossier/product-prd.ts';
-import { isProductPrdId, parsePrdId, parseProductPrdId, productPrdParts } from '../../lib/ids.ts';
-import type { ProductPrdId } from '../../lib/ids.ts';
+import { isPrdKind, parseLatest, parseLatestRoadmap, PRD_KINDS, readFilesFolder, rememberLatest, writeRoadmapScratch, writeScratch } from '../../lib/dossier/product-prd.ts';
+import { isProductPrdId, parsePrdId, parseProductPrdId, ProductRoadmapIdSchema, productPrdParts, productRoadmapParts } from '../../lib/ids.ts';
+import type { ProductPrdId, ProductRoadmapId } from '../../lib/ids.ts';
 import { println, usageError } from '../args.ts';
 import type { Out } from '../io.ts';
 
@@ -37,7 +39,8 @@ import type { Out } from '../io.ts';
  * its next one, created, when `seq` is null; or a get of one kind of PRD `id`. */
 export type ProductCall =
   | { verb: 'push'; key: string; seq: number | null; from: string | null; title: string | null }
-  | { verb: 'get'; id: ProductPrdId; kind: ArtifactKind };
+  | { verb: 'get'; id: ProductPrdId; kind: ArtifactKind }
+  | { verb: 'get-roadmap'; id: ProductRoadmapId };
 
 /** What a product PRD's verb is handed once the context, the client and the sign-in are known. */
 export type ProductIo = {
@@ -59,7 +62,7 @@ const VERDICT_EVERY_MS = 3000;
 const VERDICT_WAITS = 20;
 
 export const PRODUCT_USAGE =
-  'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"] | omni dossier push <key>-<n> [--from <dir>] [--title "<title>"] | omni dossier get <key>-<n> <kind>';
+  'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"] | omni dossier push <key>-<n> [--from <dir>] [--title "<title>"] | omni dossier get <key>-<n> <kind> | omni dossier get <key>-R<n> roadmap';
 
 /** The flags only a product PRD's verbs take. */
 type ProductFlags = { product?: string; from?: string; title?: string; new?: true };
@@ -88,9 +91,14 @@ function keyArg(value: string | undefined): string {
 
 const productUsage = () => usageError(`usage: ${PRODUCT_USAGE}`);
 
-/** `get <key>-<n> <kind>`, read. */
+/** `get <key>-<n> <kind>` or `get <key>-R<n> roadmap`, read. */
 function getCallOf(rest: readonly string[]): ProductCall {
   const [first, kind, ...more] = rest;
+  const roadmap = ProductRoadmapIdSchema.safeParse(first);
+  if (roadmap.success) {
+    if (kind !== 'roadmap' || more.length > 0) throw usageError('usage: omni dossier get <key>-R<n> roadmap');
+    return { verb: 'get-roadmap', id: roadmap.data };
+  }
   const id = productIdArg(first);
   if (!id || !isPrdKind(kind) || more.length > 0) throw usageError(`usage: omni dossier get <key>-<n> <${PRD_KINDS.join('|')}>`);
   return { verb: 'get', id, kind };
@@ -169,26 +177,31 @@ async function push(call: PushCall, io: ProductIo, addedLine: AddedLine): Promis
     return 1;
   }
   const code = reportPush(result, folder, io, addedLine);
-  if (seq !== null && isText(field(result, 'prdId'))) await reportLaws(parseProductPrdId(`${key}-${seq}`), io);
+  if (seq !== null && isText(field(result, 'prdId'))) {
+    const id = parseProductPrdId(`${key}-${seq}`);
+    await reportLaws(id, () => io.client.readProductApproval({ id, repo: io.repo }), io);
+  }
   return code;
 }
 
-/** Where product PRD `id`'s spec stands with its business laws, or null when the page does not say. */
-async function lawsOf(id: ProductPrdId, { client, repo }: ProductIo): Promise<Laws | null> {
+/** Where a PRD's spec stands with its business laws, from its approval route's reply, or null when the page
+ * does not say. */
+async function lawsOf(readApproval: () => Promise<unknown>): Promise<Laws | null> {
   try {
-    return parseLaws(parseApprovalReply(await client.readProductApproval({ id, repo }))?.laws);
+    return parseLaws(parseApprovalReply(await readApproval())?.laws);
   } catch (error) {
     if (!(error instanceof AskCallError)) throw error;
     return null;
   }
 }
 
-/** Prints product PRD `id`'s business laws verdict once its spec is judged, waiting a minute at most. */
-async function reportLaws(id: ProductPrdId, io: ProductIo): Promise<void> {
-  let laws = await lawsOf(id, io);
+/** Prints PRD `id`'s business laws verdict once its spec is judged, waiting a minute at most: a product PRD's
+ * (bug #2696), or a repository PRD's (bug #2793), its approval read through `readApproval`. */
+export async function reportLaws(id: string, readApproval: () => Promise<unknown>, io: Pick<ProductIo, 'stdout' | 'pause'>): Promise<void> {
+  let laws = await lawsOf(readApproval);
   for (let waits = 0; laws?.state === 'pending' && waits < VERDICT_WAITS; waits += 1) {
     await io.pause(VERDICT_EVERY_MS);
-    laws = await lawsOf(id, io);
+    laws = await lawsOf(readApproval);
   }
   if (laws === null) return;
   println(io.stdout, laws.state === 'pending' ? `laws: not judged yet · read it with omni prd ${id}` : lawsLines(laws).join('\n'));
@@ -220,7 +233,34 @@ async function get(call: Extract<ProductCall, { verb: 'get' }>, { client, repo, 
   return 0;
 }
 
-/** Runs a verb on a product PRD. */
+/** `get <key>-R<n> roadmap`: the roadmap's latest roadmap.md, in a scratch file, as `get` writes a PRD's. */
+async function getRoadmap({ id }: Extract<ProductCall, { verb: 'get-roadmap' }>, { client, repo, scratch, stdout, stderr }: ProductIo): Promise<number> {
+  const { key, seq } = productRoadmapParts(id);
+  let body: unknown;
+  try {
+    body = await client.getRoadmap({ key, seq, repo });
+  } catch (error) {
+    if (!(error instanceof AskCallError)) throw error;
+    println(stderr, error.status === null ? `held · ${UNREACHABLE_LINE}` : error.status === 404 ? 'none' : `refused (${error.status})`);
+    return 1;
+  }
+  const latest = parseLatestRoadmap(body);
+  if (!latest) {
+    println(stderr, 'refused (malformed reply)');
+    return 1;
+  }
+  const hash = sha256(latest.content);
+  if (hash !== latest.sha256) {
+    println(stderr, 'refused (the roadmap does not hash as the server says)');
+    return 1;
+  }
+  println(stdout, writeRoadmapScratch(id, latest.content, scratch));
+  println(stdout, `sha256 ${hash}`);
+  return 0;
+}
+
+/** Runs a verb on a product PRD, or a product roadmap's get. */
 export function runProductCall(call: ProductCall, io: ProductIo, addedLine: AddedLine): Promise<number> {
+  if (call.verb === 'get-roadmap') return getRoadmap(call, io);
   return call.verb === 'get' ? get(call, io) : push(call, io, addedLine);
 }

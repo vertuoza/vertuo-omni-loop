@@ -1,0 +1,1810 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Round 2 board</title><style>:root{--bg:#14121c;--surface:#1c1928;--raise:#242036;--edge:#363050;--text:#ece9f5;--muted:#b4adca;--accent:#a99bff;--ok:#6fd49a;--warn:#f0bf5a;--bad:#ff8a80}
+@media (prefers-color-scheme:light){:root{--bg:#f7f6fb;--surface:#fff;--raise:#f0eef7;--edge:#d9d5e8;--text:#1d1a2a;--muted:#5b5570;--accent:#5b47d6;--ok:#1d7a47;--warn:#8a5a00;--bad:#b3261e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif}
+.board{max-width:1440px;margin:0 auto;padding:24px 16px 120px}
+.bh h1{font-size:28px;margin:4px 0 8px}.kick{color:var(--muted);font-size:13px;letter-spacing:.04em;text-transform:uppercase;margin:0}
+.lede{max-width:80ch;color:var(--muted)}
+.consensus{background:var(--surface);border:1px solid var(--edge);border-radius:10px;padding:16px 20px;margin:20px 0 32px}
+.consensus h2{font-size:18px;margin:0 0 8px}.consensus li{margin:4px 0;max-width:110ch}
+.concept{border-top:1px solid var(--edge);padding:28px 0 20px}
+.ch{display:flex;gap:14px;align-items:center}.ch h2{margin:0;font-size:22px}
+.letter{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--bg);font-weight:700;font-size:20px;flex:none}
+.meta{margin:0;color:var(--muted);font-size:14px}
+.wow{max-width:100ch}
+.arch summary{cursor:pointer;color:var(--accent)}.arch p{max-width:100ch;color:var(--muted)}
+.cardwrap{margin:12px 0;overflow-x:auto}
+.verdict{overflow-x:auto}
+table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%}
+th,td{border-bottom:1px solid var(--edge);padding:5px 8px;text-align:left;vertical-align:top}
+td:not(.st){text-align:center;font-variant-numeric:tabular-nums;width:72px}
+tr.avg th,tr.avg td{font-weight:700}
+.dissent p{max-width:110ch;margin:8px 0}
+.voice{border-left:3px solid var(--warn);margin:12px 0;padding:6px 14px;background:var(--raise);max-width:100ch}
+.voice p{margin:0}.voice cite{color:var(--muted);font-size:13px}
+.react{border:1px solid var(--edge);border-radius:8px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+.react legend{color:var(--muted);font-size:13px;padding:0 4px}
+.react select,.react .note{background:var(--raise);color:var(--text);border:1px solid var(--edge);border-radius:6px;padding:6px 8px;font:inherit}
+.react .note{flex:1 1 220px;min-width:0}
+.copy{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--edge);padding:12px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:0 -16px}
+.copy button{background:var(--accent);color:var(--bg);border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer}
+.copy output{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:14px;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.proto{width:100%;height:860px;border:1px solid var(--edge);border-radius:10px;background:var(--surface)}.note{background:var(--raise);border-left:3px solid var(--accent);padding:8px 14px;max-width:110ch}</style></head><body><p data-omni-reactions>Round 2 answer: &quot;the standup is a gimmick we DO NOT WANT to mimick human behavior.... an agent is not a human...so Opeartion room it is&quot; (crown A). Seat name: &quot;Reviewer (add to glossary)&quot;.</p><main class="board"><header class="bh"><p class="kick">think-big · fleet with a team · product · vast</p><h1>Round 2: deepen</h1><p class="lede">You redirected round 1: a Fleet section where you drive missions, a fleet that comes with a PM, a full-stack engineer, an architect, a QA and a reviewer, and an operation room ledger. The panel debated it (Feasibility now scored) and the moderator converged two directions that differ in what the Fleet opens on. Each is a clickable prototype: click through it inside its frame. Scores are what each panelist gave the direction before the prototype was drawn; a dash means they did not score it.</p></header><section class="consensus"><h2>Where the panel stands</h2><ul><li><strong>Both share:</strong> Fleet in the sidebar grows tabs (Operation room · Missions · Team · Board); five seats, a <em>mixed crew</em> where a seat is held by an agent or a person (PM and Architect read "a person does this today" until a skill runs unattended); hand-offs are typed verdicts, at most two rounds, then a person decides; every <em>ready for review</em> opens five plain checks (CI green, full tests and lint, proof per success criterion, no loosened test, stayed in its area); only a person merges; a clean-up line; start a mission from an approved roadmap; Pause and Resume.</li><li><strong>Skeptic's veto, kept:</strong> do not ship five agent roles at once. The wedge is <strong>Engineer + Reviewer on one PRD</strong>: the reviewer is a new pre-PR gate with no skill today; the architect has no unattended skill (tech-review refuses unattended); the PM's brainstorm and roadmap need a person.</li><li><strong>The role people pay for first</strong> (Value, Lead Engineer, F-E Developer): the Reviewer, because it guards review time.</li><li><strong>Naming to settle (yours):</strong> the glossary keeps <em>reviewer</em> out and gives the word to <em>Approver</em>, a person who approves PRDs. Prototype α renamed the seat <em>Gatekeeper</em> and the Team tab <em>Seats</em>; prototype β renamed it <em>Approver</em>, which collides with "only a person merges". Pick the seat's name.</li><li><strong>QA writing code:</strong> you said QA may fix a bug itself; the F-E Developer and B-E DEv want one writer per branch. The prototypes let QA take the branch while it fixes, then hand it back.</li></ul></section><article class="concept" id="c-A" data-letter="A"><header class="ch"><span class="letter">A</span><div><h2>The Operation Room</h2><p class="meta">axis: time first: the Fleet opens on the team in plain view, a ledger of who did what, when</p></div></header><p class="wow"><strong>Wow moment.</strong> 03:10, the Reviewer seat sent PR 2817 back because a test was loosened; 07:00, PR 2817 is ready for review, 5 of 5 checks, and you can open every one.</p><p class="note">Grew from round 1's B Relay Baton and E Mandate, now the plumbing under the Fleet. Screens: the room (five now lines, the ledger with real role and mission filters, findings that open), the five checks, the seats (who holds each, what it runs today, its limits in sentences), start a mission, and the room at phone width. Motion: a live hand-off row slides in once, after a few seconds.</p><iframe class="proto" title="The Operation Room prototype" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;Fleet Operation Room&lt;/title&gt;
+&lt;style&gt;
+/* Ask&#x27;s reading tokens, copied by value from packages/design/src/tokens.ts (ASK.omni / light / dark). */
+:root{
+  --ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;
+  --ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;
+  --body:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,-apple-system,&quot;Segoe UI&quot;,sans-serif;
+  --px:&quot;Press Start 2P&quot;,&quot;Courier New&quot;,ui-monospace,monospace;
+  --mono:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+:root[data-theme=&quot;light&quot;]{
+  --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--line-strong:#85819f;
+  --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasma-soft:#efe7ff;--on-plasma:#ffffff;
+  --cyan:#0b6f86;--green:#15703f;--red:#b3122f;--fleet:#1f6fc4;color-scheme:light;
+}
+:root[data-theme=&quot;dark&quot;]{
+  --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--line-strong:#6d6acc;
+  --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasma-soft:#2a1d66;--on-plasma:#0e0d33;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--ground)}
+body{margin:0;background:var(--ground);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased}
+::selection{background:var(--plasma);color:var(--on-plasma)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:4px}
+a{color:var(--cyan);text-underline-offset:3px}
+button{font:inherit;color:inherit}
+*{scrollbar-color:var(--line-strong) var(--sunk)}
+.num,time,.t{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:.86em}
+svg.px{image-rendering:pixelated;shape-rendering:crispEdges;flex:none;display:inline-block;vertical-align:middle}
+
+/* ---------- the page&#x27;s own explanation (outside every screen) ---------- */
+.strip{border-bottom:1px solid var(--line);background:var(--sunk);padding:14px 24px 16px}
+.strip-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;justify-content:space-between}
+.strip h1{margin:0;font:700 19px/1.3 var(--body)}
+.strip h1 span{color:var(--muted);font-weight:600}
+.strip-nav{display:flex;flex-wrap:wrap;gap:6px}
+.strip-nav button{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 13px/1.4 var(--body);color:var(--muted);cursor:pointer}
+.strip-nav button[aria-current=&quot;true&quot;]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.narr{margin:8px 0 0;max-width:78ch;font-size:15px;line-height:1.55;color:var(--muted)}
+.narr b{color:var(--ink)}
+.narr[hidden]{display:none}
+
+/* ---------- app shell (nav/sidebar.css, nav/app-bar.css) ---------- */
+.shell{display:grid;grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto 1fr;min-height:calc(100vh - 90px)}
+.side{grid-row:1/span 2;display:grid;align-content:start;gap:18px;padding:16px;background:var(--surface);border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.wordmark{font:10px/1 var(--px);letter-spacing:.04em;color:var(--plasma)}
+.ws{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.grp-label{margin:0 0 4px;padding:0 10px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.side ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.side-item{display:flex;width:100%;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:1px solid transparent;background:none;font:700 15px/1.3 var(--body);color:var(--ink);text-decoration:none;cursor:pointer;text-align:left}
+.side-item:hover{background:var(--sunk)}
+.side-item[aria-current=&quot;page&quot;]{color:var(--plasma);border-color:var(--plasma);background:var(--ground)}
+.side-item svg{color:var(--muted)}
+.side-item[aria-current=&quot;page&quot;] svg{color:var(--plasma)}
+.badge{margin-left:auto;min-width:20px;padding:3px 6px;border-radius:999px;font:700 12px/1 var(--body);text-align:center;color:var(--on-plasma);background:var(--plasma)}
+.side-foot{border-top:1px solid var(--line);padding-top:12px;font:500 12px/1.2 var(--mono);color:var(--muted)}
+.bar{grid-column:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong)}
+.tile{display:inline-grid;place-items:center;width:40px;height:40px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--sunk)}
+.trail{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin:0;padding:0;list-style:none;font:600 15px/1.3 var(--body);color:var(--muted)}
+.trail .here{font-size:16px;font-weight:700;color:var(--ink)}
+.bar-end{margin-left:auto;display:flex;align-items:center;gap:12px}
+.switch{display:inline-flex;border:1.5px solid var(--line-strong);border-radius:6px;overflow:hidden}
+.switch button{padding:6px 10px;border:0;background:transparent;color:var(--muted);font:700 13px/1 var(--body);cursor:pointer}
+.switch button[aria-pressed=&quot;true&quot;]{background:var(--plasma);color:var(--on-plasma)}
+.avatar{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:50%;background:var(--sunk);font:700 14px/1 var(--body)}
+.main{grid-column:2;padding:24px;min-width:0}
+
+/* ---------- fleet header + tabs ---------- */
+.fleet-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.mascot{display:inline-grid;place-items:center;width:52px;height:44px;border-radius:8px;background:var(--sunk);border:1.5px solid var(--fleet)}
+.fleet-head h2{margin:0;font:700 26px/1.2 var(--body);letter-spacing:-.01em}
+.fleet-meta{margin:0;color:var(--muted);font-size:15px}
+.tabs{display:flex;gap:4px;margin:18px 0 22px;border-bottom:2px solid var(--line-strong);overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;font:700 15px/1.2 var(--body);color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected=&quot;true&quot;]{color:var(--ink);border-bottom-color:var(--plasma)}
+
+[data-screen][hidden]{display:none!important}
+h3{margin:0 0 10px;font:700 18px/1.3 var(--body)}
+.section{margin:0 0 28px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--body);cursor:pointer;text-decoration:none;transition:background-color .15s,border-color .15s}
+.btn:hover{border-color:var(--ink)}
+.btn[data-primary]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.btn[data-primary]:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.quiet{background:transparent}
+.link{background:none;border:0;padding:0;color:var(--cyan);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit}
+
+/* waiting strip */
+.yours{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:12px 16px;margin:0 0 22px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
+.yours p{margin:0;font-weight:700}
+.yours .sub{font-weight:400;color:var(--muted);font-size:15px}
+.yours .btn{margin-left:auto}
+
+/* now lines */
+.now{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.now li{display:grid;grid-template-columns:minmax(150px,200px) minmax(130px,170px) minmax(0,1fr) auto;align-items:center;gap:6px 16px;padding:10px 16px;border-top:1px solid var(--line)}
+.now li:first-child{border-top:0}
+.role{display:inline-flex;align-items:center;gap:8px;font-weight:700}
+.role svg{color:var(--ink)}
+.holder{color:var(--muted);font-size:15px}
+.holder b{color:var(--ink);font-weight:600}
+.doing{min-width:0}
+.state{display:inline-block;padding:2px 9px;border-radius:999px;border:1.5px solid var(--line-strong);font:700 12.5px/1.5 var(--body);color:var(--muted);white-space:nowrap}
+.state.go{border-color:var(--green);color:var(--green)}
+.state.you{border-color:var(--plasma);background:var(--plasma);color:var(--on-plasma)}
+.state.warn{border-color:var(--red);color:var(--red)}
+.state.ok{border-color:var(--green);color:var(--green)}
+.state.person{border-style:dashed}
+.filter-me{background:none;border:0;padding:0;cursor:pointer;color:var(--cyan);font:600 14px/1 var(--body);text-decoration:underline;text-underline-offset:3px}
+.clean{margin:10px 2px 0;font-size:15px;color:var(--muted)}
+.clean b{color:var(--ink);font-weight:600}
+
+/* ledger */
+.ledger-head{display:flex;flex-wrap:wrap;align-items:end;gap:10px 24px;margin:0 0 12px}
+.ledger-head h3{margin:0}
+.filters{display:flex;flex-wrap:wrap;gap:10px 22px}
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0;border:0}
+.chips legend{float:left;margin-right:6px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.chip{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 14px/1.4 var(--body);color:var(--ink);cursor:pointer}
+.chip[aria-pressed=&quot;true&quot;]{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+table.ledger{width:100%;border-collapse:collapse;font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ledger th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line-strong);background:var(--sunk)}
+.ledger td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+.ledger tr.row:hover td{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
+.ledger td.t{white-space:nowrap;color:var(--muted);font-family:var(--mono);font-size:13.5px;padding-top:12px}
+.ledger td.who{white-space:nowrap}
+.ledger .sig{display:block;font-size:12.5px;color:var(--muted);font-weight:400}
+.ledger tr.ready td{background:color-mix(in srgb,var(--plasma-soft) 80%,transparent)}
+.ready-txt{font-weight:700}
+.open-ready{background:none;border:0;padding:0;text-align:left;font:700 15px/1.45 var(--body);color:var(--ink);cursor:pointer;text-decoration:underline;text-decoration-color:var(--plasma);text-underline-offset:4px}
+.expand{background:none;border:1.5px solid var(--line-strong);border-radius:6px;padding:1px 8px;margin-left:8px;font:600 12.5px/1.4 var(--body);color:var(--ink);cursor:pointer;white-space:nowrap}
+.expand[aria-expanded=&quot;true&quot;]{border-color:var(--plasma);color:var(--plasma)}
+tr.detail td{border-top:0;padding-top:0;background:var(--sunk)}
+tr.detail[hidden]{display:none}
+.verdict{display:grid;gap:6px;padding:12px 14px;margin:0 0 4px;border-radius:8px}
+.verdict p{margin:0}
+.verdict ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.verdict .rnd{color:var(--muted);font-size:14px}
+.empty{padding:20px 16px;text-align:left;color:var(--muted)}
+.empty[hidden]{display:none}
+tr.arrive td{animation:arrive 250ms var(--ease) both}
+tr.arrive td{background:var(--plasma-soft)}
+tr.arrive.settled td{background:transparent;transition:background-color 1.6s ease-out}
+@keyframes arrive{from{transform:translateY(-14px);opacity:.25}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){tr.arrive td{animation:none}tr.arrive.settled td{transition:none}}
+
+/* ready checks */
+.back{display:inline-flex;align-items:center;gap:6px;margin:0 0 14px}
+.checks-head h2{margin:0;font:700 24px/1.25 var(--body)}
+.checks-head .prd{margin:2px 0 0;color:var(--muted)}
+.ready-line{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:14px 0 18px}
+.checks{list-style:none;margin:0 0 18px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.checks li{padding:12px 16px;border-top:1px solid var(--line)}
+.checks li:first-child{border-top:0}
+.check-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.check-row .lbl{font-weight:700;flex:1 1 220px}
+.tick{color:var(--green)}
+.proof{margin:8px 0 2px 32px;padding:8px 12px;border-radius:8px;background:var(--sunk);font-size:15px;color:var(--muted)}
+.proof[hidden]{display:none}
+.proof b{color:var(--ink);font-weight:600}
+.merge-note{max-width:900px;display:grid;gap:2px;padding:12px 16px;margin:0 0 20px;border:1.5px dashed var(--line-strong);border-radius:10px}
+.merge-note p{margin:0}
+.merge-note p+p{color:var(--muted)}
+.signed{margin:0 0 18px;color:var(--muted);font-size:15px}
+
+/* team */
+.seats{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:15px}
+.seats th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--line-strong)}
+.seats td{padding:12px 14px;border-top:1px solid var(--line);vertical-align:top}
+.seats ul{margin:0;padding-left:18px;display:grid;gap:2px}
+.seats select{font:600 14.5px/1.3 var(--body);color:var(--ink);background:var(--sunk);border:1.5px solid var(--line-strong);border-radius:6px;padding:5px 8px;max-width:100%}
+.skill{display:inline-block;margin:0 4px 4px 0;padding:1px 7px;border-radius:5px;background:var(--sunk);border:1px solid var(--line);font:500 13px/1.5 var(--mono);color:var(--ink)}
+.persons{display:grid;gap:8px;max-width:900px;margin:0;padding:0;list-style:none}
+.persons li{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:4px 16px;padding:12px 16px;border:1px solid var(--line);border-radius:10px}
+.persons .why{color:var(--muted)}
+.save-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:16px 0 0}
+.save-row .note{color:var(--muted);font-size:15px}
+
+/* missions */
+.mission-list{list-style:none;margin:0 0 26px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.mission-list li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-top:1px solid var(--line)}
+.mission-list li:first-child{border-top:0}
+.mission-list .name{font-weight:700;flex:1 1 240px}
+.start{max-width:900px;padding:18px 20px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface)}
+.start[hidden],.running[hidden]{display:none}
+.pick{display:grid;gap:8px;margin:0 0 18px;padding:0;border:0}
+.pick legend,.lab{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;padding:0}
+.opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:10px 14px;border:1.5px solid var(--line-strong);border-radius:8px;cursor:pointer}
+.opt:has(input:checked){border-color:var(--plasma);background:var(--plasma-soft)}
+.opt.off{opacity:.6;cursor:not-allowed;border-style:dashed}
+.opt input{accent-color:var(--plasma);margin:0}
+.opt .n{font-weight:700}
+.opt .m{color:var(--muted);font-size:14.5px;margin-left:auto}
+.seat-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;padding:0;list-style:none}
+.seat-chips li{display:inline-flex;align-items:center;gap:7px;padding:4px 11px 4px 8px;border:1.5px solid var(--line-strong);border-radius:999px;font-size:14px;font-weight:600}
+.seat-chips li span{color:var(--muted);font-weight:400}
+.eta{display:grid;gap:0;margin:0 0 18px;padding:10px 14px;border-radius:8px;background:var(--sunk)}
+.eta p{margin:0}
+.eta p+p{color:var(--muted);font-size:15px}
+.running{max-width:900px;padding:18px 20px;border:1.5px solid var(--green);border-radius:12px;background:var(--surface)}
+.running.paused{border-color:var(--line-strong);border-style:dashed}
+.run-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 12px}
+.run-head h3{margin:0}
+.prds{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:0}
+.prds li{display:grid;grid-template-columns:70px 1fr auto;gap:4px 12px;padding:9px 0;border-top:1px solid var(--line);align-items:center}
+.prds li:first-child{border-top:0}
+.prds .id{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.run-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.paused-line{margin:0 0 12px;color:var(--muted)}
+.paused-line[hidden]{display:none}
+
+/* toast (outside every screen) */
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,0);max-width:min(560px,calc(100vw - 32px));padding:10px 16px;border-radius:8px;background:var(--ink);color:var(--ground);font-size:15px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+
+/* ---------- phone ---------- */
+.phone-stage{display:none;padding:24px 16px 40px;justify-content:center}
+body.is-phone .phone-stage{display:flex}
+body.is-phone .shell{display:none}
+.phone{width:393px;max-width:100%;border:10px solid #000;border-radius:38px;overflow:hidden;background:var(--ground);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.phone-scroll{height:760px;max-height:78vh;overflow-y:auto}
+.p-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong);position:sticky;top:0;z-index:2}
+.p-menu{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:6px;background:var(--surface);cursor:pointer}
+.p-trail{font:600 14px/1.3 var(--body);color:var(--muted)}
+.p-trail b{color:var(--ink)}
+.p-main{padding:16px}
+.p-main .fleet-head h2{font-size:21px}
+.p-main .tabs{margin:12px 0 16px}
+.p-main .tab{padding:9px 10px;font-size:14px}
+.p-now{list-style:none;margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.p-now li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
+.p-now li:first-child{border-top:0}
+.p-now .doing{grid-column:1/-1;color:var(--muted);font-size:14.5px}
+.p-yours{display:grid;gap:8px;padding:12px;margin:0 0 16px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
+.p-yours p{margin:0;font-weight:700}
+.p-yours .btn{justify-content:center}
+.p-rows{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.p-rows li{display:grid;gap:3px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
+.p-rows li:first-child{border-top:0}
+.p-rows .meta{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.p-rows .meta .t{font-family:var(--mono)}
+.p-rows .meta .state{margin-left:auto}
+
+/* ---------- desk breakpoints ---------- */
+@media (max-width:1100px){
+  .now li{grid-template-columns:minmax(140px,180px) minmax(0,1fr) auto}
+  .now .holder{grid-column:1}
+  .now .doing{grid-column:2;grid-row:1/span 2}
+  .now .state-cell{grid-column:3;grid-row:1/span 2}
+}
+@media (max-width:899.98px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .bar,.main{grid-column:1}
+  .main{padding:16px}
+  .strip{padding:12px 16px}
+  .now li{grid-template-columns:1fr auto}
+  .now .holder,.now .doing{grid-column:1/-1;grid-row:auto}
+  .now .state-cell{grid-column:2;grid-row:1}
+  table.ledger thead{display:none}
+  table.ledger,table.ledger tbody,table.ledger tr,table.ledger td{display:block;width:100%}
+  table.ledger tr.row{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;padding:10px 12px;border-top:1px solid var(--line)}
+  table.ledger td{border:0;padding:0}
+  table.ledger td.t{grid-column:1;padding-top:0}
+  table.ledger td.who{grid-column:2}
+  table.ledger td.st{grid-column:3;grid-row:1}
+  table.ledger td.what,table.ledger td.lnk{grid-column:1/-1}
+  .seats thead{display:none}
+  .seats,.seats tbody,.seats tr,.seats td{display:block;width:100%}
+  .seats tr{padding:12px 14px;border-top:1px solid var(--line)}
+  .seats td{border:0;padding:3px 0}
+  .persons li{grid-template-columns:1fr}
+  .yours .btn{margin-left:0}
+}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;header class=&quot;strip&quot;&gt;
+  &lt;div class=&quot;strip-top&quot;&gt;
+    &lt;h1&gt;Direction α · The Operation Room &lt;span&gt;— time first, the team in plain view&lt;/span&gt;&lt;/h1&gt;
+    &lt;nav class=&quot;strip-nav&quot; aria-label=&quot;Prototype screens&quot;&gt;
+      &lt;button type=&quot;button&quot; data-go=&quot;fleet-room&quot;&gt;1 · Room&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-go=&quot;ready-checks&quot;&gt;2 · Ready checks&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-go=&quot;fleet-team&quot;&gt;3 · Seats&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-go=&quot;mission-start&quot;&gt;4 · Start a mission&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-go=&quot;fleet-room-phone&quot;&gt;5 · Phone, 393 px&lt;/button&gt;
+    &lt;/nav&gt;
+  &lt;/div&gt;
+  &lt;p class=&quot;narr&quot; data-narr=&quot;fleet-room&quot;&gt;&lt;b&gt;The Fleet opens on the Operation room.&lt;/b&gt; Five seats, one &quot;now&quot; line each: who holds it (an agent, or a person: Irisa sits in the PM seat; the Architect seat is a person&#x27;s today) and what it is doing. Under them, the ledger: every hand-off, newest first, each sentence signed by its seat. Filter by role or mission (the filter goes in the URL). Open the Gatekeeper row at 03:10 to read its verdict and findings. Wait a few seconds: the Engineer hands PR 2818 to the Gatekeeper and the row slides in at the top — the page&#x27;s one motion. Tap &quot;PR 2817 ready for review · 5 of 5&quot; to see what ready proves.&lt;/p&gt;
+  &lt;p class=&quot;narr&quot; data-narr=&quot;ready-checks&quot; hidden&gt;&lt;b&gt;&quot;Ready&quot; is a claim with five proofs under it.&lt;/b&gt; Each check is a plain label and opens its evidence (the CI run, the test log, the proofs, the test diff, the files touched). The page says out loud that ready is not merged: the Engineer agent stops here, and only a person merges (never #1). The one action is to review PR 2817.&lt;/p&gt;
+  &lt;p class=&quot;narr&quot; data-narr=&quot;fleet-team&quot; hidden&gt;&lt;b&gt;The Seats tab (the brief called it Team; the glossary keeps &quot;team&quot; off screens, it means a workspace) is the crew list.&lt;/b&gt; Five seats from the person&#x27;s own list. Each says who holds it, the skill it runs today, and its limits as sentences, so nobody has to guess how far an agent goes: the Gatekeeper (the person said &quot;reviewer&quot;; the glossary gives that word to Approver, a member who approves PRDs) sends work back at most twice, then asks you; QA may fix a bug itself but takes the branch only while it does. The PM and Architect seats are held by people today, and the page says why. Change a holder to see Save seats wake up.&lt;/p&gt;
+  &lt;p class=&quot;narr&quot; data-narr=&quot;mission-start&quot; hidden&gt;&lt;b&gt;A mission starts from an approved roadmap, and nothing else.&lt;/b&gt; Pick R12 (R13 is not approved, so it cannot be picked), see which seats will work it, read one honest line of when it is likely ready and whether it will ask you, then Start mission. The mission then runs on the fleet&#x27;s runners with the laptop closed; Pause stops new work from starting, Resume carries on. The supervisor, leases and checkpoints sit underneath and never show.&lt;/p&gt;
+  &lt;p class=&quot;narr&quot; data-narr=&quot;fleet-room-phone&quot; hidden&gt;&lt;b&gt;The same room at 393 px.&lt;/b&gt; The now lines come first, then the one thing waiting for you, then the ledger with each row stacked: time and state on one line, the signed sentence under it. Nothing to scroll sideways.&lt;/p&gt;
+&lt;/header&gt;
+
+&lt;div class=&quot;shell&quot; id=&quot;shell&quot;&gt;
+  &lt;aside class=&quot;side&quot; aria-label=&quot;Sidebar&quot;&gt;
+    &lt;div&gt;
+      &lt;a class=&quot;brand&quot; href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; aria-label=&quot;OMNI LOOP home&quot;&gt;
+        &lt;span data-sprite=&quot;crest&quot; data-scale=&quot;4&quot;&gt;&lt;/span&gt;
+        &lt;span class=&quot;wordmark&quot;&gt;OMNI LOOP&lt;/span&gt;
+      &lt;/a&gt;
+      &lt;p class=&quot;ws&quot;&gt;Northwind&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;nav aria-label=&quot;Sections&quot;&gt;
+      &lt;p class=&quot;grp-label&quot;&gt;Dashboard&lt;/p&gt;
+      &lt;ul&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Home&quot;&gt;&lt;span data-sprite=&quot;home&quot;&gt;&lt;/span&gt;Home&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;a class=&quot;side-item&quot; href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; aria-current=&quot;page&quot;&gt;&lt;span data-sprite=&quot;ship&quot;&gt;&lt;/span&gt;Fleet&lt;/a&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Loop&quot;&gt;&lt;span data-sprite=&quot;loop&quot;&gt;&lt;/span&gt;Loop&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Runners&quot;&gt;&lt;span data-sprite=&quot;box&quot;&gt;&lt;/span&gt;Runners&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Workspace&quot;&gt;&lt;span data-sprite=&quot;grid&quot;&gt;&lt;/span&gt;Workspace&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Engineering&quot;&gt;&lt;span data-sprite=&quot;gear&quot;&gt;&lt;/span&gt;Engineering&lt;/button&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;p class=&quot;grp-label&quot; style=&quot;margin-top:18px&quot;&gt;Work&lt;/p&gt;
+      &lt;ul&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Roadmaps&quot;&gt;&lt;span data-sprite=&quot;map&quot;&gt;&lt;/span&gt;Roadmaps&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;PRDs&quot;&gt;&lt;span data-sprite=&quot;doc&quot;&gt;&lt;/span&gt;PRDs&lt;span class=&quot;badge&quot;&gt;4&lt;/span&gt;&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Waiting&quot;&gt;&lt;span data-sprite=&quot;hour&quot;&gt;&lt;/span&gt;Waiting&lt;span class=&quot;badge&quot;&gt;1&lt;/span&gt;&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Questions&quot;&gt;&lt;span data-sprite=&quot;ask&quot;&gt;&lt;/span&gt;Questions&lt;/button&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;button type=&quot;button&quot; class=&quot;side-item&quot; data-away=&quot;Knowledge&quot;&gt;&lt;span data-sprite=&quot;book&quot;&gt;&lt;/span&gt;Knowledge&lt;/button&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+    &lt;/nav&gt;
+    &lt;p class=&quot;side-foot&quot;&gt;Omni Loop v0.0.622&lt;/p&gt;
+  &lt;/aside&gt;
+
+  &lt;div class=&quot;bar&quot;&gt;
+    &lt;span class=&quot;tile&quot; data-sprite=&quot;ship&quot; data-scale=&quot;3&quot;&gt;&lt;/span&gt;
+    &lt;ol class=&quot;trail&quot; aria-label=&quot;Trail&quot;&gt;
+      &lt;li&gt;Dashboard&lt;/li&gt;&lt;li aria-hidden=&quot;true&quot;&gt;›&lt;/li&gt;&lt;li&gt;Fleet&lt;/li&gt;&lt;li aria-hidden=&quot;true&quot;&gt;›&lt;/li&gt;&lt;li class=&quot;here&quot; id=&quot;trail-here&quot;&gt;Operation room&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;div class=&quot;bar-end&quot;&gt;
+      &lt;div class=&quot;switch&quot; role=&quot;group&quot; aria-label=&quot;Theme&quot;&gt;
+        &lt;button type=&quot;button&quot; data-theme-set=&quot;omni&quot; aria-pressed=&quot;true&quot;&gt;Omni&lt;/button&gt;
+        &lt;button type=&quot;button&quot; data-theme-set=&quot;light&quot; aria-pressed=&quot;false&quot;&gt;Light&lt;/button&gt;
+        &lt;button type=&quot;button&quot; data-theme-set=&quot;dark&quot; aria-pressed=&quot;false&quot;&gt;Dark&lt;/button&gt;
+      &lt;/div&gt;
+      &lt;span class=&quot;avatar&quot; title=&quot;Irisa&quot; aria-label=&quot;Irisa&quot;&gt;I&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;main class=&quot;main&quot;&gt;
+    &lt;div class=&quot;fleet-head&quot;&gt;
+      &lt;span class=&quot;mascot&quot; data-sprite=&quot;whale&quot; data-scale=&quot;2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;
+      &lt;div&gt;
+        &lt;h2&gt;Blue Fleet&lt;/h2&gt;
+        &lt;p class=&quot;fleet-meta&quot;&gt;3 runners · 1 mission running&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;tabs&quot; role=&quot;tablist&quot; aria-label=&quot;Fleet&quot;&gt;
+      &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-go=&quot;fleet-room&quot; aria-selected=&quot;true&quot;&gt;Operation room&lt;/button&gt;
+      &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-go=&quot;mission-start&quot; aria-selected=&quot;false&quot;&gt;Missions&lt;/button&gt;
+      &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-go=&quot;fleet-team&quot; aria-selected=&quot;false&quot;&gt;Seats&lt;/button&gt;
+      &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-away=&quot;Board&quot; aria-selected=&quot;false&quot;&gt;Board&lt;/button&gt;
+    &lt;/div&gt;
+
+    &lt;!-- ===================== 1 · fleet-room ===================== --&gt;
+    &lt;section data-screen=&quot;fleet-room&quot; aria-label=&quot;Operation room&quot;&gt;
+      &lt;div class=&quot;yours&quot;&gt;
+        &lt;div&gt;
+          &lt;p&gt;PR 2817 waits for your review.&lt;/p&gt;
+          &lt;p class=&quot;sub&quot;&gt;Dark mode on the quote screen&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;button type=&quot;button&quot; class=&quot;btn&quot; data-primary data-go=&quot;ready-checks&quot;&gt;See the 5 checks&lt;/button&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;section&quot;&gt;
+        &lt;h3&gt;Now&lt;/h3&gt;
+        &lt;ul class=&quot;now&quot; id=&quot;now&quot;&gt;
+          &lt;li&gt;
+            &lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;pm&quot;&gt;&lt;/span&gt;PM&lt;/span&gt;
+            &lt;span class=&quot;holder&quot;&gt;&lt;b&gt;Irisa&lt;/b&gt; · person · you&lt;/span&gt;
+            &lt;span class=&quot;doing&quot;&gt;Reviewing PR 2817 next.&lt;/span&gt;
+            &lt;span class=&quot;state-cell&quot;&gt;&lt;span class=&quot;state you&quot;&gt;Waiting for you&lt;/span&gt;&lt;/span&gt;
+          &lt;/li&gt;
+          &lt;li&gt;
+            &lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;architect&quot;&gt;&lt;/span&gt;Architect&lt;/span&gt;
+            &lt;span class=&quot;holder&quot;&gt;&lt;b&gt;Sam&lt;/b&gt; · person&lt;/span&gt;
+            &lt;span class=&quot;doing&quot;&gt;A person does this today.&lt;/span&gt;
+            &lt;span class=&quot;state-cell&quot;&gt;&lt;span class=&quot;state person&quot;&gt;Idle&lt;/span&gt;&lt;/span&gt;
+          &lt;/li&gt;
+          &lt;li&gt;
+            &lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer&lt;/span&gt;
+            &lt;span class=&quot;holder&quot;&gt;&lt;b&gt;Engineer&lt;/b&gt; · agent&lt;/span&gt;
+            &lt;span class=&quot;doing&quot; id=&quot;now-engineer&quot;&gt;Building PRD 2804 on box-2.&lt;/span&gt;
+            &lt;span class=&quot;state-cell&quot;&gt;&lt;span class=&quot;state go&quot;&gt;Working&lt;/span&gt;&lt;/span&gt;
+          &lt;/li&gt;
+          &lt;li&gt;
+            &lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;qa&quot;&gt;&lt;/span&gt;QA&lt;/span&gt;
+            &lt;span class=&quot;holder&quot;&gt;&lt;b&gt;QA&lt;/b&gt; · agent&lt;/span&gt;
+            &lt;span class=&quot;doing&quot;&gt;All three runners are busy.&lt;/span&gt;
+            &lt;span class=&quot;state-cell&quot;&gt;&lt;span class=&quot;state&quot;&gt;Waiting for room&lt;/span&gt;&lt;/span&gt;
+          &lt;/li&gt;
+          &lt;li&gt;
+            &lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper&lt;/span&gt;
+            &lt;span class=&quot;holder&quot;&gt;&lt;b&gt;Gatekeeper&lt;/b&gt; · agent&lt;/span&gt;
+            &lt;span class=&quot;doing&quot; id=&quot;now-reviewer&quot;&gt;Nothing to review yet.&lt;/span&gt;
+            &lt;span class=&quot;state-cell&quot;&gt;&lt;span class=&quot;state&quot; id=&quot;now-reviewer-state&quot;&gt;Idle&lt;/span&gt;&lt;/span&gt;
+          &lt;/li&gt;
+        &lt;/ul&gt;
+        &lt;p class=&quot;clean&quot;&gt;&lt;b&gt;Clean-up:&lt;/b&gt; box-2 keeps one branch.&lt;/p&gt;
+        &lt;p class=&quot;clean&quot; data-content&gt;PRD 2804 · Engineer · until 18:00 · 41 MB&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;section&quot;&gt;
+        &lt;div class=&quot;ledger-head&quot;&gt;
+          &lt;h3&gt;Ledger&lt;/h3&gt;
+          &lt;div class=&quot;filters&quot;&gt;
+            &lt;fieldset class=&quot;chips&quot; id=&quot;f-role&quot;&gt;
+              &lt;legend&gt;Role&lt;/legend&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-role-f=&quot;all&quot; aria-pressed=&quot;true&quot;&gt;All&lt;/button&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-role-f=&quot;pm&quot; aria-pressed=&quot;false&quot;&gt;PM&lt;/button&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-role-f=&quot;architect&quot; aria-pressed=&quot;false&quot;&gt;Architect&lt;/button&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-role-f=&quot;engineer&quot; aria-pressed=&quot;false&quot;&gt;Engineer&lt;/button&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-role-f=&quot;qa&quot; aria-pressed=&quot;false&quot;&gt;QA&lt;/button&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-role-f=&quot;gatekeeper&quot; aria-pressed=&quot;false&quot;&gt;Gatekeeper&lt;/button&gt;
+            &lt;/fieldset&gt;
+            &lt;fieldset class=&quot;chips&quot; id=&quot;f-mission&quot;&gt;
+              &lt;legend&gt;Mission&lt;/legend&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-mission-f=&quot;all&quot; aria-pressed=&quot;true&quot;&gt;All&lt;/button&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-mission-f=&quot;r12&quot; aria-pressed=&quot;false&quot;&gt;R12 Billing&lt;/button&gt;
+              &lt;button type=&quot;button&quot; class=&quot;chip&quot; data-mission-f=&quot;r11&quot; aria-pressed=&quot;false&quot;&gt;R11 Quotes&lt;/button&gt;
+            &lt;/fieldset&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;table class=&quot;ledger&quot; aria-label=&quot;Ledger, newest first&quot;&gt;
+          &lt;thead&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Time&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Who&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;What&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Link&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;State&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+          &lt;tbody id=&quot;ledger&quot;&gt;
+            &lt;tr class=&quot;row ready&quot; data-role=&quot;engineer&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;07:00&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot;&gt;&lt;span class=&quot;ready-txt&quot;&gt;PR 2817 ready for review · &lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;open-ready&quot; data-go=&quot;ready-checks&quot;&gt;5 of 5 checks&lt;/button&gt;&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#ready-checks&quot; data-go=&quot;ready-checks&quot;&gt;PR 2817&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state ok&quot;&gt;Ready&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;qa&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;06:40&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;qa&quot;&gt;&lt;/span&gt;QA&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Proved dark mode on the preview.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PRD 2803&quot;&gt;PRD 2803&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;gatekeeper&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;05:55&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot;&gt;&lt;span data-content&gt;Passed PR 2817 on round 2.&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;expand&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;d-0555&quot;&gt;Verdict&lt;/button&gt;&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PR 2817&quot;&gt;PR 2817&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;detail&quot; id=&quot;d-0555&quot; data-hide-init data-role=&quot;gatekeeper&quot; data-mission=&quot;r12&quot;&gt;&lt;td colspan=&quot;5&quot;&gt;
+              &lt;div class=&quot;verdict&quot;&gt;
+                &lt;p&gt;&lt;b&gt;Verdict: pass.&lt;/b&gt; No finding left.&lt;/p&gt;
+                &lt;p class=&quot;rnd&quot;&gt;Round 2 of 2&lt;/p&gt;
+              &lt;/div&gt;
+            &lt;/td&gt;&lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;engineer&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;04:20&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Reverted the loosened test. Fixed the slow query.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PR 2817&quot;&gt;PR 2817&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state&quot;&gt;Sent back&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;gatekeeper&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;03:10&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot;&gt;&lt;span data-content&gt;Sent PR 2817 back: a test was loosened (timeout 5s → 30s).&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;expand&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;d-0310&quot;&gt;Findings&lt;/button&gt;&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PR 2817&quot;&gt;PR 2817&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state warn&quot;&gt;Changes&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;detail&quot; id=&quot;d-0310&quot; data-hide-init data-role=&quot;gatekeeper&quot; data-mission=&quot;r12&quot;&gt;&lt;td colspan=&quot;5&quot;&gt;
+              &lt;div class=&quot;verdict&quot;&gt;
+                &lt;p&gt;&lt;b&gt;Verdict: changes.&lt;/b&gt; Two findings.&lt;/p&gt;
+                &lt;ol data-content&gt;
+                  &lt;li&gt;&lt;span class=&quot;mono&quot;&gt;quote.test.ts&lt;/span&gt;: timeout raised from 5s to 30s.&lt;/li&gt;
+                  &lt;li&gt;&lt;span class=&quot;mono&quot;&gt;QuoteHeader.css&lt;/span&gt;: one colour hard-coded.&lt;/li&gt;
+                &lt;/ol&gt;
+                &lt;p class=&quot;rnd&quot;&gt;Round 1 of 2&lt;/p&gt;
+              &lt;/div&gt;
+            &lt;/td&gt;&lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;qa&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;02:30&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;qa&quot;&gt;&lt;/span&gt;QA&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Took the branch, fixed low contrast, handed it back.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PRD 2803&quot;&gt;PRD 2803&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state&quot;&gt;Handed back&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;engineer&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;01:45&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Opened PR 2817 for dark mode.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PR 2817&quot;&gt;PR 2817&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state&quot;&gt;Opened&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;pm&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;00:30&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;pm&quot;&gt;&lt;/span&gt;Irisa&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;PM · person&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Started the mission from roadmap R12.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#mission-start&quot; data-go=&quot;mission-start&quot;&gt;R12&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state go&quot;&gt;Started&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;architect&quot; data-mission=&quot;r12&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;Sun 18:10&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;architect&quot;&gt;&lt;/span&gt;Sam&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;Architect · person&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Checked R12&#x27;s plan against the ADRs.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;R12&quot;&gt;R12&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;pm&quot; data-mission=&quot;r11&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;Fri 16:05&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;pm&quot;&gt;&lt;/span&gt;Irisa&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;PM · person&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Merged PR 2799. Mission R11 done.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PR 2799&quot;&gt;PR 2799&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state ok&quot;&gt;Merged&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;gatekeeper&quot; data-mission=&quot;r11&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;Fri 11:20&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;Passed PR 2799 on round 1.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PR 2799&quot;&gt;PR 2799&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr class=&quot;row&quot; data-role=&quot;engineer&quot; data-mission=&quot;r11&quot;&gt;
+              &lt;td class=&quot;t&quot;&gt;&lt;time&gt;Fri 09:02&lt;/time&gt;&lt;/td&gt;
+              &lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;
+              &lt;td class=&quot;what&quot; data-content&gt;box-1 restarted. Carried on from the checkpoint.&lt;/td&gt;
+              &lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PRD 2798&quot;&gt;PRD 2798&lt;/a&gt;&lt;/td&gt;
+              &lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state go&quot;&gt;Resumed&lt;/span&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+        &lt;div class=&quot;empty&quot; id=&quot;ledger-empty&quot; data-hide-init&gt;
+          &lt;p style=&quot;margin:0 0 8px&quot;&gt;No rows for these filters.&lt;/p&gt;
+          &lt;button type=&quot;button&quot; class=&quot;btn quiet&quot; id=&quot;clear-filters&quot;&gt;Clear filters&lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;!-- ===================== 2 · ready-checks ===================== --&gt;
+    &lt;section data-screen=&quot;ready-checks&quot; aria-label=&quot;Ready checks for PR 2817&quot; data-hide-init&gt;
+      &lt;button type=&quot;button&quot; class=&quot;link back&quot; data-go=&quot;fleet-room&quot;&gt;‹ Operation room&lt;/button&gt;
+      &lt;div class=&quot;checks-head&quot;&gt;
+        &lt;h2&gt;PR 2817&lt;/h2&gt;
+        &lt;p class=&quot;prd&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PRD 2803&quot;&gt;PRD 2803&lt;/a&gt;&lt;/p&gt;&lt;p class=&quot;prd&quot;&gt;Dark mode on the quote screen&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;ready-line&quot;&gt;
+        &lt;span class=&quot;state ok&quot;&gt;Ready for review · 5 of 5&lt;/span&gt;
+        &lt;span class=&quot;signed&quot;&gt;Engineer · agent · 07:00&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;ul class=&quot;checks&quot;&gt;
+        &lt;li&gt;
+          &lt;div class=&quot;check-row&quot;&gt;&lt;span class=&quot;tick&quot; data-sprite=&quot;tick&quot;&gt;&lt;/span&gt;&lt;span class=&quot;lbl&quot;&gt;CI green on the latest commit&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;link&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;p1&quot;&gt;Run 8841&lt;/button&gt;&lt;/div&gt;
+          &lt;p class=&quot;proof&quot; id=&quot;p1&quot; data-hide-init&gt;&lt;b&gt;Commit a41f9c2&lt;/b&gt; · 14 jobs green · 6m 12s&lt;/p&gt;
+        &lt;/li&gt;
+        &lt;li&gt;
+          &lt;div class=&quot;check-row&quot;&gt;&lt;span class=&quot;tick&quot; data-sprite=&quot;tick&quot;&gt;&lt;/span&gt;&lt;span class=&quot;lbl&quot;&gt;Full tests and lint ran&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;link&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;p2&quot;&gt;Test log&lt;/button&gt;&lt;/div&gt;
+          &lt;p class=&quot;proof&quot; id=&quot;p2&quot; data-hide-init&gt;&lt;b&gt;1,284 tests&lt;/b&gt; · lint clean · 2m 31s&lt;/p&gt;
+        &lt;/li&gt;
+        &lt;li&gt;
+          &lt;div class=&quot;check-row&quot;&gt;&lt;span class=&quot;tick&quot; data-sprite=&quot;tick&quot;&gt;&lt;/span&gt;&lt;span class=&quot;lbl&quot;&gt;Each success criterion has its proof&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;link&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;p3&quot;&gt;3 proofs&lt;/button&gt;&lt;/div&gt;
+          &lt;p class=&quot;proof&quot; id=&quot;p3&quot; data-hide-init&gt;&lt;b&gt;3 of 3 criteria&lt;/b&gt; · Omni, Light, Dark&lt;/p&gt;
+        &lt;/li&gt;
+        &lt;li&gt;
+          &lt;div class=&quot;check-row&quot;&gt;&lt;span class=&quot;tick&quot; data-sprite=&quot;tick&quot;&gt;&lt;/span&gt;&lt;span class=&quot;lbl&quot;&gt;No test was loosened&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;link&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;p4&quot;&gt;Test diff&lt;/button&gt;&lt;/div&gt;
+          &lt;p class=&quot;proof&quot; id=&quot;p4&quot; data-hide-init&gt;&lt;b&gt;0 loosened&lt;/b&gt; · 1 caught at 03:10, reverted&lt;/p&gt;
+        &lt;/li&gt;
+        &lt;li&gt;
+          &lt;div class=&quot;check-row&quot;&gt;&lt;span class=&quot;tick&quot; data-sprite=&quot;tick&quot;&gt;&lt;/span&gt;&lt;span class=&quot;lbl&quot;&gt;The change stayed in its area&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;link&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;p5&quot;&gt;7 files&lt;/button&gt;&lt;/div&gt;
+          &lt;p class=&quot;proof&quot; id=&quot;p5&quot; data-hide-init&gt;&lt;b&gt;7 files&lt;/b&gt; · all under the quote screen&lt;/p&gt;
+        &lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;merge-note&quot;&gt;
+        &lt;p&gt;&lt;b&gt;Ready for review, not merged.&lt;/b&gt;&lt;/p&gt;
+        &lt;p&gt;Only a person merges.&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;button type=&quot;button&quot; class=&quot;btn&quot; data-primary data-toast=&quot;PR 2817 opens on GitHub, for your review.&quot;&gt;Review PR 2817&lt;/button&gt;
+    &lt;/section&gt;
+
+    &lt;!-- ===================== 3 · fleet-team ===================== --&gt;
+    &lt;section data-screen=&quot;fleet-team&quot; aria-label=&quot;Seats&quot; data-hide-init&gt;
+      &lt;div class=&quot;section&quot;&gt;
+        &lt;h3&gt;Five seats&lt;/h3&gt;
+        &lt;table class=&quot;seats&quot;&gt;
+          &lt;thead&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;Seat&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Held by&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Runs today&lt;/th&gt;&lt;th scope=&quot;col&quot;&gt;Limits&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+          &lt;tbody&gt;
+            &lt;tr&gt;
+              &lt;td&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;pm&quot;&gt;&lt;/span&gt;PM&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;select aria-label=&quot;PM held by&quot; data-seat=&quot;pm&quot;&gt;&lt;option value=&quot;irisa&quot; selected&gt;Irisa · person&lt;/option&gt;&lt;option value=&quot;agent&quot;&gt;PM · agent&lt;/option&gt;&lt;/select&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;span class=&quot;skill&quot;&gt;/omni:brainstorm&lt;/span&gt;&lt;span class=&quot;skill&quot;&gt;/omni:roadmap&lt;/span&gt;&lt;span class=&quot;skill&quot;&gt;/omni:pitch&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;ul&gt;&lt;li&gt;Writes PRDs and the pitch video.&lt;/li&gt;&lt;li&gt;Approves every roadmap.&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;architect&quot;&gt;&lt;/span&gt;Architect&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;select aria-label=&quot;Architect held by&quot; data-seat=&quot;architect&quot;&gt;&lt;option value=&quot;sam&quot; selected&gt;Sam · person&lt;/option&gt;&lt;option value=&quot;agent&quot;&gt;Architect · agent&lt;/option&gt;&lt;/select&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;span class=&quot;skill&quot;&gt;/omni:plan&lt;/span&gt;&lt;span class=&quot;skill&quot;&gt;/omni:tech-review&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;ul&gt;&lt;li&gt;Checks plans against the ADRs.&lt;/li&gt;&lt;li&gt;Never changes a law alone.&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;select aria-label=&quot;Engineer held by&quot; data-seat=&quot;engineer&quot;&gt;&lt;option value=&quot;agent&quot; selected&gt;Engineer · agent&lt;/option&gt;&lt;option value=&quot;irisa&quot;&gt;Irisa · person&lt;/option&gt;&lt;option value=&quot;sam&quot;&gt;Sam · person&lt;/option&gt;&lt;/select&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;span class=&quot;skill&quot;&gt;/omni:yolo&lt;/span&gt;&lt;span class=&quot;skill&quot;&gt;/omni:pr-care&lt;/span&gt;&lt;span class=&quot;skill&quot;&gt;/omni:bug-fix&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;ul&gt;&lt;li&gt;Owns the branch and PR.&lt;/li&gt;&lt;li&gt;Stops at ready for review.&lt;/li&gt;&lt;li&gt;Never merges.&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;qa&quot;&gt;&lt;/span&gt;QA&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;select aria-label=&quot;QA held by&quot; data-seat=&quot;qa&quot;&gt;&lt;option value=&quot;agent&quot; selected&gt;QA · agent&lt;/option&gt;&lt;option value=&quot;irisa&quot;&gt;Irisa · person&lt;/option&gt;&lt;option value=&quot;sam&quot;&gt;Sam · person&lt;/option&gt;&lt;/select&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;span class=&quot;skill&quot;&gt;/omni:prove&lt;/span&gt;&lt;span class=&quot;skill&quot;&gt;/omni:validate-e2e&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;ul&gt;&lt;li&gt;May fix a bug itself.&lt;/li&gt;&lt;li&gt;Takes the branch while fixing.&lt;/li&gt;&lt;li&gt;Then hands it back.&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;select aria-label=&quot;Gatekeeper held by&quot; data-seat=&quot;gatekeeper&quot;&gt;&lt;option value=&quot;agent&quot; selected&gt;Gatekeeper · agent&lt;/option&gt;&lt;option value=&quot;irisa&quot;&gt;Irisa · person&lt;/option&gt;&lt;option value=&quot;sam&quot;&gt;Sam · person&lt;/option&gt;&lt;/select&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;span class=&quot;skill&quot;&gt;pre-PR review&lt;/span&gt;&lt;/td&gt;
+              &lt;td&gt;&lt;ul&gt;&lt;li&gt;Sends work back at most twice.&lt;/li&gt;&lt;li&gt;Then asks you.&lt;/li&gt;&lt;li&gt;At most 5 findings each time.&lt;/li&gt;&lt;li&gt;A repeated finding stops the mission.&lt;/li&gt;&lt;/ul&gt;&lt;/td&gt;
+            &lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+        &lt;div class=&quot;save-row&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;btn&quot; data-primary id=&quot;save-seats&quot; disabled&gt;Save seats&lt;/button&gt;
+          &lt;span class=&quot;note&quot; id=&quot;save-note&quot;&gt;No change yet.&lt;/span&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;section&quot;&gt;
+        &lt;h3&gt;Held by a person today&lt;/h3&gt;
+        &lt;ul class=&quot;persons&quot;&gt;
+          &lt;li&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;pm&quot;&gt;&lt;/span&gt;PM · Irisa&lt;/span&gt;&lt;span class=&quot;why&quot;&gt;No PM skill runs unattended yet.&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;architect&quot;&gt;&lt;/span&gt;Architect · Sam&lt;/span&gt;&lt;span class=&quot;why&quot;&gt;ADR reviews still need a person.&lt;/span&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;!-- ===================== 4 · mission-start ===================== --&gt;
+    &lt;section data-screen=&quot;mission-start&quot; aria-label=&quot;Missions&quot; data-hide-init&gt;
+      &lt;div class=&quot;section&quot;&gt;
+        &lt;h3&gt;Missions&lt;/h3&gt;
+        &lt;ul class=&quot;mission-list&quot;&gt;
+          &lt;li&gt;&lt;span class=&quot;name&quot;&gt;R11 · Quote polish&lt;/span&gt;&lt;span class=&quot;holder&quot;&gt;3 of 3 merged&lt;/span&gt;&lt;span class=&quot;state ok&quot;&gt;Done&lt;/span&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;start&quot; id=&quot;start-box&quot;&gt;
+        &lt;h3&gt;Start a mission&lt;/h3&gt;
+        &lt;fieldset class=&quot;pick&quot;&gt;
+          &lt;legend&gt;From an approved roadmap&lt;/legend&gt;
+          &lt;label class=&quot;opt&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;rm&quot; value=&quot;r12&quot; checked&gt;&lt;span class=&quot;n&quot;&gt;R12 · Billing in every region&lt;/span&gt;&lt;span class=&quot;m&quot;&gt;4 PRDs · approved Nov 12&lt;/span&gt;&lt;/label&gt;
+          &lt;label class=&quot;opt off&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;rm&quot; value=&quot;r13&quot; disabled&gt;&lt;span class=&quot;n&quot;&gt;R13 · Mobile quick wins&lt;/span&gt;&lt;span class=&quot;m&quot;&gt;Not approved yet&lt;/span&gt;&lt;/label&gt;
+        &lt;/fieldset&gt;
+        &lt;p class=&quot;lab&quot;&gt;Seats on this mission&lt;/p&gt;
+        &lt;ul class=&quot;seat-chips&quot;&gt;
+          &lt;li&gt;&lt;span data-role-mark=&quot;pm&quot;&gt;&lt;/span&gt;PM &lt;span&gt;Irisa&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span data-role-mark=&quot;architect&quot;&gt;&lt;/span&gt;Architect &lt;span&gt;Sam&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer &lt;span&gt;agent&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span data-role-mark=&quot;qa&quot;&gt;&lt;/span&gt;QA &lt;span&gt;agent&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper &lt;span&gt;agent&lt;/span&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+        &lt;div class=&quot;eta&quot;&gt;
+          &lt;p&gt;&lt;b&gt;Likely ready for review Monday 9am.&lt;/b&gt;&lt;/p&gt;
+          &lt;p&gt;May ask you once.&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;button type=&quot;button&quot; class=&quot;btn&quot; data-primary id=&quot;start-mission&quot;&gt;Start mission&lt;/button&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;running&quot; id=&quot;run-box&quot; data-hide-init&gt;
+        &lt;div class=&quot;run-head&quot;&gt;
+          &lt;h3&gt;R12 · Billing in every region&lt;/h3&gt;
+          &lt;span class=&quot;state go&quot; id=&quot;run-state&quot;&gt;Running&lt;/span&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;paused-line&quot; id=&quot;paused-line&quot; data-hide-init&gt;Paused by Irisa. Nothing new starts.&lt;/p&gt;
+        &lt;ul class=&quot;prds&quot;&gt;
+          &lt;li&gt;&lt;span class=&quot;id&quot;&gt;2801&lt;/span&gt;&lt;span&gt;Invoice PDF in the customer&#x27;s language&lt;/span&gt;&lt;span class=&quot;state go&quot;&gt;Engineer&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span class=&quot;id&quot;&gt;2802&lt;/span&gt;&lt;span&gt;Currency on every quote&lt;/span&gt;&lt;span class=&quot;state&quot;&gt;Next&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span class=&quot;id&quot;&gt;2803&lt;/span&gt;&lt;span&gt;Dark mode on the quote screen&lt;/span&gt;&lt;span class=&quot;state&quot;&gt;Next&lt;/span&gt;&lt;/li&gt;
+          &lt;li&gt;&lt;span class=&quot;id&quot;&gt;2804&lt;/span&gt;&lt;span&gt;VAT number check&lt;/span&gt;&lt;span class=&quot;state&quot;&gt;Next&lt;/span&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+        &lt;div class=&quot;run-actions&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;btn&quot; id=&quot;pause&quot;&gt;Pause&lt;/button&gt;
+          &lt;button type=&quot;button&quot; class=&quot;link&quot; data-go=&quot;fleet-room&quot; data-mission-go=&quot;r12&quot;&gt;Open the room&lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/main&gt;
+&lt;/div&gt;
+
+&lt;!-- ===================== 5 · fleet-room-phone ===================== --&gt;
+&lt;div class=&quot;phone-stage&quot;&gt;
+  &lt;section data-screen=&quot;fleet-room-phone&quot; aria-label=&quot;Operation room at 393 px&quot; data-hide-init&gt;
+    &lt;div class=&quot;phone&quot;&gt;
+      &lt;div class=&quot;phone-scroll&quot;&gt;
+        &lt;div class=&quot;p-bar&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;p-menu&quot; aria-label=&quot;Menu&quot; data-away=&quot;Menu&quot;&gt;&lt;span data-sprite=&quot;menu&quot;&gt;&lt;/span&gt;&lt;/button&gt;
+          &lt;span class=&quot;p-trail&quot;&gt;Fleet › &lt;b&gt;Operation room&lt;/b&gt;&lt;/span&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;p-main&quot;&gt;
+          &lt;div class=&quot;fleet-head&quot;&gt;
+            &lt;span class=&quot;mascot&quot; data-sprite=&quot;whale&quot; data-scale=&quot;2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;
+            &lt;div&gt;&lt;h2&gt;Blue Fleet&lt;/h2&gt;&lt;p class=&quot;fleet-meta&quot;&gt;1 mission running&lt;/p&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;tabs&quot; role=&quot;tablist&quot; aria-label=&quot;Fleet&quot;&gt;
+            &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-go=&quot;fleet-room-phone&quot; aria-selected=&quot;true&quot;&gt;Room&lt;/button&gt;
+            &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-go=&quot;mission-start&quot;&gt;Missions&lt;/button&gt;
+            &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-go=&quot;fleet-team&quot;&gt;Seats&lt;/button&gt;
+            &lt;button type=&quot;button&quot; class=&quot;tab&quot; role=&quot;tab&quot; data-away=&quot;Board&quot;&gt;Board&lt;/button&gt;
+          &lt;/div&gt;
+          &lt;ul class=&quot;p-now&quot;&gt;
+            &lt;li&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;pm&quot;&gt;&lt;/span&gt;PM · Irisa&lt;/span&gt;&lt;span class=&quot;state you&quot;&gt;Waiting for you&lt;/span&gt;&lt;span class=&quot;doing&quot;&gt;Reviewing PR 2817 next.&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;architect&quot;&gt;&lt;/span&gt;Architect · Sam&lt;/span&gt;&lt;span class=&quot;state person&quot;&gt;Idle&lt;/span&gt;&lt;span class=&quot;doing&quot;&gt;A person does this today.&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer · agent&lt;/span&gt;&lt;span class=&quot;state go&quot;&gt;Working&lt;/span&gt;&lt;span class=&quot;doing&quot;&gt;Building PRD 2804 on box-2.&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;qa&quot;&gt;&lt;/span&gt;QA · agent&lt;/span&gt;&lt;span class=&quot;state&quot;&gt;Waiting for room&lt;/span&gt;&lt;span class=&quot;doing&quot;&gt;All three runners are busy.&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper · agent&lt;/span&gt;&lt;span class=&quot;state&quot;&gt;Idle&lt;/span&gt;&lt;span class=&quot;doing&quot;&gt;Nothing to review yet.&lt;/span&gt;&lt;/li&gt;
+          &lt;/ul&gt;
+          &lt;p class=&quot;clean&quot;&gt;&lt;b&gt;Clean-up:&lt;/b&gt; box-2 keeps one branch.&lt;/p&gt;
+          &lt;div class=&quot;p-yours&quot; style=&quot;margin-top:14px&quot;&gt;
+            &lt;p&gt;PR 2817 waits for your review.&lt;/p&gt;
+            &lt;button type=&quot;button&quot; class=&quot;btn&quot; data-primary data-go=&quot;ready-checks&quot;&gt;See the 5 checks&lt;/button&gt;
+          &lt;/div&gt;
+          &lt;h3&gt;Ledger&lt;/h3&gt;
+          &lt;ul class=&quot;p-rows&quot;&gt;
+            &lt;li&gt;&lt;span class=&quot;meta&quot;&gt;&lt;span class=&quot;t&quot;&gt;07:00&lt;/span&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer · agent&lt;span class=&quot;state ok&quot;&gt;Ready&lt;/span&gt;&lt;/span&gt;&lt;span&gt;&lt;b&gt;PR 2817 ready for review · &lt;/b&gt;&lt;button type=&quot;button&quot; class=&quot;open-ready&quot; data-go=&quot;ready-checks&quot;&gt;5 of 5 checks&lt;/button&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;meta&quot;&gt;&lt;span class=&quot;t&quot;&gt;06:40&lt;/span&gt;&lt;span data-role-mark=&quot;qa&quot;&gt;&lt;/span&gt;QA · agent&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/span&gt;&lt;span data-content&gt;Proved dark mode on the preview.&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;meta&quot;&gt;&lt;span class=&quot;t&quot;&gt;05:55&lt;/span&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper · agent&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/span&gt;&lt;span data-content&gt;Passed PR 2817 on round 2.&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;meta&quot;&gt;&lt;span class=&quot;t&quot;&gt;04:20&lt;/span&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer · agent&lt;span class=&quot;state&quot;&gt;Sent back&lt;/span&gt;&lt;/span&gt;&lt;span data-content&gt;Reverted the loosened test. Fixed the slow query.&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;meta&quot;&gt;&lt;span class=&quot;t&quot;&gt;03:10&lt;/span&gt;&lt;span data-role-mark=&quot;gatekeeper&quot;&gt;&lt;/span&gt;Gatekeeper · agent&lt;span class=&quot;state warn&quot;&gt;Changes&lt;/span&gt;&lt;/span&gt;&lt;span data-content&gt;Sent PR 2817 back: a test was loosened (timeout 5s → 30s).&lt;/span&gt;&lt;/li&gt;
+          &lt;/ul&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+&lt;/div&gt;
+
+&lt;div class=&quot;toast&quot; id=&quot;toast&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&lt;/div&gt;
+
+&lt;script&gt;
+(function(){
+  &quot;use strict&quot;;
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var reduce=window.matchMedia&amp;&amp;window.matchMedia(&quot;(prefers-reduced-motion: reduce)&quot;).matches;
+
+  /* ---- pixel sprites: 8x8 (or wider) patterns drawn as crisp rects ---- */
+  var P={
+    pm:[&quot;11111100&quot;,&quot;11111110&quot;,&quot;11111100&quot;,&quot;10000000&quot;,&quot;10000000&quot;,&quot;10000000&quot;,&quot;10000000&quot;,&quot;00000000&quot;],
+    architect:[&quot;00011000&quot;,&quot;00100100&quot;,&quot;00100100&quot;,&quot;00011000&quot;,&quot;00100100&quot;,&quot;01000010&quot;,&quot;10000001&quot;,&quot;00000000&quot;],
+    engineer:[&quot;00000000&quot;,&quot;00100100&quot;,&quot;01000010&quot;,&quot;10000001&quot;,&quot;01000010&quot;,&quot;00100100&quot;,&quot;00000000&quot;,&quot;00000000&quot;],
+    qa:[&quot;01110000&quot;,&quot;10001000&quot;,&quot;10001000&quot;,&quot;10001000&quot;,&quot;01110000&quot;,&quot;00001100&quot;,&quot;00000110&quot;,&quot;00000011&quot;],
+    gatekeeper:[&quot;00000000&quot;,&quot;00111100&quot;,&quot;01000010&quot;,&quot;10011001&quot;,&quot;10011001&quot;,&quot;01000010&quot;,&quot;00111100&quot;,&quot;00000000&quot;],
+    crest:[&quot;00111100&quot;,&quot;01111110&quot;,&quot;11100111&quot;,&quot;11000011&quot;,&quot;11000011&quot;,&quot;11100111&quot;,&quot;01111110&quot;,&quot;00111100&quot;],
+    home:[&quot;00011000&quot;,&quot;00111100&quot;,&quot;01111110&quot;,&quot;11111111&quot;,&quot;01100110&quot;,&quot;01100110&quot;,&quot;01111110&quot;,&quot;00000000&quot;],
+    ship:[&quot;00011000&quot;,&quot;00011000&quot;,&quot;00111100&quot;,&quot;01111110&quot;,&quot;11111111&quot;,&quot;00111100&quot;,&quot;00100100&quot;,&quot;00000000&quot;],
+    loop:[&quot;00111100&quot;,&quot;01000010&quot;,&quot;10000001&quot;,&quot;10000101&quot;,&quot;10000011&quot;,&quot;01000111&quot;,&quot;00111100&quot;,&quot;00000000&quot;],
+    box:[&quot;11111111&quot;,&quot;10000001&quot;,&quot;10110101&quot;,&quot;10000001&quot;,&quot;11111111&quot;,&quot;10000001&quot;,&quot;10110101&quot;,&quot;11111111&quot;],
+    grid:[&quot;11101110&quot;,&quot;11101110&quot;,&quot;11101110&quot;,&quot;00000000&quot;,&quot;11101110&quot;,&quot;11101110&quot;,&quot;11101110&quot;,&quot;00000000&quot;],
+    gear:[&quot;00011000&quot;,&quot;01111110&quot;,&quot;01100110&quot;,&quot;11000011&quot;,&quot;11000011&quot;,&quot;01100110&quot;,&quot;01111110&quot;,&quot;00011000&quot;],
+    map:[&quot;11000110&quot;,&quot;10111010&quot;,&quot;10010010&quot;,&quot;10010010&quot;,&quot;10010010&quot;,&quot;10111010&quot;,&quot;11000110&quot;,&quot;00000000&quot;],
+    doc:[&quot;11111000&quot;,&quot;10000100&quot;,&quot;10111110&quot;,&quot;10000010&quot;,&quot;10111010&quot;,&quot;10000010&quot;,&quot;11111110&quot;,&quot;00000000&quot;],
+    hour:[&quot;11111110&quot;,&quot;01000100&quot;,&quot;00101000&quot;,&quot;00010000&quot;,&quot;00101000&quot;,&quot;01000100&quot;,&quot;11111110&quot;,&quot;00000000&quot;],
+    ask:[&quot;00111100&quot;,&quot;01000010&quot;,&quot;00000010&quot;,&quot;00001100&quot;,&quot;00010000&quot;,&quot;00000000&quot;,&quot;00010000&quot;,&quot;00000000&quot;],
+    book:[&quot;01111110&quot;,&quot;01000010&quot;,&quot;01011010&quot;,&quot;01000010&quot;,&quot;01011010&quot;,&quot;01000010&quot;,&quot;01111110&quot;,&quot;00000000&quot;],
+    menu:[&quot;00000000&quot;,&quot;11111111&quot;,&quot;00000000&quot;,&quot;11111111&quot;,&quot;00000000&quot;,&quot;11111111&quot;,&quot;00000000&quot;,&quot;00000000&quot;],
+    tick:[&quot;00000000&quot;,&quot;00000001&quot;,&quot;00000011&quot;,&quot;10000110&quot;,&quot;11001100&quot;,&quot;01111000&quot;,&quot;00110000&quot;,&quot;00000000&quot;],
+    whale:[&quot;0000000000000110&quot;,&quot;0000000000001100&quot;,&quot;0001111111001100&quot;,&quot;0011111111111000&quot;,&quot;0111111111111100&quot;,&quot;1111101111111100&quot;,&quot;1111111111111000&quot;,&quot;1111111111110000&quot;,&quot;0111111111100000&quot;,&quot;0001111110000000&quot;]
+  };
+  function svg(name,scale,color){
+    var p=P[name]; if(!p)return &quot;&quot;;
+    scale=scale||2; var w=p[0].length, h=p.length, out=&quot;&quot;;
+    for(var y=0;y&lt;h;y++){var row=p[y], x=0;
+      while(x&lt;w){ if(row[x]===&quot;1&quot;){var s=x; while(x&lt;w&amp;&amp;row[x]===&quot;1&quot;)x++; out+=&#x27;&lt;rect x=&quot;&#x27;+s+&#x27;&quot; y=&quot;&#x27;+y+&#x27;&quot; width=&quot;&#x27;+(x-s)+&#x27;&quot; height=&quot;1&quot;/&gt;&#x27;;} else x++; }
+    }
+    var extra=name===&quot;whale&quot;?&#x27;&lt;rect x=&quot;5&quot; y=&quot;5&quot; width=&quot;1&quot; height=&quot;1&quot; fill=&quot;var(--ground)&quot;/&gt;&#x27;:&quot;&quot;;
+    return &#x27;&lt;svg class=&quot;px&quot; aria-hidden=&quot;true&quot; width=&quot;&#x27;+(w*scale)+&#x27;&quot; height=&quot;&#x27;+(h*scale)+&#x27;&quot; viewBox=&quot;0 0 &#x27;+w+&#x27; &#x27;+h+&#x27;&quot; fill=&quot;&#x27;+(color||&quot;currentColor&quot;)+&#x27;&quot;&gt;&#x27;+out+extra+&#x27;&lt;/svg&gt;&#x27;;
+  }
+  function paint(root){
+    $$(&quot;[data-sprite]&quot;,root).forEach(function(el){
+      if(el.dataset.done)return; el.dataset.done=&quot;1&quot;;
+      var n=el.dataset.sprite, c=n===&quot;crest&quot;?&quot;var(--plasma)&quot;:n===&quot;whale&quot;?&quot;var(--fleet)&quot;:null;
+      el.insertAdjacentHTML(&quot;afterbegin&quot;,svg(n,+(el.dataset.scale||2),c));
+    });
+    $$(&quot;[data-role-mark]&quot;,root).forEach(function(el){
+      if(el.dataset.done)return; el.dataset.done=&quot;1&quot;;
+      el.style.display=&quot;inline-flex&quot;;
+      el.innerHTML=svg(el.dataset.roleMark,2);
+    });
+  }
+  paint(document);
+  $$(&quot;[data-hide-init]&quot;).forEach(function(el){el.hidden=true});
+
+  /* ---- toast (outside every screen) ---- */
+  var toastT;
+  function toast(msg){var t=$(&quot;#toast&quot;); t.textContent=msg; t.classList.add(&quot;on&quot;); clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove(&quot;on&quot;)},2600);}
+
+  /* ---- theme ---- */
+  $$(&quot;[data-theme-set]&quot;).forEach(function(b){
+    b.addEventListener(&quot;click&quot;,function(){
+      var v=b.dataset.themeSet;
+      if(v===&quot;omni&quot;)document.documentElement.removeAttribute(&quot;data-theme&quot;); else document.documentElement.setAttribute(&quot;data-theme&quot;,v);
+      $$(&quot;[data-theme-set]&quot;).forEach(function(x){x.setAttribute(&quot;aria-pressed&quot;,String(x===b))});
+    });
+  });
+
+  /* ---- screens ---- */
+  var TRAIL={&quot;fleet-room&quot;:&quot;Operation room&quot;,&quot;ready-checks&quot;:&quot;Operation room&quot;,&quot;fleet-team&quot;:&quot;Seats&quot;,&quot;mission-start&quot;:&quot;Missions&quot;,&quot;fleet-room-phone&quot;:&quot;Operation room&quot;};
+  var TAB={&quot;fleet-room&quot;:&quot;fleet-room&quot;,&quot;ready-checks&quot;:&quot;fleet-room&quot;,&quot;fleet-team&quot;:&quot;fleet-team&quot;,&quot;mission-start&quot;:&quot;mission-start&quot;};
+  var current=&quot;fleet-room&quot;;
+  var filt={role:&quot;all&quot;,mission:&quot;all&quot;};
+  function setHash(){
+    var h=&quot;#&quot;+current;
+    if(current===&quot;fleet-room&quot;){var q=[]; if(filt.role!==&quot;all&quot;)q.push(&quot;role=&quot;+filt.role); if(filt.mission!==&quot;all&quot;)q.push(&quot;mission=&quot;+filt.mission); if(q.length)h+=&quot;?&quot;+q.join(&quot;&amp;&quot;);}
+    try{history.replaceState(null,&quot;&quot;,h)}catch(e){}
+  }
+  function show(name,opts){
+    if(!document.querySelector(&#x27;[data-screen=&quot;&#x27;+name+&#x27;&quot;]&#x27;))name=&quot;fleet-room&quot;;
+    current=name;
+    $$(&quot;[data-screen]&quot;).forEach(function(s){s.hidden=s.dataset.screen!==name});
+    $$(&quot;[data-narr]&quot;).forEach(function(n){n.hidden=n.dataset.narr!==name});
+    $$(&quot;.strip-nav [data-go]&quot;).forEach(function(b){b.setAttribute(&quot;aria-current&quot;,String(b.dataset.go===name))});
+    document.body.classList.toggle(&quot;is-phone&quot;,name===&quot;fleet-room-phone&quot;);
+    $(&quot;#trail-here&quot;).textContent=TRAIL[name];
+    $$(&quot;#shell .tab[data-go]&quot;).forEach(function(t){t.setAttribute(&quot;aria-selected&quot;,String(t.dataset.go===TAB[name]))});
+    setHash();
+    if(!(opts&amp;&amp;opts.keepScroll))window.scrollTo(0,0);
+    if(name===&quot;fleet-room&quot;)armLive();
+  }
+  document.addEventListener(&quot;click&quot;,function(e){
+    var g=e.target.closest(&quot;[data-go]&quot;);
+    if(g){e.preventDefault();
+      if(g.dataset.missionGo){applyFilter(&quot;mission&quot;,g.dataset.missionGo,true)}
+      show(g.dataset.go); return;}
+    var a=e.target.closest(&quot;[data-away]&quot;);
+    if(a){e.preventDefault(); toast(a.dataset.away+&quot; is outside this prototype.&quot;); return;}
+    var t=e.target.closest(&quot;[data-toast]&quot;);
+    if(t){toast(t.dataset.toast);}
+  });
+
+  /* ---- ledger filters ---- */
+  function applyFilter(kind,val,silent){
+    filt[kind]=val;
+    $$(kind===&quot;role&quot;?&quot;[data-role-f]&quot;:&quot;[data-mission-f]&quot;).forEach(function(c){c.setAttribute(&quot;aria-pressed&quot;,String((kind===&quot;role&quot;?c.dataset.roleF:c.dataset.missionF)===val))});
+    var shown=0;
+    $$(&quot;#ledger tr&quot;).forEach(function(tr){
+      var ok=(filt.role===&quot;all&quot;||tr.dataset.role===filt.role)&amp;&amp;(filt.mission===&quot;all&quot;||tr.dataset.mission===filt.mission);
+      if(tr.classList.contains(&quot;detail&quot;)){var btn=$(&#x27;[aria-controls=&quot;&#x27;+tr.id+&#x27;&quot;]&#x27;); tr.hidden=!ok||!(btn&amp;&amp;btn.getAttribute(&quot;aria-expanded&quot;)===&quot;true&quot;); }
+      else{tr.hidden=!ok; if(ok)shown++;}
+    });
+    $(&quot;#ledger-empty&quot;).hidden=shown&gt;0;
+    $(&quot;table.ledger&quot;).style.display=shown&gt;0?&quot;&quot;:&quot;none&quot;;
+    if(!silent)setHash();
+  }
+  $$(&quot;[data-role-f]&quot;).forEach(function(c){c.addEventListener(&quot;click&quot;,function(){applyFilter(&quot;role&quot;,c.dataset.roleF)})});
+  $$(&quot;[data-mission-f]&quot;).forEach(function(c){c.addEventListener(&quot;click&quot;,function(){applyFilter(&quot;mission&quot;,c.dataset.missionF)})});
+  $(&quot;#clear-filters&quot;).addEventListener(&quot;click&quot;,function(){applyFilter(&quot;role&quot;,&quot;all&quot;,true);applyFilter(&quot;mission&quot;,&quot;all&quot;)});
+
+  /* ---- verdict rows expand ---- */
+  $(&quot;#ledger&quot;).addEventListener(&quot;click&quot;,function(e){
+    var b=e.target.closest(&quot;.expand&quot;); if(!b)return;
+    var open=b.getAttribute(&quot;aria-expanded&quot;)!==&quot;true&quot;;
+    b.setAttribute(&quot;aria-expanded&quot;,String(open));
+    $(&quot;#&quot;+b.getAttribute(&quot;aria-controls&quot;)).hidden=!open;
+  });
+
+  /* ---- ready checks: each label opens its proof ---- */
+  $$(&quot;.checks [aria-controls]&quot;).forEach(function(b){
+    b.addEventListener(&quot;click&quot;,function(){
+      var open=b.getAttribute(&quot;aria-expanded&quot;)!==&quot;true&quot;;
+      b.setAttribute(&quot;aria-expanded&quot;,String(open));
+      $(&quot;#&quot;+b.getAttribute(&quot;aria-controls&quot;)).hidden=!open;
+    });
+  });
+
+  /* ---- the one motion: a live hand-off row slides in at the top ---- */
+  var liveDone=false, liveT=null;
+  function armLive(){
+    if(liveDone||liveT)return;
+    liveT=setTimeout(function(){
+      liveT=null; if(current!==&quot;fleet-room&quot;){return;}
+      liveDone=true;
+      var tr=document.createElement(&quot;tr&quot;);
+      tr.className=&quot;row arrive&quot;; tr.dataset.role=&quot;engineer&quot;; tr.dataset.mission=&quot;r12&quot;;
+      tr.innerHTML=&#x27;&lt;td class=&quot;t&quot;&gt;&lt;time&gt;07:12&lt;/time&gt;&lt;/td&gt;&#x27;+
+        &#x27;&lt;td class=&quot;who&quot;&gt;&lt;span class=&quot;role&quot;&gt;&lt;span data-role-mark=&quot;engineer&quot;&gt;&lt;/span&gt;Engineer&lt;/span&gt;&lt;span class=&quot;sig&quot;&gt;agent&lt;/span&gt;&lt;/td&gt;&#x27;+
+        &#x27;&lt;td class=&quot;what&quot;&gt;Handed PR 2818 to the Gatekeeper.&lt;/td&gt;&#x27;+
+        &#x27;&lt;td class=&quot;lnk&quot;&gt;&lt;a href=&quot;#&quot; data-away=&quot;PR 2818&quot;&gt;PR 2818&lt;/a&gt;&lt;/td&gt;&#x27;+
+        &#x27;&lt;td class=&quot;st&quot;&gt;&lt;span class=&quot;state go&quot;&gt;Handed off&lt;/span&gt;&lt;/td&gt;&#x27;;
+      var body=$(&quot;#ledger&quot;); body.insertBefore(tr,body.firstChild);
+      paint(tr);
+      applyFilter(&quot;role&quot;,filt.role,true);
+      $(&quot;#now-reviewer&quot;).textContent=&quot;Reviewing PR 2818, round 1.&quot;;
+      var st=$(&quot;#now-reviewer-state&quot;); st.textContent=&quot;Working&quot;; st.className=&quot;state go&quot;;
+      $(&quot;#now-engineer&quot;).textContent=&quot;Waiting on the Gatekeeper.&quot;;
+      setTimeout(function(){tr.classList.add(&quot;settled&quot;)}, reduce?0:900);
+    },4200);
+  }
+
+  /* ---- team: seats ---- */
+  var initial={};
+  $$(&quot;[data-seat]&quot;).forEach(function(s){initial[s.dataset.seat]=s.value;
+    s.addEventListener(&quot;change&quot;,function(){
+      var changed=$$(&quot;[data-seat]&quot;).filter(function(x){return x.value!==initial[x.dataset.seat]});
+      $(&quot;#save-seats&quot;).disabled=changed.length===0;
+      $(&quot;#save-note&quot;).textContent=changed.length?changed.length+(changed.length&gt;1?&quot; seats&quot;:&quot; seat&quot;)+&quot; changed.&quot;:&quot;No change yet.&quot;;
+    });
+  });
+  $(&quot;#save-seats&quot;).addEventListener(&quot;click&quot;,function(){
+    $$(&quot;[data-seat]&quot;).forEach(function(x){initial[x.dataset.seat]=x.value});
+    this.disabled=true; $(&quot;#save-note&quot;).textContent=&quot;Saved. The ledger records it.&quot;;
+    toast(&quot;Seats saved by Irisa.&quot;);
+  });
+
+  /* ---- missions: start, pause, resume ---- */
+  $(&quot;#start-mission&quot;).addEventListener(&quot;click&quot;,function(){
+    var b=this; b.disabled=true; b.textContent=&quot;Starting…&quot;;
+    setTimeout(function(){
+      $(&quot;#start-box&quot;).hidden=true; $(&quot;#run-box&quot;).hidden=false;
+      $(&quot;#pause&quot;).focus();
+    }, reduce?0:500);
+  });
+  $(&quot;#pause&quot;).addEventListener(&quot;click&quot;,function(){
+    var box=$(&quot;#run-box&quot;), paused=!box.classList.contains(&quot;paused&quot;);
+    box.classList.toggle(&quot;paused&quot;,paused);
+    this.textContent=paused?&quot;Resume&quot;:&quot;Pause&quot;;
+    $(&quot;#run-state&quot;).textContent=paused?&quot;Paused&quot;:&quot;Running&quot;;
+    $(&quot;#run-state&quot;).className=paused?&quot;state&quot;:&quot;state go&quot;;
+    $(&quot;#paused-line&quot;).hidden=!paused;
+    toast(paused?&quot;Mission paused. Running jobs finish first.&quot;:&quot;Mission resumed.&quot;);
+  });
+
+  /* ---- start from the URL ---- */
+  var h=(location.hash||&quot;&quot;).slice(1), parts=h.split(&quot;?&quot;), name=parts[0]||&quot;fleet-room&quot;;
+  if(parts[1])parts[1].split(&quot;&amp;&quot;).forEach(function(kv){var p=kv.split(&quot;=&quot;); if(p[0]===&quot;role&quot;||p[0]===&quot;mission&quot;)applyFilter(p[0],p[1],true)});
+  show(name,{keepScroll:true});
+})();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Feasibility</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>5</td><td>5</td><td>4</td><td>5</td><td>3</td><td class="st">Prototype the crew: a team that refused to show you a bad PR.</td></tr><tr><th scope="row">Craft</th><td>3</td><td>5</td><td>5</td><td>5</td><td>4</td><td class="st">I expect the ledger with its role lines to win.</td></tr><tr><th scope="row">Skeptic</th><td>4</td><td>5</td><td>4</td><td>5</td><td>3</td><td class="st">The relay crew, through the Engineer + Reviewer wedge.</td></tr><tr><th scope="row">Value</th><td>4</td><td>5</td><td>4</td><td>5</td><td>4</td><td class="st">The engine under the mixed crew&#x27;s page: what I would sell.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>5</td><td>3</td><td>3</td><td>3</td><td>3</td><td class="st">Keep it as the room behind the PM, not the front page.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>3</td><td>5</td><td>5</td><td>5</td><td>4</td><td class="st">The one I&#x27;d trust: five now lines, an audit at my desk.</td></tr><tr><th scope="row">persona:Irisa</th><td>4</td><td>2</td><td>4</td><td>3</td><td>3</td><td class="st">The harness I don&#x27;t master, in more detail.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>3</td><td>5</td><td>5</td><td>5</td><td>4</td><td class="st">The one I can debug: each row is a job id.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>3</td><td>5</td><td>5</td><td>5</td><td>4</td><td class="st">A filter on the reviewer shows every verdict and its findings.</td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> Six of nine panelists pick it: the room is the proof that a team exists, and every row is traceable.</p><p><strong>Dissent.</strong> Paul and Irisa: five lines of roles before knowing what waits on you is homework on a phone.</p></div><blockquote class="voice"><p>Rows full of PR numbers and role sentences are the harness I don&#x27;t master, shown in more detail; I need what it means for my customer first.</p><cite>persona:Irisa</cite></blockquote><p class="meta">fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✗ · persona:Paul - Product Manager ✗ · offering#316 ✓</p><fieldset class="react"><legend>Your reaction to A</legend><label><input type="radio" name="r-A" value="keep"> Keep</label><label><input type="radio" name="r-A" value="kill"> Kill</label><label><input type="radio" name="r-A" value="merge"> Merge into</label><label><input type="radio" name="r-A" value="push"> Push further</label><select aria-label="Merge A into"><option value="">letter</option><option>B</option></select><input type="text" class="note" placeholder="Note (optional)" aria-label="Note on A"></fieldset></article><article class="concept" id="c-B" data-letter="B"><header class="ch"><span class="letter">B</span><div><h2>The Standup</h2><p class="meta">axis: report first: the Fleet opens on a standup built from the ledger, the room one tap behind</p></div></header><p class="wow"><strong>Wow moment.</strong> Monday 7am on a phone: since Friday, 2 moved, 1 ready for review, 1 waits on you; you press Allow one more try, the card turns, and every sentence links to the rows it came from.</p><p class="note">Grew from the same plumbing; Paul's and Irisa's ask. Written from the ledger, not a live chat: no sentence without its rows, which answers the Lead Engineer's, B-E DEv's and F-E Developer's objection to a narrator. Screens: the standup addressed to the PM seat (Irisa), the five checks, the room with each standup sentence's rows highlighted, start the next mission. Phone/desk and theme toggles work. Motion: an answered card turns and its new row slides in.</p><iframe class="proto" title="The Standup prototype" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;Fleet Standup Prototype&lt;/title&gt;
+&lt;style&gt;
+  /* Ask&#x27;s reading tokens (ASK in packages/design/src/tokens.ts), copied as values. */
+  :root {
+    --ground:#07061c; --surface:#120f3a; --sunk:#0e0d33; --line:#1a2170; --line-strong:#5a60c4;
+    --ink:#f2f4ff; --muted:#8a90d6; --plasma:#ffd84a; --plasma-soft:#2a2350; --on-plasma:#07061c;
+    --cyan:#6ff0ff; --green:#4ee08a; --red:#ff6b86;
+    --whale:#2f3fc4; --whale-belly:#b5bde8;
+    --body: &quot;Atkinson Hyperlegible Next&quot;, &quot;Atkinson Hyperlegible&quot;, system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif;
+    --px: &quot;Press Start 2P&quot;, &quot;Courier New&quot;, ui-monospace, monospace;
+    --mono: &quot;JetBrains Mono&quot;, ui-monospace, Menlo, Consolas, monospace;
+    --ease: cubic-bezier(.16, 1, .3, 1);
+    color-scheme: dark;
+  }
+  :root[data-theme=&quot;light&quot;] {
+    --ground:#f5f4fc; --surface:#ffffff; --sunk:#eceaf8; --line:#d9d6ee; --line-strong:#85819f;
+    --ink:#17153d; --muted:#4f5486; --plasma:#6a2fd0; --plasma-soft:#efe7ff; --on-plasma:#ffffff;
+    --cyan:#0b6f86; --green:#15703f; --red:#b3122f; color-scheme: light;
+  }
+  :root[data-theme=&quot;dark&quot;] {
+    --ground:#0e0d33; --surface:#16144a; --sunk:#1d1a58; --line:#2f2c78; --line-strong:#6d6acc;
+    --ink:#f2f4ff; --muted:#a9aee6; --plasma:#b37cff; --plasma-soft:#2a1d66; --on-plasma:#0e0d33;
+    --cyan:#6ff0ff; --green:#4ee08a; --red:#ff6b86;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.6 var(--body); }
+  ::selection { background: var(--plasma); color: var(--on-plasma); }
+  :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
+  * { scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
+  a { color: var(--cyan); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.px { image-rendering: pixelated; shape-rendering: crispEdges; display: block; flex: none; }
+
+  /* ---------- the page around the prototype (not part of any screen) ---------- */
+  .strip { max-width: 1280px; margin: 0 auto; padding: 20px 16px 8px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+  .strip h1 { margin: 0; font-size: 22px; line-height: 1.25; letter-spacing: -.01em; }
+  .strip p { margin: 4px 0 0; color: var(--muted); font-size: 15px; max-width: 62ch; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg { display: inline-flex; border: 1.5px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
+  .seg button { padding: 6px 10px; border: 0; background: transparent; color: var(--muted); font: 700 13px/1 var(--body); }
+  .seg button[aria-pressed=&quot;true&quot;] { background: var(--plasma); color: var(--on-plasma); }
+  .jump { max-width: 1280px; margin: 0 auto; padding: 4px 16px 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .jump button { padding: 5px 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: transparent; color: var(--muted); font: 600 13px/1.2 var(--body); }
+  .jump button[aria-current=&quot;true&quot;] { color: var(--ink); border-color: var(--plasma); }
+  .stage { max-width: 1280px; margin: 0 auto; padding: 0 16px 40px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: center; }
+  .narr { flex: 1 1 260px; max-width: 340px; font-size: 15px; color: var(--muted); }
+  .narr h2 { margin: 0 0 6px; font-size: 16px; color: var(--ink); }
+  .narr p { margin: 0 0 10px; }
+  .narr .n { display: none; }
+  .narr .n.on { display: block; }
+  .narr b { color: var(--ink); }
+  body.desk .stage { flex-direction: column; align-items: center; }
+  body.desk .narr { max-width: 1240px; width: 100%; }
+
+  /* ---------- the device and the app shell (nav/sidebar.css, nav/app-bar.css) ---------- */
+  .device { width: 393px; max-width: 100%; height: 812px; border: 1.5px solid var(--line-strong); border-radius: 28px; overflow: hidden;
+    background: var(--ground); container-type: inline-size; position: relative; box-shadow: 0 18px 40px -18px rgba(0,0,0,.6); }
+  body.desk .device { width: 1240px; height: 820px; border-radius: 12px; }
+  @media (max-width: 520px) {
+    .device, body.desk .device { width: 100%; height: auto; border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; }
+    .stage { padding: 0 0 32px; }
+    .narr { padding: 0 16px; }
+    .app-shell { height: auto !important; }
+    .ask-main { overflow: visible !important; }
+  }
+  .app-shell { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; height: 100%; }
+  .app-sidebar { display: none; }
+  .app-bar { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 16px; background: var(--surface); border-bottom: 2px solid var(--line-strong); }
+  .icon-btn { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; border: 1.5px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); position: relative; }
+  .app-bar-trail ol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 0; padding: 0; list-style: none; font: 600 15px/1.3 var(--body); color: var(--muted); }
+  .app-bar-trail li { display: inline-flex; gap: 8px; align-items: center; }
+  .app-bar-trail .here { color: var(--ink); font-weight: 700; font-size: 16px; }
+  .app-bar-trail a { color: var(--muted); text-decoration: none; }
+  .app-bar-trail a:hover { color: var(--ink); text-decoration: underline; }
+  .app-bar-end { margin-left: auto; display: inline-flex; gap: 10px; align-items: center; }
+  .bell-badge { position: absolute; top: -7px; right: -7px; min-width: 18px; padding: 3px 5px; border-radius: 999px; font: 700 11px/1 var(--body); color: var(--ground); background: var(--red); }
+  .avatar { border-radius: 50%; }
+  .ask-main { min-width: 0; overflow: auto; padding: 0 16px 40px; }
+
+  .app-sidebar, .drawer { background: var(--surface); padding: 16px; gap: 18px; align-content: start; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+  .wordmark { font: 10px/1 var(--px); letter-spacing: .04em; color: var(--plasma); }
+  .ws { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+  .side-label { margin: 0 0 4px; padding: 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .side-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .side-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; font: 700 15px/1.3 var(--body); color: var(--ink); text-decoration: none; }
+  .side-item.off { color: var(--muted); font-weight: 600; cursor: default; }
+  .side-item[aria-current=&quot;page&quot;] { color: var(--plasma); border-color: var(--plasma); background: var(--ground); }
+  .side-badge { margin-left: auto; min-width: 20px; padding: 3px 6px; border-radius: 999px; font: 700 12px/1 var(--body); text-align: center; color: var(--on-plasma); background: var(--plasma); }
+  .side-foot { margin: 0; padding: 12px 10px 0; border-top: 1px solid var(--line); font: 500 12px/1.4 var(--mono); color: var(--muted); }
+  .drawer { position: absolute; inset: 0 auto 0 0; width: 260px; z-index: 5; display: none; border-right: 1px solid var(--line-strong); }
+  .drawer.open { display: grid; }
+  .scrim { position: absolute; inset: 0; background: rgba(7,6,28,.6); z-index: 4; display: none; }
+  .scrim.open { display: block; }
+
+  @container (min-width: 900px) {
+    .app-shell { grid-template-columns: 232px minmax(0, 1fr); }
+    .app-sidebar { display: grid; grid-row: 1 / span 2; border-right: 1px solid var(--line); overflow: auto; }
+    .app-bar, .ask-main { grid-column: 2; }
+    .menu-btn { display: none !important; }
+    .ask-main { padding: 0 32px 48px; }
+  }
+
+  /* ---------- the Fleet header and its tabs (shared by every Fleet screen) ---------- */
+  .fleet-head { display: flex; align-items: center; gap: 12px; padding: 16px 0 10px; }
+  .fleet-head h2 { margin: 0; font-size: 20px; line-height: 1.2; }
+  .fleet-head p { margin: 0; font-size: 14px; color: var(--muted); }
+  .tabs { display: flex; gap: 4px; border-bottom: 1.5px solid var(--line-strong); margin: 0 -16px 0; padding: 0 16px; overflow-x: auto; }
+  .tabs a { padding: 8px 10px 9px; font: 700 14px/1.2 var(--body); color: var(--muted); text-decoration: none; white-space: nowrap; border-bottom: 3px solid transparent; margin-bottom: -1.5px; }
+  .tabs a:hover { color: var(--ink); }
+  .tabs a[aria-current=&quot;page&quot;] { color: var(--ink); border-bottom-color: var(--plasma); }
+  @container (min-width: 900px) { .tabs { margin: 0 -32px; padding: 0 32px; } }
+
+  /* ---------- screens ---------- */
+  .screen { display: none; padding-top: 20px; }
+  .screen.on { display: block; }
+  h3.title { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.015em; text-wrap: balance; }
+  .sub { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+  .back { display: inline-flex; align-items: center; gap: 6px; font: 700 14px/1 var(--body); margin-bottom: 14px; text-decoration: none; }
+  .back:hover { text-decoration: underline; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1.5px solid var(--line-strong); font: 700 13px/1.3 var(--body); color: var(--ink); white-space: nowrap; text-decoration: none; }
+  .chip.wait { background: var(--plasma); border-color: var(--plasma); color: var(--on-plasma); }
+  .chip.ready { border-color: var(--green); color: var(--green); }
+  .chip.moved { border-color: var(--cyan); color: var(--cyan); }
+  .chip.stop { border-color: var(--red); color: var(--red); }
+  .chip.quiet { color: var(--muted); }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1.5px solid var(--line-strong); background: transparent; color: var(--ink); font: 700 15px/1.2 var(--body); text-decoration: none; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--plasma); border-color: var(--plasma); color: var(--on-plasma); }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+
+  /* standup */
+  .greet { display: grid; gap: 2px; }
+  .counts { margin: 16px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 17px; }
+  .counts &gt; span.lead { font-weight: 700; }
+  .counts a { font-weight: 700; }
+  .counts .dot { color: var(--muted); }
+  .su-grid { display: grid; gap: 24px; margin-top: 20px; }
+  @container (min-width: 900px) { .su-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 40px; align-items: start; } }
+  .prds { list-style: none; margin: 0; padding: 0; display: grid; }
+  .prd { padding: 16px 0; border-top: 1px solid var(--line); }
+  .prd:first-child { border-top: 0; padding-top: 0; }
+  .prd.asks { padding: 16px; border: 1.5px solid var(--plasma); border-radius: 10px; background: var(--plasma-soft); margin-bottom: 8px; }
+  .prd.asks + .prd { border-top: 0; }
+  .prd.done-stop { opacity: .78; }
+  .prd-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+  .prd-name { font-size: 18px; font-weight: 700; line-height: 1.3; color: var(--ink); text-decoration: none; }
+  a.prd-name:hover { text-decoration: underline; color: var(--ink); }
+  .prd-id { font: 500 13px/1 var(--mono); color: var(--muted); }
+  .for-customer { margin: 6px 0 0; font-size: 17px; }
+  .for-customer a { color: var(--ink); text-decoration: none; background-image: linear-gradient(var(--line-strong), var(--line-strong)); background-size: 100% 1px; background-repeat: no-repeat; background-position: 0 100%; }
+  .lines { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; font-size: 15px; }
+  .lines a { color: var(--muted); text-decoration: none; }
+  .lines a:hover, .for-customer a:hover { color: var(--cyan); text-decoration: underline; background: none; }
+  .lines li { display: flex; gap: 8px; align-items: center; }
+  .lines li.fresh { color: var(--ink); font-weight: 700; }
+  .ask-q { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-strong); overflow: hidden; }
+  .ask-q p { margin: 0 0 10px; font-weight: 700; }
+  .ask-q .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ask-q.leaving { transition: opacity 180ms var(--ease), max-height 220ms var(--ease), padding 220ms var(--ease), margin 220ms var(--ease); opacity: 0; max-height: 0 !important; padding-top: 0; margin-top: 0; }
+  .side h4 { margin: 0 0 8px; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .side section + section { margin-top: 24px; }
+  .seats { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .seat { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 4px 10px; align-items: center; font-size: 15px; line-height: 1.35; }
+  .seat b { font-weight: 700; }
+  .seat span.who { grid-column: 2; color: var(--muted); font-size: 14px; }
+  .seat.flash { animation: none; outline: 2px solid var(--cyan); outline-offset: 4px; border-radius: 4px; }
+  .clean p { margin: 0; font-size: 15px; }
+  .clean p + p { color: var(--muted); }
+  .foot-links { display: grid; gap: 10px; }
+
+  /* ready checks */
+  .checks { list-style: none; margin: 20px 0 0; padding: 0; border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--surface); max-width: 720px; }
+  .check { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .check:first-child { border-top: 0; }
+  .check .lbl { font-weight: 700; }
+  .check .note { grid-column: 2 / -1; font-size: 14px; color: var(--muted); margin-top: -2px; }
+  .merge-note { margin: 20px 0 0; max-width: 720px; display: grid; gap: 2px; }
+  .merge-note p { margin: 0; }
+  .merge-note p:first-child { font-weight: 700; }
+  .merge-note p + p { color: var(--muted); }
+  .act { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .act .said { color: var(--green); font-weight: 700; font-size: 15px; }
+
+  /* the room */
+  .filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; }
+  .filter button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1.5px solid var(--line-strong); border-radius: 999px; background: transparent; color: var(--muted); font: 700 13px/1.2 var(--body); min-height: 34px; }
+  .filter button[aria-pressed=&quot;true&quot;] { background: var(--plasma); border-color: var(--plasma); color: var(--on-plasma); }
+  .hl-note { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 14px; color: var(--muted); }
+  .hl-note .swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--plasma-soft); border: 1.5px solid var(--plasma); display: inline-block; }
+  .hl-note button { border: 0; background: none; padding: 0; color: var(--cyan); font: 600 14px/1 var(--body); text-decoration: underline; text-underline-offset: 3px; }
+  .ledger { list-style: none; margin: 12px 0 0; padding: 0; border-top: 1px solid var(--line); }
+  .lrow { display: grid; grid-template-columns: 76px 16px minmax(0, 1fr); gap: 2px 10px; padding: 12px 8px; border-bottom: 1px solid var(--line); align-items: start; }
+  .lrow .t { font: 500 13px/1.5 var(--mono); color: var(--muted); grid-row: span 3; padding-top: 1px; }
+  .lrow .mark { padding-top: 3px; }
+  .lrow .who { font-size: 14px; font-weight: 700; color: var(--muted); }
+  .lrow .say { grid-column: 3; margin: 0; font-size: 16px; }
+  .lrow .meta { grid-column: 3; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 14px; }
+  .lrow .meta code { font: 500 12px/1.4 var(--mono); color: var(--muted); }
+  .lrow .finds { grid-column: 3; margin: 6px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--sunk); font-size: 14px; list-style: none; display: none; }
+  .lrow .finds.open { display: block; }
+  .lrow .finds li + li { margin-top: 2px; }
+  .lrow .more { border: 0; background: none; padding: 0; color: var(--cyan); font: 600 14px/1.4 var(--body); text-decoration: underline; text-underline-offset: 3px; }
+  .lrow.src { background: var(--plasma-soft); box-shadow: inset 2px 0 0 var(--plasma); }
+  .lrow.focus { box-shadow: inset 2px 0 0 var(--plasma), 0 0 0 1.5px var(--cyan) inset; }
+  .lrow.gone { display: none; }
+  .lrow.mine .who { color: var(--ink); }
+  .state { font-weight: 700; }
+  .state.ok { color: var(--green); }
+  .state.back { color: var(--red); }
+  .state.wait { color: var(--plasma); }
+  @container (min-width: 900px) {
+    .lrow { grid-template-columns: 96px 16px 170px minmax(0, 1fr) 190px; gap: 4px 12px; padding: 10px 12px; align-items: center; }
+    .lrow .t { grid-row: auto; }
+    .lrow .mark { padding-top: 0; }
+    .lrow .say { grid-column: 4; }
+    .lrow .meta { grid-column: 5; justify-content: flex-end; }
+    .lrow .finds { grid-column: 4 / -1; }
+  }
+  .empty { margin: 16px 0 0; color: var(--muted); }
+
+  /* mission start */
+  .running { margin: 16px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 15px; color: var(--muted); }
+  fieldset { border: 0; margin: 20px 0 0; padding: 0; max-width: 720px; }
+  legend { padding: 0; margin: 0 0 8px; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .road { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 12px 14px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--surface); cursor: pointer; }
+  .road + .road { margin-top: 8px; }
+  .road:has(input:checked) { border-color: var(--plasma); background: var(--plasma-soft); }
+  .road.locked { cursor: not-allowed; background: transparent; border-style: dashed; }
+  .road input { accent-color: var(--plasma); width: 18px; height: 18px; margin: 0; }
+  .road b { font-size: 16px; }
+  .road .why { grid-column: 2 / -1; font-size: 14px; color: var(--muted); }
+  .seat-row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .seat-row li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px; }
+  .seat-row li span { color: var(--muted); }
+  .eta { margin: 20px 0 0; display: grid; gap: 0; max-width: 720px; }
+  .eta p { margin: 0; }
+  .eta p:first-child { font-size: 18px; font-weight: 700; }
+  .eta p + p { color: var(--muted); }
+  .live { list-style: none; margin: 16px 0 0; padding: 0; max-width: 720px; }
+  .live li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 15px; }
+  .live li + li { margin-top: 6px; }
+  .live time { font: 500 13px/1 var(--mono); color: var(--muted); }
+
+  /* the one motion: a new hand-off row slides in at the top (~250 ms, ease-out) */
+  .slide-in { animation: slideIn 260ms var(--ease) both; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .slide-in { animation: none; }
+    .ask-q.leaving { transition: none; }
+  }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;svg width=&quot;0&quot; height=&quot;0&quot; style=&quot;position:absolute&quot; aria-hidden=&quot;true&quot;&gt;
+  &lt;defs&gt;
+    &lt;symbol id=&quot;m-pm&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M0 0h1v8H0zM1 1h4v1H1zM1 2h5v1H1zM1 3h4v1H1zM1 7h1v1H1z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;m-eng&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M3 0h2v1H3zM1 1h6v1H1zM1 2h2v1H1zM5 2h2v1H5zM0 3h2v2H0zM6 3h2v2H6zM1 5h2v1H1zM5 5h2v1H5zM1 6h6v1H1zM3 7h2v1H3z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;m-arc&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M0 0h1v8H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM1 7h7v1H1zM2 5h1v2H2z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;m-qa&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M1 0h4v1H1zM0 1h1v3H0zM5 1h1v3H5zM1 4h4v1H1zM5 5h1v1H5zM6 6h1v1H6zM7 7h1v1H7z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;m-rev&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M2 1h4v1H2zM1 2h1v1H1zM6 2h1v1H6zM0 3h1v2H0zM7 3h1v2H7zM3 3h2v2H3zM1 5h1v1H1zM6 5h1v1H6zM2 6h4v1H2z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;m-you&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M2 0h4v3H2zM3 3h2v1H3zM1 4h6v1H1zM0 5h8v3H0z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;m-ok&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M7 1h1v1H7zM6 2h1v1H6zM5 3h1v1H5zM0 4h1v1H0zM4 4h1v1H4zM1 5h1v1H1zM3 5h1v1H3zM2 6h1v1H2z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;m-arrow&quot; viewBox=&quot;0 0 8 8&quot;&gt;&lt;path fill=&quot;currentColor&quot; d=&quot;M3 1h1v1H3zM2 2h1v1H2zM1 3h7v2H1zM2 5h1v1H2zM3 6h1v1H3z&quot;/&gt;&lt;/symbol&gt;
+    &lt;symbol id=&quot;whale&quot; viewBox=&quot;0 0 16 8&quot;&gt;
+      &lt;path fill=&quot;var(--whale)&quot; d=&quot;M14 0h1v1h-1zM13 1h2v1h-2zM4 2h6v1H4zM12 2h2v1h-2zM2 3h11v1H2zM1 4h2v1H1zM4 4h9v1H4zM0 5h12v1H0z&quot;/&gt;
+      &lt;path fill=&quot;var(--whale-belly)&quot; d=&quot;M1 6h10v1H1zM3 7h4v1H3z&quot;/&gt;
+      &lt;path fill=&quot;#f2f4ff&quot; d=&quot;M3 4h1v1H3z&quot;/&gt;
+    &lt;/symbol&gt;
+  &lt;/defs&gt;
+&lt;/svg&gt;
+
+&lt;header class=&quot;strip&quot;&gt;
+  &lt;div&gt;
+    &lt;h1&gt;Direction β — The Standup&lt;/h1&gt;
+    &lt;p&gt;The PM&#x27;s report first, the room behind it. Fleet opens on a standup written only from the ledger: every sentence links to the rows it came from, and the one question comes with its answers as buttons.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;tools&quot;&gt;
+    &lt;span class=&quot;seg&quot; role=&quot;group&quot; aria-label=&quot;View&quot;&gt;&lt;button type=&quot;button&quot; data-view=&quot;phone&quot; aria-pressed=&quot;true&quot;&gt;Phone&lt;/button&gt;&lt;button type=&quot;button&quot; data-view=&quot;desk&quot; aria-pressed=&quot;false&quot;&gt;Desk&lt;/button&gt;&lt;/span&gt;
+    &lt;span class=&quot;seg&quot; role=&quot;group&quot; aria-label=&quot;Theme&quot;&gt;&lt;button type=&quot;button&quot; data-theme-set=&quot;omni&quot; aria-pressed=&quot;true&quot;&gt;Omni&lt;/button&gt;&lt;button type=&quot;button&quot; data-theme-set=&quot;light&quot; aria-pressed=&quot;false&quot;&gt;Light&lt;/button&gt;&lt;button type=&quot;button&quot; data-theme-set=&quot;dark&quot; aria-pressed=&quot;false&quot;&gt;Dark&lt;/button&gt;&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/header&gt;
+&lt;nav class=&quot;jump&quot; aria-label=&quot;Screens of this prototype&quot;&gt;
+  &lt;button type=&quot;button&quot; data-go=&quot;fleet-standup&quot;&gt;1 · Standup&lt;/button&gt;
+  &lt;button type=&quot;button&quot; data-go=&quot;ready-checks&quot;&gt;2 · Ready checks&lt;/button&gt;
+  &lt;button type=&quot;button&quot; data-go=&quot;fleet-room&quot;&gt;3 · The room&lt;/button&gt;
+  &lt;button type=&quot;button&quot; data-go=&quot;mission-start&quot;&gt;4 · Next mission&lt;/button&gt;
+&lt;/nav&gt;
+
+&lt;div class=&quot;stage&quot;&gt;
+  &lt;div class=&quot;device&quot; id=&quot;device&quot;&gt;
+    &lt;div class=&quot;app-shell&quot; id=&quot;shell&quot;&gt;
+      &lt;aside class=&quot;app-sidebar&quot; aria-label=&quot;Sidebar&quot;&gt;
+        &lt;div&gt;
+          &lt;a class=&quot;brand&quot; href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot;&gt;
+            &lt;svg class=&quot;px&quot; width=&quot;32&quot; height=&quot;32&quot; viewBox=&quot;0 0 8 8&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect width=&quot;8&quot; height=&quot;8&quot; fill=&quot;var(--plasma-soft)&quot;/&gt;&lt;use href=&quot;#m-arrow&quot; x=&quot;0&quot; y=&quot;0&quot; width=&quot;8&quot; height=&quot;8&quot; style=&quot;color:var(--plasma)&quot;/&gt;&lt;/svg&gt;
+            &lt;span class=&quot;wordmark&quot;&gt;OMNI LOOP&lt;/span&gt;
+          &lt;/a&gt;
+          &lt;p class=&quot;ws&quot;&gt;Northwind&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;nav aria-label=&quot;Sections&quot;&gt;
+          &lt;p class=&quot;side-label&quot;&gt;Dashboard&lt;/p&gt;
+          &lt;ul class=&quot;side-items&quot;&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Home&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;a class=&quot;side-item&quot; href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot; aria-current=&quot;page&quot;&gt;Fleet&lt;span class=&quot;side-badge&quot; data-waits&gt;1&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Loop&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Runners&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Workspace&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Engineering&lt;/span&gt;&lt;/li&gt;
+          &lt;/ul&gt;
+          &lt;p class=&quot;side-label&quot; style=&quot;margin-top:18px&quot;&gt;Work&lt;/p&gt;
+          &lt;ul class=&quot;side-items&quot;&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Roadmaps&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;PRDs&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Waiting&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot; title=&quot;Outside this prototype&quot;&gt;Knowledge&lt;/span&gt;&lt;/li&gt;
+          &lt;/ul&gt;
+        &lt;/nav&gt;
+        &lt;p class=&quot;side-foot&quot;&gt;Omni Loop v0.0.621&lt;/p&gt;
+      &lt;/aside&gt;
+
+      &lt;header class=&quot;app-bar&quot;&gt;
+        &lt;button type=&quot;button&quot; class=&quot;icon-btn menu-btn&quot; aria-label=&quot;Menu&quot; id=&quot;menuBtn&quot;&gt;&lt;svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M4 6h16M4 12h16M4 18h16&quot;/&gt;&lt;/svg&gt;&lt;/button&gt;
+        &lt;nav class=&quot;app-bar-trail&quot; aria-label=&quot;Breadcrumb&quot;&gt;
+          &lt;ol&gt;&lt;li&gt;&lt;span&gt;Dashboard&lt;/span&gt;&lt;/li&gt;&lt;li&gt;&lt;span aria-hidden=&quot;true&quot;&gt;›&lt;/span&gt;&lt;a href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot;&gt;Fleet&lt;/a&gt;&lt;/li&gt;&lt;li class=&quot;here&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;›&lt;/span&gt;&lt;span aria-current=&quot;page&quot; id=&quot;trailHere&quot;&gt;Standup&lt;/span&gt;&lt;/li&gt;&lt;/ol&gt;
+        &lt;/nav&gt;
+        &lt;span class=&quot;app-bar-end&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;icon-btn&quot; aria-label=&quot;Waiting for you: 1&quot; data-go=&quot;fleet-standup&quot; data-to=&quot;q2804&quot;&gt;&lt;svg width=&quot;18&quot; height=&quot;18&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9&quot;/&gt;&lt;path d=&quot;M10.3 21a1.94 1.94 0 0 0 3.4 0&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;bell-badge&quot; aria-hidden=&quot;true&quot; data-waits&gt;1&lt;/span&gt;&lt;/button&gt;
+          &lt;span class=&quot;icon-btn avatar&quot; aria-label=&quot;Irisa&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 8 8&quot; aria-hidden=&quot;true&quot; style=&quot;color:var(--muted)&quot;&gt;&lt;use href=&quot;#m-you&quot;/&gt;&lt;/svg&gt;&lt;/span&gt;
+        &lt;/span&gt;
+      &lt;/header&gt;
+
+      &lt;main class=&quot;ask-main&quot; id=&quot;main&quot;&gt;
+        &lt;div class=&quot;fleet-head&quot;&gt;
+          &lt;svg class=&quot;px&quot; width=&quot;48&quot; height=&quot;24&quot; viewBox=&quot;0 0 16 8&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#whale&quot;/&gt;&lt;/svg&gt;
+          &lt;div&gt;&lt;h2&gt;Blue Fleet&lt;/h2&gt;&lt;p&gt;Mission R12 · Billing in every region&lt;/p&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;nav class=&quot;tabs&quot; aria-label=&quot;Fleet&quot;&gt;
+          &lt;a href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot; data-tab=&quot;fleet-standup&quot;&gt;Standup&lt;/a&gt;
+          &lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-tab=&quot;fleet-room&quot;&gt;Operation room&lt;/a&gt;
+          &lt;a href=&quot;#mission-start&quot; data-go=&quot;mission-start&quot; data-tab=&quot;mission-start&quot;&gt;Missions&lt;/a&gt;
+          &lt;a href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot; data-to=&quot;seats&quot; data-tab=&quot;team&quot;&gt;Team&lt;/a&gt;
+        &lt;/nav&gt;
+
+        &lt;!-- ============ 1. the standup ============ --&gt;
+        &lt;section class=&quot;screen&quot; data-screen=&quot;fleet-standup&quot; id=&quot;s-fleet-standup&quot; aria-labelledby=&quot;h-standup&quot;&gt;
+          &lt;div class=&quot;greet&quot;&gt;
+            &lt;h3 class=&quot;title&quot; id=&quot;h-standup&quot;&gt;Good morning, Irisa&lt;/h3&gt;
+            &lt;p class=&quot;sub&quot;&gt;Your standup · PM seat · Mon 08:15&lt;/p&gt;
+          &lt;/div&gt;
+          &lt;p class=&quot;counts&quot;&gt;
+            &lt;span class=&quot;lead&quot;&gt;Since Friday:&lt;/span&gt;
+            &lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r4 r5 r6 r2b&quot;&gt;2 moved&lt;/a&gt;
+            &lt;span class=&quot;dot&quot; aria-hidden=&quot;true&quot;&gt;·&lt;/span&gt;
+            &lt;a href=&quot;#ready-checks&quot; data-go=&quot;ready-checks&quot;&gt;1 ready for review&lt;/a&gt;
+            &lt;span class=&quot;dot&quot; aria-hidden=&quot;true&quot;&gt;·&lt;/span&gt;
+            &lt;a href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot; data-to=&quot;q2804&quot; id=&quot;waitCount&quot;&gt;1 waits on you&lt;/a&gt;
+          &lt;/p&gt;
+
+          &lt;div class=&quot;su-grid&quot;&gt;
+            &lt;ul class=&quot;prds&quot;&gt;
+              &lt;li class=&quot;prd asks&quot; id=&quot;q2804&quot;&gt;
+                &lt;div class=&quot;prd-top&quot;&gt;
+                  &lt;a class=&quot;prd-name&quot; href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r3 r7 r8 r15 r16&quot;&gt;VAT number check&lt;/a&gt;
+                  &lt;span class=&quot;chip wait&quot; id=&quot;chip2804&quot;&gt;Waits on you&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;p class=&quot;for-customer&quot;&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r3&quot;&gt;Wrong VAT numbers stop before invoicing.&lt;/a&gt;&lt;/p&gt;
+                &lt;ul class=&quot;lines&quot; id=&quot;lines2804&quot;&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r7 r15&quot;&gt;Approver sent it back twice.&lt;/a&gt;&lt;/li&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r7 r15&quot;&gt;Same finding: Swiss numbers skipped.&lt;/a&gt;&lt;/li&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r16&quot;&gt;So the fleet paused it.&lt;/a&gt;&lt;/li&gt;
+                &lt;/ul&gt;
+                &lt;div class=&quot;ask-q&quot; id=&quot;ask2804&quot;&gt;
+                  &lt;p&gt;Allow one more try?&lt;/p&gt;
+                  &lt;div class=&quot;row&quot;&gt;
+                    &lt;button type=&quot;button&quot; class=&quot;btn primary&quot; data-primary data-answer=&quot;allow&quot;&gt;Allow one more try&lt;/button&gt;
+                    &lt;button type=&quot;button&quot; class=&quot;btn danger&quot; data-answer=&quot;stop&quot;&gt;Stop 2804&lt;/button&gt;
+                  &lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/li&gt;
+              &lt;li class=&quot;prd&quot; id=&quot;p2803&quot;&gt;
+                &lt;div class=&quot;prd-top&quot;&gt;
+                  &lt;a class=&quot;prd-name&quot; href=&quot;#ready-checks&quot; data-go=&quot;ready-checks&quot;&gt;Dark mode on the quote screen&lt;/a&gt;
+                  &lt;a class=&quot;chip ready&quot; href=&quot;#ready-checks&quot; data-go=&quot;ready-checks&quot;&gt;Ready for review&lt;/a&gt;
+                &lt;/div&gt;
+                &lt;p class=&quot;for-customer&quot;&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r14&quot;&gt;Quotes read easily at night.&lt;/a&gt;&lt;/p&gt;
+                &lt;ul class=&quot;lines&quot;&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r10&quot;&gt;Approver caught one thing.&lt;/a&gt;&lt;/li&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r11 r12&quot;&gt;Engineer fixed it.&lt;/a&gt;&lt;/li&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r14&quot;&gt;Not merged: only a person merges.&lt;/a&gt;&lt;/li&gt;
+                &lt;/ul&gt;
+              &lt;/li&gt;
+              &lt;li class=&quot;prd&quot;&gt;
+                &lt;div class=&quot;prd-top&quot;&gt;
+                  &lt;a class=&quot;prd-name&quot; href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r4 r5&quot;&gt;Invoice PDF in the customer&#x27;s language&lt;/a&gt;
+                  &lt;span class=&quot;chip moved&quot;&gt;Moved&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;p class=&quot;for-customer&quot;&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r4&quot;&gt;Customers get invoices they can read.&lt;/a&gt;&lt;/p&gt;
+                &lt;ul class=&quot;lines&quot;&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r4&quot;&gt;French and Dutch are under way.&lt;/a&gt;&lt;/li&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r5&quot;&gt;A machine restarted; nothing was lost.&lt;/a&gt;&lt;/li&gt;
+                &lt;/ul&gt;
+              &lt;/li&gt;
+              &lt;li class=&quot;prd&quot;&gt;
+                &lt;div class=&quot;prd-top&quot;&gt;
+                  &lt;a class=&quot;prd-name&quot; href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r2 r2b r6&quot;&gt;Currency on every quote&lt;/a&gt;
+                  &lt;span class=&quot;chip moved&quot;&gt;Moved&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;p class=&quot;for-customer&quot;&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r6&quot;&gt;Quotes show the customer&#x27;s own currency.&lt;/a&gt;&lt;/p&gt;
+                &lt;ul class=&quot;lines&quot;&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r2 r2b&quot;&gt;QA fixed a rounding bug.&lt;/a&gt;&lt;/li&gt;
+                  &lt;li&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r6&quot;&gt;QA proved it on three quotes.&lt;/a&gt;&lt;/li&gt;
+                &lt;/ul&gt;
+              &lt;/li&gt;
+            &lt;/ul&gt;
+
+            &lt;div class=&quot;side&quot;&gt;
+              &lt;section class=&quot;clean&quot; aria-labelledby=&quot;h-clean&quot;&gt;
+                &lt;h4 id=&quot;h-clean&quot;&gt;Clean-up&lt;/h4&gt;
+                &lt;p id=&quot;cleanLine&quot;&gt;Kept until Wednesday: 2801&#x27;s checkpoint.&lt;/p&gt;
+                &lt;p id=&quot;cleanWho&quot;&gt;Engineer keeps it · 12 MB.&lt;/p&gt;
+              &lt;/section&gt;
+              &lt;section aria-labelledby=&quot;h-seats&quot; id=&quot;seats&quot;&gt;
+                &lt;h4 id=&quot;h-seats&quot;&gt;Seats&lt;/h4&gt;
+                &lt;ul class=&quot;seats&quot;&gt;
+                  &lt;li class=&quot;seat&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-pm&quot;/&gt;&lt;/svg&gt;&lt;b&gt;PM&lt;/b&gt;&lt;span class=&quot;who&quot;&gt;Irisa · you&lt;/span&gt;&lt;/li&gt;
+                  &lt;li class=&quot;seat&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;b&gt;Full-stack engineer&lt;/b&gt;&lt;span class=&quot;who&quot;&gt;Agent · on 3 machines&lt;/span&gt;&lt;/li&gt;
+                  &lt;li class=&quot;seat&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-arc&quot;/&gt;&lt;/svg&gt;&lt;b&gt;Architect&lt;/b&gt;&lt;span class=&quot;who&quot;&gt;Sam · a person does this today&lt;/span&gt;&lt;/li&gt;
+                  &lt;li class=&quot;seat&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-qa&quot;/&gt;&lt;/svg&gt;&lt;b&gt;QA&lt;/b&gt;&lt;span class=&quot;who&quot;&gt;Agent&lt;/span&gt;&lt;/li&gt;
+                  &lt;li class=&quot;seat&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;&lt;b&gt;Approver&lt;/b&gt;&lt;span class=&quot;who&quot;&gt;Agent · checks before any PR&lt;/span&gt;&lt;/li&gt;
+                &lt;/ul&gt;
+              &lt;/section&gt;
+              &lt;section class=&quot;foot-links&quot; aria-label=&quot;More&quot;&gt;
+                &lt;a class=&quot;btn&quot; href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot;&gt;Show the room&lt;/a&gt;
+                &lt;a class=&quot;btn&quot; href=&quot;#mission-start&quot; data-go=&quot;mission-start&quot;&gt;Start the next mission&lt;/a&gt;
+              &lt;/section&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- ============ 2. ready checks ============ --&gt;
+        &lt;section class=&quot;screen&quot; data-screen=&quot;ready-checks&quot; id=&quot;s-ready-checks&quot; aria-labelledby=&quot;h-ready&quot;&gt;
+          &lt;a class=&quot;back&quot; href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-arrow&quot;/&gt;&lt;/svg&gt;Standup&lt;/a&gt;
+          &lt;h3 class=&quot;title&quot; id=&quot;h-ready&quot;&gt;Dark mode on the quote screen&lt;/h3&gt;
+          &lt;p class=&quot;sub&quot;&gt;PR 2817 · 5 of 5 checks&lt;/p&gt;
+          &lt;p class=&quot;for-customer&quot;&gt;Quotes read easily at night.&lt;/p&gt;
+          &lt;ul class=&quot;checks&quot;&gt;
+            &lt;li class=&quot;check&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot; style=&quot;color:var(--green)&quot;&gt;&lt;use href=&quot;#m-ok&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;lbl&quot;&gt;CI green on the latest commit&lt;/span&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r14&quot;&gt;CI run&lt;/a&gt;&lt;/li&gt;
+            &lt;li class=&quot;check&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot; style=&quot;color:var(--green)&quot;&gt;&lt;use href=&quot;#m-ok&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;lbl&quot;&gt;Full tests and lint ran&lt;/span&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r13&quot;&gt;Test run&lt;/a&gt;&lt;/li&gt;
+            &lt;li class=&quot;check&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot; style=&quot;color:var(--green)&quot;&gt;&lt;use href=&quot;#m-ok&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;lbl&quot;&gt;Each success criterion has its proof&lt;/span&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r12&quot;&gt;3 proofs&lt;/a&gt;&lt;/li&gt;
+            &lt;li class=&quot;check&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot; style=&quot;color:var(--green)&quot;&gt;&lt;use href=&quot;#m-ok&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;lbl&quot;&gt;No test was loosened&lt;/span&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r10 r11&quot;&gt;Approver&#x27;s catch&lt;/a&gt;&lt;span class=&quot;note&quot;&gt;Caught once on Sunday, then restored.&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;check&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot; style=&quot;color:var(--green)&quot;&gt;&lt;use href=&quot;#m-ok&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;lbl&quot;&gt;The change stayed in its area&lt;/span&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r12&quot;&gt;Files touched&lt;/a&gt;&lt;/li&gt;
+          &lt;/ul&gt;
+          &lt;div class=&quot;merge-note&quot;&gt;
+            &lt;p&gt;Ready for review, not merged.&lt;/p&gt;
+            &lt;p&gt;Only a person merges.&lt;/p&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;act&quot;&gt;
+            &lt;button type=&quot;button&quot; class=&quot;btn primary&quot; data-primary id=&quot;reviewBtn&quot;&gt;Review PR 2817&lt;/button&gt;
+            &lt;span class=&quot;said&quot; id=&quot;reviewSaid&quot; role=&quot;status&quot;&gt;&lt;/span&gt;
+          &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- ============ 3. the room ============ --&gt;
+        &lt;section class=&quot;screen&quot; data-screen=&quot;fleet-room&quot; id=&quot;s-fleet-room&quot; aria-labelledby=&quot;h-room&quot;&gt;
+          &lt;a class=&quot;back&quot; href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot; data-primary&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-arrow&quot;/&gt;&lt;/svg&gt;Back to standup&lt;/a&gt;
+          &lt;h3 class=&quot;title&quot; id=&quot;h-room&quot;&gt;Operation room&lt;/h3&gt;
+          &lt;p class=&quot;sub&quot;&gt;Who did what, newest first.&lt;/p&gt;
+          &lt;div class=&quot;filter&quot; role=&quot;group&quot; aria-label=&quot;Filter by seat&quot;&gt;
+            &lt;button type=&quot;button&quot; data-role=&quot;all&quot; aria-pressed=&quot;true&quot;&gt;All&lt;/button&gt;
+            &lt;button type=&quot;button&quot; data-role=&quot;pm&quot; aria-pressed=&quot;false&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-pm&quot;/&gt;&lt;/svg&gt;PM&lt;/button&gt;
+            &lt;button type=&quot;button&quot; data-role=&quot;eng&quot; aria-pressed=&quot;false&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;Engineer&lt;/button&gt;
+            &lt;button type=&quot;button&quot; data-role=&quot;arc&quot; aria-pressed=&quot;false&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-arc&quot;/&gt;&lt;/svg&gt;Architect&lt;/button&gt;
+            &lt;button type=&quot;button&quot; data-role=&quot;qa&quot; aria-pressed=&quot;false&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-qa&quot;/&gt;&lt;/svg&gt;QA&lt;/button&gt;
+            &lt;button type=&quot;button&quot; data-role=&quot;rev&quot; aria-pressed=&quot;false&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;Approver&lt;/button&gt;
+          &lt;/div&gt;
+          &lt;p class=&quot;hl-note&quot;&gt;&lt;span class=&quot;swatch&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;&lt;span id=&quot;hlText&quot;&gt;Highlighted rows wrote your standup.&lt;/span&gt;&lt;button type=&quot;button&quot; id=&quot;hlClear&quot;&gt;Show all rows&lt;/button&gt;&lt;/p&gt;
+          &lt;ol class=&quot;ledger&quot; id=&quot;ledger&quot;&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r16&quot; data-role=&quot;rev&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Mon 07:41&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Approver · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Asked Irisa: one more try?&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;a href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot; data-to=&quot;q2804&quot;&gt;PRD 2804&lt;/a&gt;&lt;span class=&quot;state wait&quot;&gt;Waits on you&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r15&quot; data-role=&quot;rev&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Mon 07:40&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Approver · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Sent 2804 back again: same finding.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;more&quot; aria-expanded=&quot;false&quot;&gt;1 finding&lt;/button&gt;&lt;span class=&quot;state back&quot;&gt;Changes&lt;/span&gt;&lt;/span&gt;&lt;ul class=&quot;finds&quot;&gt;&lt;li&gt;Swiss VAT numbers are still skipped.&lt;/li&gt;&lt;li&gt;Seen twice: the fleet pauses 2804.&lt;/li&gt;&lt;li&gt;&lt;code&gt;try 2 of 2 · epoch 9&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r14&quot; data-role=&quot;eng&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Mon 07:00&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Engineer · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Marked PR 2817 ready for review.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;a href=&quot;#ready-checks&quot; data-go=&quot;ready-checks&quot;&gt;5 of 5 checks&lt;/a&gt;&lt;span class=&quot;state ok&quot;&gt;Ready&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r13&quot; data-role=&quot;eng&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Mon 06:20&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Engineer · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Opened PR 2817 for dark mode.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;box-1 · commit 9f3c2a1&lt;/code&gt;&lt;span class=&quot;state&quot;&gt;Open&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r12&quot; data-role=&quot;rev&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sun 23:30&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Approver · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Passed dark mode. No findings.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;3 proofs · 1 area&lt;/code&gt;&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r11&quot; data-role=&quot;eng&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sun 23:10&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Engineer · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Restored the test; fixed the cause.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;try 2 of 2&lt;/code&gt;&lt;span class=&quot;state&quot;&gt;Handed back&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r10&quot; data-role=&quot;rev&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sun 22:55&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Approver · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Sent dark mode back: test loosened.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;more&quot; aria-expanded=&quot;false&quot;&gt;1 finding&lt;/button&gt;&lt;span class=&quot;state back&quot;&gt;Changes&lt;/span&gt;&lt;/span&gt;&lt;ul class=&quot;finds&quot;&gt;&lt;li&gt;A timeout went from 5s to 30s.&lt;/li&gt;&lt;li&gt;Fix the cause, keep the test.&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r9&quot; data-role=&quot;eng&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sun 22:30&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Engineer · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Handed dark mode to Approver.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;PRD 2803&lt;/code&gt;&lt;span class=&quot;state&quot;&gt;Handed&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r8&quot; data-role=&quot;eng&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sun 10:00&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Engineer · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Fixed Swiss numbers on 2804.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;box-3&lt;/code&gt;&lt;span class=&quot;state&quot;&gt;Handed&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r7&quot; data-role=&quot;rev&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sat 16:00&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Approver · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Sent 2804 back: Swiss numbers skipped.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;more&quot; aria-expanded=&quot;false&quot;&gt;1 finding&lt;/button&gt;&lt;span class=&quot;state back&quot;&gt;Changes&lt;/span&gt;&lt;/span&gt;&lt;ul class=&quot;finds&quot;&gt;&lt;li&gt;Numbers starting CHE are skipped.&lt;/li&gt;&lt;li&gt;&lt;code&gt;try 1 of 2&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r6&quot; data-role=&quot;qa&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sat 14:05&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-qa&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;QA · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Proved currency on three quotes.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;PRD 2802&lt;/code&gt;&lt;span class=&quot;state ok&quot;&gt;Pass&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r5&quot; data-role=&quot;eng&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sat 11:20&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Engineer · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Picked up 2801 after box-2 restarted.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;epoch 4 → 5 · from checkpoint&lt;/code&gt;&lt;span class=&quot;state ok&quot;&gt;Resumed&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r4&quot; data-role=&quot;eng&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Sat 09:00&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Engineer · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Started French and Dutch invoices.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;PRD 2801 · box-2&lt;/code&gt;&lt;span class=&quot;state&quot;&gt;Started&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r3&quot; data-role=&quot;arc&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Fri 18:30&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-arc&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;Architect · Sam&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Approved the plan for 2804.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;PRD 2804&lt;/code&gt;&lt;span class=&quot;state ok&quot;&gt;Done&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r2b&quot; data-role=&quot;qa&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Fri 17:50&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-qa&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;QA · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Fixed rounding; handed the branch back.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;PRD 2802&lt;/code&gt;&lt;span class=&quot;state&quot;&gt;Handed back&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            &lt;li class=&quot;lrow&quot; data-row=&quot;r2&quot; data-role=&quot;qa&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Fri 17:20&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-qa&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;QA · agent&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Took the branch to fix rounding.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;PRD 2802 · one writer&lt;/code&gt;&lt;span class=&quot;state&quot;&gt;Fixing&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+            
+            &lt;li class=&quot;lrow mine&quot; data-row=&quot;r1&quot; data-role=&quot;pm&quot;&gt;&lt;span class=&quot;t num&quot;&gt;Fri 17:00&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-pm&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;who&quot;&gt;PM · Irisa&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;Started mission R12.&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;a href=&quot;#mission-start&quot; data-go=&quot;mission-start&quot;&gt;Missions&lt;/a&gt;&lt;span class=&quot;state&quot;&gt;Started&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;
+          &lt;/ol&gt;
+          &lt;p class=&quot;empty&quot; id=&quot;roomEmpty&quot; style=&quot;display:none&quot;&gt;Nothing from this seat since Friday.&lt;/p&gt;
+        &lt;/section&gt;
+
+        &lt;!-- ============ 4. start the next mission ============ --&gt;
+        &lt;section class=&quot;screen&quot; data-screen=&quot;mission-start&quot; id=&quot;s-mission-start&quot; aria-labelledby=&quot;h-mission&quot;&gt;
+          &lt;a class=&quot;back&quot; href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-arrow&quot;/&gt;&lt;/svg&gt;Standup&lt;/a&gt;
+          &lt;h3 class=&quot;title&quot; id=&quot;h-mission&quot;&gt;Start the next mission&lt;/h3&gt;
+          &lt;p class=&quot;sub&quot;&gt;Only approved roadmaps can start.&lt;/p&gt;
+          &lt;p class=&quot;running&quot;&gt;&lt;span class=&quot;chip moved&quot;&gt;Running&lt;/span&gt;&lt;span&gt;R12 · Billing in every region&lt;/span&gt;&lt;/p&gt;
+          &lt;fieldset&gt;
+            &lt;legend&gt;Roadmap&lt;/legend&gt;
+            &lt;label class=&quot;road&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;road&quot; value=&quot;r13&quot; checked&gt;&lt;b&gt;R13 · Quotes on the phone&lt;/b&gt;&lt;span class=&quot;chip quiet&quot;&gt;3 PRDs&lt;/span&gt;&lt;span class=&quot;why&quot;&gt;Approved by Irisa on Thursday.&lt;/span&gt;&lt;/label&gt;
+            &lt;label class=&quot;road&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;road&quot; value=&quot;r14&quot;&gt;&lt;b&gt;R14 · Supplier payment reminders&lt;/b&gt;&lt;span class=&quot;chip quiet&quot;&gt;2 PRDs&lt;/span&gt;&lt;span class=&quot;why&quot;&gt;Approved by Paul last week.&lt;/span&gt;&lt;/label&gt;
+            &lt;label class=&quot;road locked&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;road&quot; value=&quot;r15&quot; disabled&gt;&lt;b&gt;R15 · Offline quotes&lt;/b&gt;&lt;span class=&quot;chip quiet&quot;&gt;Not approved&lt;/span&gt;&lt;span class=&quot;why&quot;&gt;Can start once a person approves it.&lt;/span&gt;&lt;/label&gt;
+          &lt;/fieldset&gt;
+          &lt;fieldset&gt;
+            &lt;legend&gt;Seats&lt;/legend&gt;
+            &lt;ul class=&quot;seat-row&quot;&gt;
+              &lt;li&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-pm&quot;/&gt;&lt;/svg&gt;PM &lt;span&gt;Irisa&lt;/span&gt;&lt;/li&gt;
+              &lt;li&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-eng&quot;/&gt;&lt;/svg&gt;Engineer &lt;span&gt;agent&lt;/span&gt;&lt;/li&gt;
+              &lt;li&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-arc&quot;/&gt;&lt;/svg&gt;Architect &lt;span&gt;Sam&lt;/span&gt;&lt;/li&gt;
+              &lt;li&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-qa&quot;/&gt;&lt;/svg&gt;QA &lt;span&gt;agent&lt;/span&gt;&lt;/li&gt;
+              &lt;li&gt;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-rev&quot;/&gt;&lt;/svg&gt;Approver &lt;span&gt;agent&lt;/span&gt;&lt;/li&gt;
+            &lt;/ul&gt;
+          &lt;/fieldset&gt;
+          &lt;div class=&quot;eta&quot; aria-live=&quot;polite&quot;&gt;
+            &lt;p id=&quot;etaLine&quot;&gt;Likely ready for review by Monday 9am.&lt;/p&gt;
+            &lt;p&gt;May ask you once.&lt;/p&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;act&quot; id=&quot;missionAct&quot;&gt;
+            &lt;button type=&quot;button&quot; class=&quot;btn primary&quot; data-primary id=&quot;startBtn&quot;&gt;Start mission&lt;/button&gt;
+            &lt;button type=&quot;button&quot; class=&quot;btn&quot; id=&quot;pauseBtn&quot; style=&quot;display:none&quot;&gt;Pause&lt;/button&gt;
+            &lt;span class=&quot;said&quot; id=&quot;missionSaid&quot; role=&quot;status&quot;&gt;&lt;/span&gt;
+          &lt;/div&gt;
+          &lt;ol class=&quot;live&quot; id=&quot;missionLive&quot;&gt;&lt;/ol&gt;
+        &lt;/section&gt;
+      &lt;/main&gt;
+
+      &lt;div class=&quot;scrim&quot; id=&quot;scrim&quot;&gt;&lt;/div&gt;
+      &lt;aside class=&quot;drawer&quot; id=&quot;drawer&quot; aria-label=&quot;Menu&quot;&gt;
+        &lt;div&gt;&lt;span class=&quot;brand&quot;&gt;&lt;svg class=&quot;px&quot; width=&quot;32&quot; height=&quot;32&quot; viewBox=&quot;0 0 8 8&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect width=&quot;8&quot; height=&quot;8&quot; fill=&quot;var(--plasma-soft)&quot;/&gt;&lt;use href=&quot;#m-arrow&quot; width=&quot;8&quot; height=&quot;8&quot; style=&quot;color:var(--plasma)&quot;/&gt;&lt;/svg&gt;&lt;span class=&quot;wordmark&quot;&gt;OMNI LOOP&lt;/span&gt;&lt;/span&gt;&lt;p class=&quot;ws&quot;&gt;Northwind&lt;/p&gt;&lt;/div&gt;
+        &lt;div&gt;
+          &lt;p class=&quot;side-label&quot;&gt;Dashboard&lt;/p&gt;
+          &lt;ul class=&quot;side-items&quot;&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot;&gt;Home&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;a class=&quot;side-item&quot; href=&quot;#fleet-standup&quot; data-go=&quot;fleet-standup&quot; aria-current=&quot;page&quot;&gt;Fleet&lt;/a&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot;&gt;Loop&lt;/span&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;span class=&quot;side-item off&quot;&gt;Runners&lt;/span&gt;&lt;/li&gt;
+          &lt;/ul&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;side-foot&quot;&gt;Other sections sit outside this prototype.&lt;/p&gt;
+      &lt;/aside&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;narr&quot; aria-live=&quot;polite&quot;&gt;
+    &lt;div class=&quot;n&quot; data-for=&quot;fleet-standup&quot;&gt;
+      &lt;h2&gt;1 · Fleet opens on the standup&lt;/h2&gt;
+      &lt;p&gt;Addressed to &lt;b&gt;Irisa&lt;/b&gt;, who holds the PM seat. The three counts are links: what moved, what is ready, what waits on her.&lt;/p&gt;
+      &lt;p&gt;One entry per PRD, in plain words, each saying what it means for the customer. Every sentence is built from ledger rows and links to them: no live chat, no narrator.&lt;/p&gt;
+      &lt;p&gt;The one question: the Approver sent 2804 back twice with the same finding, so the fleet paused it. &lt;b&gt;Answer with a button&lt;/b&gt; and the entry turns to its new state; the new row slides in at its top (the one motion).&lt;/p&gt;
+      &lt;p&gt;The clean-up line says what is kept, by whom, until when, how big. The seat strip shows who holds each of the five seats; the PM and Architect seats are people today.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;n&quot; data-for=&quot;ready-checks&quot;&gt;
+      &lt;h2&gt;2 · What “ready” proves&lt;/h2&gt;
+      &lt;p&gt;The person&#x27;s &lt;b&gt;Reviewer&lt;/b&gt; seat is written &lt;b&gt;Approver&lt;/b&gt; here, the product glossary&#x27;s word (open question: an agent named Approver next to &quot;only a person merges&quot;). Tapping the dark mode entry opens its five checks in plain labels, each with a link to the row that proves it.&lt;/p&gt;
+      &lt;p&gt;The loosened test the Approver caught on Sunday is told here too: a check that passed after a catch says so.&lt;/p&gt;
+      &lt;p&gt;&lt;b&gt;Review PR 2817&lt;/b&gt; would open it on GitHub. Ready for review is never merged: only a person merges.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;n&quot; data-for=&quot;fleet-room&quot;&gt;
+      &lt;h2&gt;3 · Show the room&lt;/h2&gt;
+      &lt;p&gt;The same ledger as direction α&#x27;s Operation room: newest first, a role mark and name, one signed sentence, its link, its state. Agents sign as agents.&lt;/p&gt;
+      &lt;p&gt;Rows that wrote the standup are highlighted; arriving from one sentence outlines just its rows. The seat filter really filters. Approver rows open to their findings.&lt;/p&gt;
+      &lt;p&gt;Engineering ids (machines, epochs, commits) live here, never on the standup. Answer the question on screen 1 and come back: your row is at the top.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;n&quot; data-for=&quot;mission-start&quot;&gt;
+      &lt;h2&gt;4 · Start the next mission&lt;/h2&gt;
+      &lt;p&gt;From the standup&#x27;s foot. Only approved roadmaps can be picked; an unapproved one says why it is locked.&lt;/p&gt;
+      &lt;p&gt;The seats are shown, then one line of how long, and that the mission may ask once. &lt;b&gt;Start mission&lt;/b&gt;, then Pause and Resume: a pause lets running work finish and starts nothing new.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p style=&quot;font-size:13px&quot;&gt;All data is fictional: workspace Northwind, Blue Fleet, roadmap R12.&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+(function () {
+  &#x27;use strict&#x27;;
+  var root = document.documentElement;
+  var body = document.body;
+  var main = document.getElementById(&#x27;main&#x27;);
+  var names = { &#x27;fleet-standup&#x27;: &#x27;Standup&#x27;, &#x27;ready-checks&#x27;: &#x27;Ready checks&#x27;, &#x27;fleet-room&#x27;: &#x27;Operation room&#x27;, &#x27;mission-start&#x27;: &#x27;Missions&#x27; };
+  var tabFor = { &#x27;fleet-standup&#x27;: &#x27;fleet-standup&#x27;, &#x27;ready-checks&#x27;: &#x27;fleet-standup&#x27;, &#x27;fleet-room&#x27;: &#x27;fleet-room&#x27;, &#x27;mission-start&#x27;: &#x27;mission-start&#x27; };
+  var reduce = window.matchMedia &amp;&amp; window.matchMedia(&#x27;(prefers-reduced-motion: reduce)&#x27;).matches;
+  var current = null;
+  var pendingRows = []; // rows added while the room was out of sight: they slide in when it opens
+
+  function qsa(sel, el) { return Array.prototype.slice.call((el || document).querySelectorAll(sel)); }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+
+  function slide(el) {
+    if (reduce) return;
+    el.classList.remove(&#x27;slide-in&#x27;); void el.offsetWidth; el.classList.add(&#x27;slide-in&#x27;);
+    el.addEventListener(&#x27;animationend&#x27;, function done() { el.classList.remove(&#x27;slide-in&#x27;); el.removeEventListener(&#x27;animationend&#x27;, done); });
+  }
+
+  function highlight(rows) {
+    var ledger = qsa(&#x27;#ledger .lrow&#x27;);
+    var srcSet = [&#x27;r1&#x27;,&#x27;r2&#x27;,&#x27;r2b&#x27;,&#x27;r3&#x27;,&#x27;r4&#x27;,&#x27;r5&#x27;,&#x27;r6&#x27;,&#x27;r7&#x27;,&#x27;r8&#x27;,&#x27;r10&#x27;,&#x27;r11&#x27;,&#x27;r12&#x27;,&#x27;r14&#x27;,&#x27;r15&#x27;,&#x27;r16&#x27;];
+    ledger.forEach(function (r) {
+      var id = r.getAttribute(&#x27;data-row&#x27;);
+      r.classList.toggle(&#x27;src&#x27;, srcSet.indexOf(id) &gt; -1 || r.hasAttribute(&#x27;data-src&#x27;));
+      r.classList.toggle(&#x27;focus&#x27;, !!rows &amp;&amp; rows.indexOf(id) &gt; -1);
+    });
+    document.getElementById(&#x27;hlText&#x27;).textContent = rows ? &#x27;Outlined: the rows behind that sentence.&#x27; : &#x27;Highlighted rows wrote your standup.&#x27;;
+    document.getElementById(&#x27;hlClear&#x27;).style.display = rows ? &#x27;&#x27; : &#x27;none&#x27;;
+    if (rows &amp;&amp; rows.length) {
+      var first = document.querySelector(&#x27;#ledger .lrow[data-row=&quot;&#x27; + rows[0] + &#x27;&quot;]&#x27;);
+      if (first) setTimeout(function () { first.scrollIntoView({ block: &#x27;center&#x27;, behavior: reduce ? &#x27;auto&#x27; : &#x27;smooth&#x27; }); }, 30);
+    }
+  }
+
+  function go(name, opts) {
+    opts = opts || {};
+    if (!names[name]) name = &#x27;fleet-standup&#x27;;
+    qsa(&#x27;.screen&#x27;).forEach(function (s) { s.classList.toggle(&#x27;on&#x27;, s.getAttribute(&#x27;data-screen&#x27;) === name); });
+    qsa(&#x27;.narr .n&#x27;).forEach(function (n) { n.classList.toggle(&#x27;on&#x27;, n.getAttribute(&#x27;data-for&#x27;) === name); });
+    qsa(&#x27;.jump button&#x27;).forEach(function (b) { b.setAttribute(&#x27;aria-current&#x27;, b.getAttribute(&#x27;data-go&#x27;) === name ? &#x27;true&#x27; : &#x27;false&#x27;); });
+    qsa(&#x27;.tabs a&#x27;).forEach(function (a) {
+      var on = opts.to === &#x27;seats&#x27; ? a.getAttribute(&#x27;data-tab&#x27;) === &#x27;team&#x27; : a.getAttribute(&#x27;data-tab&#x27;) === tabFor[name];
+      if (on) a.setAttribute(&#x27;aria-current&#x27;, &#x27;page&#x27;); else a.removeAttribute(&#x27;aria-current&#x27;);
+    });
+    document.getElementById(&#x27;trailHere&#x27;).textContent = opts.to === &#x27;seats&#x27; ? &#x27;Team&#x27; : names[name];
+    closeDrawer();
+    if (name !== current) main.scrollTop = 0;
+    current = name;
+    if (name === &#x27;fleet-room&#x27;) {
+      highlight(opts.rows || null);
+      pendingRows.forEach(slide); pendingRows = [];
+    }
+    if (opts.to) {
+      var t = document.getElementById(opts.to);
+      if (t) setTimeout(function () {
+        t.scrollIntoView({ block: &#x27;start&#x27;, behavior: reduce ? &#x27;auto&#x27; : &#x27;smooth&#x27; });
+        if (opts.to === &#x27;seats&#x27;) { qsa(&#x27;.seat&#x27;).forEach(function (s) { s.classList.add(&#x27;flash&#x27;); }); setTimeout(function () { qsa(&#x27;.seat&#x27;).forEach(function (s) { s.classList.remove(&#x27;flash&#x27;); }); }, 1400); }
+      }, 30);
+    }
+    try { history.replaceState(null, &#x27;&#x27;, &#x27;#&#x27; + name); } catch (e) {}
+  }
+
+  document.addEventListener(&#x27;click&#x27;, function (ev) {
+    var el = ev.target.closest(&#x27;[data-go]&#x27;);
+    if (!el) return;
+    ev.preventDefault();
+    var rows = el.getAttribute(&#x27;data-rows&#x27;);
+    go(el.getAttribute(&#x27;data-go&#x27;), { rows: rows ? rows.split(&#x27; &#x27;) : null, to: el.getAttribute(&#x27;data-to&#x27;) });
+  });
+
+  // drawer (phone)
+  var drawer = document.getElementById(&#x27;drawer&#x27;), scrim = document.getElementById(&#x27;scrim&#x27;);
+  function closeDrawer() { drawer.classList.remove(&#x27;open&#x27;); scrim.classList.remove(&#x27;open&#x27;); }
+  document.getElementById(&#x27;menuBtn&#x27;).addEventListener(&#x27;click&#x27;, function () { drawer.classList.add(&#x27;open&#x27;); scrim.classList.add(&#x27;open&#x27;); });
+  scrim.addEventListener(&#x27;click&#x27;, closeDrawer);
+
+  // view and theme
+  function setView(v) {
+    body.classList.toggle(&#x27;desk&#x27;, v === &#x27;desk&#x27;);
+    qsa(&#x27;[data-view]&#x27;).forEach(function (b) { b.setAttribute(&#x27;aria-pressed&#x27;, b.getAttribute(&#x27;data-view&#x27;) === v ? &#x27;true&#x27; : &#x27;false&#x27;); });
+    store(&#x27;beta-view&#x27;, v);
+  }
+  function setTheme(t) {
+    if (t === &#x27;omni&#x27;) root.removeAttribute(&#x27;data-theme&#x27;); else root.setAttribute(&#x27;data-theme&#x27;, t);
+    qsa(&#x27;[data-theme-set]&#x27;).forEach(function (b) { b.setAttribute(&#x27;aria-pressed&#x27;, b.getAttribute(&#x27;data-theme-set&#x27;) === t ? &#x27;true&#x27; : &#x27;false&#x27;); });
+    store(&#x27;beta-theme&#x27;, t);
+  }
+  qsa(&#x27;[data-view]&#x27;).forEach(function (b) { b.addEventListener(&#x27;click&#x27;, function () { setView(b.getAttribute(&#x27;data-view&#x27;)); }); });
+  qsa(&#x27;[data-theme-set]&#x27;).forEach(function (b) { b.addEventListener(&#x27;click&#x27;, function () { setTheme(b.getAttribute(&#x27;data-theme-set&#x27;)); }); });
+
+  // the room: filter by seat, findings
+  var role = &#x27;all&#x27;;
+  function applyFilter() {
+    var shown = 0;
+    qsa(&#x27;#ledger .lrow&#x27;).forEach(function (r) {
+      var hit = role === &#x27;all&#x27; || r.getAttribute(&#x27;data-role&#x27;) === role;
+      r.classList.toggle(&#x27;gone&#x27;, !hit);
+      if (hit) shown++;
+    });
+    document.getElementById(&#x27;roomEmpty&#x27;).style.display = shown ? &#x27;none&#x27; : &#x27;&#x27;;
+  }
+  qsa(&#x27;.filter button&#x27;).forEach(function (b) {
+    b.addEventListener(&#x27;click&#x27;, function () {
+      role = b.getAttribute(&#x27;data-role&#x27;);
+      qsa(&#x27;.filter button&#x27;).forEach(function (x) { x.setAttribute(&#x27;aria-pressed&#x27;, x === b ? &#x27;true&#x27; : &#x27;false&#x27;); });
+      applyFilter();
+    });
+  });
+  document.getElementById(&#x27;ledger&#x27;).addEventListener(&#x27;click&#x27;, function (ev) {
+    var b = ev.target.closest(&#x27;.more&#x27;);
+    if (!b) return;
+    var list = b.closest(&#x27;.lrow&#x27;).querySelector(&#x27;.finds&#x27;);
+    var open = !list.classList.contains(&#x27;open&#x27;);
+    list.classList.toggle(&#x27;open&#x27;, open);
+    b.setAttribute(&#x27;aria-expanded&#x27;, open ? &#x27;true&#x27; : &#x27;false&#x27;);
+  });
+  document.getElementById(&#x27;hlClear&#x27;).addEventListener(&#x27;click&#x27;, function () { highlight(null); });
+
+  function ledgerRow(id, roleKey, mark, who, say, meta, stateCls, state) {
+    var li = document.createElement(&#x27;li&#x27;);
+    li.className = &#x27;lrow&#x27; + (roleKey === &#x27;pm&#x27; ? &#x27; mine&#x27; : &#x27;&#x27;);
+    li.setAttribute(&#x27;data-row&#x27;, id); li.setAttribute(&#x27;data-role&#x27;, roleKey); li.setAttribute(&#x27;data-src&#x27;, &#x27;&#x27;);
+    li.innerHTML = &#x27;&lt;span class=&quot;t num&quot;&gt;Mon 08:1&#x27; + (id === &#x27;r18&#x27; ? &#x27;7&#x27; : &#x27;6&#x27;) + &#x27;&lt;/span&gt;&lt;svg class=&quot;px mark&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#&#x27; + mark + &#x27;&quot;/&gt;&lt;/svg&gt;&#x27; +
+      &#x27;&lt;span class=&quot;who&quot;&gt;&#x27; + who + &#x27;&lt;/span&gt;&lt;p class=&quot;say&quot;&gt;&#x27; + say + &#x27;&lt;/p&gt;&lt;span class=&quot;meta&quot;&gt;&lt;code&gt;&#x27; + meta + &#x27;&lt;/code&gt;&lt;span class=&quot;state &#x27; + stateCls + &#x27;&quot;&gt;&#x27; + state + &#x27;&lt;/span&gt;&lt;/span&gt;&#x27;;
+    var ledger = document.getElementById(&#x27;ledger&#x27;);
+    ledger.insertBefore(li, ledger.firstChild);
+    pendingRows.push(li);
+    applyFilter();
+  }
+
+  // the one question: answered, the entry turns to its new state
+  qsa(&#x27;[data-answer]&#x27;).forEach(function (b) {
+    b.addEventListener(&#x27;click&#x27;, function () {
+      var allow = b.getAttribute(&#x27;data-answer&#x27;) === &#x27;allow&#x27;;
+      var ask = document.getElementById(&#x27;ask2804&#x27;);
+      var card = document.getElementById(&#x27;q2804&#x27;);
+      var chip = document.getElementById(&#x27;chip2804&#x27;);
+      ask.style.maxHeight = ask.scrollHeight + &#x27;px&#x27;;
+      void ask.offsetHeight;
+      ask.classList.add(&#x27;leaving&#x27;);
+      setTimeout(function () {
+        ask.remove();
+        card.classList.remove(&#x27;asks&#x27;);
+        if (!allow) card.classList.add(&#x27;done-stop&#x27;);
+        chip.className = &#x27;chip &#x27; + (allow ? &#x27;moved&#x27; : &#x27;stop&#x27;);
+        chip.textContent = allow ? &#x27;Moving again&#x27; : &#x27;Stopped by you&#x27;;
+        var li = document.createElement(&#x27;li&#x27;);
+        li.className = &#x27;fresh&#x27;;
+        li.innerHTML = &#x27;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-you&quot;/&gt;&lt;/svg&gt;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r17&#x27; + (allow ? &#x27; r18&#x27; : &#x27;&#x27;) + &#x27;&quot;&gt;&#x27; +
+          (allow ? &#x27;You allowed one more try.&#x27; : &#x27;You stopped 2804.&#x27;) + &#x27;&lt;/a&gt;&#x27;;
+        var lines = document.getElementById(&#x27;lines2804&#x27;);
+        lines.insertBefore(li, lines.firstChild);
+        slide(li);
+        if (allow) {
+          var nxt = document.createElement(&#x27;li&#x27;);
+          nxt.innerHTML = &#x27;&lt;a href=&quot;#fleet-room&quot; data-go=&quot;fleet-room&quot; data-rows=&quot;r18&quot;&gt;Engineer took it back: try 3.&lt;/a&gt;&#x27;;
+          lines.insertBefore(nxt, li.nextSibling);
+          slide(nxt);
+        } else {
+          document.getElementById(&#x27;cleanLine&#x27;).textContent = &quot;Kept until Friday: 2804&#x27;s work.&quot;;
+          document.getElementById(&#x27;cleanWho&#x27;).textContent = &#x27;Engineer keeps it · 4 MB.&#x27;;
+        }
+        var w = document.getElementById(&#x27;waitCount&#x27;);
+        w.textContent = &#x27;nothing waits on you&#x27;;
+        w.setAttribute(&#x27;data-go&#x27;, &#x27;fleet-room&#x27;); w.setAttribute(&#x27;data-rows&#x27;, &#x27;r17&#x27;);
+        qsa(&#x27;[data-waits]&#x27;).forEach(function (n) { n.style.display = &#x27;none&#x27;; });
+        var r16 = document.querySelector(&#x27;.lrow[data-row=&quot;r16&quot;] .state&#x27;);
+        if (r16) { r16.className = &#x27;state&#x27;; r16.textContent = &#x27;Answered&#x27;; }
+        ledgerRow(&#x27;r17&#x27;, &#x27;pm&#x27;, &#x27;m-pm&#x27;, &#x27;PM · Irisa&#x27;, allow ? &#x27;Allowed one more try on 2804.&#x27; : &#x27;Stopped 2804.&#x27;, &#x27;PRD 2804&#x27;, allow ? &#x27;&#x27; : &#x27;back&#x27;, allow ? &#x27;Answered&#x27; : &#x27;Stopped&#x27;);
+        if (allow) ledgerRow(&#x27;r18&#x27;, &#x27;eng&#x27;, &#x27;m-eng&#x27;, &#x27;Engineer · agent&#x27;, &#x27;Took 2804 back: try 3 of 3.&#x27;, &#x27;box-3 · epoch 10&#x27;, &#x27;ok&#x27;, &#x27;Working&#x27;);
+      }, reduce ? 0 : 220);
+    });
+  });
+
+  // ready checks: the primary
+  document.getElementById(&#x27;reviewBtn&#x27;).addEventListener(&#x27;click&#x27;, function () {
+    document.getElementById(&#x27;reviewSaid&#x27;).textContent = &#x27;Opens PR 2817 on GitHub.&#x27;;
+  });
+
+  // mission: start, pause, resume
+  var etas = { r13: &#x27;Likely ready for review by Monday 9am.&#x27;, r14: &#x27;Likely ready for review by Thursday 5pm.&#x27; };
+  qsa(&#x27;input[name=&quot;road&quot;]&#x27;).forEach(function (r) {
+    r.addEventListener(&#x27;change&#x27;, function () { document.getElementById(&#x27;etaLine&#x27;).textContent = etas[r.value] || &#x27;&#x27;; });
+  });
+  var started = false, paused = false;
+  function liveRow(text) {
+    var li = document.createElement(&#x27;li&#x27;);
+    var d = new Date();
+    var hh = String(d.getHours()).padStart(2, &#x27;0&#x27;) + &#x27;:&#x27; + String(d.getMinutes()).padStart(2, &#x27;0&#x27;);
+    li.innerHTML = &#x27;&lt;svg class=&quot;px&quot; width=&quot;16&quot; height=&quot;16&quot; aria-hidden=&quot;true&quot;&gt;&lt;use href=&quot;#m-pm&quot;/&gt;&lt;/svg&gt;&lt;span&gt;&#x27; + text + &#x27;&lt;/span&gt;&lt;time&gt;&#x27; + hh + &#x27;&lt;/time&gt;&#x27;;
+    var list = document.getElementById(&#x27;missionLive&#x27;);
+    list.insertBefore(li, list.firstChild);
+    slide(li);
+  }
+  document.getElementById(&#x27;startBtn&#x27;).addEventListener(&#x27;click&#x27;, function () {
+    if (started) return;
+    started = true;
+    var pick = document.querySelector(&#x27;input[name=&quot;road&quot;]:checked&#x27;);
+    var label = pick.value.toUpperCase();
+    qsa(&#x27;input[name=&quot;road&quot;]&#x27;).forEach(function (r) { r.disabled = true; });
+    this.disabled = true; this.textContent = &#x27;Mission started&#x27;;
+    document.getElementById(&#x27;pauseBtn&#x27;).style.display = &#x27;&#x27;;
+    document.getElementById(&#x27;missionSaid&#x27;).textContent = label + &#x27; is running.&#x27;;
+    liveRow(&#x27;You started &#x27; + label + &#x27;.&#x27;);
+  });
+  document.getElementById(&#x27;pauseBtn&#x27;).addEventListener(&#x27;click&#x27;, function () {
+    paused = !paused;
+    this.textContent = paused ? &#x27;Resume&#x27; : &#x27;Pause&#x27;;
+    document.getElementById(&#x27;missionSaid&#x27;).textContent = paused ? &#x27;Paused. Nothing new starts.&#x27; : &#x27;Running again.&#x27;;
+    liveRow(paused ? &#x27;You paused it. Running work finishes.&#x27; : &#x27;You resumed it.&#x27;);
+  });
+
+  setView(store(&#x27;beta-view&#x27;) === &#x27;desk&#x27; ? &#x27;desk&#x27; : &#x27;phone&#x27;);
+  var t = store(&#x27;beta-theme&#x27;); setTheme(t === &#x27;light&#x27; || t === &#x27;dark&#x27; ? t : &#x27;omni&#x27;);
+  go((location.hash || &#x27;&#x27;).slice(1) || &#x27;fleet-standup&#x27;);
+})();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe><div class="verdict"><table><thead><tr><th>Panelist</th><th>Wow</th><th>User value</th><th>Craft</th><th>Fit</th><th>Feasibility</th><th>Stance</th></tr></thead><tbody><tr><th scope="row">Visionary</th><td>4</td><td>4</td><td>3</td><td>4</td><td>2</td><td class="st">The real choice against the crew: delegation, not transparency.</td></tr><tr><th scope="row">Craft</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="st">Not scored; asked that any summary sit on the same ledger.</td></tr><tr><th scope="row">Skeptic</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="st">Not scored; warned against a captain hiding the crew.</td></tr><tr><th scope="row">Value</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="st">Not scored; a hidden crew is the opposite of a room.</td></tr><tr><th scope="row">persona:Paul - Product Manager</th><td>4</td><td>5</td><td>4</td><td>5</td><td>3</td><td class="st">I&#x27;d open this one: a lead&#x27;s standup, answers as buttons.</td></tr><tr><th scope="row">persona:Lead Engineer</th><td>4</td><td>2</td><td>3</td><td>2</td><td>2</td><td class="st">I can&#x27;t verify a narrator.</td></tr><tr><th scope="row">persona:Irisa</th><td>4</td><td>5</td><td>4</td><td>5</td><td>4</td><td class="st">My pick: one line per quick win, and I sit in the PM seat.</td></tr><tr><th scope="row">persona:B-E DEv</th><td>3</td><td>1</td><td>3</td><td>2</td><td>2</td><td class="st">Prose gives me no job id at 3am.</td></tr><tr><th scope="row">persona:F-E Developer</th><td>4</td><td>2</td><td>3</td><td>2</td><td>2</td><td class="st">It tells me about proof instead of showing it; keep the checks one tap under.</td></tr></tbody></table></div><div class="dissent"><p><strong>Consensus.</strong> The two PMs pick it; the engineers objected to a narrator, which the prototype answers by building every sentence from ledger rows.</p><p><strong>Dissent.</strong> Lead Engineer, B-E DEv and F-E Developer scored it before seeing that every sentence links to its rows; their objection may not hold for the drawn version.</p></div><blockquote class="voice"><p>It puts the crew behind a narrator; when something breaks across teams I can&#x27;t tell which role did it.</p><cite>persona:Lead Engineer</cite></blockquote><p class="meta">fits persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✗ · persona:B-E DEv ✗ · persona:F-E Developer ✗ (answered in part by linked rows)</p><fieldset class="react"><legend>Your reaction to B</legend><label><input type="radio" name="r-B" value="keep"> Keep</label><label><input type="radio" name="r-B" value="kill"> Kill</label><label><input type="radio" name="r-B" value="merge"> Merge into</label><label><input type="radio" name="r-B" value="push"> Push further</label><select aria-label="Merge B into"><option value="">letter</option><option>A</option></select><input type="text" class="note" placeholder="Note (optional)" aria-label="Note on B"></fieldset></article><footer class="copy"><button type="button" id="copy">Copy my reactions</button><output id="line" aria-live="polite"></output></footer></main><script>(function(){
+  var b=document.getElementById('copy'),o=document.getElementById('line');
+  function line(){
+    var keep=[],kill=[],merge=[],push=[];
+    document.querySelectorAll('article.concept').forEach(function(a){
+      var L=a.dataset.letter,r=a.querySelector('input[type=radio]:checked'),n=a.querySelector('.note').value.trim(),into=a.querySelector('select').value;
+      if(!r){if(n)push.push(L+': '+n);return}
+      if(r.value==='keep')keep.push(L+(n?' ('+n+')':''));
+      else if(r.value==='kill')kill.push(L);
+      else if(r.value==='merge')merge.push(L+'→'+(into||'?')+(n?' ('+n+')':''));
+      else push.push(L+(n?': '+n:''));
+    });
+    var p=[];if(keep.length)p.push('keep '+keep.join(' '));if(merge.length)p.push('merge '+merge.join(' '));if(push.length)p.push('push '+push.join(' · '));if(kill.length)p.push('kill '+kill.join(' '));
+    return p.join(' · ')||'no reactions yet';
+  }
+  b.addEventListener('click',function(){var t=line();o.textContent=t;try{navigator.clipboard.writeText(t).then(function(){o.textContent=t+'  (copied)'},function(){})}catch(e){}});
+})();
+</script></body></html>

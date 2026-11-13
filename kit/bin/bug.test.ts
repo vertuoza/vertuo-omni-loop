@@ -96,12 +96,23 @@ function bodyFile(text: string) {
   return path;
 }
 
-/** The body most tests hand `--body-file`, so that they grade the branch and not the proof. */
-const PASSING_BODY = bodyFile(prBody());
+/** `text` with the commit its proof cites (`a1b2c3d`) made the head of `root` (and `HEAD_SHA` its full sha). */
+function headed(text: string, root: string) {
+  const full = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+  return text.replaceAll('a1b2c3d', full.slice(0, 7)).replaceAll('HEAD_SHA', full);
+}
 
-async function run(root: string, base: string, issue: number | string = ISSUE, extra: string[] = ['--body-file', PASSING_BODY]) {
+async function run(root: string, base: string, issue: number | string = ISSUE, given?: string[]) {
+  // By default the body proven at the branch's head, so that tests grade the branch and not the proof.
+  const extra = given ?? ['--body-file', bodyFile(headed(prBody(), root))];
   const s = io();
-  const code = await main(['bug', String(issue), '--base', base, ...extra], { cwd: root, ...s });
+  // A `## Fixes` row's pull request (PRD 2741) is at the local HEAD; any other gh call fails.
+  const exec = ((file: string, args: readonly string[], options?: unknown) => {
+    if (file !== 'gh') return execFileSync(file, args, options as never);
+    if (!args.includes('--repo')) throw new Error('gh must not be asked');
+    return JSON.stringify({ headRefOid: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim() });
+  }) as never;
+  const code = await main(['bug', String(issue), '--base', base, ...extra], { cwd: root, exec, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
 
@@ -127,6 +138,40 @@ describe('omni bug', () => {
     expect(out).toMatch(/^ok$/m);
     expect(out).not.toMatch(/not ok/);
     expect(failures(out)).toEqual([]);
+  });
+
+  describe('## Still open (PRD 2739)', () => {
+    const POINT = 'The retry loop never stops.';
+    const FOLLOW_UP = (source: string, text: string) => `---\nsource: ${source}\ndate: 2026-11-12\n---\n\n${text}\n`;
+    const FILE = '.omni-loop/delivery/follow-ups/2026-11-12-the-retry-loop-never-stops.md';
+
+    it('is not ok, naming the bullet and the command, when a point has no follow-up file', async () => {
+      const { root, base } = fixBranch({ bug: record({ 'Still open': `- ${POINT}` }) });
+      const { code, out } = await run(root, base);
+      expect(code).toBe(1);
+      expect(failures(out)).toEqual([
+        `- ${RECORD}: "${POINT}" is still open but has no follow-up: omni follow-up add --source 'bug #12' --text '${POINT}'`,
+      ]);
+    });
+
+    it('is ok once the file of source bug #12 holds the same text, whitespace collapsed', async () => {
+      const { root, base, write } = fixBranch({ bug: record({ 'Still open': `- The retry loop\n  never stops.` }) });
+      write(FILE, FOLLOW_UP('bug #12', POINT));
+      expect((await run(root, base)).code).toBe(0);
+    });
+
+    it('is not ok when the file is of another bug', async () => {
+      const { root, base, write } = fixBranch({ bug: record({ 'Still open': `- ${POINT}` }) });
+      write(FILE, FOLLOW_UP('bug #13', POINT));
+      expect((await run(root, base)).code).toBe(1);
+    });
+
+    it('is ok with the one line none, or without the section', async () => {
+      const none = fixBranch({ bug: record({ 'Still open': 'none' }) });
+      expect((await run(none.root, none.base)).code).toBe(0);
+      const absent = fixBranch();
+      expect((await run(absent.root, absent.base)).code).toBe(0);
+    });
   });
 
   it('passes the guard and mutation lines a repository without either writes', async () => {
@@ -466,11 +511,12 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
   const NOT_PRODUCED = prBody(`GIF not produced - ${NOT_FILMED_LEVELS}`);
 
   /** A fake process runner: git is real; `gh` answers as told, and its calls are recorded. */
-  function withGh(answer: string | Error) {
+  function withGh(given: string | Error | ((args: string[]) => string | Error)) {
     const calls: { args: string[]; cwd: unknown }[] = [];
     const exec = ((file: string, args: readonly string[], options?: { cwd?: unknown }) => {
       if (file !== 'gh') return execFileSync(file, args, options as never);
       calls.push({ args: [...args], cwd: options?.cwd });
+      const answer = typeof given === 'function' ? given([...args]) : given;
       if (answer instanceof Error) throw answer;
       return answer;
     }) as never;
@@ -478,15 +524,16 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
   }
 
   /** `omni bug 12` on a branch with `extra` arguments, `gh` answering as told (by default it must not be asked). */
-  async function check(extra: string[], gh: string | Error = new Error('gh must not be asked'), branch: { root: string; base: string } = fixBranch()) {
+  async function check(extra: string[], gh: string | Error | ((args: string[]) => string | Error) = new Error('gh must not be asked'), branch: { root: string; base: string } = fixBranch()) {
     const s = io();
-    const fake = withGh(gh);
+    const fake = withGh(typeof gh === 'string' ? headed(gh, branch.root) : gh);
     const code = await main(['bug', String(ISSUE), '--base', branch.base, ...extra], { cwd: branch.root, exec: fake.exec, ...s });
     return { code, out: s.out.join(''), err: s.err.join(''), calls: fake.calls, root: branch.root };
   }
 
-  const fromFile = (text: string, branch?: { root: string; base: string }) => check(['--body-file', bodyFile(text)], undefined, branch);
-  const viewed = (over: Record<string, unknown> = {}) => JSON.stringify({ body: prBody(), isDraft: false, state: 'OPEN', number: 34, ...over });
+  const fromFile = (text: string, branch: { root: string; base: string } = fixBranch()) => check(['--body-file', bodyFile(headed(text, branch.root))], undefined, branch);
+  const viewed = (over: Record<string, unknown> = {}) =>
+    JSON.stringify({ body: prBody(), isDraft: false, state: 'OPEN', number: 34, headRefOid: 'HEAD_SHA', commits: [{ oid: 'HEAD_SHA' }], ...over });
   const noPullRequest = () => Object.assign(new Error('no pull requests found for branch "fix/saving"'), { status: 1 });
 
   describe('with --body-file', () => {
@@ -505,7 +552,7 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
 
     it('reads a relative path against the repository root', async () => {
       const branch = fixBranch();
-      writeFileSync(join(branch.root, 'body.md'), prBody());
+      writeFileSync(join(branch.root, 'body.md'), headed(prBody(), branch.root));
       expect((await check(['--body-file', 'body.md'], undefined, branch)).code).toBe(0);
     });
 
@@ -571,7 +618,7 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
   describe('with no flag, reading the open pull request of the branch', () => {
     it('asks gh for the branch\'s pull request, in the repository root, and checks its body', async () => {
       const { code, out, calls, root } = await check([], viewed());
-      expect(calls).toEqual([{ args: ['pr', 'view', '--json', 'body,isDraft,state,number'], cwd: realpathSync(root) }]);
+      expect(calls).toEqual([{ args: ['pr', 'view', '--json', 'body,isDraft,state,number,headRefOid,commits'], cwd: realpathSync(root) }]);
       expect(out).toBe('ok\n');
       expect(code).toBe(0);
     });
@@ -639,12 +686,139 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
     });
   });
 
+
+  describe('the proof is of the head that merges (PRD 2741)', () => {
+    const sha = (root: string, ref: string) => execFileSync('git', ['rev-parse', ref], { cwd: root, encoding: 'utf8' }).trim();
+    /** A fix branch, then a commit pushed after it: the head moves on from the commit the proof cites. */
+    function movedOn() {
+      const branch = fixBranch();
+      const first = sha(branch.root, 'HEAD');
+      branch.write('app/other.txt', 'later\n');
+      commit(branch.root, 'a review fix');
+      return { branch, first, head: sha(branch.root, 'HEAD') };
+    }
+    const oneLater = (cited: string, head: string) =>
+      `- the proof cites green at ${cited}, but #34's head is ${head.slice(0, 7)} (1 commits later): run the reproduction again at the head and add a Re-proved line`;
+    const pr = (body: string, head: string, commits: string[]) =>
+      JSON.stringify({ body, isDraft: false, state: 'OPEN', number: 34, headRefOid: head, commits: commits.map((oid) => ({ oid })) });
+    const citing = (cited: string, extra = '') => prBody(`${PROOF.replace('a1b2c3d', cited)}${extra}`);
+
+    it('is not ok when the head is one commit after the commit the After line cites (the earlier-green cases)', async () => {
+      const { branch, first, head } = movedOn();
+      const { code, out } = await check([], pr(citing(first.slice(0, 7)), head, [first, head]), branch);
+      expect(out).toBe(`not ok\n${oneLater(first.slice(0, 7), head)}\n`);
+      expect(code).toBe(1);
+    });
+
+    it('is not ok when a review commit is pushed after the proof: the head moves and the proof is refused (the review-commit cases)', async () => {
+      const { branch, first, head } = movedOn();
+      const body = citing(first.slice(0, 7));
+      expect((await check([], pr(body, first, [first]), branch)).out).toBe('ok\n');
+      const pushed = await check([], pr(body, head, [first, head]), branch);
+      expect(pushed.code).toBe(1);
+      expect(failures(pushed.out)).toEqual([oneLater(first.slice(0, 7), head)]);
+    });
+
+    it('is ok for the head, by any prefix of 7 characters or more, and not for a shorter one', async () => {
+      const branch = fixBranch();
+      const head = sha(branch.root, 'HEAD');
+      for (const length of [7, 12, 40]) {
+        expect((await check([], pr(citing(head.slice(0, length)), head, [head]), branch)).out).toBe('ok\n');
+      }
+      expect(failures((await check([], pr(citing(head.slice(0, 6)), head, [head]), branch)).out)).toEqual([
+        expect.stringMatching(/^- ## Proof's "After the fix" line cites no commit: /),
+      ]);
+    });
+
+    it('says the commit is not one of the pull request when it is in none of its commits', async () => {
+      const { branch, head } = movedOn();
+      const { out } = await check([], pr(citing('deadbee'), head, [head]), branch);
+      expect(failures(out)).toEqual([
+        `- the proof cites green at deadbee, but #34's head is ${head.slice(0, 7)} (deadbee is not a commit of #34): run the reproduction again at the head and add a Re-proved line`,
+      ]);
+    });
+
+    it('cites the last Re-proved line, and never faults the older line it sits under', async () => {
+      const { branch, first, head } = movedOn();
+      const reproved = (cited: string) => `\n- **Re-proved** (green, \`${cited}\`): \`✓ saves once\``;
+      expect((await check([], pr(citing(first.slice(0, 7), reproved(head.slice(0, 7))), head, [first, head]), branch)).out).toBe('ok\n');
+      const stale = await check([], pr(citing(first.slice(0, 7), reproved(first.slice(0, 7))), head, [first, head]), branch);
+      expect(failures(stale.out)).toEqual([oneLater(first.slice(0, 7), head)]);
+    });
+
+    it('is not ok, with its own line, for a produced proof whose After line cites no commit', async () => {
+      const { out } = await fromFile(prBody(PROOF.replace(' (green, `a1b2c3d`)', ' (green)')));
+      expect(failures(out)).toEqual(['- ## Proof\'s "After the fix" line cites no commit: write (green, <short sha>) of the head']);
+    });
+
+    it('grades a proof that was not produced as before: it cites no commit', async () => {
+      expect((await fromFile(NOT_PRODUCED)).out).toBe('ok\n');
+      expect((await check([], viewed({ body: NOT_PRODUCED, isDraft: true }))).out).toBe('ok\n');
+    });
+
+    it('with --body-file and no pull request, compares with the local HEAD', async () => {
+      const { branch, first, head } = movedOn();
+      const stale = await check(['--body-file', bodyFile(citing(first.slice(0, 7)))], undefined, branch);
+      expect(stale.out).toBe(
+        `not ok\n- the proof cites green at ${first.slice(0, 7)}, but the local HEAD is ${head.slice(0, 7)} (1 commits later): run the reproduction again at the head and add a Re-proved line\n`,
+      );
+      expect((await check(['--body-file', bodyFile(citing(head.slice(0, 7)))], undefined, branch)).out).toBe('ok\n');
+    });
+
+    it('is one fault, not a pass, when gh gives no head', async () => {
+      const { out } = await check([], JSON.stringify({ body: prBody(), isDraft: false, state: 'OPEN', number: 34 }));
+      expect(failures(out)).toEqual(['- not judged: could not read the head of acme/widgets#34: gh gave no head commit']);
+    });
+  });
+
   describe('a record with ## Fixes (PRD 1118)', () => {
-    it('is graded for its proof as any other record (PRD 2578): ok with a ## Proof, asking gh nothing', async () => {
-      const flagged = await fromFile(prBody(), recordBranch());
+    const OTHER = 'f'.repeat(40);
+    /** `gh pr view <n> --repo <slug>` answering the head of each row: the backend's at the local HEAD, the frontend's at `OTHER`. */
+    const rowHeads = (root: string) => (args: string[]) => {
+      const head = args.includes('acme/backend') ? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim() : OTHER;
+      return JSON.stringify({ headRefOid: head, commits: [{ oid: head }] });
+    };
+
+    it('is graded for its proof as any other record (PRD 2578): ok with a ## Proof citing the head of a row (PRD 2741)', async () => {
+      const branch = recordBranch();
+      const flagged = await check(['--body-file', bodyFile(headed(prBody(), branch.root))], rowHeads(branch.root), branch);
       expect(flagged.out).toBe('ok\n');
       expect(flagged.code).toBe(0);
-      expect(flagged.calls).toEqual([]);
+      expect(flagged.calls.map((call) => call.args)).toEqual([
+        ['pr', 'view', '41', '--repo', 'acme/backend', '--json', 'headRefOid,commits'],
+        ['pr', 'view', '7', '--repo', 'acme/frontend', '--json', 'headRefOid,commits'],
+      ]);
+    });
+
+    it('is ok for the head of the other row too, by a prefix of 7 characters', async () => {
+      const branch = recordBranch();
+      const body = bodyFile(prBody(PROOF.replace('a1b2c3d', OTHER.slice(0, 7))));
+      expect((await check(['--body-file', body], rowHeads(branch.root), branch)).out).toBe('ok\n');
+    });
+
+    it('is not ok, naming every row\'s head, when the proof cites the head of none (PRD 2741)', async () => {
+      const branch = recordBranch();
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: branch.root, encoding: 'utf8' }).trim();
+      const { code, out } = await check(['--body-file', bodyFile(prBody(PROOF))], rowHeads(branch.root), branch);
+      expect(code).toBe(1);
+      expect(failures(out)).toEqual([
+        `- the proof cites green at a1b2c3d, the head of no Fixes row: acme/backend#41 is at ${head.slice(0, 7)}, acme/frontend#7 at fffffff`,
+      ]);
+    });
+
+    it('is one fault, not a pass, when gh cannot read a row\'s head and none matches', async () => {
+      const branch = recordBranch();
+      const { out } = await check(['--body-file', bodyFile(prBody(PROOF))], new Error('gh: Could not resolve to a PullRequest'), branch);
+      expect(failures(out)).toEqual([
+        '- not judged: could not read the head of acme/backend#41: gh: Could not resolve to a PullRequest',
+        '- not judged: could not read the head of acme/frontend#7: gh: Could not resolve to a PullRequest',
+      ]);
+    });
+
+    it('asks gh nothing for a proof that was not produced', async () => {
+      const { out, calls } = await fromFile(NOT_PRODUCED, recordBranch());
+      expect(out).toBe('ok\n');
+      expect(calls).toEqual([]);
     });
 
     it('is not ok for a body with no ## Proof section', async () => {
@@ -655,7 +829,8 @@ describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
 
     it('is not ok for a GIF without its Proved on line', async () => {
       const noLine = PROOF.split('\n').filter((line: string) => !line.includes('Proved on')).join('\n');
-      const { out } = await fromFile(prBody(noLine), recordBranch());
+      const branch = recordBranch();
+      const { out } = await check(['--body-file', bodyFile(headed(prBody(noLine), branch.root))], rowHeads(branch.root), branch);
       expect(failures(out)).toEqual(['- ## Proof has no "Proved on" line']);
     });
 

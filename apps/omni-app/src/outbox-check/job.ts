@@ -1,4 +1,4 @@
-// The `outbox` check as a job of the ledger (PRD 2688 s2): the body of the `outbox-check` Inngest function
+// The `outbox` check as a job of the ledger (PRD 2688 s2): the body of the `outbox-check` function
 // (./outbox-check.ts), run by the worker as the handler of the `pr-outbox` kind, its steps in order in one try.
 // What the check decides does not change: it is the same body, so the verdicts are too.
 //
@@ -8,10 +8,10 @@
 //                  reason (`skipped` on a pull request that is not a loop PR, nothing without the config)
 //
 // A job may run twice and is harmless: a second run posts a newer check run on the same head commit and updates
-// the App's own status comment, as an Inngest retry does. The payload is the check request, with no token
+// the App's own status comment, as a retry does. The payload is the check request, with no token
 // (L-GDPR-2).
 import { NOT_ACTIVE_ON_REPO } from '../evaluate/evaluate.ts';
-import { checkPayloadOf, CheckRequestDataSchema, type CheckRequestData } from '../inngest-client.ts';
+import { checkPayloadOf, CheckRequestDataSchema, type CheckRequestData } from '../jobs/payloads.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { noteTo } from '../run-log/run-log.ts';

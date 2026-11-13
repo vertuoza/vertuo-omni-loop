@@ -396,7 +396,7 @@ describe('main-watch — a multi-repository PRD (PRD 2410, PRD 1130)', () => {
 });
 
 describe('main-watch — registered on the worker (PRD omni-loop-4 s4)', () => {
-  it('is a kind of the live worker, with no failure hook, so a job never runs on Inngest and the ledger both', () => {
+  it('is a kind of the live worker, with no failure hook, so a job never runs twice', () => {
     const { handlers, failures } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
     expect(typeof handlers[MAIN_WATCH_KIND]).toBe('function');
     expect(failures[MAIN_WATCH_KIND]).toBeUndefined();

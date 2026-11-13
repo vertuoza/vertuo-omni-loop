@@ -1,6 +1,6 @@
 // `/api/health` of the GitHub App (PRD 1723): whether this deployment is alive and its environment
 // parses, and which commit it runs. Public, so it never shows a variable's value, an error's text or
-// anything about a person, and it calls nothing outside: no GitHub, no Inngest, no OpenRouter. Its one read
+// anything about a person, and it calls nothing outside: no GitHub, no OpenRouter. Its one read
 // is the job ledger's counts (PRD 2676), from the database, and only when a database is set.
 //
 // Answers, always with `Cache-Control: no-store`:

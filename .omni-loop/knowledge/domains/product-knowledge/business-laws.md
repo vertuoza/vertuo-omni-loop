@@ -1,8 +1,10 @@
 ## BL-PRODUCTKNOWLEDGE-1
-A member who does not own Legal or the Glossary can only propose a change. It takes effect only once
-the owner or their delegate approves it.
+A member who does not own Legal or the Glossary can only propose a change to Legal or the Glossary. It
+takes effect only once the owner or their delegate approves it. Personas are not covered: any member of
+the workspace adds, edits or deletes them directly.
 Why: Agents follow these entries across the whole product, so one person's unchecked edit becomes a
-rule nobody responsible agreed to.
+rule nobody responsible agreed to. A persona describes a kind of customer; it is not a rule agents
+follow.
 
 ## BL-PRODUCTKNOWLEDGE-2
 Every change to a Legal or Glossary entry is recorded with who made it and what the entry said before

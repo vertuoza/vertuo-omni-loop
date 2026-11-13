@@ -35,6 +35,7 @@ import { ageOf, constituentsOf, printed } from '../../lib/constituents/read.ts';
 import type { Constituents } from '../../lib/constituents/read.ts';
 import { loadContext } from '../../lib/context.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
+import { readCachedKnowledge } from '../../lib/product/knowledge.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import { constituentsWrite } from '../constituents-write.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
@@ -127,10 +128,27 @@ function reach({ cwd, exec, tokens, home, fetch, signal }: Pick<SyncIo, 'cwd' | 
   return { repo, root, client };
 }
 
+/**
+ * The product a knowledge read kept under `root` after `syncedAt` names, when it is not the product the copy
+ * was read for (#2811): the repository has moved, and the copy is no longer its own. Null otherwise.
+ */
+function movedTo(root: string, cached: { syncedAt: string; read: Constituents }): string | null {
+  const copyOf = cached.read.product?.name;
+  if (copyOf === undefined) return null;
+  const knowledge = readCachedKnowledge(root);
+  if (knowledge.state !== 'cached' || Date.parse(knowledge.readAt) <= Date.parse(cached.syncedAt)) return null;
+  return knowledge.product === copyOf ? null : knowledge.product;
+}
+
 /** What is printed when the read failed: the cached copy with its age, or one line. */
 function fallback({ repo, root, state, why }: { repo: string | null; root: string } & Stop, now: number): [Body, string[]] {
   const cached = repo ? readCache(root, repo) : null;
   if (!repo || !cached) return [bodyOf(state), [`no constituents: ${why} ${CARRY_ON}`]];
+  const moved = movedTo(root, cached);
+  if (moved !== null) {
+    const copyOf = cached.read.product?.name ?? '';
+    return [bodyOf(state), [`no constituents: ${why}; the copy saved here is ${copyOf}'s, and this repository is now in ${moved} ${CARRY_ON}`]];
+  }
   const synced = `synced ${ageOf(cached.syncedAt, now)}, ${why}`;
   return [bodyOf('cached', cached.read, cached.syncedAt), printed(cached.read, repo, synced)];
 }

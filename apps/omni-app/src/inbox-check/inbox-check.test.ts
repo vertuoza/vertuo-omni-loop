@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { INBOX_EXTERNAL_ID } from '../inngest-client.ts';
+import { INBOX_EXTERNAL_ID } from '../jobs/payloads.ts';
 import type { RefreshJob } from '../jobs/ledger.ts';
 import { checkRunAt, claimedJob, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';

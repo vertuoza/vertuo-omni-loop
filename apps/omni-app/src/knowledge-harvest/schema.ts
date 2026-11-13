@@ -44,7 +44,7 @@ export function parsedOr<S extends z.ZodType>(schema: S, value: unknown, context
   throw new Error(`${context}: ${field}: ${issue?.message ?? parsed.error.message}`);
 }
 
-// What the harvest's steps return, read back through these once Inngest has saved them as JSON (PRD
+// What the harvest's steps return, read back through these once the ledger has saved them as JSON (PRD
 // 1030): a deploy between two replays of a run cannot hand the harvest a value of another shape. Each
 // keeps what the harvest reads of the value after its step, and drops the rest.
 

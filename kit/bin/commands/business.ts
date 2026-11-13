@@ -43,6 +43,16 @@
 // "claim skipped: … — agents carry on" line and exits 0. A missing flag, an unknown kind or state, or a
 // blank value or ref is a usage error, exit 2.
 //
+// `omni business persona add --name <text> --stance <stance> --trade <trade> --who <text> --usage <text>` and
+// `omni business persona edit "<name>" [--name …] [--stance …] [--trade …] [--who …] [--usage …]` (PRD 2779) add
+// or edit one persona of the repository's product, through `POST /api/knowledge/changes` kind `persona`, as the
+// signed-in member: an add gets a random portrait for its trade, an edit keeps the portrait and changes only the
+// fields it names, finding the persona by its name. Both take `--product <name>` and `--json`. Success prints
+// `added persona:<name> · <url>` or `edited persona:<name> · <url>` (`--json`: the route's answer). Unlike the
+// reads and the claims above, a write that fails says so: a refusal, a sign-out or an unreachable page is one
+// line on stderr and exit 1 (`--json`: `{error}` on stdout); a missing flag, an edit with no field or an
+// unknown stance is a usage error, exit 2. No remove: deleting stays on the page.
+//
 // It runs before a context exists, like `dossier`, so that a test can hand it `tokens` (the token
 // store), `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
 import { askClient, AskCallError } from '../../lib/ask/client.ts';
@@ -77,13 +87,17 @@ type Business = {
 type BusinessOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch; callMs?: number | undefined };
 
 /** What each verb is handed. */
-type BusinessIo = { cwd: string; stdout: Out; exec: Exec; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
+type BusinessIo = { cwd: string; stdout: Out; stderr: Out; exec: Exec; tokens: TokenStore | undefined; home: string | undefined; fetch: Fetch; callMs: number | undefined };
 
 /** Where a verb stopped before it could call: the state and the one line. */
 type Unreached = { state: string; line: string; client?: undefined; repo?: undefined };
 
+/** The stances a persona takes; `excited` is still accepted, and written as enthusiastic. */
+const PERSONA_STANCES: readonly string[] = ['enthusiastic', 'neutral', 'skeptical'];
+const PERSONA_USAGE = 'usage: omni business persona add --name <text> --stance <stance> --trade <trade> --who <text> --usage <text> [--product <name>] [--json] | omni business persona edit "<name>" [--name <text>] [--stance <stance>] [--trade <trade>] [--who <text>] [--usage <text>] [--product <name>] [--json] — a stance is enthusiastic, neutral, skeptical';
+const PERSONA_FIELDS = ['name', 'stance', 'trade', 'who', 'usage'] as const;
 const CLAIM_USAGE = 'usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>';
-const USAGE = `usage: omni business show [--json] | omni business cited <id>… --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice('usage: '.length)}`;
+const USAGE = `usage: omni business show [--json] | omni business cited <id>… --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice('usage: '.length)} | ${PERSONA_USAGE.slice('usage: '.length)}`;
 const CITED_USAGE = 'usage: omni business cited <id>… --by <skill> [--ref <text>]';
 /** The states an answered claim is stored in: an overrule's (proposed) or a gap question's (confirmed). */
 const ANSWER_STATES: readonly string[] = ['proposed', 'confirmed'];
@@ -96,7 +110,8 @@ const KINDS: readonly string[] = ['region', 'offering', 'size', 'trade', 'rival'
 const READ_KINDS: readonly unknown[] = [...KINDS, 'never'];
 const SOURCES: readonly unknown[] = ['pick', 'suggestion', 'evidence', 'answer'];
 const STATES: readonly unknown[] = ['confirmed', 'contradicted'];
-const STANCES: readonly unknown[] = ['excited', 'neutral', 'skeptical'];
+/** A persona's stance: enthusiastic since PRD 2779; `excited` is what a server that has not renamed it still sends. */
+const STANCES: readonly unknown[] = ['enthusiastic', 'excited', 'neutral', 'skeptical'];
 const BLANK = '___';
 const CONTRADICTED = '  (contradicted: evidence disagrees, nobody answered yet)';
 
@@ -362,10 +377,94 @@ async function show(args: string[], env: BusinessIo): Promise<number> {
   return print(out, ...shown(repo, read));
 }
 
+/** The persona fields `flags` give: text trimmed and never blank; `excited` is the old word for enthusiastic. */
+function personaFieldsOf(flags: Record<string, string | true | undefined>): Record<string, string> {
+  const given: Record<string, string> = {};
+  for (const name of PERSONA_FIELDS) {
+    const raw = flags[name];
+    if (typeof raw === 'string' && raw.trim()) given[name] = raw.trim();
+    else if (raw !== undefined) throw usageError(`omni business persona: --${name} needs a text. ${PERSONA_USAGE}`);
+  }
+  if (given.stance === 'excited') given.stance = 'enthusiastic';
+  if (given.stance !== undefined && !PERSONA_STANCES.includes(given.stance)) {
+    throw usageError(`omni business persona: --stance is one of ${PERSONA_STANCES.join(', ')}. ${PERSONA_USAGE}`);
+  }
+  return given;
+}
+
+type PersonaChange = { product?: string; action: 'add' | 'edit'; entry?: string; fields: Record<string, string> };
+
+/** The one name an edit gives (null for an add), and a `UsageError` when the positionals or fields do not fit the verb. */
+function personaEntryOf(action: 'add' | 'edit', rest: readonly string[], fields: Record<string, string>): string | null {
+  if (action === 'add') {
+    if (rest.length > 0 || PERSONA_FIELDS.some((name) => !(name in fields))) throw usageError(PERSONA_USAGE);
+    return null;
+  }
+  const entry = rest[0]?.trim();
+  if (rest.length !== 1 || !entry) throw usageError(PERSONA_USAGE);
+  if (Object.keys(fields).length === 0) throw usageError(`omni business persona edit: give at least one field to change. ${PERSONA_USAGE}`);
+  return entry;
+}
+
+/** The change `omni business persona <add|edit> …` asks for, or a `UsageError` saying what is missing or wrong. */
+function personaChangeOf(args: string[]): { change: PersonaChange; json: boolean } {
+  let parsed: ReturnType<typeof parseArgs<(typeof PERSONA_FIELDS)[number] | 'product', 'json'>>;
+  try {
+    parsed = parseArgs('business persona', args, { values: [...PERSONA_FIELDS, 'product'], booleans: ['json'] });
+  } catch (error) {
+    throw usageError(`${error instanceof Error ? error.message : String(error)} ${PERSONA_USAGE}`);
+  }
+  const { positional: [action, ...rest], flags } = parsed;
+  if (action !== 'add' && action !== 'edit') throw usageError(PERSONA_USAGE);
+  const fields = personaFieldsOf(flags);
+  const entry = personaEntryOf(action, rest, fields);
+  const product = flags.product?.trim();
+  return { change: { action, ...(product ? { product } : {}), ...(entry === null ? {} : { entry }), fields }, json: flags.json === true };
+}
+
+/** The one line a failed persona write says, in the server's own words when it gave them. */
+function personaRefusal(error: unknown): string {
+  if (!(error instanceof AskCallError)) throw error;
+  if (error.status === null) return 'the Omni page could not be reached';
+  if (error.status === 401) return 'the sign-in was refused (omni signin)';
+  return error.reason ?? `refused (${String(error.status)})`;
+}
+
+/** The line a persona write prints, or null when the reply is not one. */
+function personaLine(action: 'add' | 'edit', reply: unknown): string | null {
+  const answer = jsonObject(reply);
+  if (!answer || answer.done !== 'applied' || !isText(answer.id)) return null;
+  return `${action === 'add' ? 'added' : 'edited'} persona:${answer.id}${isText(answer.url) ? ` · ${answer.url}` : ''}`;
+}
+
+/**
+ * `omni business persona add | edit …`: see the top of this file. A failed write is no skip line: it
+ * exits 1 with the one line that says why, on stderr (`{error}` on stdout with `--json`).
+ */
+async function persona(args: string[], env: BusinessIo): Promise<number> {
+  const { change, json } = personaChangeOf(args);
+  const stop = (line: string): number => {
+    if (json) println(env.stdout, JSON.stringify({ error: line }));
+    else println(env.stderr, `omni business persona ${change.action}: ${line}`);
+    return 1;
+  };
+  const reached = reach(env);
+  if (reached.client === undefined) return stop(reached.line.replace(` ${CARRY_ON}`, ''));
+  try {
+    const reply = await reached.client.changeKnowledge({ repo: reached.repo, ...change, kind: 'persona' });
+    const line = personaLine(change.action, reply);
+    if (line === null) return stop('the Omni page answered something this kit does not read');
+    println(env.stdout, json ? JSON.stringify(reply) : line);
+    return 0;
+  } catch (error) {
+    return stop(personaRefusal(error));
+  }
+}
+
 export const business = {
   withoutContext: true,
-  async run(args: string[], { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & BusinessOptions) {
-    const env: BusinessIo = { cwd, stdout, exec, tokens, home, fetch, callMs };
+  async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs }: FreeIo & BusinessOptions) {
+    const env: BusinessIo = { cwd, stdout, stderr, exec, tokens, home, fetch, callMs };
     if (args[0] === 'cited') {
       const { positional, flags } = parseArgs('business', args.slice(1), { values: ['by', 'ref'] });
       return cited(positional, flags, env);
@@ -374,6 +473,7 @@ export const business = {
       const { positional, flags } = parseArgs('business', args.slice(1), { values: ['kind', 'value', 'state', 'ref'] });
       return claim(positional, flags, env);
     }
+    if (args[0] === 'persona') return persona(args.slice(1), env);
     return show(args, env);
   },
 } satisfies FreeCommand;

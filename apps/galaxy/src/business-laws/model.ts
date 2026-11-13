@@ -14,16 +14,23 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const JUDGE_TIMEOUT_MS = 40_000;
 const MAX_TOKENS = 2048;
 
-/** The reply's text as JSON, a fence around it aside; undefined when it is not JSON. */
-function jsonOf(content: unknown): unknown {
-  if (typeof content !== 'string') return undefined;
-  const bare = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+function parsed(text: string): unknown {
   try {
-    const value: unknown = JSON.parse(bare);
+    const value: unknown = JSON.parse(text);
     return value;
   } catch {
     return undefined;
   }
+}
+
+/** The reply's text as JSON, a fence around it aside; undefined when it is not JSON. A model that corrects itself
+ *  writes fenced answers with prose between them: its last fenced block is its final answer (#2806). */
+function jsonOf(content: unknown): unknown {
+  if (typeof content !== 'string') return undefined;
+  const whole = parsed(content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+  if (whole !== undefined) return whole;
+  const last = [...content.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].at(-1)?.[1];
+  return last === undefined ? undefined : parsed(last);
 }
 
 export type LawsModelOptions = { key: string; fetch?: typeof globalThis.fetch; model?: string; timeoutMs?: number };

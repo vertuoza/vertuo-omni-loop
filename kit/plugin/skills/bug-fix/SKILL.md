@@ -479,7 +479,17 @@ future Bugs view reads:
 ## Mutation
 
 <The last line | not set here | not run — <why>>
+
+## Still open
+
+- <a problem the run saw and did not fix, one sentence, as in a `Follow-up:` line | none>
 ```
+
+`## Still open` is optional (PRD 2739). Each `Follow-up:` line of the hand-off is also a bullet here, without
+its repositories. Each bullet gets a file: run
+`node .omni-loop/bin/omni.mjs follow-up add --source 'bug #<n>' --text '<the bullet>'` (add
+`--repos <owner/name>,…` for its repositories), then commit the files on the fix branch, so they merge with
+the fix. `omni bug <n>` refuses a bullet with no file, and the PR does not leave draft before then.
 
 ## A change to a law
 
@@ -708,6 +718,13 @@ open step 7's draft on the reproduction alone first, and only then commit the fi
    pull request ready to get a CI run. A red CI run on the fix commit is one more attempt at the fix:
    back to step 8, and once its fix is pushed, the ladder and steps 5 to 7 run again on the new head.
 
+   **The After line cites the head.** At the moment the body is checked, the `After the fix` line
+   cites the head commit of the pull request (the open pull request's head, or `git rev-parse HEAD`
+   with `--body-file` and no pull request yet), and `omni bug` refuses any other commit. A commit
+   pushed after the proof makes the proof stale: run the reproduction again at the new head and add a
+   `- **Re-proved** (green, `<short sha>`): `<the passing line>`` line under the proof, changing no line
+   already there.
+
    The body's shape:
 
    ```markdown
@@ -897,6 +914,7 @@ Follow-up: demo-org/nimbus-backend-php · The kernel's Peppol check sends compan
   300 characters. Never a guess: a `Maybe:` never becomes a follow-up.
 - **Never** the bug this job fixed, never a customer's, a tenant's or a person's name, and never a
   secret: an app outside the workspace reads it.
+- **Also a file:** each line is a `## Still open` bullet of the record and a `follow-up add` file (step 11).
 - **At most five** lines, at any outcome: a `stuck` or `already-fixed` run may have seen one too. A run
   that saw none writes none.
 
