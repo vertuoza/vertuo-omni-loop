@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-21
 - Slice: s2
 - Wave: 1
+- Stays here: An interim display choice that awaits wiring of the PRD source; no lasting guarantee or architecture is settled, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A person reading the page sees a pull request number instead of the PRD number u
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 2
+- Stays here: A one-off local fix to keep a test green; there is no lasting product behaviour or design decision to record in the knowledge base.
 
 ### The answer, as it was given
 
@@ -175,6 +177,7 @@ Reverting is changing three numbers back in one test file.
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 2
+- Stays here: A one-off territory call for this slice's wiring line; nothing lasting about the product's behaviour to record in the knowledge base.
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ B is the removal of one line, and the app then queues nothing until a later chan
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 2
+- Became: ADR-0118
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ B changes the lookup to ignore ended jobs: a few words in one query, and no stor
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 2
+- Became: ADR-0119
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ B is a check in the publish step before it rewrites the text: no stored shape ch
 - Raised: 2026-10-22
 - Slice: s5
 - Wave: 3
+- Stays here: A local choice not to write a follow-up migration; no lasting product guarantee changes, since other checks already refuse the name.
 
 ### The answer, as it was given
 
