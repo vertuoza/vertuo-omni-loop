@@ -4351,6 +4351,7 @@ export type Database = {
       runner_jobs: {
         Row: {
           acting_for: string | null
+          attempt: number
           cancel_requested: boolean
           cancelled_by_key: string | null
           cancelled_for: string | null
@@ -4373,6 +4374,8 @@ export type Database = {
           release_error: string | null
           released: number[] | null
           repo: string
+          resume_after: string | null
+          resumes: string | null
           runner_id: string | null
           running_at: string | null
           sent_by: string | null
@@ -4388,6 +4391,7 @@ export type Database = {
         }
         Insert: {
           acting_for?: string | null
+          attempt?: number
           cancel_requested?: boolean
           cancelled_by_key?: string | null
           cancelled_for?: string | null
@@ -4410,6 +4414,8 @@ export type Database = {
           release_error?: string | null
           released?: number[] | null
           repo: string
+          resume_after?: string | null
+          resumes?: string | null
           runner_id?: string | null
           running_at?: string | null
           sent_by?: string | null
@@ -4425,6 +4431,7 @@ export type Database = {
         }
         Update: {
           acting_for?: string | null
+          attempt?: number
           cancel_requested?: boolean
           cancelled_by_key?: string | null
           cancelled_for?: string | null
@@ -4447,6 +4454,8 @@ export type Database = {
           release_error?: string | null
           released?: number[] | null
           repo?: string
+          resume_after?: string | null
+          resumes?: string | null
           runner_id?: string | null
           running_at?: string | null
           sent_by?: string | null
@@ -4472,6 +4481,13 @@ export type Database = {
             foreignKeyName: "runner_jobs_continues_fkey"
             columns: ["continues"]
             isOneToOne: false
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_jobs_resumes_fkey"
+            columns: ["resumes"]
+            isOneToOne: true
             referencedRelation: "runner_jobs"
             referencedColumns: ["id"]
           },
@@ -7704,6 +7720,7 @@ export type Database = {
         Args: { p_registered_at?: string; p_runner: string }
         Returns: {
           acting_for: string | null
+          attempt: number
           cancel_requested: boolean
           cancelled_by_key: string | null
           cancelled_for: string | null
@@ -7726,6 +7743,8 @@ export type Database = {
           release_error: string | null
           released: number[] | null
           repo: string
+          resume_after: string | null
+          resumes: string | null
           runner_id: string | null
           running_at: string | null
           sent_by: string | null
@@ -7756,6 +7775,7 @@ export type Database = {
         }
         Returns: {
           acting_for: string | null
+          attempt: number
           cancel_requested: boolean
           cancelled_by_key: string | null
           cancelled_for: string | null
@@ -7778,6 +7798,8 @@ export type Database = {
           release_error: string | null
           released: number[] | null
           repo: string
+          resume_after: string | null
+          resumes: string | null
           runner_id: string | null
           running_at: string | null
           sent_by: string | null
