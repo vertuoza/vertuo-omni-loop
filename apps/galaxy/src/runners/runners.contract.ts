@@ -32,6 +32,7 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { BUG_FIX_OUTCOMES, PRS_MAX, type BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
 import { CheckpointManifestSchema } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
+import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add', 'rewind-apply'] as const;
@@ -183,10 +184,11 @@ export type GithubGrant = z.infer<typeof GithubGrantSchema>;
  * to the run as OMNI_SENT_BY. `allowedSkills` are the repository's own skills its owner allowed, read
  * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs.
  * `sentByKey` is the name of the API key that sent it, or null (PRD 2433); `github` is the App it runs as,
- * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. */
+ * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. `resume` is
+ * a resume's (PRD 2809, s5): its attempt, the earlier jobs of its chain and the saves they left; absent for any other job. */
 export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
-  sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(),
+  sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(),
 }).refine((job) => checkLine(job.line, job.allowedSkills).ok, { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 
@@ -196,6 +198,9 @@ export type GithubTokenReply = z.infer<typeof GithubTokenReplySchema>;
 
 /** A job's save (PRD 2809, s4): the manifest the runner sends, read here with the kit's own schema, so both sides read it alike. */
 export { CHECKPOINT_BYTES_MAX, CheckpointManifestSchema, type CheckpointManifest } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
+
+/** What the claim of a resume carries (PRD 2809, s5), read with the kit's own schema: its attempt, its chain, their saves. */
+export type { ResumeClaim, ResumeSave } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
 /** The longest path of a bundle in the bucket: `<workspace id>/<job id>/<random id>.bundle`. */
 const CHECKPOINT_PATH_MAX = 200;

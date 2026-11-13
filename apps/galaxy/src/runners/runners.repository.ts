@@ -513,8 +513,10 @@ export type ContinuationsRepository = ReturnType<typeof continuationsRepository>
 /** The bucket a job's save goes to (PRD 2809, s4; supabase/migrations/20270120103000_runner_checkpoints.sql). */
 const CHECKPOINTS_BUCKET = 'runner-checkpoints';
 
-/** What the checkpoints' storage needs: the database's function, and the storage to sign links with. */
-export type CheckpointsDb = Pick<SupabaseClient, 'rpc' | 'storage'>;
+/** What the checkpoints' storage needs: the table, the database's function, and the storage to sign links with. */
+export type CheckpointsDb = Pick<SupabaseClient, 'from' | 'rpc' | 'storage'>;
+
+const CHECKPOINT_COLUMNS = 'id, job_id, workspace_id, runner_id, kind, manifest, bytes, storage_path, keep_until, deleted_at';
 
 /** A job's save as runner_checkpoints holds it (PRD 2809, s4). A manifest out of shape reads as none. */
 const CheckpointRowSchema = z.object({
@@ -570,6 +572,21 @@ export function checkpointsRepository(db: CheckpointsDb) {
     record: (save: CheckpointSave): Promise<Recorded> => recordedBy(db.rpc('runner_checkpoint_record', {
       p_job: save.job, p_runner: save.runner, p_kind: save.kind, p_manifest: save.manifest, p_bytes: save.bytes, p_path: save.path ?? undefined, p_keep_until: save.keepUntil,
     })),
+
+    /** The saves of these jobs whose bundle was not deleted (PRD 2809, s5): what a resume of their chain restores. */
+    savesOf: async (jobs: readonly string[]): Promise<CheckpointRow[]> => {
+      if (jobs.length === 0) return [];
+      return parsed(db.from('runner_checkpoints').select(CHECKPOINT_COLUMNS).in('job_id', [...jobs]).is('deleted_at', null), z.array(CheckpointRowSchema), 'runner_checkpoints');
+    },
+
+    /** A signed link that downloads the object at `path` for `seconds`; throws when the storage gives none. */
+    signDownload: async (path: string, seconds: number): Promise<{ url: string }> => {
+      const { data, error } = await db.storage.from(CHECKPOINTS_BUCKET).createSignedUrl(path, seconds);
+      // The link as it came: nothing parsed it, so an answer with none is refused.
+      const link: { signedUrl: string } | null = data;
+      if (error || !link) throw new Error(`${CHECKPOINTS_BUCKET}: ${error?.message ?? 'no link came back'}`);
+      return { url: link.signedUrl };
+    },
   };
 }
 
