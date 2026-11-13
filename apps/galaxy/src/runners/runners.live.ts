@@ -7,8 +7,8 @@ import { productsRepository, type ProductsRepository } from '../products/product
 import { liveNotifier } from '../public-api/notify.live';
 import type { RunnersDeps } from './runners.controller';
 import { githubDeps } from './runners.github';
-import { runnersRepository } from './runners.repository';
-import { productReposOf, runnersService, type GithubDeps, type ProductRepos, type RunnersService } from './runners.service';
+import { checkpointsRepository, runnersRepository } from './runners.repository';
+import { checkpointsService, productReposOf, runnersService, type CheckpointsService, type GithubDeps, type ProductRepos, type RunnersService } from './runners.service';
 
 // The runners' real dependencies (PRD 1830 s1), for /api/runners/*: the kit's sign-in checked with the
 // Auth server (a client acting as the caller's access token), the browser's from the page's session
@@ -48,6 +48,13 @@ function liveRunnersService(): RunnersService | null {
   return runnersService(runnersRepository(db), clock, omniGithub(), liveNotifier(), productRepos(productsRepository(db)));
 }
 
+/** A job's save (PRD 2809, s4) over the service role's client, which signs the upload links; null when this deployment has none. */
+function liveCheckpointsService(): CheckpointsService | null {
+  if (!supabaseEnv() || serverEnv().serviceRole === null) return null;
+  const db = serviceDb();
+  return checkpointsService(runnersRepository(db), checkpointsRepository(db), clock);
+}
+
 /** The signed-in person of the page's session, by id, or null. */
 async function sessionUser(): Promise<string | null> {
   const { data: { user } } = await (await supabaseServer()).auth.getUser();
@@ -60,6 +67,7 @@ export function runnersDeps(): RunnersDeps {
     connect: hasDb ? supabaseAs : null,
     session: hasDb ? sessionUser : null,
     service: liveRunnersService(),
+    checkpoints: liveCheckpointsService(),
     log: (message) => { log.error({ event: 'runners', outcome: 'failed', message }); },
     timer: () => {
       const start = performance.now();

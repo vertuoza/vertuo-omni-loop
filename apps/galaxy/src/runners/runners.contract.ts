@@ -6,6 +6,8 @@
 //   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?, parts?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running (PRD 2433, PRD 2809) → {token, expiresAt}
+//   POST  /api/runners/jobs/<id>/checkpoint    runner, the job's own, whatever its status (PRD 2809 s4) {step: link, bytes} → {path, url, expiresAt}
+//                                              | {step: record, kind, path?, manifest} → {id, kind, keepUntil}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
 //   GET   /api/runners?repo=<owner/name>   terminal (PRD 2251)                              → {runners: [KitRunner]}
 //   GET   /api/runners/jobs?repo=<owner/name>&prd=<n>  terminal (PRD 2251)                 → {jobs: [PrdJob]}, newest first
@@ -29,6 +31,7 @@
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { BUG_FIX_OUTCOMES, PRS_MAX, type BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
+import { CheckpointManifestSchema } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add', 'rewind-apply'] as const;
@@ -190,6 +193,32 @@ export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 /** What `POST /api/runners/jobs/<id>/github-token` answers: a fresh token of the job's App, and when it stops working. */
 export const GithubTokenReplySchema = GithubGrantSchema.pick({ token: true, expiresAt: true });
 export type GithubTokenReply = z.infer<typeof GithubTokenReplySchema>;
+
+/** A job's save (PRD 2809, s4): the manifest the runner sends, read here with the kit's own schema, so both sides read it alike. */
+export { CHECKPOINT_BYTES_MAX, CheckpointManifestSchema, type CheckpointManifest } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
+
+/** The longest path of a bundle in the bucket: `<workspace id>/<job id>/<random id>.bundle`. */
+const CHECKPOINT_PATH_MAX = 200;
+
+/**
+ * What `POST /api/runners/jobs/<id>/checkpoint` takes (PRD 2809, s4), from the job's own runner: `link` asks a signed
+ * upload link for a bundle of `bytes`; `record` records the save, `portable` at the path its bundle was uploaded to,
+ * or `local`, kept on the runner.
+ */
+export const CheckpointRequestSchema = z.union([
+  z.strictObject({ step: z.literal('link'), bytes: z.number().int().nonnegative() }),
+  z.strictObject({ step: z.literal('record'), kind: z.literal('portable'), path: z.string().min(1).max(CHECKPOINT_PATH_MAX), manifest: CheckpointManifestSchema }),
+  z.strictObject({ step: z.literal('record'), kind: z.literal('local'), manifest: CheckpointManifestSchema }),
+]);
+export type CheckpointRequest = z.infer<typeof CheckpointRequestSchema>;
+
+/** What a `link` answers: the bundle's path in the bucket, the signed link to put it to, and when that link stops working. */
+export const CheckpointLinkReplySchema = z.object({ path: z.string().min(1).max(CHECKPOINT_PATH_MAX), url: z.url({ protocol: /^https?$/ }), expiresAt: z.string() });
+export type CheckpointLinkReply = z.infer<typeof CheckpointLinkReplySchema>;
+
+/** What a `record` answers: the save's id, its kind, and until when it is kept. */
+export const CheckpointRecordReplySchema = z.object({ id: IdSchema, kind: z.enum(['portable', 'local']), keepUntil: z.string() });
+export type CheckpointRecordReply = z.infer<typeof CheckpointRecordReplySchema>;
 
 /** The statuses a job goes through, in order; the last three end it. */
 const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancelled'] as const;
