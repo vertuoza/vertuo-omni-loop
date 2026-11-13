@@ -27,7 +27,7 @@ type Persona = { name: string; stance: string; trade: string; who: string; usage
 
 const CAST: Persona[] = [
   { name: 'Marc', stance: 'skeptical', trade: 'plumber', who: 'Runs a company of five plumbers', usage: 'Mostly the quotes' },
-  { name: 'Lea', stance: 'excited', trade: 'office', who: 'Keeps a builder\'s office', usage: 'The dashboard' },
+  { name: 'Lea', stance: 'enthusiastic', trade: 'office', who: 'Keeps a builder\'s office', usage: 'The dashboard' },
 ];
 
 type Legal = { id: string; statement: string; source: string; owner: string };
@@ -173,7 +173,7 @@ describe('GET /api/business', () => {
   });
 
   it('carries the product\'s personas, oldest first as the database lists them (PRD 799)', async () => {
-    const { status, body } = await world({ personas: CAST }).get('?repo=acme/widgets');
+    const { status, body } = await world({ personas: CAST }).get('?repo=acme/widgets&stances=2');
     expect(status).toBe(200);
     expect(body.personas).toEqual(CAST);
     expect(body.state).toBe('ok');
@@ -181,11 +181,35 @@ describe('GET /api/business', () => {
 
   it('state is decided by claims only: personas without a confirmed claim still read none, and come back', async () => {
     const claims = CLAIMS.filter((c) => c.state !== 'confirmed' && c.state !== 'contradicted');
-    const { body } = await world({ claims, personas: CAST }).get('?repo=acme/widgets');
+    const { body } = await world({ claims, personas: CAST }).get('?repo=acme/widgets&stances=2');
     expect(body).toEqual({ state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: CAST, legal: [], glossary: [] });
     const without = await world({ personas: [] }).get('?repo=acme/widgets');
     const withCast = await world({ personas: CAST }).get('?repo=acme/widgets');
     expect(withCast.body.state).toBe(without.body.state);
+  });
+
+  it('with stances=2, sends enthusiastic as the database stores it (PRD 2779)', async () => {
+    const { status, body } = await world({ personas: CAST }).get('?repo=acme/widgets&stances=2');
+    expect(status).toBe(200);
+    expect(body.personas.map((p: Persona) => p.stance)).toEqual(['skeptical', 'enthusiastic']);
+  });
+
+  it('without stances=2, sends an enthusiastic persona as excited, so a kit from before PRD 2779 keeps its personas; nothing else changes', async () => {
+    const w = world({ personas: CAST, legal: LEGAL, glossary: TERMS });
+    const old = await w.get('?repo=acme/widgets');
+    const now = await w.get('?repo=acme/widgets&stances=2');
+    expect(old.status).toBe(200);
+    expect(old.body.personas).toEqual([CAST[0], { ...CAST[1], stance: 'excited' }]);
+    expect({ ...old.body, personas: null }).toEqual({ ...now.body, personas: null });
+    for (const other of ['?repo=acme/widgets&stances=1', '?repo=acme/widgets&stances=']) {
+      expect((await w.get(other)).body.personas[1].stance).toBe('excited');
+    }
+  });
+
+  it('a database from before PRD 2779\'s migration, still sending excited, reads enthusiastic with stances=2', async () => {
+    const older = [{ ...CAST[1], stance: 'excited' }];
+    expect((await world({ personas: older }).get('?repo=acme/widgets&stances=2')).body.personas[0].stance).toBe('enthusiastic');
+    expect((await world({ personas: older }).get('?repo=acme/widgets')).body.personas[0].stance).toBe('excited');
   });
 
   it('personas: [] from a database that sends none', async () => {

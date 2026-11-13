@@ -34,10 +34,15 @@ const businessClaimSchema = z.object({
   lastSeen: z.string().nullable(),
 }).strict();
 
+/** A persona's stance (PRD 2779): `enthusiastic` is what PRD 799 called `excited`. A database from
+ * before PRD 2779's migration still sends `excited`: it reads as `enthusiastic`. */
+const stanceSchema = z.enum(['enthusiastic', 'excited', 'neutral', 'skeptical'])
+  .transform((stance) => (stance === 'excited' ? 'enthusiastic' : stance));
+
 /** One persona of the repository's product (PRD 799): who the customer is, as the team pictures them. */
 const businessPersonaSchema = z.object({
   name: z.string().min(1),
-  stance: z.enum(['excited', 'neutral', 'skeptical']),
+  stance: stanceSchema,
   trade: z.string().min(1),
   who: z.string(),
   usage: z.string(),
@@ -90,6 +95,17 @@ const businessReadSchema = z.object({
   .refine((read) => read.state !== 'archived' || read.product !== null, 'an archived read names its product');
 
 type BusinessRead = z.infer<typeof businessReadSchema>;
+
+type ReadPersona = BusinessRead['personas'][number];
+/** A persona as a kit from before PRD 2779 reads it. */
+type OldPersona = Omit<ReadPersona, 'stance'> & { stance: 'excited' | 'neutral' | 'skeptical' };
+type OldStancesRead = Omit<BusinessRead, 'personas'> & { personas: OldPersona[] };
+
+/** A read as a kit from before PRD 2779 parses it: every `enthusiastic` persona sent as `excited`, as
+ * that kit refuses the whole read for a stance it does not know. Nothing else changes. */
+export function withOldStances(read: BusinessRead): OldStancesRead {
+  return { ...read, personas: read.personas.map((p) => ({ ...p, stance: p.stance === 'enthusiastic' ? 'excited' : p.stance })) };
+}
 
 /** The states a person's answer is stored in (PRD 822): an overrule's, or a gap question's. */
 export const ANSWER_STATES = ['proposed', 'confirmed'] as const;

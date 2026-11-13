@@ -2,6 +2,8 @@
 // Request, so it is tested with a stubbed Supabase client and app/api/business/route.ts stays one line:
 //
 //   GET /api/business?repo=<owner/name>   → 200 {state, business, product, claims, personas}   (decision 14, PRD 799)
+//     &stances=2   a persona's stance as PRD 2779 names it (`enthusiastic`); without it, `excited`, as a
+//                  kit from before PRD 2779 refuses the whole read for a stance it does not know
 //   POST /api/business/citations {repo, ids, by, ref?}   → 200 {cited}   the citation log (decision 6)
 //   POST /api/business/claims {repo, kind, value, state, ref}   → 200 {id, state, added}   an answered claim (PRD 822)
 //
@@ -16,7 +18,7 @@
 // citation too large, 503 no database here or the sign-in service down, 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
-import { ANSWER_KINDS, ANSWER_STATES, businessReader, BusinessStoreError, type AnswerKind, type AnswerState } from './read';
+import { ANSWER_KINDS, ANSWER_STATES, businessReader, BusinessStoreError, withOldStances, type AnswerKind, type AnswerState } from './read';
 import { refuse, reply } from './reply';
 import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
@@ -69,9 +71,14 @@ const isRepo = (repo: unknown): repo is string => typeof repo === 'string' && re
 export async function readBusiness(request: Request, deps: BusinessDeps): Promise<Response> {
   const reader = await readerFor(request, deps);
   if (reader instanceof Response) return reader;
-  const repo = new URL(request.url).searchParams.get('repo') ?? '';
+  const query = new URL(request.url).searchParams;
+  const repo = query.get('repo') ?? '';
   if (!isRepo(repo)) return refuse(400, '`repo` must be the repository as owner/name.');
-  return answer(deps, () => reader.forRepo(repo));
+  const newStances = query.get('stances') === '2';
+  return answer(deps, async () => {
+    const read = await reader.forRepo(repo);
+    return newStances ? read : withOldStances(read);
+  });
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

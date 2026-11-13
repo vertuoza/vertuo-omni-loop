@@ -38,7 +38,7 @@ export const NO_PERSONAS = 'No personas yet — agents carry on';
 const PERSONAS_HINT = 'Who agents picture when they design. Describe a kind of customer, never a real one by name.';
 export const SHUFFLE = '⟳ Shuffle';
 export const UNDO = 'Undo';
-const STANCE_LABEL: Readonly<Record<Stance, string>> = { excited: 'Excited', neutral: 'Neutral', skeptical: 'Skeptical' };
+const STANCE_LABEL: Readonly<Record<Stance, string>> = { enthusiastic: 'Enthusiastic', neutral: 'Neutral', skeptical: 'Skeptical' };
 
 export interface PersonasSectionProps {
   state: PersonasState;

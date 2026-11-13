@@ -26,7 +26,7 @@ export const PERSONA_GONE = 'That persona is no longer here. Reload the page.';
 /** What a 22023 says, by the field its `hint` names. */
 export const INVALID_PERSONA_FIELD: Readonly<Record<string, string>> = {
   name: `A name: 1 to ${NAME_MAX} characters, on one line.`,
-  stance: 'Pick a stance: excited, neutral or skeptical.',
+  stance: 'Pick a stance: enthusiastic, neutral or skeptical.',
   trade: 'Pick a trade from the list.',
   avatar: 'Pick a portrait from the picker.',
   who: `Who they are: ${TEXT_MAX} characters at most.`,

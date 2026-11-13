@@ -827,7 +827,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .voice-portrait-none { display: grid; place-items: center; width: 32px; height: 32px; font: 700 14px/32px var(--ask-mono); color: var(--ask-muted); }
 .voice-who { display: grid; gap: 4px; justify-items: start; min-width: 0; }
 .voice-stance { font: 700 11px/1 var(--ask-mono); padding: 4px 7px; border-radius: 999px; border: 1px solid var(--ask-line-strong); }
-.voice-stance[data-stance='excited'] { color: var(--ask-green); border-color: var(--ask-green); }
+.voice-stance[data-stance='enthusiastic'] { color: var(--ask-green); border-color: var(--ask-green); }
 .voice-stance[data-stance='neutral'] { color: var(--ask-muted); border-color: var(--ask-muted); }
 .voice-stance[data-stance='skeptical'] { color: var(--ask-red); border-color: var(--ask-red); }
 .voice-latest { font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }

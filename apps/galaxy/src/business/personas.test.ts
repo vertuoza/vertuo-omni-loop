@@ -20,6 +20,11 @@ describe('a stored row', () => {
   it('reads as a persona, its ordinal a number and empty texts empty', () => {
     expect(personaOf({ id: 'x', product_id: 'p-1', ordinal: '7', name: 'Ann', stance: 'skeptical', trade: 'doctor', avatar: AVATAR, who: null, usage: 'Quotes' }))
       .toEqual({ id: 'x', product: 'p-1', ordinal: 7, name: 'Ann', stance: 'skeptical', trade: 'doctor', avatar: AVATAR, who: '', usage: 'Quotes' });
+    // PRD 2779: a row from before the rename reads as enthusiastic.
+    expect(personaOf({ id: 'x', product_id: 'p-1', ordinal: 7, name: 'Ann', stance: 'excited', trade: 'doctor', avatar: AVATAR, who: null, usage: null }).stance)
+      .toBe('enthusiastic');
+    expect(personaOf({ id: 'x', product_id: 'p-1', ordinal: 7, name: 'Ann', stance: 'enthusiastic', trade: 'doctor', avatar: AVATAR, who: null, usage: null }).stance)
+      .toBe('enthusiastic');
   });
 });
 

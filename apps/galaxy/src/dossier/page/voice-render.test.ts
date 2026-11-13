@@ -77,6 +77,13 @@ describe('the User voice tab', () => {
     expect(page).not.toContain('voice-move');
   });
 
+  it('names an enthusiastic persona\'s chip Enthusiastic, from either word (PRD 2779)', () => {
+    for (const stance of ['enthusiastic', 'excited']) {
+      const page = html(JSON.stringify({ rounds: [round('design', [{ ...persona('Sofia', 4), stance }])] }));
+      expect(page).toContain('data-stance="enthusiastic">Enthusiastic</span>');
+    }
+  });
+
   it('shows three rounds with each score\'s move ▲ ▼ =, the reaction behind a tap', () => {
     const page = html(JSON.stringify({ rounds: [
       round('design', [persona('Marc', 3), persona('Sofia', 4)]),

@@ -24,7 +24,7 @@ const ONE: Product[] = [{ id: 'p-1', name: 'Vertuoza' }];
 const TWO: Product[] = [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }];
 const CAST = [
   persona(1, { name: 'Marc', stance: 'skeptical', who: 'Runs five plumbers', usage: 'Mostly the quotes' }),
-  persona(2, { name: 'Sofia', stance: 'excited', trade: 'office' }),
+  persona(2, { name: 'Sofia', stance: 'enthusiastic', trade: 'office' }),
   persona(3, { name: 'Anne', trade: 'accountant', product: 'p-2' }),
 ];
 
@@ -71,7 +71,7 @@ describe('the card grid', () => {
   });
 
   it('draws the trade\'s label: an office manager, not "office"', () => {
-    expect(text(cardOf(render(CAST), 'pe-2'))).toContain('Sofia Office manager Excited');
+    expect(text(cardOf(render(CAST), 'pe-2'))).toContain('Sofia Office manager Enthusiastic');
   });
 
   it('draws an empty portrait for a trade it cannot draw, and keeps that trade while editing', () => {
@@ -98,7 +98,7 @@ describe('the drawer', () => {
     const tag = (name: string) => [...open.matchAll(/<(?:input|textarea|select)\b[^>]*>/g)].map((m) => m[0]).find((t) => t.includes(`name="${name}"`)) ?? '';
     expect(tag('name')).toContain('maxLength="40"');
     const stances = buttons(open).filter((b) => sure(b.attrs, 'b.attrs').includes('data-stance'));
-    expect(stances.map((b) => [b.text, sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')])).toEqual([['Excited', false], ['Neutral', true], ['Skeptical', false]]);
+    expect(stances.map((b) => [b.text, sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')])).toEqual([['Enthusiastic', false], ['Neutral', true], ['Skeptical', false]]);
     const options = [...open.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1]);
     expect(options).toEqual(PERSONA_TRADES.map((t) => t.id));
     expect(tag('who')).toContain('maxLength="400"');
@@ -187,7 +187,7 @@ describe('products', () => {
 
 describe('the demo', () => {
   it('holds a persona of every stance, of the demo\'s product, each on a trade the page draws', () => {
-    expect(new Set(DEMO_PERSONAS.map((p) => p.stance))).toEqual(new Set(['excited', 'neutral', 'skeptical']));
+    expect(new Set(DEMO_PERSONAS.map((p) => p.stance))).toEqual(new Set(['enthusiastic', 'neutral', 'skeptical']));
     expect(DEMO_PERSONAS.every((p) => p.product === sure(DEMO_PRODUCTS[0], 'DEMO_PRODUCTS[0]').id)).toBe(true);
     expect(DEMO_PERSONAS.every((p) => PERSONA_TRADES.some((t) => t.id === p.trade))).toBe(true);
   });
