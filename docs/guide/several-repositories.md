@@ -292,7 +292,7 @@ omni hold demo-org/web#88
 With `demo-org/web#88` saying `Merge after demo-org/api#41`, it prints one row per provider and a last
 line:
 
-```text
+```text terminal
 demo-org/api#41   open                       held
 held: demo-org/api#41 open
 ```
