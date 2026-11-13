@@ -301,6 +301,13 @@ each target row, the plan repository's own row excepted:
    is what makes the omni-loop App pass the target's outbox check, linking the plan PR, rather
    than grade the PRD there: the one gate is the plan PR's (`/omni:pr --repo`).
 
+   **The `Merge after` lines.** A consumer target's pull request body carries one
+   `Merge after <owner/repo>#<n>` line for each provider target the plan makes it wait for (a slice of
+   this target blocked by a slice of another target): `<owner/repo>` is the provider's `<slug>` and
+   `<n>` its target feature PR, one line per provider, in the plan's order, as `/omni:mega-bug-fix`
+   writes them, after the `Part of` line. A target that waits for none gets no line. A provider's
+   target feature PR must exist first, so open the providers' before the consumers'.
+
 **A plan of more than one landing** (`node .omni-loop/bin/omni.mjs plan landings <n> --json` lists
 more than one) is delivered per target as that target's own chain of landings, each built as
 `/omni:yolo`'s **Landings** says. For each target, read its chain:
