@@ -62,6 +62,17 @@ finds the persona by its name in the product. Personas have no owner, so a membe
 the persona's page on the Knowledge tab; `--json` prints the route's answer. No remove: deleting
 stays on the page.
 
+**History.** Every change to a persona is recorded in the product's knowledge history
+(`product_knowledge_events`), as Legal and Glossary changes are (BL-PRODUCTKNOWLEDGE-2): the
+events take a kind `persona` and a `persona_id`, as PRD 2583 added `domains`. `persona_add` appends
+`added` (after: the persona's fields), `persona_edit` appends `edited` (before and after),
+`persona_delete` appends `removed` (before), and `persona_restore` (Undo) appends a new action,
+`restored` (after), each with `changed_by` the caller, in the same transaction as the change. The
+migration's rename appends one `edited` event per persona it moves, `changed_by` null, so the history
+still shows that it said `excited`. The fields recorded are name, stance, trade, avatar, who and
+usage. The page's History of a persona stays as it is; the record is readable by the workspace's
+members, as the rest of the history is.
+
 **The skill.** `/omni:knowledge-add` gets a Persona row: one persona per Yes, shown whole first
 (name, stance, trade, who, usage, add or edit), every field the person did not give asked for and
 never filled in.
@@ -98,6 +109,11 @@ never filled in.
 9. **The voice's objection** (persona:F-E Developer: renaming a stored stance can break a runner in
    production) was **accepted**: the design adds `stances=2` and a test that reads the new reply with
    the business reader as shipped in v0.0.613.
+10. **Persona changes are recorded** (the PRD page's business-law judge, BL-PRODUCTKNOWLEDGE-2,
+    agreed by the person): the spec first left personas out of the history because the law names
+    Legal and Glossary only; the judge read the law as covering every knowledge entry agents follow,
+    and the spec now meets it rather than amending it. A person's change carries its `changed_by`;
+    the migration's rename is recorded with `changed_by` null, the one change no person made.
 
 ## User stories
 
@@ -120,7 +136,9 @@ never filled in.
 In:
 
 - one migration: stance rows and rule, the trade rule, `persona_fields()` taking `excited`,
-  `persona_find()`; `supabase/database.types.ts` regenerated; `supabase/checks/personas.sql`;
+  `persona_find()`, the history (`product_knowledge_events` kind `persona`, `persona_id`, action
+  `restored`, an event from each persona function and from the rename); `supabase/database.types.ts`
+  regenerated; `supabase/checks/personas.sql`;
 - `@omni/design`: six trades with their busts and props, the generic bust, `personaGrid()` drawing
   any valid trade (a listed one with its art, any other with the generic bust);
 - the page: the Knowledge tab's persona drawer and list (and the Business screen's section, which
@@ -135,7 +153,7 @@ In:
 Out:
 
 - a workspace-managed trade list; removing a persona from the terminal; unique persona names;
-- a persona history (personas are not Legal or Glossary entries, BL-PRODUCTKNOWLEDGE-2);
+- showing a persona's recorded history on its page (it keeps today's added and changed lines);
 - changing any product's personas: a person does that, after this ships, with `/omni:knowledge-add`.
 
 ## Test seams
@@ -147,7 +165,10 @@ Following `omni kb show testing`: no test calls GitHub or Supabase; the database
   to `enthusiastic`; `persona_add` and `persona_edit` store `enthusiastic` for `excited` and refuse
   `angry` with `Stance: enthusiastic, neutral or skeptical.`; trade takes `data analyst` and
   `credit-risk analyst` and refuses `Data`, ` analyst`, `analyst-`, `a  b` and 41 letters;
-  `persona_find` with none, one and two of a name; a member of another workspace is refused.
+  `persona_find` with none, one and two of a name; a member of another workspace is refused; add,
+  edit, delete and restore each append one event of kind `persona` with the right action, before,
+  after and `changed_by`, and a refused change appends none; the rename appends one `edited` event
+  per moved persona with `changed_by` null; a member of another workspace reads none of them.
 - **Design** (`packages/design/src/personas.test.ts`): each of the twenty-one trades and the generic
   bust draws for every avatar in the ranges; every listed id passes the database's trade rule (the
   same regex, exported once).
@@ -177,6 +198,10 @@ release; the migration is rolled back by a new migration that moves `enthusiasti
 `excited` and restores the two rules (a free trade with a space would then have to be renamed
 first, so the rollback migration refuses until none is left). See `omni kb show releasing`.
 
+**The history's version.** The newest event id of a product is the version the canon gate's
+cached verdict is keyed by, so a persona change now makes the next canon check judge afresh, as a
+glossary change does. That is wanted: personas are part of what agents read.
+
 **Old kits.** Covered by `stances=2` and its test. A kit older than this PRD that *writes* a persona
 does not exist (no write before it).
 
@@ -200,8 +225,9 @@ other entry touched.
 
 - BL-PRODUCTKNOWLEDGE-1 (a non-owner only proposes a Legal or Glossary change): kept. Personas are
   neither; the persona kind is always applied, and Legal and Glossary changes are untouched.
-- BL-PRODUCTKNOWLEDGE-2 (every Legal or Glossary change is recorded): kept. Personas are outside it,
-  and no history is added or removed.
+- BL-PRODUCTKNOWLEDGE-2 (every Legal or Glossary change is recorded): kept, and extended to
+  personas: every persona change, from the page, the terminal or the migration, is recorded with who
+  made it and what the persona said before and after (Decision 10).
 - BL-PRODUCTKNOWLEDGE-3 (a retired Legal entry is kept): kept, not touched.
 - BL-PRODUCTKNOWLEDGE-4 (a merged knowledge change reaches the product): kept, not touched.
 
@@ -229,3 +255,6 @@ other entry touched.
     and writes one persona per Yes with `omni business persona add|edit --json`.
 11. Every `voice.json` in the repository still passes `omni check inbox`, and a new one may say
     `enthusiastic`.
+12. Adding, editing, deleting or restoring a persona, on the page or from the terminal, appends one
+    event to the product's knowledge history with who did it and the persona's fields before and
+    after; the rename's events say `excited` before and `enthusiastic` after.

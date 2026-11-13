@@ -90,7 +90,7 @@ details > summary { cursor: pointer; color: var(--muted); }
 <div data-section="functional" data-state="filled">
 <h4>Functional</h4>
 <div class="compare"><div><div class="label">Today</div><p>A persona is excited, neutral or skeptical. Its trade is one lower-case word, so "data analyst" cannot be stored.</p></div>
-<div><div class="label">After</div><p>A persona is enthusiastic, neutral or skeptical; every excited persona now reads enthusiastic, and a writer that still says excited is understood. A trade may be a few lower-case words, like "data analyst" or "credit-risk analyst".</p></div></div>
+<div><div class="label">After</div><p>A persona is enthusiastic, neutral or skeptical; every excited persona now reads enthusiastic, and a writer that still says excited is understood. Every change to a persona is now recorded in the product's knowledge history, with who made it and what it said before and after, as Legal and Glossary changes are. A trade may be a few lower-case words, like "data analyst" or "credit-risk analyst".</p></div></div>
 </div>
 <div data-section="pixel-perfect" data-state="na">
 <h4>Pixel perfect</h4>
@@ -204,6 +204,7 @@ usage: … --stance &lt;enthusiastic|neutral|skeptical&gt; …</pre>
 <tr><td>personas</td><td>data</td><td>every <code>excited</code> row becomes <code>enthusiastic</code></td></tr>
 <tr><td>personas</td><td>check</td><td>stance and trade rules, as above</td></tr>
 <tr><td>persona_fields()</td><td>changed</td><td>takes excited, stores enthusiastic; new refusal words</td></tr>
+<tr><td>product_knowledge_events</td><td>altered</td><td><code>+ persona_id</code>; kind gains <code>persona</code>; action gains <code>restored</code>. persona_add, persona_edit, persona_delete and persona_restore each append one event (who, before, after); the rename appends one <code>edited</code> event per moved persona, by no one (BL-PRODUCTKNOWLEDGE-2)</td></tr>
 <tr><td>persona_find()</td><td>added</td><td>the one live persona of a product with that name, or P0002, or 21000 for several</td></tr></table>
 </div>
 <div data-section="api" data-state="na"><h4>API / schema</h4><p>N/A — no API of its own; the functions are called by the galaxy service.</p></div>
