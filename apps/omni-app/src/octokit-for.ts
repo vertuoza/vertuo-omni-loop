@@ -3,17 +3,19 @@
 // of Octokit the function calls.
 //
 // Every installation's Octokit sends its calls through the shared budget-aware client (`@omni/github`,
-// PRD 902): the installation's budget, spent at `background` priority (the app's work is checks,
-// retros and harvests, never a person waiting), with the ETags and the pause galaxy shares. Minting
-// the installation token is an App-JWT call, on the App's own budget, so it goes out plain.
+// PRD 902): the installation's budget, with the ETags and the pause galaxy shares, spent at `background`
+// priority unless the caller asks for another (retros, harvests, sweeps, packs: never a person waiting).
+// The four pull-request checks ask for `interactive` (../jobs/pr-checks.ts, bug #2766): they gate a
+// merge, so they spend the budget above its background floor and only a pause holds them. Minting the
+// installation token is an App-JWT call, on the App's own budget, so it goes out plain.
 import { App } from '@octokit/app';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseGithubStore, type GithubClient, type GithubStore, type PlainFetch } from '@omni/github';
+import { supabaseGithubStore, type GithubClient, type GithubStore, type PlainFetch, type Priority } from '@omni/github';
 import type { Database } from '../../../supabase/database.types.ts';
 import { GITHUB_APP, requireGroup, type GithubAppEnv, type SupabaseEnv } from './env.ts';
 
-/** An installation's GitHub client, for its id. */
-export type OctokitFor<Client> = (installationId: number) => Promise<Client> | Client;
+/** An installation's GitHub client, for its id, spending its budget at `priority` (`background` when none is given). */
+export type OctokitFor<Client> = (installationId: number, priority?: Priority) => Promise<Client> | Client;
 
 /** The App's own calls (`/app/…`, its token minted with its JWT), which spend the App's budget, not an installation's. */
 const APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
@@ -27,11 +29,11 @@ const APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
  */
 export function installationOctokitFor(githubApp: GithubAppEnv | null, github: GithubClient) {
   let app: App | undefined;
-  return async (installationId: number) => {
+  return async (installationId: number, priority: Priority = 'background') => {
     const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, 'the app reads GitHub as an installation');
     app ??= new App({ appId: id, privateKey });
     const octokit = await app.getInstallationOctokit(installationId);
-    const budgeted = github.bound({ installation: installationId, priority: 'background' });
+    const budgeted = github.bound({ installation: installationId, priority });
     const fetch: PlainFetch = (url, init) => (APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init));
     // Each call's own options, merged fresh per call: the hooks after this one, the token's included, read them.
     octokit.hook.before('request', (options) => {
