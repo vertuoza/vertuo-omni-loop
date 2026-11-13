@@ -10,7 +10,9 @@
 //                           installation, looked up as the App, then its feature PRs and sub-PRs
 //   steps "gather-<kind>"   each kind's GitHub reads, one step per kind (`kinds/index.ts`), then
 //                           "gather-<kind>-<name>" for each target read, as its installation
-//   step "facts"            `detect`: the fact sheet — saved, so a retry never changes a number
+//   step "facts"            `detect`: the fact sheet — saved, so a retry never changes a number; saved without
+//                           its excerpts (the red runs' log tails, `excerpts.ts`), put back from the gathers'
+//                           saved records as it is read, so a step stays under the ledger's 1 MB (#2780)
 //   step "gather-knowledge" what the judge compares with (PRD 487): the knowledge summary and the
 //                           lessons of the retros already merged, both at the merge commit
 //   step "narrate"          the model's prose and its verdict, from this Vercel function
@@ -74,6 +76,7 @@ import type { NewJob } from '../jobs/ledger.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { detect } from './detect.ts';
+import { withExcerptsOf, withoutExcerpts } from './excerpts.ts';
 import { knowledgeSummary } from 'omni-loop/kit/lib/knowledge/classify.ts';
 import { playbookLines } from 'omni-loop/kit/lib/playbook/lines.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
@@ -379,11 +382,17 @@ async function factSheet(input: RunInput, id: StepId, folder: string): Promise<F
   }
   const targets = await targetRecords(input);
   const before = earlier?.sheet.findings ?? [];
-  return savedStep(step, id('facts'), FactSheetSchema, () => {
-    const own = detect({ run, pr, prd, config, pulls, records, kinds });
-    const whole = withTargets(own, { planSlug: `${owner}/${repo}`, targets, run, kinds, scope });
-    return inFolder(numberedAfter(whole, before.length), folder);
-  });
+  let sheet: FactSheet | undefined;
+  const made = (): FactSheet => {
+    sheet ??= inFolder(
+      numberedAfter(withTargets(detect({ run, pr, prd, config, pulls, records, kinds }), { planSlug: `${owner}/${repo}`, targets, run, kinds, scope }), before.length),
+      folder,
+    );
+    return sheet;
+  };
+  // Saved without its excerpts, copies of what the gather steps saved (#2780), then put back from the same sheet.
+  const saved = await savedStep(step, id('facts'), FactSheetSchema, () => FactSheetSchema.parse(withoutExcerpts(made())));
+  return FactSheetSchema.parse(withExcerptsOf(saved, made()));
 }
 
 /** What each target's kinds gathered, in the merge run only (PRD 1130); a target not read gathers nothing. */
