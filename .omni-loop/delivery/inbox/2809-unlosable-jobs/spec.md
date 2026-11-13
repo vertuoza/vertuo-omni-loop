@@ -55,9 +55,10 @@ moving with the laptop closed only if a lost runner never loses work.
   session at once. The GitHub token refresh (`/api/runners/jobs/<id>/github-token`) is refused too
   once a job has ended. A replaced attempt can therefore write nothing to the replacement's row,
   and loses its GitHub token within the hour it was issued.
-- **One writer per branch.** A slice claim whose status comment names an ended job (`job: <id>`) is
-  taken over by the job that resumes it (its chain), never by another job; the claim's `job:` line is
-  rewritten to the resume's id.
+- **One writer per branch.** A slice claim whose status comment names an ended job (`job: <id>`)
+  counts as held by that job's whole chain: its resume may take the slice up, and no other job may.
+  The resume's next status pass writes its own state, as every pass of `/omni:pr` already does; no
+  person's words are touched.
 
 ### 3. Saving before anything is removed (runner, `kit/lib/runner/checkpoint.ts`)
 
@@ -208,7 +209,8 @@ failure handling, raising any timeout.
     sender and its maker.
 - **The business laws:** BL-APPROVALS-1 (an approval covers exactly the files the approver read)
   is kept: a resume changes no approved file and approves nothing. BL-ASK-1 (an answer is never
-  reworded) is kept: the only text rewritten is the agent's own status comment (`job:` line).
+  reworded) is kept: no reply, review, approval or answer is changed; a claim is read as held by
+  the chain, and status comments are written as they are today.
 
 ## Acceptance criteria
 
@@ -228,5 +230,5 @@ failure handling, raising any timeout.
 - A failed upload keeps the folder on the runner, its row reads `Keeps <size> until <day time>`, and the resume goes to that runner while it is online; over the disk budget the
   oldest kept folder is removed and its manifest names what was lost.
 - A chain's bundles are gone from the bucket once the chain ends, and 7 days after upload at most.
-- A slice claimed by the lost job is taken over by its resume and by no other job.
+- A slice claimed by the lost job is held by its chain: its resume may take it up, and no other job may.
 - Every test above runs on fake runners and temporary git repositories, with no model call.
