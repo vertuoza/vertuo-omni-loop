@@ -34,6 +34,26 @@ describe('the judge\'s model', () => {
     expect(await lawsModel({ key: 'k', fetch: stubFetch(new Error('offline')).fetch })({ system: '', user: '' })).toEqual({ ok: false, why: 'OpenRouter could not be reached' });
   });
 
+  it('reads the last fenced answer when the model corrects itself in its reply (#2806)', async () => {
+    const first = '{"findings": [{"law": "BL-X-1", "quote": "the cart is emptied at midnight", "why": "it breaks the law"}]}';
+    const corrected = [
+      '```json', first, '```',
+      '',
+      'Wait, let me reconsider. The spec keeps the cart, so this is not a finding.',
+      '',
+      '```json', '{"findings": []}', '```',
+    ].join('\n');
+    expect(await lawsModel({ key: 'k', fetch: stubFetch(answer(corrected)).fetch })({ system: '', user: '' })).toEqual({ ok: true, reply: { findings: [] } });
+  });
+
+  it('reads a bare reply, and still says not JSON when the last fenced block or prose holds none', async () => {
+    const ask = (content: string) => lawsModel({ key: 'k', fetch: stubFetch(answer(content)).fetch })({ system: '', user: '' });
+    expect(await ask(' {"findings": []} ')).toEqual({ ok: true, reply: { findings: [] } });
+    expect(await ask('```\n{"findings": []}\n```')).toEqual({ ok: true, reply: { findings: [] } });
+    expect(await ask('```json\n{"findings": []}\n```\n\nOn second thought:\n\n```json\n{"findings": [\n```')).toEqual({ ok: false, why: 'the reply was not JSON' });
+    expect(await ask('Here is my answer: no findings.')).toEqual({ ok: false, why: 'the reply was not JSON' });
+  });
+
   it('is none without OPENROUTER_API_KEY', () => {
     expect(lawsModelFromEnv(null)).toBeNull();
     expect(lawsModelFromEnv({ key: 'k' })).toBeTypeOf('function');
