@@ -301,6 +301,13 @@ each target row, the plan repository's own row excepted:
    is what makes the omni-loop App pass the target's outbox check, linking the plan PR, rather
    than grade the PRD there: the one gate is the plan PR's (`/omni:pr --repo`).
 
+   **The `Merge after` lines.** A consumer target's pull request body carries one
+   `Merge after <owner/repo>#<n>` line for each provider target the plan makes it wait for (a slice of
+   this target blocked by a slice of another target): `<owner/repo>` is the provider's `<slug>` and
+   `<n>` its target feature PR, one line per provider, in the plan's order, as `/omni:mega-bug-fix`
+   writes them, after the `Part of` line. A target that waits for none gets no line. A provider's
+   target feature PR must exist first, so open the providers' before the consumers'.
+
 **A plan of more than one landing** (`node .omni-loop/bin/omni.mjs plan landings <n> --json` lists
 more than one) is delivered per target as that target's own chain of landings, each built as
 `/omni:yolo`'s **Landings** says. For each target, read its chain:
@@ -356,6 +363,16 @@ For each target with a slice merged into its feature branch, in a detached workt
    push's run** says (item 3 just pushed), then every `after` hook; a `not ok` leaves the target
    PR in draft and the target **stuck**, naming the hook. Then follow `/omni:pr --repo <slug>`'s lifecycle until
    its CI is green or it is stuck. This is the only place a target feature PR is marked ready.
+
+   **Held by a provider.** A consumer target's PR carries its `Merge after` lines (step 2), so run
+   `node .omni-loop/bin/omni.mjs hold <owner/repo>#<n> --json` from the plan repository before `gh pr ready`, and follow it as
+   `/omni:pr`'s **Held by a provider** says: each probe it names through
+   `flow show merge-after.served` and `flow verdict merge-after.served`, ready only when every row
+   is clear or passes. Held, it **stays a draft**, its status comment saying
+   `waiting for <owner/repo>#<n> to be served: <why>`, and is not stuck: the run carries on with the
+   other targets, and the plan PR waits, as for a landing whose previous one is open, until it is
+   ready or merged (`/omni:mega-drive` reads the hold again each tick). A `fail` raises one high
+   outbox item naming both pull requests, in the plan repository's outbox.
 
 **Landings in a target.** Each landing of a target's chain is finished on its own branch, items 1
 to 4 (item 1 meets its base: the previous landing's branch while that one is open, the target's

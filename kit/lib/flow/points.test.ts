@@ -4,13 +4,13 @@ import { FLOW_POINTS, flowPoint } from './points.ts';
 describe('the catalog of flow points', () => {
   it('lists the points of the spec, in order', () => {
     expect(FLOW_POINTS.map(({ point }) => point)).toEqual([
-      'plan.slice', 'plan.done', 'do-work.start', 'do-work.test', 'do-work.review', 'do-work.ready', 'pr.open', 'wave.merge', 'bug-fix.reproduce', 'bug-fix.review', 'bug-fix.proof', 'yolo.ready',
+      'plan.slice', 'plan.done', 'do-work.start', 'do-work.test', 'do-work.review', 'do-work.ready', 'pr.open', 'wave.merge', 'bug-fix.reproduce', 'bug-fix.review', 'bug-fix.proof', 'yolo.ready', 'merge-after.served',
     ]);
   });
 
-  it('allows replace at do-work.test, pr.open, wave.merge and bug-fix.proof only, each naming what it must produce', () => {
+  it('allows replace at do-work.test, pr.open, wave.merge, bug-fix.proof and merge-after.served only, each naming what it must produce', () => {
     const replaceable = FLOW_POINTS.filter(({ modes }) => modes.includes('replace'));
-    expect(replaceable.map(({ point }) => point)).toEqual(['do-work.test', 'pr.open', 'wave.merge', 'bug-fix.proof']);
+    expect(replaceable.map(({ point }) => point)).toEqual(['do-work.test', 'pr.open', 'wave.merge', 'bug-fix.proof', 'merge-after.served']);
     for (const { outputs } of replaceable) expect(outputs.length).toBeGreaterThan(0);
     for (const { modes, outputs } of FLOW_POINTS.filter(({ modes }) => !modes.includes('replace'))) {
       expect(modes).toEqual(['before', 'after']);
@@ -32,6 +32,7 @@ describe('the catalog of flow points', () => {
       'bug-fix.review': ['bug-fix', 'mega-bug-fix'],
       'bug-fix.proof': ['bug-fix', 'mega-bug-fix'],
       'yolo.ready': ['yolo', 'ultra-yolo'],
+      'merge-after.served': ['pr', 'ultra-yolo', 'mega-bug-fix', 'mega-pr-care'],
     });
     for (const { inputs } of FLOW_POINTS) expect(inputs.length).toBeGreaterThan(0);
   });
@@ -52,6 +53,12 @@ describe('the catalog of flow points', () => {
     expect(outputs).toContain('after.*');
     expect(outputs).toContain('env:');
     expect(outputs).toContain('the verdict line');
+  });
+
+  it('hands merge-after.served, the provider\'s probe, its inputs, replace and after only, and lets it alone answer wait (PRD 2746)', () => {
+    expect(flowPoint('merge-after.served')).toMatchObject({ modes: ['replace', 'after'], inputs: ['provider', 'pr', 'merge-sha', 'consumer'], waits: true });
+    expect(flowPoint('merge-after.served')?.outputs.join(' · ')).toContain('the verdict line');
+    expect(FLOW_POINTS.filter(({ waits }) => waits === true).map(({ point }) => point)).toEqual(['merge-after.served']);
   });
 
   it('finds a point by its name, and nothing for an unknown one', () => {

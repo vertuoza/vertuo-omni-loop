@@ -1022,7 +1022,15 @@ var FLOW_POINTS = Object.freeze([
     inputs: ["issue", "base", "head", "pr", "targets", "reproduction", "out"],
     outputs: ["before.* and after.* in {out}, the two recordings omni bug film reads", "an env: line, the preview environment's URL and lifetime", "the verdict line"]
   },
-  { point: "yolo.ready", skills: ["yolo", "ultra-yolo"], modes: EXTEND, inputs: ["prd", "pr"], outputs: [] }
+  { point: "yolo.ready", skills: ["yolo", "ultra-yolo"], modes: EXTEND, inputs: ["prd", "pr"], outputs: [] },
+  {
+    point: "merge-after.served",
+    skills: ["pr", "ultra-yolo", "mega-bug-fix", "mega-pr-care"],
+    modes: ["replace", "after"],
+    inputs: ["provider", "pr", "merge-sha", "consumer"],
+    outputs: ["the verdict line: pass, wait <why> or fail <why>"],
+    waits: true
+  }
 ]);
 function flowPoint(name) {
   return FLOW_POINTS.find(({ point }) => point === name);
@@ -1084,6 +1092,8 @@ var hooksSection = z5.record(z5.string(), pointHooks).superRefine((hooks, issues
     for (const { key, mode, ref } of eachHook(name, value)) {
       if (mode === "replace" && !point.modes.includes("replace")) {
         issues.addIssue({ code: "custom", path: key, message: `${name} takes before and after hooks only: its act is never replaced` });
+      } else if (!point.modes.includes(mode)) {
+        issues.addIssue({ code: "custom", path: key, message: `${name} takes ${point.modes.join(" and ")} hooks only` });
       }
       const problem = hookRefProblem(ref);
       if (problem) issues.addIssue({ code: "custom", path: key, message: problem });

@@ -269,6 +269,34 @@ while every other step runs, and the PR it waits on is named in two places:
 
 The roadmap's page gets the same line from step 4.
 
+**Held on a provider.** A feature PR that carries `Merge after <owner/repo>#<n>` lines stays a draft
+until each provider is merged and served (`omni hold`, PRD 2746). Each tick, for each PRD whose
+feature PR is open and not ready (`omni care state <prd>` names it, `pr.number`), read the hold
+before anything marks it ready:
+
+```bash
+node .omni-loop/bin/omni.mjs hold <repo.slug>#<pr> --json
+```
+
+It runs nothing of a provider and writes nothing. Read the JSON object's `verdict.kind`:
+
+- **`clear`**, or `probe` once each hook it names was followed and passed (as `/omni:pr`'s Done row
+  follows them): a step agent marks the PR ready through `/omni:pr`. Never mark it ready here.
+- **`held`**, **`fail`** or **`not judged`**: it parks it, writing one line on the feature PR's status
+  comment, with `/omni:pr`'s **The status comment** recipe: `- loop: parked · waiting for
+  <owner/repo>#<n> to be served: <why>`, `<why>` being the row `omni hold` printed, plus `since <date>`,
+  the date of the first tick that read it, kept as it is on every rewrite. Send it to the Loop page
+  with `loop push park --prd <prd> --who "<owner/repo>#<n>" --what "to be served: <why>"`. The next
+  tick reads it again, so the park is rewritten when the row changes.
+- **`probe` still on `wait`** for longer than `limits.stallDays` (`omni config limits.stallDays`):
+  the status comment line says `- loop: stuck · waiting for <owner/repo>#<n> to be served: <why>`,
+  naming the provider and the last reason the probe gave, and the PRD is listed that way in step 5.
+- **`fail`** (a provider closed unmerged): the skill that read it raised the one high outbox item,
+  naming both pull requests: never raise a second one, and never answer it.
+
+It is a fact read from GitHub or the probe, never a decision: it says nothing about merging, which
+stays a person's. Nothing else notifies anyone.
+
 ## 4. Record the tick
 
 The PRD's page is the link `omni dossier link <prd>` prints; when it prints `none` or cannot reach
@@ -357,7 +385,7 @@ in its own worktree.
 ## Guardrails
 
 - **Never merge into `repo.defaultBranch`,** and never mark a feature PR ready but through
-  `/omni:yolo`: merging is a person's.
+  `/omni:yolo` (or `/omni:pr`, once `omni hold` reads it clear): merging is a person's.
 - **Never add `labels.outboxGo`,** and **never answer the outbox**: its questions are a person's,
   on the Omni page or the pull request. A PRD waiting on them parks.
 - **Never push while a wave holds claims:** the skill a step agent runs keeps that rule
