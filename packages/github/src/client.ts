@@ -3,10 +3,14 @@
 // `installation`, whose budget the call spends, and `priority`, `interactive` (a person waits on the
 // answer) or `background` (the sync, a recount, a refresh, a check).
 //
-// - A GET is sent with the stored ETag of its (installation, URL) as If-None-Match; a 304, which GitHub
-//   does not count, answers the stored body. A 200 with an ETag is stored, unless its body is over
-//   MAX_STORED_BODY (a list page that changes on every update). GraphQL is never stored. A 304 marks
-//   its ETag read at most once every TOUCH_EVERY_MS: the mark only keeps it from the sync's prune.
+// - A GET is sent with the stored ETag of its (installation, URL) as If-None-Match; a 304 answers the
+//   stored body. A 200 with an ETag is stored, unless its body is over MAX_STORED_BODY (a list page that
+//   changes on every update). GraphQL is never stored. A 304 marks its ETag read at most once every
+//   TOUCH_EVERY_MS: the mark only keeps it from the sync's prune. GitHub counts a 304 against the hour as
+//   any answer, and an ETag only matches the token that read it, which each run mints anew (bug #2766).
+// - A Git object named by its sha (`/git/blobs/<sha>`, `/git/trees/<sha>`) never changes: once stored, it
+//   is answered from the store and nothing is sent, the budget not even read. A snapshot reads hundreds
+//   of them per check, the same ones on every push. A tree named by a branch is asked for as any read.
 // - Every answer's x-ratelimit-* headers update the installation's budget for the answer's resource,
 //   when they say something the stored budget does not (worthWriting): a write per answer cost the
 //   database a sixth of its time (#1851).
@@ -155,6 +159,15 @@ function refusal(budget: StoredBudget | null, priority: Priority, now: number): 
   return priority === 'background' && belowFloor ? new GithubDeferred(budget.resetAt) : null;
 }
 
+/** A Git object named by its 40-hex sha, which never changes: a blob, or a tree (listed recursively or not). */
+const GIT_OBJECT = /\/git\/(?:blobs|trees)\/[0-9a-f]{40}$/i;
+const isGitObject = (url: string): boolean => GIT_OBJECT.test(new URL(url).pathname);
+
+/** The stored body of a Git object, as the 200 GitHub answered it with. */
+function storedObject(kept: StoredEtag): Response {
+  return new Response(kept.body, { status: 200, headers: { 'content-type': kept.contentType ?? 'application/json', etag: kept.etag } });
+}
+
 /** The stored body answering a 304, as the 200 it stands for. */
 function fromStore(res: Response, kept: StoredEtag): Response {
   const out = new Headers(res.headers);
@@ -217,11 +230,16 @@ export function githubClient({ store, fetch: send = (url, init) => globalThis.fe
     const { installation, priority, ...rest } = init;
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
+    const etag = await conditionalOf(installation, url, resource, rest.method);
+    if (etag.kept && isGitObject(url)) {
+      const at = clock();
+      if (at - etag.kept.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at));
+      return storedObject(etag.kept);
+    }
     const known = await stored((s) => s.budget(installation, resource));
     const refused = refusal(known, priority, clock());
     if (refused) throw refused;
 
-    const etag = await conditionalOf(installation, url, resource, rest.method);
     // The caller's headers go out as given; a stored ETag adds one, as a plain object of lowercase names.
     const headers = etag.kept ? { ...plainHeaders(rest.headers), 'if-none-match': etag.kept.etag } : rest.headers;
     const res = await send(url, headers === undefined ? rest : { ...rest, headers });

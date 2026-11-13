@@ -550,6 +550,11 @@ function refusal(budget, priority, now) {
   const belowFloor = budget.resetAt > now && budget.remaining < budget.limit * BACKGROUND_FLOOR;
   return priority === "background" && belowFloor ? new GithubDeferred(budget.resetAt) : null;
 }
+var GIT_OBJECT = /\/git\/(?:blobs|trees)\/[0-9a-f]{40}$/i;
+var isGitObject = (url) => GIT_OBJECT.test(new URL(url).pathname);
+function storedObject(kept3) {
+  return new Response(kept3.body, { status: 200, headers: { "content-type": kept3.contentType ?? "application/json", etag: kept3.etag } });
+}
 function fromStore(res, kept3) {
   const out = new Headers(res.headers);
   out.set("content-type", kept3.contentType ?? "application/json");
@@ -603,10 +608,15 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const { installation, priority, ...rest } = init;
     if (!Number.isInteger(installation) || installation < 1) throw new Error(`githubFetch needs the installation whose budget it spends, not ${JSON.stringify(installation)}`);
     const resource = resourceOf(url);
+    const etag = await conditionalOf(installation, url, resource, rest.method);
+    if (etag.kept && isGitObject(url)) {
+      const at4 = clock();
+      if (at4 - etag.kept.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at4));
+      return storedObject(etag.kept);
+    }
     const known = await stored((s) => s.budget(installation, resource));
     const refused7 = refusal(known, priority, clock());
     if (refused7) throw refused7;
-    const etag = await conditionalOf(installation, url, resource, rest.method);
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
     const answered = clock();
@@ -810,11 +820,11 @@ import { createClient } from "@supabase/supabase-js";
 var APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
 function installationOctokitFor(githubApp, github) {
   let app;
-  return async (installationId) => {
+  return async (installationId, priority = "background") => {
     const { id, privateKey } = requireGroup(githubApp, GITHUB_APP, "the app reads GitHub as an installation");
     app ??= new App({ appId: id, privateKey });
     const octokit = await app.getInstallationOctokit(installationId);
-    const budgeted = github.bound({ installation: installationId, priority: "background" });
+    const budgeted = github.bound({ installation: installationId, priority });
     const fetch2 = (url, init) => APP_CALL.test(new URL(url).pathname) ? globalThis.fetch(url, init) : budgeted(url, init);
     octokit.hook.before("request", (options) => {
       options.request = { ...options.request, fetch: fetch2 };
@@ -20300,6 +20310,7 @@ var ServerEventSchema = z77.object({
   at: z77.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 var SERVER_EVENT_TRIGGER = "server-event";
+var GONE = /* @__PURE__ */ new Set([404, 410]);
 function refusalIn2(error, depth = 0) {
   if (error instanceof GithubPaused || error instanceof GithubDeferred) return error;
   return error instanceof Error && depth < 3 ? refusalIn2(error.cause, depth + 1) : null;
@@ -20308,6 +20319,22 @@ async function keptOf(octokit, pull, prdId) {
   const [owner = "", repo = ""] = pull.repository.split("/");
   const read = await readPull2(octokit, { owner, repo, prNumber: parsePr(pull.number) });
   return productPrdOf(read.body)?.id === prdId ? { ...pull, headSha: read.headSha } : null;
+}
+var GONE_PULL = "gone";
+async function readTarget3({ octokitFor, log: log2 }, { installationId, prdId }, pull) {
+  const where = `${pull.repository}#${String(pull.number)}`;
+  try {
+    return await keptOf(await octokitFor(installationId), pull, prdId);
+  } catch (error) {
+    const status = statusOf(error);
+    if (GONE.has(status)) {
+      log2(`server event: ${where} is left out: GitHub answers ${String(status)}, it is gone or the App cannot read it`);
+      return GONE_PULL;
+    }
+    const refused7 = refusalIn2(error);
+    if (refused7) log2(`server event: ${where} waits for the GitHub budget: ${refused7.message}`);
+    throw error;
+  }
 }
 function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, log: log2 = noteTo("server-event-recheck") }) {
   return async (job) => {
@@ -20319,18 +20346,16 @@ function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, lo
     const targets = await readTargets2(dossier);
     if (!targets) return { outcome: "skipped", reason: `dossier ${dossier} is no product PRD's` };
     const kept3 = [];
+    let leftOut = 0;
     for (const pull of targets.pulls) {
-      const where = `${pull.repository}#${String(pull.number)}`;
-      try {
-        const found = await keptOf(await octokitFor(targets.installationId), pull, targets.prdId);
-        if (found) kept3.push(found);
-      } catch (error) {
-        const refused7 = refusalIn2(error);
-        if (refused7) log2(`server event: ${where} waits for the GitHub budget: ${refused7.message}`);
-        throw error;
-      }
+      const found = await readTarget3({ octokitFor, log: log2 }, targets, pull);
+      if (found === GONE_PULL) leftOut += 1;
+      else if (found) kept3.push(found);
     }
-    if (kept3.length === 0) return { outcome: "skipped", reason: `no open pull request names ${targets.prdId}` };
+    if (kept3.length === 0) {
+      const gone = leftOut === 0 ? "" : ` (${String(leftOut)} left out: GitHub answers 404 or 410 for them)`;
+      return { outcome: "skipped", reason: `no open pull request names ${targets.prdId}${gone}` };
+    }
     for (const { repository, number, headSha } of kept3) {
       const [owner = "", repo = ""] = repository.split("/");
       const request = { installationId: targets.installationId, owner, repo, repository, prNumber: parsePr(number), headSha, trigger: SERVER_EVENT_TRIGGER };
@@ -20786,7 +20811,9 @@ function serverEventRecheck(ledger) {
     for (const job of prCheckJobs(request, 0)) await ledger.refresh(job);
   };
 }
-function prCheckWorkers({ octokitFor, readProductOutbox = null, readRecord: readRecord2 = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask: ask3, canon = null, laws = null }) {
+var foreground = (octokitFor) => (installationId) => octokitFor(installationId, "interactive");
+function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = null, readRecord: readRecord2 = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask: ask3, canon = null, laws = null }) {
+  const octokitFor = foreground(anyPriority);
   return {
     handlers: {
       [OUTBOX_KIND]: outboxHandler({ octokitFor, readProductOutbox, galaxyUrl }),

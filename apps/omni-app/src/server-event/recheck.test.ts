@@ -12,6 +12,7 @@ import type { ClaimedJob, Finish, JobLedger, RefreshJob } from '../jobs/ledger.t
 import { liveWorkers, PR_CHECK_KINDS, prCheckWorkers, serverEventRecheck, type PrCheckDeps } from '../jobs/pr-checks.ts';
 import { runDue, type JobResult } from '../jobs/worker.ts';
 import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
+import type { GitHubClient } from '../outbox-check/github-schema.ts';
 import { stdoutLines } from '../run-log/capture.ts';
 import { SERVER_EVENT_KIND, SERVER_EVENT_TRIGGER, serverEventHandler, type ServerEventDeps } from './job.ts';
 import { receiveServerEvent, SERVER_SIGNATURE_HEADER } from './server-event.ts';
@@ -100,14 +101,27 @@ const noGitHub: ServerEventDeps['octokitFor'] = () => {
   throw new Error('no GitHub');
 };
 
-function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/x', targets = TARGETS, refuse = false, deps = null }: { body?: string; targets?: PrdTargets | null; refuse?: boolean; deps?: Omit<PrCheckDeps, 'octokitFor'> | null } = {}) {
+/** GitHub's answer to a pull request it refuses, as Octokit throws it: its status and its message. */
+function refusal(status: number): Error & { status: number } {
+  const message = status === 404 ? 'Not Found - https://docs.github.com/rest/pulls/pulls#get-a-pull-request' : 'Service Unavailable';
+  return Object.assign(new Error(message), { status });
+}
+
+function setUp({ body = 'Offline upload.\n\nPart of mobile-12 · https://galaxy.example/prd/x', targets = TARGETS, refuse = false, deps = null, refused = {} }: { body?: string; targets?: PrdTargets | null; refuse?: boolean; deps?: Omit<PrCheckDeps, 'octokitFor'> | null; refused?: Record<number, number> } = {}) {
   const github = fakeGitHub({ commits: { base1: configCommit() }, pull: { number: 446, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/offline-upload', sha: 'head9' }, labels: [], body } as never });
   const reads: string[] = [];
   const logged: string[] = [];
+  /** The fake, save the pull requests `refused` names, which GitHub answers with that status. */
+  const octokit: GitHubClient = {
+    request: (route, params) => {
+      const status = refused[Number(params?.pull_number)];
+      return status === undefined ? github.octokit.request(route, params) : Promise.reject(refusal(status));
+    },
+  };
   const octokitFor = (installationId: number) => {
     reads.push(`installation ${installationId}`);
     if (refuse) throw new GithubDeferred(Date.parse('2026-10-11T10:05:00.000Z'));
-    return github.octokit;
+    return octokit;
   };
   const ledger = ledgerOf(deps ? { ...deps, octokitFor: () => github.octokit, galaxyUrl: 'https://galaxy.example' } : null);
   const handler = serverEventHandler({
@@ -221,6 +235,33 @@ describe('server-event — an approval, a void, an item opened or settled re-pos
     expect(finished).toEqual([expect.objectContaining({ outcome: 'waiting' })]);
     expect(run.logged).toEqual(['server event: acme/api#446 waits for the GitHub budget: GitHub budget below its background floor until 2026-10-11T10:05:00.000Z']);
     expect(run.refreshed).toEqual([]);
+  });
+});
+
+describe('server-event — a target pull request GitHub answers Not Found (bug #2764)', () => {
+  const TWO: PrdTargets = { ...TARGETS, pulls: [{ repository: 'acme/api', number: 445 }, { repository: 'acme/api', number: 446 }] };
+
+  it('leaves out a pull request GitHub answers 404 or 410, re-checks the others, and says which in the log', async () => {
+    for (const status of [404, 410]) {
+      const run = setUp({ targets: TWO, refused: { 445: status } });
+      expect(await run.recheck(await post('item-settled'))).toEqual({ outcome: 'done' });
+      expect(run.refreshed.map((job) => job.key)).toEqual(PR_CHECK_KINDS.map(() => 'acme/api#446'));
+      expect(run.logged).toEqual([`server event: acme/api#445 is left out: GitHub answers ${String(status)}, it is gone or the App cannot read it`]);
+    }
+  });
+
+  it('ends skipped, saying why, when GitHub answers 404 for every target pull request: it spends no try', async () => {
+    const run = setUp({ targets: TWO, refused: { 445: 404, 446: 404 } });
+    expect(await run.recheck(await post('approved'))).toEqual({ outcome: 'skipped', reason: 'no open pull request names mobile-12 (2 left out: GitHub answers 404 or 410 for them)' });
+    expect(run.refreshed).toEqual([]);
+  });
+
+  it('keeps a 5xx a retry: the job throws, so the worker tries it again', async () => {
+    for (const status of [500, 502, 503]) {
+      const run = setUp({ targets: TWO, refused: { 445: status } });
+      await expect(run.recheck(await post('approved'))).rejects.toMatchObject({ status });
+      expect(run.refreshed).toEqual([]);
+    }
   });
 });
 

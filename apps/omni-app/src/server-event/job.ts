@@ -19,8 +19,10 @@
 // moves an approval, and never edits a file an approver read; it only runs the checks again so they show it. A job
 // re-runs whole: refreshing a check's job twice runs it once more, on the same head. The installation's GitHub
 // budget is shared with galaxy (PRD 902): a read it refuses is never sent, the job says so in one line, and the
-// worker makes the job `waiting` until the pause or the window ends. No targets' reader (the App cannot read the
-// server here): the job ends `skipped`, saying why.
+// worker makes the job `waiting` until the pause or the window ends. A pull request GitHub answers 404 or 410 for
+// (gone, or in a repository the App cannot read) is left out and said in the log, and the others are re-checked: it
+// is permanent, so it never spends a try (bug #2764); any other failure, a 5xx among them, is thrown and retried.
+// No targets' reader (the App cannot read the server here): the job ends `skipped`, saying why.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import { z } from 'zod';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
@@ -30,8 +32,9 @@ import { REFRESH_DELAY_SECONDS, type RefreshJob } from '../jobs/ledger.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
+import { statusOf } from '../outbox-check/github-schema.ts';
 import { noteTo } from '../run-log/run-log.ts';
-import type { OpenPull, TargetsReader } from './targets.ts';
+import type { OpenPull, PrdTargets, TargetsReader } from './targets.ts';
 
 export const SERVER_EVENT_KIND = 'server-event';
 
@@ -53,6 +56,9 @@ export const SERVER_EVENT_TRIGGER = 'server-event';
 
 /** A server event's tries: the 4th that throws fails it. */
 const MAX_TRIES = 4;
+
+/** What GitHub answers for a pull request that is gone, or that the App cannot read: permanent, never retried. */
+const GONE: ReadonlySet<unknown> = new Set([404, 410]);
 
 /** A pull request kept: it names the PRD, at this head. */
 type Kept = { repository: string; number: number; headSha: string };
@@ -76,6 +82,33 @@ async function keptOf(octokit: GitHubClient, pull: OpenPull, prdId: string): Pro
   return productPrdOf(read.body)?.id === prdId ? { ...pull, headSha: read.headSha } : null;
 }
 
+/** What `readTarget` answers for a pull request GitHub answers 404 or 410 for. */
+const GONE_PULL = 'gone';
+
+/**
+ * Target `pull` read: kept when it names the PRD, null when it names another or none, `GONE_PULL` (said in the log)
+ * when GitHub answers 404 or 410 for it. Anything else is thrown, a budget's refusal said in the log first.
+ */
+async function readTarget(
+  { octokitFor, log }: { octokitFor: OctokitFor<GitHubClient>; log: (line: string) => void },
+  { installationId, prdId }: PrdTargets,
+  pull: OpenPull,
+): Promise<Kept | null | typeof GONE_PULL> {
+  const where = `${pull.repository}#${String(pull.number)}`;
+  try {
+    return await keptOf(await octokitFor(installationId), pull, prdId);
+  } catch (error) {
+    const status = statusOf(error);
+    if (GONE.has(status)) {
+      log(`server event: ${where} is left out: GitHub answers ${String(status)}, it is gone or the App cannot read it`);
+      return GONE_PULL;
+    }
+    const refused = refusalIn(error);
+    if (refused) log(`server event: ${where} waits for the GitHub budget: ${refused.message}`);
+    throw error;
+  }
+}
+
 export type ServerEventDeps = {
   octokitFor: OctokitFor<GitHubClient>;
   /** The targets' reader; null when the App cannot read the server here, which re-checks nothing. */
@@ -97,18 +130,16 @@ export function serverEventHandler({ octokitFor, readTargets, recheck, log = not
     if (!targets) return { outcome: 'skipped', reason: `dossier ${dossier} is no product PRD's` };
 
     const kept: Kept[] = [];
+    let leftOut = 0;
     for (const pull of targets.pulls) {
-      const where = `${pull.repository}#${String(pull.number)}`;
-      try {
-        const found = await keptOf(await octokitFor(targets.installationId), pull, targets.prdId);
-        if (found) kept.push(found);
-      } catch (error) {
-        const refused = refusalIn(error);
-        if (refused) log(`server event: ${where} waits for the GitHub budget: ${refused.message}`);
-        throw error;
-      }
+      const found = await readTarget({ octokitFor, log }, targets, pull);
+      if (found === GONE_PULL) leftOut += 1;
+      else if (found) kept.push(found);
     }
-    if (kept.length === 0) return { outcome: 'skipped', reason: `no open pull request names ${targets.prdId}` };
+    if (kept.length === 0) {
+      const gone = leftOut === 0 ? '' : ` (${String(leftOut)} left out: GitHub answers 404 or 410 for them)`;
+      return { outcome: 'skipped', reason: `no open pull request names ${targets.prdId}${gone}` };
+    }
 
     for (const { repository, number, headSha } of kept) {
       const [owner = '', repo = ''] = repository.split('/');
