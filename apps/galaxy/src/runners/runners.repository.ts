@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { JobPartSchema, QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type Question } from './runners.contract';
+import { CheckpointManifestSchema, JobPartSchema, QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type CheckpointManifest, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -509,3 +509,68 @@ export function continuationsRepository(db: RunnersDb) {
 }
 
 export type ContinuationsRepository = ReturnType<typeof continuationsRepository>;
+
+/** The bucket a job's save goes to (PRD 2809, s4; supabase/migrations/20270120103000_runner_checkpoints.sql). */
+const CHECKPOINTS_BUCKET = 'runner-checkpoints';
+
+/** What the checkpoints' storage needs: the database's function, and the storage to sign links with. */
+export type CheckpointsDb = Pick<SupabaseClient, 'rpc' | 'storage'>;
+
+/** A job's save as runner_checkpoints holds it (PRD 2809, s4). A manifest out of shape reads as none. */
+const CheckpointRowSchema = z.object({
+  id: z.string(),
+  job_id: z.string(),
+  workspace_id: z.string(),
+  runner_id: z.string().nullable(),
+  kind: z.enum(['portable', 'local']),
+  manifest: CheckpointManifestSchema.nullable().catch(null),
+  bytes: z.number(),
+  storage_path: z.string().nullable(),
+  keep_until: z.string(),
+  deleted_at: z.string().nullable(),
+});
+export type CheckpointRow = z.infer<typeof CheckpointRowSchema>;
+
+/** A save to record: its job and the runner that holds it, its kind, its manifest, its bytes, its bundle's path (a portable one only) and until when it is kept. */
+export type CheckpointSave = { job: string; runner: string; kind: 'portable' | 'local'; manifest: CheckpointManifest; bytes: number; path: string | null; keepUntil: string };
+
+/** Why runner_checkpoint_record() refused, in its words: `missing` no job of this runner (P0002), `malformed` a save out of shape or a bundle not uploaded (22023), `conflict` a save already in the bucket (55000). */
+export type Recorded = { ok: true; value: CheckpointRow } | { ok: false; refusal: 'missing' | 'malformed' | 'conflict'; error: string };
+
+const CHECKPOINT_REFUSALS: Partial<Record<string, 'missing' | 'malformed' | 'conflict'>> = { P0002: 'missing', '22023': 'malformed', '55000': 'conflict' };
+
+/** What runner_checkpoint_record() answered: the row, its refusal in its words, anything else thrown, naming the call. */
+async function recordedBy(call: PromiseLike<Raw>): Promise<Recorded> {
+  const { data, error } = await call;
+  if (error) {
+    const refusal = error.code === undefined ? undefined : CHECKPOINT_REFUSALS[error.code];
+    if (refusal) return { ok: false, refusal, error: error.message ?? refusal };
+    throw new Error(`runner_checkpoint_record: ${error.message ?? error.code ?? 'the database refused'}`);
+  }
+  return { ok: true, value: await parsed(Promise.resolve({ data, error: null }), CheckpointRowSchema, 'runner_checkpoint_record') };
+}
+
+/**
+ * The checkpoints' storage (PRD 2809, s4), a port of its own beside the runners': a signed upload link to the private
+ * bucket, and the save recorded through runner_checkpoint_record(), whose refusals are rules of the database, answered
+ * in its words; anything else throws, naming the call.
+ */
+export function checkpointsRepository(db: CheckpointsDb) {
+  return {
+    /** A signed link that uploads one object at `path`, and never replaces one already there; throws when the storage gives none. */
+    signUpload: async (path: string): Promise<{ url: string }> => {
+      const { data, error } = await db.storage.from(CHECKPOINTS_BUCKET).createSignedUploadUrl(path);
+      // The link as it came: nothing parsed it, so an answer with none is refused.
+      const link: { signedUrl: string } | null = data;
+      if (error || !link) throw new Error(`${CHECKPOINTS_BUCKET}: ${error?.message ?? 'no link came back'}`);
+      return { url: link.signedUrl };
+    },
+
+    /** Records the save; the database's refusal in its words. */
+    record: (save: CheckpointSave): Promise<Recorded> => recordedBy(db.rpc('runner_checkpoint_record', {
+      p_job: save.job, p_runner: save.runner, p_kind: save.kind, p_manifest: save.manifest, p_bytes: save.bytes, p_path: save.path ?? undefined, p_keep_until: save.keepUntil,
+    })),
+  };
+}
+
+export type CheckpointsRepository = ReturnType<typeof checkpointsRepository>;

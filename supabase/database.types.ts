@@ -4290,6 +4290,73 @@ export type Database = {
           },
         ]
       }
+      runner_checkpoints: {
+        Row: {
+          bytes: number
+          created_at: string
+          deleted_at: string | null
+          id: string
+          job_id: string
+          keep_until: string
+          kind: string
+          manifest: Json
+          runner_id: string | null
+          storage_path: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          bytes: number
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          job_id: string
+          keep_until: string
+          kind: string
+          manifest: Json
+          runner_id?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          bytes?: number
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          job_id?: string
+          keep_until?: string
+          kind?: string
+          manifest?: Json
+          runner_id?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_checkpoints_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_checkpoints_runner_id_fkey"
+            columns: ["runner_id"]
+            isOneToOne: false
+            referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_checkpoints_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runner_job_lines: {
         Row: {
           at: string
@@ -7840,6 +7907,37 @@ export type Database = {
         Returns: Json
       }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }
+      runner_checkpoint_record: {
+        Args: {
+          p_bytes: number
+          p_job: string
+          p_keep_until: string
+          p_kind: string
+          p_manifest: Json
+          p_path: string
+          p_runner: string
+        }
+        Returns: {
+          bytes: number
+          created_at: string
+          deleted_at: string | null
+          id: string
+          job_id: string
+          keep_until: string
+          kind: string
+          manifest: Json
+          runner_id: string | null
+          storage_path: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "runner_checkpoints"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       runner_claim: {
         Args: { p_registered_at?: string; p_runner: string }
         Returns: {

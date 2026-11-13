@@ -24,6 +24,7 @@ import type { Fetch, TokenStore } from '../ask/client.ts';
 import { field, jsonObject } from '../ask/schema.ts';
 import type { JsonObject } from '../ask/schema.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
+import type { CheckpointManifest } from './checkpoint.manifest.ts';
 import type { Sample } from './health.ts';
 import type { BugFixOutcome, RunOutcome } from './log.ts';
 import type { JobQuestionList } from './questions.ts';
@@ -360,6 +361,70 @@ export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
       const reply = z.object({ job: z.object({ id: z.union([z.string().min(1), z.number()]).transform(String) }) }).safeParse(await json(response));
       if (!reply.success) throw new RunnerRefused('refused (the app answered no job)');
       return { id: reply.data.job.id };
+    },
+  };
+}
+
+/** A signed link to upload one save's bundle to (PRD 2809, s4): its path in the bucket, the link, and when it stops working. */
+const CheckpointLinkSchema = z.object({
+  path: z.string().min(1),
+  url: z.url({ protocol: /^https?$/ }),
+  expiresAt: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'a date'),
+});
+export type CheckpointLink = z.output<typeof CheckpointLinkSchema>;
+
+/** A save as the app recorded it: its id, its kind and until when it is kept. */
+const RecordedSaveSchema = z.object({ id: z.string().min(1), kind: z.enum(['portable', 'local']), keepUntil: z.string() });
+export type RecordedSave = z.output<typeof RecordedSaveSchema>;
+
+/** What the runner records of a save: a portable one at the path its bundle was uploaded to, or a local one. */
+export type SaveRecord = { kind: 'portable'; path: string; manifest: CheckpointManifest } | { kind: 'local'; manifest: CheckpointManifest };
+
+export type CheckpointApi = {
+  /** A signed upload link for a bundle of `bytes` (`POST /api/runners/jobs/<id>/checkpoint`): throws `RunnerRefused` with the app's words, or `RunnerUnreachable`. */
+  link(job: string, bytes: number): Promise<CheckpointLink>;
+  /** Sends the bundle to the link, with no sign-in: the link is the permission. A storage that refuses throws `RunnerRefused`; one out of reach, `RunnerUnreachable`. */
+  upload(link: CheckpointLink, bundle: Uint8Array<ArrayBuffer>): Promise<void>;
+  /** Records the save's manifest: throws as `link` does. */
+  record(job: string, save: SaveRecord): Promise<RecordedSave>;
+};
+
+/** How long a bundle's upload may take: 100 MB on a slow line. */
+const UPLOAD_MS = 10 * 60_000;
+
+/**
+ * A job's save (PRD 2809, s4): the app's `POST /api/runners/jobs/<job>/checkpoint`, with the runner's sign-in, first for
+ * a signed upload link, then to record the manifest; between them the bundle goes to the link itself, with no
+ * sign-in, so the runner's token never reaches the storage.
+ */
+export function checkpointApi(wiring: Wiring): CheckpointApi {
+  const { call, json, segment } = transport(wiring);
+  const route = (job: string): string => `/api/runners/jobs/${segment(job)}/checkpoint`;
+  return {
+    async link(job, bytes) {
+      const reply = CheckpointLinkSchema.safeParse(await json(await call('POST', route(job), { body: { step: 'link', bytes }, words: true })));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no link)');
+      return reply.data;
+    },
+    async upload(link, bundle) {
+      let response: Response;
+      try {
+        response = await wiring.fetch(link.url, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/octet-stream', 'x-upsert': 'false' },
+          body: bundle,
+          signal: AbortSignal.timeout(UPLOAD_MS),
+        });
+      } catch (error) {
+        throw new RunnerUnreachable(timedOut(error) ? 'the storage timed out' : 'the storage is unreachable');
+      }
+      if (response.status >= 500) throw new RunnerUnreachable(`the storage answered ${String(response.status)}`);
+      if (!response.ok) throw new RunnerRefused(`the storage refused the bundle (${String(response.status)})`);
+    },
+    async record(job, save) {
+      const reply = RecordedSaveSchema.safeParse(await json(await call('POST', route(job), { body: { step: 'record', ...save }, words: true })));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no save)');
+      return reply.data;
     },
   };
 }

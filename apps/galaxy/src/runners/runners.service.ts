@@ -83,14 +83,14 @@
 //   claimed or running, and refuses one that ended, whatever its status (PRD 2809 s3).
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
+  CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointRecordReply, type CheckpointRequest, checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
 import type { AppCredentials, AppInstallation, MintedToken } from '../public-api/keys/github-app';
 import { shouldContinue, unansweredWhy } from './continue';
-import type { AppOfJob, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { AppOfJob, CheckpointsRepository, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -1293,3 +1293,64 @@ export function continuationsService(store: RunnersRepository, continuations: Co
     },
   };
 }
+
+/** How long a signed upload link works: the storage gives every one 2 hours, which no option shortens (PRD 2809, s4). */
+export const SIGNED_UPLOAD_MS = 2 * 60 * 60 * 1000;
+/** How long a save is kept: its bundle in the bucket, or its folder on its runner (PRD 2809, s4). */
+const CHECKPOINT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+const OVER_CAP = 'This save is over 100 MB: keep it on the runner.';
+const NOT_THIS_JOB = 'The manifest names another job, or another kind of save.';
+
+/**
+ * A job's save (PRD 2809, s4; supabase/migrations/20270120103000_runner_checkpoints.sql): only the owner of the runner
+ * that holds the job, whatever the job's status (a lost job's runner saves it once it is back), gets a signed upload link
+ * to the private bucket, at `<workspace>/<job>/<random id>.bundle`, for a bundle of 100 MB at most, then records the
+ * save: `portable` at its bundle, its bytes the bundle's, kept 7 days; `local`, its bytes what it takes of the runner,
+ * kept until the runner says, 7 days at most. The manifest must name the job and the kind it is recorded as; the
+ * database refuses a bundle that is not in the bucket at a path of the job's own folder, and a local save after a portable one.
+ */
+export function checkpointsService(
+  store: Pick<RunnersRepository, 'job' | 'runner'>, checkpoints: CheckpointsRepository, clock: Pick<Clock, 'now'>, newId: () => string = () => crypto.randomUUID(),
+) {
+  const at = (ms: number) => new Date(clock.now().getTime() + ms).toISOString();
+
+  /** The job and the runner that holds it, when the caller owns that runner; why not otherwise. */
+  async function held(caller: string, jobId: string): Promise<Served<{ job: JobRow; runner: string }>> {
+    const job = await store.job(jobId);
+    if (!job) return no('missing', 'No such job.');
+    const runner = job.runner_id === null ? null : await store.runner(job.runner_id);
+    return runner?.owner === caller ? ok({ job, runner: runner.id }) : no('forbidden', 'This job was claimed by none of your runners.');
+  }
+
+  return {
+    /** A signed upload link for a bundle of `bytes`, for the owner of the job's runner. */
+    async link(caller: string, jobId: string, bytes: number): Promise<Served<CheckpointLinkReply>> {
+      const found = await held(caller, jobId);
+      if (!found.ok) return found;
+      if (bytes > CHECKPOINT_BYTES_MAX) return no('malformed', OVER_CAP);
+      const path = `${found.value.job.workspace_id}/${found.value.job.id}/${newId()}.bundle`;
+      const { url } = await checkpoints.signUpload(path);
+      return ok({ path, url, expiresAt: at(SIGNED_UPLOAD_MS) });
+    },
+
+    /** Records the save the owner of the job's runner sends; the database's refusal in its words. */
+    async record(caller: string, jobId: string, request: Extract<CheckpointRequest, { step: 'record' }>): Promise<Served<CheckpointRecordReply>> {
+      const found = await held(caller, jobId);
+      if (!found.ok) return found;
+      const { manifest } = request;
+      if (manifest.job !== jobId || manifest.kind !== request.kind) return no('malformed', NOT_THIS_JOB);
+      const portable = request.kind === 'portable';
+      const latest = clock.now().getTime() + CHECKPOINT_KEEP_MS;
+      const recorded = await checkpoints.record({
+        job: jobId, runner: found.value.runner, kind: request.kind, manifest,
+        bytes: portable ? manifest.bundleBytes : manifest.bytes,
+        path: portable ? request.path : null,
+        keepUntil: new Date(portable ? latest : Math.min(Date.parse(manifest.keepUntil), latest)).toISOString(),
+      });
+      if (!recorded.ok) return no(recorded.refusal, recorded.error);
+      return ok({ id: recorded.value.id, kind: recorded.value.kind, keepUntil: recorded.value.keep_until });
+    },
+  };
+}
+
+export type CheckpointsService = ReturnType<typeof checkpointsService>;

@@ -416,6 +416,13 @@ jobs:
         # cancel, a refusal, the skill's own failure, a timeout and another skill queue none; runner_claim() hands
         # out no job before its resume_after. Members read the columns, nobody signed in writes them (PRD 2809).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_resume.sql
+      - name: A runner job's save, its bucket, and who reads it
+        # The bucket runner-checkpoints is private, 100 MB an object, bundles only, and no rule on storage.objects names
+        # it. As the service role, runner_checkpoint_record() records a save for the runner that holds its job: local
+        # with its size and a keep_until of 7 days at most, then portable once its bundle is in the bucket at the job's
+        # own folder; it refuses another runner, a bundle not uploaded, another job's path or manifest, and 100 MB and
+        # more. A member reads the rows, a non-member nothing; nobody signed in writes one or reaches a bundle (PRD 2809).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_checkpoints.sql
       - name: A runner job's live lines
         # Members read their workspace's lines, nobody else does, only the service role writes; a line
         # sent twice is stored once, retention keeps the listed jobs' lines, a deleted job takes its

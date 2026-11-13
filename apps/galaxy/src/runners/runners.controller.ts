@@ -2,11 +2,11 @@ import { z } from 'zod';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {
-  AnswerRequestSchema, AskRequestSchema, FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobQuestionsSchema, JobReplySchema,
+  AnswerRequestSchema, AskRequestSchema, CheckpointLinkReplySchema, CheckpointRecordReplySchema, CheckpointRequestSchema, FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobQuestionsSchema, JobReplySchema,
   GithubTokenReplySchema, JobUpdateReplySchema, JobUpdateSchema, KitRunnersSchema, NextQuerySchema, PrdJobsQuerySchema, PrdJobsSchema, RegisterReplySchema, RegisterRequestSchema,
-  RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, RunnersQuerySchema, SendRequestSchema,
+  RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, RunnersQuerySchema, SendRequestSchema, type CheckpointLinkReply, type CheckpointRecordReply,
 } from './runners.contract';
-import type { RunnersService, Served, StepTimer } from './runners.service';
+import type { CheckpointsService, RunnersService, Served, StepTimer } from './runners.service';
 
 // The runners' routes (PRD 1830 s1; ADR-0095), as plain functions of a Request, so they are tested with
 // the real service on a fake store and each route stays one line:
@@ -16,6 +16,7 @@ import type { RunnersService, Served, StepTimer } from './runners.service';
 //   POST  /api/runners/jobs/<id>           the kit's sign-in   a report: status, log tail, live lines, PR link, exit code
 //   POST  /api/runners/<id>/health         the kit's sign-in   the runner's machine, every 15 s (PRD 2102)
 //   POST  /api/runners/jobs/<id>/github-token  the kit's sign-in  a fresh token of the App the job runs as, for the job's own runner (PRD 2433)
+//   POST  /api/runners/jobs/<id>/checkpoint    the kit's sign-in  a job's save: a signed upload link, then its manifest recorded (PRD 2809 s4)
 //   GET   /api/runners/jobs/<id>/lines     either              a job's live lines after `after` (PRD 1904; the kit's, PRD 2251)
 //   GET   /api/runners?repo=               the kit's sign-in   the runners of the repository's workspace (PRD 2251)
 //   GET   /api/runners/jobs?repo=&prd=     the kit's sign-in   the PRD's jobs in the repository, newest first (PRD 2251)
@@ -44,6 +45,8 @@ export type RunnersDeps = {
   session: (() => Promise<string | null>) | null;
   /** The rules, as the service role; null when this deployment has no service role. */
   service: RunnersService | null;
+  /** A job's save (PRD 2809, s4), as the service role; none or null, its route answers 503. */
+  checkpoints?: CheckpointsService | null;
   log: (line: string) => void;
   /** A stopwatch started for each step of a health report, whose steps are logged when they add up to
    * HEALTH_SLOW_MS or more. None, nothing is timed. */
@@ -72,6 +75,7 @@ const BAD_ANSWERS = 'The body must be {"answers": {"<question>": "<answer>", …
 const TOKEN_ANSWERS = 'A token never answers: answer on the Runners page, signed in.';
 const TOKEN_DISMISS = 'A token never dismisses: dismiss on the Runners page, signed in.';
 const BAD_ID = 'No such runner or job.';
+const BAD_CHECKPOINT = 'The body must be {"step": "link", "bytes": <the bundle\'s size>}, or {"step": "record", "kind": "portable", "path": "<where the bundle went>", "manifest": {…}} or {"step": "record", "kind": "local", "manifest": {…}}, the manifest naming this job, its kind, its branches and no credential.';
 
 const IdSchema = z.uuid();
 
@@ -117,14 +121,22 @@ async function personCaller(request: Request, deps: RunnersDeps, words: string):
 }
 
 /** Runs `serve` for the caller and answers its value in `shape`; a refusal in its words, a failure 500. */
-async function answer<T>(
+function answer<T>(
   caller: string | Response, deps: RunnersDeps, shape: z.ZodType,
   serve: (service: RunnersService, caller: string) => Promise<Served<T> | Response>, wrap: (value: T) => unknown = (value) => value,
 ): Promise<Response> {
+  return answerWith(caller, deps, deps.service, shape, serve, wrap);
+}
+
+/** `answer`, on the service `service` given: none is 503, as a deployment without the service role. */
+async function answerWith<S, T>(
+  caller: string | Response, deps: RunnersDeps, service: S | null, shape: z.ZodType,
+  serve: (service: S, caller: string) => Promise<Served<T> | Response>, wrap: (value: T) => unknown = (value) => value,
+): Promise<Response> {
   if (caller instanceof Response) return caller;
-  if (!deps.service) return refuse(RUNNER_REFUSALS.unavailable, NO_SERVICE);
+  if (service === null) return refuse(RUNNER_REFUSALS.unavailable, NO_SERVICE);
   try {
-    const served = await serve(deps.service, caller);
+    const served = await serve(service, caller);
     if (served instanceof Response) return served;
     if (!served.ok) return refuse(RUNNER_REFUSALS[served.kind], served.error);
     return reply(200, shape.parse(wrap(served.value)));
@@ -166,6 +178,19 @@ export async function refreshGithubToken(request: Request, id: string, deps: Run
   return answer(await kitCaller(request, deps), deps, GithubTokenReplySchema, (service, caller) => (
     IdSchema.safeParse(id).success ? service.githubToken(caller, id) : Promise.resolve(refuse(RUNNER_REFUSALS.missing, BAD_ID))
   ));
+}
+
+/**
+ * POST /api/runners/jobs/<id>/checkpoint: a job's save (PRD 2809, s4), from the owner of the runner that holds the job,
+ * whatever its status: `link` answers a signed upload link to the private bucket, `record` records the save's manifest.
+ */
+export async function checkpointJob(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  return answerWith<CheckpointsService, CheckpointLinkReply | CheckpointRecordReply>(await kitCaller(request, deps), deps, deps.checkpoints ?? null, z.union([CheckpointLinkReplySchema, CheckpointRecordReplySchema]), async (checkpoints, caller) => {
+    if (!IdSchema.safeParse(id).success) return refuse(RUNNER_REFUSALS.missing, BAD_ID);
+    const body = await bodyAs(request, CheckpointRequestSchema);
+    if (body === null) return refuse(RUNNER_REFUSALS.malformed, BAD_CHECKPOINT);
+    return body.step === 'link' ? checkpoints.link(caller, id, body.bytes) : checkpoints.record(caller, id, body);
+  });
 }
 
 /** A health report whose steps add up to this long is logged with each step's time: the runner gives up on it
