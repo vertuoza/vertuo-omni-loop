@@ -479,7 +479,17 @@ future Bugs view reads:
 ## Mutation
 
 <The last line | not set here | not run — <why>>
+
+## Still open
+
+- <a problem the run saw and did not fix, one sentence, as in a `Follow-up:` line | none>
 ```
+
+`## Still open` is optional (PRD 2739). Each `Follow-up:` line of the hand-off is also a bullet here, without
+its repositories. Each bullet gets a file: run
+`node .omni-loop/bin/omni.mjs follow-up add --source 'bug #<n>' --text '<the bullet>'` (add
+`--repos <owner/name>,…` for its repositories), then commit the files on the fix branch, so they merge with
+the fix. `omni bug <n>` refuses a bullet with no file, and the PR does not leave draft before then.
 
 ## A change to a law
 
@@ -897,6 +907,7 @@ Follow-up: demo-org/nimbus-backend-php · The kernel's Peppol check sends compan
   300 characters. Never a guess: a `Maybe:` never becomes a follow-up.
 - **Never** the bug this job fixed, never a customer's, a tenant's or a person's name, and never a
   secret: an app outside the workspace reads it.
+- **Also a file:** each line is a `## Still open` bullet of the record and a `follow-up add` file (step 11).
 - **At most five** lines, at any outcome: a `stuck` or `already-fixed` run may have seen one too. A run
   that saw none writes none.
 

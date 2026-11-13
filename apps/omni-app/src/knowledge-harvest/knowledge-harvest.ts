@@ -1,5 +1,5 @@
 // `knowledge-harvest`: the job of the ledger that turns a merged feature PR into a knowledge PR (PRD 82,
-// "Flow"; moved off Inngest by PRD omni-loop-4 s2). `/api/github` adds one job for a merged pull request, keyed
+// "Flow"; moved to the ledger by PRD omni-loop-4 s2). `/api/github` adds one job for a merged pull request, keyed
 // `<owner/name>#<pr>`, lower case, in the lane `<owner/name>`: one harvest at a time per repository, so two runs
 // never number the same ids. Its payload is where the pull request merged, never a token (L-GDPR-2). The run is
 // cut into steps the worker saves on the ledger (../saved-step.ts `jobSteps`), so a retry never asks the model
@@ -77,7 +77,7 @@ type Qualified = z.infer<typeof QualifiedSchema>;
 
 export const HARVEST_KIND = 'knowledge-harvest';
 
-/** A harvest's tries (Inngest's 3 retries, and the first): the 4th that throws fails it. */
+/** A harvest's tries (3 retries, and the first): the 4th that throws fails it. */
 const MAX_TRIES = 4;
 
 /** The job of one merged pull request: one harvest at a time per repository (its lane), a delivery sent twice one job. */

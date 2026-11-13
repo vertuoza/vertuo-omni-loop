@@ -1,8 +1,7 @@
 import { createHmac } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { inngest } from '../inngest-client.ts';
 import { EnvError, readEnv } from '../env.ts';
 import { capture, throwing } from '../run-log/capture.ts';
 import { githubRoute, type RouteJobs } from './github-route.ts';
@@ -30,29 +29,21 @@ const request = (headers: Record<string, string>) =>
     headers: { 'content-type': 'application/json', 'x-github-event': 'pull_request', ...headers },
   });
 
-/** Inngest's send, stubbed to take every event. */
-const stubbedSend = () => vi.spyOn(inngest, 'send').mockResolvedValue({ ids: ['e1'] });
-
 /** What the stage event's POST carried, as the test reads it. */
 const StagePostSchema = z.looseObject({ body: z.string(), headers: z.record(z.string(), z.string()) });
 
 describe('/api/github', () => {
-  let send: ReturnType<typeof stubbedSend>;
-  beforeEach(() => {
-    send = stubbedSend();
-  });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('sends the app’s Inngest client nothing for a signed pull request event: its checks are jobs of the ledger (PRD 2688)', async () => {
+  it('adds a signed pull request event’s checks as jobs of the ledger (PRD 2688)', async () => {
     const response = await POST(request({ 'x-hub-signature-256': sign(body) }));
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('sent 0 · 4 jobs');
-    expect(send).not.toHaveBeenCalled();
   });
 
-  it('adds a loop pull request’s `fleet-board` job to the ledger, and sends the app’s Inngest client nothing (PRD 2530, PRD omni-loop-3 s3)', async () => {
+  it('adds a loop pull request’s `fleet-board` job to the ledger (PRD 2530, PRD omni-loop-3 s3)', async () => {
     const opened = JSON.stringify({
       action: 'opened',
       installation: { id: 7 },
@@ -84,7 +75,6 @@ describe('/api/github', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('sent 0 · 5 jobs');
     expect(queued).toMatchObject([{ kind: 'fleet-board', key: 'o/r#3', payload: { repository: 'o/r', prNumber: 3, author: 'ada' }, maxTries: 4 }]);
-    expect(send).not.toHaveBeenCalled();
 
     const refusing = { ...jobs, queue: () => Promise.reject(new Error('the database refused: down')) };
     const refused = await githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { jobs: refusing, keepAlive: (work) => kept.push(work), pause: () => Promise.resolve() })
@@ -96,13 +86,11 @@ describe('/api/github', () => {
   it('answers 401 to a bad signature and creates no event', async () => {
     const response = await POST(request({ 'x-hub-signature-256': 'sha256=' + '0'.repeat(64) }));
     expect(response.status).toBe(401);
-    expect(send).not.toHaveBeenCalled();
   });
 
   it('reads the secret from GITHUB_WEBHOOK_SECRET, failing closed when it is unset', async () => {
     const response = await route({}).POST(request({ 'x-hub-signature-256': sign(body) }));
     expect(response.status).toBe(500);
-    expect(send).not.toHaveBeenCalled();
   });
 
   it('forwards a stage event to GALAXY_URL, signed with STAGE_EVENT_SECRET (PRD 587)', async () => {
@@ -136,7 +124,7 @@ describe('/api/github', () => {
     expect(touch.headers['x-omni-signature-256']).toBe(`sha256=${createHmac('sha256', 'stage-secret').update(touch.body).digest('hex')}`);
   });
 
-  it('forwards a touch for an event that becomes no Inngest event, an issue comment (PRD 902)', async () => {
+  it('forwards a touch for an event that becomes no job, an issue comment (PRD 902)', async () => {
     const post = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok', { status: 200 }));
     const comment = JSON.stringify({ action: 'created', installation: { id: 7 }, repository: { name: 'r', full_name: 'o/r', owner: { login: 'o' } }, issue: { number: 9 } });
     const touchRoute = route({ GITHUB_WEBHOOK_SECRET: SECRET, STAGE_EVENT_SECRET: 'stage-secret', GALAXY_URL: 'https://galaxy.example' });
@@ -147,7 +135,6 @@ describe('/api/github', () => {
     }));
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('ignored');
-    expect(send).not.toHaveBeenCalled();
     expect(post).toHaveBeenCalledTimes(1);
     const call = post.mock.calls[0];
     assertDefined(call, 'the touch POST');

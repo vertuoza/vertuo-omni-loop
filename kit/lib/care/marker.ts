@@ -2,8 +2,9 @@
 // is how the next round and the PRD page know a review thread was handled, and how: the verdicts live
 // on GitHub, in the replies, and nowhere else.
 
-/** The three verdicts a review thread gets, in the order the spec names them. */
-export const CARE_VERDICTS = Object.freeze(['fixed', 'pushed-back', 'asked'] as const);
+/** The verdicts a review thread gets, in the order the spec names them. `later` (PRD 2739) promises the
+ * point for a follow-up: the thread is resolved and the point kept in the follow-up folder. */
+export const CARE_VERDICTS = Object.freeze(['fixed', 'pushed-back', 'asked', 'later'] as const);
 
 /** One of {@link CARE_VERDICTS}. */
 export type CareVerdict = (typeof CARE_VERDICTS)[number];

@@ -29,7 +29,7 @@
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Config } from 'omni-loop/kit/lib/types.ts';
-import { APPROVED_EXTERNAL_ID, type CheckRequestData } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID, type CheckRequestData } from '../jobs/payloads.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readPull, type GitHubClient } from '../outbox-check/github.ts';
 import { CreatedSchema } from '../outbox-check/github-schema.ts';

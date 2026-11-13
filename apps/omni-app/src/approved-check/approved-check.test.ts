@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { GithubDeferred } from '@omni/github';
 import { afterAll, describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import { APPROVED_EXTERNAL_ID } from '../inngest-client.ts';
+import { APPROVED_EXTERNAL_ID } from '../jobs/payloads.ts';
 import type { RefreshJob } from '../jobs/ledger.ts';
 import type { JobHandler } from '../jobs/worker.ts';
 import { checkRunAt, claimedJob, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';

@@ -1,7 +1,7 @@
 // The route (PRD 2676 s4): no secret, a wrong secret, a run, `?gaps=1`, the daily forgetting, a replay.
 import { describe, expect, it } from 'vitest';
 import { readEnv } from '../env.ts';
-import { FORGET_HOUR_UTC, jobsSweepRoute, type SweepJobs } from './sweep.ts';
+import { FORGET_HOUR_UTC, jobsSweepRoute, SWEEP_MAX_DURATION_SECONDS, type SweepJobs } from './sweep.ts';
 
 const SECRET = 'cron-secret';
 const URL_BASE = 'https://omni-loop.example/api/jobs-sweep';
@@ -128,5 +128,22 @@ describe('/api/jobs-sweep (PRD 2676 s4)', () => {
     const response = await route(fake([])).DELETE(new Request(URL_BASE, { method: 'DELETE', headers: authed }));
     expect(response.status).toBe(405);
     expect(response.headers.get('allow')).toBe('GET, POST');
+  });
+});
+
+describe('/api/jobs-sweep — the jobs run within the function (bug #2756)', () => {
+  it('tells the run, and a replay\'s, the function ends 300 seconds after the call came in', async () => {
+    const ends: number[] = [];
+    const jobs: SweepJobs = {
+      ...fake([]),
+      run: (endsAt) => {
+        ends.push(endsAt);
+        return Promise.resolve(RUN);
+      },
+    };
+    await route(jobs).GET(new Request(URL_BASE, { headers: authed }));
+    await route(jobs).POST(new Request(URL_BASE, { method: 'POST', headers: authed, body: JSON.stringify({ replay: ID }) }));
+    expect(SWEEP_MAX_DURATION_SECONDS).toBe(300);
+    expect(ends).toEqual([at(12)() + 300_000, at(12)() + 300_000]);
   });
 });

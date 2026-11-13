@@ -107,10 +107,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 66 commands and the 39 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(66);
+  it('holds the 67 commands and the 39 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(67);
     expect(skillFolders()).toHaveLength(39);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(66);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(67);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(39);
   });
 
@@ -484,7 +484,7 @@ describe('the help table in this repository', () => {
     assertDefined(dossier, 'dossier');
     expect(dossier.usage).toEqual([
       'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
-      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>', 'omni dossier get <key>-R<n> roadmap',
     ]);
     expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
   });

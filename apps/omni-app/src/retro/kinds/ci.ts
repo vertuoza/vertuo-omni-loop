@@ -317,7 +317,7 @@ function jobRecord(job: Job, run: WorkflowRun, slice: SliceId): JobRecord {
 /** A job, or a red run, as a label names it. */
 type RunLike = { check: string; slice: SliceId; attempt: number; commit?: string; sha?: string | null | undefined };
 
-/** `fn()`'s value, or the status GitHub answered when it will not let the app read it; anything else is thrown, so Inngest retries the step. */
+/** `fn()`'s value, or the status GitHub answered when it will not let the app read it; anything else is thrown, so the ledger retries the job. */
 async function readOrRefused<T>(fn: () => Promise<T>): Promise<Read<T>> {
   try {
     return { value: await fn(), status: null };

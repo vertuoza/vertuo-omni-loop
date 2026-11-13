@@ -163,6 +163,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unless the verdict is asked. Needs gh logged in.',
   },
   {
+    name: 'follow-up',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni follow-up add --source <source> --text <text> [--repos <owner/name>,…]',
+      'omni follow-up list [--json]',
+    ],
+    summary: 'keep the open points a fix or a review leaves, one file each',
+    detail:
+      "add writes one file in the delivery folder's follow-ups/, named <date>-<first words>.md, with " +
+      "its source (bug #<n>, <key>-B<n> or PRD #<n> · <thread url>), the day and the point's text " +
+      '(at most 300 characters), and prints its path. It exits 1 naming the file when the same ' +
+      'source and text are already filed, and 2 for an empty or over-long text or a source of no ' +
+      'known shape. --repos names the repositories the point lives in, at most ten. list prints each ' +
+      "point's date, source and first line, oldest first, or none; --json prints the same as JSON. " +
+      'A person closes a point by deleting its file. Neither verb touches the network, opens an ' +
+      'issue or notifies anyone.',
+  },
+  {
     name: 'next',
     kind: 'command',
     who: 'you',
@@ -399,7 +418,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'you',
     usage: [
       'omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug|concept]', 'omni dossier link <n> [--kind visual|bug|concept]', 'omni dossier status',
-      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>',
+      'omni dossier push --product <key> --new [--from <dir>] [--title "<title>"]', 'omni dossier push <key>-<n> [--from <dir>]', 'omni dossier get <key>-<n> <kind>', 'omni dossier get <key>-R<n> roadmap',
     ],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
@@ -419,7 +438,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'lives on the Omni page and in no repository: push --product <key> --new creates the product\'s next ' +
       'PRD from the files of --from and prints its id; push <key>-<n> saves the edited files of --from as ' +
       'new versions; get <key>-<n> <kind> writes the latest spec, plan, before-after or voice to a scratch ' +
-      'file and prints its path and its sha256, and holds while the server is down. It never holds up the ' +
+      'file and prints its path and its sha256, and holds while the server is down; get <key>-R<n> roadmap ' +
+      'does the same with a product roadmap\'s roadmap.md, which /omni:drive --roadmap reads its rows from. ' +
+      'It never holds up the ' +
       'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {

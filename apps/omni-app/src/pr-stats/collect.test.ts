@@ -11,7 +11,7 @@ import { SIGNATURE } from './signed.ts';
 
 const NOW = Date.parse('2026-09-29T12:00:00Z');
 const WS = 'ws-vertuoza';
-/** A step that saves its value, as Inngest's did: it comes back as JSON, read again. */
+/** A step that saves its value, as the ledger's does: it comes back as JSON, read again. */
 const step: CollectStep = {
   run: async <T>(_id: string, fn: () => T | Promise<T>): Promise<T> => {
     const value: unknown = await fn();

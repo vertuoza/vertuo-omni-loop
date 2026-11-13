@@ -1,5 +1,5 @@
 // The knowledge pack as a job of the ledger (PRD 2676 s2; PRD 2011 s11, spec "3. Knowledge is served as packs"):
-// what the `knowledge-pack` Inngest function did, moved over. A job snapshots a repository's knowledge into a
+// what the `knowledge-pack` function did, moved over. A job snapshots a repository's knowledge into a
 // pack at one commit:
 //
 //   qualify  a job with a pull request: the merge (its commit and date), the config at that commit (./paths.ts
@@ -10,6 +10,8 @@
 //   pack     the pack's paths read at the commit, each file hashed (../knowledge-pack/files.ts), and kept through
 //            knowledge_pack_put() as the service role (../knowledge-pack/store.ts); a file the pack cannot hold
 //            as it is (binary, a NUL, over 1 MiB) is left out and named
+//   embed    once a pack is kept in at least one workspace, and only then, the `knowledge-embed` job of the same
+//            key is added (./embed.ts, PRD 2728 s4), which makes its knowledge findable by meaning
 //
 // The key is `<owner/name>@<commit>`, lower case, so a delivery sent twice adds one job. A job may run twice and
 // is harmless: the database changes nothing for a commit it already keeps. Every GitHub call is the
@@ -26,6 +28,7 @@ import type { PackStore } from '../knowledge-pack/store.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { SnapshotBoundError } from '../snapshot/snapshot.ts';
+import { embedJob } from './embed.ts';
 import type { NewJob } from './ledger.ts';
 import type { JobHandler, JobResult } from './worker.ts';
 
@@ -54,14 +57,19 @@ type Where = { owner: string; repo: string };
 /** What qualifying decides: no pack, and why; or the commit, its date and what the pack holds. */
 type Qualified = { skip: string } | { skip: null; sha: string; committedAt: string; paths: PackPaths };
 
-/** The handler of the `knowledge-pack` kind: `store` is the packs' database, `octokitFor` an installation's GitHub. */
+/**
+ * The handler of the `knowledge-pack` kind: `store` is the packs' database, `octokitFor` an installation's GitHub,
+ * `addJob` the ledger's add, through which a kept pack adds its `knowledge-embed` job (none given, it adds none).
+ */
 export function packHandler({
   octokitFor,
   store,
+  addJob,
   log = noteTo('knowledge-pack'),
 }: {
   octokitFor: OctokitFor<RequestOctokit>;
   store: PackStore;
+  addJob?: (job: NewJob) => Promise<unknown>;
   log?: (line: string) => void;
 }): JobHandler {
   return async (job): Promise<JobResult> => {
@@ -81,6 +89,7 @@ export function packHandler({
     const packed = await pack(octokit, store, { owner, repo, repository, sha: qualified.sha, committedAt: qualified.committedAt, paths: qualified.paths });
     if ('bound' in packed) return skipped(`its knowledge is too large to pack: ${packed.bound}`);
     for (const line of packLines(what, qualified.sha, packed)) log(line);
+    if (addJob && packed.packs.length > 0) await addJob(embedJob({ repository, sha: qualified.sha }));
     return { outcome: 'done' };
   };
 }

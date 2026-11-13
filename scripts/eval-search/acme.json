@@ -1,0 +1,14 @@
+[
+  {"set": "natural", "expected": "BL-ORDERS-1", "question": "can an order ship without a delivery address?"},
+  {"set": "natural", "expected": "BL-ORDERS-2", "question": "how long can a customer cancel an order after paying?"},
+  {"set": "natural", "expected": "BL-STOCK-1", "question": "may we sell more units than we hold in stock?"},
+  {"set": "natural", "expected": "BL-STOCK-2", "question": "when is a product marked as out of stock?"},
+  {"set": "natural", "expected": "BL-ACCOUNTS-1", "question": "what happens to a shopper's account when they ask to be forgotten?"},
+  {"set": "paraphrase", "expected": "BL-ORDERS-1", "question": "is it fine to dispatch a parcel when we do not know where it goes?"},
+  {"set": "paraphrase", "expected": "BL-ORDERS-2", "question": "a buyer changed their mind after checkout, can they still back out?"},
+  {"set": "paraphrase", "expected": "BL-STOCK-1", "question": "can the shop promise items the warehouse does not have?"},
+  {"set": "paraphrase", "expected": "BL-STOCK-2", "question": "at what point do we stop offering an item that ran out?"},
+  {"set": "paraphrase", "expected": "BL-ACCOUNTS-1", "question": "a customer wants every trace of them erased, what do we do?"},
+  {"set": "exact", "expected": "BL-ORDERS-1", "question": "BL-ORDERS-1"},
+  {"set": "exact", "expected": "term:SKU", "question": "SKU"}
+]

@@ -226,7 +226,7 @@ export function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr,
     `(Optional) Require the \`${outboxCheck}\` check on ${defaultBranch}:`,
     `     ${GITHUB}/${repo}/settings/branches`,
     '   Warning: a required check that is never posted blocks every pull request in this repository.',
-    '   If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy',
+    '   If the app is uninstalled, its deploy is broken or its database is down, nothing can merge. The remedy',
     '   is to remove the requirement, never to fake a status.',
   ]);
   // Last: the skill needs the plugin, and opens a pull request into the branch the forms were merged to.

@@ -21,6 +21,12 @@ test or scenario the branch adds or changes, and the line it failed with before 
 **Fix**, the **Guard** and the **Mutation** line. The fix's pull request closes that issue, carries
 the folder, and is proven by `omni bug <n>` before it opens.
 
+**`follow-ups/<yyyy-mm-dd>-<slug>.md`** holds one open point a bug fix or a review saw and left,
+one file each so two branches never conflict. A file carries its `source` (`bug #<n>`, `<key>-B<n>`
+or `PRD #<n> · <thread url>`), its `date`, optionally the `repos` it lives in, and the point in one
+or two sentences. `omni follow-up add` writes one and `omni follow-up list` prints them, oldest
+first. Nothing opens an issue or notifies anyone; a person closes a point by deleting its file.
+
 **`inbox/concepts/<nnnn>-<slug>/`** holds one concept made with `/omni:think-big`: a vast idea
 explored by a studio of agents before any PRD, the direction a person crowned, and its areas.
 `<nnnn>` is its `omni:concept` issue's number, zero-padded to four digits, and the folder holds

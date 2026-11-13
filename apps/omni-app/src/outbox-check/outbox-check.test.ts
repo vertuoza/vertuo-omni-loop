@@ -1,4 +1,4 @@
-// The outbox check through its job of the ledger (PRD 2688 s7: the Inngest function is gone, the `pr-outbox`
+// The outbox check through its job of the ledger (PRD 2688 s7: the function is gone, the `pr-outbox`
 // job runs the same body), against the stubbed GitHub. The two laws this file proves hold through the job.
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { fileURLToPath } from 'node:url';

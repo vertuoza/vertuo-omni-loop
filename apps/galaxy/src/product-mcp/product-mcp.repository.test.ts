@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { productMcpRepository, type ProductMcpDb } from './product-mcp.repository';
+import { knowledgeVectorsRepository, productMcpRepository, type ProductMcpDb } from './product-mcp.repository';
 
 // A product's MCP server's storage (PRD 2707 s3): the calls it sends on the service role's client, each
 // answer parsed where it comes in. A fake client records each call as one line and answers in order.
@@ -82,5 +82,34 @@ describe('productMcpRepository', () => {
     const { db, lines } = fakeDb([{ data: [{ seq: 6, body: 'Never locks a workspace in.' }], error: null }]);
     expect(await productMcpRepository(db).never('p-acme')).toEqual([{ seq: 6, body: 'Never locks a workspace in.' }]);
     expect(lines).toEqual(['from("constituents").select("seq, body").eq("product_id","p-acme").eq("kind","never").is("removed_at",null)']);
+  });
+});
+
+describe('knowledgeVectorsRepository', () => {
+  const SHA = 'b'.repeat(64);
+
+  it('asks knowledge_vectors_missing() with the workspace, the model and the hashes', async () => {
+    const { db, lines } = fakeDb([{ data: [SHA], error: null }]);
+    expect(await knowledgeVectorsRepository(db).missing('w-acme', 'gte-small', [SHA, HASH])).toEqual([SHA]);
+    expect(lines).toEqual([`rpc("knowledge_vectors_missing",{"p_workspace":"w-acme","p_model":"gte-small","p_hashes":["${SHA}","${HASH}"]})`]);
+  });
+
+  it('keeps vectors through knowledge_vectors_put(), and throws on its refusal', async () => {
+    const { db, lines } = fakeDb([{ data: 1, error: null }, { data: null, error: { code: '22023', message: 'Each vector: 384 numbers.' } }]);
+    const vectors = knowledgeVectorsRepository(db);
+    await vectors.put('w-acme', 'gte-small', [{ sha256: SHA, vector: [0.5, 0.5] }]);
+    expect(lines[0]).toBe(`rpc("knowledge_vectors_put",{"p_workspace":"w-acme","p_model":"gte-small","p_rows":[{"sha256":"${SHA}","vector":[0.5,0.5]}]})`);
+    await expect(vectors.put('w-acme', 'gte-small', [])).rejects.toThrow('knowledge_vectors_put: the database refused: Each vector: 384 numbers.');
+  });
+
+  it('asks knowledge_nearest() with the query in pgvector\'s text form, and answers the hashes nearest first', async () => {
+    const { db, lines } = fakeDb([{ data: [{ text_sha256: SHA, distance: 0.1 }, { text_sha256: HASH, distance: 0.4 }], error: null }]);
+    expect(await knowledgeVectorsRepository(db).nearest('w-acme', 'gte-small', [HASH, SHA], [1, 0], 2)).toEqual([SHA, HASH]);
+    expect(lines).toEqual([`rpc("knowledge_nearest",{"p_workspace":"w-acme","p_model":"gte-small","p_hashes":["${HASH}","${SHA}"],"p_query":"[1,0]","p_k":2})`]);
+  });
+
+  it('throws, naming the call, on an answer out of shape', async () => {
+    await expect(knowledgeVectorsRepository(fakeDb([{ data: [{ sha: 1 }], error: null }]).db).nearest('w', 'gte-small', [SHA], [1], 1))
+      .rejects.toThrow('knowledge_nearest answered out of shape');
   });
 });

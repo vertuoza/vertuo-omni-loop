@@ -149,6 +149,27 @@ describe('GET /api/dossiers/get?product=<key>&prd=<n>&kind=<kind>: a product PRD
     }
   });
 
+  it('answers a product roadmap\'s latest roadmap.md by its number, as `omni dossier get <key>-R<n> roadmap` reads it (bug #2758)', async () => {
+    const w = world();
+    const roadmap = w.fake.seedProductRoadmap({ product: w.mobile, seq: 2, title: 'Crew', versions: ['# Roadmap v1\n', '# Roadmap v2\n'] });
+    const latest = w.fake.tables.dossier_versions.filter((v) => v.dossier_id === roadmap.id).at(-1);
+    const { status, body } = await w.get('?product=mobile&roadmap=2&kind=roadmap');
+    expect(status).toBe(200);
+    expect(body).toEqual({
+      id: roadmap.id, roadmap: 'mobile-R2', url: A_STRING, kind: 'roadmap', version: 2,
+      sha256: w.fake.sha256('# Roadmap v2\n'), content: '# Roadmap v2\n', createdAt: latest?.created_at,
+    });
+  });
+
+  it('answers 404 for a roadmap there is none of, or one another workspace holds; 400 for a PRD\'s kind on a roadmap', async () => {
+    const w = world();
+    w.fake.seedProductRoadmap({ product: w.mobile, seq: 2, title: 'Crew', versions: ['# Roadmap\n'] });
+    expect(await w.get('?product=mobile&roadmap=9&kind=roadmap')).toEqual({ status: 404, body: { error: 'No roadmap mobile-R9.' } });
+    expect((await w.get('?product=mobile&roadmap=2&kind=roadmap', 'carl-token')).status).toBe(404);
+    expect((await w.get('?product=mobile&roadmap=2&kind=spec')).status).toBe(400);
+    expect((await w.get('?product=mobile&prd=2&kind=roadmap')).status).toBe(400);
+  });
+
   it('/api/dossiers/get serves GET through getDossier, within maxDuration 60', () => {
     const source = readFileSync(fileURLToPath(new URL('../../app/api/dossiers/get/route.ts', import.meta.url)), 'utf8');
     expect(source).toMatch(/^export const maxDuration = 60;$/m);

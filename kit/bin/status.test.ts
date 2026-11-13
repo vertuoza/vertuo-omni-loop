@@ -603,3 +603,25 @@ describe('omni status — the rules enforced (PRD 1171, slice s3)', () => {
     expect(s.out.join('')).not.toContain('rules enforced');
   });
 });
+
+describe('omni status — the follow-ups (PRD 2739, slice s4)', () => {
+  const point = (date: string, slug: string) => ({
+    [`${DELIVERY}/follow-ups/${date}-${slug}.md`]: `---\nsource: bug #12\ndate: ${date}\n---\n\nThe ${slug} point.\n`,
+  });
+
+  it('prints the count and the oldest date under the bar when points exist', async () => {
+    const { root } = cloned({ ...THREE_AND_TWO, ...point('2026-10-02', 'older'), ...point('2026-11-01', 'newer') });
+    git(root, 'fetch', '-q', 'origin');
+    const s = io();
+    expect(await main(['status'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toContain('\n  follow-ups  2 open · oldest 2026-10-02 → omni follow-up list\n');
+  });
+
+  it('prints no follow-ups line when the folder holds none', async () => {
+    const { root } = cloned(THREE_AND_TWO);
+    git(root, 'fetch', '-q', 'origin');
+    const s = io();
+    expect(await main(['status'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).not.toContain('follow-ups');
+  });
+});

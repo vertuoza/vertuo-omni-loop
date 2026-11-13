@@ -37,7 +37,6 @@ import {
 import type { Octokit } from './retro.types.ts';
 import { megaScenario } from './targets.fixtures/mega.ts';
 import { readEnv } from '../env.ts';
-import { appFunctions } from '../functions.ts';
 import { liveWorkers } from '../jobs/pr-checks.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import { appOctokitFor } from '../octokit-for.ts';
@@ -943,11 +942,10 @@ describe('retro — a job of the ledger (PRD omni-loop-4 s3)', () => {
     });
   });
 
-  it('has a handler and a failure hook in the worker every runner of the ledger runs, and is no Inngest function', () => {
+  it('has a handler and a failure hook in the worker every runner of the ledger runs', () => {
     const { handlers, failures } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
     expect(typeof handlers[RETRO_KIND]).toBe('function');
     expect(typeof failures[RETRO_KIND]).toBe('function');
-    expect(appFunctions()).toEqual([]);
   });
 
   it('ends a job `skipped`, with why, when the merge gets no retro', async () => {

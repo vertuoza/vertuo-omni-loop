@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
-import { INBOX_EXTERNAL_ID, type CanonActionRequestData } from '../inngest-client.ts';
+import { INBOX_EXTERNAL_ID, type CanonActionRequestData } from '../jobs/payloads.ts';
 import type { ClaimedJob, NewJob } from '../jobs/ledger.ts';
 import { liveWorkers } from '../jobs/pr-checks.ts';
 import { fakeGitHub } from '../outbox-check/fake-github.ts';
@@ -123,7 +123,7 @@ describe('canon-action — ignored elsewhere', () => {
 });
 
 describe('canon-action — from a signed webhook', () => {
-  it('a click on a red inbox check run adds its canon-action job, keyed by the delivery, which posts its comment; nothing goes to Inngest', async () => {
+  it('a click on a red inbox check run adds its canon-action job, keyed by the delivery, which posts its comment; nothing goes to any other service', async () => {
     const gh = github();
     const summary = `PRD 42\n\n${canonMarker({ prd: parsePrd(42), canon: { state: 'red', findings: [{ claims: ['never#4'] }], persona: { name: 'Marc' } } })}`;
     const body = JSON.stringify({
