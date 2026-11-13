@@ -51,4 +51,4 @@ Save · Cancel.
 
 ## Source
 
-- /omni:brainstorm, PRD 2779: .omni-loop/delivery/inbox/2779-open-personas/before-after.html
+- /omni:brainstorm, PRD 2779: .omni-loop/delivery/shipped/2779-open-personas/before-after.html
