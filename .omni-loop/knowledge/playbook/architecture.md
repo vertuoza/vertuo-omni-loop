@@ -89,9 +89,9 @@ Anything not listed is refused; a type-only import counts.
   devDependency, bundled into that page: a repository using the kit installs none.
 - The GitHub App reuses the kit's gate unchanged and never runs repository code: it reads only YAML
   and Markdown, through the kit's schemas (apps/omni-app/README.md).
-- A GitHub App job may wait for days. It ends `later`, due at a date, and keeps its finished steps on
-  the job ledger, so a run after the wait carries on from its last saved step. The retro's second look
-  is one wait of 14 days; nothing caps how long a run waits, and no function sleeps (PRD omni-loop-4).
+- A GitHub App job may wait for days: it ends `later`, due at a date, and keeps its finished steps on
+  the job ledger, so the next run carries on from the last one. Nothing caps a wait, and no function
+  sleeps (PRD omni-loop-4).
 - `kit/` holds only the kit that ships to other repositories. A check or tool about this
   repository as a whole (its TypeScript guard, `pnpm schemas:verify`) lives in `scripts/`, never under
   `kit/`, so the kit's rule against naming the game needs no exception (settled item s11-01, PRD 942).
