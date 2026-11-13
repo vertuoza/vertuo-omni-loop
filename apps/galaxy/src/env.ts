@@ -86,6 +86,7 @@ const CONSTITUENT_JUDGE = oneSecret('the constituent judge', 'CONSTITUENT_JUDGE_
 const LAW_JUDGE = oneSecret('the law judge', 'LAW_JUDGE_SECRET');
 const BUSINESS_LAWS_JUDGE = oneSecret('the business laws judge', 'BUSINESS_LAWS_JUDGE_SECRET');
 const BUSINESS_RECHECK = oneSecret('the business recheck', 'BUSINESS_RECHECK_SECRET');
+const SEARCH_CATEGORIZE = oneSecret('the search categorizer', 'SEARCH_CATEGORIZE_SECRET');
 
 /**
  * Web Push, which phones an approver a PRD that waits for them (PRD 1322): the VAPID pair the
@@ -156,7 +157,7 @@ const VERCEL = envGroup({
  */
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
-  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, BUSINESS_RECHECK, WEB_PUSH, RESEND,
+  STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, BUSINESS_RECHECK, SEARCH_CATEGORIZE, WEB_PUSH, RESEND,
   KIT_TOKENS, DEMO, GALAXY, VERCEL,
 ]);
 
@@ -198,6 +199,7 @@ export function readEnv(raw: EnvSource) {
     lawJudgeSecret: secretOf(LAW_JUDGE),
     businessLawsJudgeSecret: secretOf(BUSINESS_LAWS_JUDGE),
     businessRecheckSecret: secretOf(BUSINESS_RECHECK),
+    searchCategorizeSecret: secretOf(SEARCH_CATEGORIZE),
     webPush: reader.group(WEB_PUSH),
     resend: reader.group(RESEND),
     kitTokenKey: reader.group(KIT_TOKENS)?.key ?? null,
