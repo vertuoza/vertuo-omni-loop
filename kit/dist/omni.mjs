@@ -42936,7 +42936,8 @@ function bugVerdict({ ctx, issue: issue2, changed, commits, laws: laws2, proof: 
     folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue2)),
     grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD3}`, changedSet, issue2), ...laws2?.(folder) ?? []]
   });
-  const failures = proof2 === void 0 ? verdict2.failures : [...verdict2.failures, ...proof2()];
+  const fixes = verdict2.folder !== null && recordSections(ctx, `${verdict2.folder}/${RECORD3}`)?.has("Fixes") === true;
+  const failures = proof2 === void 0 ? verdict2.failures : [...verdict2.failures, ...proof2({ fixes })];
   return { ok: failures.length === 0, folder: verdict2.folder, failures };
 }
 
@@ -43089,6 +43090,8 @@ var IMAGE = /!\[[^\]]*\]\([ \t]*https:\/\/[^)\s]+/;
 var BEFORE_LINE = /^[ \t]*- \*\*Before the fix\*\*/m;
 var AFTER_LINE = /^[ \t]*- \*\*After the fix\*\*/m;
 var NOT_PRODUCED = /^[ \t]*GIF not produced - (.*)$/gm;
+var AFTER_CITES = /^[ \t]*- \*\*After the fix\*\*[^\n]*?\(green,[ \t]*`([0-9a-f]{7,40})`\)/im;
+var RE_PROVED = /^[ \t]*- \*\*Re-proved\*\*[ \t]*\(green,[ \t]*`([0-9a-f]{7,40})`\)/gim;
 var PROVED_ON = /^[ \t]*- \*\*Proved on:?\*\*:?[ \t]*(.*)$/m;
 var PREVIEW_LINE = /^[ \t]*- \*\*Preview:?\*\*:?[ \t]*\S/m;
 var CLIPS_LINE = /^[ \t]*Clips:[ \t]*\S/m;
@@ -43162,12 +43165,30 @@ function provedOnFaults(section7) {
   if (LEVEL_BC.test(value)) return reproductionFaults(value, section7);
   return [`## Proof's "Proved on" line names no level: a preview environment, CI or the machine that made the fix`];
 }
-function bodyFaults(body) {
+function citedCommit(section7) {
+  const after = AFTER_CITES.exec(section7)?.[1];
+  if (after === void 0) return void 0;
+  const reproved = [...section7.matchAll(RE_PROVED)].map((match) => match[1] ?? "");
+  return reproved.at(-1) ?? after;
+}
+function headFaults(section7, head) {
+  const cited2 = citedCommit(section7);
+  if (cited2 === void 0) return [`## Proof's "After the fix" line cites no commit: write (green, <short sha>) of the head`];
+  if (head === void 0) return [];
+  if (head.kind === "unread") return [`not judged: could not read the head of ${head.label}: ${head.why}`];
+  const lower = cited2.toLowerCase();
+  if (head.sha.toLowerCase().startsWith(lower)) return [];
+  const at2 = head.commits.findIndex((oid) => oid.toLowerCase().startsWith(lower));
+  const why3 = at2 < 0 ? `${cited2} is not a commit of ${head.of}` : `${head.commits.length - 1 - at2} commits later`;
+  const hint = "run the reproduction again at the head and add a Re-proved line";
+  return [`the proof cites green at ${cited2}, but ${head.subject} is ${head.sha.slice(0, 7)} (${why3}): ${hint}`];
+}
+function bodyFaults(body, head) {
   const section7 = proofSection(body);
   if (section7 === void 0) return { faults: ["no ## Proof section"], produced: false };
   const hasImage = IMAGE.test(section7);
   const imageLines = BEFORE_LINE.test(section7) && AFTER_LINE.test(section7);
-  if (hasImage && imageLines) return { faults: provedOnFaults(section7), produced: true };
+  if (hasImage && imageLines) return { faults: [...provedOnFaults(section7), ...headFaults(section7, head)], produced: true };
   const reasons2 = notProducedReasons(section7);
   if (reasons2.length > 0) {
     const whole2 = reasons2.find((reason2) => levelsWithoutReason(reason2).length === 0);
@@ -43183,7 +43204,7 @@ function noBody(issue2) {
 }
 function proofFaults(source2, issue2) {
   if (source2.kind === "none") return [noBody(issue2)];
-  const { faults, produced } = bodyFaults(source2.body);
+  const { faults, produced } = bodyFaults(source2.body, source2.head);
   if (source2.kind === "pull-request" && faults.length === 0 && !produced && !source2.isDraft) {
     return [`the proof was not produced but #${source2.pr} is not a draft: gh pr ready ${source2.pr} --undo`];
   }
@@ -43193,14 +43214,19 @@ var ViewedPullRequestSchema = external_exports.object({
   body: external_exports.string().nullable(),
   isDraft: external_exports.boolean(),
   state: external_exports.string(),
-  number: PrNumberSchema
+  number: PrNumberSchema,
+  headRefOid: external_exports.string().optional(),
+  commits: external_exports.array(external_exports.object({ oid: external_exports.string() })).optional()
 });
-function openPullRequest({ root, exec }) {
+function openPullRequest({ root, exec, repo }) {
   try {
-    const text18 = exec("gh", ["pr", "view", "--json", "body,isDraft,state,number"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const text18 = exec("gh", ["pr", "view", "--json", "body,isDraft,state,number,headRefOid,commits"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     const viewed = ViewedPullRequestSchema.safeParse(JSON.parse(text18));
     if (!viewed.success || viewed.data.state !== "OPEN") return { kind: "none" };
-    return { kind: "pull-request", body: viewed.data.body ?? "", pr: viewed.data.number, isDraft: viewed.data.isDraft };
+    const { number: number5, headRefOid, commits } = viewed.data;
+    const label2 = `${repo ?? ""}#${number5}`;
+    const head = headRefOid === void 0 || headRefOid === "" ? { kind: "unread", label: label2, why: "gh gave no head commit" } : { kind: "read", sha: headRefOid, commits: (commits ?? []).map((commit) => commit.oid), subject: `#${number5}'s head`, of: `#${number5}` };
+    return { kind: "pull-request", body: viewed.data.body ?? "", pr: number5, isDraft: viewed.data.isDraft, head };
   } catch {
     return { kind: "none" };
   }
@@ -43793,6 +43819,20 @@ var USAGE11 = [
   "       omni bug check --product <key> (--bug <n> | --new) <file> [--body-file <body>]",
   "       omni bug push --product <key> (--new | --bug <n>) <file>"
 ].join("\n");
+function localHead(root, base, exec) {
+  try {
+    const run2 = (args) => exec("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    const commits = run2(["rev-list", "--reverse", `${base}..HEAD`]).split("\n").filter(Boolean);
+    return { kind: "read", sha: run2(["rev-parse", "HEAD"]), commits, subject: "the local HEAD", of: "this branch" };
+  } catch (error62) {
+    return { kind: "unread", label: "this branch", why: error62 instanceof Error ? error62.message.split("\n")[0] ?? "git failed" : "git failed" };
+  }
+}
+function proofSource({ ctx, exec, written, base, fixes }) {
+  const source2 = written ?? openPullRequest({ root: ctx.root, exec, repo: ctx.config.repo.slug ?? void 0 });
+  if (fixes || source2.kind === "none") return source2.kind === "pull-request" ? { ...source2, head: void 0 } : source2;
+  return source2.kind === "file" ? { ...source2, head: localHead(ctx.root, base, exec) } : source2;
+}
 function grade(args, { ctx, stdout, exec }) {
   const { positional, flags } = parseArgs("bug", args, { values: ["base", "body-file"] });
   if (positional.length !== 1) throw usageError(USAGE11);
@@ -43806,7 +43846,7 @@ function grade(args, { ctx, stdout, exec }) {
     changed: loggedPaths(ctx.root, base, exec),
     commits: ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec),
     laws: fixLaws(ctx, issue2, base, exec),
-    proof: () => proofFaults(written ?? openPullRequest({ root: ctx.root, exec }), issue2)
+    proof: ({ fixes }) => proofFaults(proofSource({ ctx, exec, written, base, fixes }), issue2)
   });
   println(stdout, verdict2.ok ? "ok" : "not ok");
   for (const failure8 of verdict2.failures) println(stdout, `- ${failure8}`);
