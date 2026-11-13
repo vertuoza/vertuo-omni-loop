@@ -5,7 +5,7 @@
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
 //   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?, parts?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
-//   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running and for 10 minutes after it ends (PRD 2433) → {token, expiresAt}
+//   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running (PRD 2433, PRD 2809) → {token, expiresAt}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
 //   GET   /api/runners?repo=<owner/name>   terminal (PRD 2251)                              → {runners: [KitRunner]}
 //   GET   /api/runners/jobs?repo=<owner/name>&prd=<n>  terminal (PRD 2251)                 → {jobs: [PrdJob]}, newest first
@@ -23,7 +23,7 @@
 // sender's fleet, a repository outside the workspace, a fleet set by a non-owner, a runner of someone
 // else, a token on a route that takes a person's session), 404 no such runner or job (or no question
 // on it), 409 a job that has ended (a runner stops it) or a status that goes back, or questions already
-// asked, answered or dismissed, or a GitHub token asked of a job that ended over 10 minutes ago, that
+// asked, answered or dismissed, or a GitHub token asked of a job that has ended, that
 // runs as no App, or whose key's App no longer works (its words say which), 503 no database here
 // (or GitHub could not be reached for a token), 500 the database failed.
 import { z } from 'zod';
@@ -186,10 +186,6 @@ export const RunnerJobSchema = z.object({
   sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(),
 }).refine((job) => checkLine(job.line, job.allowedSkills).ok, { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
-
-/** How long after a job ends its runner may still ask for a fresh token (PRD 2433): its release of the job's
- * claims comes minutes after the end. */
-export const GITHUB_TOKEN_AFTER_END_MS = 10 * 60 * 1000;
 
 /** What `POST /api/runners/jobs/<id>/github-token` answers: a fresh token of the job's App, and when it stops working. */
 export const GithubTokenReplySchema = GithubGrantSchema.pick({ token: true, expiresAt: true });

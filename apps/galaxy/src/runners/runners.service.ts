@@ -80,10 +80,10 @@
 //   installed, lacking a permission, its bot unreadable), or a key that no longer works (BR-PRODUCT-64), ends the
 //   job `failed`, `github app: <why>`: the job is never answered without `github`, and never runs as a person.
 //   `githubToken` mints a fresh token, for the same repositories, for the job's own runner while the job is
-//   claimed or running and for 10 minutes after it ends.
+//   claimed or running, and refuses one that ended, whatever its status (PRD 2809 s3).
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  checkLine, checkLineShape, ENDED_JOBS_SHOWN, GITHUB_TOKEN_AFTER_END_MS, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
+  checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
@@ -161,7 +161,7 @@ const KEY_STOPPED = 'the API key no longer works: it was revoked, or its maker l
 const outsideKey = (repo: string) => `the API key may not reach ${repo}`;
 const NOT_CONFIGURED = 'the Omni App is not configured on this server';
 const MEGA_BUG_FIX = 'mega-bug-fix';
-const TOO_LATE = 'This job ended over 10 minutes ago: it takes no new GitHub token.';
+const ENDED_NO_TOKEN = 'This job has ended: it takes no new GitHub token.';
 
 const failedMint = (why: string, unreachable = false): FailedMint => ({ kind: 'failed', why: why.length <= MAX_WHY ? why : `${why.slice(0, MAX_WHY - 1)}…`, unreachable });
 
@@ -915,17 +915,18 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
     },
 
     /**
-     * A fresh token of the Omni App a job runs as (PRD 2573), for the runner that claimed it: while the job is claimed or
-     * running and for 10 minutes after it ends, since the runner releases the job's claims minutes after the end.
-     * Another runner's owner is refused (403), a later ask is 409, as is a job the App can no longer mint for (its words
-     * say why: the App not configured here, a key that stopped working); GitHub out of reach is 503, for a later try.
+     * A fresh token of the Omni App a job runs as (PRD 2573), for the runner that claimed it, while the job is claimed or
+     * running: the runner releases the job's claims before it reports the end. A job that ended, whatever its status, is
+     * refused (409, PRD 2809 s3): a replaced attempt keeps only the token it holds, which runs out within its hour.
+     * Another runner's owner is refused (403); a job the App can no longer mint for is 409 too (its words say why: the
+     * App not configured here, a key that stopped working); GitHub out of reach is 503, for a later try.
      */
     async githubToken(caller: string, jobId: string): Promise<Served<GithubTokenReply>> {
       const held = await reporting(caller, jobId);
       if (!held.ok) return held;
       const job = await store.job(jobId);
       if (!job) return no('missing', 'No such job.');
-      if (ENDED.includes(job.status) && !(clock.now().getTime() - Date.parse(job.ended_at ?? '') <= GITHUB_TOKEN_AFTER_END_MS)) return no('conflict', TOO_LATE);
+      if (ENDED.includes(job.status)) return no('conflict', ENDED_NO_TOKEN);
       const token = await tokenFor(job);
       if (token.kind === 'failed') return no(token.unreachable ? 'unavailable' : 'conflict', token.why);
       return ok({ token: token.minted.token, expiresAt: token.minted.expiresAt });

@@ -195,14 +195,12 @@ describe('a key\'s job that runs as the Omni App (PRD 2433, PRD 2573)', () => {
     expect(w.asked.minted).toEqual([]);
   });
 
-  it('answers within 10 minutes of the job\'s end, and 409 in words after', async () => {
+  it('answers 409 in words for a job that has ended, the moment it ended (PRD 2809, s3)', async () => {
     const job = running({ status: 'done', ended_at: T0.toISOString() });
     const w = world({ jobs: [job], runners: APP_RUNNERS, keys: [WORKS] });
-    w.setNow(new Date(T0.getTime() + 10 * 60_000));
-    expect((await refreshGithubToken(refresh(job.id), job.id, w.deps)).status).toBe(200);
-    w.setNow(new Date(T0.getTime() + 10 * 60_000 + 1_000));
     expect(await read(await refreshGithubToken(refresh(job.id), job.id, w.deps)))
-      .toEqual({ status: 409, body: { error: 'This job ended over 10 minutes ago: it takes no new GitHub token.' } });
+      .toEqual({ status: 409, body: { error: 'This job has ended: it takes no new GitHub token.' } });
+    expect(w.asked.minted).toEqual([]);
   });
 
   it('answers 409 with the reason\'s words for a key that stopped working, which the runner ends the job on', async () => {

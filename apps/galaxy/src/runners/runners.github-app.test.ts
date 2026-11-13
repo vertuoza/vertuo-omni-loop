@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GITHUB_TOKEN_AFTER_END_MS, type Notifier, type Ping } from './runners.contract';
+import type { Notifier, Ping } from './runners.contract';
 import type { JobRow, JobRowStatus, QuestionsRow, RunnerRow, RunnersRepository } from './runners.repository';
 import { runnersService, type GithubDeps } from './runners.service';
 import { BOT, EXPIRES, INSTALLATION, OMNI_APP, PRIVATE_KEY, stubGithub, TOKEN } from './fixtures/github.fake';
@@ -8,7 +8,7 @@ import { API_KEY, fakeStore, jobRow, KEY_APP, MO, OLGA, OTHER_KEY, questionsRow,
 // Every job runs as the Omni GitHub App (PRD 2573 s1, over PRD 2433 s7), on the store's fake and a stubbed GitHub:
 // the claim finds the Omni App's installation on the job's repository and mints a token for it, whoever sent the job,
 // a person from the page or an API key, its own App or not; the job that fails when no token can be minted; and the
-// refresh a runner asks for while the job runs and for 10 minutes after it ends. The App's own calls to GitHub are
+// refresh a runner asks for while the job runs, refused once it ended (PRD 2809, s3). The App's own calls to GitHub are
 // proven in ../public-api/keys/github-app.test.ts and the wiring over them in ./runners.github.test.ts; the stub is
 // ./fixtures/github.fake.ts. Which repositories a token covers beyond the job's own, and that it never reaches past
 // a key's allow-list: ./runners.github-repositories.test.ts.
@@ -281,19 +281,21 @@ describe('a runner\'s refresh of a job\'s token', () => {
     expect(w.asked.minted).toEqual([OMNI_MINT]);
   });
 
-  it.each<JobRowStatus>(['done', 'failed', 'cancelled'])('answers until 10 minutes after the job ended %s, the minute itself included', async (status) => {
+  // The fence (PRD 2809, s3): a job that ended takes no new token, from the moment it ended, so a replaced attempt
+  // keeps only the token it holds, which runs out within the hour it was minted.
+  it.each<JobRowStatus>(['done', 'failed', 'cancelled'])('refuses with a 409 the moment the job ended %s, and asks GitHub for nothing', async (status) => {
     const job = held(status);
     const w = world({ jobs: [job] });
-    w.setNow(new Date(T0.getTime() + GITHUB_TOKEN_AFTER_END_MS));
-    expect(value(await w.service.githubToken(OLGA, job.id))).toEqual({ token: TOKEN, expiresAt: EXPIRES });
+    expect(await w.service.githubToken(OLGA, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job has ended: it takes no new GitHub token.' });
+    expect(w.asked).toEqual({ bots: 0, installations: [], minted: [] });
   });
 
-  it.each<JobRowStatus>(['done', 'failed', 'cancelled'])('refuses with a 409 after 10 minutes, for a job that ended %s, and asks GitHub for nothing', async (status) => {
-    const job = held(status);
+  it('refuses the runner of a job the app marked lost, whose resume may be running elsewhere', async () => {
+    const job = held('failed', { reason: 'runner lost' });
     const w = world({ jobs: [job] });
-    w.setNow(new Date(T0.getTime() + GITHUB_TOKEN_AFTER_END_MS + 1_000));
-    expect(await w.service.githubToken(OLGA, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job ended over 10 minutes ago: it takes no new GitHub token.' });
-    expect(w.asked).toEqual({ bots: 0, installations: [], minted: [] });
+    w.setNow(new Date(T0.getTime() + MIN));
+    expect(await w.service.githubToken(OLGA, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job has ended: it takes no new GitHub token.' });
+    expect(w.asked.minted).toEqual([]);
   });
 
   it('refuses a job that ended with no end time, rather than answering for ever', async () => {
