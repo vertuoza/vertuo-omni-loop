@@ -122,6 +122,26 @@ describe('the rows', () => {
     expect(await repository.job('j2')).toMatchObject({ outcome: 'pr-opened', fixed_by: null, prs: [], acting_for: null, cancelled_by_key: null, cancelled_for: null });
   });
 
+  it('read the job a resume resumes, its attempt and its wait with the row, selecting the columns, and a value out of shape as none (PRD 2809)', async () => {
+    const resume = jobRow({ line: '/omni:yolo 2803', resumes: 'j1', attempt: 2, resume_after: '2026-10-13T12:01:00.000Z' });
+    const crooked = { ...jobRow(), resumes: 7, attempt: 4, resume_after: false };
+    const { db, lines } = fakeDb([{ data: resume, error: null }, { data: crooked, error: null }, { data: jobRow(), error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.job('j2')).toMatchObject({ resumes: 'j1', attempt: 2, resume_after: '2026-10-13T12:01:00.000Z' });
+    for (const column of ['resumes', 'attempt', 'resume_after']) expect(lines[0], column).toContain(column);
+    expect(await repository.job('j3')).toMatchObject({ resumes: null, attempt: 1, resume_after: null });
+    // A database without the columns: the row reads as before, no attempt said.
+    const old = await repository.job('j4');
+    expect(old).not.toBeNull();
+    expect(old?.attempt).toBeUndefined();
+  });
+
+  it('read a claimed resume with its attempt and the job it resumes, as runner_claim() answers every column (PRD 2809)', async () => {
+    const claimed = jobRow({ status: 'claimed', runner_id: SHARED, resumes: 'j1', attempt: 3, resume_after: '2026-10-13T12:05:00.000Z' });
+    const { db } = fakeDb([{ data: [claimed], error: null }]);
+    expect(await runnersRepository(db).claim(SHARED, '2026-11-02T12:17:34.000Z')).toMatchObject({ resumes: 'j1', attempt: 3, resume_after: '2026-10-13T12:05:00.000Z' });
+  });
+
   it('read every outcome the database keeps, and an unknown word as none (PRD 2425)', async () => {
     const words = ['answers', 'held', 'ready', 'human', 'stopped', 'pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'];
     const { db } = fakeDb([...words, 'need-human', 'pr_opened'].map((outcome) => ({ data: { ...jobRow({ status: 'done' }), outcome }, error: null })));

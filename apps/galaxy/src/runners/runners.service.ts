@@ -11,7 +11,10 @@
 //   again, restarted, finds its claimed and running jobs lost too, however short its silence (#2170).
 //   A job still claimed 10 minutes after its claim, never reported running, ends `runner lost` too, at
 //   the same marks, though its runner checks in: the answer to its `next` never reached it (#2550).
-//   Nothing is retried.
+//   The database resumes a lost job (PRD 2809 s1, supabase/migrations/20270120090000_runner_resume.sql): in the
+//   transaction that ends it, a job of a resumable skill under its third attempt queues one resume, the same line,
+//   repository, sender and target, attempt one more, that no runner claims before its resume_after (1 minute after
+//   the first loss, 5 after the second). The board reads each job's attempt, the job it resumes and its wait.
 // - A job's status only goes forward: claimed, running, then done, failed or cancelled. A report on a
 //   job that has ended is refused, and the runner stops it.
 // - Anyone of the workspace sends to any runner, or to a runner with no fleet; only a fleet's players
@@ -277,13 +280,19 @@ function keyActionFields(row: JobRow, keys: Map<string, string>): Pick<Job, 'act
   return { actingFor: row.acting_for ?? null, cancelledByKey: row.cancelled_by_key ? keys.get(row.cancelled_by_key) ?? null : null };
 }
 
+/** What the page reads of a job's chain (PRD 2809): the job it resumes, its attempt (1 for a job someone sent, and on a database
+ * without the column) and its wait. */
+function resumeFields(row: JobRow): Pick<Job, 'resumes' | 'attempt' | 'resumeAfter'> {
+  return { resumes: row.resumes ?? null, attempt: row.attempt ?? 1, resumeAfter: row.resume_after ?? null };
+}
+
 function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys), ...keyActionFields(row, keys),
     status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null, parts: row.parts ?? null,
-    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
-    claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null,
+    ...resumeFields(row), queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
 

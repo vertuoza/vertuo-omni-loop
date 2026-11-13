@@ -82,6 +82,12 @@ const JobRow = z.object({
   slices_total: z.number().int().nullable().catch(null).optional(),
   /** The job this one continues, once its answers were in (PRD 2270); one out of shape reads as none. */
   continues: z.string().nullable().catch(null).optional(),
+  /** The job this one resumes, which its runner lost (PRD 2809); one out of shape reads as none. */
+  resumes: z.string().nullable().catch(null).optional(),
+  /** Which attempt of its chain it is, 1 to 3 (PRD 2809); one out of shape reads as the first. */
+  attempt: z.number().int().min(1).max(3).catch(1).optional(),
+  /** Before it, no runner claims it: a resume's wait (PRD 2809); one out of shape reads as none. */
+  resume_after: z.string().nullable().catch(null).optional(),
   queued_at: z.string(),
   claimed_at: z.string().nullable(),
   running_at: z.string().nullable(),
@@ -91,7 +97,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app, registered_at';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, resumes, attempt, resume_after, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -352,7 +358,8 @@ export function runnersRepository(db: RunnersDb) {
       return parsed(db.from('runner_samples').select(SAMPLE_COLUMNS).in('runner_id', runnerIds).gte('at', since).order('at'), z.array(SampleRow), 'runner_samples');
     },
 
-    /** Ends the claimed and running jobs of every runner silent since before `cutoff`: `runner lost`. */
+    /** Ends the claimed and running jobs of every runner silent since before `cutoff`: `runner lost`. Each one of a resumable
+     * skill queues its resume in the same transaction (runner_jobs_resume_lost, PRD 2809), as every `runner lost` below does. */
     markLost: async (cutoff: string): Promise<number> =>
       parsed(db.rpc('runners_mark_lost', { p_cutoff: cutoff }), z.number(), 'runners_mark_lost()'),
 
