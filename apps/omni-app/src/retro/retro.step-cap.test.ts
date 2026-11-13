@@ -9,7 +9,7 @@ import { JUDGE_ENV, judge, retroRunner, widgetScenario } from '../../test/retro-
 import { readEnv } from '../env.ts';
 import { KINDS, type Kind } from './kinds/index.ts';
 import { ci } from './kinds/ci.ts';
-import type { CiRecordsSchema } from './kinds/records.ts';
+import { CiRecordsSchema } from './kinds/records.ts';
 
 /** What background_job_save() accepts at most: 1 MB of JSON. */
 const STEP_CAP = 1_048_576;
@@ -52,7 +52,7 @@ function redAgainAndAgain(): z.infer<typeof CiRecordsSchema> {
       completedAt: `2026-09-1${String(Math.floor(index / 10))}T10:${String(index % 60).padStart(2, '0')}:00Z`,
     };
   });
-  return { slices: ['s1', 's2'], unread: [], jobs, logs: Object.fromEntries(jobs.map((job) => [String(job.id), { tail: tailOf(job.id) }])) };
+  return CiRecordsSchema.parse({ slices: ['s1', 's2'], unread: [], jobs, logs: Object.fromEntries(jobs.map((job) => [String(job.id), { tail: tailOf(job.id) }])) });
 }
 
 /** The registry's kinds, the ci kind gathering the records above instead of reading GitHub Actions. */
