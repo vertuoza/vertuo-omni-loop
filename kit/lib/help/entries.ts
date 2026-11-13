@@ -1284,6 +1284,22 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'runs it at point pr.open.',
   },
   {
+    name: 'hold',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni hold <owner/repo>#<n> [--json]'],
+    summary: 'whether a pull request that says Merge after another may be marked ready',
+    detail:
+      "Reads the pull request's body through gh and takes every line Merge after <owner/repo>#<n> " +
+      "(without <owner/repo>, the pull request's own repository), then asks gh for each provider's " +
+      'state and prints one row per provider: open is held, merged is clear, closed without merging ' +
+      'is fail, and a provider gh cannot read is held and never clear. The last line is the verdict: ' +
+      'clear (exit 0), held: <owner/repo>#<n> <why>, fail: <owner/repo>#<n> <why> or not judged: ' +
+      'could not read <owner/repo>#<n>: <why> (exit 1). A body with no such line prints clear · no ' +
+      'Merge after line, exit 0. --json prints the rows and the verdict as one object. It runs ' +
+      'nothing of a provider, merges nothing and writes nothing.',
+  },
+  {
     name: 'design',
     kind: 'command',
     who: 'skills',
