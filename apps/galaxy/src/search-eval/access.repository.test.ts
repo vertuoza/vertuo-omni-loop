@@ -19,7 +19,8 @@ function fake(rows: Rows, errors: Record<string, string> = {}) {
       for (const name of ['select', 'eq', 'is', 'in']) chain[name] = () => chain;
       chain.maybeSingle = () => {
         const { data, error } = answer();
-        return Promise.resolve({ data: Array.isArray(data) ? (data[0] ?? null) : data, error });
+        const one: unknown = Array.isArray(data) ? (data[0] ?? null) : data;
+        return Promise.resolve({ data: one, error });
       };
       chain.then = (resolve: (value: unknown) => void) => { resolve(answer()); };
       return chain;

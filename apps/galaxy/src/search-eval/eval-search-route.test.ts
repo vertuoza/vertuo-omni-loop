@@ -13,9 +13,9 @@ const SECRET = 'search-secret';
 const QUESTION = 'can a quote go out with no payment term';
 const CALL = { workspaceId: WORKSPACE, productId: PRODUCT, question: QUESTION };
 
-function world({ found = { ids: ['BL-QUOTES-1', 'BL-CRM-1'], mode: 'meaning' } as SearchedIds | null, secret = SECRET }: { found?: SearchedIds | null; secret?: string } = {}) {
+function world({ found = { ids: ['BL-QUOTES-1', 'BL-CRM-1'], mode: 'meaning' }, secret = SECRET }: { found?: SearchedIds | null; secret?: string } = {}) {
   const lines: string[] = [];
-  const search = vi.fn((_w: string, _p: string, _q: string) => Promise.resolve(found));
+  const search = vi.fn<EvalSearchDeps['search']>(() => Promise.resolve(found));
   const route: EvalSearchDeps = { secret, search, log: (line) => lines.push(line) };
   return { route, lines, search };
 }
