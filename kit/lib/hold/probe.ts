@@ -18,8 +18,8 @@ const PROVIDER_CONFIG = '.omni-loop/config.yml';
 /** A file of the provider, as read: its text, not there, or why it could not be read. */
 export type FileRead = { text: string } | { missing: true } | { failure: string };
 
-/** What a probe hook is handed: `{provider}`, `{pr}`, `{merge-sha}` and `{consumer}`. */
-export type ProbeInputs = { provider: string; pr: string; 'merge-sha': string; consumer: string };
+/** What a probe hook is handed, by input name (`provider`, `pr`, `merge-sha`, `consumer`), as the text it fills in. */
+export type ProbeInputs = Readonly<Record<string, string>>;
 
 /** One hook to follow: `<owner/repo>:<path>`, its mode, and its text with the inputs filled in. */
 export type Probe = { hook: string; mode: 'replace' | 'after'; text: string };
@@ -27,8 +27,7 @@ export type Probe = { hook: string; mode: 'replace' | 'after'; text: string };
 /** The provider's probes, in the order they run (`[]`: merged is enough), or why they could not be read. */
 export type ProbeRead = { probes: Probe[] } | { failure: string };
 
-const fill = (text: string, inputs: ProbeInputs): string =>
-  text.replace(/\{([\w-]+)\}/g, (whole, name: string) => (name in inputs ? inputs[name as keyof ProbeInputs] : whole));
+const fill = (text: string, inputs: ProbeInputs): string => text.replace(/\{([\w-]+)\}/g, (whole, name: string) => inputs[name] ?? whole);
 
 /** The hooks the config text declares at the point, replace first; `[]` when none; a string when they do not parse. */
 function declaredHooks(repo: string, configText: string): { mode: Probe['mode']; ref: HookRef }[] | string {
