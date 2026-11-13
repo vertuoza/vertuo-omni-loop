@@ -18,6 +18,7 @@
 // the API key's id, which product_mcp_for_key() answers as `key_id`, never the key.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SearchLogRow } from './product-mcp.contract';
+import { AccessRow } from './access-row';
 import { z } from 'zod';
 
 /** What the reads need: the tables and the functions. */
@@ -26,28 +27,7 @@ export type ProductMcpDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 /** PostgREST answers at most this many rows at once. */
 const PAGE = 1000;
 
-const PackRef = z.object({
-  repo: z.string().min(1),
-  pack_id: z.string().nullable(),
-  sha: z.string().nullable(),
-  committed_at: z.string().nullable(),
-});
-
-const LegalRow = z.object({ id: z.string(), statement: z.string(), source: z.string(), owner: z.string().nullable() });
-const TermRow = z.object({ term: z.string(), meaning: z.string(), avoid: z.array(z.string()) });
-
-const AccessRow = z.object({
-  product: z.object({ id: z.string(), key: z.string(), name: z.string(), workspace_id: z.string() }),
-  /** The id of the key served (PRD omni-loop-6), never the key. */
-  key_id: z.string(),
-  repositories: z.array(PackRef),
-  law_home: PackRef.nullable(),
-  // product_knowledge_for_agents() of the product, as the agent link reads it: the Legal entries with each
-  // owner's login, and the Glossary. Its other keys are not read here.
-  knowledge: z.object({ legal: z.array(LegalRow), glossary: z.array(TermRow) }),
-});
-/** What product_mcp_for_key() answers for a key that reads the product. */
-export type AccessRow = z.infer<typeof AccessRow>;
+export type { AccessRow } from './access-row';
 
 const FileRow = z.object({ path: z.string(), content: z.string() });
 const NeverRow = z.object({ seq: z.number().int(), body: z.string() });

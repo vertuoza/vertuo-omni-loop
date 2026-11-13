@@ -6,7 +6,7 @@
 // internal too): the owner's login is a line of the entry's text only, and no vector holds it.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
-import type { AccessRow } from '../product-mcp/product-mcp.repository';
+import type { AccessRow } from '../product-mcp/access-row';
 
 type Db = Pick<SupabaseClient<Database>, 'from'>;
 
