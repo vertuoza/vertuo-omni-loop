@@ -3,12 +3,14 @@
 // PRD 1299, slice s5: a gate reads a PRD's stage through `prdState()` (`../approval/prd-state.ts`). A
 // PRD born in the repository (◇) reads exactly as before and never calls the server; one born on the
 // server (◆) reads `inbox` only once approved, and the gate prints its birthplace and its approval's
-// lines. `gateApproval` is the approval call every gate makes.
+// lines. `gateApproval` is the approval call every gate makes. Since bug #2793 a ◆ PRD's lines also say where
+// its spec stands with its business laws (`../approval/laws.ts`), after its approval's, when the page says.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { approvalReader } from '../approval/prd-state.ts';
 import type { ApprovalCall, PrdState } from '../approval/prd-state.ts';
 import { UNREACHABLE_LINE } from '../approval/approval.ts';
+import { lawsLines } from '../approval/laws.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
 import { parsePlanRepositories, parsePlanSlices } from '../inbox/territory.ts';
 import { openItemFiles } from '../outbox/status.ts';
@@ -81,13 +83,15 @@ export function heldWhy(state: PrdState | null): string | null {
 }
 
 /** What `omni prd <n>` prints for PRD `where`, its stage read through `prdState()`: a ◇ PRD exactly as
- * before; a ◆ one with its stage, its birthplace and each line its approval said. */
+ * before; a ◆ one with its stage, its birthplace, each line its approval said and its business laws verdict
+ * when the page gives one (bug #2793). */
 export function prdLines(where: PRD, state: PrdState | null): string[] {
   const server = state?.birthplace === 'server';
   return [
     `PRD ${where.prd} — ${where.name}`,
     `state: ${state?.state ?? where.state}`,
     ...(server ? ['birthplace: server', ...(state.approval?.lines ?? []).map((line) => `approval: ${line}`)] : []),
+    ...(server && state.approval?.laws ? lawsLines(state.approval.laws) : []),
     `dir: ${where.dir}`,
     'files:',
     ...where.files.map((file) => `  - ${file}`),

@@ -275,7 +275,8 @@ describe('omni dossier push and link --kind (PRD 627)', () => {
     const { calls, fetch } = recordingFetch(() => pushed(LINK));
     const reads = withIssue(7, 'never asked');
     expect((await run(['push', '7'], { root, fetch, reads })).code).toBe(0);
-    expect(calls.map((c) => c.body)).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [{ kind: 'spec', content: SPEC }] }]);
+    // The push, then the verdict's read (bug #2793), a GET with no body.
+    expect(calls.map((c) => c.body)).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [{ kind: 'spec', content: SPEC }] }, undefined]);
     expect(reads.reads).toEqual([]);
   });
 
@@ -479,7 +480,7 @@ describe('omni dossier push --product (PRD 1364)', () => {
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
     const { bodies, fetch } = recordingFetch(pushed);
     expect(await run(['push', '7', '--product', 'Mobile'], { root, fetch })).toEqual({ code: 0, out: `${LINK}\nadded: spec v1\n`, err: '' });
-    expect(bodies).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', product: 'Mobile', artifacts: [{ kind: 'spec', content: SPEC }] }]);
+    expect(bodies).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', product: 'Mobile', artifacts: [{ kind: 'spec', content: SPEC }] }, undefined]);
   });
 
   it('sends the product again when the draft is gone and the push goes by the key', async () => {
@@ -492,7 +493,7 @@ describe('omni dossier push --product (PRD 1364)', () => {
       return json(404, { error: 'No such draft dossier.' });
     });
     expect((await run(['push', '7', '--product', 'Estimates'], { root, fetch })).code).toBe(0);
-    expect(bodies.map((body) => (body as { product?: unknown }).product)).toEqual(['Estimates', 'Estimates']);
+    expect(bodies.filter((body) => body !== undefined).map((body) => (body as { product?: unknown }).product)).toEqual(['Estimates', 'Estimates']);
   });
 
   it('exits 2 with one line and calls nothing for a product on a fix, a concept, a link, open or status, or a blank one', async () => {
