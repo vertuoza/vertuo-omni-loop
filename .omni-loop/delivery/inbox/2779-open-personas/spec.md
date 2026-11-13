@@ -223,8 +223,11 @@ other entry touched.
 
 **The business laws** (`omni kb business-laws --spec`, domain product-knowledge):
 
-- BL-PRODUCTKNOWLEDGE-1 (a non-owner only proposes a Legal or Glossary change): kept. Personas are
-  neither; the persona kind is always applied, and Legal and Glossary changes are untouched.
+- BL-PRODUCTKNOWLEDGE-1 (a non-owner only proposes a Legal or Glossary change): kept, as amended by
+  #2783, which says personas are not covered: any member adds, edits or deletes them directly. The
+  persona kind is always applied, and Legal and Glossary changes are untouched. The page's judge had
+  read the law as covering personas; the person chose to amend its scope rather than put personas
+  behind an owner. Approving this PRD waits for #2783 to merge.
 - BL-PRODUCTKNOWLEDGE-2 (every Legal or Glossary change is recorded): kept, and extended to
   personas: every persona change, from the page, the terminal or the migration, is recorded with who
   made it and what the persona said before and after (Decision 10).
