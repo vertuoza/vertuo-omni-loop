@@ -5,11 +5,12 @@ import { hitlCategory } from './hitl-category';
 import { lawWorth } from './law-worth';
 import { outboxRisk } from './outbox-risk';
 import { questionCategory } from './question-category';
+import { searchCategory } from './search-category';
 import { unknownWorthAsking } from './unknown-worth-asking';
 import { defined } from 'omni-loop/kit/lib/narrow.ts';
 
-// The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The seven
-// rows (PRD 855 s4 added Unknown worth asking, PRD 871 s4 `constituent-break`, PRD 1217 s3 `hitl-category`, PRD 1342 s3 `law-worth`) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
+// The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The eight
+// rows (PRD omni-loop-7 s2 added `search-category`, PRD 855 s4 added Unknown worth asking, PRD 871 s4 `constituent-break`, PRD 1217 s3 `hitl-category`, PRD 1342 s3 `law-worth`) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is
 // not registered yet is shown on Settings › Jev as coming, and cannot be switched on. An entry with `terminal` can also be asked from a Claude session, through
 // `POST /api/decide/<name>` (./decide-route.ts).
 
@@ -58,6 +59,12 @@ export const JEV_DECISIONS: readonly JevDecisionRow[] = Object.freeze([
     about: 'Says whether a rule or an invariant the harvest found is worth a law, a test that fails when it is broken; when not, it stays in its PRD’s settled decisions.',
     sends: 'The decision’s statement, its why, the principle it serves, its domain and its PRD’s title.',
   },
+  {
+    name: 'search-category',
+    title: 'Search category',
+    about: 'Sorts each question an agent searched a product’s knowledge for into one of the product’s domains, or Other; Off, the question keeps no category and is still grouped by its meaning.',
+    sends: 'The question searched for and the names of the product’s domains; never a person, a key or a result.',
+  },
 ]);
 
 // Each entry has its own input and value types; the registry, and jevEntry, hand them out as unknown.
@@ -69,6 +76,7 @@ const REGISTRY: Readonly<Record<string, JevDecisionEntry<unknown, unknown>>> = O
   [constituentBreak.name]: constituentBreak,
   [hitlCategory.name]: hitlCategory,
   [lawWorth.name]: lawWorth,
+  [searchCategory.name]: searchCategory,
 });
 
 /** The decision's registry entry, or null when it has none (yet). */

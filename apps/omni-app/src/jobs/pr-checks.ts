@@ -16,7 +16,8 @@
 //                    and only GitHub's own pause holds them (bug #2766)
 //   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's (which
 //                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
-//                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, ./schedule.ts), and
+//                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, and
+//                    `search-categorize`, PRD omni-loop-7 s3, ./schedule.ts), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
 //                    refreshes the four checks' jobs of a product PRD's target pull requests, and the
@@ -64,6 +65,9 @@ import { runnerQueue } from '../retro/runner-queue.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { embedHandler, EMBED_KIND } from './embed.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
+import { searchCategorizeHandler, SEARCH_CATEGORIZE_KIND } from './search-categorize.ts';
+import { categorizeUrl, galaxyCategorizer } from '../search-categorize/galaxy.ts';
+import { searchStore } from '../search-categorize/store.ts';
 import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from './payloads.ts';
 import type { FailureHook, JobHandler } from './worker.ts';
 
@@ -164,7 +168,7 @@ export function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = nu
  * The groups the live worker reads: the database it runs on, what the checks ask beside GitHub, and the App's own
  * key, with which the escalation lists its installations.
  */
-export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge' | 'stageEvents' | 'galaxyUrl'>>;
+export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge' | 'searchCategorize' | 'stageEvents' | 'galaxyUrl'>>;
 
 /**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the knowledge
@@ -191,6 +195,11 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       [EMBED_KIND]: embedHandler({ store: knowledgeEmbedStore(supabase), embed: embedClient(supabase) }),
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
+      [SEARCH_CATEGORIZE_KIND]: searchCategorizeHandler({
+        store: searchStore(supabase),
+        embed: embedClient(supabase),
+        categorize: galaxyCategorizer({ url: categorizeUrl(galaxyUrl), secret: env.searchCategorize?.secret }),
+      }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),

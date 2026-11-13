@@ -25,7 +25,7 @@ describe('readEnv, the arcade server\'s environment', () => {
       production: false, building: false, mode: 'demo',
       supabase: null, serviceRole: null, githubApp: null, githubAppSlug: null, githubOAuth: null, openrouter: null,
       stagesSyncSecret: null, stageEventSecret: null, secretsMasterKey: null, constituentJudgeSecret: null,
-      lawJudgeSecret: null, businessLawsJudgeSecret: null, businessRecheckSecret: null, webPush: null, resend: null, kitTokenKey: null, demo: null, galaxyUrl: null,
+      lawJudgeSecret: null, businessLawsJudgeSecret: null, businessRecheckSecret: null, searchCategorizeSecret: null, webPush: null, resend: null, kitTokenKey: null, demo: null, galaxyUrl: null,
       commit: null,
     });
   });
