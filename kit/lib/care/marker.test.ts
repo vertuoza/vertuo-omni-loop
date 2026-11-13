@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { CARE_VERDICTS, careMarker, careReplyBody, readCareVerdict } from './marker.ts';
 
 describe('the PR care marker', () => {
-  it('knows exactly three verdicts', () => {
-    expect(CARE_VERDICTS).toEqual(['fixed', 'pushed-back', 'asked']);
+  it('knows exactly four verdicts, later the one PRD 2739 added', () => {
+    expect(CARE_VERDICTS).toEqual(['fixed', 'pushed-back', 'asked', 'later']);
   });
 
   it.each(CARE_VERDICTS)('writes and reads back %s', (verdict) => {

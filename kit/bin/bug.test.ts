@@ -129,6 +129,40 @@ describe('omni bug', () => {
     expect(failures(out)).toEqual([]);
   });
 
+  describe('## Still open (PRD 2739)', () => {
+    const POINT = 'The retry loop never stops.';
+    const FOLLOW_UP = (source: string, text: string) => `---\nsource: ${source}\ndate: 2026-11-12\n---\n\n${text}\n`;
+    const FILE = '.omni-loop/delivery/follow-ups/2026-11-12-the-retry-loop-never-stops.md';
+
+    it('is not ok, naming the bullet and the command, when a point has no follow-up file', async () => {
+      const { root, base } = fixBranch({ bug: record({ 'Still open': `- ${POINT}` }) });
+      const { code, out } = await run(root, base);
+      expect(code).toBe(1);
+      expect(failures(out)).toEqual([
+        `- ${RECORD}: "${POINT}" is still open but has no follow-up: omni follow-up add --source 'bug #12' --text '${POINT}'`,
+      ]);
+    });
+
+    it('is ok once the file of source bug #12 holds the same text, whitespace collapsed', async () => {
+      const { root, base, write } = fixBranch({ bug: record({ 'Still open': `- The retry loop\n  never stops.` }) });
+      write(FILE, FOLLOW_UP('bug #12', POINT));
+      expect((await run(root, base)).code).toBe(0);
+    });
+
+    it('is not ok when the file is of another bug', async () => {
+      const { root, base, write } = fixBranch({ bug: record({ 'Still open': `- ${POINT}` }) });
+      write(FILE, FOLLOW_UP('bug #13', POINT));
+      expect((await run(root, base)).code).toBe(1);
+    });
+
+    it('is ok with the one line none, or without the section', async () => {
+      const none = fixBranch({ bug: record({ 'Still open': 'none' }) });
+      expect((await run(none.root, none.base)).code).toBe(0);
+      const absent = fixBranch();
+      expect((await run(absent.root, absent.base)).code).toBe(0);
+    });
+  });
+
   it('passes the guard and mutation lines a repository without either writes', async () => {
     const { root, base } = fixBranch({ bug: record({ Guard: 'none — no cheaper check fits', Mutation: 'not set here' }) });
     expect((await run(root, base)).code).toBe(0);

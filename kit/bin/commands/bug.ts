@@ -22,13 +22,14 @@
 // pull request of the target where the bug shows: its `## Proof`, by the same rule as `omni bug <n>`.
 // A product bug has no record pull request, so that is where its proof sits.
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { gradeBugFile, bugSeqArg, bugPushedLines, pushProductBug } from '../../lib/bug/product.ts';
 import { openPullRequest, proofFaults } from '../../lib/bug/proof-body.ts';
 import type { ProofSource } from '../../lib/bug/proof-body.ts';
-import { bugVerdict } from '../../lib/bug/verdict.ts';
+import { bugVerdict, parseSections } from '../../lib/bug/verdict.ts';
+import { stillOpenBullets, stillOpenViolations } from '../../lib/bug/still-open.ts';
 import { formatFailure, formatPass } from '../../lib/check-report.ts';
 import { parseIssue } from '../../lib/ids.ts';
 import { isProductKey } from '../../lib/product/checkout.ts';
@@ -45,7 +46,7 @@ type BugOptions = { tokens?: TokenStore | undefined; home?: string | undefined; 
 const USAGE = [
   'usage: omni bug <n> [--base <ref>] [--body-file <file>]',
   '       omni bug film <n> --before <file> --after <file> [--out <dir>]',
-  '       omni bug check --product <key> <file> [--body-file <body>]',
+  '       omni bug check --product <key> (--bug <n> | --new) <file> [--body-file <body>]',
   '       omni bug push --product <key> (--new | --bug <n>) <file>',
 ].join('\n');
 
@@ -83,7 +84,7 @@ type ProductArgs = { key: string; file: string; bug: string | null; create: bool
 
 /** The usage error a flag combination earns, or null when `check` or `push` may take it. */
 function flagFault(verb: 'check' | 'push', flags: { new?: true; bug?: string; 'body-file'?: string }): string | null {
-  if (verb === 'check') return flags.new === true || flags.bug !== undefined ? 'omni bug check: --new and --bug are for push.' : null;
+  if (verb === 'check') return flags.new === true && flags.bug !== undefined ? 'omni bug check: --new and --bug are two ways to name the bug: give one.' : null;
   if (flags['body-file'] !== undefined) return 'omni bug push: --body-file is for check.';
   if (flags.new === true && flags.bug !== undefined) return 'omni bug push: --new and --bug are two ways to name the bug: give one.';
   return flags.new !== true && flags.bug === undefined ? 'omni bug push: say where it goes: --new for the next bug of the product, or --bug <n>.' : null;
@@ -113,7 +114,20 @@ async function prepare(verb: 'check' | 'push', rest: string[], io: ProductIo) {
   const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
   if (!client) return refuse(io.stderr, 'no sign-in (omni signin)');
   const repo = io.ctx.config.repo.slug ?? null;
-  return { args, askUrl, client, repo, graded: await gradeBugFile({ key: args.key, repo, record, client }) };
+  return { args, askUrl, client, repo, record, graded: await gradeBugFile({ key: args.key, repo, record, client }) };
+}
+
+/** The check of the record's `## Still open` points: skipped with `--new`, said so on one line. */
+function stillOpenLines(args: ProductArgs, io: ProductIo, record: string): string[] {
+  const body = parseSections(record).get('Still open');
+  if (stillOpenBullets(body).length === 0) return [];
+  if (args.create) {
+    println(io.stdout, 'omni bug check: --new, the Still open points are not checked (the bug has no number yet).');
+    return [];
+  }
+  const seq = args.bug === null ? null : bugSeqArg(args.key, args.bug);
+  if (seq === null) return [`the Still open points need --bug <n> (or ${args.key}-B<n>) to look for their follow-up files, or --new to skip them.`];
+  return stillOpenViolations({ record: 'bug.md', body, source: `${args.key}-B${seq}`, deliveryDir: join(io.ctx.root, io.ctx.config.paths.delivery) });
 }
 
 async function checkProduct(rest: string[], io: ProductIo): Promise<number> {
@@ -121,7 +135,7 @@ async function checkProduct(rest: string[], io: ProductIo): Promise<number> {
   if (typeof prepared === 'number') return prepared;
   const { args, graded } = prepared;
   const proof = args.bodyFile === null ? [] : proofFaults({ kind: 'file', body: readUserFile('bug check', io.ctx, args.bodyFile) }, parseIssue(1));
-  const lines = [...(graded.ok ? graded.violations : graded.lines), ...proof];
+  const lines = [...(graded.ok ? graded.violations : graded.lines), ...proof, ...stillOpenLines(args, io, prepared.record)];
   if (lines.length > 0) {
     println(io.stdout, formatFailure(`omni bug check — ${args.file}: violation(s):`, lines.map((line) => `${args.file}: ${line}`)));
     return 1;

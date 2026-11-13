@@ -1,6 +1,6 @@
 ---
 name: pr-care
-description: Looks after one PRD's feature PR until it is merged or closed, or the person stops it — round by round, when a CI run finishes and otherwise every 5 minutes, it merges the base on a conflict, runs /omni:pr's fix loop on red CI, then judges each unhandled review thread against the review playbook form and fixes it, pushes back with a reason, or asks the PM, replying through omni care reply with the marker the PRD page reads. With --once it runs one round and returns, for a loop that calls it each tick (/omni:drive). Pushes nothing while a wave holds claims, keeps the care line of the status comment current, never merges and never marks ready. Triggers on "look after the feature PR", "handle the review comments", "keep my PR green", "watch PRD 790's PR", "/omni:pr-care".
+description: Looks after one PRD's feature PR until it is merged or closed, or the person stops it — round by round, when a CI run finishes and otherwise every 5 minutes, it merges the base on a conflict, runs /omni:pr's fix loop on red CI, then judges each unhandled review thread against the review playbook form and fixes it, pushes back with a reason, promises it for later as a follow-up a person agrees to, or asks the PM, replying through omni care reply with the marker the PRD page reads. With --once it runs one round and returns, for a loop that calls it each tick (/omni:drive). Pushes nothing while a wave holds claims, keeps the care line of the status comment current, never merges and never marks ready. Triggers on "look after the feature PR", "handle the review comments", "keep my PR green", "watch PRD 790's PR", "/omni:pr-care".
 ---
 
 # PR care: keep the feature PR green, conflict-free and review-handled
@@ -200,7 +200,7 @@ Each `judge` action names a thread id; its comments are in the state's `threads`
 (`path`, `line`, and each comment's `author`, `body` and `url`). Read the comments and the code they
 point at, then judge the thread against the `review` form you read this round
 (`node .omni-loop/bin/omni.mjs kb show review`). It gets exactly one
-of three verdicts, and the reply names the rubric line it rests on:
+of four verdicts, and the reply names the rubric line it rests on:
 
 - **fixed**: the comment falls under a `fix` line. Make the change in the worktree, test-first when
   it changes behaviour, run the preflight, and commit it alone (one commit per thread). Push. Reply
@@ -208,8 +208,13 @@ of three verdicts, and the reply names the rubric line it rests on:
   thread.
 - **pushed-back**: the comment falls under a `push-back` line. Change nothing. Reply with a short,
   polite reason that names the line it rests on, for example
-  `Low value for this PR: naming preference, no linter rule. Happy to take it as a follow-up.`
+  `Low value for this PR: naming preference, no linter rule.`
   The reply resolves the thread: a thread resolved without a code change always carries its reason.
+- **later**: a push-back whose reply offers to do the point afterwards
+  (`Low value for this PR: naming preference. Happy to take it as a follow-up.`). Whenever the reply
+  promises the point for later, the verdict is `later`, never `pushed-back`: a promise left in a
+  resolved thread is lost. Change no code. The reply resolves the thread, and the kit keeps the point
+  and asks a person to agree (below).
 - **asked**: the comment needs a product decision, or following it would contradict the spec (read
   the PRD's spec with `omni prd <n>`). Change nothing. Reply that the PM will decide, and why, in one
   line. The thread **stays open**, and the PRD page lists it first.
@@ -220,16 +225,29 @@ and matches no `fix` line is pushed back. A fix that cannot go green (its prefli
 what was tried.
 
 Post every reply through the kit, never with a raw `gh` call, so it ends with the marker the next
-round and the PRD page read, `<!-- omni-care: fixed|pushed-back|asked -->`. Write the reply's text
-to a scratch file (never in the repository), then:
+round and the PRD page read, `<!-- omni-care: fixed|pushed-back|asked -->`, or
+`<!-- omni-care: later -->` for a later reply. Write the reply's text to a scratch file (never in the
+repository), then:
 
 ```bash
 node .omni-loop/bin/omni.mjs care reply --verdict <verdict> --file <file> --thread <thread id>
+node .omni-loop/bin/omni.mjs care reply --verdict later --prd <n> --file <file> --thread <thread id>
 ```
 
 `<verdict>` is `fixed`, `pushed-back` or `asked`. It posts the reply on the thread and, for `fixed`
 and `pushed-back`, resolves the thread; an `asked` thread stays open. Exit 1 means GitHub refused it:
 say so in the status comment and carry on with the next thread.
+
+**A `later` reply** takes `--prd <n>` and runs in the care worktree. It copies the thread's comment,
+word for word, into a follow-up file of the follow-up folder (never write the person's point in your
+own words: the reply is your note beside it), records one outbox item of PRD n, ranked high, that
+asks a person to agree to postpone it, posts the reply and resolves the thread. It prints the
+follow-up file and the item. Commit those two files alone, no code with them, as
+`docs(follow-up): <slug>` (`<slug>` the follow-up file's name without its date), and push with the
+round. `omni ship` refuses the PRD while a `later` reply's item has no follow-up file (it reads the
+items, never the review), and the outbox gate holds it until a person answers the item. Exit 1 with `not judged: could not read
+thread <id>` means the comment could not be read: nothing was posted or written; reply `asked`
+instead, saying so.
 
 **The reviewer keeps the last word.** When a person writes in a thread after a care reply, or
 reopens a thread care resolved, the state lists it as `mark-asked`. Never argue again, change
@@ -290,6 +308,8 @@ thread ended as: `#<pr.number>: merged. 4 fixed, 2 pushed back, 1 asked.`
   `--force-with-lease`, and never while a wave holds claims.
 - **Never add `labels.outboxGo`,** and never touch a PR other than PRD n's feature PR.
 - **Never resolve a thread without a reply** that says why, and never resolve an asked one.
+- **Never promise a point for later as `pushed-back`:** a reply that offers to do it afterwards is
+  `later`, so the point is kept and a person agrees to it.
 - **Never argue twice:** a person's word after a care reply sends the thread to the PM.
 - **Never push a fix whose preflight is red,** and never lower a check to turn it green.
 - **Never force `omni / budgets` green:** trim first; a raise always carries its high item, which
