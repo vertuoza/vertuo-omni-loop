@@ -1,0 +1,18 @@
+/* The Search section (PRD omni-loop-6 s3): the figures of the period, the daily chart, the question tables. */
+.kn-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 12px 0; }
+.kn-figures > div { border: 1px solid var(--ask-line, #e5e5e5); border-radius: 8px; padding: 10px 12px; }
+.kn-figures dt { color: var(--ask-muted); font-size: 13px; }
+.kn-figures dd { margin: 2px 0 0; font-size: 26px; font-weight: 600; }
+.kn-figures dd.ask-muted { font-size: 12px; font-weight: 400; }
+.kn-chart { margin: 16px 0; }
+.kn-chart figcaption { color: var(--ask-muted); font-size: 13px; margin-bottom: 6px; }
+.kn-chart svg { width: 100%; height: 140px; background: var(--ask-sunk); border-radius: 8px; }
+.kn-bar { fill: var(--ask-plasma-soft); stroke: var(--ask-plasma); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.kn-line { stroke-width: 2; vector-effect: non-scaling-stroke; }
+.kn-line[data-line='zero-hit'] { stroke: var(--ask-red); }
+.kn-line[data-line='words'] { stroke: var(--ask-ink); stroke-dasharray: 5 3; }
+.kn-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0 0; font-size: 13px; }
+.kn-legend [data-key='bar'] { border-left: 10px solid var(--ask-plasma); padding-left: 6px; }
+.kn-legend [data-key='zero-hit'] { border-left: 10px solid var(--ask-red); padding-left: 6px; }
+.kn-legend [data-key='words'] { border-left: 10px solid var(--ask-ink); padding-left: 6px; }
+[data-region] h3 { margin: 18px 0 4px; font-size: 17px; }

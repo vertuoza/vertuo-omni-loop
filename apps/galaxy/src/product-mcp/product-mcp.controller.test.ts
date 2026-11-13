@@ -6,7 +6,7 @@ import { embedText } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import { describe, expect, it } from 'vitest';
 import { hashApiKey } from '../public-api/keys/secret';
 import { handleProductMcp, type ProductMcpDeps } from './product-mcp.controller';
-import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema } from './product-mcp.contract';
+import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema, type SearchLogRow } from './product-mcp.contract';
 import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
 import { MEANING_BUDGET_MS, type Meaning } from './search-meaning';
@@ -50,7 +50,7 @@ const KNOWLEDGE: AccessRow['knowledge'] = {
 const NEVER = [{ seq: 6, body: 'Never locks a workspace in.' }];
 const SHA = 'a'.repeat(40);
 
-async function world({ database = true, failing = false }: { database?: boolean; failing?: boolean } = {}) {
+async function world({ database = true, failing = false, logFails = false, openFails = false }: { database?: boolean; failing?: boolean; logFails?: boolean; openFails?: boolean } = {}) {
   const hashes = { live: await hashApiKey(LIVE), narrow: await hashApiKey(NARROW), other: await hashApiKey(OTHER), revoked: await hashApiKey(REVOKED) };
   // What the store holds now; a test changes it between two calls.
   const state = {
@@ -60,6 +60,8 @@ async function world({ database = true, failing = false }: { database?: boolean;
     apiPack: true,
   };
   const calls: string[] = [];
+  // The id of the key each live hash names, as api_key_of() answers it.
+  const keyIdOf = (hash: string): string => (hash === hashes.narrow ? 'k-narrow' : 'k-live');
   const ref = (repo: string, packId: string | null) => ({ repo, pack_id: packId, sha: packId ? SHA : null, committed_at: packId ? '2026-11-09T10:00:00Z' : null });
   const repository: ProductMcpRepository = {
     access: (hash, key) => {
@@ -71,6 +73,7 @@ async function world({ database = true, failing = false }: { database?: boolean;
       const widgets = ref('acme/widgets', 'pack-widgets');
       const access: AccessRow = {
         product: { id: 'p-acme', key: 'acme-app', name: 'Acme App', workspace_id: 'w-acme' },
+        key_id: keyIdOf(hash),
         repositories: hash === hashes.narrow ? [api] : [api, widgets],
         law_home: widgets,
         knowledge: KNOWLEDGE,
@@ -85,7 +88,31 @@ async function world({ database = true, failing = false }: { database?: boolean;
     never: () => Promise.resolve(NEVER),
   };
   const logged: string[] = [];
-  const deps: ProductMcpDeps = { service: database ? productMcpService(repository) : null, log: (line) => { logged.push(line); } };
+  // The search log (PRD omni-loop-6 s1): the rows written, and the tasks left for after the answer, run by flush().
+  const rows: SearchLogRow[] = [];
+  const pending: (() => Promise<void>)[] = [];
+  // The searches an opened rank can mark, as the table holds them, and what the log was asked to open.
+  const opened: { keyId: string; productId: string; id: string; askedAt: string }[] = [];
+  const deps: ProductMcpDeps = {
+    service: database ? productMcpService(repository) : null,
+    log: (line) => { logged.push(line); },
+    searchLog: {
+      add: (row) => {
+        if (logFails) return Promise.reject(new Error('mcp_search_log: the database refused: boom'));
+        rows.push(row);
+        return Promise.resolve();
+      },
+      open: (keyId, productId, id, askedAt) => {
+        if (openFails) return Promise.reject(new Error('mcp_search_log: the database refused: no update'));
+        opened.push({ keyId, productId, id, askedAt });
+        return Promise.resolve();
+      },
+    },
+    later: (task) => { pending.push(task); },
+  };
+  const flush = async () => {
+    for (let task = pending.shift(); task !== undefined; task = pending.shift()) await task();
+  };
 
   const post = (key: string, token: string | null, body: unknown) => handleProductMcp(new Request(`https://omni.example/api/products/${key}/mcp`, {
     method: 'POST',
@@ -125,7 +152,7 @@ async function world({ database = true, failing = false }: { database?: boolean;
     return (await productMcpService(repository).read(access)).entries;
   };
 
-  return { state, calls, logged, deps, post, connect, ask, call, entries };
+  return { state, calls, logged, deps, post, connect, ask, call, entries, rows, opened, pending, flush, hashes };
 }
 
 const INITIALIZE = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'probe', version: '1' } } };
@@ -384,5 +411,123 @@ describe('/api/products/<key>/mcp', () => {
       expect(answer.mode).toBeUndefined();
       expect(store.workspaces).toEqual([]);
     });
+  });
+});
+
+describe('/api/products/<key>/mcp logs each search it answers (PRD omni-loop-6 s1)', () => {
+  it('a search_knowledge adds exactly one row, after the answer: the query, the mode, the total, the hits, and the key\'s id', async () => {
+    const w = await world();
+    const { text } = await w.call(LIVE, 'search_knowledge', { query: 'api key', kind: 'adr' });
+    const answer = SearchAnswerSchema.parse(JSON.parse(text));
+    // The answer is back, and nothing is written yet: the row waits for after the answer.
+    expect(w.rows).toEqual([]);
+    expect(w.pending).toHaveLength(1);
+    await w.flush();
+    expect(w.rows).toHaveLength(1);
+    const { asked_at: askedAt, ...row } = w.rows[0] ?? { asked_at: '' };
+    expect(row).toEqual({
+      product_id: 'p-acme', workspace_id: 'w-acme', api_key_id: 'k-live', tool: 'search_knowledge',
+      query: 'api key', filters: { kind: 'adr' }, mode: 'words', total: answer.total, hit_ids: answer.hits.map((hit) => hit.id),
+    });
+    expect(Date.parse(askedAt)).not.toBeNaN();
+    expect(answer.hits.length).toBeGreaterThan(0);
+  });
+
+  it('holds no key: neither the key nor its hash is in the row (L-GDPR-2)', async () => {
+    const w = await world();
+    await w.call(LIVE, 'search_knowledge', { query: 'api key' });
+    await w.call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    await w.flush();
+    const written = JSON.stringify(w.rows);
+    expect(written).not.toContain(LIVE);
+    expect(written).not.toContain(w.hashes.live);
+  });
+
+  it('a listing is logged with no query and no mode, its filters kept', async () => {
+    const w = await world();
+    await w.call(NARROW, 'search_knowledge', { kind: 'business-law', domain: 'quotes', repo: 'acme/widgets' });
+    await w.flush();
+    expect(w.rows).toEqual([expect.objectContaining({
+      api_key_id: 'k-narrow', query: null, mode: null, filters: { kind: 'business-law', domain: 'quotes', repo: 'acme/widgets' },
+    })]);
+  });
+
+  it('a get_knowledge adds a row of its own, its query the id asked; one the product does not hold reads total 0', async () => {
+    const w = await world();
+    await w.call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    await w.call(LIVE, 'get_knowledge', { id: 'widgets/ADR-9999' });
+    await w.flush();
+    expect(w.rows).toEqual([
+      expect.objectContaining({ tool: 'get_knowledge', query: 'BL-QUOTES-1', filters: {}, mode: null, total: 1, hit_ids: ['BL-QUOTES-1'] }),
+      expect.objectContaining({ tool: 'get_knowledge', query: 'widgets/ADR-9999', filters: {}, mode: null, total: 0, hit_ids: [] }),
+    ]);
+  });
+
+  it('a call refused by the key check adds no row: a key whose maker left (BL-ACCESS-1), a revoked or a malformed key', async () => {
+    const w = await world();
+    w.state.makerIsMember = false;
+    for (const token of [LIVE, REVOKED, 'oma_short', null]) {
+      expect((await w.call(token, 'search_knowledge', { query: 'quote' })).text).toBe(KEY_REFUSED);
+      expect((await w.call(token, 'get_knowledge', { id: 'BL-QUOTES-1' })).text).toBe(KEY_REFUSED);
+    }
+    await w.flush();
+    expect(w.pending).toEqual([]);
+    expect(w.rows).toEqual([]);
+  });
+
+  it('with the log\'s write failing, the search answers exactly as before, and the failure is logged as an error', async () => {
+    const before = await (await world()).call(LIVE, 'search_knowledge', { query: 'api key' });
+    const w = await world({ logFails: true });
+    expect(await w.call(LIVE, 'search_knowledge', { query: 'api key' })).toEqual(before);
+    expect(await w.call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' })).toEqual(await (await world()).call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' }));
+    await w.flush();
+    expect(w.logged).toEqual([
+      'product mcp: search log not written: mcp_search_log: the database refused: boom',
+      'product mcp: search log not written: mcp_search_log: the database refused: boom',
+    ]);
+  });
+
+  it('with no search log here, every call answers as before and nothing waits', async () => {
+    const before = await (await world()).call(LIVE, 'search_knowledge', { query: 'quote' });
+    const w = await world();
+    w.deps.searchLog = null;
+    expect(await w.call(LIVE, 'search_knowledge', { query: 'quote' })).toEqual(before);
+    expect(w.pending).toEqual([]);
+  });
+});
+
+describe('/api/products/<key>/mcp opens the search a get_knowledge follows (PRD omni-loop-6 s2)', () => {
+  it('a get_knowledge that found its entry asks the log to open it, once the answer is sent, for its key, product and id', async () => {
+    const w = await world();
+    const { text } = await w.call(LIVE, 'get_knowledge', { id: 'bl-quotes-1' });
+    expect(text).toContain('BL-QUOTES-1');
+    expect(w.opened).toEqual([]);
+    await w.flush();
+    expect(w.opened).toEqual([{ keyId: 'k-live', productId: 'p-acme', id: 'BL-QUOTES-1', askedAt: w.rows[0]?.asked_at }]);
+  });
+
+  it('a search, a listing, or a get_knowledge the product does not hold opens nothing', async () => {
+    const w = await world();
+    await w.call(LIVE, 'search_knowledge', { query: 'api key' });
+    await w.call(LIVE, 'search_knowledge', {});
+    await w.call(LIVE, 'get_knowledge', { id: 'widgets/ADR-9999' });
+    await w.flush();
+    expect(w.opened).toEqual([]);
+  });
+
+  it('a call refused by the key check opens nothing', async () => {
+    const w = await world();
+    await w.call(REVOKED, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    await w.flush();
+    expect(w.opened).toEqual([]);
+  });
+
+  it('with the update failing, the get_knowledge answers exactly as before, and the failure is logged as an error', async () => {
+    const before = await (await world()).call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    const w = await world({ openFails: true });
+    expect(await w.call(LIVE, 'get_knowledge', { id: 'BL-QUOTES-1' })).toEqual(before);
+    await w.flush();
+    expect(w.rows).toHaveLength(1);
+    expect(w.logged).toEqual(['product mcp: opened rank not written: mcp_search_log: the database refused: no update']);
   });
 });
