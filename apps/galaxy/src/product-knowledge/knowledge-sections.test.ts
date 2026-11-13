@@ -23,8 +23,8 @@ describe('a save', () => {
 });
 
 describe('the sections', () => {
-  it('are nine, in the sub-menu\'s order, Domains after Glossary, Knowledge opening on the first', () => {
-    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'domains', 'business-laws', 'pitch', 'repositories', 'settings']);
+  it('are ten, in the sub-menu\'s order, Domains after Glossary, Search before Settings, Knowledge opening on the first', () => {
+    expect(SECTION_KEYS).toEqual(['constituents', 'personas', 'legal', 'glossary', 'domains', 'business-laws', 'pitch', 'repositories', 'search', 'settings']);
     expect(FIRST_SECTION).toBe('constituents');
   });
 
@@ -47,8 +47,9 @@ describe('the sections', () => {
 
   it('give a count only to the sections whose items are read, and none at 0 once drawn', () => {
     const tabs = knowledgeSectionTabs('p', { legal: 3, glossary: 0, domains: 6 });
-    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Business laws', 'Pitch', 'Repositories', 'Settings']);
-    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, 6, undefined, undefined, undefined, undefined]);
+    expect(tabs.map((t) => t.label)).toEqual(['Constituents', 'Personas', 'Legal', 'Glossary', 'Domains', 'Business laws', 'Pitch', 'Repositories', 'Search', 'Settings']);
+    expect(tabs.map((t) => t.count)).toEqual([undefined, undefined, 3, 0, 6, undefined, undefined, undefined, undefined, undefined]);
+    expect(tabs[8]?.href).toBe('/app/products/p/knowledge/search');
     expect(tabs[4]?.href).toBe('/app/products/p/knowledge/domains');
     expect(tabs[7]?.href).toBe('/app/products/p/knowledge/repositories');
     expect(tabs[0]?.href).toBe('/app/products/p/knowledge/constituents');

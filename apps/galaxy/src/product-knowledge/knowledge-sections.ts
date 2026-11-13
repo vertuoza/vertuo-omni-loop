@@ -5,12 +5,12 @@ import { newestFirst, sortOf, type Sort } from '../nav/sortable-list';
 import { notOnListLabel } from './found-domains';
 import { knowledgeTabHref, type DomainEntry, type GlossaryEntry, type KnowledgeTab, type LegalEntry, type Person } from './product-knowledge.contract';
 
-// The Knowledge home's sections (PRD 2240 s3; Repositories, PRD 2419 s1; Domains, PRD 2583 s1): the nine
+// The Knowledge home's sections (PRD 2240 s3; Repositories, PRD 2419 s1; Domains, PRD 2583 s1): the ten
 // entries of the sub-menu in their order, their addresses under /app/products/<id>/knowledge, the count
 // each list section shows, and the rows and columns of the Legal, Glossary and Domains lists. Pure: the
 // pages and the sub-menu draw from it.
 
-export const SECTION_KEYS = ['constituents', 'personas', 'legal', 'glossary', 'domains', 'business-laws', 'pitch', 'repositories', 'settings'] as const;
+export const SECTION_KEYS = ['constituents', 'personas', 'legal', 'glossary', 'domains', 'business-laws', 'pitch', 'repositories', 'search', 'settings'] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 
 interface SectionDef {
@@ -28,6 +28,7 @@ export const SECTIONS: Readonly<Record<SectionKey, SectionDef>> = {
   'business-laws': { label: 'Business laws', list: false },
   pitch: { label: 'Pitch', list: false },
   repositories: { label: 'Repositories', list: false },
+  search: { label: 'Search', list: false },
   settings: { label: 'Settings', list: false },
 };
 
