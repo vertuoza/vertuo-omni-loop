@@ -6,7 +6,7 @@
 //   { "rounds": [ {
 //       "stage": "design" | "spec" | "rework-<k>" | "shipped",   each once, k from 1
 //       "date": "YYYY-MM-DD",
-//       "personas": [ { "name", "stance": excited|neutral|skeptical, "score": 1–5,
+//       "personas": [ { "name", "stance": enthusiastic|neutral|skeptical (excited still reads), "score": 1–5,
 //                       "reaction": at most two sentences, "citations": [persona:<name> | <kind>#<n>, …] } ],
 //       "objection": null | { "persona": one of the round's, "text": at most two sentences, "citations",
 //                             "settled": accepted|saved-as-claim|just-this-run|none },
@@ -20,9 +20,11 @@ export const VOICE_FILE = 'voice.json';
 
 const STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
 const STAGES_SAID = 'design, spec, rework-<k>, shipped';
-const STANCES = ['excited', 'neutral', 'skeptical'] as const;
+const STANCES = ['enthusiastic', 'neutral', 'skeptical'] as const;
+/** `excited` is what a voice.json wrote before PRD 2779: it still reads. */
+const READ_STANCES = ['excited', ...STANCES] as const;
 const SETTLED = ['accepted', 'saved-as-claim', 'just-this-run', 'none'] as const;
-const KNOWN_STANCES: readonly unknown[] = STANCES;
+const KNOWN_STANCES: readonly unknown[] = READ_STANCES;
 const KNOWN_SETTLED: readonly unknown[] = SETTLED;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** A persona (`persona:Marc`) or a claim id of one of the business's kinds (`size#2`). */
@@ -35,7 +37,7 @@ const ROUND_FIELDS = ['stage', 'date', 'personas', 'objection', 'fit'];
 /** One persona's say in a round. */
 const VoicePersonaSchema = z.looseObject({
   name: z.string(),
-  stance: z.enum(STANCES),
+  stance: z.enum(READ_STANCES),
   score: z.number(),
   reaction: z.string(),
   citations: z.array(z.string()),

@@ -15,7 +15,7 @@ const stored = (n: number, over: Partial<StoredAuthoredPersona> = {}): StoredAut
 });
 const STORED = [
   stored(1, { name: 'Marc', stance: 'skeptical', trade: 'plumber' }),
-  stored(2, { name: 'Sofia', stance: 'excited', trade: 'office', created_by: null }),
+  stored(2, { name: 'Sofia', stance: 'enthusiastic', trade: 'office', created_by: null }),
   stored(3, { name: 'Yves', stance: 'neutral', trade: 'electrician', created_by: 'u-bob' }),
 ];
 const ROWS = personaRowsOf(STORED, { 'u-anna': 'anna' });

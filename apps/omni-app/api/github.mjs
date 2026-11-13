@@ -5863,9 +5863,10 @@ import { z as z18 } from "zod";
 var VOICE_FILE = "voice.json";
 var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
 var STAGES_SAID = "design, spec, rework-<k>, shipped";
-var STANCES = ["excited", "neutral", "skeptical"];
+var STANCES = ["enthusiastic", "neutral", "skeptical"];
+var READ_STANCES = ["excited", ...STANCES];
 var SETTLED = ["accepted", "saved-as-claim", "just-this-run", "none"];
-var KNOWN_STANCES = STANCES;
+var KNOWN_STANCES = READ_STANCES;
 var KNOWN_SETTLED = SETTLED;
 var DATE3 = /^\d{4}-\d{2}-\d{2}$/;
 var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$/;
@@ -5874,7 +5875,7 @@ var TOP_FIELDS = ["rounds"];
 var ROUND_FIELDS = ["stage", "date", "personas", "objection", "fit"];
 var VoicePersonaSchema = z18.looseObject({
   name: z18.string(),
-  stance: z18.enum(STANCES),
+  stance: z18.enum(READ_STANCES),
   score: z18.number(),
   reaction: z18.string(),
   citations: z18.array(z18.string())

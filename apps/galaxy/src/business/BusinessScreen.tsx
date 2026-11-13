@@ -64,7 +64,7 @@ export const DEMO_PERSONAS: Persona[] = [
     usage: 'Mostly the quotes and the dashboard.',
   },
   {
-    id: 'demo-persona-2', product: 'demo-product-1', ordinal: 2, name: 'Sofia', stance: 'excited', trade: 'office',
+    id: 'demo-persona-2', product: 'demo-product-1', ordinal: 2, name: 'Sofia', stance: 'enthusiastic', trade: 'office',
     avatar: { v: 1, skin: 3, hair: 3, hairColor: 0, outfit: 0, accessory: 2 },
     who: 'Keeps a 20-person renovation company running: invoices, planning, suppliers.',
     usage: 'Invoices, planning and supplier orders, every day.',

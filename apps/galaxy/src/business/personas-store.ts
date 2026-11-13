@@ -1,4 +1,4 @@
-import { validPersonaAvatar } from '@omni/design';
+import { TRADE_RULE_LINE, validPersonaAvatar, validPersonaTrade } from '@omni/design';
 import { NAME_MAX, personaOf, STANCES, StoredPersona, TEXT_MAX, type Persona, type PersonaFields } from './personas';
 import { parseRow } from '../data/parse-rows';
 import { COULD_NOT_SAVE } from './store';
@@ -26,8 +26,8 @@ export const PERSONA_GONE = 'That persona is no longer here. Reload the page.';
 /** What a 22023 says, by the field its `hint` names. */
 export const INVALID_PERSONA_FIELD: Readonly<Record<string, string>> = {
   name: `A name: 1 to ${NAME_MAX} characters, on one line.`,
-  stance: 'Pick a stance: excited, neutral or skeptical.',
-  trade: 'Pick a trade from the list.',
+  stance: 'Pick a stance: enthusiastic, neutral or skeptical.',
+  trade: `Trade: ${TRADE_RULE_LINE}`,
   avatar: 'Pick a portrait from the picker.',
   who: `Who they are: ${TEXT_MAX} characters at most.`,
   usage: `How they use it: ${TEXT_MAX} characters at most.`,
@@ -77,7 +77,7 @@ const badText = (text: string) => text.trim().length > TEXT_MAX;
 const FIELD_CHECKS: ReadonlyArray<readonly [string, (f: PersonaFields) => boolean]> = [
   ['name', (f) => badName(f.name.trim())],
   ['stance', (f) => !STANCES.includes(f.stance)],
-  ['trade', (f) => !/^[a-z]+$/.test(f.trade) || f.trade.length > 40],
+  ['trade', (f) => !validPersonaTrade(f.trade)],
   ['avatar', (f) => !validPersonaAvatar(f.avatar)],
   ['who', (f) => badText(f.who)],
   ['usage', (f) => badText(f.usage)],

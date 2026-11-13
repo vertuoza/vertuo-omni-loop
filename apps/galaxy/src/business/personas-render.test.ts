@@ -24,7 +24,7 @@ const ONE: Product[] = [{ id: 'p-1', name: 'Vertuoza' }];
 const TWO: Product[] = [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }];
 const CAST = [
   persona(1, { name: 'Marc', stance: 'skeptical', who: 'Runs five plumbers', usage: 'Mostly the quotes' }),
-  persona(2, { name: 'Sofia', stance: 'excited', trade: 'office' }),
+  persona(2, { name: 'Sofia', stance: 'enthusiastic', trade: 'office' }),
   persona(3, { name: 'Anne', trade: 'accountant', product: 'p-2' }),
 ];
 
@@ -71,16 +71,21 @@ describe('the card grid', () => {
   });
 
   it('draws the trade\'s label: an office manager, not "office"', () => {
-    expect(text(cardOf(render(CAST), 'pe-2'))).toContain('Sofia Office manager Excited');
+    expect(text(cardOf(render(CAST), 'pe-2'))).toContain('Sofia Office manager Enthusiastic');
   });
 
-  it('draws an empty portrait for a trade it cannot draw, and keeps that trade while editing', () => {
-    const odd = [persona(9, { name: 'Lou', trade: 'welder' })];
+  it('draws the generic portrait for a trade of its own words, on the card, and keeps it Other… while editing', () => {
+    const odd = [persona(9, { name: 'Lou', trade: 'credit risk analyst' })];
     const card = cardOf(render(odd), 'pe-9');
-    expect(card).not.toContain('<svg');
-    expect(text(card)).toContain('Lou welder');
+    expect(card).toContain('<svg');
+    expect(text(card)).toContain('Lou credit risk analyst');
+    const generic = cardOf(render([persona(9, { name: 'Lou', trade: 'generic' })]), 'pe-9').match(/<svg[\s\S]*?<\/svg>/)?.[0]?.replace(/aria-label="[^"]*"|<title>[^<]*<\/title>/g, '');
+    expect(card.match(/<svg[\s\S]*?<\/svg>/)?.[0]?.replace(/aria-label="[^"]*"|<title>[^<]*<\/title>/g, '')).toBe(generic);
     const edit = render(odd, { actions: [{ type: 'edit', persona: 'pe-9', seed: 'e' }] });
-    expect([...edit.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])[0]).toBe('welder');
+    expect(edit).toContain('<option value="Other…" selected="">Other…</option>');
+    expect(edit).toMatch(/<input[^>]*name="other-trade"[^>]*value="credit risk analyst"/);
+    expect(variations(edit)).toHaveLength(24);
+    expect(variations(edit).every((v) => sure(v, 'v').includes('<svg'))).toBe(true);
   });
 
   it('leaves out who and uses when empty', () => {
@@ -98,9 +103,11 @@ describe('the drawer', () => {
     const tag = (name: string) => [...open.matchAll(/<(?:input|textarea|select)\b[^>]*>/g)].map((m) => m[0]).find((t) => t.includes(`name="${name}"`)) ?? '';
     expect(tag('name')).toContain('maxLength="40"');
     const stances = buttons(open).filter((b) => sure(b.attrs, 'b.attrs').includes('data-stance'));
-    expect(stances.map((b) => [b.text, sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')])).toEqual([['Excited', false], ['Neutral', true], ['Skeptical', false]]);
+    expect(stances.map((b) => [b.text, sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')])).toEqual([['Enthusiastic', false], ['Neutral', true], ['Skeptical', false]]);
     const options = [...open.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1]);
-    expect(options).toEqual(PERSONA_TRADES.map((t) => t.id));
+    expect(options).toEqual([...PERSONA_TRADES.map((t) => t.id), 'Other…']);
+    expect(options.slice(0, -1)).toHaveLength(21);
+    expect(open).not.toContain('name="other-trade"');
     expect(tag('who')).toContain('maxLength="400"');
     expect(tag('usage')).toContain('maxLength="400"');
     expect(tag('trade')).toContain('<select');
@@ -109,6 +116,22 @@ describe('the drawer', () => {
     expect(buttons(open).map((b) => b.text)).toEqual(expect.arrayContaining([SHUFFLE, 'Save', 'Cancel']));
     expect(buttons(open).map((b) => b.text)).not.toContain('Delete');
     expect(buttons(open).map((b) => b.text)).not.toContain(ADD_PERSONA);
+  });
+
+  it('shows the Other trade field once Other… is chosen, and its rule line in red for a trade that breaks it', () => {
+    const other = (trade: string) => render(CAST, { actions: [{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'change', fields: { trade: '' }, other: true }, { type: 'change', fields: { trade } }] });
+    const fresh = render(CAST, { actions: [{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'change', fields: { trade: '' }, other: true }] });
+    expect(fresh).toContain('name="other-trade"');
+    expect(fresh).not.toContain('role="alert"');
+    expect(variations(fresh).every((v) => sure(v, 'v').includes('<svg'))).toBe(true);
+    expect(other('credit risk analyst')).not.toContain('role="alert"');
+    for (const bad of ['Credit', 'analyst-', 'a  b']) {
+      const html = other(bad);
+      expect(html).toMatch(/<span id="business-other-trade-rule" class="business-refusal" role="alert">Lower-case words/);
+      expect(html).toContain('aria-invalid="true"');
+    }
+    const back = render(CAST, { actions: [{ type: 'new', product: 'p-1', seed: 'a' }, { type: 'change', fields: { trade: '' }, other: true }, { type: 'change', fields: { trade: 'doctor' }, other: false }] });
+    expect(back).not.toContain('name="other-trade"');
   });
 
   it('shows 24 variations of the chosen trade, and Shuffle shows 24 others', () => {
@@ -187,7 +210,7 @@ describe('products', () => {
 
 describe('the demo', () => {
   it('holds a persona of every stance, of the demo\'s product, each on a trade the page draws', () => {
-    expect(new Set(DEMO_PERSONAS.map((p) => p.stance))).toEqual(new Set(['excited', 'neutral', 'skeptical']));
+    expect(new Set(DEMO_PERSONAS.map((p) => p.stance))).toEqual(new Set(['enthusiastic', 'neutral', 'skeptical']));
     expect(DEMO_PERSONAS.every((p) => p.product === sure(DEMO_PRODUCTS[0], 'DEMO_PRODUCTS[0]').id)).toBe(true);
     expect(DEMO_PERSONAS.every((p) => PERSONA_TRADES.some((t) => t.id === p.trade))).toBe(true);
   });

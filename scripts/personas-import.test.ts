@@ -92,6 +92,13 @@ describe('checkRows', () => {
     expect(errors[0]).toMatch(new RegExp(`^row 2\\b.*${field}`));
   });
 
+  it('takes both words of the stance, excited stored as enthusiastic (PRD 2779)', () => {
+    const { rows, errors } = checkRows([row({ stance: 'enthusiastic' }), row({ name: 'Lee', stance: 'excited' })], PRODUCTS);
+    expect(errors).toEqual([]);
+    expect(rows.map((r) => r.stance)).toEqual(['enthusiastic', 'enthusiastic']);
+    expect(checkRows([row({ stance: 'angry' })], PRODUCTS).errors[0]).toMatch(/stance: enthusiastic, neutral or skeptical$/);
+  });
+
   it('refuses a row that is not an object, and a file that is not an array', () => {
     expect(checkRows(['Sam'], PRODUCTS).errors[0]).toMatch(/^row 1/);
     expect(checkRows({ name: 'Sam' }, PRODUCTS).errors[0]).toMatch(/array/);
@@ -242,7 +249,7 @@ describe('restStore', () => {
   });
 
   it('turns a refusal into an error carrying its message and hint', async () => {
-    const { fetch } = stub([[400, { code: '22023', message: 'Stance: excited, neutral or skeptical.', hint: 'stance' }]]);
+    const { fetch } = stub([[400, { code: '22023', message: 'Stance: enthusiastic, neutral or skeptical.', hint: 'stance' }]]);
     await expect(restStore({ url: 'http://db', key: 'k', fetch }).add(WS, { productId: 'p' } as Parameters<ReturnType<typeof restStore>['add']>[1])).rejects.toThrow(/22023.*Stance.*stance/);
   });
 });

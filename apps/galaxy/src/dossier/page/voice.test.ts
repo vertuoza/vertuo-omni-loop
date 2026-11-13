@@ -34,6 +34,13 @@ describe('reading a voice.json version', () => {
     expect(voice?.rounds.map((r) => r.stage)).toEqual(['design', 'spec', 'rework-1', 'shipped']);
   });
 
+  it('reads both words of PRD 2779\'s stance, excited as enthusiastic, and no other', () => {
+    const stanced = (stance: string) => file(round('design', [{ ...persona('Marc', 3), stance }]));
+    expect(voiceOf(stanced('enthusiastic')).rounds[0]?.personas[0]?.stance).toBe('enthusiastic');
+    expect(voiceOf(stanced('excited')).rounds[0]?.personas[0]?.stance).toBe('enthusiastic');
+    expect(readVoice(stanced('angry'))).toBeNull();
+  });
+
   it('reads nothing from text that is not a voice record', () => {
     expect(readVoice('not json')).toBeNull();
     expect(readVoice('{}')).toBeNull();
