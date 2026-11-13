@@ -8,18 +8,18 @@ import type { CategorizedRow, GroupHead } from './categories-stats';
 // a member of another workspace none (BR-PRODUCT-63). No rule lives here, and a row holds no key (L-GDPR-2).
 
 /** A search as the view reads it: no hit is shown here, so none is read. */
-export const StoredSearch = z.object({
+const StoredSearch = z.object({
   id: z.string(), query: z.string().nullable(), mode: z.enum(['meaning', 'words']).nullable(), total: z.number(),
   opened_rank: z.number().nullable(), asked_at: z.string(), category: z.string().nullable(), group_id: z.string().nullable(),
 });
 
-export const StoredGroup = z.object({ id: z.string(), question: z.string() });
+const StoredGroup = z.object({ id: z.string(), question: z.string() });
 
 /** The tables answer a thousand rows at most per read: the view reads up to this many pages of each. */
 const PAGE = 1000;
 const MOST_PAGES = 5;
 
-export const COLUMNS = 'id, query, mode, total, opened_rank, asked_at, category, group_id';
+const COLUMNS = 'id, query, mode, total, opened_rank, asked_at, category, group_id';
 
 type Db = Pick<SupabaseClient, 'from'>;
 type Page = (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>;
@@ -54,3 +54,9 @@ export async function groupHeadsOf(db: Db, product: string): Promise<GroupHead[]
   return pagesOf(StoredGroup, (from, to) => db.from('mcp_search_groups').select('id, question')
     .eq('product_id', product).order('created_at', { ascending: true }).range(from, to), 'product-knowledge/categories.repository: mcp_search_groups');
 }
+
+/** This module's two reads as `pnpm schemas:verify` runs them, a few rows each, with their schemas (categories.boundary.ts). */
+export const boundaryReads = [
+  { name: 'product-knowledge/categories.repository: mcp_search_log', read: (db: Db) => db.from('mcp_search_log').select(COLUMNS).eq('tool', 'search_knowledge').limit(5), schema: StoredSearch },
+  { name: 'product-knowledge/categories.repository: mcp_search_groups', read: (db: Db) => db.from('mcp_search_groups').select('id, question').limit(5), schema: StoredGroup },
+] as const;
