@@ -206,7 +206,7 @@ pull request (a branch matching `branches.fix`, or a body with `## Proof` and `#
    passing line>``, changing no line already there, the After line included. Put the body back with
    `gh pr edit <pr> --body-file <file>` and run `omni bug <n>` once more. The body keeps the line `omni sign footer` prints, as it was.
 2. When the reproduction is red, or `omni bug` still refuses, put the pull request back to draft with
-   `gh pr ready <pr> --undo` and say why in the status comment. Never merge, and never mark it ready.
+   `gh pr ready <n> --undo` (`<n>` is that pull request's number) and say why in the status comment. Never merge, and never mark it ready.
 
 The GIF is not filmed again: the newest green line is the claim bound to the head. A pull request
 whose proof was not produced is left as `omni bug` grades it.

@@ -974,7 +974,7 @@ describe('the pr-care skill in this repository', () => {
     const text = skillSection(read(), '2. A round');
     expect(orderGaps(text, [
       'After a push to a bug-fix pull request', 'omni.mjs bug <n>', '`- **Re-proved** (green,', 'changing no line already there',
-      'gh pr ready <pr> --undo', 'status comment',
+      'gh pr ready <n> --undo', 'status comment',
     ])).toEqual([]);
   });
 
@@ -1020,7 +1020,7 @@ describe('the pr-care skill in this repository', () => {
     for (const phrase of ['merged', 'closed', 'the person stops it']) expect(stop, phrase).toContain(phrase);
     expect(skillSection(text, 'Guardrails')).toMatch(/Never merge/);
     expect(text).not.toMatch(/\bgh pr merge\b/);
-    expect(text).not.toMatch(/\bgh pr ready\b(?! <(?:n|pr)> --undo)/);
+    expect(text).not.toMatch(/\bgh pr ready\b(?! <n> --undo)/);
   });
 });
 
