@@ -1,7 +1,7 @@
 // `omni runner` (PRD 1830): makes this machine a runner of the Omni app, which runs the `/omni:` lines
 // people send it from the app with Send to terminal.
 //
-//   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14]
+//   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--keep-budget 5]
 //               [--max-memory 85] [--min-disk 10] [--max-load 1.5]
 //   omni runner sender
 //   omni runner github-token [--git get]
@@ -18,7 +18,9 @@
 // `origin`, refuses to register when `claude` is missing or signed out or tmux is missing, then
 // registers and keeps one `next` open per free slot until Ctrl-C, which waits for the running jobs.
 // It sweeps what stopped jobs left once registered and every hour after (PRD 1911): a job's logs are
-// kept `--keep-logs` days, a whole number of 1 or more, 14 unless given.
+// kept `--keep-logs` days, a whole number of 1 or more, 14 unless given. A job's work origin lacks is saved
+// before its folder goes, and the folder kept for it (PRD 2809, s2): the kept folders take `--keep-budget` GB
+// at most (0 or more, 5 unless given), the oldest removed first.
 // Each job's session gets `OMNI_JOB`, `OMNI_RUNNER` and `OMNI_UNATTENDED` (PRD 2175). Once a job ends,
 // or the sweep finds one the app marked lost, it releases the claims the job still holds with `gh`
 // (`../../lib/runner/release.ts`): `labels.inProgress` off, `labels.released` on, and a comment.
@@ -86,6 +88,7 @@ import type { IssueNumber } from '../../lib/ids.ts';
 import { runningKit } from '../../lib/init/bundle.ts';
 import { jobQuestionsApi, RunnerRefused, RunnerUnreachable, runnerApi } from '../../lib/runner/api.ts';
 import type { HealthLimits, JobQuestionsApi } from '../../lib/runner/api.ts';
+import { KEEP_BUDGET_GB } from '../../lib/runner/checkpoint.ts';
 import { accountBook, AccountsError, accountsStateFile, agentAccountOf, readAccounts } from '../../lib/runner/accounts.ts';
 import type { Accounts } from '../../lib/runner/accounts.ts';
 import type { Agent, AgentAccount } from '../../lib/runner/agents/agent.ts';
@@ -119,7 +122,7 @@ import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { boardCount, followCommand, interrupts, send } from './runner-follow.ts';
 import type { FollowOptions } from './runner-follow.ts';
 
-const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
+const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--keep-budget 5] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
 const T3_RUN_USAGE = 'usage: omni runner t3-run --instance <id> --model <model> [--thread <id>]';
 const ASK_USAGE = 'usage: omni runner ask --file <file> --issue <n> --lead <file>';
 const ANSWERS_USAGE = 'usage: omni runner answers <job>';
@@ -127,6 +130,7 @@ const GITHUB_TOKEN_USAGE = 'usage: omni runner github-token [--git get]';
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
 const DEFAULT_TIMEOUT = '8h';
+const GB = 1024 ** 3;
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/;
 
 /** What a test hands `omni runner` beyond `main()`'s own. */
@@ -170,6 +174,11 @@ function keepLogsOf(value: string | true | undefined): number {
   return value === undefined ? KEEP_LOGS_DAYS : positiveInt('runner', '--keep-logs', value);
 }
 
+/** `--keep-budget`: the GB the kept saves may take, 0 or more, `KEEP_BUDGET_GB` unless given; in bytes. */
+function keepBudgetOf(value: string | true | undefined): number {
+  return Math.round(limitOf('--keep-budget', value, KEEP_BUDGET_GB, (limit) => limit >= 0, 'the disk, in GB, the kept saves of jobs may take: a number of 0 or more') * GB);
+}
+
 /** A number written in plain digits, a decimal point allowed: "1e2", "0x10" or "-1" are not. */
 const PLAIN_NUMBER = /^\d+(\.\d+)?$/;
 
@@ -191,8 +200,8 @@ function limitsOf(flags: Partial<Record<'max-memory' | 'min-disk' | 'max-load', 
 }
 
 /** The runner's flags, checked. */
-function readFlags(args: string[], cwd: string): { name: string; slots: number; timeoutMs: number; repos: string; keepLogsDays: number; limits: HealthLimits } {
-  const { positional, flags } = parseArgs('runner', args, { values: ['name', 'repos', 'slots', 'timeout', 'keep-logs', 'max-memory', 'min-disk', 'max-load'] });
+function readFlags(args: string[], cwd: string): { name: string; slots: number; timeoutMs: number; repos: string; keepLogsDays: number; keepBudgetBytes: number; limits: HealthLimits } {
+  const { positional, flags } = parseArgs('runner', args, { values: ['name', 'repos', 'slots', 'timeout', 'keep-logs', 'keep-budget', 'max-memory', 'min-disk', 'max-load'] });
   const { name, repos } = flags;
   if (positional.length || name === undefined || repos === undefined) throw usageError(USAGE);
   if (!NAME.test(name)) throw usageError('omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.');
@@ -201,7 +210,7 @@ function readFlags(args: string[], cwd: string): { name: string; slots: number; 
   const timeout = flags.timeout ?? DEFAULT_TIMEOUT;
   const timeoutMs = parseDuration(timeout);
   if (timeoutMs === null) throw usageError(`omni runner: --timeout must read like 90s, 45m or 3h, got "${timeout}".`);
-  return { name, slots, timeoutMs, repos: resolve(cwd, repos), keepLogsDays: keepLogsOf(flags['keep-logs']), limits: limitsOf(flags) };
+  return { name, slots, timeoutMs, repos: resolve(cwd, repos), keepLogsDays: keepLogsOf(flags['keep-logs']), keepBudgetBytes: keepBudgetOf(flags['keep-budget']), limits: limitsOf(flags) };
 }
 
 /**
@@ -245,7 +254,7 @@ function claudeNeed({ file, accounts }: Accounts): ClaudeNeed {
 
 async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
   const { cwd, stdout, stderr, exec, script } = io;
-  const { name, slots, timeoutMs, repos, keepLogsDays, limits } = readFlags(args, cwd);
+  const { name, slots, timeoutMs, repos, keepLogsDays, keepBudgetBytes, limits } = readFlags(args, cwd);
   const accounts = readAccountsOf(io.home ?? homedir());
   if ('refusal' in accounts) {
     println(stderr, `omni runner: ${accounts.refusal}`);
@@ -283,6 +292,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
       },
       stop: stop.signal,
       keepLogsDays,
+      keepBudgetBytes,
       limits,
       tokens: tokenCounts(home, accounts, io.now),
       ...timing(io),
