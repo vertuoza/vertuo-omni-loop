@@ -154,13 +154,26 @@ const ADR_ID = /^ADR-\d{4}$/;
  *   it, which is ordinary work the slice carries on with, but it is hard to revert once merged and
  *   the register floor does not reach it (see the module doc);
  * - a decision the agent judges **hard to revert** is `high` — judgement may escalate;
+ * - a decision that **postpones a person's review comment** (a `later` care reply, PRD 2739) is
+ *   `high` whatever the agent proposes: putting a person's comment off is theirs to agree to, so it
+ *   is never adopted silently (never#2);
  * - anything else is `medium`.
  *
  * The result is then passed through `floorRank`, which raises it to `high` when the decision bears
  * on a law `laws` recognizes. The floor is never restated here.
  */
-export function proposeRank({ bearsOn = 'none', hardToRevert = false, laws }: { bearsOn?: string; hardToRevert?: boolean; laws: FloorLaws }): Rank {
-  const proposed: Rank = ADR_ID.test(bearsOn) || hardToRevert ? 'high' : 'medium';
+export function proposeRank({
+  bearsOn = 'none',
+  hardToRevert = false,
+  postponesReview = false,
+  laws,
+}: {
+  bearsOn?: string;
+  hardToRevert?: boolean;
+  postponesReview?: boolean;
+  laws: FloorLaws;
+}): Rank {
+  const proposed: Rank = ADR_ID.test(bearsOn) || hardToRevert || postponesReview ? 'high' : 'medium';
   return floorRank(bearsOn, proposed, laws);
 }
 
@@ -198,6 +211,7 @@ export function decideRecording({
   breaksNamedLaw = false,
   needsHumanAction = false,
   hardToRevert = false,
+  postponesReview = false,
   principlesConflict = [],
   laws,
 }: {
@@ -205,6 +219,7 @@ export function decideRecording({
   breaksNamedLaw?: boolean;
   needsHumanAction?: boolean;
   hardToRevert?: boolean;
+  postponesReview?: boolean;
   principlesConflict?: readonly unknown[] | null;
   laws: RecordingLaws;
 }): RecordingDecision {
@@ -242,7 +257,7 @@ export function decideRecording({
     });
   }
 
-  const rank = proposeRank({ bearsOn, hardToRevert: hardToRevert || breaksNamedLaw, laws });
+  const rank = proposeRank({ bearsOn, hardToRevert: hardToRevert || breaksNamedLaw, postponesReview, laws });
   return recordingDecision({
     outcome: 'record',
     rank,
