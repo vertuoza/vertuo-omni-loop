@@ -384,7 +384,7 @@ export type CheckpointApi = {
   /** A signed upload link for a bundle of `bytes` (`POST /api/runners/jobs/<id>/checkpoint`): throws `RunnerRefused` with the app's words, or `RunnerUnreachable`. */
   link(job: string, bytes: number): Promise<CheckpointLink>;
   /** Sends the bundle to the link, with no sign-in: the link is the permission. A storage that refuses throws `RunnerRefused`; one out of reach, `RunnerUnreachable`. */
-  upload(link: CheckpointLink, bundle: Uint8Array): Promise<void>;
+  upload(link: CheckpointLink, bundle: Uint8Array<ArrayBuffer>): Promise<void>;
   /** Records the save's manifest: throws as `link` does. */
   record(job: string, save: SaveRecord): Promise<RecordedSave>;
 };
