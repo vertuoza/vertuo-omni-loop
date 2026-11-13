@@ -165,6 +165,10 @@ as its pull request merges, and the record **ships** on the last merge. A pull r
 merging leaves its row not merged and the record open. No record pull request is opened and no issue
 is made, in a plan repository either.
 
+A bug fix's proof is only good at the head that merges. `omni bug check --product <key> <file>
+--body-file <body> --pr <owner/repo>#<n>` grades the proof's cited commit against that fix pull
+request's head, and refuses any other; `--body-file` without `--pr` is a usage error.
+
 ### Knowledge packs
 
 Imported knowledge is served as a **pack** from the product, not copied into a repository. On a merge

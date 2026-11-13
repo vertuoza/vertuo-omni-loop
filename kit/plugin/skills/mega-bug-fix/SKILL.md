@@ -173,10 +173,17 @@ A person merges the PRs in the order the `Merge after` lines give.
 
 **The one proof (step 7b) goes on the fix PR of the target where the bug shows**, there being no
 record PR: write that PR's body with its `## Proof` to a file, and run
-`node .omni-loop/bin/omni.mjs bug check --product <key> <file> --body-file <body>`, until it prints
+`node .omni-loop/bin/omni.mjs bug check --product <key> <file> --body-file <body> --pr <owner/repo>#<n>`, until it prints
 `ok`: it grades the proof by the same rule as `omni bug <n>`, and runs as before without the flag (add
 `--bug <n>` when the record has a `## Still open` section).
 Then `gh pr edit <pr> --repo <slug> --body-file <body>`. The other target PRs carry none.
+
+The proof's After line cites the head at the moment the body is checked, and `omni bug` refuses any
+other commit. A product proof is graded against the fix pull request's head, so give
+`--pr <owner/repo>#<n>` with `--body-file`: `omni bug check --product <key> <file> --body-file <body>
+--pr <owner/repo>#<n>`. A `## Fixes` record's proof must cite the head of one of its rows' pull
+requests. A later commit voids the proof until the reproduction runs again at the new head and a
+`- **Re-proved** (green, `<short sha>`): `<passing line>`` line is added under it.
 
 **Step 10, the hand-off,** names the bug id and its page, each PR in merge order, and what was proven
 and what was not, per target. `omni bug <n>` and `omni check` read a repository's issue and folder: the

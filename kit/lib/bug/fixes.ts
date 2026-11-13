@@ -13,6 +13,8 @@
  * 4. The orders run 1..k in the rows' order, with no gap and no repeat.
  * 5. Reproduction and Guard each hold a non-empty line keyed by the row's repository (its slug or
  *    its name).
+ *
+ * PRD 2741: the proof's cited commit must be the head of one of the rows' pull requests (`rowHeadFaults`).
  */
 
 /** What a `## Fixes` check reads of the config: the plan's targets, absent outside a plan repository. */
@@ -88,4 +90,38 @@ export function fixesViolations(config: FixesConfig, sections: ReadonlyMap<strin
   if (rows.length === 0) return ['the "## Fixes" table has no rows.'];
   const seen = new Set<number>();
   return rows.flatMap((row, index) => rowViolations(config, sections, row, index + 1, seen));
+}
+
+/** A pull request a `## Fixes` row names: its repository's slug and its number. */
+export type PullRef = { repo: string; number: number };
+
+/** One row's pull request label and the head it was read at, or why it could not be (PRD 2741; a `Head` of `proof-body.ts` fits). */
+export type RowHead = { label: string; head: { kind: 'read'; sha: string } | { kind: 'unread'; label: string; why: string } };
+
+/**
+ * The pull request of each row of a `## Fixes` table that names one in a repository it can resolve
+ * (a plan target by slug or name, else the slug as written, for a product's repositories); a row
+ * without either is already a fault of `fixesViolations` and is left out here (PRD 2741).
+ */
+export function fixesPulls(config: FixesConfig, fixes: string): PullRef[] {
+  return tableRows(fixes).flatMap(([, repoCell = '', prCell = '']) => {
+    const slug = targetOf(config, repoCell) ?? (repoCell.includes('/') ? repoCell : undefined);
+    const match = REFERENCE.exec(prCell);
+    const number = Number(match?.[2] ?? match?.[4]);
+    return slug === undefined || !(number > 0) ? [] : [{ repo: slug, number }];
+  });
+}
+
+/**
+ * The faults of a proof citing `cited` against the heads of a `## Fixes` record's pull requests
+ * (PRD 2741): none when it is the head of one of them, else each head named; a head that could not be
+ * read is `not judged` and never a pass (BL-GATE-1).
+ */
+export function rowHeadFaults(cited: string, rows: readonly RowHead[]): string[] {
+  const lower = cited.toLowerCase();
+  if (rows.some(({ head }) => head.kind === 'read' && head.sha.toLowerCase().startsWith(lower))) return [];
+  const unread = rows.flatMap(({ head }) => (head.kind === 'unread' ? [`not judged: could not read the head of ${head.label}: ${head.why}`] : []));
+  if (unread.length > 0) return unread;
+  const heads = rows.flatMap(({ label, head }, index) => (head.kind === 'read' ? [`${label} ${index === 0 ? 'is ' : ''}at ${head.sha.slice(0, 7)}`] : []));
+  return heads.length === 0 ? [] : [`the proof cites green at ${cited}, the head of no Fixes row: ${heads.join(', ')}`];
 }
