@@ -2219,6 +2219,76 @@ export type Database = {
           },
         ]
       }
+      mcp_search_log: {
+        Row: {
+          api_key_id: string | null
+          asked_at: string
+          filters: Json
+          hit_ids: string[]
+          id: string
+          mode: string | null
+          opened_id: string | null
+          opened_rank: number | null
+          product_id: string
+          query: string | null
+          tool: string
+          total: number
+          workspace_id: string
+        }
+        Insert: {
+          api_key_id?: string | null
+          asked_at?: string
+          filters?: Json
+          hit_ids?: string[]
+          id?: string
+          mode?: string | null
+          opened_id?: string | null
+          opened_rank?: number | null
+          product_id: string
+          query?: string | null
+          tool: string
+          total: number
+          workspace_id: string
+        }
+        Update: {
+          api_key_id?: string | null
+          asked_at?: string
+          filters?: Json
+          hit_ids?: string[]
+          id?: string
+          mode?: string | null
+          opened_id?: string | null
+          opened_rank?: number | null
+          product_id?: string
+          query?: string | null
+          tool?: string
+          total?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_search_log_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mcp_search_log_product_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "mcp_search_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outbox_items: {
         Row: {
           bears_on: string
@@ -6130,6 +6200,7 @@ export type Database = {
         Args: { p_body?: Json; p_event: string; p_loop?: string }
         Returns: Json
       }
+      mcp_search_log_forget: { Args: never; Returns: number }
       member_login: {
         Args: { p_user: string; p_workspace: string }
         Returns: string
