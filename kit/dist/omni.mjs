@@ -29294,6 +29294,7 @@ import { spawn as spawnProcess } from "node:child_process";
 init_define_OMNI_BUNDLE();
 var timedOut = (error62) => typeof error62 === "object" && error62 !== null && "name" in error62 && error62.name === "TimeoutError";
 var CALL_TIMEOUT_MS = 5e3;
+var WRITE_TIMEOUT_MS = 3e4;
 var PACK_TIMEOUT_MS = 3e4;
 var UPLOAD_TIMEOUT_MS = 12e4;
 var AskCallError = class extends Error {
@@ -29663,7 +29664,8 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * `entry` names the item an edit changes, by the id or term the reads print.
      * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
     changeKnowledge: ({ repo, product: product2, kind: kind2, action, entry: entry3, fields }) => call("POST", "/api/knowledge/changes", {
-      body: { repo, ...product2 === void 0 ? {} : { product: product2 }, kind: kind2, action, ...entry3 === void 0 ? {} : { entry: entry3 }, fields }
+      body: { repo, ...product2 === void 0 ? {} : { product: product2 }, kind: kind2, action, ...entry3 === void 0 ? {} : { entry: entry3 }, fields },
+      timeoutMs: WRITE_TIMEOUT_MS
     }),
     /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
      * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
@@ -55307,10 +55309,12 @@ function successLine2(action, reply) {
   if (answer.done === "proposed") return `proposed \xB7 waits for ${owner === null ? "the section's owner" : `@${owner.replace(/^@/, "")}`}${link3}`;
   return answer.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${link3}` : null;
 }
-function refusalLine3(error62, host) {
+function refusalLine3(error62, host, kind2) {
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === null) {
-    return error62.message.startsWith("not signed in") ? `no sign-in for ${host} (omni signin)` : "the Omni page could not be reached";
+    if (error62.message.startsWith("not signed in")) return `no sign-in for ${host} (omni signin)`;
+    if (error62.message.endsWith("timed out")) return `the Omni page did not answer in time; the change may be saved: run omni kb ${kind2} before you try again`;
+    return "the Omni page could not be reached";
   }
   if (error62.status === 401) return "the sign-in was refused (omni signin)";
   return error62.reason ?? `refused (${error62.status})`;
@@ -55338,7 +55342,7 @@ async function knowledgeWrite(kind2, args, { ctx, stdout, stderr, vars }, option
     println(stdout, json3 ? JSON.stringify(reply) : line2);
     return 0;
   } catch (error62) {
-    return stop(refusalLine3(error62, host));
+    return stop(refusalLine3(error62, host, kind2));
   }
 }
 

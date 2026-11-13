@@ -57,6 +57,9 @@ const timedOut = (error: unknown): boolean =>
 
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
+/** How long a knowledge write may take: `/api/knowledge/changes` runs up to its 30 s `maxDuration`, and a write
+ * cut sooner may still be saved, so a retry would add it twice (#2805). */
+export const WRITE_TIMEOUT_MS = 30_000;
 /** How long a knowledge pack's read may take: it carries a whole knowledge folder. */
 const PACK_TIMEOUT_MS = 30_000;
 
@@ -547,6 +550,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     }) =>
       call('POST', '/api/knowledge/changes', {
         body: { repo, ...(product === undefined ? {} : { product }), kind, action, ...(entry === undefined ? {} : { entry }), fields },
+        timeoutMs: WRITE_TIMEOUT_MS,
       }),
     /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
      * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
