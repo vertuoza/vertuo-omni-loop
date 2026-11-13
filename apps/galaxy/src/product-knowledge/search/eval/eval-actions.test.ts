@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // The Eval view's writes (PRD omni-loop-8 s5), with the reader stubbed: each is one database function called as the
 // signed-in person; the demo and a reader who cannot write are refused in one line. A fake client records the calls.
 
-const state = vi.hoisted(() => ({ reader: { kind: 'unreadable' } as unknown, calls: [] as unknown[][], error: null as { message: string } | null }));
+const state = vi.hoisted(() => ({ reader: { kind: 'unreadable' },calls: [] as unknown[][], error: null as { message: string } | null }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../constituents/knowledge-reader', () => ({ knowledgeReader: () => Promise.resolve(state.reader) }));
