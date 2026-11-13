@@ -173,7 +173,7 @@ A person merges the PRs in the order the `Merge after` lines give.
 
 **The one proof (step 7b) goes on the fix PR of the target where the bug shows**, there being no
 record PR: write that PR's body with its `## Proof` to a file, and run
-`node .omni-loop/bin/omni.mjs bug check --product <key> <file> --body-file <body>`, until it prints
+`node .omni-loop/bin/omni.mjs bug check --product <key> <file> --body-file <body> --pr <owner/repo>#<n>`, until it prints
 `ok`: it grades the proof by the same rule as `omni bug <n>`, and runs as before without the flag (add
 `--bug <n>` when the record has a `## Still open` section).
 Then `gh pr edit <pr> --repo <slug> --body-file <body>`. The other target PRs carry none.
