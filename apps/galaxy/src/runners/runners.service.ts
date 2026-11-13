@@ -11,7 +11,7 @@
 //   again, restarted, finds its claimed and running jobs lost too, however short its silence (#2170).
 //   A job still claimed 10 minutes after its claim, never reported running, ends `runner lost` too, at
 //   the same marks, though its runner checks in: the answer to its `next` never reached it (#2550).
-//   The database resumes a lost job (PRD 2809 s1, supabase/migrations/20270120090000_runner_resume.sql): in the
+//   The database resumes a lost job (PRD 2809 s1, supabase/migrations/20270120100000_runner_resume.sql): in the
 //   transaction that ends it, a job of a resumable skill under its third attempt queues one resume, the same line,
 //   repository, sender and target, attempt one more, that no runner claims before its resume_after (1 minute after
 //   the first loss, 5 after the second). The board reads each job's attempt, the job it resumes and its wait.
