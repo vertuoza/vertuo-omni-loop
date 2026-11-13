@@ -110,11 +110,14 @@ function successLine(action: Action, reply: unknown): string | null {
   return answer.done === 'applied' && id !== null ? `${action === 'add' ? 'added' : 'edited'} ${id}${link}` : null;
 }
 
-/** The one line a failed call says, in the server's own words when it gave them. */
-function refusalLine(error: unknown, host: string): string {
+/** The one line a failed call says, in the server's own words when it gave them. A write that timed out may
+ * be saved, so its line names the read to run before trying again, never a plain retry (#2805). */
+function refusalLine(error: unknown, host: string, kind: Kind): string {
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) {
-    return error.message.startsWith('not signed in') ? `no sign-in for ${host} (omni signin)` : 'the Omni page could not be reached';
+    if (error.message.startsWith('not signed in')) return `no sign-in for ${host} (omni signin)`;
+    if (error.message.endsWith('timed out')) return `the Omni page did not answer in time; the change may be saved: run omni kb ${kind} before you try again`;
+    return 'the Omni page could not be reached';
   }
   if (error.status === 401) return 'the sign-in was refused (omni signin)';
   return error.reason ?? `refused (${error.status})`;
@@ -149,6 +152,6 @@ export async function knowledgeWrite(
     println(stdout, json ? JSON.stringify(reply) : line);
     return 0;
   } catch (error) {
-    return stop(refusalLine(error, host));
+    return stop(refusalLine(error, host, kind));
   }
 }
