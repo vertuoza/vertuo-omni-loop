@@ -95,13 +95,13 @@ export function knowledgeVectorsRepository(db: ProductMcpDb) {
       await read(db.rpc('knowledge_vectors_put', { p_workspace: workspace, p_model: model, p_rows: rows }), z.number().int(), 'knowledge_vectors_put');
     },
 
-    /** The `k` hashes among `hashes` holding a vector, nearest to `query` first. */
-    nearest: async (workspace: string, model: string, hashes: readonly string[], query: readonly number[], k: number): Promise<string[]> =>
+    /** The `k` hashes among `hashes` holding a vector, nearest to `query` first, each with its cosine distance. */
+    nearest: async (workspace: string, model: string, hashes: readonly string[], query: readonly number[], k: number): Promise<{ hash: string; distance: number }[]> =>
       (await read(
         db.rpc('knowledge_nearest', { p_workspace: workspace, p_model: model, p_hashes: hashes, p_query: asVector(query), p_k: k }),
         z.array(NearRow),
         'knowledge_nearest',
-      )).map((row) => row.text_sha256),
+      )).map((row) => ({ hash: row.text_sha256, distance: row.distance })),
   };
 }
 
