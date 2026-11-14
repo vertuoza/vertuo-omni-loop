@@ -85,7 +85,6 @@ import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
-import { parsePrd } from '../ids.ts';
 import type { PrdNumber } from '../ids.ts';
 import { runnerJobVariables, runnerSenderVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
@@ -104,8 +103,8 @@ import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubTo
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
-import { bugFixReading, fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
-import type { BugFixReading, RunOutcome } from './log.ts';
+import { bugFixReading, fixIssueOf, fixOutcome, handOffPrd, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
+import type { BugFixReading, HandOffSkill, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import { handoffPath, partsPath, readParts } from './turnover.ts';
 import type { PluginKeeper } from './plugin.ts';
@@ -675,10 +674,13 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
   }
 }
 
+/** The skills whose job ends on a hand-off line (PRDs 2223 and 2871). */
+const isHandOffSkill = (skill: string): skill is HandOffSkill => skill === 'yolo' || skill === 'yolo-fix' || skill === 'review';
+
 /**
- * What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), `stopped` with none (PRD 2375);
- * `stopped` for a `/omni:mega-bug-fix` job of an issue whose hand-off ends on the line that resumes it; `null`
- * for any other job.
+ * What a `/omni:yolo`, `/omni:yolo-fix` or `/omni:review` job's hand-off ended on (PRDs 2223 and 2871), its
+ * PRD read with or without `--for-review`, `stopped` with none (PRD 2375); `stopped` for a `/omni:mega-bug-fix`
+ * job of an issue whose hand-off ends on the line that resumes it; `null` for any other job.
  */
 function outcomeOf(log: string, line: string): RunOutcome | null {
   const checked = checkRunnerLine(line);
@@ -688,7 +690,9 @@ function outcomeOf(log: string, line: string): RunOutcome | null {
     const issue = fixIssueOf(args);
     return issue === null ? null : fixOutcome(log, issue);
   }
-  return (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked.skill) : null;
+  if (!isHandOffSkill(checked.skill)) return null;
+  const prd = handOffPrd(args);
+  return prd === null ? null : runOutcome(log, prd, checked.skill);
 }
 
 /** `update` with the PRD's slice count when a yolo job stopped mid-way (PRD 2375); as it is when the count cannot be read, which stops nothing. */
@@ -696,8 +700,10 @@ async function withSlices(loop: Loop, job: RunnerJob, place: Place, update: JobU
   if (update.outcome !== 'stopped' || loop.slices === undefined) return update;
   const checked = checkRunnerLine(job.line);
   if (!checked.ok || (checked.skill !== 'yolo' && checked.skill !== 'yolo-fix')) return update;
+  const prd = handOffPrd(checked.args);
+  if (prd === null) return update;
   try {
-    const count = await loop.slices(parsePrd(checked.args.trim()), place.worktree);
+    const count = await loop.slices(prd, place.worktree);
     return count === null ? update : { ...update, slicesMerged: count.merged, slicesTotal: count.total };
   } catch {
     return update;
