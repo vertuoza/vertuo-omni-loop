@@ -43,3 +43,14 @@ Governs: ^kit/lib/launch/launch\., ^kit/bin/commands/now\.ts$, ^kit/bin/now\.tes
 Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1210
+
+## N-PRODUCT-20
+
+A snapshot commit of a job's unfinished edits is authored by the job's app when the runner knows it, and otherwise by the runner's own name with an address that cannot receive mail; it never carries a person's name.
+
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-02-snapshot-author, PRD #2809
+Enforced by: kit/lib/runner/checkpoint.test.ts, kit/lib/runner/sweep.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
