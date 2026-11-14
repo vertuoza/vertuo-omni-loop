@@ -1,6 +1,9 @@
 import { MOVES, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
+/** The reader a route hands the service: the controller names it through the service, never the repository (ADR-0095). */
+export type { MissionsReader };
+
 // The missions' rules (PRD 2842 s5; spec "3. The supervisor"): a member of the mission's workspace presses
 // Start, Pause or Resume. Start moves a draft to running, Pause a running or waiting mission to paused,
 // Resume a paused one back to running; each records its event signed with the member's login. Start and

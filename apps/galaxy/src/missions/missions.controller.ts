@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
 import { MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
-import type { MissionsReader } from './missions.repository';
-import type { Caller, MissionsService } from './missions.service';
+import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
 // service on a fake database and each route stays one line:
