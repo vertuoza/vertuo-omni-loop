@@ -880,3 +880,12 @@ Why: People rely on the list to know who has really been reached; an overstated 
 Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s3-01-record-keeps-the-sweeps-step, PRD #1794
 Merged: @pierrederval, 2026-10-17, PR #1983
 Proposed: harvest 2026-10-17
+
+## P-PRODUCT-115
+
+The app only offers a skill to allow when a runner can actually find it and allowing it is possible; it never offers a choice that would be refused.
+
+Why: Showing skills that cannot be found or allowed would invite choices that silently fail or are refused by the database.
+Source: .omni-loop/delivery/shipped/2313-runner-repo-skills/outbox/settled.md, entry s3-02-s3-which-folders-are-skills, PRD #2313
+Merged: @pierrederval, 2026-10-21, PR #2316
+Proposed: harvest 2026-10-22
