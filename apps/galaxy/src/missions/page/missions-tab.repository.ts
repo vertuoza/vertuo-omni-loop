@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { MissionStatusSchema } from '../missions.contract';
+import { missionEventRows } from '../mission-events.repository';
 import type { EventRow, MissionRow } from './missions-tab';
 
 // The Missions tab's reads (PRD 2842 s7; ADR-0095), on the signed-in person's own client: row-level security
@@ -42,10 +43,8 @@ export function missionsTabRepository(db: MissionsTabDb) {
 
     /** The PRD events of these missions (ready, merged, waiting, sent), newest first. */
     async events(missions: readonly string[]): Promise<EventRow[]> {
-      if (missions.length === 0) return [];
-      const { data, error } = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).not('prd', 'is', null).order('at', { ascending: false }).limit(EVENTS_MAX);
-      if (error) throw new Error(`Supabase: could not read the missions' events (${error.message})`);
-      return orThrow(parseRows(EventRowSchema, data, `${WHERE}: mission_events`)).map((row) => ({ mission: row.mission_id, kind: row.kind, prd: row.prd, link: row.link }));
+      const rows = await missionEventRows(db, missions, { columns: EVENT, max: EVENTS_MAX, prdOnly: true, what: "the missions' events" });
+      return orThrow(parseRows(EventRowSchema, rows, `${WHERE}: mission_events`)).map((row) => ({ mission: row.mission_id, kind: row.kind, prd: row.prd, link: row.link }));
     },
   };
 }

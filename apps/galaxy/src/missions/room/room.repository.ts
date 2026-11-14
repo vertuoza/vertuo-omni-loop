@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
+import { missionEventRows } from '../mission-events.repository';
 import type { EventRow, HeroLine, KeptSave } from './room';
 
 // The Operation room's reads (PRD 2842 s8; ADR-0095), on the signed-in person's own client: row-level security
@@ -49,10 +50,8 @@ export function roomRepository(db: RoomDb) {
 
     /** These missions' events, newest first. */
     async events(missions: readonly string[]): Promise<EventRow[]> {
-      if (missions.length === 0) return [];
-      const { data, error } = await db.from('mission_events').select('id, mission_id, at, role, actor, kind, prd, job_id, link, sentence').in('mission_id', [...missions]).order('at', { ascending: false }).limit(EVENTS_MAX);
-      if (error) throw new Error(`Supabase: could not read the room's events (${error.message})`);
-      return orThrow(parseRows(EventRowSchema, data, `${WHERE}: mission_events`)).map((row) => ({
+      const rows = await missionEventRows(db, missions, { columns: 'id, mission_id, at, role, actor, kind, prd, job_id, link, sentence', max: EVENTS_MAX, prdOnly: false, what: "the room's events" });
+      return orThrow(parseRows(EventRowSchema, rows, `${WHERE}: mission_events`)).map((row) => ({
         id: row.id, mission: row.mission_id, at: row.at, role: row.role, actor: row.actor, kind: row.kind, prd: row.prd, job: row.job_id, link: row.link, sentence: row.sentence,
       }));
     },

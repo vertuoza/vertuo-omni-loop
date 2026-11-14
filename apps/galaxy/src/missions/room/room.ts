@@ -6,7 +6,7 @@ import { HERO_ROLES, roleLine, roleOf, type HeroRole } from 'omni-loop/kit/lib/v
 // line from the kept saves (PRD 2809), and the ledger of the missions' events, newest first, filtered by role
 // and by mission. Every row is a real record: no first name for an agent, no narration.
 
-export const WORDS = {
+export const ROOM_WORDS = {
   tab: 'Operation room',
   idle: 'Idle',
   person: 'A person does this today',
@@ -75,11 +75,11 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
 const stateWord = (kind: string): string => STATE_WORDS[kind] ?? kind;
 
 /** The role's name, as it is signed. */
-export const roleName = (role: EventRole): string => (role === 'supervisor' ? WORDS.supervisor : roleOf(role).name);
+export const roleName = (role: EventRole): string => (role === 'supervisor' ? ROOM_WORDS.supervisor : roleOf(role).name);
 
 /** `Engineer · agent`, or a member's login when a member acted. */
 const signedBy = (row: Pick<EventRow, 'role' | 'actor'>): string =>
-  row.actor === 'agent' ? `${roleName(row.role)} · ${WORDS.agent}` : row.actor;
+  row.actor === 'agent' ? `${roleName(row.role)} · ${ROOM_WORDS.agent}` : row.actor;
 
 /** `2026-11-14 09:12 UTC`: fixed, so the server and the browser write the same words. */
 function timeOf(at: string): string {
@@ -106,10 +106,10 @@ function workingOn(role: EventRole, events: readonly EventRow[]): PrdNumber | nu
 /** One line per hero of the fleet: what a working hero does, else Idle; a hero that cannot work alone reads that a person does it. */
 export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[]): NowLine[] {
   return heroes.map((hero) => {
-    const heading = `${roleOf(hero.role).name} · ${WORDS.agent}`;
-    if (!roleLine(hero.role, hero.skills).alone) return { id: hero.id, role: hero.role, heading, words: WORDS.person, state: 'person' };
+    const heading = `${roleOf(hero.role).name} · ${ROOM_WORDS.agent}`;
+    if (!roleLine(hero.role, hero.skills).alone) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.person, state: 'person' };
     const prd = workingOn(hero.role, events);
-    if (prd === null) return { id: hero.id, role: hero.role, heading, words: WORDS.idle, state: 'idle' };
+    if (prd === null) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.idle, state: 'idle' };
     return { id: hero.id, role: hero.role, heading, words: `${heading}: building PRD ${String(prd)}`, state: 'working' };
   });
 }
@@ -120,7 +120,7 @@ const sizeOf = (bytes: number): string => (bytes >= MB ? `${(bytes / MB).toFixed
 
 /** The clean-up line: `Nothing to clean up`, or how many saves are kept, how big, until when (the soonest). */
 export function cleanUpLine(saves: readonly KeptSave[]): string {
-  if (saves.length === 0) return WORDS.nothingToClean;
+  if (saves.length === 0) return ROOM_WORDS.nothingToClean;
   const soonest = saves.map((s) => s.keepUntil).sort()[0] ?? '';
   const total = saves.reduce((sum, s) => sum + s.bytes, 0);
   return `${String(saves.length)} ${saves.length === 1 ? 'save' : 'saves'} kept · ${sizeOf(total)} · until ${timeOf(soonest).slice(0, 10)}`;
