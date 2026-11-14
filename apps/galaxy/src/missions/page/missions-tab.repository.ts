@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { MissionStatusSchema } from '../missions.contract';
 import type { EventRow, MissionRow } from './missions-tab';
@@ -24,9 +25,9 @@ const MissionRowSchema = z.object({
   goal: z.string(),
   status: MissionStatusSchema,
   waiting_on: z.string().nullable(),
-  scope: z.object({ prds: z.array(z.number().int().positive()) }).loose(),
+  scope: z.object({ prds: z.array(PrdNumberSchema) }).loose(),
 });
-const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: z.number().int().positive().nullable(), link: z.string().nullable() });
+const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: PrdNumberSchema.nullable(), link: z.string().nullable() });
 
 export function missionsTabRepository(db: MissionsTabDb) {
   return {

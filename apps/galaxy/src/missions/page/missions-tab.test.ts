@@ -1,3 +1,4 @@
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { missionOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
 import { missionsTabService } from './missions-tab.service';
@@ -11,22 +12,22 @@ const OTHER = '22222222-2222-4222-8222-222222222222';
 const WORKSPACE = '33333333-3333-4333-8333-333333333333';
 
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
-  id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [1, 2, 3, 4], ...over,
+  id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], ...over,
 });
-const event = (kind: string, prd: number | null, link: string | null = null, mission = ID): EventRow => ({ mission, kind, prd, link });
+const event = (kind: string, prd: number | null, link: string | null = null, mission = ID): EventRow => ({ mission, kind, prd: prd === null ? null : parsePrd(prd), link });
 
 describe('progressOf', () => {
   it('reads a draft as not started', () => {
-    expect(progressOf('draft', [1, 2], [])).toBe(WORDS.notStarted);
+    expect(progressOf('draft', [parsePrd(1), parsePrd(2)], [])).toBe(WORDS.notStarted);
   });
 
   it('counts merged and ready PRDs once each, a merged one never as ready', () => {
     const events = [event('prd-ready', 1), event('prd-merged', 1), event('prd-ready', 2), event('prd-ready', 2), event('prd-merged', 3)];
-    expect(progressOf('running', [1, 2, 3, 4], events)).toBe('2 of 4 merged · 1 ready');
+    expect(progressOf('running', [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], events)).toBe('2 of 4 merged · 1 ready');
   });
 
   it('counts a PRD of a roadmap the events name even when the scope lists none of it', () => {
-    expect(progressOf('running', [1], [event('prd-merged', 9)])).toBe('1 of 2 merged · 0 ready');
+    expect(progressOf('running', [parsePrd(1)], [event('prd-merged', 9)])).toBe('1 of 2 merged · 0 ready');
   });
 
   it('says so when no PRD is known yet', () => {
@@ -38,8 +39,8 @@ describe('waitsOf', () => {
   it('reads each PRD and what it waits on, linked to its event or its issue', () => {
     const waits = waitsOf('PRD 2803: approve it · PRD 2804: merge it', 'acme/shop', [event('prd-ready', 2804, 'https://github.com/acme/shop/pull/9')]);
     expect(waits).toEqual([
-      { prd: 2803, on: 'approve it', href: 'https://github.com/acme/shop/issues/2803' },
-      { prd: 2804, on: 'merge it', href: 'https://github.com/acme/shop/pull/9' },
+      { prd: parsePrd(2803), on: 'approve it', href: 'https://github.com/acme/shop/issues/2803' },
+      { prd: parsePrd(2804), on: 'merge it', href: 'https://github.com/acme/shop/pull/9' },
     ]);
   });
 

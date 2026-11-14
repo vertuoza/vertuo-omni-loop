@@ -7,7 +7,7 @@ import type { FleetScreenProps } from '../../dashboard/fleet/FleetScreen';
 // signed-in person; any other tab, or an ordinary fleet, has none.
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 const db = vi.hoisted(() => ({ auth: { getClaims: () => Promise.resolve({ data: { claims: { sub: 'u1' } }, error: null }) } }));
-const board = vi.hoisted(() => ({ value: {} as unknown }));
+const board = vi.hoisted((): { value: unknown } => ({ value: {} }));
 const loadMissionsTab = vi.hoisted(() => vi.fn(() => Promise.resolve({ workspace: null, fleet: 'night-shift', missions: [] })));
 
 vi.mock('server-only', () => ({}));

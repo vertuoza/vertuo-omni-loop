@@ -1,3 +1,4 @@
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { MissionAction, MissionStatus } from '../missions.contract';
 
 // The Missions tab's rules (PRD 2842 s7, the `mission-start` screen), pure so each is tested without a
@@ -46,20 +47,20 @@ export interface MissionRow {
   goal: string;
   status: MissionStatus;
   waitingOn: string | null;
-  prds: readonly number[];
+  prds: readonly PrdNumber[];
 }
 
 /** One of its events, as far as the tab reads: which PRD reached which point. */
 export interface EventRow {
   mission: string;
   kind: string;
-  prd: number | null;
+  prd: PrdNumber | null;
   link: string | null;
 }
 
 /** A PRD that waits for a person: what to do, and where. */
 export interface Waits {
-  prd: number;
+  prd: PrdNumber;
   on: string;
   href: string;
 }
@@ -89,11 +90,11 @@ export interface MissionsView {
 const issueHref = (repo: string, number: number) => `https://github.com/${repo}/issues/${String(number)}`;
 
 /** `2 of 4 merged · 1 ready`: the PRDs of the scope and those the mission has met, merged and ready counted once each. */
-export function progressOf(status: MissionStatus, prds: readonly number[], events: readonly EventRow[]): string {
+export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly EventRow[]): string {
   if (status === 'draft') return WORDS.notStarted;
   const merged = new Set(events.filter((e) => e.kind === 'prd-merged' && e.prd !== null).map((e) => e.prd));
   const ready = new Set(events.filter((e) => e.kind === 'prd-ready' && e.prd !== null && !merged.has(e.prd)).map((e) => e.prd));
-  const known = new Set<number>(prds);
+  const known = new Set<PrdNumber>(prds);
   for (const event of events) if (event.prd !== null) known.add(event.prd);
   if (known.size === 0) return WORDS.noPrd;
   return `${String(merged.size)} of ${String(known.size)} merged · ${String(ready.size)} ready`;
@@ -105,11 +106,11 @@ const WAIT = /PRD (\d+): ([^·]+)/g;
 export function waitsOf(waitingOn: string | null, repo: string, events: readonly EventRow[]): Waits[] {
   if (waitingOn === null) return [];
   return [...waitingOn.matchAll(WAIT)].flatMap((match) => {
-    const prd = Number(match[1]);
+    const prd = PrdNumberSchema.safeParse(Number(match[1]));
     const on = (match[2] ?? '').trim();
-    if (!Number.isSafeInteger(prd) || on === '') return [];
-    const linked = events.find((e) => e.prd === prd && e.link !== null)?.link ?? null;
-    return [{ prd, on, href: linked ?? issueHref(repo, prd) }];
+    if (!prd.success || on === '') return [];
+    const linked = events.find((e) => e.prd === prd.data && e.link !== null)?.link ?? null;
+    return [{ prd: prd.data, on, href: linked ?? issueHref(repo, prd.data) }];
   });
 }
 

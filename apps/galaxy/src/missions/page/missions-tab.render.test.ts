@@ -1,3 +1,4 @@
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -16,7 +17,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, r
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 const row = (over: Partial<MissionRow>): MissionRow => ({
-  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [1, 2], ...over,
+  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [parsePrd(1), parsePrd(2)], ...over,
 });
 const view = (...missions: MissionRow[]): MissionsView => ({ workspace: WORKSPACE, fleet: 'night-shift', missions: missions.map((m) => missionOf(m, [])) });
 const html = (v: MissionsView) => renderToStaticMarkup(createElement(MissionsTab, { view: v }));
