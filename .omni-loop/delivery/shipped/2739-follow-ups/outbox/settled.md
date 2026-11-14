@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-12
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off territory exception for a single slice, cheap to revert; it sets no lasting rule or architecture beyond this change.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One file outside the listed territory, about 20 lines; a different answer costs 
 - Raised: 2026-11-12
 - Slice: s3
 - Wave: 2
+- Stays here: A naming constant in one module, cheap to change and guaranteeing nothing a person relies on; no existing entry or ADR governs it, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ A constant: changing the slice name or adding a `--slice` flag touches `kit/lib/
 - Raised: 2026-11-12
 - Slice: s3
 - Wave: 2
+- Became: ADR-0136
 
 ### The answer, as it was given
 
