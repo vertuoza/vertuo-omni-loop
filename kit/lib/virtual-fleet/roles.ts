@@ -83,7 +83,7 @@ export type SkillMark = 'alone' | 'person';
 /** Each skill with its mark, read from `runnable` (the runner's list), those that run alone first, each
  * group in the order given. */
 export function skillMarks(skills: readonly string[], runnable: readonly string[] = RUNNABLE_SKILLS): { skill: string; mark: SkillMark }[] {
-  const marked = skills.map((skill) => ({ skill, mark: (runnable.includes(skill) ? 'alone' : 'person') as SkillMark }));
+  const marked = skills.map((skill): { skill: string; mark: SkillMark } => ({ skill, mark: runnable.includes(skill) ? 'alone' : 'person' }));
   return [...marked.filter((m) => m.mark === 'alone'), ...marked.filter((m) => m.mark === 'person')];
 }
 
