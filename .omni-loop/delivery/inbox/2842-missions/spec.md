@@ -26,10 +26,24 @@ A **Virtual Fleet** is a new kind of fleet: like the workspace's fleets (a name,
 `teams`), but its members are **Virtual Heroes**, and it is never offered on the arcade's select
 screen. (Later, an ordinary fleet may hire Virtual Heroes; not in this PRD.)
 
-- **Create one** in Settings › Fleets, **New virtual fleet** (a workspace owner, as for any fleet):
-  its name, colour and mascot. It starts with the **default team, all five roles**: a PM, an
-  Engineer, an Architect, a QA and a Reviewer hero. The owner may remove a hero or add one of a role
-  again.
+- **Today** the Fleet section (`/app/fleet`) only shows fleets (a row of fleet chips, the chosen
+  fleet's name, mascot and place this season, its board); it cannot create one. With no fleet it says
+  `This workspace has no fleet yet` and links to Settings › Fleets, where only an owner creates a
+  players' fleet. No fleet of agents exists.
+- **Create one from the Fleet section,** any member of the workspace: `+ New virtual fleet` closes the row of fleet chips (and is
+  the main button when the workspace has no fleet yet). It opens a **drawer** on the right (the
+  pattern of the Runners page's Need human drawer: 560 px over the page dimmed, the whole width on a
+  phone) with, in order:
+  1. **Name**, first and focused: unique in the workspace, players' fleets included (`Name taken:
+     choose another` under the field otherwise);
+  2. **Icon**: one of the fleet mascots (BR-PRODUCT-46), the first selected;
+  3. **Heroes**: the five roles, PM, Engineer, Architect, QA, Reviewer, each a yes/no switch, **all on
+     by default**, each saying whether it works alone today; at least one stays on, or Create fleet is
+     disabled.
+  **Create fleet** saves it, its key made from its name (BR-PRODUCT-47) and its colour picked for it
+  (the next fleet colour not in use; changed later in Settings › Fleets), and lands on its
+  Operation room: its heroes, idle, and `Write a mission`. A hero can be added or removed later in
+  the Heroes tab.
 - **A Virtual Hero** is a role with its skills: a name (by default its role, never a person's first
   name), its role, the skills that role runs (Engineer: `yolo`, `yolo-fix`, `wave`, `do-work`,
   `pr-care`, `bug-fix`; QA: `prove`, `bug-fix`; PM: `pitch`, `plan`; Architect: `plan`; Reviewer:
@@ -172,6 +186,11 @@ Board**; on an ordinary fleet it shows today's board, unchanged.
   new kind of fleet made of Virtual Heroes; a hero is a role with its skills; a new one starts with
   all five roles; a mission names its fleet when it is written. Ordinary fleets hiring heroes is
   later. The concept's "seats" become heroes, and the Seats tab the Heroes tab.
+- **Any member creates a Virtual Fleet** (the person's answer; a players' fleet stays an owner's), and
+  it is **created from the Fleet section, in a drawer, name first, then icon, then the roles as yes/no
+  switches, all on by default** (the person's review of the first before/after, which also asked
+  that today's side say plainly the Fleet section cannot create a fleet at all). The colour is
+  picked for it so the drawer asks only the three things the person named.
 - **A hero's name is never a person's first name** ("an agent is not a human", the crown of concept
   #2800); by default it is its role.
 - **One job is `/omni:yolo <prd>`;** the slices stay `/omni:yolo`'s.
@@ -202,7 +221,8 @@ Board**; on an ordinary fleet it shows today's board, unchanged.
 
 ## Scope
 
-In: the Virtual Fleet (kind, heroes, the default team, New virtual fleet, the Heroes tab); the brief (`/omni:mission`, `--prd`, `mission.md`, `mission.html`, `omni mission push`, the
+In: the Virtual Fleet (kind, heroes, the default team, `+ New virtual fleet` and its drawer in the
+Fleet section, the Heroes tab); the brief (`/omni:mission`, `--prd`, `mission.md`, `mission.html`, `omni mission push`, the
 dossier kind); the records (`teams.kind`, `virtual_heroes`, `missions`, `mission_events`, the job
 columns); the supervisor kind and
 its wakes; Start, Pause, Resume; the Fleet's tabs with Missions and the Operation room; the tests.
@@ -271,9 +291,14 @@ repositories.
 
 ## Acceptance criteria
 
-- In Settings › Fleets, New virtual fleet creates a fleet of kind `virtual` with five heroes (PM,
-  Engineer, Architect, QA, Reviewer), each with its role's skills; the arcade's select screen never
-  offers it; an owner removes a hero or adds one of a role.
+- The Fleet section shows `+ New virtual fleet` after its fleet chips, and as its main button when the
+  workspace has no fleet; it opens a drawer whose fields are, in order, Name (focused), Icon (the
+  fleet mascots, the first selected) and Heroes (five yes/no switches, all on).
+- Create fleet makes a fleet of kind `virtual` with the heroes left on, each with its role's skills,
+  a key from its name and a free colour, and lands on its Operation room; a name already used in the
+  workspace is refused under the field; with every switch off, Create fleet is disabled.
+- The arcade's select screen never offers a virtual fleet; a hero is removed or added in the Heroes
+  tab.
 - The Heroes tab shows each hero's sprite, name, role, skills, agent and model, limits, and `Works
   alone` or `A person does this today` with why; no hero shows a person's first name.
 - `/omni:mission` and `--prd` record the mission's Virtual Fleet, and its jobs go to that fleet's

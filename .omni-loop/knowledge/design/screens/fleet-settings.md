@@ -49,9 +49,8 @@ same cards, read-only. It sits inside the app shell, under the Settings tabs.
 
 ## Open questions
 
-- PRD 2842 adds **New virtual fleet** for the owner: name, colour and mascot as for any fleet, and the
-  default team of five Virtual Heroes (PM, Engineer, Architect, QA, Reviewer), each removable, with
-  Add a hero; a virtual fleet's card reads `virtual` and lists its heroes, not players.
+- PRD 2842 creates a Virtual Fleet from the Fleet section (`fleet-new`), not here; this page shows a
+  virtual fleet's card, `virtual`, listing its heroes, not players, and is where its colour changes.
 
 - Whether a member of the fleet, not only the owner, may set its board (V1: the owner only).
 - Whether the note shows its time as a relative age or a date.

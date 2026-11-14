@@ -8,12 +8,12 @@ into the feature branch (`Part of #2842`).
 
 | id | slice | territory | blocked by | wave | tier |
 | --- | --- | --- | --- | --- | --- |
-| s1 | A workspace owner creates a Virtual Fleet in Settings › Fleets; it starts with five Virtual Heroes (PM, Engineer, Architect, QA, Reviewer), each with its role's skills; a hero can be removed or added; the arcade never offers the fleet to players | `supabase/migrations/20270122090000_virtual_fleets.sql` `supabase/checks/virtual_fleets.sql` `.github/workflows/supabase.yml` `supabase/database.types.ts` `apps/galaxy/src/fleets/` `apps/galaxy/src/virtual-fleets/` `kit/lib/virtual-fleet/` `.omni-loop/knowledge/design/screens/fleet-settings.` | — | 1 | deep |
+| s1 | Any member creates a Virtual Fleet from the Fleet section: `+ New virtual fleet` opens a drawer (name, icon, five role switches all on), Create fleet makes the fleet with its heroes and lands on it; the arcade never offers it to players | `supabase/migrations/20270122090000_virtual_fleets.sql` `supabase/checks/virtual_fleets.sql` `.github/workflows/supabase.yml` `supabase/database.types.ts` `apps/galaxy/src/dashboard/fleet/` `apps/galaxy/src/virtual-fleets/` `apps/galaxy/app/api/virtual-fleets/` `kit/lib/virtual-fleet/` `.omni-loop/knowledge/design/screens/fleet-new.` | — | 1 | deep |
 | s2 | A mission's brief reaches its page as a draft mission of a Virtual Fleet: the brief's schema, `omni mission push`, the dossier kind `mission`, and the `missions`, `mission_events` and job columns behind it | `kit/lib/mission/` `kit/bin/commands/mission.` `kit/bin/mission.` `kit/bin/omni.` `supabase/migrations/20270122093000_missions.sql` `supabase/checks/missions.sql` `.github/workflows/supabase.yml` `supabase/database.types.ts` `apps/galaxy/src/dossier/store.` `apps/galaxy/src/missions/missions.` | s1 | 2 | deep |
 | s3 | `/omni:mission` settles the Virtual Fleet, goal, measures, scope and mandate with a person, or in one line with `--prd`, writes `mission.md` and `mission.html`, opens its docs PR and pushes it | `kit/plugin/skills/mission/` `kit/plugin/skills/help/` `docs/guide/missions.md` | s2 | 3 | build |
 | s4 | The supervisor: a `mission` kind on the App's job ledger checks first, picks the startable PRDs within the mandate, sends the Engineer hero's `/omni:yolo` to the mission's fleet under a key that never repeats, records each decision and wakes a minute on | `apps/omni-app/src/missions/` `apps/omni-app/src/jobs/pr-checks.` `apps/omni-app/src/jobs/payloads.` | s2 | 3 | deep |
 | s5 | Start, Pause and Resume, and the wakes: a person's Start or Resume, a job's end, a stage change and an answer wake the mission at once | `apps/galaxy/app/api/missions/` `apps/galaxy/src/missions/missions.` `apps/galaxy/src/runners/runners.` | s2 | 4 | build |
-| s6 | A Virtual Fleet's tabs and its Heroes tab: each hero's sprite, name, role, skills, agent and model, limits, and whether it works alone | `apps/galaxy/app/app/fleet/` `apps/galaxy/src/dashboard/fleet/` `apps/galaxy/src/virtual-fleets/heroes/` `.omni-loop/knowledge/design/screens/fleet-frame.` `.omni-loop/knowledge/design/screens/fleet-seats.` | s1 | 2 | build |
+| s6 | A Virtual Fleet's tabs and its Heroes tab: each hero's sprite, name, role, skills, agent and model, limits, and whether it works alone; add or remove a hero | `apps/galaxy/app/app/fleet/` `apps/galaxy/src/dashboard/fleet/` `apps/galaxy/src/virtual-fleets/heroes/` `.omni-loop/knowledge/design/screens/fleet-frame.` `.omni-loop/knowledge/design/screens/fleet-seats.` | s1 | 2 | build |
 | s7 | The Missions tab: each mission's goal, status, progress and what it waits on, with Start, Pause and Resume | `apps/galaxy/app/app/fleet/` `apps/galaxy/src/missions/page/` `.omni-loop/knowledge/design/screens/mission-start.` | s5, s6 | 5 | build |
 | s8 | The Operation room tab: one now line per hero, the clean-up line and the ledger of mission events, filtered by role and by mission | `apps/galaxy/app/app/fleet/` `apps/galaxy/src/missions/room/` `.omni-loop/knowledge/design/screens/fleet-room.` | s7 | 6 | build |
 | s9 | A fake fleet runs a two-roadmap mission with blockers and an overlapping plan to Delivered, with no model call | `apps/omni-app/src/missions/mission.e2e.` | s4, s5 | 5 | build |
@@ -34,19 +34,25 @@ into the feature branch (`Part of #2842`).
 
 ## Per slice: done when
 
-### s1 (deep: a new kind of fleet beside the game's own, which must never reach a player)
+### s1 (deep: a new kind of fleet beside the game's own, which must never reach a player) (`ui: yes`)
 
 - `teams.kind` (`crew` by default, or `virtual`) and `virtual_heroes` (fleet, name, role, skills,
-  agent, model, limits, position) exist; a member of the workspace reads them, only an owner (through
-  a security-definer function) creates a virtual fleet or changes its heroes.
-- New virtual fleet in Settings › Fleets takes a name, colour and mascot (the same rules as any fleet:
-  BR-PRODUCT-27, BR-PRODUCT-46, BR-PRODUCT-47) and creates the five default heroes with their
-  role's skills, from `kit/lib/virtual-fleet/roles.ts` (the roles, their runnable skills, and whether
-  each works alone today); a hero is removed or added.
-- A hero's name defaults to its role; no hero is a player, earns on the ledger, or appears on the
-  arcade's select screen; the virtual fleet's card in Settings reads `virtual` and lists its heroes.
-- `supabase/checks/virtual_fleets.sql` proves each line above (its workflow step an outbox item when
-  the push is refused); `supabase/database.types.ts` is regenerated.
+  agent, model, limits, position) exist; a member of the workspace reads them and, through a
+  security-definer function, creates a virtual fleet and its heroes; a players' fleet stays an
+  owner's.
+- `/app/fleet` shows `+ New virtual fleet` after the fleet chips, and as its main button when the
+  workspace has no fleet; it opens the drawer (the Need human drawer's pattern): Name first and
+  focused, Icon (the fleet mascots, the first selected), Heroes (five yes/no switches, all on, each
+  saying whether it works alone), Cancel and Create fleet.
+- Create fleet makes the fleet (key from its name, BR-PRODUCT-47; mascot from the list,
+  BR-PRODUCT-46; the next free fleet colour, BR-PRODUCT-27) with the heroes left on, each with its
+  role's skills from `kit/lib/virtual-fleet/roles.ts`, and lands on the fleet; a name already used in
+  the workspace reads `Name taken: choose another` under the field; with every switch off, Create
+  fleet is disabled.
+- No hero is a player, earns on the ledger, or appears on the arcade's select screen.
+- `supabase/checks/virtual_fleets.sql` proves the rows' rules (its workflow step an outbox item when
+  the push is refused); `supabase/database.types.ts` is regenerated; the `fleet-new` draft screen and
+  its mockup match the drawer; the word pass finds nothing.
 
 ### s2 (deep: a migration, an append-only table and a unique dispatch key)
 
