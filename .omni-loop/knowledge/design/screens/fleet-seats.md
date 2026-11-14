@@ -22,8 +22,8 @@ Heroes.)
   whether it works alone, its skills as the kit names them (`/omni:yolo`), its preferred agent and model
   (recorded: the runner's accounts still decide), and its limits in sentences.
 - **Whether it works alone, and why:** `Works alone`, or `A person does this today` with the reason (the
-  PM's brainstorm and roadmap need a person; the Architect's plan needs one; the Reviewer's skill is not
-  built yet).
+  PM's brainstorm and roadmap need a person; the Architect's plan needs one). The Reviewer works alone
+  since PRD 2871, running `/omni:review`.
 - **Remove,** on each row, for an owner of the workspace; a fleet's last hero cannot be removed.
 - **The primary action:** `Add a hero`, for an owner, listing the roles the fleet lacks.
 
@@ -55,3 +55,4 @@ Heroes.)
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
+/omni:brainstorm, PRD 2871: .omni-loop/delivery/inbox/2871-reviewer/before-after.html

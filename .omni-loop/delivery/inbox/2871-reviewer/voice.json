@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-14",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 3,
+          "reaction": "Two more runner jobs and maybe a fix round per PRD: my quick wins now wait hours for an agent to grade an agent.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Fine if it runs on its own; I only hear about it when two rounds disagree.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "A review that cites our own playbook and laws on every finding is how I keep teams consistent.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A second agent that tries to disprove its own findings before it posts: fewer slop comments in my queue.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each verdict is its own job id, on GitHub where I already work; I can push back on a line.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Paul - Product Manager",
+        "text": "Two more runner jobs and maybe a fix round per PRD: my quick wins now wait hours for an agent to grade an agent.",
+        "citations": [
+          "persona:Paul - Product Manager"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:Paul - Product Manager ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-14",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 3,
+          "reaction": "Capped at two rounds and a person only after that; still slower than ready at once.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Nothing changes outside a mission, so my quick yolo still goes straight to ready.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The default look-for plus our own section, never shortened: that is the rule I wanted.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "No test loosened is checked before ready, and at most five findings, no style.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "COMMENT mode, inline threads, a marker the kit reads back: debuggable.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:Paul - Product Manager ~"
+    }
+  ]
+}
