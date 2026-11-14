@@ -412,31 +412,24 @@ CLI, never from a blank file, in this order:
 
 1. **Start it.** `node .omni-loop/bin/omni.mjs before-after new <n> --services <name>,<name>…`, the
    services the design touches: a service is a deployable part of the repository, named as its
-   architecture form names it. It writes the page with every section a `<!-- FILL -->`; never name
-   the skeleton's path. It refuses a PRD with no folder, a page already there (`--force` rewrites
-   it) and an empty `--services`.
+   architecture form names it. It writes the page of version 3 (`<meta name="omni-before-after"
+   content="3">`) with every section a `<!-- FILL -->`; never name the skeleton's path. It refuses a
+   PRD with no folder, a page already there (`--force` rewrites it) and an empty `--services`.
 2. **Fill it,** each section in one of three states (below), and delete every `<!-- FILL -->`.
 3. **Draw it.** `node .omni-loop/bin/omni.mjs before-after render <n>` turns each
    `<pre class="mermaid">` into inline SVG and prints `rendered <section> of <service>` per diagram.
    It needs a Playwright browser and the network: when it refuses (exit 1, with its install line)
    or a diagram is refused, that section becomes `gap`, `To settle — diagram not rendered: <why>`,
    with the diagram's source kept as text in a `<details>`, never as `<pre class="mermaid">`.
-4. **The word pass,** below, then `omni check inbox`, which grades the page's tabs, states and
-   rendered diagrams.
+4. **The word pass,** below, then `omni check inbox`, which grades the page's tabs, states, screens
+   and rendered diagrams, then **The first look,** below, then the commit (step 7).
 
-- **Two tabs,** in this order, each a `<section data-tab="…">` of the skeleton:
-  - **Functional & design** (`functional`, open when the page loads): one block per service
-    (`data-service`), each with two sections:
+- **Three tabs,** in this order, each a `<section data-tab="…">` of the skeleton:
+  - **Functional** (`functional`, open when the page loads): one block per service
+    (`data-service`) with one section:
     - **Functional** (`data-section="functional"`): today beside after, in product words: the
       journey, what the person sees or gets, no identifier a product reader would not use. Every
-      PRD has it.
-    - **Pixel perfect** (`data-section="pixel-perfect"`): only when the change changes a screen:
-      the marked screens, today beside after, as the **Pixel perfect section** below says, and one
-      line naming the library screens they are, shared screens included
-      (`screens: quote-list · app-shell`). It is the section review and the word pass read. A PRD
-      that changes no screen says the one line `Pixel perfect: no screen changes` in it: no slice
-      runs pixel-perfect work for it, and the feature PR's **Pixel perfect** line (`/omni:pr`) is
-      `none`. With the design flag off, the section is `na`, `N/A — design craft is off here`.
+      PRD has it. No screen is drawn here: a marked screen in this tab is refused.
   - **Technical** (`technical`): **Flow** (`data-section="flow"`, once: a Mermaid
     `sequenceDiagram` or `flowchart` of the exchange between services, each datastore and third
     party named) and **Deploy order** (`data-section="deploy"`, once: the order services and
@@ -454,6 +447,14 @@ CLI, never from a blank file, in this order:
       rest.
     - **Behaviour** (`behaviour`): the readers and writers whose result changes though their
       signature does not, today beside after.
+  - **Pixel perfect** (`pixel-perfect`, the third tab): one section for the whole page, never one
+    per service (`data-section="pixel-perfect"`), the screens of every service together, as the
+    **Pixel perfect section** below says. Its one line naming the library screens they are, shared
+    screens included (`screens: quote-list · app-shell`), is the line review and the word pass
+    read. A PRD that changes no screen says the one line `Pixel perfect: no screen changes` in it:
+    no slice runs pixel-perfect work for it, and the feature PR's **Pixel perfect** line
+    (`/omni:pr`) is `none`. With the design flag off, the section is `na`,
+    `N/A — design craft is off here`. The tab is always there.
 - **A change is breaking** when it removes an element, changes the type of an output, an argument or
   an input field, changes an output's nullability, or adds a required argument or input field. A
   deprecation never is. The repository's conventions pages may make the rule stricter, never
@@ -462,10 +463,22 @@ CLI, never from a blank file, in this order:
   content), `na` (the change does not touch it: `N/A — <one-line reason>`) or `gap` (it applies and
   the design does not settle it: `To settle — <what is missing, one line>`). A service whose `db`,
   `api` and `behaviour` are all `na` shows them as the one line `<service>: no technical change`.
-- **Pages with no meta.** A page without `<meta name="omni-before-after" content="2">` is the older
-  shape and is graded on its size alone; this step never writes one.
+- **Older pages.** A page whose meta says `content="2"` is the two-tab shape (its Pixel perfect
+  section sits in each service's block) and is graded as it always was; a page with no meta is
+  graded on its size alone. This step writes version 3 and never writes either of them.
 
-- **The Pixel perfect section:** a change with a **screen** is two mockups side by side, the screen today and the screen after.
+- **The Pixel perfect section:** a change with a **screen** is every screen drawn whole, in the
+  third tab, today beside after. A screen is written at its real width, which it declares
+  (`data-viewport="1280"`, a phone screen `390`), and inside the shared screens the library says
+  it appears in (its app shell, its navigation): read `omni design screens`, and a page whose
+  route a shared screen lists is drawn inside that shared screen. It is built from the library
+  screen's mockup. "Today" is the library screen as it stands; "after" is that same screen with
+  only what the approved design changes. A screen with no library file yet is drawn whole the
+  same way, and its "after" is its draft. A screen is written for its declared width: a media
+  query of the product's stylesheet is resolved by the writer, since a frame is not a window.
+  You write only the marked screens, each with an optional heading before it: the template
+  builds the frames, the captions, the today-beside-after layout, the scaling, the index and the
+  tab's count itself, so never write a frame, a caption, a scale or an index.
   With the design flag on, read `node .omni-loop/bin/omni.mjs kb show design` first (and the file a
   pointer section names), and build the "after" from the product's own tokens and components as
   its `system` section names them: their colours, type scale, spacing and component shapes, read
@@ -481,11 +494,33 @@ CLI, never from a blank file, in this order:
   redesigned; a change the approved design makes to it is named in the spec's **Decisions**: the
   screen, the change and who locked it (its `locked-by` and `locked-on`), for the slice that builds
   it to raise as the high item its owner answers. A **draft** is a starting point.
-- **The marks and the word pass,** with the design flag on. Mark each screen of the page, "today"
-  and "after", with `data-screen` (its name), and its one primary action with `data-primary`, the
-  convention every mockup the kit's skills write uses. The page's own explanation (its title, the
-  PRD line, the captions under each mockup) sits outside every marked screen: the word pass reads
-  only marked screens, and skips a page with none. Before anyone is shown the page, run
+- **The marks and the word pass,** with the design flag on. Each side of each screen, "today" and
+  "after", is one element carrying these marks, its markup inside it in a `<template>` child:
+  `data-screen` (the screen's library name; every state of a screen carries the same one),
+  `data-ref` (`<number>.<letter>`, as `2.C`), `data-when` (`today` or `after`) and
+  `data-viewport` (its width in CSS pixels, a whole number from 320 to 2560); its one primary
+  action carries `data-primary`, the convention every mockup the kit's skills write uses.
+  - **The references.** The number is the screen's, the letter a state's (`2.A` the first state of
+    the second screen, `2.C` its third: an error, a confirm step, an empty list). A reference
+    names one state of one screen, and has two sides, `2.C` today and `2.C` after; a state that
+    does not exist today has only its after, and every reference has an after. References are
+    fixed once written and never renumbered: a state removed in a later version leaves a hole, a
+    new state takes the next free letter and a new screen the next free number, so "change 2.C"
+    means the same thing in every version of the page.
+  - **The one stylesheet.** The screens' rules are written once for the page (the template's
+    `screen-css`), never once per screen; a screen's styles never reach the page and the page's
+    never reach a screen. A font of the product goes in the page's own `<style>`, as a `data:`
+    font when the design form names one and the size limit allows: `@font-face` inside a screen
+    does not load.
+  - **What the grader holds.** `omni check inbox` holds the declarations, never the width: the
+    three tabs, one Pixel perfect section inside its tab, a marked screen only in that tab, a
+    filled section holding one, well-formed `data-ref`, `data-when` and `data-viewport`, a pair
+    of reference and side once, an `after` for every reference, one number for one screen, and
+    every `data-screen` named by the `screens:` line.
+
+  The page's own explanation (its title, the PRD line, the template's captions) sits outside
+  every marked screen: the word pass reads only marked screens, and skips a page with none; in a
+  marked screen it reads the words of its `<template>`. Before anyone is shown the page, run
   `node .omni-loop/bin/omni.mjs design words <folder>/before-after.html`; it exits 0 whatever it
   finds. Fix each finding of an "after" in that screen (a shorter label on the control, one primary
   action, a sentence that stands at rest cut or moved, an avoided word replaced), and run it again.
@@ -568,10 +603,40 @@ PRD's line beside the concept's.
 
 The page is self-contained: inline CSS and inline SVG, no base64 raster image, and at most
 `limits.beforeAfterMaxBytes` bytes, which `omni check inbox` enforces. Load the `artifact-design`
-skill for the design when your session has it, then write the file. **Never publish it as a claude.ai
-artifact:** an artifact is private to its author, so the people the spec is for could not open it. A
-file in the repository is versioned, diffable, and reviewed in the phase-0 PR (◆: on the PRD's page,
-where the dossier push sends it).
+skill for the design when your session has it, then write the file. **Never publish it as the copy
+others read:** a page published to a host is private to its author, so the people the spec is for
+could not open it. The file in the repository is the only copy anyone else reads: versioned,
+diffable, and reviewed in the phase-0 PR (◆: on the PRD's page, where the dossier push sends it).
+
+**The first look.** After the page is written, drawn, word-passed and graded (item 4), and before
+the commit of step 7, show it to its person, when all three hold:
+
+- you have a tool that publishes a page privately to its person and hands back a link (in Claude:
+  the Artifact tool);
+- `OMNI_UNATTENDED` is not set;
+- the page passed `omni check inbox`.
+
+Otherwise skip this step, saying nothing: the run is as it was with no first look, nothing is
+published and nothing is asked. When all three hold:
+
+1. **One page, one link.** Publish the whole `before-after.html` as it is, never a copy per tab or
+   per screen: a change is often global ("every header darker"). Never change the file to suit the
+   host; when the host refuses the page, say so in one line and skip the step. Open the page for
+   the person where your tool can, and not only print its link.
+2. **One question,** through the session's question tool: **Iterate** or **Carry on**. It names
+   the link and the references on the page (`1.A`, `2.C`…).
+3. **Iterate.** The person says what to change, naming a reference when it is about one screen
+   ("2.C: shorten the label"). Change the file, run the word pass and `omni check inbox`, publish
+   again to the same link, and ask again.
+4. **A change made on the page itself.** When the host lets the person change the page there, read
+   the page back from the host before each change of your own and before carrying on: the host's
+   copy is written over the file.
+5. **Carry on.** The exported HTML is `before-after.html`. Run the word pass and `omni check inbox`
+   on it once more; a refusal is fixed, published again and shown again, so that what is committed
+   is what the person last saw, and it passes.
+
+The private page is the author's working copy and nothing more: write its link in no file, no
+issue, no pull request and no dossier. It approves nothing.
 
 ## 6. Acceptance scenarios
 
@@ -852,8 +917,11 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
    lowest scores, the way steps 4 and 5 write them (with the design flag on, the marks, the word
    pass and the drafts included), and add the change to the spec's **Decisions**.
    The page is written as step 5 writes it, through `omni before-after new <n> --force …`, `render`
-   and the word pass. A reworked PRD whose page has no `omni-before-after` meta keeps its old shape
-   (edit it in place, never `new`) unless the person asks for the new one.
+   and the word pass, with its three tabs, whole numbered screens and references: a reference
+   already on the page is never renumbered. A reworked PRD whose page is of version 2 (its
+   `omni-before-after` meta says `2`) or has no meta keeps its old shape (edit it in place, never
+   `new`) unless the person asks for the new one. Either way, **The first look** of step 5 follows
+   the grader, before the commit of item 5.
    The overrule and the gap question hold as in **The voice**.
 4. **Ask the personas again** as round `rework-<k>`, `<k>` one more than the last rework round (1
    for the first), appended to `voice.json`.

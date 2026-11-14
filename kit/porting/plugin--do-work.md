@@ -283,3 +283,11 @@ the slice's words come from, and `omni kb legal` when the slice touches personal
 licences. Where a term is in both the page and `paths.glossary`, the page wins; an offline or
 product-less read carries on with what it has. Tested in `kit/test/plugin.test.ts`, "the skills read
 the product knowledge (PRD 2299)".
+
+## PRD 2850, slice s4 — the Pixel perfect tab
+
+Not a re-port: kit-local prose. Step 4's **Design review** names the Pixel perfect tab of the
+before/after page beside its section (a version 2 page keeps the section in each service's block), so
+the `Pixel perfect: no screen changes` line is found in either shape; the reference picture of the
+review is the screen's reference in the tab (`2.C`, after). Tested in
+`kit/test/before-after-skills.test.ts`.
