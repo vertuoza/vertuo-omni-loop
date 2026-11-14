@@ -118,8 +118,10 @@ The grader reads text, so it cannot measure a width. What makes a frame whole is
 (rule: the screen is laid out at its declared width) and the skill's rule on shared screens; the
 grader holds the declarations. That limit is said in **Risks**.
 
-The word pass (`omni design words`) reads marked screens as today; the frame's caption sits
-outside the marked element, so it is never read as a word of the screen.
+The word pass (`omni design words`) reads marked screens as today, and reads the words inside a
+screen's `<template>`: on the prototype it finds the five screens and counts no word in them,
+which is the gap to close. The frame's caption sits outside the marked element, so it is never
+read as a word of the screen.
 
 ### 5. Shown to its person first
 
@@ -139,7 +141,8 @@ How it runs:
    copy per tab or per screen: a change is often global ("every header darker"). The file is never
    changed to suit the host; a host that refuses the page is said in one line and the step is
    skipped.
-2. **One question:** *Iterate* or *Carry on*, through the session's question tool.
+2. **One question:** *Iterate* or *Carry on*, through the session's question tool. The page is
+   opened for the person where the tool can; the question names the link and the references.
 3. **Iterate.** The person says what to change, naming a reference when it is about one screen
    ("2.C: shorten the label"). The agent changes the file, runs the word pass and the grader, and
    republishes to the same link. Then it asks again.
@@ -197,6 +200,17 @@ claude.ai artifact" becomes "never as the copy others read".
   its person"), then the Claude tool in brackets, as the kit does for asking (`kit/test/agent-neutral.ts`).
 - **The file wins over the host.** The page is never bent to a host's own page rules; the grader
   is the only contract the page keeps.
+- **This PRD's own page is version 3, written by hand** (the person asked to see the third tab
+  before approving): it is the prototype of the template this PRD builds, and the kit on `main`
+  grades it on its size alone. The slice that writes the template starts from it.
+- **What the prototype settled.** A screen's markup sits in a `<template>` inside its marked
+  element and is drawn in a shadow root, with one shared stylesheet for every screen of the page:
+  that is the isolation of section 2, and the styles are written once. The product's own fonts are
+  embedded as `data:` fonts when the design form names them and the size limit allows. A screen is
+  written for its declared width: a media query of the product's stylesheet is resolved by the
+  writer, since the frame is not a window.
+- **The first look opens the page for its person**, where the agent's tool can, and does not only
+  print a link (the person's remark on the first round).
 - **No proof video** (the person's answer).
 - **No personas were read** (no sign-in on this machine): no voice round and no `voice.json`.
 
