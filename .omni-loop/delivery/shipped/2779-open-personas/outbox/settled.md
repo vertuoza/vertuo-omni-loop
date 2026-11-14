@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-13
 - Slice: s1
 - Wave: 1
+- Became: ADR-0137
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ B is a small change to the agent link's read, a few lines and a test; nothing is
 - Raised: 2026-11-13
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCTKNOWLEDGE-3, P-PRODUCTKNOWLEDGE-3
 
 ### The answer, as it was given
 
@@ -175,6 +177,7 @@ B drops one comparison in the database's edit function and one line of its check
 - Raised: 2026-11-13
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCTKNOWLEDGE-4, P-PRODUCTKNOWLEDGE-4
 
 ### The answer, as it was given
 
@@ -254,6 +257,7 @@ B changes one comparison in the database's find function and two lines of its ch
 - Raised: 2026-11-13
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCTKNOWLEDGE-5, P-PRODUCTKNOWLEDGE-5
 
 ### The answer, as it was given
 
@@ -332,6 +336,7 @@ B is one more column set in the update's move, before it ships; after it ships, 
 - Raised: 2026-11-13
 - Slice: s2
 - Wave: 1
+- Stays here: A local placement choice for one query parameter, cheap to move and with no lasting guarantee or architecture worth recording.
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ A different answer means moving one query parameter into the business command on
 - Raised: 2026-11-13
 - Slice: s4
 - Wave: 2
+- Stays here: A one-line, reversible edit outside the slice's territory; it records a local implementation choice, not a lasting product guarantee or architecture decision.
 
 ### The answer, as it was given
 
