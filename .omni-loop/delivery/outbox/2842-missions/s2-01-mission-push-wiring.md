@@ -48,3 +48,4 @@ Small either way: each is one line, and no other slice of the plan touches these
 
 - (author) The files outside the territory: kit/bin/commands/index.ts (the command table), kit/lib/help/entries.ts and its test (the help entry, the count 68 to 69), kit/lib/layout.ts (the missions folder), apps/galaxy/src/dossier/api.ts (the page route of a mission) and apps/galaxy/src/dossier/page/work.ts (a mission's path and names). The plan's territory named kit/bin/omni.ts, which holds no command list.
 - (author) The fake dossier store refuses a mission through the general push, as the database does, so the fake and the database agree.
+- (author) apps/galaxy/src/runners/runners.migration.test.ts pinned the runner job columns' order in the database's types; it now lets the two mission columns sit between log_tail and notify_url. That file is in s5's territory, which comes later.

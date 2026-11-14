@@ -162,7 +162,8 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 
   it('is named in the database\'s types', () => {
-    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+notify_url: string \| null\n\s+outcome: string \| null\n(\s+parts: Json \| null\n)?\s+pr_url: string \| null\n/);
+    // PRD 2842 s2: a mission's two columns sit between log_tail and notify_url.
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n(\s+mission_id: string \| null\n\s+mission_key: string \| null\n)?\s+notify_url: string \| null\n\s+outcome: string \| null\n(\s+parts: Json \| null\n)?\s+pr_url: string \| null\n/);
   });
 });
 
