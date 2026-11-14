@@ -98,7 +98,7 @@ Low. Reverting either edit is a one-file change: without the fake's methods the 
 - Raised: 2026-10-16
 - Slice: s2
 - Wave: 2
-- Became: ADR-0117
+- Became: ADR-0143
 
 ### The answer, as it was given
 

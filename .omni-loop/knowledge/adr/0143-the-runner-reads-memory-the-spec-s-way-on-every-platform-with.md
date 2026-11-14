@@ -1,4 +1,4 @@
-# ADR-0117 — The runner reads memory the spec's way on every platform, with one 85 % default limit
+# ADR-0143 — The runner reads memory the spec's way on every platform, with one 85 % default limit
 
 **Status:** adopted · **Date:** 2026-10-16 · **PRD:** #2102 · **Decided:** nobody — adopted when raised (medium), 2026-10-16 · **Merged:** @pierrederval, 2026-10-16, PR #2106
 
