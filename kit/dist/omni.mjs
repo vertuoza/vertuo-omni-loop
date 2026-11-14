@@ -326,13 +326,13 @@ var require_directives = __commonJS({
        * @param onError - May be called even if the action was successful
        * @returns `true` on success
        */
-      add(line2, onError) {
+      add(line3, onError) {
         if (this.atNextDocument) {
           this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
           this.tags = Object.assign({}, _Directives.defaultTags);
           this.atNextDocument = false;
         }
-        const parts = line2.trim().split(/[ \t]+/);
+        const parts = line3.trim().split(/[ \t]+/);
         const name3 = parts.shift();
         switch (name3) {
           case "%TAG": {
@@ -1947,9 +1947,9 @@ var require_stringifyCollection = __commonJS({
       } else {
         str = lines4[0];
         for (let i = 1; i < lines4.length; ++i) {
-          const line2 = lines4[i];
-          str += line2 ? `
-${indent2}${line2}` : "\n";
+          const line3 = lines4[i];
+          str += line3 ? `
+${indent2}${line3}` : "\n";
         }
       }
       if (comment2) {
@@ -2007,7 +2007,7 @@ ${indent2}${line2}` : "\n";
           str += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines4.reduce((sum, line2) => sum + line2.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines4.reduce((sum, line3) => sum + line3.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
             str += ",";
@@ -2023,14 +2023,14 @@ ${indent2}${line2}` : "\n";
         return start4 + end3;
       } else {
         if (!reqNewline) {
-          const len = lines4.reduce((sum, line2) => sum + line2.length + 2, 2);
+          const len = lines4.reduce((sum, line3) => sum + line3.length + 2, 2);
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
           let str = start4;
-          for (const line2 of lines4)
-            str += line2 ? `
-${indentStep}${indent2}${line2}` : "\n";
+          for (const line3 of lines4)
+            str += line3 ? `
+${indentStep}${indent2}${line3}` : "\n";
           return `${str}
 ${indent2}${end3}`;
         } else {
@@ -3799,10 +3799,10 @@ var require_errors = __commonJS({
       if (error62.pos[0] === -1)
         return;
       error62.linePos = error62.pos.map((pos) => lc.linePos(pos));
-      const { line: line2, col } = error62.linePos[0];
-      error62.message += ` at line ${line2}, column ${col}`;
+      const { line: line3, col } = error62.linePos[0];
+      error62.message += ` at line ${line3}, column ${col}`;
       let ci2 = col - 1;
-      let lineStr = src.substring(lc.lineStarts[line2 - 1], lc.lineStarts[line2]).replace(/[\n\r]+$/, "");
+      let lineStr = src.substring(lc.lineStarts[line3 - 1], lc.lineStarts[line3]).replace(/[\n\r]+$/, "");
       if (ci2 >= 60 && lineStr.length > 80) {
         const trimStart = Math.min(ci2 - 39, lineStr.length - 79);
         lineStr = "\u2026" + lineStr.substring(trimStart);
@@ -3810,8 +3810,8 @@ var require_errors = __commonJS({
       }
       if (lineStr.length > 80)
         lineStr = lineStr.substring(0, 79) + "\u2026";
-      if (line2 > 1 && /^ *$/.test(lineStr.substring(0, ci2))) {
-        let prev = src.substring(lc.lineStarts[line2 - 2], lc.lineStarts[line2 - 1]);
+      if (line3 > 1 && /^ *$/.test(lineStr.substring(0, ci2))) {
+        let prev = src.substring(lc.lineStarts[line3 - 2], lc.lineStarts[line3 - 1]);
         if (prev.length > 80)
           prev = prev.substring(0, 79) + "\u2026\n";
         lineStr = prev + lineStr;
@@ -3819,7 +3819,7 @@ var require_errors = __commonJS({
       if (/[^ ]/.test(lineStr)) {
         let count10 = 1;
         const end3 = error62.linePos[1];
-        if (end3?.line === line2 && end3.col > col) {
+        if (end3?.line === line3 && end3.col > col) {
           count10 = Math.max(1, Math.min(end3.col - col, 80 - ci2));
         }
         const pointer = " ".repeat(ci2) + "^".repeat(count10);
@@ -4779,8 +4779,8 @@ var require_resolve_flow_scalar = __commonJS({
       return unfoldLines(source2.slice(1, -1)).replace(/''/g, "'");
     }
     function unfoldLines(source2) {
-      const line2 = /(.*?)\r?\n/sy;
-      let match = line2.exec(source2);
+      const line3 = /(.*?)\r?\n/sy;
+      let match = line3.exec(source2);
       if (!match)
         return source2;
       let trimEnd, trimBoth;
@@ -4793,8 +4793,8 @@ var require_resolve_flow_scalar = __commonJS({
       }
       let res = match[1].replace(trimEnd, "");
       let sep6 = " ";
-      let pos = line2.lastIndex;
-      while (match = line2.exec(source2)) {
+      let pos = line3.lastIndex;
+      while (match = line3.exec(source2)) {
         const lm = match[1].replace(trimBoth, "");
         if (lm === "") {
           if (sep6 === "\n")
@@ -4805,7 +4805,7 @@ var require_resolve_flow_scalar = __commonJS({
           res += sep6 + lm;
           sep6 = " ";
         }
-        pos = line2.lastIndex;
+        pos = line3.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
@@ -5945,40 +5945,40 @@ var require_lexer = __commonJS({
         }
       }
       *parseStream() {
-        let line2 = this.getLine();
-        if (line2 === null)
+        let line3 = this.getLine();
+        if (line3 === null)
           return this.setNext("stream");
-        if (line2[0] === cst.BOM) {
+        if (line3[0] === cst.BOM) {
           yield* this.pushCount(1);
-          line2 = line2.substring(1);
+          line3 = line3.substring(1);
         }
-        if (line2[0] === "%") {
-          let dirEnd = line2.length;
-          let cs = line2.indexOf("#");
+        if (line3[0] === "%") {
+          let dirEnd = line3.length;
+          let cs = line3.indexOf("#");
           while (cs !== -1) {
-            const ch = line2[cs - 1];
+            const ch = line3[cs - 1];
             if (ch === " " || ch === "	") {
               dirEnd = cs - 1;
               break;
             } else {
-              cs = line2.indexOf("#", cs + 1);
+              cs = line3.indexOf("#", cs + 1);
             }
           }
           while (true) {
-            const ch = line2[dirEnd - 1];
+            const ch = line3[dirEnd - 1];
             if (ch === " " || ch === "	")
               dirEnd -= 1;
             else
               break;
           }
           const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
-          yield* this.pushCount(line2.length - n);
+          yield* this.pushCount(line3.length - n);
           this.pushNewline();
           return "stream";
         }
         if (this.atLineEnd()) {
           const sp = yield* this.pushSpaces(true);
-          yield* this.pushCount(line2.length - sp);
+          yield* this.pushCount(line3.length - sp);
           yield* this.pushNewline();
           return "stream";
         }
@@ -6019,13 +6019,13 @@ var require_lexer = __commonJS({
       }
       *parseDocument() {
         yield* this.pushSpaces(true);
-        const line2 = this.getLine();
-        if (line2 === null)
+        const line3 = this.getLine();
+        if (line3 === null)
           return this.setNext("doc");
         let n = yield* this.pushIndicators();
-        switch (line2[n]) {
+        switch (line3[n]) {
           case "#":
-            yield* this.pushCount(line2.length - n);
+            yield* this.pushCount(line3.length - n);
           // fallthrough
           case void 0:
             yield* this.pushNewline();
@@ -6050,7 +6050,7 @@ var require_lexer = __commonJS({
           case ">":
             n += yield* this.parseBlockScalarHeader();
             n += yield* this.pushSpaces(true);
-            yield* this.pushCount(line2.length - n);
+            yield* this.pushCount(line3.length - n);
             yield* this.pushNewline();
             return yield* this.parseBlockScalar();
           default:
@@ -6070,11 +6070,11 @@ var require_lexer = __commonJS({
           }
           sp += yield* this.pushSpaces(true);
         } while (nl + sp > 0);
-        const line2 = this.getLine();
-        if (line2 === null)
+        const line3 = this.getLine();
+        if (line3 === null)
           return this.setNext("flow");
-        if (indent2 !== -1 && indent2 < this.indentNext && line2[0] !== "#" || indent2 === 0 && (line2.startsWith("---") || line2.startsWith("...")) && isEmpty(line2[3])) {
-          const atFlowEndMarker = indent2 === this.indentNext - 1 && this.flowLevel === 1 && (line2[0] === "]" || line2[0] === "}");
+        if (indent2 !== -1 && indent2 < this.indentNext && line3[0] !== "#" || indent2 === 0 && (line3.startsWith("---") || line3.startsWith("...")) && isEmpty(line3[3])) {
+          const atFlowEndMarker = indent2 === this.indentNext - 1 && this.flowLevel === 1 && (line3[0] === "]" || line3[0] === "}");
           if (!atFlowEndMarker) {
             this.flowLevel = 0;
             yield cst.FLOW_END;
@@ -6082,17 +6082,17 @@ var require_lexer = __commonJS({
           }
         }
         let n = 0;
-        while (line2[n] === ",") {
+        while (line3[n] === ",") {
           n += yield* this.pushCount(1);
           n += yield* this.pushSpaces(true);
           this.flowKey = false;
         }
         n += yield* this.pushIndicators();
-        switch (line2[n]) {
+        switch (line3[n]) {
           case void 0:
             return "flow";
           case "#":
-            yield* this.pushCount(line2.length - n);
+            yield* this.pushCount(line3.length - n);
             return "flow";
           case "{":
           case "[":
@@ -10066,8 +10066,8 @@ var Doc = class {
     const lines4 = content.split("\n").filter((x) => x);
     const minIndent = Math.min(...lines4.map((x) => x.length - x.trimStart().length));
     const dedented = lines4.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
-    for (const line2 of dedented) {
-      this.content.push(line2);
+    for (const line3 of dedented) {
+      this.content.push(line3);
     }
   }
   compile() {
@@ -28213,7 +28213,7 @@ function parseConfig(source2, file2 = CONFIG_FILE, { migrate = false, ignoreUnkn
   if (!result2.success) {
     const [first, ...others] = result2.error.issues.map(describeIssue);
     const more = others.length ? `
-${others.map((line2) => `  - ${line2}`).join("\n")}` : "";
+${others.map((line3) => `  - ${line3}`).join("\n")}` : "";
     throw new ConfigError(`${file2} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
   const config3 = result2.data;
@@ -28341,7 +28341,7 @@ var FORMS = Object.freeze([
   form("conventions", "extended", [opt("naming"), opt("formatting"), opt("commits")]),
   form("releasing", "extended", [req("publishes"), opt("how"), opt("rollback"), opt("notes")]),
   form("bug-fixing", "extended", [req("steps"), opt("guard")]),
-  form("review", "extended", [req("fix"), req("push-back"), req("ask")]),
+  form("review", "extended", [req("fix"), req("push-back"), req("ask"), opt("look-for")]),
   form("design", "extended", [req("product"), req("system"), opt("deliberate"), opt("review"), opt("language")]),
   form("glossary", "extended", [req("where")], { pointerOnly: true })
 ]);
@@ -28416,28 +28416,28 @@ function splitSections(lines4) {
   const sections = [];
   let current = null;
   let fenced = false;
-  for (const line2 of lines4) {
-    const heading2 = fenced ? null : line2.match(HEADING);
-    if (FENCE.test(line2)) fenced = !fenced;
+  for (const line3 of lines4) {
+    const heading2 = fenced ? null : line3.match(HEADING);
+    if (FENCE.test(line3)) fenced = !fenced;
     if (heading2) {
       current = { heading: heading2[1] ?? "", lines: [] };
       sections.push(current);
     } else {
-      (current ? current.lines : head).push(line2);
+      (current ? current.lines : head).push(line3);
     }
   }
   return { head, sections };
 }
 function readHead(head) {
-  const at2 = head.findIndex((line2) => TITLE.test(line2));
+  const at2 = head.findIndex((line3) => TITLE.test(line3));
   if (at2 === -1) return { title: null, opener: null };
-  const opener = head.slice(at2 + 1).map((line2) => line2.trim()).find((line2) => line2 !== "" && !line2.startsWith("<!--"));
+  const opener = head.slice(at2 + 1).map((line3) => line3.trim()).find((line3) => line3 !== "" && !line3.startsWith("<!--"));
   return { title: head[at2]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
   const text19 = raw.replace(COMMENT, "").trim();
-  const lines4 = text19.split("\n").map((line2) => line2.trim()).filter(Boolean);
-  const questions2 = lines4.map((line2) => line2.match(HOLE)?.[1]).filter((question) => Boolean(question));
+  const lines4 = text19.split("\n").map((line3) => line3.trim()).filter(Boolean);
+  const questions2 = lines4.map((line3) => line3.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines4.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
   if (questions2.length === lines4.length) return { kind: "holes", text: text19, see: null, questions: questions2 };
   const see = lines4.length === 1 ? lines4[0]?.match(SEE) ?? null : null;
@@ -28445,7 +28445,7 @@ function readBody(raw) {
   return { kind: "text", text: text19, see: null, questions: questions2 };
 }
 function readSection(heading2, lines4) {
-  const at2 = lines4.findIndex((line2) => line2.trim() !== "");
+  const at2 = lines4.findIndex((line3) => line3.trim() !== "");
   const first = at2 === -1 ? "" : (lines4[at2] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
   const marker = first.match(MARKER);
@@ -30283,8 +30283,8 @@ function readFields(lines4) {
   const counts2 = {};
   let fieldAt = -1;
   let open3 = null;
-  lines4.forEach((line2, index2) => {
-    const match = line2.match(FIELD_LINE);
+  lines4.forEach((line3, index2) => {
+    const match = line3.match(FIELD_LINE);
     if (match) {
       if (fieldAt === -1) fieldAt = index2;
       const name3 = group(match, 1);
@@ -30299,11 +30299,11 @@ function readFields(lines4) {
       }
       return;
     }
-    if (line2.trim() === "") {
+    if (line3.trim() === "") {
       open3 = null;
       return;
     }
-    if (open3) fields[open3] = `${fields[open3]} ${line2.trim()}`.trim();
+    if (open3) fields[open3] = `${fields[open3]} ${line3.trim()}`.trim();
   });
   return { fields, counts: counts2, fieldAt };
 }
@@ -30325,10 +30325,10 @@ function readLocked(file2, id, value) {
   if (value === void 0) return { locked: null, problems: [] };
   const match = value.match(LOCKED_VALUE);
   if (match) return { locked: { by: group(match, 1), on: group(match, 2) }, problems: [] };
-  const line2 = value === "" ? "Locked:" : `Locked: ${value}`;
+  const line3 = value === "" ? "Locked:" : `Locked: ${value}`;
   return {
     locked: { by: null, on: null },
-    problems: [`${file2}: ${id} \u2014 "${line2}" is not "Locked: @<login>, <YYYY-MM-DD>".`]
+    problems: [`${file2}: ${id} \u2014 "${line3}" is not "Locked: @<login>, <YYYY-MM-DD>".`]
   };
 }
 function readGoverns(file2, id, value) {
@@ -30381,16 +30381,16 @@ function readPending(file2, id, value) {
 function splitEntries(text19) {
   const entries4 = [];
   let current = null;
-  for (const line2 of text19.split("\n")) {
-    const match = line2.match(ENTRY_HEADING);
+  for (const line3 of text19.split("\n")) {
+    const match = line3.match(ENTRY_HEADING);
     if (match) {
       if (current) entries4.push(current);
       current = { id: match[1] ?? "", lines: [] };
-    } else if (ANY_H2.test(line2)) {
+    } else if (ANY_H2.test(line3)) {
       if (current) entries4.push(current);
       current = null;
     } else if (current) {
-      current.lines.push(line2);
+      current.lines.push(line3);
     }
   }
   if (current) entries4.push(current);
@@ -30399,7 +30399,7 @@ function splitEntries(text19) {
 function parseEntryFile(file2, text19, place) {
   return splitEntries(text19).map(({ id, lines: lines4 }) => {
     const { fields, counts: counts2, fieldAt } = readFields(lines4);
-    const statement2 = (fieldAt === -1 ? lines4 : lines4.slice(0, fieldAt)).filter((line2) => line2.trim().length > 0).join(" ").trim();
+    const statement2 = (fieldAt === -1 ? lines4 : lines4.slice(0, fieldAt)).filter((line3) => line3.trim().length > 0).join(" ").trim();
     const kind2 = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
     const { proposed, problems: proposedProblems } = readProposed(file2, id, fields.proposedLine);
@@ -30620,9 +30620,9 @@ function headingAnchor(heading2) {
 function headingsOf(lines4) {
   const headings = [];
   let fenced = false;
-  for (const [index2, line2] of lines4.entries()) {
-    if (/^\s*(```|~~~)/.test(line2)) fenced = !fenced;
-    const heading2 = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line2);
+  for (const [index2, line3] of lines4.entries()) {
+    if (/^\s*(```|~~~)/.test(line3)) fenced = !fenced;
+    const heading2 = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line3);
     if (heading2) headings.push({ index: index2, depth: heading2[1]?.length ?? 0, anchor: headingAnchor(heading2[2] ?? "") });
   }
   return headings;
@@ -30739,7 +30739,7 @@ import { readdirSync as readdirSync6, readFileSync as readFileSync11 } from "nod
 import { join as join14, posix as posix2 } from "node:path";
 import { fileURLToPath } from "node:url";
 var BundledTemplatesSchema = external_exports.record(external_exports.string(), external_exports.string());
-var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse("{\"README.md\":\"<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person's\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). A fourth kind, the\\n  domain contract, says in one line how an entity is shaped or moves, and points at the schema or\\n  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are\\n  decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form's file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository's section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit's own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n\",\"before-after/page.html\":\"<!doctype html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<meta name=\\\"omni-before-after\\\" content=\\\"3\\\">\\n<title>PRD {{prd}}: before and after</title>\\n<style>\\n:root {\\n  color-scheme: light dark;\\n  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;\\n  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;\\n  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;\\n}\\n@media (prefers-color-scheme: dark) {\\n  :root {\\n    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;\\n    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;\\n    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;\\n  }\\n}\\n* { box-sizing: border-box; }\\nbody { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, \\\"Segoe UI\\\", sans-serif; }\\nh1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }\\nh1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }\\nh3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }\\n.tab-input { position: absolute; opacity: 0; pointer-events: none; }\\n.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }\\n.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }\\n.tabs label small { font-weight: 600; color: var(--muted); }\\n#tab-functional:checked ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:checked ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:checked ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }\\n#tab-functional:focus-visible ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:focus-visible ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:focus-visible ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { outline: 2px solid var(--accent); }\\n[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }\\n#tab-functional:checked ~ [data-tab=\\\"functional\\\"],\\n#tab-technical:checked ~ [data-tab=\\\"technical\\\"],\\n#tab-pixel-perfect:checked ~ [data-tab=\\\"pixel-perfect\\\"] { display: block; }\\n[data-tab=\\\"pixel-perfect\\\"] { max-width: none; }\\n[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }\\n[data-section] { margin: 12px 0; }\\n[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n[data-state=\\\"na\\\"] { color: var(--muted); }\\n[data-state=\\\"gap\\\"] > h4::after { content: \\\" \xB7 to settle\\\"; color: var(--warn-fg); }\\n.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }\\n.badge.breaking { background: var(--del-bg); color: var(--del-fg); }\\n.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }\\n.badge.added { background: var(--add-bg); color: var(--add-fg); }\\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\\n@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }\\n.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }\\npre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }\\npre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }\\npre .line { display: block; padding: 0 12px; white-space: pre; }\\n.add { background: var(--add-bg); color: var(--add-fg); }\\n.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }\\n.ctx { color: var(--muted); }\\ntable { width: 100%; border-collapse: collapse; margin: 8px 0; }\\nth, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }\\nth { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n.no-change { color: var(--muted); font-style: italic; }\\n.diagram svg { max-width: 100%; height: auto; }\\ndetails > summary { cursor: pointer; color: var(--muted); }\\n.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }\\n.index[hidden] { display: none; }\\n.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }\\n.ref[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }\\n.shot { margin: 0; min-width: 0; }\\n.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }\\n.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }\\n.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }\\n.when.after { background: var(--add-bg); color: var(--add-fg); }\\n.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }\\n.zoom[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }\\n.fit.full { overflow: auto; }\\n.fit > [data-screen] { transform-origin: 0 0; }\\n.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }\\n</style>\\n</head>\\n<body>\\n<h1>PRD {{prd}}: before and after</h1>\\n<!-- Every section carries data-state: filled (the design covers it), na (\\\"N/A \u2014 one-line reason\\\") or gap (\\\"To settle \u2014 what is missing\\\"). -->\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-functional\\\" class=\\\"tab-input\\\" checked>\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-technical\\\" class=\\\"tab-input\\\">\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-pixel-perfect\\\" class=\\\"tab-input\\\">\\n<div class=\\\"tabs\\\"><label for=\\\"tab-functional\\\">Functional</label><label for=\\\"tab-technical\\\">Technical</label><label for=\\\"tab-pixel-perfect\\\">Pixel perfect<small data-count></small></label></div>\\n<section data-tab=\\\"functional\\\">\\n{{functional}}\\n</section>\\n<section data-tab=\\\"technical\\\">\\n<div data-section=\\\"flow\\\" data-state=\\\"gap\\\">\\n<h4>Flow</h4>\\n<!-- FILL -->\\n</div>\\n<div data-section=\\\"deploy\\\" data-state=\\\"gap\\\">\\n<h4>Deploy order</h4>\\n<!-- FILL -->\\n</div>\\n{{technical}}\\n</section>\\n<section data-tab=\\\"pixel-perfect\\\">\\n<nav class=\\\"index\\\" aria-label=\\\"References\\\" data-index hidden></nav>\\n<!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element\\n     carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),\\n     data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,\\n     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,\\n     and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->\\n<div data-section=\\\"pixel-perfect\\\" data-state=\\\"gap\\\">\\n<h4>Pixel perfect</h4>\\n<!-- FILL -->\\n</div>\\n</section>\\n<template id=\\\"screen-css\\\"><style>\\n/* The screens' one stylesheet, written once for the page: the design system's tokens and the library mockups' rules.\\n   It reaches every marked screen and nothing else; the page's own rules never reach inside one. */\\n</style></template>\\n<script>\\n(function () {\\n  var BASE = ':host { all: initial; display: block; }';\\n  var tab = document.querySelector('[data-tab=\\\"pixel-perfect\\\"]');\\n  var sheet = document.getElementById('screen-css');\\n  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];\\n  var fits = [];\\n  function make(tag, cls, text) {\\n    var node = document.createElement(tag);\\n    if (cls) node.className = cls;\\n    if (text) node.textContent = text;\\n    return node;\\n  }\\n  function widthOf(screen) {\\n    var width = Number(screen.getAttribute('data-viewport'));\\n    return width >= 320 && width <= 2560 ? Math.round(width) : 0;\\n  }\\n  function isolate(screen) {\\n    if (!screen.attachShadow || screen.shadowRoot) return;\\n    var body = null;\\n    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];\\n    var root = screen.attachShadow({ mode: 'open' });\\n    root.appendChild(make('style', '', BASE));\\n    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));\\n    if (body) root.appendChild(body.content.cloneNode(true));\\n    else while (screen.firstChild) root.appendChild(screen.firstChild);\\n    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';\\n  }\\n  function size(fit) {\\n    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;\\n    if (!width) return;\\n    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }\\n    var k = Math.min(1, fit.clientWidth / width);\\n    if (!k) return;\\n    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';\\n    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';\\n  }\\n  function zoom(figure) {\\n    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');\\n    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });\\n    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';\\n    size(fit);\\n  }\\n  function frame(screen, ref) {\\n    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');\\n    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);\\n    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');\\n    button.type = 'button'; full.type = 'button';\\n    button.title = 'Open at 100 %';\\n    [button, full].forEach(function (each) {\\n      each.setAttribute('data-zoom', '');\\n      each.setAttribute('aria-pressed', 'false');\\n      each.addEventListener('click', function () { zoom(figure); });\\n    });\\n    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];\\n    parts.forEach(function (part, i) {\\n      if (i > 0) caption.appendChild(document.createTextNode(' \xB7 '));\\n      caption.appendChild(part);\\n    });\\n    caption.appendChild(full);\\n    if (width) fit.style.maxWidth = width + 2 + 'px';\\n    fit.appendChild(screen);\\n    figure.appendChild(caption);\\n    figure.appendChild(fit);\\n    fits.push(fit);\\n    return figure;\\n  }\\n  function absent(ref) {\\n    var figure = make('figure', 'shot none'), caption = make('figcaption');\\n    caption.appendChild(make('span', 'ref', ref));\\n    caption.appendChild(document.createTextNode(' \xB7 '));\\n    caption.appendChild(make('span', 'when today', 'Today'));\\n    figure.appendChild(caption);\\n    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));\\n    return figure;\\n  }\\n  var groups = [], byRef = {};\\n  screens.forEach(function (screen) {\\n    isolate(screen);\\n    var ref = screen.getAttribute('data-ref') || '';\\n    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }\\n    byRef[ref].screens.push(screen);\\n  });\\n  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };\\n  groups.forEach(function (group) {\\n    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';\\n    if (id && !document.getElementById(id)) pair.id = id;\\n    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));\\n    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);\\n    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });\\n    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));\\n    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });\\n  });\\n  var index = tab && tab.querySelector('[data-index]'), numbers = [];\\n  groups.forEach(function (group) {\\n    if (!group.ref || !index) return;\\n    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }\\n    var link = make('a', 'ref', group.ref);\\n    link.href = '#s-' + group.ref.replace('.', '-');\\n    link.title = group.screens[0].getAttribute('data-screen') || '';\\n    index.appendChild(link);\\n    var number = group.ref.split('.')[0];\\n    if (numbers.indexOf(number) === -1) numbers.push(number);\\n  });\\n  var count = document.querySelector('[data-count]');\\n  if (count && numbers.length > 0) count.textContent = ' \xB7 ' + numbers.length;\\n  if (typeof ResizeObserver === 'function') {\\n    var watch = new ResizeObserver(function (entries) {\\n      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });\\n    });\\n    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });\\n  }\\n  function open() {\\n    var hash = location.hash;\\n    if (hash === '#technical') document.getElementById('tab-technical').checked = true;\\n    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {\\n      document.getElementById('tab-pixel-perfect').checked = true;\\n      fits.forEach(size);\\n      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));\\n      if (target) target.scrollIntoView();\\n    }\\n  }\\n  fits.forEach(size);\\n  window.addEventListener('hashchange', open);\\n  open();\\n})();\\n</script>\\n</body>\\n</html>\\n\",\"omni-settings/playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no bug-fixing page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the\\n   reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`.\\nA regression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"omni-settings/playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no definition of done of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The change does what its spec or issue asks, and nothing it did not ask.\\n- The changed behaviour is proven by a test that failed before the change, or, where no test can\\n  reach it, by the narrowest evidence that was actually run.\\n- The repository's full preflight (`omni config commands.preflightFull` names it, else\\n  `commands.preflight`) is green on the last commit pushed; the pull request names any step it\\n  skipped, and why.\\n- The hand-off names every check that ran, and every check skipped with its reason. Nothing is\\n  reported as proven that was not run.\\n- Every decision taken without asking a person is written down for a person to answer.\\n- The pull request body says what changed, how it was verified, its risk, how to roll it back, and\\n  where a reviewer should look closest.\\n- The pull request is green and mergeable, or a comment on it says exactly what is stuck.\\n- No key, token, password or personal data is in a commit, a fixture, a log or the body.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- The playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape, with no unrelated formatting.\\nPrefer a few meaningful commits over one mixed commit that hides unrelated work.\\n\",\"omni-settings/playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n<!-- The workspace's tech default for every repository that writes no review page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\\nproblem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste, or style no linter enforces;\\n- work outside the pull request's scope;\\n- a rewrite to another pattern, with no defect named;\\n- what the spec already settles: quote it.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision,\\ncontradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after\\na fix or a push-back has the last word: the thread goes to a person, never back into the argument.\\n\",\"omni-settings/playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n<!-- The workspace's tech default for every repository that writes no verification page of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\nThe preflight is the command `omni config commands.preflight` prints, read from the config, never\\ntyped from memory. It is green before a pull request is opened. It runs the half of the gate a\\nlaptop can run, stops at the first failure, and says what to fix; what only CI can run, it names and\\nleaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun the full preflight (`omni config commands.preflightFull`, else `commands.preflight`) before\\nevery push to an open pull request. A pull request no CI runs on, such as a sub-pull request into a\\nfeature branch, has this as its only grade.\\n\\nA commit hook runs only the checks that need no build, so a green commit is not a green branch: run\\nthe rest yourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- A red CI job is reproduced locally, under its own name, before it is fixed.\\n- A ratchet (a check graded against a recorded baseline: coverage or mutation floors, a suppression\\n  budget, a formatting baseline) only holds or improves. Never lower a floor, skip a test or add a\\n  suppression to turn a check green; raising a budget is its own reviewed change.\\n- A check that only skipped or was cancelled is never green.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\",\"playbook/architecture.md\":\"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package's name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other's domain code; they meet in exactly one place, the\\n  app's composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file's name says its role.\\n\",\"playbook/briefing.md\":\"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Any agent\\n<!-- slot: agents \xB7 optional -->\\n- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.\\n- **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the\\n  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4\\n  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run\\n  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask\\n  nothing: a decision is a high outbox item.\\n- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its\\n  own worktree and sub-PR.\\n- **Models.** No model per subagent? Every slice runs on your terminal's model.\\n- **Background.** No background? Run in the foreground within your shell's limit, again until done.\\n- **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the\\n  repository holds it all.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n\",\"playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No\\n   smoke to run: stop, keep the reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`. A\\nregression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"playbook/ci.md\":\"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n\\n## Budgets\\n<!-- slot: budgets \xB7 optional -->\\nWhat every agent session reads (the briefing, each form as `omni kb show` prints it, the context\\nfiles) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while\\n`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which\\ntarget grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.\\nOnly when it needs the room, raise its ceiling in the same pull request and file a high outbox item\\nthat says why; a person's answer turns it green. A pull request with no PRD cannot raise one.\\n\",\"playbook/conventions.md\":\"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product's own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n\",\"playbook/decisions.md\":\"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one's status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with the latest 20\\nrecords' numbers and titles, read from the folder each time: nobody keeps that list by hand;\\n`omni kb show decisions --all` prints every record. Before writing a new record, look the decision\\nup there, or search the folder: it may be settled already. A number belongs to one record; two\\nrecords sharing one is a mistake to fix, never a precedent.\\n\",\"playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request's outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n\",\"playbook/design.md\":\"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product's screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n\",\"playbook/glossary.md\":\"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n\",\"playbook/pull-requests.md\":\"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository's pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary's words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\\"revert this pull request\\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n\",\"playbook/releasing.md\":\"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder's number, and `title`. Only the initial release's notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people's names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer's language\\n---\\nInvoices and their reminders are sent in the language set on the customer's record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n\",\"playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\\"while you\u2019re here\\\" changes outside the pull request's scope;\\n- a rewrite to the reviewer's preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n\",\"playbook/setup.md\":\"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n\",\"playbook/testing.md\":\"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n\",\"playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\"}"));
+var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse("{\"README.md\":\"<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person's\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). A fourth kind, the\\n  domain contract, says in one line how an entity is shaped or moves, and points at the schema or\\n  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are\\n  decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form's file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository's section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit's own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n\",\"before-after/page.html\":\"<!doctype html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<meta name=\\\"omni-before-after\\\" content=\\\"3\\\">\\n<title>PRD {{prd}}: before and after</title>\\n<style>\\n:root {\\n  color-scheme: light dark;\\n  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;\\n  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;\\n  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;\\n}\\n@media (prefers-color-scheme: dark) {\\n  :root {\\n    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;\\n    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;\\n    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;\\n  }\\n}\\n* { box-sizing: border-box; }\\nbody { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, \\\"Segoe UI\\\", sans-serif; }\\nh1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }\\nh1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }\\nh3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }\\n.tab-input { position: absolute; opacity: 0; pointer-events: none; }\\n.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }\\n.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }\\n.tabs label small { font-weight: 600; color: var(--muted); }\\n#tab-functional:checked ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:checked ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:checked ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }\\n#tab-functional:focus-visible ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:focus-visible ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:focus-visible ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { outline: 2px solid var(--accent); }\\n[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }\\n#tab-functional:checked ~ [data-tab=\\\"functional\\\"],\\n#tab-technical:checked ~ [data-tab=\\\"technical\\\"],\\n#tab-pixel-perfect:checked ~ [data-tab=\\\"pixel-perfect\\\"] { display: block; }\\n[data-tab=\\\"pixel-perfect\\\"] { max-width: none; }\\n[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }\\n[data-section] { margin: 12px 0; }\\n[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n[data-state=\\\"na\\\"] { color: var(--muted); }\\n[data-state=\\\"gap\\\"] > h4::after { content: \\\" \xB7 to settle\\\"; color: var(--warn-fg); }\\n.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }\\n.badge.breaking { background: var(--del-bg); color: var(--del-fg); }\\n.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }\\n.badge.added { background: var(--add-bg); color: var(--add-fg); }\\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\\n@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }\\n.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }\\npre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }\\npre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }\\npre .line { display: block; padding: 0 12px; white-space: pre; }\\n.add { background: var(--add-bg); color: var(--add-fg); }\\n.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }\\n.ctx { color: var(--muted); }\\ntable { width: 100%; border-collapse: collapse; margin: 8px 0; }\\nth, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }\\nth { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n.no-change { color: var(--muted); font-style: italic; }\\n.diagram svg { max-width: 100%; height: auto; }\\ndetails > summary { cursor: pointer; color: var(--muted); }\\n.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }\\n.index[hidden] { display: none; }\\n.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }\\n.ref[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }\\n.shot { margin: 0; min-width: 0; }\\n.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }\\n.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }\\n.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }\\n.when.after { background: var(--add-bg); color: var(--add-fg); }\\n.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }\\n.zoom[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }\\n.fit.full { overflow: auto; }\\n.fit > [data-screen] { transform-origin: 0 0; }\\n.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }\\n</style>\\n</head>\\n<body>\\n<h1>PRD {{prd}}: before and after</h1>\\n<!-- Every section carries data-state: filled (the design covers it), na (\\\"N/A \u2014 one-line reason\\\") or gap (\\\"To settle \u2014 what is missing\\\"). -->\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-functional\\\" class=\\\"tab-input\\\" checked>\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-technical\\\" class=\\\"tab-input\\\">\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-pixel-perfect\\\" class=\\\"tab-input\\\">\\n<div class=\\\"tabs\\\"><label for=\\\"tab-functional\\\">Functional</label><label for=\\\"tab-technical\\\">Technical</label><label for=\\\"tab-pixel-perfect\\\">Pixel perfect<small data-count></small></label></div>\\n<section data-tab=\\\"functional\\\">\\n{{functional}}\\n</section>\\n<section data-tab=\\\"technical\\\">\\n<div data-section=\\\"flow\\\" data-state=\\\"gap\\\">\\n<h4>Flow</h4>\\n<!-- FILL -->\\n</div>\\n<div data-section=\\\"deploy\\\" data-state=\\\"gap\\\">\\n<h4>Deploy order</h4>\\n<!-- FILL -->\\n</div>\\n{{technical}}\\n</section>\\n<section data-tab=\\\"pixel-perfect\\\">\\n<nav class=\\\"index\\\" aria-label=\\\"References\\\" data-index hidden></nav>\\n<!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element\\n     carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),\\n     data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,\\n     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,\\n     and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->\\n<div data-section=\\\"pixel-perfect\\\" data-state=\\\"gap\\\">\\n<h4>Pixel perfect</h4>\\n<!-- FILL -->\\n</div>\\n</section>\\n<template id=\\\"screen-css\\\"><style>\\n/* The screens' one stylesheet, written once for the page: the design system's tokens and the library mockups' rules.\\n   It reaches every marked screen and nothing else; the page's own rules never reach inside one. */\\n</style></template>\\n<script>\\n(function () {\\n  var BASE = ':host { all: initial; display: block; }';\\n  var tab = document.querySelector('[data-tab=\\\"pixel-perfect\\\"]');\\n  var sheet = document.getElementById('screen-css');\\n  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];\\n  var fits = [];\\n  function make(tag, cls, text) {\\n    var node = document.createElement(tag);\\n    if (cls) node.className = cls;\\n    if (text) node.textContent = text;\\n    return node;\\n  }\\n  function widthOf(screen) {\\n    var width = Number(screen.getAttribute('data-viewport'));\\n    return width >= 320 && width <= 2560 ? Math.round(width) : 0;\\n  }\\n  function isolate(screen) {\\n    if (!screen.attachShadow || screen.shadowRoot) return;\\n    var body = null;\\n    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];\\n    var root = screen.attachShadow({ mode: 'open' });\\n    root.appendChild(make('style', '', BASE));\\n    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));\\n    if (body) root.appendChild(body.content.cloneNode(true));\\n    else while (screen.firstChild) root.appendChild(screen.firstChild);\\n    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';\\n  }\\n  function size(fit) {\\n    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;\\n    if (!width) return;\\n    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }\\n    var k = Math.min(1, fit.clientWidth / width);\\n    if (!k) return;\\n    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';\\n    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';\\n  }\\n  function zoom(figure) {\\n    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');\\n    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });\\n    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';\\n    size(fit);\\n  }\\n  function frame(screen, ref) {\\n    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');\\n    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);\\n    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');\\n    button.type = 'button'; full.type = 'button';\\n    button.title = 'Open at 100 %';\\n    [button, full].forEach(function (each) {\\n      each.setAttribute('data-zoom', '');\\n      each.setAttribute('aria-pressed', 'false');\\n      each.addEventListener('click', function () { zoom(figure); });\\n    });\\n    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];\\n    parts.forEach(function (part, i) {\\n      if (i > 0) caption.appendChild(document.createTextNode(' \xB7 '));\\n      caption.appendChild(part);\\n    });\\n    caption.appendChild(full);\\n    if (width) fit.style.maxWidth = width + 2 + 'px';\\n    fit.appendChild(screen);\\n    figure.appendChild(caption);\\n    figure.appendChild(fit);\\n    fits.push(fit);\\n    return figure;\\n  }\\n  function absent(ref) {\\n    var figure = make('figure', 'shot none'), caption = make('figcaption');\\n    caption.appendChild(make('span', 'ref', ref));\\n    caption.appendChild(document.createTextNode(' \xB7 '));\\n    caption.appendChild(make('span', 'when today', 'Today'));\\n    figure.appendChild(caption);\\n    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));\\n    return figure;\\n  }\\n  var groups = [], byRef = {};\\n  screens.forEach(function (screen) {\\n    isolate(screen);\\n    var ref = screen.getAttribute('data-ref') || '';\\n    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }\\n    byRef[ref].screens.push(screen);\\n  });\\n  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };\\n  groups.forEach(function (group) {\\n    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';\\n    if (id && !document.getElementById(id)) pair.id = id;\\n    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));\\n    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);\\n    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });\\n    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));\\n    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });\\n  });\\n  var index = tab && tab.querySelector('[data-index]'), numbers = [];\\n  groups.forEach(function (group) {\\n    if (!group.ref || !index) return;\\n    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }\\n    var link = make('a', 'ref', group.ref);\\n    link.href = '#s-' + group.ref.replace('.', '-');\\n    link.title = group.screens[0].getAttribute('data-screen') || '';\\n    index.appendChild(link);\\n    var number = group.ref.split('.')[0];\\n    if (numbers.indexOf(number) === -1) numbers.push(number);\\n  });\\n  var count = document.querySelector('[data-count]');\\n  if (count && numbers.length > 0) count.textContent = ' \xB7 ' + numbers.length;\\n  if (typeof ResizeObserver === 'function') {\\n    var watch = new ResizeObserver(function (entries) {\\n      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });\\n    });\\n    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });\\n  }\\n  function open() {\\n    var hash = location.hash;\\n    if (hash === '#technical') document.getElementById('tab-technical').checked = true;\\n    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {\\n      document.getElementById('tab-pixel-perfect').checked = true;\\n      fits.forEach(size);\\n      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));\\n      if (target) target.scrollIntoView();\\n    }\\n  }\\n  fits.forEach(size);\\n  window.addEventListener('hashchange', open);\\n  open();\\n})();\\n</script>\\n</body>\\n</html>\\n\",\"omni-settings/playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no bug-fixing page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the\\n   reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`.\\nA regression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"omni-settings/playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no definition of done of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The change does what its spec or issue asks, and nothing it did not ask.\\n- The changed behaviour is proven by a test that failed before the change, or, where no test can\\n  reach it, by the narrowest evidence that was actually run.\\n- The repository's full preflight (`omni config commands.preflightFull` names it, else\\n  `commands.preflight`) is green on the last commit pushed; the pull request names any step it\\n  skipped, and why.\\n- The hand-off names every check that ran, and every check skipped with its reason. Nothing is\\n  reported as proven that was not run.\\n- Every decision taken without asking a person is written down for a person to answer.\\n- The pull request body says what changed, how it was verified, its risk, how to roll it back, and\\n  where a reviewer should look closest.\\n- The pull request is green and mergeable, or a comment on it says exactly what is stuck.\\n- No key, token, password or personal data is in a commit, a fixture, a log or the body.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- The playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape, with no unrelated formatting.\\nPrefer a few meaningful commits over one mixed commit that hides unrelated work.\\n\",\"omni-settings/playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person; and when you review one, for what to look for.\\n\\n<!-- The workspace's tech default for every repository that writes no review page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\\nproblem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste, or style no linter enforces;\\n- work outside the pull request's scope;\\n- a rewrite to another pattern, with no defect named;\\n- what the spec already settles: quote it.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision,\\ncontradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after\\na fix or a push-back has the last word: the thread goes to a person, never back into the argument.\\n\\n## Look for\\n<!-- slot: look-for \xB7 optional -->\\nThe kit's six come first, in order of harm: correctness, security and data, tests that prove it,\\nscope, laws and conventions, design and complexity. Add a list item here for what every repository\\nof this workspace also looks for: `omni review look-for` prints the six, then each item added.\\n\",\"omni-settings/playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n<!-- The workspace's tech default for every repository that writes no verification page of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\nThe preflight is the command `omni config commands.preflight` prints, read from the config, never\\ntyped from memory. It is green before a pull request is opened. It runs the half of the gate a\\nlaptop can run, stops at the first failure, and says what to fix; what only CI can run, it names and\\nleaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun the full preflight (`omni config commands.preflightFull`, else `commands.preflight`) before\\nevery push to an open pull request. A pull request no CI runs on, such as a sub-pull request into a\\nfeature branch, has this as its only grade.\\n\\nA commit hook runs only the checks that need no build, so a green commit is not a green branch: run\\nthe rest yourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- A red CI job is reproduced locally, under its own name, before it is fixed.\\n- A ratchet (a check graded against a recorded baseline: coverage or mutation floors, a suppression\\n  budget, a formatting baseline) only holds or improves. Never lower a floor, skip a test or add a\\n  suppression to turn a check green; raising a budget is its own reviewed change.\\n- A check that only skipped or was cancelled is never green.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\",\"playbook/architecture.md\":\"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package's name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other's domain code; they meet in exactly one place, the\\n  app's composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file's name says its role.\\n\",\"playbook/briefing.md\":\"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Any agent\\n<!-- slot: agents \xB7 optional -->\\n- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.\\n- **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the\\n  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4\\n  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run\\n  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask\\n  nothing: a decision is a high outbox item.\\n- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its\\n  own worktree and sub-PR.\\n- **Models.** No model per subagent? Every slice runs on your terminal's model.\\n- **Background.** No background? Run in the foreground within your shell's limit, again until done.\\n- **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the\\n  repository holds it all.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n\",\"playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No\\n   smoke to run: stop, keep the reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`. A\\nregression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"playbook/ci.md\":\"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n\\n## Budgets\\n<!-- slot: budgets \xB7 optional -->\\nWhat every agent session reads (the briefing, each form as `omni kb show` prints it, the context\\nfiles) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while\\n`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which\\ntarget grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.\\nOnly when it needs the room, raise its ceiling in the same pull request and file a high outbox item\\nthat says why; a person's answer turns it green. A pull request with no PRD cannot raise one.\\n\",\"playbook/conventions.md\":\"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product's own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n\",\"playbook/decisions.md\":\"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one's status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with the latest 20\\nrecords' numbers and titles, read from the folder each time: nobody keeps that list by hand;\\n`omni kb show decisions --all` prints every record. Before writing a new record, look the decision\\nup there, or search the folder: it may be settled already. A number belongs to one record; two\\nrecords sharing one is a mistake to fix, never a precedent.\\n\",\"playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request's outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n\",\"playbook/design.md\":\"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product's screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n\",\"playbook/glossary.md\":\"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n\",\"playbook/pull-requests.md\":\"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository's pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary's words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\\"revert this pull request\\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n\",\"playbook/releasing.md\":\"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder's number, and `title`. Only the initial release's notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people's names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer's language\\n---\\nInvoices and their reminders are sent in the language set on the customer's record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n\",\"playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person; and when you review one, for what to look for.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\\"while you\u2019re here\\\" changes outside the pull request's scope;\\n- a rewrite to the reviewer's preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n\\n## Look for\\n<!-- slot: look-for \xB7 optional -->\\nWhat a reviewer looks for in a pull request, in order of harm. A repository's own section adds items\\nto these six and never removes one: `omni review look-for` prints the six, then each item it adds.\\n\\n1. **Correctness:** the diff does what the spec says; edge cases, error paths, concurrency, data\\n   loss.\\n2. **Security and data:** a secret, personal data, an authorisation check, injection, row-level\\n   security on a new table.\\n3. **Tests that prove it:** every acceptance criterion has a test that would fail if the code broke;\\n   no test loosened, skipped or deleted to go green; no suppression added; no floor lowered.\\n4. **Scope:** a file outside the plan's territories, or work the spec does not ask for.\\n5. **Laws and conventions:** what a law, a rule or a playbook line says, cited by its id or its form\\n   and section.\\n6. **Design and complexity:** duplicated code, needless generality, a misleading name; only as a\\n   defect, never as taste.\\n\",\"playbook/setup.md\":\"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n\",\"playbook/testing.md\":\"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n\",\"playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\"}"));
 var FRONT_DOOR_TEMPLATE = "README.md";
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -30854,7 +30854,7 @@ function isSignedBody(body) {
 function carriesTrailer(message2, signature) {
   const trailer = trailerLine(signature);
   if (trailer === null || typeof message2 !== "string") return false;
-  return message2.split("\n").some((line2) => line2.trimEnd() === trailer);
+  return message2.split("\n").some((line3) => line3.trimEnd() === trailer);
 }
 function botLogin(email3) {
   const match = typeof email3 === "string" ? NOREPLY.exec(email3.trim()) : null;
@@ -31104,9 +31104,9 @@ function textOf(root, path) {
 function lineCounts(texts) {
   const counts2 = /* @__PURE__ */ new Map();
   for (const text19 of texts) {
-    for (const line2 of text19.split("\n")) {
-      if (line2.startsWith(GENERATED_PREFIX)) continue;
-      counts2.set(line2, (counts2.get(line2) ?? 0) + 1);
+    for (const line3 of text19.split("\n")) {
+      if (line3.startsWith(GENERATED_PREFIX)) continue;
+      counts2.set(line3, (counts2.get(line3) ?? 0) + 1);
     }
   }
   return counts2;
@@ -31116,8 +31116,8 @@ function linesChanged(before2, after) {
   const now2 = lineCounts(after);
   let gone = 0;
   let come = 0;
-  for (const [line2, n] of was) gone += Math.max(0, n - (now2.get(line2) ?? 0));
-  for (const [line2, n] of now2) come += Math.max(0, n - (was.get(line2) ?? 0));
+  for (const [line3, n] of was) gone += Math.max(0, n - (now2.get(line3) ?? 0));
+  for (const [line3, n] of now2) come += Math.max(0, n - (was.get(line3) ?? 0));
   return Math.max(gone, come);
 }
 function pruneEmpty(root, path, stop) {
@@ -31278,7 +31278,7 @@ function applyUpdate({ root, bundle, version: version3, from, home, exec, printl
     } catch {
       changed = true;
     }
-    for (const line2 of lines4) println2(line2);
+    for (const line3 of lines4) println2(line3);
     if (!changed) {
       println2(`nothing to commit: ${defaultBranch2} already holds v${version3}`);
       return 0;
@@ -31582,9 +31582,9 @@ function parseFrontMatterLines(rawFrontMatter) {
   const data = {};
   const errors = [];
   for (const rawLine of rawFrontMatter.split("\n")) {
-    const line2 = rawLine.trim();
-    if (!line2) continue;
-    const match = line2.match(FRONT_MATTER_LINE);
+    const line3 = rawLine.trim();
+    if (!line3) continue;
+    const match = line3.match(FRONT_MATTER_LINE);
     if (!match) {
       errors.push(`front matter line is not "key: value": "${rawLine}"`);
       continue;
@@ -31708,13 +31708,13 @@ var HEADING_LINE = /^##\s+(.+?)\s*$/;
 function parseHeadingSections(body) {
   const sections = [];
   let current = null;
-  for (const line2 of body.split("\n")) {
-    const match = line2.match(HEADING_LINE);
+  for (const line3 of body.split("\n")) {
+    const match = line3.match(HEADING_LINE);
     if (match) {
       if (current) sections.push(current);
       current = { heading: match[1] ?? "", lines: [] };
     } else if (current) {
-      current.lines.push(line2);
+      current.lines.push(line3);
     }
   }
   if (current) sections.push(current);
@@ -31851,13 +31851,13 @@ function readFrontMatterBlock(text19, file2, schema) {
 }
 var OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
 function parseOutboxOptions(content) {
-  const lines4 = (content ?? "").split("\n").map((line2) => line2.trim()).filter((line2) => line2.length > 0);
+  const lines4 = (content ?? "").split("\n").map((line3) => line3.trim()).filter((line3) => line3.length > 0);
   const options = [];
   const errors = [];
-  for (const line2 of lines4) {
-    const match = line2.match(OPTION_LINE);
+  for (const line3 of lines4) {
+    const match = line3.match(OPTION_LINE);
     if (!match) {
-      errors.push(`option line is not "<letter>. <sentence>": "${line2}"`);
+      errors.push(`option line is not "<letter>. <sentence>": "${line3}"`);
       continue;
     }
     options.push({ letter: (match[1] ?? "").toUpperCase(), text: (match[2] ?? "").trim() });
@@ -31995,14 +31995,14 @@ import { join as join23 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
 function invariantAdrs(text19, heading2) {
   const lines4 = text19.split("\n");
-  const start4 = lines4.findIndex((line2) => line2.trim() === heading2.trim());
+  const start4 = lines4.findIndex((line3) => line3.trim() === heading2.trim());
   if (start4 === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading2.trim()), 0).length;
   const ids2 = /* @__PURE__ */ new Set();
-  for (const line2 of lines4.slice(start4 + 1)) {
-    const next2 = line2.match(/^(#+)\s/);
+  for (const line3 of lines4.slice(start4 + 1)) {
+    const next2 = line3.match(/^(#+)\s/);
     if (next2?.[1] !== void 0 && next2[1].length <= level) break;
-    for (const match of line2.matchAll(/ADR-\d{4}/g)) ids2.add(match[0]);
+    for (const match of line3.matchAll(/ADR-\d{4}/g)) ids2.add(match[0]);
   }
   return ids2;
 }
@@ -32010,7 +32010,7 @@ function invariantsFile(root, context, heading2) {
   const wanted = heading2.trim();
   for (const name3 of context) {
     const file2 = join23(root, name3);
-    if (existsSync16(file2) && readFileSync16(file2, "utf8").split("\n").some((line2) => line2.trim() === wanted)) return name3;
+    if (existsSync16(file2) && readFileSync16(file2, "utf8").split("\n").some((line3) => line3.trim() === wanted)) return name3;
   }
   return null;
 }
@@ -32077,7 +32077,7 @@ function readRepoFile(ctx, path) {
 }
 function formatFailure(title, violations) {
   if (violations.length === 0) return "";
-  return [title, ...violations.map((line2) => `  ${line2}`)].join("\n");
+  return [title, ...violations.map((line3) => `  ${line3}`)].join("\n");
 }
 function formatPass(message2) {
   return message2;
@@ -32332,19 +32332,19 @@ function rawSettledEntries(text19, markers) {
   const entries4 = [];
   let current = null;
   for (let index2 = 0; index2 < lines4.length; index2 += 1) {
-    const line2 = lines4[index2] ?? "";
-    const openMatch = line2.match(markers.settledOpenRe);
+    const line3 = lines4[index2] ?? "";
+    const openMatch = line3.match(markers.settledOpenRe);
     if (openMatch) {
       current = openedEntry(openMatch[1]);
       continue;
     }
     if (!current) continue;
-    if (line2 === markers.settledClose(current.id)) {
+    if (line3 === markers.settledClose(current.id)) {
       entries4.push(closedEntry(current));
       current = null;
       continue;
     }
-    const fenceMatch = line2.match(/^(`{3,})text$/);
+    const fenceMatch = line3.match(/^(`{3,})text$/);
     if (fenceMatch) {
       const fence = fenceMatch[1];
       const start4 = index2 + 1;
@@ -32354,7 +32354,7 @@ function rawSettledEntries(text19, markers) {
       index2 = end3;
       continue;
     }
-    const fieldMatch = line2.match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
+    const fieldMatch = line3.match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
     if (fieldMatch) current.fields[fieldMatch[1] ?? ""] = fieldMatch[2] ?? "";
   }
   return entries4;
@@ -32509,7 +32509,7 @@ function ownersBlock(paths, owners2) {
   return lines4.join("\n");
 }
 function blockSpan(lines4) {
-  const at2 = (marker) => lines4.flatMap((line2, index2) => line2.trim() === marker ? [index2] : []);
+  const at2 = (marker) => lines4.flatMap((line3, index2) => line3.trim() === marker ? [index2] : []);
   const begins = at2(OWNERS_BEGIN);
   const ends2 = at2(OWNERS_END);
   if (begins.length === 0 && ends2.length === 0) return null;
@@ -32523,7 +32523,7 @@ function blockSpan(lines4) {
 function ownersBlockIn(text19) {
   const lines4 = text19.split("\n");
   const span = blockSpan(lines4);
-  return span === null ? null : lines4.slice(span.begin, span.end + 1).map((line2) => line2.replace(/\r$/, "")).join("\n");
+  return span === null ? null : lines4.slice(span.begin, span.end + 1).map((line3) => line3.replace(/\r$/, "")).join("\n");
 }
 function withOwnersBlock(text19, block) {
   if (text19 === null || text19 === "") return `${block}
@@ -32575,24 +32575,24 @@ var FIELD = /^(Why|Also):\s*(.*)$/;
 var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
 function blocks(text19) {
   const found2 = [];
-  for (const line2 of text19.split("\n")) {
-    const match = line2.match(HEADING2);
+  for (const line3 of text19.split("\n")) {
+    const match = line3.match(HEADING2);
     if (match) found2.push({ heading: match[1] ?? "", lines: [] });
-    else found2.at(-1)?.lines.push(line2);
+    else found2.at(-1)?.lines.push(line3);
   }
   return found2;
 }
 function readBody2(raw) {
-  const lines4 = raw.map((line2) => line2.trim());
-  const fieldAt = lines4.findIndex((line2) => FIELD.test(line2));
+  const lines4 = raw.map((line3) => line3.trim());
+  const fieldAt = lines4.findIndex((line3) => FIELD.test(line3));
   const statement2 = (fieldAt === -1 ? lines4 : lines4.slice(0, fieldAt)).filter(Boolean).join(" ");
   return { statement: statement2, why: fieldValue(lines4, "Why") || null, also: fieldValue(lines4, "Also") };
 }
 function fieldValue(lines4, name3) {
-  const at2 = lines4.findIndex((line2) => line2.match(FIELD)?.[1] === name3);
+  const at2 = lines4.findIndex((line3) => line3.match(FIELD)?.[1] === name3);
   if (at2 === -1) return null;
   const rest = lines4.slice(at2 + 1);
-  const end3 = rest.findIndex((line2) => line2 === "" || FIELD.test(line2));
+  const end3 = rest.findIndex((line3) => line3 === "" || FIELD.test(line3));
   const continued = end3 === -1 ? rest : rest.slice(0, end3);
   return [lines4[at2]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
 }
@@ -32652,8 +32652,8 @@ function splitSpec(spec) {
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : { front: "", body: spec };
 }
 function specAreas(spec) {
-  const line2 = splitSpec(spec).front.split("\n").map((one) => one.match(/^areas:\s*\[(.*)\]\s*$/)).find((match) => match !== null);
-  return line2 ? keysOf2(line2[1] ?? "") : [];
+  const line3 = splitSpec(spec).front.split("\n").map((one) => one.match(/^areas:\s*\[(.*)\]\s*$/)).find((match) => match !== null);
+  return line3 ? keysOf2(line3[1] ?? "") : [];
 }
 function usesWord(text19, word2) {
   const escaped2 = word2.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
@@ -32769,7 +32769,7 @@ function groupsOfThree(lines4) {
   return groups;
 }
 function parseEntries(content) {
-  const lines4 = content.split("\n").map((line2) => line2.trim()).filter((line2) => line2.length > 0);
+  const lines4 = content.split("\n").map((line3) => line3.trim()).filter((line3) => line3.length > 0);
   if (lines4.length === 0) return { errors: [], entries: [] };
   if (lines4.length % 3 !== 0) {
     return {
@@ -33554,8 +33554,8 @@ function formatItem(item2) {
   return item2.rank ? `  - ${item2.file} (${item2.rank})` : `  - ${item2.file}`;
 }
 function formatUnaccounted(change2) {
-  const line2 = `  - ${change2.path} (${change2.rule})`;
-  return change2.refused === void 0 ? line2 : `${line2} \u2014 ${change2.refused}`;
+  const line3 = `  - ${change2.path} (${change2.rule})`;
+  return change2.refused === void 0 ? line3 : `${line3} \u2014 ${change2.refused}`;
 }
 function formatUnreworked(entry3) {
   return `  - ${entry3.id}`;
@@ -33597,8 +33597,8 @@ function git(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 function parseNameStatus(nameStatus) {
-  return nameStatus.split("\n").map((line2) => line2.trim()).filter(Boolean).map((line2) => {
-    const [status5 = "", ...paths] = line2.split("	");
+  return nameStatus.split("\n").map((line3) => line3.trim()).filter(Boolean).map((line3) => {
+    const [status5 = "", ...paths] = line3.split("	");
     return { status: status5[0] ?? "", path: paths.at(-1) ?? "" };
   });
 }
@@ -33854,7 +33854,7 @@ function tableCell(text19) {
   return (text19 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
 function quoted2(text19) {
-  return (text19 ?? "").trim().split("\n").map((line2) => line2.trim() === "" ? ">" : `> ${line2}`).join("\n");
+  return (text19 ?? "").trim().split("\n").map((line3) => line3.trim() === "" ? ">" : `> ${line3}`).join("\n");
 }
 function funLine(text19) {
   return `_${(text19 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
@@ -34203,7 +34203,7 @@ function maybeWriteSlackNote({
   if (!ctx.config.notify.slack) return;
   const news = result2.newCount + (prComment?.newAdoptedCount ?? 0);
   if (!path || !(news > 0)) return;
-  const line2 = slackLine({
+  const line3 = slackLine({
     prd: prd2,
     title,
     owner,
@@ -34213,7 +34213,7 @@ function maybeWriteSlackNote({
     newCount: news,
     url: prComment?.htmlUrl ?? result2.htmlUrl
   });
-  write2(path, `${line2}
+  write2(path, `${line3}
 `);
 }
 function upsertOutboxComment({
@@ -34313,16 +34313,16 @@ var LETTER_ANSWER = /^([A-Za-z])(?:\s*[.,:;)\-—–]?\s*because\b\s*(.*?))?[\s.
 var RANK_PLAIN_LABEL = { "human-action": "needs a person", high: "high", medium: "medium" };
 function parseReplyLines(body) {
   const lines4 = [];
-  for (const line2 of plainText(body).split(/\r?\n/)) {
-    if (APPROVE_ALL_LINE.test(line2)) {
+  for (const line3 of plainText(body).split(/\r?\n/)) {
+    if (APPROVE_ALL_LINE.test(line3)) {
       lines4.push({ kind: "approve-all", text: APPROVE_ALL_TEXT });
       continue;
     }
-    if (RECOMMENDATION_RE.test(line2)) {
+    if (RECOMMENDATION_RE.test(line3)) {
       lines4.push({ kind: "approve-all", text: RECOMMENDATION_TEXT });
       continue;
     }
-    const match = line2.match(NUMBERED_LINE);
+    const match = line3.match(NUMBERED_LINE);
     if (match) lines4.push({ kind: "numbered", number: Number(match[1]), text: (match[2] ?? "").trim() });
   }
   return lines4;
@@ -34447,14 +34447,14 @@ function rawAnswers(all, markers, byNumber2, open3) {
       approvedAt: comment2.created_at,
       url: comment2.html_url
     };
-    for (const line2 of parseReplyLines(comment2.body)) {
-      if (line2.kind === "numbered") {
-        if (byNumber2.has(line2.number)) numbered.set(line2.number, { ...source2, text: line2.text });
+    for (const line3 of parseReplyLines(comment2.body)) {
+      if (line3.kind === "numbered") {
+        if (byNumber2.has(line3.number)) numbered.set(line3.number, { ...source2, text: line3.text });
         continue;
       }
       for (const question of open3) {
         if (time3(question.since) < answeredAt) {
-          approved.set(question.number, { ...source2, text: line2.text, approveAll: true });
+          approved.set(question.number, { ...source2, text: line3.text, approveAll: true });
         }
       }
     }
@@ -34497,14 +34497,14 @@ function formatRoundComment({
   questions: questions2,
   markers
 }) {
-  const ordered = [...questions2].sort((a, b) => a.number - b.number);
+  const ordered2 = [...questions2].sort((a, b) => a.number - b.number);
   const lines4 = [
-    markers.round(round2, ordered.map((question) => question.number)),
+    markers.round(round2, ordered2.map((question) => question.number)),
     "",
     `**Outbox round ${round2}**`,
     ""
   ];
-  for (const question of ordered) {
+  for (const question of ordered2) {
     lines4.push(
       `**Question ${question.number}** \xB7 ${RANK_PLAIN_LABEL[question.rank] ?? question.rank}`,
       "",
@@ -34547,7 +34547,7 @@ function appendObjection({
   writeFileSync14(absoluteSettled, `${existing}${separator}${entry3}`);
   return { ok: true, settledFile };
 }
-function readReplies({ ctx, prd: prd2, pr, post: post4 = false }, client) {
+function readReplies({ ctx, prd: prd2, pr, post: post5 = false }, client) {
   const comments = client.listComments();
   const items = openItemsForPrd(prd2, { ctx });
   const adopted = adoptedEntriesForPrd(prd2, { ctx });
@@ -34588,7 +34588,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post4 = false }, client) {
       questions: plan2.round.questions,
       markers: ctx.markers
     });
-    const posted = post4 ? client.createComment(body) : null;
+    const posted = post5 ? client.createComment(body) : null;
     round2 = { number: plan2.round.number, body, posted: posted ?? null };
   }
   return {
@@ -34784,13 +34784,13 @@ var PickSchema = external_exports.object({
 }).strict();
 var PicksSchema = external_exports.array(PickSchema);
 function cleanLine(text19) {
-  let line2 = plainText(text19);
+  let line3 = plainText(text19);
   let previous;
   do {
-    previous = line2;
-    line2 = line2.replace(/<!--|-->/g, "");
-  } while (line2 !== previous);
-  return line2.replace(/\s+/g, " ").trim().slice(0, REASON_MAX_LENGTH).trim();
+    previous = line3;
+    line3 = line3.replace(/<!--|-->/g, "");
+  } while (line3 !== previous);
+  return line3.replace(/\s+/g, " ").trim().slice(0, REASON_MAX_LENGTH).trim();
 }
 function describeIssue2(issue2) {
   if (issue2 === void 0) return "picks: invalid";
@@ -34916,10 +34916,10 @@ async function answerOnServer({ store, prd: prd2, picks }) {
   if (!written.ok) return written;
   const byNumber2 = new Map(questions2.map((question) => [question.number, question]));
   const answers2 = { settled: [], failed: [] };
-  for (const line2 of parseReplyLines(written.reply)) {
-    if (line2.kind !== "numbered") continue;
-    const { number: number5, id, item: item2, options } = defined(byNumber2.get(line2.number), `question ${line2.number}`);
-    const reading = interpretAnswer({ text: line2.text, options });
+  for (const line3 of parseReplyLines(written.reply)) {
+    if (line3.kind !== "numbered") continue;
+    const { number: number5, id, item: item2, options } = defined(byNumber2.get(line3.number), `question ${line3.number}`);
+    const reading = interpretAnswer({ text: line3.text, options });
     const answer = { text: reading.recorded, ...reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {} };
     const result2 = await store.settle(defined(item2.file, `the ref of ${id}`), answer);
     if (result2.ok) answers2.settled.push({ number: number5, id, verdict: result2.verdict });
@@ -35329,35 +35329,35 @@ var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 function sectionsOf(body) {
   const sections = [];
   let current = null;
-  for (const line2 of body.split(/\r?\n/)) {
-    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line2);
-    if (heading2 && !line2.startsWith("###")) {
+  for (const line3 of body.split(/\r?\n/)) {
+    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line3);
+    if (heading2 && !line3.startsWith("###")) {
       current = { name: group(heading2, 1), lines: [] };
       sections.push(current);
-    } else if (/^#\s/.test(line2)) {
+    } else if (/^#\s/.test(line3)) {
       current = null;
     } else if (current) {
-      current.lines.push(line2);
+      current.lines.push(line3);
     }
   }
   return sections;
 }
-function cells(line2) {
-  let inner = line2.trim();
+function cells(line3) {
+  let inner = line3.trim();
   if (inner.startsWith("|")) inner = inner.slice(1);
   if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
   return inner.split(/(?<!\\)\|/).map((cell2) => cell2.trim().replace(/\\\|/g, "|"));
 }
 function firstTable(lines4) {
-  const start4 = lines4.findIndex((line2) => line2.trim().startsWith("|"));
+  const start4 = lines4.findIndex((line3) => line3.trim().startsWith("|"));
   if (start4 === -1) return null;
   const block = [];
-  for (const line2 of lines4.slice(start4)) {
-    if (!line2.trim().startsWith("|")) break;
-    block.push(line2.trim());
+  for (const line3 of lines4.slice(start4)) {
+    if (!line3.trim().startsWith("|")) break;
+    block.push(line3.trim());
   }
   const [header2 = "", ...rest] = block;
-  return { header: cells(header2), rows: rest.filter((line2) => !SEPARATOR_ROW.test(line2)).map(cells) };
+  return { header: cells(header2), rows: rest.filter((line3) => !SEPARATOR_ROW.test(line3)).map(cells) };
 }
 
 // kit/lib/concept/parse.ts
@@ -35887,16 +35887,16 @@ function checkoutWriter(ctx, prd2) {
   };
 }
 function restoreDrift(reading, tree) {
-  if (reading.state === "approved") return { ok: true, lines: reading.lines.map((line2) => `nothing to restore \xB7 ${line2}`) };
+  if (reading.state === "approved") return { ok: true, lines: reading.lines.map((line3) => `nothing to restore \xB7 ${line3}`) };
   if (reading.state !== "drifted" || !reading.approval) return { ok: false, lines: reading.lines };
   const { approval: approval3, url: url2 } = reading;
   const again = `approve again: ${url2 ?? "the PRD page"}`;
   let ok = true;
   const lines4 = reading.drift.map((drift) => {
     const pin = approval3.files.find((file2) => file2.kind === drift.kind && tree.fileOf(file2) === drift.file);
-    const refuse7 = (line2) => {
+    const refuse7 = (line3) => {
       ok = false;
-      return line2;
+      return line3;
     };
     if (drift.how === "voided") return refuse7(`cannot restore ${drift.file} \xB7 the approval was voided \xB7 ${again}`);
     if (pin?.content === void 0) return refuse7(`cannot restore ${drift.file} \xB7 the pinned version cannot be read \xB7 ${again}`);
@@ -36011,21 +36011,21 @@ var FIELDS = {
     pending.id = value;
   }
 };
-function fieldOf(line2) {
-  const colon = line2.indexOf(":");
-  if (colon === -1) return [line2, ""];
-  return [line2.slice(0, colon), line2.slice(colon + 1).replace(/^ /, "")];
+function fieldOf(line3) {
+  const colon = line3.indexOf(":");
+  if (colon === -1) return [line3, ""];
+  return [line3.slice(0, colon), line3.slice(colon + 1).replace(/^ /, "")];
 }
 function sseReader() {
   let rest = "";
   let pending = blank();
-  const take = (line2, out) => {
-    if (line2 === "") {
+  const take = (line3, out) => {
+    if (line3 === "") {
       if (pending.fields) out.push({ event: pending.event || "message", id: pending.id, data: pending.data.join("\n") });
       pending = blank();
       return;
     }
-    const [name3, value] = fieldOf(line2);
+    const [name3, value] = fieldOf(line3);
     const set3 = Object.hasOwn(FIELDS, name3) ? FIELDS[name3] : void 0;
     if (!set3) return;
     set3(pending, value);
@@ -36038,7 +36038,7 @@ function sseReader() {
       const lines4 = all.slice(0, cut7).split(/\r\n|\r|\n/);
       rest = (lines4.pop() ?? "") + all.slice(cut7);
       const out = [];
-      for (const line2 of lines4) take(line2, out);
+      for (const line3 of lines4) take(line3, out);
       return out;
     }
   };
@@ -36112,23 +36112,23 @@ async function* messages(body, signal, idleMs) {
 }
 var over = (run2) => run2.options.deadline.aborted;
 var waitFile = (root, prd2) => join38(root, LOCAL_DIR, "approval-wait", `${Number(prd2)}.json`);
-function write(run2, state, line2) {
+function write(run2, state, line3) {
   const { ctx, prd: prd2 } = run2.options;
   ensureLocalDir(ctx.root);
   mkdirSync13(join38(ctx.root, LOCAL_DIR, "approval-wait"), { recursive: true });
-  const file2 = { prd: Number(prd2), state, line: line2, waiting: run2.waiting, at: run2.now().toISOString() };
+  const file2 = { prd: Number(prd2), state, line: line3, waiting: run2.waiting, at: run2.now().toISOString() };
   writeFileSync17(waitFile(ctx.root, prd2), `${JSON.stringify(file2, null, 2)}
 `);
 }
 function forgetWait(root, prd2) {
   rmSync9(waitFile(root, prd2), { force: true });
 }
-function say(run2, state, line2) {
-  run2.options.print(line2);
-  write(run2, state, line2);
+function say(run2, state, line3) {
+  run2.options.print(line3);
+  write(run2, state, line3);
 }
-function end(run2, code, state, line2) {
-  say(run2, state, line2);
+function end(run2, code, state, line3) {
+  say(run2, state, line3);
   return { code, state };
 }
 var heldOn = (run2) => {
@@ -36136,10 +36136,10 @@ var heldOn = (run2) => {
   return run2.asking ? namesOf(run2.asking) : "approval";
 };
 var timedOut2 = (run2) => end(run2, 1, "timeout", `held: still waiting for ${heldOn(run2)} after ${run2.options.timeoutMinutes} min`);
-function waitOn(run2, line2) {
-  if (line2 === run2.waiting) return;
-  run2.waiting = line2;
-  say(run2, "waiting", line2);
+function waitOn(run2, line3) {
+  if (line3 === run2.waiting) return;
+  run2.waiting = line3;
+  say(run2, "waiting", line3);
 }
 function ask2(run2, asking) {
   run2.asking = asking;
@@ -36414,8 +36414,8 @@ var wait = {
         sleep: sleep3,
         now: now2,
         idleMs,
-        print: (line2) => {
-          println(stdout, line2);
+        print: (line3) => {
+          println(stdout, line3);
         },
         deadline: deadline2(timeoutMinutes * 6e4)
       });
@@ -36892,8 +36892,8 @@ async function postHook({
   readContext = askContext,
   readSessionContext = sessionContext,
   readLead: readLead2 = roundLead,
-  warn = (line2) => {
-    process.stderr.write(`${line2}
+  warn = (line3) => {
+    process.stderr.write(`${line3}
 `);
   }
 }) {
@@ -37506,9 +37506,9 @@ async function codeOf2(device) {
 async function finishSignIn({ askUrl: askUrl2, repo, fetch, home, stdout, onSignedIn }, code) {
   const { entry: entry3, ...where } = await exchangeCode({ askUrl: askUrl2, code, repo, fetch });
   credentials({ home }).write(credentialsHost(askUrl2), entry3);
-  const line2 = signedInLine({ ...where, repo });
-  if (onSignedIn) onSignedIn(line2);
-  else println(stdout, line2);
+  const line3 = signedInLine({ ...where, repo });
+  if (onSignedIn) onSignedIn(line3);
+  else println(stdout, line3);
   return 0;
 }
 async function openQuietly(openBrowser, url2) {
@@ -37597,9 +37597,9 @@ var signin = {
     const byToken = tokenClient(askUrl2, vars, fetch);
     if (byToken) {
       return orTokenLine(stderr, async () => {
-        const line2 = signedInLine({ ...await byToken.client.tradeToken({ repo }), repo, by: "OMNI_TOKEN" });
-        if (onSignedIn) onSignedIn(line2);
-        else println(stdout, line2);
+        const line3 = signedInLine({ ...await byToken.client.tradeToken({ repo }), repo, by: "OMNI_TOKEN" });
+        if (onSignedIn) onSignedIn(line3);
+        else println(stdout, line3);
         return 0;
       });
     }
@@ -37732,8 +37732,8 @@ async function runMode(mode, { cwd, stdout, stderr, exec, askSwitch, tokens: tok
   const store = tokens2 ?? homeTokens();
   const slug = ctx.config.repo.slug ?? null;
   const printWhere = async (baseUrl) => {
-    const line2 = await whereLine({ baseUrl, host: new URL(baseUrl).host, slug, tokens: store, fetch });
-    if (line2) println(stdout, line2);
+    const line3 = await whereLine({ baseUrl, host: new URL(baseUrl).host, slug, tokens: store, fetch });
+    if (line3) println(stdout, line3);
   };
   if (mode === "status") {
     const page2 = modeStatus(root, askSwitch);
@@ -37896,22 +37896,22 @@ function territoryPrefixes(cell2) {
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
 }
-function cells2(line2) {
-  return line2.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell2) => cell2.trim());
+function cells2(line3) {
+  return line3.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell2) => cell2.trim());
 }
-function isTableRow(line2) {
-  return line2 !== void 0 && line2.trim().startsWith("|");
+function isTableRow(line3) {
+  return line3 !== void 0 && line3.trim().startsWith("|");
 }
-function isSeparatorRow(line2) {
-  return /^\|[\s:|-]+\|$/.test(line2.trim());
+function isSeparatorRow(line3) {
+  return /^\|[\s:|-]+\|$/.test(line3.trim());
 }
 function bodyRows(lines4, headerIndex) {
   const rows2 = [];
   for (let index2 = headerIndex + 1; index2 < lines4.length; index2 += 1) {
-    const line2 = lines4[index2];
-    if (!isTableRow(line2)) break;
-    if (isSeparatorRow(line2)) continue;
-    rows2.push(cells2(line2));
+    const line3 = lines4[index2];
+    if (!isTableRow(line3)) break;
+    if (isSeparatorRow(line3)) continue;
+    rows2.push(cells2(line3));
   }
   return rows2;
 }
@@ -37943,10 +37943,10 @@ function sliceTable(markdown) {
   let headerIndex = -1;
   let foundAnyIdTable = false;
   for (let i = 0; i < lines4.length; i += 1) {
-    const line2 = lines4[i];
-    if (isTableRow(line2) && /^\|\s*id\s*\|/i.test(line2.trim())) {
+    const line3 = lines4[i];
+    if (isTableRow(line3) && /^\|\s*id\s*\|/i.test(line3.trim())) {
       foundAnyIdTable = true;
-      const header3 = cells2(line2).map((name3) => name3.toLowerCase());
+      const header3 = cells2(line3).map((name3) => name3.toLowerCase());
       if (header3.indexOf("territory") !== -1) {
         headerIndex = i;
         break;
@@ -38024,13 +38024,13 @@ function parsePlanLandings(markdown) {
 }
 function sectionTable(markdown, heading2) {
   const lines4 = markdown.split("\n");
-  const start4 = lines4.findIndex((line2) => new RegExp(`^##\\s+${heading2}\\s*$`, "i").test(line2.trim()));
+  const start4 = lines4.findIndex((line3) => new RegExp(`^##\\s+${heading2}\\s*$`, "i").test(line3.trim()));
   if (start4 === -1) return [];
   let headerIndex = -1;
   for (let i = start4 + 1; i < lines4.length; i += 1) {
-    const line2 = lines4[i] ?? "";
-    if (/^#{1,2}\s/.test(line2.trim())) break;
-    if (isTableRow(line2)) {
+    const line3 = lines4[i] ?? "";
+    if (/^#{1,2}\s/.test(line3.trim())) break;
+    if (isTableRow(line3)) {
       headerIndex = i;
       break;
     }
@@ -38127,9 +38127,9 @@ function isLive(pr) {
 function hasLabel(pr, name3) {
   return (pr.labels ?? []).some((label2) => (typeof label2 === "string" ? label2 : label2?.name) === name3);
 }
-function matchesFeature(pr, { matchBy, featureBranch, subLabel, landed }) {
-  if (matchBy !== "label") return pr.baseRefName === featureBranch;
-  return hasLabel(pr, subLabel) && (!landed || pr.baseRefName === featureBranch);
+function matchesFeature(pr, { matchBy, featureBranch: featureBranch2, subLabel, landed }) {
+  if (matchBy !== "label") return pr.baseRefName === featureBranch2;
+  return hasLabel(pr, subLabel) && (!landed || pr.baseRefName === featureBranch2);
 }
 function timeOf(date6) {
   return date6 === void 0 ? Number.NaN : new Date(date6 ?? 0).getTime();
@@ -38228,10 +38228,10 @@ function boardFor({
   inlineDone = /* @__PURE__ */ new Set()
 }) {
   const { topic } = prd2;
-  const ordered = landings ?? [{ landing: 1, name: "landing-1", branch: fillBranch(config3.branches.feature, { topic }) }];
-  const landed = ordered.length > 1;
+  const ordered2 = landings ?? [{ landing: 1, name: "landing-1", branch: fillBranch(config3.branches.feature, { topic }) }];
+  const landed = ordered2.length > 1;
   const acrossRepos = slices.some((slice) => (slice.repo ?? null) !== null);
-  const entryOf3 = (slice) => ordered.find((entry3) => entry3.landing === (slice.landing ?? 1) && (!acrossRepos || entry3.repo === void 0 || entry3.repo === slice.repo));
+  const entryOf3 = (slice) => ordered2.find((entry3) => entry3.landing === (slice.landing ?? 1) && (!acrossRepos || entry3.repo === void 0 || entry3.repo === slice.repo));
   const branchOf2 = (slice) => entryOf3(slice)?.branch ?? "";
   const live = prs.filter(isLive);
   const dead = deadClaimRules(config3.labels, limits);
@@ -38267,7 +38267,7 @@ function boardFor({
   });
   if (!landed) return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
   const slugOf5 = (entry3) => acrossRepos && entry3.repo !== void 0 ? repos?.[String(entry3.repo)]?.slug ?? null : void 0;
-  const counted5 = ordered.map((entry3) => landingRow(entry3, { rows: rows2, slices, live, slug: slugOf5(entry3), acrossRepos }));
+  const counted5 = ordered2.map((entry3) => landingRow(entry3, { rows: rows2, slices, live, slug: slugOf5(entry3), acrossRepos }));
   const currentOf = /* @__PURE__ */ new Map();
   for (const row of counted5) {
     const key2 = row.repo ?? null;
@@ -38912,7 +38912,7 @@ function repositoryFlowViolations(slices, { config: config3, targets: targets2 }
     const found2 = repo === null ? void 0 : targets2.get(repo);
     const unreadable2 = found2 !== void 0 && !found2.ok ? [`flow: ${repo}'s imported flow at ${found2.file} cannot be read \u2014 ${found2.reason}`] : [];
     const own2 = repo === planName ? config3 : found2?.ok ? found2.config : NO_FLOW;
-    const named5 = planRuleViolations(group2, resolveFlow(own2)).map((line2) => line2.replace(/^(\w+): /, `$1 (${repo}): `));
+    const named5 = planRuleViolations(group2, resolveFlow(own2)).map((line3) => line3.replace(/^(\w+): /, `$1 (${repo}): `));
     return [...unreadable2, ...named5];
   });
 }
@@ -39282,10 +39282,10 @@ init_define_OMNI_BUNDLE();
 var LoopReadError = class extends Error {
   line;
   scope;
-  constructor(line2, scope) {
-    super(line2);
+  constructor(line3, scope) {
+    super(line3);
     this.name = "LoopReadError";
-    this.line = line2;
+    this.line = line3;
     this.scope = scope;
   }
 };
@@ -39371,8 +39371,8 @@ function topicFor(prd2, { ctx }) {
   if (!parsed2) throw usageError(`omni board: cannot read a topic from folder "${where.name}".`);
   return parsed2.topic;
 }
-function narrowingOf({ matchBy, featureBranch, subLabel }) {
-  return matchBy === "label" ? { label: subLabel } : { base: featureBranch };
+function narrowingOf({ matchBy, featureBranch: featureBranch2, subLabel }) {
+  return matchBy === "label" ? { label: subLabel } : { base: featureBranch2 };
 }
 function boardPrOf(change2) {
   const state = change2.state === "merged" ? "MERGED" : change2.state === "closed" ? "CLOSED" : "OPEN";
@@ -40039,18 +40039,18 @@ function thesisPath(ctx) {
 }
 function parseThesis(file2, text19) {
   const lines4 = text19.split("\n");
-  const start4 = lines4.findIndex((line2) => LAWS_HEADING.test(line2.trim()));
+  const start4 = lines4.findIndex((line3) => LAWS_HEADING.test(line3.trim()));
   if (start4 === -1) return { file: file2, lawsSection: null, laws: [] };
   const rest = lines4.slice(start4 + 1);
-  const end3 = rest.findIndex((line2) => ANY_H22.test(line2));
+  const end3 = rest.findIndex((line3) => ANY_H22.test(line3));
   const body = end3 === -1 ? rest : rest.slice(0, end3);
   const laws2 = body.flatMap((raw) => {
-    const line2 = raw.trim();
-    const match = LAW_LINE.exec(line2);
+    const line3 = raw.trim();
+    const match = LAW_LINE.exec(line3);
     const id = match?.[1];
     const sentence3 = match?.[2];
     if (id === void 0 || sentence3 === void 0 || !ID_SHAPE.test(id)) return [];
-    return [{ id, sentence: sentence3.trim(), line: line2 }];
+    return [{ id, sentence: sentence3.trim(), line: line3 }];
   });
   return { file: file2, lawsSection: body.join("\n").trim(), laws: laws2 };
 }
@@ -40439,16 +40439,16 @@ function mergeOrder({
   bugs,
   plan: plan2
 }) {
-  const ordered = [...targets2].sort((left, right) => compareRanks(rank(left, repositories), rank(right, repositories)));
-  const entries4 = ordered.map(targetEntry).filter((entry3) => entry3 !== null);
+  const ordered2 = [...targets2].sort((left, right) => compareRanks(rank(left, repositories), rank(right, repositories)));
+  const entries4 = ordered2.map(targetEntry).filter((entry3) => entry3 !== null);
   return [...entries4, ...bugs.flat(), ...plan2 === null ? [] : [plan2]];
 }
 function linksPrd(body, prd2) {
   return new RegExp(`\\bFor PRD #${prd2}(?!\\d)`).test(body ?? "");
 }
 var REFERENCE = /([\w.-]+\/[\w.-]+)#(\d+)|github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
-function rowPr(line2) {
-  const match = line2.match(REFERENCE);
+function rowPr(line3) {
+  const match = line3.match(REFERENCE);
   const slug = match?.[1] ?? match?.[3];
   const number5 = match?.[2] ?? match?.[4];
   return slug && number5 ? { slug, pr: parsePr(number5) } : null;
@@ -40457,8 +40457,8 @@ function fixPlanRows(body) {
   const text19 = body ?? "";
   if (!text19.includes(FIX_PLAN_MARKER)) return [];
   const rows2 = [];
-  for (const line2 of text19.split("\n")) {
-    const found2 = line2.trim().startsWith("|") ? rowPr(line2) : null;
+  for (const line3 of text19.split("\n")) {
+    const found2 = line3.trim().startsWith("|") ? rowPr(line3) : null;
     if (found2 && !rows2.some((row) => row.slug === found2.slug && row.pr === found2.pr)) rows2.push(found2);
   }
   return rows2;
@@ -40548,9 +40548,9 @@ function parseFile(file2, content) {
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(content);
   if (match === null) return null;
   const head = /* @__PURE__ */ new Map();
-  for (const line2 of (match[1] ?? "").split("\n")) {
-    const cut7 = line2.indexOf(":");
-    if (cut7 > 0) head.set(line2.slice(0, cut7).trim(), line2.slice(cut7 + 1).trim());
+  for (const line3 of (match[1] ?? "").split("\n")) {
+    const cut7 = line3.indexOf(":");
+    if (cut7 > 0) head.set(line3.slice(0, cut7).trim(), line3.slice(cut7 + 1).trim());
   }
   const source2 = head.get("source");
   const date6 = head.get("date");
@@ -40658,7 +40658,7 @@ function replyFirstWords(body) {
   return words4.length > FIRST_WORDS ? `${words4.slice(0, FIRST_WORDS).join(" ")}\u2026` : words4.join(" ");
 }
 function quoted3(text19) {
-  return text19.split("\n").map((line2) => line2 === "" ? ">" : `> ${line2}`).join("\n");
+  return text19.split("\n").map((line3) => line3 === "" ? ">" : `> ${line3}`).join("\n");
 }
 var QUESTION = "Postpone this to a follow-up, or fix it in this PRD?";
 var WHY_LINE = "Why the agent proposes to postpone it:";
@@ -40694,9 +40694,9 @@ function postponeItem({ threadId, url: url2, followUp: followUp2, asked, note })
     gaps: ["Whether the reviewer agrees that the point can wait."]
   };
 }
-function quoteAfter(text19, line2) {
+function quoteAfter(text19, line3) {
   const lines4 = text19.split("\n");
-  const at2 = lines4.indexOf(line2);
+  const at2 = lines4.indexOf(line3);
   if (at2 === -1) return "";
   const rest = lines4.slice(at2 + 1);
   const start4 = rest.findIndex((one) => one !== "");
@@ -41066,8 +41066,8 @@ function waitsOnIn(body) {
 function readStatus(comments, statusMarker) {
   const found2 = comments.find((comment2) => statusMarker && comment2.body.includes(statusMarker));
   if (!found2) return null;
-  const line2 = found2.body.match(CARE_LINE_RE);
-  return { commentId: found2.id, watchingSince: line2?.[1] ?? null, lastRound: line2?.[2] ?? null, ...waitsOnIn(found2.body) };
+  const line3 = found2.body.match(CARE_LINE_RE);
+  return { commentId: found2.id, watchingSince: line3?.[1] ?? null, lastRound: line3?.[2] ?? null, ...waitsOnIn(found2.body) };
 }
 var PR_STATES = { open: "OPEN", draft: "OPEN", merged: "MERGED", closed: "CLOSED" };
 function mergeableOf(mergeable) {
@@ -41682,7 +41682,7 @@ function stopped(error62) {
 }
 function print({ json: json3, stdout }, body, lines4) {
   if (json3) println(stdout, JSON.stringify(body));
-  else for (const line2 of lines4) println(stdout, line2);
+  else for (const line3 of lines4) println(stdout, line3);
   return 0;
 }
 function reach({ cwd, exec, tokens: tokens2, home, fetch, callMs }) {
@@ -41696,8 +41696,8 @@ function reach({ cwd, exec, tokens: tokens2, home, fetch, callMs }) {
   if (!store.read(host)) return { state: "no-sign-in", line: `no sign-in (omni signin) ${CARRY_ON}` };
   return { repo, client: askClient({ baseUrl: askUrl2, host, tokens: store, fetch, ...callMs ? { callMs } : {} }) };
 }
-function skipped(env, what, line2) {
-  println(env.stdout, `${what} skipped: ${line2}`);
+function skipped(env, what, line3) {
+  println(env.stdout, `${what} skipped: ${line3}`);
   return 0;
 }
 async function called(env, call) {
@@ -41741,8 +41741,8 @@ async function claim2(positional, flags, env) {
 }
 function shown2(repo, read3) {
   if (read3.state === "none") {
-    const line2 = read3.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
-    return [empty("none", read3), [line2, ...personaLines(read3.personas, "persona".length), ...knowledgeLines(read3, "persona".length)]];
+    const line3 = read3.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
+    return [empty("none", read3), [line3, ...personaLines(read3.personas, "persona".length), ...knowledgeLines(read3, "persona".length)]];
   }
   const idWidth = Math.max(
     ...read3.claims.map((claim4) => claim4.id.length),
@@ -41774,8 +41774,8 @@ async function show(args, env) {
   try {
     reply = await client.readBusiness(repo);
   } catch (error62) {
-    const { state, line: line2 } = stopped(error62);
-    return print(out, empty(state), [line2]);
+    const { state, line: line3 } = stopped(error62);
+    return print(out, empty(state), [line3]);
   }
   const read3 = businessOf(reply);
   if (!read3) return print(out, empty("refused"), [`refused (the reply is not a business) ${CARRY_ON}`]);
@@ -41832,18 +41832,18 @@ function personaLine(action, reply) {
 }
 async function persona(args, env) {
   const { change: change2, json: json3 } = personaChangeOf(args);
-  const stop = (line2) => {
-    if (json3) println(env.stdout, JSON.stringify({ error: line2 }));
-    else println(env.stderr, `omni business persona ${change2.action}: ${line2}`);
+  const stop = (line3) => {
+    if (json3) println(env.stdout, JSON.stringify({ error: line3 }));
+    else println(env.stderr, `omni business persona ${change2.action}: ${line3}`);
     return 1;
   };
   const reached = reach(env);
   if (reached.client === void 0) return stop(reached.line.replace(` ${CARRY_ON}`, ""));
   try {
     const reply = await reached.client.changeKnowledge({ repo: reached.repo, ...change2, kind: "persona" });
-    const line2 = personaLine(change2.action, reply);
-    if (line2 === null) return stop("the Omni page answered something this kit does not read");
-    println(env.stdout, json3 ? JSON.stringify(reply) : line2);
+    const line3 = personaLine(change2.action, reply);
+    if (line3 === null) return stop("the Omni page answered something this kit does not read");
+    println(env.stdout, json3 ? JSON.stringify(reply) : line3);
     return 0;
   } catch (error62) {
     return stop(personaRefusal(error62));
@@ -42033,25 +42033,25 @@ function cardField(label2) {
 function cardOf(lines4) {
   const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
   let field3 = null;
-  for (const line2 of lines4) {
-    const labelled3 = CARD_LINE.exec(line2);
+  for (const line3 of lines4) {
+    const labelled3 = CARD_LINE.exec(line3);
     if (labelled3) {
       field3 = cardField(group(labelled3, 1));
       if (field3 !== null) card[field3] = group(labelled3, 2).trim();
-    } else if (line2.trim() === "") {
+    } else if (line3.trim() === "") {
       field3 = null;
     } else if (field3 !== null) {
-      card[field3] = `${card[field3] ?? ""} ${line2.trim()}`.trim();
+      card[field3] = `${card[field3] ?? ""} ${line3.trim()}`.trim();
     }
   }
   return { ...card, command: card.command === null ? null : codeCell(card.command) };
 }
 function cardsOf(lines4) {
   const blocks3 = [];
-  for (const line2 of lines4) {
-    const heading2 = CARD_HEADING.exec(line2);
+  for (const line3 of lines4) {
+    const heading2 = CARD_HEADING.exec(line3);
     if (heading2) blocks3.push({ id: group(heading2, 1), lines: [] });
-    else blocks3.at(-1)?.lines.push(line2);
+    else blocks3.at(-1)?.lines.push(line3);
   }
   return new Map(blocks3.map(({ id, lines: under }) => [id, cardOf(under)]));
 }
@@ -42370,8 +42370,8 @@ var entry = (fields) => ({
   ruleKind: ruleKind(fields.source, fields.text, fields.act)
 });
 var flat = (text19) => {
-  const line2 = (text19 ?? "").replace(/\s+/g, " ").trim();
-  return line2 || null;
+  const line3 = (text19 ?? "").replace(/\s+/g, " ").trim();
+  return line3 || null;
 };
 var NO_RECOMMENDATION = /^(?:|-|–|—|none)$/i;
 function questionWork(roadmap2, answers2, { repo, issueUrl: issueUrl2 }) {
@@ -42407,9 +42407,9 @@ function outboxWork(prd2, items, { repoOf, url: url2 }) {
 }
 var PARK_LINE = /^\s*-\s*loop:\s*parked\s*·\s*(.+?)\s*$/m;
 function parkOf(body) {
-  const line2 = PARK_LINE.exec(body)?.[1];
-  if (line2 === void 0) return null;
-  const parts = line2.split("\xB7").map((part) => part.trim());
+  const line3 = PARK_LINE.exec(body)?.[1];
+  if (line3 === void 0) return null;
+  const parts = line3.split("\xB7").map((part) => part.trim());
   const last = parts.at(-1) ?? "";
   const link3 = parts.length > 1 && /^https?:\/\/\S+$/.test(last) ? last : null;
   const why3 = flat((link3 === null ? parts : parts.slice(0, -1)).join(" \xB7 "));
@@ -42423,12 +42423,12 @@ function parkWork(prd2, status5, { repo, prUrl }) {
 var NUMBERED = /^\s*\d+[.)]\s+(.+)$/;
 function clarificationQuestions(body) {
   const lines4 = body.slice(body.indexOf(CLARIFICATION_MARKER) + CLARIFICATION_MARKER.length).split(/\r?\n/);
-  const numbered = lines4.flatMap((line2) => {
-    const question = flat(NUMBERED.exec(line2)?.[1]);
+  const numbered = lines4.flatMap((line3) => {
+    const question = flat(NUMBERED.exec(line3)?.[1]);
     return question === null ? [] : [question];
   });
   if (numbered.length > 0) return numbered;
-  const first = lines4.map((line2) => flat(line2)).find((line2) => line2 !== null);
+  const first = lines4.map((line3) => flat(line3)).find((line3) => line3 !== null);
   return first ? [first] : [];
 }
 function clarificationWork(prd2, comments, { repo, planAt }) {
@@ -42478,8 +42478,8 @@ function stateWords(state, pr) {
   if (state === "outbox") return `outbox: ${questionsWord(pr?.questions ?? 0)}`;
   return state === "waiting" ? "not started" : state;
 }
-var cut2 = (line2, max) => {
-  const flat2 = line2.replace(/\s+/g, " ").trim();
+var cut2 = (line3, max) => {
+  const flat2 = line3.replace(/\s+/g, " ").trim();
   return flat2.length > max ? `${flat2.slice(0, max - 1).trimEnd()}\u2026` : flat2;
 };
 var namedPr = (standing4) => standing4.prs.find((pr) => pr.state === "OPEN") ?? standing4.prs.find((pr) => pr.state === "CLOSED") ?? null;
@@ -42596,7 +42596,7 @@ function openItemsOn(ref2, dir, git9) {
   } catch {
     return null;
   }
-  const files = listed2.split("\n").map((line2) => line2.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
+  const files = listed2.split("\n").map((line3) => line3.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
   return files.flatMap((file2) => {
     const parsed2 = parseOutboxItem(git9(["show", `${ref2}:${file2}`]), { file: file2 });
     return parsed2.ok ? [parsed2.item] : [];
@@ -42803,12 +42803,12 @@ function boldField(body, key2) {
   const match = new RegExp(`^\\s*(?:[-*]\\s+)?\\*\\*${escape2(key2)}:\\*\\*(.*)$`, "m").exec(body);
   return match ? (match[1] ?? "").trim() : void 0;
 }
-function cells3(line2) {
-  return line2.trim().replace(/^\||\|$/g, "").split("|").map((cell2) => cell2.trim().replace(/^`+|`+$/g, ""));
+function cells3(line3) {
+  return line3.trim().replace(/^\||\|$/g, "").split("|").map((cell2) => cell2.trim().replace(/^`+|`+$/g, ""));
 }
 function tableRows(body) {
-  const lines4 = body.split(/\r?\n/).filter((line2) => line2.trim().startsWith("|"));
-  return lines4.slice(1).filter((line2) => !/^\|?[\s:|-]+$/.test(line2.trim())).map(cells3);
+  const lines4 = body.split(/\r?\n/).filter((line3) => line3.trim().startsWith("|"));
+  return lines4.slice(1).filter((line3) => !/^\|?[\s:|-]+$/.test(line3.trim())).map(cells3);
 }
 function targetOf2(config3, cell2) {
   return config3.plan?.targets.map(({ repo }) => repo).find((repo) => repo === cell2 || repo.split("/")[1] === cell2);
@@ -42923,10 +42923,10 @@ var collapse2 = (text19) => text19.replace(/\s+/g, " ").trim();
 function stillOpenBullets(body) {
   if (body === void 0) return [];
   const bullets = [];
-  for (const line2 of body.split(/\r?\n/)) {
-    const bullet = /^\s*[-*]\s+(.*)$/.exec(line2);
+  for (const line3 of body.split(/\r?\n/)) {
+    const bullet = /^\s*[-*]\s+(.*)$/.exec(line3);
     if (bullet !== null) bullets.push(bullet[1] ?? "");
-    else if (line2.trim() !== "" && bullets.length > 0 && /^\s/.test(line2)) bullets[bullets.length - 1] = `${bullets.at(-1) ?? ""} ${line2.trim()}`;
+    else if (line3.trim() !== "" && bullets.length > 0 && /^\s/.test(line3)) bullets[bullets.length - 1] = `${bullets.at(-1) ?? ""} ${line3.trim()}`;
   }
   return bullets.map(collapse2).filter((bullet) => bullet !== "" && bullet.toLowerCase() !== "none");
 }
@@ -42948,16 +42948,16 @@ function bugRoot(ctx) {
 function parseSections(text19) {
   const sections = /* @__PURE__ */ new Map();
   let current = null;
-  for (const line2 of text19.split(/\r?\n/)) {
-    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line2);
+  for (const line3 of text19.split(/\r?\n/)) {
+    const heading2 = /^##\s+(.+?)\s*#*\s*$/.exec(line3);
     const name3 = heading2?.[1];
-    if (name3 !== void 0 && !line2.startsWith("###")) {
+    if (name3 !== void 0 && !line3.startsWith("###")) {
       current = sections.has(name3) ? null : name3;
       if (current !== null) sections.set(current, []);
-    } else if (/^#\s/.test(line2)) {
+    } else if (/^#\s/.test(line3)) {
       current = null;
     } else if (current !== null) {
-      sections.get(current)?.push(line2);
+      sections.get(current)?.push(line3);
     }
   }
   return new Map([...sections].map(([name3, lines4]) => [name3, lines4.join("\n").trim()]));
@@ -43002,7 +43002,7 @@ function sectionViolations(record2, sections) {
 }
 function reproductionsViolations(ctx, record2, sections, changed) {
   const fixes = sections.get("Fixes");
-  if (fixes !== void 0) return fixesViolations(ctx.config, sections, fixes).map((line2) => `${record2}: ${line2}`);
+  if (fixes !== void 0) return fixesViolations(ctx.config, sections, fixes).map((line3) => `${record2}: ${line3}`);
   const reproduction = sections.get("Reproduction");
   return reproduction ? reproductionViolations(ctx, record2, reproduction, changed) : [];
 }
@@ -43094,9 +43094,9 @@ function gradeRow({ written, index: index2, found: found2, sections, seenPulls }
   const slug = found2.repository;
   const name3 = slug.split("/")[1] ?? slug;
   const pull = pullOf(slug, written.pull);
-  const line2 = (section7) => boldField(sections.get(section7) ?? "", slug) || boldField(sections.get(section7) ?? "", name3) || "";
-  const reproduction = line2("Reproduction");
-  const guard2 = line2("Guard");
+  const line3 = (section7) => boldField(sections.get(section7) ?? "", slug) || boldField(sections.get(section7) ?? "", name3) || "";
+  const reproduction = line3("Reproduction");
+  const guard2 = line3("Guard");
   const problems = [
     written.order === String(index2) ? null : `order "${written.order}", where ${index2} is next.`,
     found2.readOnly ? "the repository is read-only in the product." : null,
@@ -43210,10 +43210,10 @@ var LEVEL_B = [
 var LEVEL_C = [/^red not proven here\b/i];
 function proofSection(body) {
   const lines4 = body.split(/\r?\n/);
-  const start4 = lines4.findIndex((line2) => PROOF_HEADING.test(line2));
+  const start4 = lines4.findIndex((line3) => PROOF_HEADING.test(line3));
   if (start4 < 0) return void 0;
   const rest = lines4.slice(start4 + 1);
-  const end3 = rest.findIndex((line2) => NEXT_HEADING.test(line2));
+  const end3 = rest.findIndex((line3) => NEXT_HEADING.test(line3));
   return (end3 < 0 ? rest : rest.slice(0, end3)).join("\n");
 }
 function notProducedReasons(section7) {
@@ -43394,7 +43394,7 @@ function rangeCommits(root, base, exec) {
   });
 }
 function loggedPaths(root, base, exec) {
-  return git2(["log", "--format=", "--name-only", "--no-renames", `${base}..HEAD`], root, exec).split("\n").map((line2) => line2.trim()).filter(Boolean);
+  return git2(["log", "--format=", "--name-only", "--no-renames", `${base}..HEAD`], root, exec).split("\n").map((line3) => line3.trim()).filter(Boolean);
 }
 function branchPaths(root, base, exec) {
   return git2(["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", `${base}...HEAD`, "--"], root, exec).split("\0").filter(Boolean);
@@ -43711,17 +43711,17 @@ var NOTE_MAX = 200;
 var ANSI = /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\)|[ -/]*[0-~])/g;
 var plain = (output2) => output2.replace(ANSI, "").replace(/\r/g, "");
 function firstMatch(lines4, pattern) {
-  const found2 = lines4.findIndex((line2) => pattern.test(line2));
-  return found2 === -1 ? lines4.findIndex((line2) => line2.trim() !== "") : found2;
+  const found2 = lines4.findIndex((line3) => pattern.test(line3));
+  return found2 === -1 ? lines4.findIndex((line3) => line3.trim() !== "") : found2;
 }
 var MARKER3 = { red: RED_LINE, green: GREEN_LINE };
 function cardLines(output2, kind2) {
   const text19 = plain(output2).replace(/\s+$/, "");
-  const all = text19 === "" ? [] : text19.split("\n").map((line2) => line2.replace(/\t/g, "  "));
+  const all = text19 === "" ? [] : text19.split("\n").map((line3) => line3.replace(/\t/g, "  "));
   const target3 = firstMatch(all, MARKER3[kind2]);
   const last = Math.max(0, all.length - CARD.lines);
   const start4 = target3 !== -1 && target3 < last ? Math.max(0, target3 - 2) : last;
-  const lines4 = all.slice(start4, start4 + CARD.lines).map((line2) => Array.from(line2).slice(0, CARD.columns).join(""));
+  const lines4 = all.slice(start4, start4 + CARD.lines).map((line3) => Array.from(line3).slice(0, CARD.columns).join(""));
   return { lines: lines4, highlight: target3 === -1 ? null : target3 - start4 };
 }
 var BACKGROUND = 1118481;
@@ -43752,8 +43752,8 @@ function renderCard(kind2, output2) {
   pixels.fill(band, 0, CARD.band * CARD.width);
   drawText(pixels, title, CARD.margin, (CARD.band - CELL_HEIGHT * TITLE_SCALE) / 2, WHITE, TITLE_SCALE);
   const { lines: lines4, highlight } = cardLines(output2, kind2);
-  lines4.forEach((line2, index2) => {
-    drawText(pixels, line2, CARD.margin, CARD.textTop + index2 * CARD.pitch, index2 === highlight ? accent : TEXT, 1);
+  lines4.forEach((line3, index2) => {
+    drawText(pixels, line3, CARD.margin, CARD.textTop + index2 * CARD.pitch, index2 === highlight ? accent : TEXT, 1);
   });
   return pixels;
 }
@@ -43790,7 +43790,7 @@ function runJson({
       ]
     };
   }
-  const note = (line2) => line2 ? { note: line2 } : {};
+  const note = (line3) => line3 ? { note: line3 } : {};
   return {
     commit,
     url: url2,
@@ -43828,7 +43828,7 @@ function hasFfmpeg(exec) {
 function lastLine(error62) {
   const stderr = error62 instanceof Error && "stderr" in error62 ? error62.stderr : void 0;
   const text19 = typeof stderr === "string" ? stderr : Buffer.isBuffer(stderr) ? stderr.toString("utf8") : errorMessage(error62);
-  return text19.split("\n").map((line2) => line2.trim()).filter(Boolean).at(-1) ?? "no output";
+  return text19.split("\n").map((line3) => line3.trim()).filter(Boolean).at(-1) ?? "no output";
 }
 function writing(path, write2) {
   try {
@@ -43986,8 +43986,8 @@ function rowsHeadFaults({ ctx, exec, source: source2, folder }) {
   const rows2 = fixesPulls(ctx.config, fixes).map(({ repo, number: number5 }) => ({ label: `${repo}#${number5}`, head: readPullHead({ exec, root: ctx.root, repo, number: number5 }) }));
   return rowHeadFaults(cited2, rows2);
 }
-function refuse(stderr, line2) {
-  println(stderr, line2);
+function refuse(stderr, line3) {
+  println(stderr, line3);
   return 1;
 }
 var PULL_REQUEST = /^([\w.-]+\/[\w.-]+)#(\d+)$/;
@@ -44054,7 +44054,7 @@ async function checkProduct(rest, io) {
   const proof2 = args.bodyFile === null ? [] : proofFaults({ kind: "file", body: readUserFile("bug check", io.ctx, args.bodyFile), head }, parseIssue(1));
   const lines4 = [...graded.ok ? graded.violations : graded.lines, ...proof2, ...stillOpenLines(args, io, prepared.record)];
   if (lines4.length > 0) {
-    println(io.stdout, formatFailure(`omni bug check \u2014 ${args.file}: violation(s):`, lines4.map((line2) => `${args.file}: ${line2}`)));
+    println(io.stdout, formatFailure(`omni bug check \u2014 ${args.file}: violation(s):`, lines4.map((line3) => `${args.file}: ${line3}`)));
     return 1;
   }
   const rows2 = graded.ok ? graded.rows.length : 0;
@@ -44067,7 +44067,7 @@ async function pushProduct(rest, io) {
   const { args, askUrl: askUrl2, client, repo, graded } = prepared;
   if (!graded.ok) return refuse(io.stderr, graded.lines.join("\n"));
   if (graded.violations.length > 0) {
-    return refuse(io.stderr, formatFailure(`omni bug push \u2014 ${args.file}: nothing was sent:`, graded.violations.map((line2) => `${args.file}: ${line2}`)));
+    return refuse(io.stderr, formatFailure(`omni bug push \u2014 ${args.file}: nothing was sent:`, graded.violations.map((line3) => `${args.file}: ${line3}`)));
   }
   let seq = null;
   if (!args.create) {
@@ -44284,7 +44284,7 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line2 = (text19) => {
+  const line3 = (text19) => {
     if (!text19.startsWith("data:")) return false;
     const data = text19.slice(5).trim();
     if (data === "[DONE]") return true;
@@ -44307,7 +44307,7 @@ async function readContent(response) {
     while (newline !== -1) {
       const text19 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line2(text19)) {
+      if (line3(text19)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -44315,7 +44315,7 @@ async function readContent(response) {
       newline = buffer.indexOf("\n");
     }
   }
-  line2(buffer + decoder.decode());
+  line3(buffer + decoder.decode());
   return content;
 }
 function parseJson(text19) {
@@ -44345,16 +44345,16 @@ function finished(side) {
 var failed2 = (job2) => job2.conclusion === "failure";
 var skipped2 = (job2) => job2.conclusion === "skipped";
 function logLines(log) {
-  const lines4 = log.replace(/\r/g, "").split("\n").map((line2) => line2.replace(GH_PREFIX, ""));
+  const lines4 = log.replace(/\r/g, "").split("\n").map((line3) => line3.replace(GH_PREFIX, ""));
   while (lines4.length > 0 && (lines4.at(-1) ?? "").trim() === "") lines4.pop();
   return lines4;
 }
 function around(log, test) {
   const lines4 = logLines(log);
-  const at2 = lines4.findIndex((line2) => line2.includes(test));
+  const at2 = lines4.findIndex((line3) => line3.includes(test));
   const from = at2 === -1 ? Math.max(0, lines4.length - TAIL) : Math.max(0, at2 - BEFORE);
   const to = at2 === -1 ? lines4.length : at2 + AFTER + 1;
-  return lines4.slice(from, to).map((line2) => maskSecrets(line2));
+  return lines4.slice(from, to).map((line3) => maskSecrets(line3));
 }
 function excerpt(pr, side, job2, test) {
   return `${[`#${pr} \xB7 ${short2(side.sha)} \xB7 job ${job2.name}`, ...around(job2.log, test), `Run: ${job2.url}`].join("\n")}
@@ -44685,8 +44685,8 @@ function numberViolations(screens2) {
   return [...mixed, ...spread];
 }
 function namedScreens(text19) {
-  const line2 = /^\s*screens:(.*)$/im.exec(text19)?.[1] ?? "";
-  return new Set(line2.split("\xB7").map((name3) => name3.trim()).filter((name3) => name3 !== ""));
+  const line3 = /^\s*screens:(.*)$/im.exec(text19)?.[1] ?? "";
+  return new Set(line3.split("\xB7").map((name3) => name3.trim()).filter((name3) => name3 !== ""));
 }
 function sectionViolations2(read3) {
   const found2 = [];
@@ -45211,9 +45211,9 @@ function headingAnchors(text19) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line2 of text19.split("\n")) {
-    if (/^\s*(```|~~~)/.test(line2)) fenced = !fenced;
-    const match = !fenced && line2.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
+  for (const line3 of text19.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line3)) fenced = !fenced;
+    const match = !fenced && line3.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
     const base = (match[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
     const count10 = seen.get(base) ?? 0;
@@ -45680,7 +45680,7 @@ function versionOnly(path, hash2, { ctx, exec }) {
   const was = before2.split("\n");
   const is = readFileSync53(join68(ctx.root, path), "utf8").split("\n");
   if (was.length !== is.length) return false;
-  return was.every((line2, i) => line2 === is[i] || VERSION_LINE.test(line2) && VERSION_LINE.test(is[i] ?? ""));
+  return was.every((line3, i) => line3 === is[i] || VERSION_LINE.test(line3) && VERSION_LINE.test(is[i] ?? ""));
 }
 function staleEvidence(evidence, { ctx, exec }) {
   const out = [];
@@ -45795,7 +45795,7 @@ function gradeCopies({ ctx, exec }) {
   const violations = [];
   const warnings = [];
   for (const copy of copies) {
-    const prefix = (line2) => `${copy.folder}: ${line2}`;
+    const prefix = (line3) => `${copy.folder}: ${line3}`;
     if (!copy.exists) {
       violations.push(prefix(`missing \u2014 plan.targets lists ${copy.repo} as imported, so its copy lives here`));
       continue;
@@ -45883,19 +45883,19 @@ function readFields2(raw) {
   const fields = {};
   const errors = [];
   let last = null;
-  for (const line2 of raw.split("\n")) {
-    if (line2.trim() === "") continue;
-    const match = /^\s/.test(line2) ? null : line2.match(FIELD_LINE2);
+  for (const line3 of raw.split("\n")) {
+    if (line3.trim() === "") continue;
+    const match = /^\s/.test(line3) ? null : line3.match(FIELD_LINE2);
     if (match) {
       const [, key2 = "", value = ""] = match;
       if (Object.hasOwn(fields, key2)) errors.push(`front matter holds ${key2} twice`);
       fields[key2] = value;
       last = key2;
-    } else if (last !== null && /^\s/.test(line2)) {
+    } else if (last !== null && /^\s/.test(line3)) {
       fields[last] = `${fields[last] ?? ""}
-${line2.trim()}`;
+${line3.trim()}`;
     } else {
-      errors.push(`front matter line is not "key: value": "${line2}"`);
+      errors.push(`front matter line is not "key: value": "${line3}"`);
     }
   }
   return { fields, errors };
@@ -45905,7 +45905,7 @@ function splitNote(text19) {
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
-  const lines4 = body.split("\n").map((line2) => line2.trim());
+  const lines4 = body.split("\n").map((line3) => line3.trim());
   while (lines4.length && lines4[0] === "") lines4.shift();
   while (lines4.length && lines4.at(-1) === "") lines4.pop();
   return lines4;
@@ -45955,9 +45955,9 @@ function descriptionViolations(lines4, description) {
   const out = [];
   if (characters(description) > DESCRIPTION_MAX) out.push(`description is ${characters(description)} characters \u2014 ${DESCRIPTION_MAX} at most`);
   if (lines4.includes("")) out.push("description holds a blank line \u2014 one paragraph");
-  const heading2 = lines4.find((line2) => HEADING3.test(line2));
+  const heading2 = lines4.find((line3) => HEADING3.test(line3));
   if (heading2) out.push(`description holds a heading ("${heading2}") \u2014 one paragraph of prose`);
-  const item2 = lines4.find((line2) => LIST_ITEM.test(line2));
+  const item2 = lines4.find((line3) => LIST_ITEM.test(line3));
   if (item2) out.push(`description holds a list item ("${item2}") \u2014 one paragraph of prose`);
   return out;
 }
@@ -46304,8 +46304,8 @@ function targetGrowth({ ctx, target: target3, base, exec = execFileSync10 }) {
     return bytesAdded === 0 ? [] : [{ path, bytesAdded }];
   });
   const log = paths.length === 0 ? null : git3(ctx, ["log", `--max-count=${MAX_COMMITS}`, "--format=%h%x09%s", `${base}..HEAD`, "--", ...paths], exec);
-  const commits = (log ?? "").split("\n").filter(Boolean).map((line2) => {
-    const [sha = "", ...subject] = line2.split("	");
+  const commits = (log ?? "").split("\n").filter(Boolean).map((line3) => {
+    const [sha = "", ...subject] = line3.split("	");
     return { sha, subject: subject.join("	") };
   });
   return { files, commits };
@@ -46348,14 +46348,14 @@ function readBody3(body) {
   const amendments = [];
   const sections = {};
   let current = null;
-  for (const line2 of body.split(/\r?\n/)) {
-    const heading2 = SECTION.exec(line2)?.[1];
+  for (const line3 of body.split(/\r?\n/)) {
+    const heading2 = SECTION.exec(line3)?.[1];
     if (heading2 !== void 0) {
       current = sections[heading2] = [];
     } else if (current) {
-      current.push(line2);
-    } else if (AMENDMENT.test(line2)) {
-      amendments.push(line2.trim());
+      current.push(line3);
+    } else if (AMENDMENT.test(line3)) {
+      amendments.push(line3.trim());
     }
   }
   return { amendments, sections: Object.fromEntries(Object.entries(sections).map(([heading2, lines4]) => [heading2, lines4.join("\n").trim()])) };
@@ -46430,19 +46430,19 @@ var COMMENT2 = /<!--[\s\S]*?-->/g;
 var STATUS_LINE = /^status:.*$/m;
 var SCREEN_AMENDMENT_SHAPE = '"> Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\": <what changed>"';
 var LAW_AMENDMENT_SHAPE = '"#### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\""';
-var lines = (text19) => text19.replace(/\r\n?/g, "\n").split("\n").map((line2) => line2.trimEnd());
+var lines = (text19) => text19.replace(/\r\n?/g, "\n").split("\n").map((line3) => line3.trimEnd());
 function parseLaws2(body) {
   const laws2 = [];
-  for (const line2 of lines(body.replace(COMMENT2, ""))) {
-    const heading2 = /^### (.+)$/.exec(line2)?.[1];
+  for (const line3 of lines(body.replace(COMMENT2, ""))) {
+    const heading2 = /^### (.+)$/.exec(line3)?.[1];
     if (heading2 !== void 0) laws2.push({ heading: heading2.trim(), lines: [] });
-    else laws2.at(-1)?.lines.push(line2);
+    else laws2.at(-1)?.lines.push(line3);
   }
   return laws2.map(({ heading: heading2, lines: body2 }) => ({
     heading: heading2,
-    lock: body2.find((line2) => line2.startsWith("\u{1F512}")) ?? null,
-    text: body2.filter((line2) => !LAW_AMENDMENT.test(line2)).join("\n").trim(),
-    amendments: body2.filter((line2) => LAW_AMENDMENT.test(line2))
+    lock: body2.find((line3) => line3.startsWith("\u{1F512}")) ?? null,
+    text: body2.filter((line3) => !LAW_AMENDMENT.test(line3)).join("\n").trim(),
+    amendments: body2.filter((line3) => LAW_AMENDMENT.test(line3))
   }));
 }
 function formLaws(text19) {
@@ -46453,14 +46453,14 @@ function formLaws(text19) {
 }
 function decidedText(text19, dropStatus) {
   const kept2 = dropStatus ? text19.replace(STATUS_LINE, "") : text19;
-  return lines(kept2).filter((line2) => !line2.startsWith("> Amended ")).join("\n").trim();
+  return lines(kept2).filter((line3) => !line3.startsWith("> Amended ")).join("\n").trim();
 }
-var newLines = (before2, after) => after.filter((line2) => !before2.includes(line2));
+var newLines = (before2, after) => after.filter((line3) => !before2.includes(line3));
 function gradeLocked(where, { owner, changed, before: before2, after, shape, reads: reads2 }) {
   const violations = [];
-  if (before2.some((line2) => !after.includes(line2))) violations.push(`${where}: an amendment line was removed \u2014 a locked decision keeps every amendment`);
+  if (before2.some((line3) => !after.includes(line3))) violations.push(`${where}: an amendment line was removed \u2014 a locked decision keeps every amendment`);
   const added = newLines(before2, after);
-  for (const line2 of added.filter((entry3) => !reads2.test(entry3))) violations.push(`${where}: the amendment "${line2}" does not read \u2014 write it as ${shape}`);
+  for (const line3 of added.filter((entry3) => !reads2.test(entry3))) violations.push(`${where}: the amendment "${line3}" does not read \u2014 write it as ${shape}`);
   if (changed && added.length === 0) violations.push(`${where} changed without an amendment \u2014 ask ${owner}, who locked it, then add a line ${shape}`);
   return violations;
 }
@@ -46892,7 +46892,7 @@ async function checkContext(io, { base, baseKnown, prd: prd2 }) {
   }
   const word2 = state === "neutral" ? "neutral, nothing blocked" : "every target under its ceiling";
   println(stdout, formatPass(`check context \u2014 ${verdicts.length} target(s), ${word2}; ${compared}.`));
-  for (const line2 of [...neutralLines(verdicts), ...budgetTable(verdicts)]) println(stdout, `  ${line2}`);
+  for (const line3 of [...neutralLines(verdicts), ...budgetTable(verdicts)]) println(stdout, `  ${line3}`);
   return true;
 }
 function contextFor(guard2, cwd, exec, stdout) {
@@ -46901,7 +46901,7 @@ function contextFor(guard2, cwd, exec, stdout) {
   } catch (error62) {
     if (guard2 !== "config" || !(error62 instanceof ConfigError) || !error62.invalid) throw error62;
     const [first = "", ...others] = error62.message.split("\n");
-    report3(stdout, CONFIG_TITLE, [first, ...others.map((line2) => line2.replace(/^\s*- /, ""))], "");
+    report3(stdout, CONFIG_TITLE, [first, ...others.map((line3) => line3.replace(/^\s*- /, ""))], "");
     return null;
   }
 }
@@ -47036,9 +47036,9 @@ function claimGit({ root, exec, featureRef, sliceRef }) {
       } catch {
         return [];
       }
-      return text19.split("\n").filter((line2) => line2.includes(TAB)).map((line2) => {
-        const at2 = line2.indexOf(TAB);
-        return { sha: line2.slice(0, at2), subject: line2.slice(at2 + 1) };
+      return text19.split("\n").filter((line3) => line3.includes(TAB)).map((line3) => {
+        const at2 = line3.indexOf(TAB);
+        return { sha: line3.slice(0, at2), subject: line3.slice(at2 + 1) };
       });
     },
     fileAt(ref2, path) {
@@ -47211,12 +47211,12 @@ function ageOf2(syncedAt, now2) {
 function printed(read3, repo, synced) {
   if (!read3.product) return [`no product for ${repo} yet (${synced}) \u2014 agents carry on`];
   if (read3.state === "none") return [`no constituents for ${read3.product.name} yet (${synced}) \u2014 agents carry on`];
-  const width = Math.max(...read3.never.map((line2) => line2.id.length), 0);
+  const width = Math.max(...read3.never.map((line3) => line3.id.length), 0);
   return [
     `Constituents of ${read3.product.name} (${synced}): they come before every priority and the playbook.`,
     `Statement: ${read3.statement ? read3.statement.text : "(none yet)"}`,
     read3.never.length > 0 ? "Never:" : "Never: (none yet)",
-    ...read3.never.map((line2) => `  ${line2.id.padEnd(width)}  ${line2.text}`)
+    ...read3.never.map((line3) => `  ${line3.id.padEnd(width)}  ${line3.text}`)
   ];
 }
 
@@ -47281,18 +47281,18 @@ function refusalLine2(error62, host) {
 }
 async function constituentsWrite(args, io, options) {
   const { change: change2, json: json3 } = changeOf(args);
-  const stop = (line2) => {
-    if (json3) println(io.stdout, JSON.stringify({ error: line2 }));
-    else println(io.stderr, `omni constituents ${change2.action}: ${line2}`);
+  const stop = (line3) => {
+    if (json3) println(io.stdout, JSON.stringify({ error: line3 }));
+    else println(io.stderr, `omni constituents ${change2.action}: ${line3}`);
     return 1;
   };
   const reached = reach2(io, options);
   if (typeof reached === "string") return stop(reached);
   try {
     const reply = await reached.client.changeKnowledge({ repo: reached.repo, kind: "constituent", ...change2 });
-    const line2 = successLine(change2.action, reply);
-    if (line2 !== null) println(io.stdout, json3 ? JSON.stringify(reply) : line2);
-    return line2 === null ? stop("the Omni page answered something this kit does not read") : 0;
+    const line3 = successLine(change2.action, reply);
+    if (line3 !== null) println(io.stdout, json3 ? JSON.stringify(reply) : line3);
+    return line3 === null ? stop("the Omni page answered something this kit does not read") : 0;
   } catch (error62) {
     return stop(refusalLine2(error62, reached.host));
   }
@@ -47427,7 +47427,7 @@ var constituents = {
       [body, lines4] = [bodyOf2("unreachable"), [`no constituents: the read failed ${CARRY_ON2}`]];
     }
     if (flags.json === true) println(stdout, JSON.stringify(body));
-    else for (const line2 of lines4) println(stdout, line2);
+    else for (const line3 of lines4) println(stdout, line3);
     return 0;
   }
 };
@@ -47645,21 +47645,21 @@ function findFile(dir, names) {
 function proseLines(text19) {
   const kept2 = [];
   let fence = null;
-  for (const line2 of text19.split("\n")) {
-    const mark = /^\s*(```+|~~~+)/.exec(line2);
+  for (const line3 of text19.split("\n")) {
+    const mark = /^\s*(```+|~~~+)/.exec(line3);
     if (mark) {
       const opener = (mark[1] ?? "").slice(0, 3);
       if (fence === null) fence = opener;
       else if (opener === fence) fence = null;
       continue;
     }
-    if (fence === null) kept2.push(line2);
+    if (fence === null) kept2.push(line3);
   }
   return kept2;
 }
 function titleOf2(file2) {
-  for (const line2 of proseLines(readText3(file2))) {
-    const heading2 = /^#\s+(.+?)\s*#*\s*$/.exec(line2);
+  for (const line3 of proseLines(readText3(file2))) {
+    const heading2 = /^#\s+(.+?)\s*#*\s*$/.exec(line3);
     if (heading2?.[1]) return heading2[1];
   }
   return basename11(file2);
@@ -47669,8 +47669,8 @@ function isMarkdown(path) {
 }
 function linksOf(text19) {
   const found2 = [];
-  for (const line2 of proseLines(text19)) {
-    for (const match of line2.matchAll(/\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+["'][^)]*["'])?\s*\)/g)) {
+  for (const line3 of proseLines(text19)) {
+    for (const match of line3.matchAll(/\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+["'][^)]*["'])?\s*\)/g)) {
       const target3 = (match[1] ?? "").split("#")[0]?.split("?")[0] ?? "";
       if (target3 === "" || /^[a-z][a-z0-9+.-]*:/i.test(target3) || target3.startsWith("//")) continue;
       found2.push(safeDecode3(target3));
@@ -47687,8 +47687,8 @@ function safeDecode3(text19) {
 }
 function importsOf(text19) {
   const found2 = [];
-  for (const line2 of proseLines(text19)) {
-    for (const match of line2.matchAll(/(?:^|\s)@([^\s`)]+)/g)) {
+  for (const line3 of proseLines(text19)) {
+    for (const match of line3.matchAll(/(?:^|\s)@([^\s`)]+)/g)) {
       const target3 = match[1] ?? "";
       if (isMarkdown(target3)) found2.push(target3);
     }
@@ -47982,7 +47982,7 @@ var GitHubUnreadable = class extends Error {
     this.reason = reason2;
   }
 };
-var firstLine4 = (text19) => plainText(text19).split("\n").map((line2) => line2.trim()).find(Boolean) ?? "";
+var firstLine4 = (text19) => plainText(text19).split("\n").map((line3) => line3.trim()).find(Boolean) ?? "";
 function unreadable(caught) {
   const error62 = failureOf(caught);
   if (error62?.code === "ENOENT") {
@@ -48176,10 +48176,10 @@ var credits = {
       println(stdout, JSON.stringify(doc, null, 2));
       return 0;
     }
-    for (const line2 of creditsReport({ name: name3, scope: repo ?? owner, since, summary: summary2 })) println(stdout, line2);
+    for (const line3 of creditsReport({ name: name3, scope: repo ?? owner, since, summary: summary2 })) println(stdout, line3);
     if (flags.list && items.length) {
       println(stdout);
-      for (const line2 of creditsList(items)) println(stdout, line2);
+      for (const line3 of creditsList(items)) println(stdout, line3);
     }
     for (const warning of read3.warnings) println(stderr, `warning: ${warning}`);
     return 0;
@@ -48397,9 +48397,9 @@ var BULLET = /^\s*[-*+]\s+(.*)$/;
 function cleanTerm(raw) {
   return raw.trim().replace(/[.]+$/, "").replace(/^[`"'“‘«]+|[`"'”’»]+$/g, "").trim();
 }
-var indent = (line2) => /^\s*/.exec(line2)?.[0].length ?? 0;
-function labelled(line2) {
-  const bare = line2.replace(/^\s*(?:[-*+]\s+)?/, "").replace(/[*_]/g, "");
+var indent = (line3) => /^\s*/.exec(line3)?.[0].length ?? 0;
+function labelled(line3) {
+  const bare = line3.replace(/^\s*(?:[-*+]\s+)?/, "").replace(/[*_]/g, "");
   const colon = bare.indexOf(":");
   if (colon === -1) return null;
   return { label: bare.slice(0, colon).trim(), rest: bare.slice(colon + 1).trim() };
@@ -48407,14 +48407,14 @@ function labelled(line2) {
 function avoidedWords(product2) {
   const lines4 = product2.split(/\r?\n/);
   const terms = [];
-  lines4.forEach((line2, index2) => {
-    const read3 = labelled(line2);
+  lines4.forEach((line3, index2) => {
+    const read3 = labelled(line3);
     if (!read3 || !LABEL2.test(read3.label)) return;
     if (read3.rest !== "") {
       terms.push(...read3.rest.split(/[,;]/).map(cleanTerm));
       return;
     }
-    const floor = BULLET.test(line2) ? indent(line2) : -1;
+    const floor = BULLET.test(line3) ? indent(line3) : -1;
     for (const next2 of lines4.slice(index2 + 1)) {
       const bullet = BULLET.exec(next2)?.[1];
       if (bullet === void 0 || indent(next2) <= floor) break;
@@ -48768,7 +48768,7 @@ var design = {
     if (flags.out !== void 0 && verb2 !== "gallery") throw usageError(USAGE20);
     const lines4 = Object.hasOwn(VERBS2, verb2) ? VERBS2[verb2]?.(io, operands2, flags.out) : null;
     if (!lines4) throw usageError(USAGE20);
-    for (const line2 of lines4) println(io.stdout, line2);
+    for (const line3 of lines4) println(io.stdout, line3);
     return 0;
   })
 };
@@ -49309,8 +49309,8 @@ var SHAPES2 = [
 ];
 function scanText(file2, text19) {
   const findings2 = [];
-  text19.split("\n").forEach((line2, index2) => {
-    const shape = SHAPES2.find((s) => s.test(line2));
+  text19.split("\n").forEach((line3, index2) => {
+    const shape = SHAPES2.find((s) => s.test(line3));
     if (shape) findings2.push({ file: file2, line: index2 + 1, kind: shape.kind });
   });
   return findings2;
@@ -49628,10 +49628,10 @@ var ID2 = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function parseFlows(file2, text19) {
   if (text19 === void 0) return { kind: "none" };
   const sections = [];
-  for (const line2 of text19.split(/\r?\n/)) {
-    const heading2 = /^##\s+(.*)$/.exec(line2);
+  for (const line3 of text19.split(/\r?\n/)) {
+    const heading2 = /^##\s+(.*)$/.exec(line3);
     if (heading2) sections.push({ heading: (heading2[1] ?? "").trim(), body: [] });
-    else sections.at(-1)?.body.push(line2);
+    else sections.at(-1)?.body.push(line3);
   }
   if (sections.length === 0) return { kind: "none" };
   const flows = [];
@@ -49699,7 +49699,7 @@ function status(args, { ctx, stdout, stderr }) {
     const tests = testStatus(readTaggedTests(ctx.root, dir, prd2), readRecordings(ctx.root, dir));
     const refused4 = flowRefusals(ctx.root, dir, tests);
     println(stdout, JSON.stringify({ prd: prd2, dir, tests }, null, 2));
-    for (const line2 of refused4) println(stderr, `omni e2e: ${line2}`);
+    for (const line3 of refused4) println(stderr, `omni e2e: ${line3}`);
     return missingRecording(tests) || refused4.length > 0 ? 1 : 0;
   } catch (error62) {
     if (!(error62 instanceof RecordingError || error62 instanceof FlowsError)) throw error62;
@@ -49846,7 +49846,7 @@ init_define_OMNI_BUNDLE();
 var VERDICT = /^omni-hook (\S+): (pass|wait|fail)(?:\s+(.*))?$/;
 var waits = (point2) => flowPoint(point2)?.waits === true;
 function readVerdict(point2, output2) {
-  const lines4 = output2.split(/\r?\n/).map((line2) => line2.trim()).filter((line2) => line2 !== "");
+  const lines4 = output2.split(/\r?\n/).map((line3) => line3.trim()).filter((line3) => line3 !== "");
   const last = lines4.at(-1) ?? "";
   const match = VERDICT.exec(last);
   if (!match) return { ok: false, why: "no verdict" };
@@ -50263,7 +50263,7 @@ async function subPrOf(reads2, slug, number5) {
 }
 function verdictText(verdict2) {
   const lines4 = verdict2.command === null ? verdict2.reasons.map((reason2) => `not ok ${reason2}`) : ["ok", verdict2.command.join(" ")];
-  return [...lines4, ...verdict2.reported.map((line2) => `report ${line2}`)].join("\n");
+  return [...lines4, ...verdict2.reported.map((line3) => `report ${line3}`)].join("\n");
 }
 function mergeArgs(ctx, args) {
   const [what, ...rest] = args;
@@ -50654,7 +50654,7 @@ var ClassificationSchema = external_exports.discriminatedUnion(
   }
 });
 function firstLine5(value) {
-  return value.split("\n").find((line2) => line2.trim().length > 0)?.trim() ?? null;
+  return value.split("\n").find((line3) => line3.trim().length > 0)?.trim() ?? null;
 }
 function knowledgeSummary({ ctx }) {
   const places = {
@@ -50991,7 +50991,7 @@ function appendEntry(text19, entry3, { heading: heading2 }) {
 `;
   if (!/^## /m.test(base)) {
     const lines4 = base.split("\n");
-    const start4 = lines4.findIndex((line2) => NONE_YET.test(line2));
+    const start4 = lines4.findIndex((line3) => NONE_YET.test(line3));
     if (start4 !== -1) {
       let end3 = start4;
       while (end3 < lines4.length && (lines4[end3] ?? "").trim() !== "") end3 += 1;
@@ -51046,7 +51046,7 @@ function renderRecord({
     ""
   ].join("\n");
 }
-function addLedgerLine(text19, { id, line: line2, markers }) {
+function addLedgerLine(text19, { id, line: line3, markers }) {
   const lines4 = text19.split("\n");
   const open3 = lines4.lastIndexOf(markers.settledOpen(id));
   if (open3 === -1) return null;
@@ -51058,7 +51058,7 @@ function addLedgerLine(text19, { id, line: line2, markers }) {
     else if (at2 !== -1) break;
   }
   if (at2 === -1) return null;
-  lines4.splice(at2 + 1, 0, line2);
+  lines4.splice(at2 + 1, 0, line3);
   return lines4.join("\n");
 }
 function servedBy2(reply, nextPrinciple) {
@@ -51402,7 +51402,7 @@ function runChecks(ctx) {
   const outbox = findOutboxViolations({ ctx });
   return { knowledge: knowledge2, outbox };
 }
-var newOnes = (after, before2) => after.filter((line2) => !before2.includes(line2));
+var newOnes = (after, before2) => after.filter((line3) => !before2.includes(line3));
 var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
 function servedPrinciple(reply, summary2) {
   if (reply.serves === NEW_PRINCIPLE) return `${NEW_PRINCIPLE}: ${reply.principle?.statement ?? ""}`.trim();
@@ -51917,6 +51917,18 @@ var ENTRIES = deepFreeze([
     ],
     summary: "PRD n's feature PR as PR care sees it, and its marked replies",
     detail: "state prints PRD n's feature PR as one document: its checks, whether it conflicts, each review thread with its verdict, whether a wave holds claims, and the next actions of a round; with --repo and --pr, in a plan repository, a target's PR read against that target. list, in a plan repository, names every pull request /omni:mega-pr-care looks after, in merge order. reply writes a reply ending with the care marker; with --thread it posts it and resolves the thread unless the verdict is asked. Needs gh logged in."
+  },
+  {
+    name: "review",
+    kind: "command",
+    who: "skills",
+    usage: [
+      "omni review post <prd> --file <verdict.json> [--pr <n>] [--json]",
+      "omni review read <prd> [--pr <n>] [--json]",
+      "omni review look-for [--json]"
+    ],
+    summary: "The Reviewer's verdict on PRD n's feature PR: posted once a round, read back by its marker",
+    detail: "post checks a verdict (pass, or 1 to 5 findings, each with its file, line, severity, rule, problem and fix) and posts it as one COMMENT review on the feature PR, one inline thread per finding; a verdict it refuses is never posted, and a round the PR already carries is not posted again. read prints the latest round and verdict, or none. look-for prints what the Reviewer looks for: the kit default's six items, then each one the repository's review form adds. --repo <owner/name> names another repository. Needs gh logged in."
   },
   {
     name: "follow-up",
@@ -53186,17 +53198,17 @@ function repositoryWords(config3) {
 var fillerFor = (words4) => (text19) => text19.replace(/\{(\w+)\}/g, (whole2, key2) => Object.hasOwn(words4, key2) ? words4[key2] ?? whole2 : whole2);
 function wrapWords(text19, { width = HELP_WIDTH, indent: indent2 = "" } = {}) {
   const lines4 = [];
-  let line2 = "";
+  let line3 = "";
   for (const word2 of text19.split(/\s+/).filter(Boolean)) {
-    const next2 = line2 ? `${line2} ${word2}` : word2;
-    if (line2 && indent2.length + next2.length > width) {
-      lines4.push(indent2 + line2);
-      line2 = word2;
+    const next2 = line3 ? `${line3} ${word2}` : word2;
+    if (line3 && indent2.length + next2.length > width) {
+      lines4.push(indent2 + line3);
+      line3 = word2;
     } else {
-      line2 = next2;
+      line3 = next2;
     }
   }
-  if (line2) lines4.push(indent2 + line2);
+  if (line3) lines4.push(indent2 + line3);
   return lines4;
 }
 var overviewRow = (label2, text19) => `${HELP_INDENT}${label2.padEnd(Math.max(LABEL_COLUMN, label2.length + 2))}${text19}`;
@@ -53229,7 +53241,7 @@ function renderOverview(config3, { entries: entries4 = ENTRIES } = {}) {
   ];
   for (const stage2 of STAGES) {
     const [first, ...more] = wrapWords(fill4(stage2.line), { width: HELP_WIDTH - under.length });
-    lines4.push(`${HELP_INDENT}${stage2.name.padEnd(STAGE_COLUMN)}${first}`, ...more.map((line2) => under + line2));
+    lines4.push(`${HELP_INDENT}${stage2.name.padEnd(STAGE_COLUMN)}${first}`, ...more.map((line3) => under + line3));
     if (stage2.folder) lines4.push(under + fill4(stage2.folder));
   }
   lines4.push("", ...wrapWords(PRINCIPLES.map(fill4).join(" "), { indent: HELP_INDENT }), "");
@@ -53256,7 +53268,7 @@ function renderOverview(config3, { entries: entries4 = ENTRIES } = {}) {
 function labelled2(label2, text19) {
   const under = " ".repeat(DOCS_LABEL_COLUMN);
   const [first = "", ...more] = wrapWords(text19, { width: HELP_WIDTH - DOCS_LABEL_COLUMN });
-  return [label2.padEnd(DOCS_LABEL_COLUMN) + first, ...more.map((line2) => under + line2)];
+  return [label2.padEnd(DOCS_LABEL_COLUMN) + first, ...more.map((line3) => under + line3)];
 }
 function docsLines(entry3, fill4) {
   if (!entry3.when || !entry3.example) return [];
@@ -53266,13 +53278,13 @@ function docsLines(entry3, fill4) {
     "",
     ...labelled2("When", fill4(entry3.when)),
     ...labelled2("Example", fill4(entry3.example.type)),
-    ...result2.map((line2, index2) => `${under}${index2 ? "  " : "\u2192 "}${line2}`)
+    ...result2.map((line3, index2) => `${under}${index2 ? "  " : "\u2192 "}${line3}`)
   ];
 }
 function usageLines(entry3, agents, fill4) {
   const usage2 = entry3.usage.map(fill4);
   if (entry3.kind !== "skill") return usage2;
-  const forms = [...new Set(agents.flatMap((agent) => usage2.flatMap((line2) => agentForms(line2, [agent]))))];
+  const forms = [...new Set(agents.flatMap((agent) => usage2.flatMap((line3) => agentForms(line3, [agent]))))];
   return ticks(entry3, agents) ? [...forms, `Outside Claude, each runs one tick: ${TICK_LINE}.`] : forms;
 }
 function entryLines(entry3, agents, fill4) {
@@ -53429,7 +53441,7 @@ async function list5({ client, repo }, json3, { stdout, stderr }) {
   const board2 = boardOf(read3.reply);
   if (!board2) println(stderr, "refused (no board in the reply)");
   else if (json3) println(stdout, JSON.stringify(board2, null, 2));
-  else for (const line2 of listLines(board2)) println(stdout, line2);
+  else for (const line3 of listLines(board2)) println(stdout, line3);
 }
 var idea = {
   withoutContext: true,
@@ -53647,7 +53659,7 @@ function legacyLoopWorkflows(root) {
   return names.filter((name3) => /\.ya?ml$/.test(name3)).map((name3) => join100(WORKFLOWS, name3)).filter((path) => /outbox/i.test(read(root, path) ?? "")).sort();
 }
 function ignores(text19, dir) {
-  return text19.split("\n").map((line2) => line2.trim()).some((line2) => line2 && !line2.startsWith("#") && line2.replace(/^\/+/, "").startsWith(dir));
+  return text19.split("\n").map((line3) => line3.trim()).some((line3) => line3 && !line3.startsWith("#") && line3.replace(/^\/+/, "").startsWith(dir));
 }
 function formatterToExclude(root, dir) {
   const pkg = read(root, "package.json");
@@ -53844,7 +53856,7 @@ var fillStep = (forms) => [
 function byHand(steps) {
   const lines4 = ["", "Then, by hand:"];
   steps.forEach(([first, ...rest], index2) => {
-    lines4.push(`  ${index2 + 1}. ${first}`, ...rest.map((line2) => `  ${line2}`));
+    lines4.push(`  ${index2 + 1}. ${first}`, ...rest.map((line3) => `  ${line3}`));
   });
   return lines4;
 }
@@ -53888,8 +53900,8 @@ function setupLines({ slug, files, forms, settings, hud, copies = null, labels: 
 }
 function computerLines(plugin, signin2) {
   const lines4 = ["On this computer:", ...plugin.status, ...signin2.status];
-  if (plugin.todo.length) lines4.push("", "Type these in Claude Code to install the plugin:", ...plugin.todo.map((line2) => `     ${line2}`));
-  if (signin2.todo.length) lines4.push("", "Type this in a terminal to sign in later:", ...signin2.todo.map((line2) => `     ${line2}`));
+  if (plugin.todo.length) lines4.push("", "Type these in Claude Code to install the plugin:", ...plugin.todo.map((line3) => `     ${line3}`));
+  if (signin2.todo.length) lines4.push("", "Type this in a terminal to sign in later:", ...signin2.todo.map((line3) => `     ${line3}`));
   return lines4;
 }
 function closingSteps({ slug, defaultBranch: defaultBranch2, configPath, outboxCheck, pr, forms, settings, copies = false, labels: labels2, unfilled, notices = {} }) {
@@ -53911,7 +53923,7 @@ function closingSteps({ slug, defaultBranch: defaultBranch2, configPath, outboxC
   }
   if (headsUp.length) {
     lines4.push("", "Heads-up:");
-    for (const line2 of headsUp) lines4.push(line2.startsWith("  ") ? `  ${line2}` : `  - ${line2}`);
+    for (const line3 of headsUp) lines4.push(line3.startsWith("  ") ? `  ${line3}` : `  - ${line3}`);
   }
   const steps = [
     [
@@ -54033,7 +54045,7 @@ function target2(root, exec) {
 function invasion(run2, ref2, configText) {
   const playbook = playbookOf(configText);
   const listed2 = attempt6(() => run2("ls-tree", ref2, "--", `${playbook}/`)) ?? "";
-  const forms = listed2.split("\n").map((line2) => /^\d+ blob \w+\t(.+)$/.exec(line2)?.[1]).filter((path) => path?.endsWith(".md") === true);
+  const forms = listed2.split("\n").map((line3) => /^\d+ blob \w+\t(.+)$/.exec(line3)?.[1]).filter((path) => path?.endsWith(".md") === true);
   const texts = forms.map((path) => attempt6(() => run2("show", `${ref2}:${path}`))).filter(isFilled);
   if (!texts.length) return null;
   const dates = texts.map(invadedOn).filter((date6) => Boolean(date6)).sort();
@@ -54098,20 +54110,20 @@ async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   if (held3) return { outcome: "already", host, email: who(held3) };
   if (!interactive) return { outcome: "later", host, why: "no terminal" };
   let code;
-  let line2;
+  let line3;
   try {
     const done = await signIn();
-    ({ code, line: line2 } = typeof done === "number" ? { code: done } : { code: done.code, line: done.line });
+    ({ code, line: line3 } = typeof done === "number" ? { code: done } : { code: done.code, line: done.line });
   } catch {
     code = 1;
   }
   const entry3 = code === 0 ? store.read(host) : null;
   if (!entry3) return { outcome: "later", host, why: "did not finish" };
-  return { outcome: "signed-in", host, email: who(entry3), ...line2 ? { line: line2 } : {} };
+  return { outcome: "signed-in", host, email: who(entry3), ...line3 ? { line: line3 } : {} };
 }
 var who = (entry3) => textOf6(entry3.email) ?? textOf6(entry3.login);
-function signInLines({ outcome: outcome2, host, email: email3, line: line2, why: why3 }) {
-  if (outcome2 === "signed-in" && line2) return { status: [`  signin  ${line2}`], todo: [] };
+function signInLines({ outcome: outcome2, host, email: email3, line: line3, why: why3 }) {
+  if (outcome2 === "signed-in" && line3) return { status: [`  signin  ${line3}`], todo: [] };
   if (outcome2 === "signed-in") return { status: [`  signin  signed in to ${host} as ${email3}`], todo: [] };
   if (outcome2 === "already") return { status: [`  signin  signed in to ${host} already, as ${email3}`], todo: [] };
   if (outcome2 === "later") return { status: [`  signin  not signed in to ${host}: ${why3}`], todo: ["omni signin"] };
@@ -54231,7 +54243,7 @@ function installLines({ branch, commit, push: push6, pr }, { paths, remote, base
     lines4.push("  PR      gh could not open the pull request");
     prTodo();
   }
-  if (todo.length) lines4.push("", "Type these to finish the install pull request:", ...todo.map((line2) => `     ${line2}`));
+  if (todo.length) lines4.push("", "Type these to finish the install pull request:", ...todo.map((line3) => `     ${line3}`));
   return lines4;
 }
 
@@ -54312,11 +54324,11 @@ async function thisComputer({ root, config: config3, interactive, stdout, stderr
     home,
     interactive,
     signIn: signIn ?? (async () => {
-      let line2;
+      let line3;
       const code = await signin.run([], { cwd: root, stdout, stderr, exec, env, vars, home, onSignedIn: (said2) => {
-        line2 = said2;
+        line3 = said2;
       } });
-      return { code, line: line2 };
+      return { code, line: line3 };
     })
   });
   return computerLines(plugin, signInLines(signedIn2));
@@ -54571,7 +54583,7 @@ function nothingWritten({ asJson: asJson2, stdout, stderr }, heading2, lines4) {
     return;
   }
   println(stderr, heading2);
-  for (const line2 of lines4) println(stderr, `  - ${line2}`);
+  for (const line3 of lines4) println(stderr, `  - ${line3}`);
 }
 async function adoptNew(text19, id, decision, { store, asJson: asJson2, stdout, stderr }) {
   const result2 = await store.adopt(text19);
@@ -54754,7 +54766,7 @@ var recordText = (record2) => (record2.title ?? record2.file).replace(/^ADR-\d+\
 function placeEntry(entry3, thesis, map2, places, files) {
   const law = isLaw(entry3);
   const tags = { governs: entry3.governs, domains: domainsOf(entry3), layers: asLayers(entry3.layers) };
-  const line2 = {
+  const line3 = {
     kind: law ? "law" : entry3.kind === "invariant" ? "invariant" : "rule",
     id: entry3.id,
     file: entry3.file,
@@ -54762,23 +54774,23 @@ function placeEntry(entry3, thesis, map2, places, files) {
     why: reasons(places, files, tags),
     proposed: entry3.proposed !== null
   };
-  if (line2.why.length > 0) return { group: "applies", line: line2 };
+  if (line3.why.length > 0) return { group: "applies", line: line3 };
   const global = map2.mapped ? !reachable(map2, tags.governs, tags.domains, tags.layers) : law;
-  return { group: global ? "global" : "hidden", line: line2 };
+  return { group: global ? "global" : "hidden", line: line3 };
 }
 function placeRecord(record2, places, files) {
   const tags = { governs: null, domains: record2.domain == null ? [] : [record2.domain], layers: asLayers(record2.layers) };
   if (tags.domains.length === 0 && tags.layers.length === 0) return null;
   const why3 = reasons(places, files, tags);
-  const line2 = { kind: "adr", id: `ADR-${record2.number}`, file: record2.file, text: recordText(record2), why: why3, proposed: false };
-  return { group: why3.length > 0 ? "applies" : "hidden", line: line2 };
+  const line3 = { kind: "adr", id: `ADR-${record2.number}`, file: record2.file, text: recordText(record2), why: why3, proposed: false };
+  return { group: why3.length > 0 ? "applies" : "hidden", line: line3 };
 }
 function placeBusinessLaw(law, map2, places, files) {
   const domains = businessLawDomains(law);
   const why3 = reasons(places, files, { governs: null, domains, layers: [] });
-  const line2 = { kind: "business-law", id: law.id, file: law.file, text: law.statement, why: why3, proposed: false };
-  if (why3.length > 0) return { group: "applies", line: line2 };
-  return { group: !map2.mapped || !reachable(map2, null, domains, []) ? "global" : "hidden", line: line2 };
+  const line3 = { kind: "business-law", id: law.id, file: law.file, text: law.statement, why: why3, proposed: false };
+  if (why3.length > 0) return { group: "applies", line: line3 };
+  return { group: !map2.mapped || !reachable(map2, null, domains, []) ? "global" : "hidden", line: line3 };
 }
 function lookup(sources2, map2, files) {
   const places = files.map((file2) => placeOf4(map2, file2));
@@ -54792,7 +54804,7 @@ function lookup(sources2, map2, files) {
       line: { kind: "legal", id: legal.id, file: null, text: headline(legal.statement), why: [], proposed: false }
     }))
   ];
-  const linesOf3 = (group2) => placed.filter((one) => one.group === group2).map(({ line: line2 }) => line2);
+  const linesOf3 = (group2) => placed.filter((one) => one.group === group2).map(({ line: line3 }) => line3);
   const hidden = linesOf3("hidden");
   return {
     mapped: map2.mapped,
@@ -55182,7 +55194,7 @@ function startFromFiles(sources2, map2, files) {
 }
 
 // kit/lib/knowledge/graph-push.ts
-var FAIL = (line2) => ({ ok: false, lines: [line2] });
+var FAIL = (line3) => ({ ok: false, lines: [line3] });
 var ReplySchema2 = external_exports.object({ nodes: external_exports.number(), edges: external_exports.number(), products: external_exports.array(external_exports.unknown()) });
 var ProductSchema = external_exports.object({ key: external_exports.unknown(), href: external_exports.string() });
 function replyOf2(value) {
@@ -55309,7 +55321,7 @@ function readNeighbourhood(value) {
 }
 
 // kit/lib/knowledge/product-graph-text.ts
-var FAIL2 = (line2) => ({ ok: false, lines: [line2] });
+var FAIL2 = (line3) => ({ ok: false, lines: [line3] });
 var when = (iso) => new Date(iso).toISOString().slice(0, 16).replace("T", " ");
 function repositoryLine({ repo, commit, pushedAt, pushedBy }) {
   if (commit === null || pushedAt === null) return `${repo} \xB7 never pushed`;
@@ -55370,8 +55382,8 @@ async function packGet(input2) {
     pack2 = newest;
     held3.push(`held \xB7 server unreachable \xB7 newest pack fetched: ${pack2.sha} \xB7 ${ageOf(pack2.committedAt, now2())} old`);
   }
-  const { line: line2, note } = staleness2(pack2, input2);
-  if (line2 !== null) return { code: 1, out: [], err: [line2] };
+  const { line: line3, note } = staleness2(pack2, input2);
+  if (line3 !== null) return { code: 1, out: [], err: [line3] };
   return { code: 0, out: [join107(root, pack2.folder), ...held3], err: note === null ? [] : [note] };
 }
 
@@ -55409,7 +55421,7 @@ function indexLines({ product: product2, glossary, legal, personas = [] }, synce
     const share2 = Math.floor(left / (sections.length - i));
     const body = fit(items, Math.max(0, share2 - bytes(label2) - bytes(arrow)), command2);
     const section7 = [`${label2}${body.text}`, arrow];
-    left -= section7.reduce((total, line2) => total + bytes(line2), 0);
+    left -= section7.reduce((total, line3) => total + bytes(line3), 0);
     lines4.push(...section7);
     kept2.push(body.kept);
   });
@@ -55529,8 +55541,8 @@ var CONFIG_PATH = ".omni-loop/config.yml";
 var BIN_PATH = ".omni-loop/bin/omni.mjs";
 function ghLine(error62) {
   const text19 = ghText2(error62);
-  const line2 = text19.split("\n").map((l) => l.trim()).find((l) => l.startsWith("gh:")) ?? text19.split("\n").map((l) => l.trim()).find(Boolean);
-  return line2 ?? "gh could not read it";
+  const line3 = text19.split("\n").map((l) => l.trim()).find((l) => l.startsWith("gh:")) ?? text19.split("\n").map((l) => l.trim()).find(Boolean);
+  return line3 ?? "gh could not read it";
 }
 var isNotFound2 = (error62) => /HTTP 404/.test(ghText2(error62));
 var Unreachable = class extends Error {
@@ -55697,8 +55709,8 @@ function readTargets(targets2, { ctx, exec = execFileSync13, env }) {
 var COLUMNS = ["repo", "role", "knowledge", "loop", "state"];
 function targetsTable(rows2) {
   const cells4 = [COLUMNS, ...rows2.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
-  const widths = COLUMNS.map((_, i) => Math.max(...cells4.map((line2) => (line2[i] ?? "").length)));
-  return cells4.map((line2) => line2.map((cell2, i) => i === line2.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
+  const widths = COLUMNS.map((_, i) => Math.max(...cells4.map((line3) => (line3[i] ?? "").length)));
+  return cells4.map((line3) => line3.map((cell2, i) => i === line3.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
 }
 
 // kit/bin/kb-write.ts
@@ -55768,9 +55780,9 @@ function refusalLine3(error62, host, kind2) {
 }
 async function knowledgeWrite(kind2, args, { ctx, stdout, stderr, vars }, options) {
   const { change: change2, json: json3 } = changeOf2(kind2, args);
-  const stop = (line2) => {
-    if (json3) println(stdout, JSON.stringify({ error: line2 }));
-    else println(stderr, `omni kb ${kind2} ${change2.action}: ${line2}`);
+  const stop = (line3) => {
+    if (json3) println(stdout, JSON.stringify({ error: line3 }));
+    else println(stderr, `omni kb ${kind2} ${change2.action}: ${line3}`);
     return 1;
   };
   const askUrl2 = ctx.config.ask.url;
@@ -55784,9 +55796,9 @@ async function knowledgeWrite(kind2, args, { ctx, stdout, stderr, vars }, option
   const client = askClient({ baseUrl: askUrl2, host, tokens: tokens2, fetch: options.fetch ?? globalThis.fetch, ...options.callMs ? { callMs: options.callMs } : {} });
   try {
     const reply = await client.changeKnowledge({ repo, ...change2 });
-    const line2 = successLine2(change2.action, reply);
-    if (line2 === null) return stop("the Omni page answered something this kit does not read");
-    println(stdout, json3 ? JSON.stringify(reply) : line2);
+    const line3 = successLine2(change2.action, reply);
+    if (line3 === null) return stop("the Omni page answered something this kit does not read");
+    println(stdout, json3 ? JSON.stringify(reply) : line3);
     return 0;
   } catch (error62) {
     return stop(refusalLine3(error62, host, kind2));
@@ -56075,8 +56087,8 @@ function owners(positional, flags, { ctx, stdout, stderr }) {
     return 1;
   }
   const who2 = lawCodeowners(listed2).map(ownerHandle).join(", ");
-  const line2 = written.wrote ? `kb owners \u2014 wrote ${written.file}: ${written.paths} path(s) owned by ${who2}; no line outside its markers changed.` : `kb owners \u2014 ${written.file} is up to date: ${written.paths} path(s) owned by ${who2}.`;
-  println(stdout, flags.json ? JSON.stringify({ ...written, owners: listed2 }, null, 2) : line2);
+  const line3 = written.wrote ? `kb owners \u2014 wrote ${written.file}: ${written.paths} path(s) owned by ${who2}; no line outside its markers changed.` : `kb owners \u2014 ${written.file} is up to date: ${written.paths} path(s) owned by ${who2}.`;
+  println(stdout, flags.json ? JSON.stringify({ ...written, owners: listed2 }, null, 2) : line3);
   return 0;
 }
 function packSlug(ctx, repo) {
@@ -56130,8 +56142,8 @@ async function pack(args, io) {
     },
     order: (packSha, at2) => io.order ? io.order(slug, packSha, at2) : packOrder(reader, slug, packSha, at2)
   });
-  for (const line2 of result2.out) println(stdout, line2);
-  for (const line2 of result2.err) println(stderr, line2);
+  for (const line3 of result2.out) println(stdout, line3);
+  for (const line3 of result2.err) println(stderr, line3);
   return result2.code;
 }
 function reachOf(ctx, options) {
@@ -56150,8 +56162,8 @@ var PRODUCT_LINES = {
 var isProductVerb = (sub) => sub !== void 0 && Object.hasOwn(PRODUCT_LINES, sub);
 async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cwd) {
   if (positional.length > 0) throw usageError(`usage: omni kb ${verb2}`);
-  const refuse7 = (line2) => {
-    println(stdout, line2);
+  const refuse7 = (line3) => {
+    println(stdout, line3);
     return 1;
   };
   const reach7 = reachOf(ctx, options);
@@ -56165,7 +56177,7 @@ async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cw
       fetchBusiness: () => client.readBusiness(repo)
     });
     if (read3.from === "copy") println(stdout, unreachableLine(read3.readAt));
-    for (const line2 of PRODUCT_LINES[verb2](read3)) println(stdout, line2);
+    for (const line3 of PRODUCT_LINES[verb2](read3)) println(stdout, line3);
     return 0;
   } catch (error62) {
     return refuse7(messageOf(error62));
@@ -56190,7 +56202,7 @@ async function index(args, io) {
     ];
   }
   if (flags.json === true) println(stdout, JSON.stringify(result2[0]));
-  else for (const line2 of result2[1]) println(stdout, line2);
+  else for (const line3 of result2[1]) println(stdout, line3);
   return 0;
 }
 function indexIo(cwd, exec, options) {
@@ -56229,14 +56241,14 @@ async function graphPush(args, io) {
   } catch (error62) {
     result2 = { ok: false, lines: [`kb graph push: ${messageOf(error62)}`] };
   }
-  for (const line2 of result2.lines) println(stdout, line2);
+  for (const line3 of result2.lines) println(stdout, line3);
   return result2.ok ? 0 : 1;
 }
 async function graphProduct(args, io) {
   const { ctx, stdout, stderr } = io;
   const askUrl2 = ctx.config.ask.url;
   const result2 = await readProductGraph({ askUrl: askUrl2, client: pageClient(askUrl2, io), ...productGraphArgs(args) });
-  for (const line2 of result2.lines) println(result2.ok ? stdout : stderr, line2);
+  for (const line3 of result2.lines) println(result2.ok ? stdout : stderr, line3);
   return result2.ok ? 0 : 1;
 }
 function productGraphArgs(args) {
@@ -56255,7 +56267,7 @@ async function businessLaws(args, io) {
   const { ctx, stdout, stderr } = io;
   const placed = await businessLawsAt({ ctx, repo: ctx.config.repo.slug, home: await lawHomeOf(io), getPack: (home) => lawHomePack(home, io) });
   if (placed.laws === null) {
-    for (const line2 of placed.errors) println(stderr, `omni kb business-laws: ${line2}`);
+    for (const line3 of placed.errors) println(stderr, `omni kb business-laws: ${line3}`);
     return 1;
   }
   println(stdout, want.spec === null ? lawsOf2(placed.laws, want.domain, want.json, ctx) : specLaws(placed.laws, want.spec, want.json, io));
@@ -56452,9 +56464,9 @@ function lawIssueOf(entry3) {
 var HEADING4 = /^#{1,2}\s/;
 var entryHeading = (id) => new RegExp(`^##\\s+${id}\\s*$`);
 function entrySpan(lines4, id) {
-  const start4 = lines4.findIndex((line2) => entryHeading(id).test(line2));
+  const start4 = lines4.findIndex((line3) => entryHeading(id).test(line3));
   if (start4 === -1) return null;
-  const next2 = lines4.findIndex((line2, index2) => index2 > start4 && HEADING4.test(line2));
+  const next2 = lines4.findIndex((line3, index2) => index2 > start4 && HEADING4.test(line3));
   return [start4, next2 === -1 ? lines4.length : next2];
 }
 function pendLaw(text19, id, issue2) {
@@ -56478,18 +56490,18 @@ function removeEntry(text19, id) {
 }
 function linesByEntry(text19) {
   let current = null;
-  return text19.split("\n").map((line2) => {
-    const heading2 = /^##\s+(\S+)\s*$/.exec(line2);
+  return text19.split("\n").map((line3) => {
+    const heading2 = /^##\s+(\S+)\s*$/.exec(line3);
     if (heading2) current = group(heading2, 1);
-    else if (HEADING4.test(line2)) current = null;
-    return { line: line2, entry: current };
+    else if (HEADING4.test(line3)) current = null;
+    return { line: line3, entry: current };
   });
 }
 function citationsOf(files, removed) {
   const found2 = /* @__PURE__ */ new Map();
   for (const { path, text: text19 } of files) {
-    for (const { line: line2, entry: entry3 } of linesByEntry(text19)) {
-      const cited2 = (line2.match(ID_TOKEN) ?? []).filter((id) => removed.includes(id) && id !== entry3);
+    for (const { line: line3, entry: entry3 } of linesByEntry(text19)) {
+      const cited2 = (line3.match(ID_TOKEN) ?? []).filter((id) => removed.includes(id) && id !== entry3);
       for (const id of cited2) found2.set(`${id} ${entry3 ?? ""} ${path}`, { id, citedBy: entry3, file: path });
     }
   }
@@ -56497,11 +56509,11 @@ function citationsOf(files, removed) {
 }
 function requireProofText(text19) {
   const lines4 = text19.split("\n");
-  const at2 = lines4.findIndex((line2) => /^laws:\s*(#.*)?$/.test(line2));
+  const at2 = lines4.findIndex((line3) => /^laws:\s*(#.*)?$/.test(line3));
   if (at2 === -1) return null;
-  let end3 = lines4.findIndex((line2, index2) => index2 > at2 && /^\S/.test(line2));
+  let end3 = lines4.findIndex((line3, index2) => index2 > at2 && /^\S/.test(line3));
   if (end3 === -1) end3 = lines4.length;
-  const child = lines4.slice(at2 + 1, end3).find((line2) => /^\s+\S/.test(line2) && !/^\s+#/.test(line2));
+  const child = lines4.slice(at2 + 1, end3).find((line3) => /^\s+\S/.test(line3) && !/^\s+#/.test(line3));
   const indent2 = /^(\s+)/.exec(child ?? "")?.[1] ?? "  ";
   for (let index2 = at2 + 1; index2 < end3; index2 += 1) {
     const match = /^(\s+requireProof:\s*)(\S+)(.*)$/.exec(lines4[index2] ?? "");
@@ -56542,8 +56554,8 @@ function applyVerdict(entry3, verdict2, { edit, markers }) {
   edit(entry3.file, (text19) => removeEntry(text19, entry3.id));
   const ledger = ledgerOf3(entry3.source);
   if (ledger === null) return { id: entry3.id, ledger: null };
-  const line2 = `- ${STAYS_HERE_FIELD}: ${lawWorthNote(verdict2.worth)}, was ${entry3.id}`;
-  const recorded = edit(ledger.file, (text19) => addLedgerLine(text19, { id: ledger.id, line: line2, markers }));
+  const line3 = `- ${STAYS_HERE_FIELD}: ${lawWorthNote(verdict2.worth)}, was ${entry3.id}`;
+  const recorded = edit(ledger.file, (text19) => addLedgerLine(text19, { id: ledger.id, line: line3, markers }));
   return { id: entry3.id, ledger: recorded ? ledger.file : null };
 }
 var allDecided = (laws2, verdicts) => laws2.every((entry3) => {
@@ -56888,9 +56900,9 @@ function skipLine3(error62) {
   return error62.reason ? `refused (${error62.status}): ${error62.reason}` : `refused (${error62.status})`;
 }
 function lineArg(name3, value, max) {
-  const line2 = oneLine5(value ?? "", max);
-  if (!line2) throw usageError(`omni loop push: --${name3} needs a line of text.`);
-  return line2;
+  const line3 = oneLine5(value ?? "", max);
+  if (!line3) throw usageError(`omni loop push: --${name3} needs a line of text.`);
+  return line3;
 }
 function linkArg(value) {
   if (value === void 0) return null;
@@ -57000,8 +57012,8 @@ function answerOf3(reply) {
   if (state !== "running" && state !== "parked" && state !== "stopped") return null;
   return typeof planVersion === "number" && Number.isInteger(planVersion) ? { loopId, state, planVersion } : null;
 }
-function refuse2(stderr, line2) {
-  println(stderr, line2);
+function refuse2(stderr, line3) {
+  println(stderr, line3);
   return 1;
 }
 function blocksStart(standing4, takeOver) {
@@ -57256,7 +57268,7 @@ function send(folder, { client, repo }) {
   return client.pushDossier({ repo, prd: folder.mission, kind: "mission", title: folder.brief.title, artifacts }).then((reply) => ({ reply }), skipLine4);
 }
 function stopped5(io, lines4) {
-  for (const line2 of lines4) println(io.stderr, line2);
+  for (const line3 of lines4) println(io.stderr, line3);
   return 1;
 }
 async function push4(issue2, io) {
@@ -57342,7 +57354,7 @@ function prdLines(where, state) {
   return [
     `PRD ${where.prd} \u2014 ${where.name}`,
     `state: ${state?.state ?? where.state}`,
-    ...server ? ["birthplace: server", ...(state.approval?.lines ?? []).map((line2) => `approval: ${line2}`)] : [],
+    ...server ? ["birthplace: server", ...(state.approval?.lines ?? []).map((line3) => `approval: ${line3}`)] : [],
     ...server && state.approval?.laws ? lawsLines(state.approval.laws) : [],
     `dir: ${where.dir}`,
     "files:",
@@ -57580,8 +57592,8 @@ function prerequisiteWords(prerequisite, read3) {
   if (prerequisite.who === "person" && read3.ticks?.has(prerequisite.id)) return null;
   const state = read3.prerequisites?.get(prerequisite.id);
   if (state !== void 0 && isMet(state)) return null;
-  const line2 = `waits on prerequisite ${prerequisite.id} (${prerequisite.category}): ${prerequisite.need}`;
-  return state === void 0 ? `${line2} \u2014 not checked on this machine yet: omni roadmap prereqs ${read3.roadmap.roadmap} --fix` : line2;
+  const line3 = `waits on prerequisite ${prerequisite.id} (${prerequisite.category}): ${prerequisite.need}`;
+  return state === void 0 ? `${line3} \u2014 not checked on this machine yet: omni roadmap prereqs ${read3.roadmap.roadmap} --fix` : line3;
 }
 function roadmapGates(read3) {
   const { roadmap: roadmap2, answers: answers2, standings, live, issueLink } = read3;
@@ -58006,8 +58018,8 @@ function orderCollisions(units) {
     }
   }
 }
-function orderBlockers(ordered, unitsByPrd, shipped) {
-  for (const input2 of ordered) {
+function orderBlockers(ordered2, unitsByPrd, shipped) {
+  for (const input2 of ordered2) {
     const first = unitsByPrd.get(input2.prd)?.find((unit3) => !unit3.done);
     if (!first) continue;
     for (const blocker of [...input2.blockedBy].sort(byNumber)) {
@@ -58039,11 +58051,11 @@ function seenOf(input2) {
   return { prd: input2.prd, slices, stuck, ended: input2.ended };
 }
 function planLoop(inputs, { version: version3 = 1, reason: reason2 = null } = {}) {
-  const ordered = prdOrder(inputs.prds);
-  const unitsByPrd = new Map(ordered.map((input2, order2) => [input2.prd, unitsOf(input2, order2)]));
+  const ordered2 = prdOrder(inputs.prds);
+  const unitsByPrd = new Map(ordered2.map((input2, order2) => [input2.prd, unitsOf(input2, order2)]));
   const units = [...unitsByPrd.values()].flat();
   orderCollisions(units);
-  orderBlockers(ordered, unitsByPrd, new Set(inputs.shipped));
+  orderBlockers(ordered2, unitsByPrd, new Set(inputs.shipped));
   const memo3 = /* @__PURE__ */ new Map();
   const depth = new Map(units.map((unit3) => [unit3, depthOf(unit3, memo3)]));
   const level = (unit3) => depth.get(unit3) ?? 0;
@@ -58064,7 +58076,7 @@ function planLoop(inputs, { version: version3 = 1, reason: reason2 = null } = {}
       ...unit3.repos.length > 0 ? { repos: unit3.repos } : {}
     })
   );
-  return { version: version3, reason: reason2, prds: ordered.map((input2) => input2.prd).sort(byNumber), steps, seen: [...inputs.prds].sort((a, b) => a.prd - b.prd).map(seenOf) };
+  return { version: version3, reason: reason2, prds: ordered2.map((input2) => input2.prd).sort(byNumber), steps, seen: [...inputs.prds].sort((a, b) => a.prd - b.prd).map(seenOf) };
 }
 function crossOrders(plan2) {
   return plan2.steps.flatMap((step3) => step3.why.map((why3) => `step ${step3.step}: ${why3}`));
@@ -58265,7 +58277,7 @@ function fetchRemote({ ctx, exec = execFileSync14 }) {
     return null;
   } catch (error62) {
     putBack(saved2);
-    const said2 = plainText(fieldOf2(error62, "stderr")).split("\n").map((line2) => line2.trim()).find(Boolean);
+    const said2 = plainText(fieldOf2(error62, "stderr")).split("\n").map((line3) => line3.trim()).find(Boolean);
     const message2 = fieldOf2(error62, "message") ?? error62;
     return said2 ?? String(message2).split("\n")[0] ?? "";
   }
@@ -58888,7 +58900,7 @@ async function startPlan(prds, { reader, out, json: json3, roadmap: roadmap2 }) 
   const plan2 = planLoop((await readAll2(prds, reader, roadmap2 ?? null)).inputs);
   writeLoopPlans(reader.ctx.root, [plan2]);
   if (json3) out(JSON.stringify({ plan: plan2 }, null, 2));
-  else for (const line2 of formatPlan(plan2)) out(line2);
+  else for (const line3 of formatPlan(plan2)) out(line3);
   return 0;
 }
 function currentPlan(kept2, inputs, root) {
@@ -58924,7 +58936,7 @@ async function followKept(prds, kept2, { reader, out, json: json3, roadmap: road
   const pool = followSteps(plan2, live, config3.limits.parallelSteps, config3.generated ?? []);
   const held3 = gates ? heldOf(gates, read3.verdicts) : [];
   const ticked = { plan: plan2, replanned, followed: followPlan(plan2, live), pool, verdicts: read3.verdicts, held: held3, roadmap: roadmap2?.roadmap ?? null };
-  for (const line2 of json3 ? [JSON.stringify(tickJson(ticked), null, 2)] : tickLines(ticked)) out(line2);
+  for (const line3 of json3 ? [JSON.stringify(tickJson(ticked), null, 2)] : tickLines(ticked)) out(line3);
   return 0;
 }
 function poolHeld(pool, held3) {
@@ -59010,8 +59022,8 @@ var next = {
     const slug = repoSlug("next", ctx, void 0);
     const loop2 = reads2 ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens: tokens2, home, fetch, callMs });
     const reader = { ctx, exec, env, slug, reads: loop2, approval: gateApproval(ctx, { tokens: tokens2, home, fetch, callMs }) };
-    const io = { reader, out: (line2) => {
-      println(stdout, line2);
+    const io = { reader, out: (line3) => {
+      println(stdout, line3);
     }, json: flags.json === true, ...roadmap2 ? { roadmap: roadmap2 } : {} };
     try {
       return await drive(named5, { plan: flags.plan === true, roadmap: roadmap2 }, io);
@@ -59749,10 +59761,10 @@ var WaitFileSchema = external_exports.object({
   at: external_exports.iso.datetime({ offset: true })
 });
 function shown4(file2, now2) {
-  const { prd: prd2, state, line: line2, waiting } = file2;
+  const { prd: prd2, state, line: line3, waiting } = file2;
   const until = Date.parse(file2.at) + TOAST_MS;
-  if (state === "waiting" || state === "held") return { prd: prd2, line: waiting ?? line2, toast: false, until: null };
-  if ((state === "approved" || state === "voided") && now2 < until) return { prd: prd2, line: line2, toast: true, until };
+  if (state === "waiting" || state === "held") return { prd: prd2, line: waiting ?? line3, toast: false, until: null };
+  if ((state === "approved" || state === "voided") && now2 < until) return { prd: prd2, line: line3, toast: true, until };
   return state === "voided" && waiting ? { prd: prd2, line: waiting, toast: false, until: null } : null;
 }
 function readFile3(path) {
@@ -59764,8 +59776,8 @@ function readWait(root, prd2, now2) {
   const names = attempt10(() => readdirSync38(dir).filter((name3) => name3.endsWith(".json")), []);
   const files = names.map((name3) => readFile3(join126(dir, name3))).filter((file2) => file2 !== null);
   const latest = [...files].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-  const ordered = [...latest.filter((file2) => file2.prd === prd2), ...latest.filter((file2) => file2.prd !== prd2)];
-  for (const file2 of ordered) {
+  const ordered2 = [...latest.filter((file2) => file2.prd === prd2), ...latest.filter((file2) => file2.prd !== prd2)];
+  for (const file2 of ordered2) {
     const wait6 = shown4(file2, now2);
     if (wait6) return wait6;
   }
@@ -59986,8 +59998,9 @@ var PrdJobSchema = external_exports.object({
   exitCode: external_exports.number().nullable(),
   reason: external_exports.string().nullable(),
   // A bug fix (PRD 2425) has outcomes of its own, which a PRD's follower has no word for: they, and any word
-  // that comes later, read as none, so one such job never makes a whole list unreadable.
-  outcome: external_exports.enum(["answers", "held", "ready", "human", "stopped"]).nullable().optional().catch(null).transform((value) => value ?? null),
+  // that comes later, read as none, so one such job never makes a whole list unreadable. `review` and
+  // `changes` are the Reviewer's hand-offs (PRD 2871).
+  outcome: external_exports.enum(["answers", "held", "ready", "human", "stopped", "review", "changes"]).nullable().optional().catch(null).transform((value) => value ?? null),
   queuedAt: external_exports.string()
 });
 var JobLinesSchema = external_exports.object({
@@ -59998,8 +60011,8 @@ var JobLinesSchema = external_exports.object({
 var timedOut4 = (error62) => typeof error62 === "object" && error62 !== null && "name" in error62 && error62.name === "TimeoutError";
 function refusalWords(status5, body) {
   const words4 = field(body, "error");
-  const line2 = typeof words4 === "string" ? words4.replace(/\s+/g, " ").trim() : "";
-  return line2 === "" ? `refused (${String(status5)})` : line2;
+  const line3 = typeof words4 === "string" ? words4.replace(/\s+/g, " ").trim() : "";
+  return line3 === "" ? `refused (${String(status5)})` : line3;
 }
 function checked3(response, what, allow = []) {
   if (response.status === 401 || response.status === 403 && !allow.includes(403)) throw new RunnerRefused(NO_SIGN_IN4);
@@ -60426,7 +60439,7 @@ function git8(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 function changedPaths3(ctx, base, exec) {
-  return git8(["diff", "--name-only", "--no-renames", `${base}...HEAD`], ctx.root, exec).split("\n").map((line2) => line2.trim()).filter(Boolean);
+  return git8(["diff", "--name-only", "--no-renames", `${base}...HEAD`], ctx.root, exec).split("\n").map((line3) => line3.trim()).filter(Boolean);
 }
 function signedLine(signed) {
   if (signed === null) return "signed: off (signature: null)";
@@ -60532,7 +60545,7 @@ function detailOf(row) {
 }
 function movedTable(rows2) {
   const cells4 = rows2.map((row) => [row.repo, row.state, detailOf(row)]);
-  const widths = [0, 1].map((i) => Math.max(0, ...cells4.map((line2) => (line2[i] ?? "").length)));
+  const widths = [0, 1].map((i) => Math.max(0, ...cells4.map((line3) => (line3[i] ?? "").length)));
   const [repoWidth = 0, stateWidth = 0] = widths;
   return cells4.map(
     ([repo, state, detail]) => detail ? `${repo.padEnd(repoWidth)}   ${state.padEnd(stateWidth)}   ${detail}` : `${repo.padEnd(repoWidth)}   ${state}`
@@ -60595,7 +60608,7 @@ function moved(rest, { ctx, stdout, exec, env }) {
     { exec, env: githubEnv(ctx, { exec, env }) }
   );
   if (flags.json) println(stdout, JSON.stringify(rows2.map(({ repo, state, files }) => ({ repo, state, files })), null, 2));
-  else for (const line2 of movedTable(rows2)) println(stdout, line2);
+  else for (const line3 of movedTable(rows2)) println(stdout, line3);
   return 0;
 }
 function landingsCommand(rest, { ctx, stdout }) {
@@ -60750,7 +60763,7 @@ var asLines = ({ id, state, approval: approval3, read: read3, title, url: url2, 
   `PRD ${id}${title === null ? "" : ` \u2014 ${title}`}`,
   `state: ${state}`,
   "birthplace: server",
-  ...approval3.lines.map((line2) => `approval: ${line2}`),
+  ...approval3.lines.map((line3) => `approval: ${line3}`),
   ...approval3.laws ? lawsLines(approval3.laws) : [],
   ...url2 === null ? [] : [`page: ${url2}`],
   ...read3 ? [`product: ${product2 ?? "none"}`] : []
@@ -61515,7 +61528,7 @@ function readWalk(dir) {
     throw new FilmRefused([`${WALK_FILE} does not read as JSON: ${messageOf(error62)}`]);
   }
   const parsed2 = parseWalk(value);
-  if (parsed2.walk === void 0) throw new FilmRefused(parsed2.errors.map((line2) => line2.startsWith(WALK_FILE) ? line2 : `${WALK_FILE}: ${line2}`));
+  if (parsed2.walk === void 0) throw new FilmRefused(parsed2.errors.map((line3) => line3.startsWith(WALK_FILE) ? line3 : `${WALK_FILE}: ${line3}`));
   return parsed2.walk;
 }
 var isLauncher2 = (value) => typeof propertyOf(value, "launch") === "function";
@@ -62161,7 +62174,7 @@ function runSettings(dir) {
     throw new RenderRefused([`${RUN_SETTINGS} does not read as JSON: ${messageOf(error62)}`]);
   }
   const parsed2 = parsePitchSettings(value);
-  if (!parsed2.ok) throw new RenderRefused(parsed2.errors.map((line2) => `${RUN_SETTINGS}: ${line2}`));
+  if (!parsed2.ok) throw new RenderRefused(parsed2.errors.map((line3) => `${RUN_SETTINGS}: ${line3}`));
   return parsed2.settings;
 }
 function runStoryboard(dir) {
@@ -62258,8 +62271,8 @@ function pageHtml(html, params) {
     added.push(script(`(function(){var seek=window.${PAGE_SEEK};var frames=${list6};window.${PAGE_SEEK}=function(n){return seek(frames[n]);};})();`));
   }
   if (params.has("report")) {
-    const post4 = "function(body){return fetch('/info',{method:'POST',body:JSON.stringify(body)});}";
-    added.push(script(`(function(){var post=${post4};window.${PAGE_INFO}().then(post,function(e){post({error:String(e&&e.message||e)});});})();`));
+    const post5 = "function(body){return fetch('/info',{method:'POST',body:JSON.stringify(body)});}";
+    added.push(script(`(function(){var post=${post5};window.${PAGE_INFO}().then(post,function(e){post({error:String(e&&e.message||e)});});})();`));
   }
   return added.length === 0 ? html : html.replace("</body>", `${added.join("")}</body>`);
 }
@@ -62523,7 +62536,7 @@ async function refreshInput(dir, { fetch, warn }) {
     await writePageInput(dir, { storyboard: runStoryboard(dir), settings: runSettings(dir), credits: [], fetch, warn });
   } catch (error62) {
     if (!(error62 instanceof RenderRefused)) throw error62;
-    for (const line2 of error62.lines) warn(`error: ${line2}`);
+    for (const line3 of error62.lines) warn(`error: ${line3}`);
     return false;
   }
   return true;
@@ -62587,7 +62600,7 @@ function runFolder(verb2, cwd, dir) {
 }
 function firstLine6(error62) {
   const text19 = String(propertyOf(error62, "stderr") ?? propertyOf(error62, "message") ?? error62).trim();
-  return text19.split("\n").find((line2) => line2.trim()) ?? "failed";
+  return text19.split("\n").find((line3) => line3.trim()) ?? "failed";
 }
 function signedInStore(askUrl2, { tokens: tokens2, home }) {
   if (!askUrl2) return null;
@@ -62654,7 +62667,7 @@ async function film2(args, { cwd, stdout, stderr, exec, film: launch }) {
   try {
     moments = await filmRun(dir, { exec, launch: launch ?? repositoryBrowser(cwd) });
   } catch (error62) {
-    for (const line2 of error62 instanceof FilmRefused ? error62.lines : [`film failed: ${firstLine6(error62)}`]) println(stderr, line2);
+    for (const line3 of error62 instanceof FilmRefused ? error62.lines : [`film failed: ${firstLine6(error62)}`]) println(stderr, line3);
     return 1;
   }
   println(stdout, join142(dir, WALK_CLIP));
@@ -62687,7 +62700,7 @@ function checked4(dir, stderr) {
   return errors.length === 0;
 }
 function failureLines(error62) {
-  if (error62 instanceof RenderRefused) return error62.lines.map((line2) => `error: ${line2}`);
+  if (error62 instanceof RenderRefused) return error62.lines.map((line3) => `error: ${line3}`);
   return [`render failed: ${firstLine6(error62)}`];
 }
 function folderAndSwitch(verb2, args, name3) {
@@ -62706,11 +62719,11 @@ async function render2(args, { cwd, stdout, stderr, exec, fetch, launch }) {
   }
   let rendered2;
   try {
-    rendered2 = await renderRun(dir, { stills }, { cwd, exec, fetch: providerFetch(fetch), launch, warn: (line2) => {
-      println(stderr, line2);
+    rendered2 = await renderRun(dir, { stills }, { cwd, exec, fetch: providerFetch(fetch), launch, warn: (line3) => {
+      println(stderr, line3);
     } });
   } catch (error62) {
-    for (const line2 of failureLines(error62)) println(stderr, line2);
+    for (const line3 of failureLines(error62)) println(stderr, line3);
     return 1;
   }
   for (const file2 of rendered2.files) println(stdout, join142(dir, file2));
@@ -62731,12 +62744,12 @@ async function studio(args, { cwd, stdout, stderr, fetch, openBrowser = openInBr
   const dir = storyboardFolder("studio", cwd, arg);
   let opened;
   try {
-    opened = await openStudio(dir, { fetch: providerFetch(fetch), warn: (line2) => {
-      println(stderr, line2);
+    opened = await openStudio(dir, { fetch: providerFetch(fetch), warn: (line3) => {
+      println(stderr, line3);
     } });
   } catch (error62) {
     if (!(error62 instanceof RenderRefused)) throw error62;
-    for (const line2 of error62.lines) println(stderr, line2);
+    for (const line3 of error62.lines) println(stderr, line3);
     return 1;
   }
   println(stdout, opened.url);
@@ -63174,8 +63187,8 @@ var replies = {
     const prd2 = prdArg("replies", "--prd", flags.prd);
     const pr = prArg("replies", "--pr", flags.pr);
     const repo = repoSlug("replies", ctx, flags.repo);
-    const post4 = flags.post === true;
-    const result2 = await outboxStore(ctx).replies({ prd: prd2, pr, post: post4 }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
+    const post5 = flags.post === true;
+    const result2 = await outboxStore(ctx).replies({ prd: prd2, pr, post: post5 }, githubClientFor(ctx, { repo, issue: pr, exec, env }));
     println(stdout, summarize(result2));
     if (result2.round) {
       if (result2.round.posted) {
@@ -63215,7 +63228,7 @@ function hasOutcome(runs3, finding) {
     return outcomes.success && outcomes.data !== void 0 && finding in outcomes.data;
   });
 }
-function withOutcomeLine(markdown, finding, line2) {
+function withOutcomeLine(markdown, finding, line3) {
   const lines4 = markdown.split("\n");
   const heading2 = `\`${finding}\``;
   const start4 = lines4.findIndex((text19) => text19.startsWith("### ") && (text19.endsWith(` \u2014 ${heading2}`) || text19.includes(` \u2014 ${heading2} \xB7 `)));
@@ -63223,7 +63236,7 @@ function withOutcomeLine(markdown, finding, line2) {
   let end3 = lines4.findIndex((text19, index2) => index2 > start4 && /^#{1,3} /.test(text19));
   if (end3 === -1) end3 = lines4.length;
   while (lines4[end3 - 1]?.trim() === "") end3 -= 1;
-  return [...lines4.slice(0, end3), line2, ...lines4.slice(end3)].join("\n");
+  return [...lines4.slice(0, end3), line3, ...lines4.slice(end3)].join("\n");
 }
 function recordOutcome({ ctx, prd: prd2, finding, outcome: outcome2 }) {
   const where = ctx.layout.whereIs(prd2);
@@ -63282,6 +63295,306 @@ var retro = {
     const note = recorded.markdown === null ? ` (no line for it in ${recorded.json.replace(/retro\.json$/, "retro.md")})` : ` and ${recorded.markdown}`;
     println(stdout, `retro outcome \u2014 PRD ${String(prd2)}, lesson \`${finding}\` recorded in ${recorded.json}${note}.`);
     return 0;
+  })
+};
+
+// kit/bin/commands/review.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/review/look-for.ts
+init_define_OMNI_BUNDLE();
+var SLOT = "look-for";
+var ITEM = /^(?:[-*+]|\d+[.)])\s+(.*\S)\s*$/;
+var CONTINUED = /^\s+(\S.*?)\s*$/;
+function listItems(text19) {
+  const items = [];
+  let open3 = false;
+  for (const raw of text19.split("\n")) {
+    const item2 = ITEM.exec(raw);
+    const continued = CONTINUED.exec(raw);
+    if (item2?.[1] !== void 0) {
+      items.push(item2[1]);
+      open3 = true;
+    } else if (open3 && continued?.[1] !== void 0) {
+      items[items.length - 1] = `${items.at(-1) ?? ""} ${continued[1]}`;
+    } else {
+      open3 = false;
+    }
+  }
+  return items;
+}
+var wordsOf5 = (text19) => text19.replace(/[*_`]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+function lookForItems(kitText, own2) {
+  const items = listItems(kitText).map((text19) => ({ text: text19, source: "kit" }));
+  if (!own2) return items;
+  const seen = new Set(items.map(({ text: text19 }) => wordsOf5(text19)));
+  for (const text19 of listItems(own2.text)) {
+    const words4 = wordsOf5(text19);
+    if (seen.has(words4)) continue;
+    seen.add(words4);
+    items.push({ text: text19, source: own2.source });
+  }
+  return items;
+}
+function lookFor({ ctx }) {
+  const template = formTemplate("review");
+  const kit = parseForm(template).form?.slots.find((slot2) => slot2.id === SLOT);
+  const section7 = resolveForm("review", { ctx, template }).sections.find((entry3) => entry3.slot === SLOT);
+  const own2 = section7 && section7.source !== "kit" ? { text: section7.text, source: section7.source } : null;
+  return lookForItems(kit?.body.text ?? "", own2);
+}
+
+// kit/lib/review/posted.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/review/verdict.ts
+init_define_OMNI_BUNDLE();
+var REVIEW_ROUNDS = 2;
+var MAX_FINDINGS = 5;
+var SEVERITIES2 = Object.freeze(["blocker", "major", "minor"]);
+var VERDICTS3 = Object.freeze(["pass", "changes"]);
+var ONE_LINE = "one line";
+var MAX_TEXT2 = 500;
+var line2 = (what) => external_exports.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text19) => !text19.includes("\n"), `${ONE_LINE}: ${what}`);
+var RepoPathSchema = external_exports.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
+var FindingSchema3 = external_exports.strictObject({
+  file: RepoPathSchema,
+  line: external_exports.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
+  severity: external_exports.enum(SEVERITIES2, { error: `one of ${SEVERITIES2.join(", ")}` }),
+  rule: line2("the rule it breaks: a law or rule id, a playbook form and section, or default \u203A <item>"),
+  problem: line2("what is wrong"),
+  fix: line2("what would fix it")
+});
+var VerdictSchema = external_exports.strictObject({
+  round: external_exports.union([external_exports.literal(1), external_exports.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
+  verdict: external_exports.enum(VERDICTS3, { error: `one of ${VERDICTS3.join(", ")}` }),
+  summary: line2("the summary").optional(),
+  findings: external_exports.array(FindingSchema3).default([])
+}).superRefine((verdict2, context) => {
+  const count10 = verdict2.findings.length;
+  if (verdict2.verdict === "pass" && count10 > 0) {
+    context.addIssue({ code: "custom", path: ["findings"], message: "a pass holds no finding" });
+  }
+  if (verdict2.verdict === "changes" && (count10 === 0 || count10 > MAX_FINDINGS)) {
+    context.addIssue({ code: "custom", path: ["findings"], message: `a changes verdict holds 1 to ${String(MAX_FINDINGS)} findings, got ${String(count10)}` });
+  }
+});
+function parseVerdict(input2) {
+  if (input2 === null || typeof input2 !== "object" || Array.isArray(input2)) {
+    return { ok: false, errors: ["(verdict): an object { round, verdict, findings }"] };
+  }
+  const parsed2 = VerdictSchema.safeParse(input2);
+  if (parsed2.success) return { ok: true, verdict: parsed2.data };
+  return { ok: false, errors: parsed2.error.issues.map((issue2) => `${issue2.path.map(String).join(".") || "(verdict)"}: ${issue2.message}`) };
+}
+function reviewMarker(round2, verdict2) {
+  return `<!-- omni-review: ${String(round2)} ${verdict2} -->`;
+}
+var MARKER_RE2 = /<!-- omni-review: (\d+) ([a-z]+) -->/;
+var KNOWN_VERDICTS3 = VERDICTS3;
+var isVerdictName = (value) => KNOWN_VERDICTS3.includes(value);
+function readReviewMarker(body) {
+  const match = MARKER_RE2.exec(body ?? "");
+  const round2 = Number(match?.[1]);
+  const verdict2 = match?.[2] ?? "";
+  if (!Number.isInteger(round2) || round2 < 1 || round2 > REVIEW_ROUNDS || !isVerdictName(verdict2)) return null;
+  return { round: round2, verdict: verdict2 };
+}
+var BYLINE = "Reviewer \xB7 agent";
+function summaryLine({ round: round2, verdict: verdict2, findings: findings2 }) {
+  const what = verdict2 === "pass" ? "pass" : `${String(findings2.length)} finding${findings2.length === 1 ? "" : "s"}`;
+  return `Round ${String(round2)} of ${String(REVIEW_ROUNDS)}: ${what}`;
+}
+var compare2 = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+function ordered(findings2) {
+  return [...findings2].sort(
+    (a, b) => SEVERITIES2.indexOf(a.severity) - SEVERITIES2.indexOf(b.severity) || compare2(a.file, b.file) || a.line - b.line || compare2(a.rule, b.rule) || compare2(a.problem, b.problem) || compare2(a.fix, b.fix)
+  );
+}
+function threadBody(finding, round2) {
+  return [
+    `**${finding.severity}** \xB7 ${finding.rule}`,
+    "",
+    finding.problem,
+    "",
+    `**Fix:** ${finding.fix}`,
+    "",
+    `_${BYLINE} \xB7 round ${String(round2)} of ${String(REVIEW_ROUNDS)}_`
+  ].join("\n");
+}
+function renderReview(verdict2, { footer }) {
+  const findings2 = ordered(verdict2.findings);
+  const lines4 = [reviewMarker(verdict2.round, verdict2.verdict), `**${summaryLine(verdict2)}**`, ""];
+  if (verdict2.summary) lines4.push(verdict2.summary, "");
+  if (findings2.length) {
+    findings2.forEach((finding, index2) => {
+      lines4.push(`${String(index2 + 1)}. **${finding.severity}** \xB7 \`${finding.file}:${String(finding.line)}\` \xB7 ${finding.rule}: ${finding.problem}`);
+    });
+    lines4.push("");
+  }
+  lines4.push(`_${BYLINE}: this review only comments. Approving and merging stay a person's._`);
+  if (footer) lines4.push("", footer);
+  const comments = findings2.map((finding) => ({ path: finding.file, line: finding.line, side: "RIGHT", body: threadBody(finding, verdict2.round) }));
+  return { body: lines4.join("\n"), comments };
+}
+
+// kit/lib/review/posted.ts
+function postedReviews(reviews) {
+  return reviews.flatMap((review2) => {
+    const marker = readReviewMarker(review2.body);
+    return marker ? [{ ...marker, url: review2.html_url ?? null }] : [];
+  });
+}
+function postedRound(reviews, round2) {
+  return postedReviews(reviews).find((review2) => review2.round === round2) ?? null;
+}
+function latestReview(reviews) {
+  let latest = null;
+  for (const review2 of postedReviews(reviews)) if (!latest || review2.round >= latest.round) latest = review2;
+  return latest;
+}
+
+// kit/bin/commands/review.ts
+var USAGE42 = "usage: omni review post <prd> --file <verdict.json> [--pr <n>] [--repo <owner/name>] [--json]\n       omni review read <prd> [--pr <n>] [--repo <owner/name>] [--json]\n       omni review look-for [--json]";
+var GhPullSchema = external_exports.looseObject({ number: PrNumberSchema, html_url: external_exports.string(), head: external_exports.looseObject({ sha: external_exports.string().min(1) }) });
+var GhReviewSchema = external_exports.looseObject({ id: external_exports.number(), body: external_exports.string().nullish(), html_url: external_exports.string().nullish() });
+var GhPostedSchema = external_exports.looseObject({ id: external_exports.number(), html_url: external_exports.string().nullish() });
+var GitHubRefusal = class extends Error {
+  name = "GitHubRefusal";
+};
+function ghJson(args, schema, { exec, env }, { what, input: input2 }) {
+  let raw;
+  try {
+    raw = exec("gh", args, { encoding: "utf8", ...input2 === void 0 ? {} : { input: input2 }, ...env ? { env } : {} });
+  } catch (error62) {
+    const stderr = propertyOf(error62, "stderr");
+    const text19 = typeof stderr === "string" && stderr.trim() ? stderr : messageOf(error62);
+    throw new GitHubRefusal(`GitHub refused ${what}: ${text19.trim().split("\n")[0] ?? ""}`);
+  }
+  return schema.parse(JSON.parse(raw));
+}
+function featureBranch(prd2, ctx) {
+  const where = ctx.layout.whereIs(prd2);
+  const parsed2 = where ? parseFolderName(where.name) : null;
+  if (!parsed2) throw usageError(`omni review: PRD ${String(prd2)} has no inbox or shipped folder; pass --pr <n>.`);
+  return fillBranch(ctx.config.branches.feature, { topic: parsed2.topic });
+}
+function pullRequest2(prd2, pr, { ctx, gh: gh3 }) {
+  if (pr !== null) return ghJson(["api", `repos/${gh3.repo}/pulls/${String(pr)}`], GhPullSchema, gh3, { what: `the pull request #${String(pr)}` });
+  const branch = featureBranch(prd2, ctx);
+  const [owner = ""] = gh3.repo.split("/");
+  const pulls = ghJson(["api", "-X", "GET", `repos/${gh3.repo}/pulls`, "-f", "state=open", "-f", `head=${owner}:${branch}`], external_exports.array(GhPullSchema), gh3, {
+    what: `the pull requests of ${branch}`
+  });
+  const [open3] = pulls;
+  if (!open3) throw new GitHubRefusal(`${branch} has no open pull request in ${gh3.repo}.`);
+  return open3;
+}
+function reviewsOf(pr, gh3) {
+  return ghJson(["api", `repos/${gh3.repo}/pulls/${String(pr)}/reviews`, "--paginate"], external_exports.array(GhReviewSchema), gh3, { what: `the reviews of #${String(pr)}` });
+}
+function readVerdict2(path, ctx) {
+  const text19 = readUserFile("review", ctx, path);
+  let input2;
+  try {
+    input2 = JSON.parse(text19);
+  } catch {
+    return { ok: false, lines: [`omni review: ${path} is not JSON, nothing posted.`] };
+  }
+  const parsed2 = parseVerdict(input2);
+  if (parsed2.ok) return parsed2;
+  return { ok: false, lines: ["omni review: the verdict is refused, nothing posted:", ...parsed2.errors.map((error62) => `  ${error62}`)] };
+}
+var FLAGS2 = { values: ["file", "pr", "repo"], booleans: ["json"] };
+function targetOf4(args, { ctx, exec, env }) {
+  const { positional, flags } = parseArgs("review", args, FLAGS2);
+  if (positional.length !== 1) throw usageError(USAGE42);
+  const prd2 = prdArg("review", "<prd>", positional[0]);
+  const pr = flags.pr === void 0 ? null : prArg("review", "--pr", flags.pr);
+  const repo = repoSlug("review", ctx, flags.repo);
+  return { prd: prd2, pr, gh: { exec, env: githubEnv(ctx, { exec, env }), repo }, json: flags.json === true, file: flags.file };
+}
+function onGitHub(stderr, run2) {
+  try {
+    return run2();
+  } catch (error62) {
+    if (!(error62 instanceof GitHubRefusal)) throw error62;
+    println(stderr, `omni review: ${error62.message}`);
+    return 1;
+  }
+}
+var NO_REVIEW = Object.freeze({ round: null, verdict: null, url: null });
+function latestLine(latest, pull) {
+  const where = `PR #${String(pull.number)}`;
+  if (!latest) return `none \xB7 ${where} has no Reviewer review yet`;
+  return `round ${String(latest.round)} ${latest.verdict} \xB7 ${where} \xB7 ${latest.url ?? pull.html_url}`;
+}
+function readLatest(args, io) {
+  const { ctx, stdout, stderr } = io;
+  const { prd: prd2, pr, gh: gh3, json: json3 } = targetOf4(args, io);
+  return onGitHub(stderr, () => {
+    const pull = pullRequest2(prd2, pr, { ctx, gh: gh3 });
+    const latest = latestReview(reviewsOf(pull.number, gh3));
+    println(stdout, json3 ? JSON.stringify({ pr: pull.number, ...latest ?? NO_REVIEW }) : latestLine(latest, pull));
+    return 0;
+  });
+}
+function postVerdict(args, io) {
+  const { ctx, stderr } = io;
+  const { prd: prd2, pr, gh: gh3, json: json3, file: file2 } = targetOf4(args, io);
+  if (file2 === void 0) throw usageError(USAGE42);
+  const verdict2 = readVerdict2(file2, ctx);
+  if (!verdict2.ok) {
+    for (const line3 of verdict2.lines) println(stderr, line3);
+    return 1;
+  }
+  return onGitHub(stderr, () => {
+    const pull = pullRequest2(prd2, pr, { ctx, gh: gh3 });
+    return post4(verdict2.verdict, { pull, reviews: reviewsOf(pull.number, gh3), gh: gh3, ctx, stdout: io.stdout, json: json3 });
+  });
+}
+function printPost(stdout, json3, { line: line3, ...outcome2 }) {
+  println(stdout, json3 ? JSON.stringify(outcome2) : line3);
+}
+function post4(verdict2, { pull, reviews, gh: gh3, ctx, stdout, json: json3 }) {
+  const pr = pull.number;
+  const already = postedRound(reviews, verdict2.round);
+  if (already) {
+    const url3 = already.url ?? pull.html_url;
+    const line4 = `omni review: round ${String(verdict2.round)} is already posted on PR #${String(pr)}: ${url3}. Nothing posted.`;
+    printPost(stdout, json3, { posted: false, pr, round: already.round, verdict: already.verdict, url: url3, line: line4 });
+    return 0;
+  }
+  const { body, comments } = renderReview(verdict2, { footer: footerLine(ctx.config.signature) });
+  const payload = JSON.stringify({ commit_id: pull.head.sha, event: "COMMENT", body, comments });
+  const written = ghJson(["api", `repos/${gh3.repo}/pulls/${String(pr)}/reviews`, "--input", "-"], GhPostedSchema, gh3, { what: "the review", input: payload });
+  const url2 = written.html_url ?? pull.html_url;
+  const count10 = verdict2.findings.length;
+  const what = verdict2.verdict === "pass" ? "pass" : `changes, ${String(count10)} finding${count10 === 1 ? "" : "s"}`;
+  const line3 = `omni review: posted round ${String(verdict2.round)} (${what}) on PR #${String(pr)}: ${url2}`;
+  printPost(stdout, json3, { posted: true, pr, round: verdict2.round, verdict: verdict2.verdict, url: url2, line: line3 });
+  return 0;
+}
+function printLookFor(args, { ctx, stdout }) {
+  const { positional, flags } = parseArgs("review", args, { booleans: ["json"] });
+  if (positional.length) throw usageError(USAGE42);
+  const items = lookFor({ ctx });
+  if (flags.json) {
+    println(stdout, JSON.stringify(items));
+    return 0;
+  }
+  items.forEach(({ text: text19, source: source2 }, index2) => {
+    println(stdout, `${String(index2 + 1)}. ${text19}${source2 === "kit" ? "" : `  [${source2}]`}`);
+  });
+  return 0;
+}
+var review = {
+  run: synchronous((args, io) => {
+    const [which = "", ...rest] = args;
+    if (which === "post") return postVerdict(rest, io);
+    if (which === "read") return readLatest(rest, io);
+    if (which === "look-for") return printLookFor(rest, io);
+    throw usageError(USAGE42);
   })
 };
 
@@ -63408,7 +63721,7 @@ function outcomeLine2(finding, outcome2) {
 }
 
 // kit/bin/commands/rewind.ts
-var USAGE42 = [
+var USAGE43 = [
   "usage: omni rewind facts <prd> [--json] | omni rewind push <prd> --file <findings.json>",
   "       | omni rewind outcome <finding> (--pr <n> | --already <rule> | --asks '<question>')"
 ].join("\n");
@@ -63459,8 +63772,8 @@ function fileJson(cwd, name3) {
   }
 }
 function stopper(io, verb2, tail = "") {
-  return (line2) => {
-    println(io.stderr, `omni rewind ${verb2}: ${line2}${tail}`);
+  return (line3) => {
+    println(io.stderr, `omni rewind ${verb2}: ${line3}${tail}`);
     return 1;
   };
 }
@@ -63479,7 +63792,7 @@ async function facts(prd2, json3, io, options) {
     const read3 = factsOf(await client.readRewind({ repo, prd: prd2 }));
     if (!read3) return stop("the Omni page answered something this kit does not read");
     if (json3) println(io.stdout, JSON.stringify(read3));
-    else for (const line2 of factLines(prd2, read3)) println(io.stdout, line2);
+    else for (const line3 of factLines(prd2, read3)) println(io.stdout, line3);
     return 0;
   });
 }
@@ -63506,7 +63819,7 @@ async function outcome(finding, sent2, io, options) {
 function outcomeArgs(rest) {
   const { positional, flags } = parseArgs("rewind", rest, { values: ["pr", "already", "asks"] });
   const [finding] = positional;
-  if (positional.length !== 1 || finding === void 0) throw usageError(USAGE42);
+  if (positional.length !== 1 || finding === void 0) throw usageError(USAGE43);
   if (!FindingIdSchema.safeParse(finding).success) throw usageError("omni rewind outcome: the finding is the id on its card (a UUID).");
   const named5 = outcomeOf2({ pull: flags.pr, already: flags.already, asks: flags.asks });
   if (!named5.ok) throw usageError(`omni rewind outcome: ${named5.error}`);
@@ -63521,20 +63834,20 @@ var rewind = {
     if (verb2 === "facts") {
       const { positional, flags } = parseArgs("rewind", rest, { booleans: ["json"] });
       const [prdText] = positional;
-      if (positional.length !== 1) throw usageError(USAGE42);
+      if (positional.length !== 1) throw usageError(USAGE43);
       return facts(prdArg("rewind", "the PRD", prdText), flags.json === true, io, options);
     }
     if (verb2 === "push") {
       const { positional, flags } = parseArgs("rewind", rest, { values: ["file"] });
       const [prdText] = positional;
-      if (positional.length !== 1 || flags.file === void 0) throw usageError(USAGE42);
+      if (positional.length !== 1 || flags.file === void 0) throw usageError(USAGE43);
       return push5(prdArg("rewind", "the PRD", prdText), flags.file, io, options);
     }
     if (verb2 === "outcome") {
       const { finding, sent: sent2 } = outcomeArgs(rest);
       return outcome(finding, sent2, io, options);
     }
-    throw usageError(USAGE42);
+    throw usageError(USAGE43);
   }
 };
 
@@ -63637,13 +63950,13 @@ var BASE_CARDS = {
 var OK = { ok: true };
 var notOk = (detail) => ({ ok: false, detail });
 function lastLine2({ stdout, stderr }) {
-  const lines4 = (stderr.trim() === "" ? stdout : stderr).split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "");
+  const lines4 = (stderr.trim() === "" ? stdout : stderr).split("\n").map((line3) => line3.trim()).filter((line3) => line3 !== "");
   return lines4.at(-1) ?? "";
 }
-function failure5(line2, result2) {
+function failure5(line3, result2) {
   const how = result2.code === null ? "was stopped" : `exited ${result2.code}`;
   const last = lastLine2(result2);
-  return last === "" ? `${line2} ${how}` : `${line2} ${how}: ${last}`;
+  return last === "" ? `${line3} ${how}` : `${line3} ${how}: ${last}`;
 }
 async function command(env, file2, args, timeoutMs = CHECK_LIMIT_MS, shown6 = [file2, ...args].join(" ")) {
   const result2 = await env.shell(file2, args, { cwd: env.root, timeoutMs });
@@ -63716,7 +64029,7 @@ var install = async (env) => {
 var DEFAULT_REGISTRY = "https://registry.npmjs.org/";
 function registries(env) {
   const lines4 = (env.files.read(".npmrc") ?? "").split("\n");
-  const urls = (pattern) => lines4.map((line2) => pattern.exec(line2)?.[1]).filter((url2) => url2 !== void 0);
+  const urls = (pattern) => lines4.map((line3) => pattern.exec(line3)?.[1]).filter((url2) => url2 !== void 0);
   const main2 = urls(/^\s*registry\s*=\s*(\S+)/)[0] ?? DEFAULT_REGISTRY;
   return [.../* @__PURE__ */ new Set([main2, ...urls(/^\s*@[^:\s]+:registry\s*=\s*(\S+)/)])];
 }
@@ -63763,7 +64076,7 @@ var EXAMPLE = ".env.example";
 async function missingEnvFiles(env) {
   const { result: result2, outcome: outcome2 } = await command(env, "git", ["ls-files", "--", EXAMPLE, `**/${EXAMPLE}`]);
   if (!outcome2.ok) return outcome2;
-  const examples = [...new Set(result2.stdout.split("\n").map((line2) => line2.trim()).filter((line2) => line2.endsWith(EXAMPLE)))];
+  const examples = [...new Set(result2.stdout.split("\n").map((line3) => line3.trim()).filter((line3) => line3.endsWith(EXAMPLE)))];
   return examples.map((example) => [example, `${example.slice(0, -EXAMPLE.length)}.env`]).filter(([, file2]) => !env.files.exists(file2));
 }
 var envFiles = async (env) => {
@@ -63818,7 +64131,7 @@ function keepPage({ cwd, exec, now: now2 }, n, page2) {
   } catch {
   }
 }
-var USAGE43 = [
+var USAGE44 = [
   "usage: omni roadmap check [<n>]",
   "       omni roadmap check --product <key> <file>",
   "       omni roadmap push <n>",
@@ -63846,7 +64159,7 @@ function report6(stdout, graded) {
 }
 function checkCommand2(rest, { ctx, stdout }) {
   const { positional } = parseArgs("roadmap check", rest);
-  if (positional.length > 1) throw usageError(USAGE43);
+  if (positional.length > 1) throw usageError(USAGE44);
   const wanted = positional[0] === void 0 ? null : issueArg("roadmap check", "<n>", positional[0]);
   const all = gradeRoadmaps(ctx);
   const graded = wanted === null ? all : all.filter((entry3) => entry3.number === wanted);
@@ -63858,8 +64171,8 @@ function checkCommand2(rest, { ctx, stdout }) {
   const passed = graded.map((entry3) => report6(stdout, entry3));
   return passed.every(Boolean) ? 0 : 1;
 }
-function refuse6(stderr, line2) {
-  println(stderr, line2);
+function refuse6(stderr, line3) {
+  println(stderr, line3);
   return 1;
 }
 function roadmapFile(ctx, verb2, n) {
@@ -63938,7 +64251,7 @@ function reportPush3(io, n, { askUrl: askUrl2, body }, reply) {
 }
 async function pushCommand(rest, io) {
   const { positional } = parseArgs("roadmap push", rest);
-  if (positional.length !== 1) throw usageError(USAGE43);
+  if (positional.length !== 1) throw usageError(USAGE44);
   const n = issueArg("roadmap push", "<n>", positional[0]);
   const inputs = await pushInputs(n, io);
   if (typeof inputs === "string") return refuse6(io.stderr, inputs);
@@ -63952,7 +64265,7 @@ async function pushCommand(rest, io) {
 }
 function answerArgs(rest) {
   const { positional } = parseArgs("roadmap answer", rest);
-  if (positional.length !== 3) throw usageError(USAGE43);
+  if (positional.length !== 3) throw usageError(USAGE44);
   const [number5, question = "", given = ""] = positional;
   const n = issueArg("roadmap answer", "<n>", number5);
   const answer = given.trim();
@@ -64047,7 +64360,7 @@ async function sendPrereqs(n, io, { machine, checkedAt, rows: rows2 }) {
 }
 async function prereqsCommand(rest, io) {
   const { positional, flags } = parseArgs("roadmap prereqs", rest, { booleans: ["fix", "json"] });
-  if (positional.length !== 1) throw usageError(USAGE43);
+  if (positional.length !== 1) throw usageError(USAGE44);
   const n = issueArg("roadmap prereqs", "<n>", positional[0]);
   const { ctx, repo } = repoContext2(io);
   const read3 = readRoadmap(ctx, roadmapFile(ctx, "prereqs", n));
@@ -64076,7 +64389,7 @@ function assertPersonRow(roadmap2, n, id) {
 }
 function tickCommand(rest, io) {
   const { positional } = parseArgs("roadmap tick", rest);
-  if (positional.length !== 2) throw usageError(USAGE43);
+  if (positional.length !== 2) throw usageError(USAGE44);
   const n = issueArg("roadmap tick", "<n>", positional[0]);
   const id = positional[1] ?? "";
   const { ctx } = repoContext2(io);
@@ -64100,7 +64413,7 @@ function productArgs2(verb2, rest) {
   const { positional, flags } = parseArgs(`roadmap ${verb2}`, rest, { values: ["product", "roadmap"], booleans: ["new"] });
   const key2 = flags.product ?? "";
   if (!isProductKey(key2)) throw usageError(`omni roadmap ${verb2}: --product "${key2}" needs a product key (lowercase kebab-case, as mobile).`);
-  if (positional.length !== 1) throw usageError(USAGE43);
+  if (positional.length !== 1) throw usageError(USAGE44);
   assertProductFlags(verb2, flags);
   return { key: key2, file: positional[0] ?? "", roadmap: flags.roadmap ?? null, create: flags.new === true };
 }
@@ -64134,7 +64447,7 @@ function reportProduct(io, { key: key2, file: file2 }, record2, violations) {
   println(io.stdout, `omni roadmap check \u2014 ${file2}: ${record2.prds.length} PRD(s) across ${waves.length} wave(s), for product ${key2}.`);
   for (const { wave, rows: rows2 } of waves) println(io.stdout, `  wave ${wave}: ${rows2.map(rowWords).join(", ")}`);
   if (violations.length > 0) {
-    println(io.stdout, formatFailure(`omni roadmap check \u2014 ${file2}: violation(s):`, violations.map((line2) => `${file2}: ${line2}`)));
+    println(io.stdout, formatFailure(`omni roadmap check \u2014 ${file2}: violation(s):`, violations.map((line3) => `${file2}: ${line3}`)));
     return false;
   }
   println(io.stdout, formatPass(`omni roadmap check \u2014 ${file2}: every row, blocker and question holds, and every row names repositories of product ${key2}.`));
@@ -64158,7 +64471,7 @@ async function pushProduct2(rest, io) {
   const target3 = pushTarget(args, graded.roadmap.productId ?? null);
   if ("error" in target3) throw usageError(`omni roadmap push: ${target3.error}`);
   if (graded.violations.length > 0) {
-    return refuse6(io.stderr, formatFailure(`omni roadmap push \u2014 ${args.file}: nothing was sent:`, graded.violations.map((line2) => `${args.file}: ${line2}`)));
+    return refuse6(io.stderr, formatFailure(`omni roadmap push \u2014 ${args.file}: nothing was sent:`, graded.violations.map((line3) => `${args.file}: ${line3}`)));
   }
   const sent2 = await pushProductFile({ key: args.key, seq: target3.seq, repo: connected.repo, roadmap: graded.roadmap, document, askUrl: connected.askUrl, client: connected.client });
   if (!sent2.ok) return refuse6(io.stderr, sent2.line);
@@ -64177,7 +64490,7 @@ var roadmap = {
   async run(args, io) {
     const [sub = "", ...rest] = args;
     const verb2 = Object.hasOwn(verbs, sub) ? verbs[sub] : void 0;
-    if (verb2 === void 0) throw usageError(USAGE43);
+    if (verb2 === void 0) throw usageError(USAGE44);
     return verb2(rest, io);
   }
 };
@@ -64310,7 +64623,7 @@ function worktreesOf(exec, checkout) {
   }
   return out.split("\n\n").flatMap((block) => {
     const lines4 = block.split("\n");
-    const field3 = (name3) => lines4.find((line2) => line2.startsWith(`${name3} `))?.slice(name3.length + 1);
+    const field3 = (name3) => lines4.find((line3) => line3.startsWith(`${name3} `))?.slice(name3.length + 1);
     const path = field3("worktree");
     const head = field3("HEAD");
     if (path === void 0 || head === void 0 || lines4.includes("bare")) return [];
@@ -64360,7 +64673,7 @@ function unsavedOf(options, worktree, nested) {
 }
 function baseOf3(exec, worktree, head, commits) {
   if (commits === 0) return head;
-  const boundary = exec("git", ["-C", worktree, "rev-list", "--boundary", head, "--not", "--remotes=origin"], QUIET13).split("\n").find((line2) => line2.startsWith("-"));
+  const boundary = exec("git", ["-C", worktree, "rev-list", "--boundary", head, "--not", "--remotes=origin"], QUIET13).split("\n").find((line3) => line3.startsWith("-"));
   return boundary === void 0 ? null : boundary.slice(1);
 }
 function writeBundle(exec, checkout, found2, file2) {
@@ -64471,11 +64784,11 @@ var SHAPE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
 var OWN_SHAPE = /^\/([a-z][a-z0-9-]*)(?: (.*))?$/s;
 var ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
 var BAD_ARGS = "the arguments hold a character other than letters, digits, spaces and ._/:#-";
-function checkRunnerLine(line2, allowed = []) {
-  if (line2.length > LINE_MAX2) return { ok: false, reason: `the line is over ${String(LINE_MAX2)} characters` };
-  const fixed2 = SHAPE.exec(line2);
+function checkRunnerLine(line3, allowed = []) {
+  if (line3.length > LINE_MAX2) return { ok: false, reason: `the line is over ${String(LINE_MAX2)} characters` };
+  const fixed2 = SHAPE.exec(line3);
   if (fixed2) return checkFixed(fixed2[1] ?? "", fixed2[2] ?? "");
-  const own2 = OWN_SHAPE.exec(line2);
+  const own2 = OWN_SHAPE.exec(line3);
   if (!own2) return { ok: false, reason: "the line does not read /omni:<skill> <arguments> or /<skill> <arguments>" };
   return checkOwn(own2[1] ?? "", own2[2] ?? "", allowed);
 }
@@ -64491,8 +64804,8 @@ function checkOwn(skill, args, allowed) {
   if (!allowed.includes(skill)) return { ok: false, reason: `/${skill} is not allowed on a runner for this repository` };
   return { ok: true, kind: "repository", skill, args };
 }
-function prdOfRunnerLine(line2) {
-  const checked5 = checkRunnerLine(line2);
+function prdOfRunnerLine(line3) {
+  const checked5 = checkRunnerLine(line3);
   if (!checked5.ok || !PRD_SKILLS.includes(checked5.skill)) return null;
   const first = checked5.args.split(" ")[0] ?? "";
   return /^[1-9]\d*$/.test(first) ? Number(first) : null;
@@ -64703,8 +65016,8 @@ var isObject2 = (value) => typeof value === "object" && value !== null && !Array
 var text18 = (value) => typeof value === "string" ? value : "";
 var number4 = (value) => typeof value === "number" && Number.isFinite(value) ? value : 0;
 var two = (value) => String(value).padStart(2, "0");
-var cut4 = (line2) => line2.length > LINE_CUT ? line2.slice(0, LINE_CUT) : line2;
-var firstLine7 = (value) => value.split("\n").find((line2) => line2.trim() !== "")?.trim() ?? "";
+var cut4 = (line3) => line3.length > LINE_CUT ? line3.slice(0, LINE_CUT) : line3;
+var firstLine7 = (value) => value.split("\n").find((line3) => line3.trim() !== "")?.trim() ?? "";
 function clock2(now2) {
   return `${two(now2.getHours())}:${two(now2.getMinutes())}:${two(now2.getSeconds())}`;
 }
@@ -64740,9 +65053,9 @@ function resultText(content) {
 function failure6(output2) {
   const lines4 = output2.split("\n");
   while (lines4.length > 0 && lines4.at(-1)?.trim() === "") lines4.pop();
-  const first = lines4.findIndex((line2) => line2.trim() !== "");
+  const first = lines4.findIndex((line3) => line3.trim() !== "");
   if (first < 0) return ["\u2717"];
-  const rest = lines4.slice(first + 1, first + 1 + STEP_OUTPUT_LINES).map((line2) => `  ${line2}`);
+  const rest = lines4.slice(first + 1, first + 1 + STEP_OUTPUT_LINES).map((line3) => `  ${line3}`);
   return [`\u2717 ${(lines4[first] ?? "").trim()}`, ...rest];
 }
 function links(value, seen) {
@@ -64764,8 +65077,8 @@ function blocks2(content, run2) {
   return content.filter(isObject2).flatMap((block) => {
     if (block.type === "tool_use") return [use(block, run2.opens)];
     if (block.type === "text") {
-      const line2 = firstLine7(text18(block.text));
-      return line2 ? [`\u203A ${line2}`] : [];
+      const line3 = firstLine7(text18(block.text));
+      return line3 ? [`\u203A ${line3}`] : [];
     }
     if (block.type === "tool_result") {
       const output2 = resultText(block.content);
@@ -64786,13 +65099,13 @@ function eventLines(event, run2) {
   if (event.type === "assistant" || event.type === "user") return blocks2(isObject2(event.message) ? event.message.content : void 0, run2);
   return [];
 }
-function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__PURE__ */ new Set() } = {}) {
-  if (line2.trim() === "") return [];
+function stepLine(line3, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__PURE__ */ new Set() } = {}) {
+  if (line3.trim() === "") return [];
   let event;
   try {
-    event = JSON.parse(line2);
+    event = JSON.parse(line3);
   } catch {
-    return [cut4(line2)];
+    return [cut4(line3)];
   }
   if (!isObject2(event)) return [];
   const stamp2 = `${clock2(now2)} `;
@@ -64919,9 +65232,9 @@ var LIMIT_WORDS = /usage limit reached|hit your (?:usage )?limit|\b(?:5-hour|fiv
 var LIMIT_EPOCH = /\|(\d{10,13})\s*$/;
 var kind = (event) => field(event, "type");
 function eventsOf(run2) {
-  return run2.lines.flatMap((line2) => {
+  return run2.lines.flatMap((line3) => {
     try {
-      const event = JSON.parse(line2);
+      const event = JSON.parse(line3);
       return typeof event === "object" && event !== null && !Array.isArray(event) ? [event] : [];
     } catch {
       return [];
@@ -65020,8 +65333,8 @@ ${handoff2}
 `;
       return { file: CLAUDE4, args: [...CLAUDE_ARGS, ...accountArgs(account), ...mcpArgs(job2)], env: accountEnv(account), stdin };
     },
-    step(line2, context) {
-      return stepLine(line2, context);
+    step(line3, context) {
+      return stepLine(line3, context);
     },
     usage(run2) {
       const counts2 = tokens2.job(run2.cwd);
@@ -65196,7 +65509,7 @@ async function t3SignIn({ home, origin, exec, fetch, now: now2 = Date.now }) {
   }
 }
 function rpcOf(text19) {
-  const data = text19.split("\n").filter((line2) => line2.startsWith("data:")).at(-1);
+  const data = text19.split("\n").filter((line3) => line3.startsWith("data:")).at(-1);
   try {
     const value = JSON.parse(data === void 0 ? text19 : data.slice("data:".length));
     return value;
@@ -65322,9 +65635,9 @@ function eventsOf2(run2) {
   });
 }
 var lastOf = (events, type) => events.filter((event) => field(event, "type") === type).at(-1);
-function lineAsWords(line2) {
-  const parsed2 = LINE2.exec(line2);
-  if (parsed2 === null) return line2;
+function lineAsWords(line3) {
+  const parsed2 = LINE2.exec(line3);
+  if (parsed2 === null) return line3;
   const skill = `${parsed2[1] === void 0 ? "" : "omni-"}${parsed2[2] ?? ""}`;
   const args = (parsed2[3] ?? "").trim();
   return args === "" ? `Use the ${skill} skill.` : `Use the ${skill} skill with these arguments: ${args}`;
@@ -65428,9 +65741,9 @@ function t3Agent(deps = {}) {
       return instance.signedIn ? null : "not signed in";
     },
     command(job2, account, handoff2) {
-      const line2 = lineFor2(job2, account);
-      return run2(account, handoff2 === void 0 ? `${line2}
-` : `${line2}
+      const line3 = lineFor2(job2, account);
+      return run2(account, handoff2 === void 0 ? `${line3}
+` : `${line3}
 
 ${handoff2}
 `);
@@ -65526,7 +65839,7 @@ function t3Cli(env) {
 }
 var TICK_MS = 5e3;
 var textOf14 = (value) => typeof value === "string" ? value : "";
-var lines3 = (text19) => text19.split("\n").map((line2) => line2.trimEnd()).filter((line2) => line2 !== "");
+var lines3 = (text19) => text19.split("\n").map((line3) => line3.trimEnd()).filter((line3) => line3 !== "");
 function objectOf(text19) {
   try {
     const value = JSON.parse(text19);
@@ -65584,14 +65897,14 @@ function stateOf2(shown6) {
   const messages2 = field(shown6, "messages");
   const said2 = Array.isArray(messages2) ? messages2.filter((message2) => field(message2, "role") === "assistant").map((message2) => `${textOf14(field(message2, "runId"))}
 ${textOf14(field(message2, "text"))}`) : [];
-  const line2 = {
+  const line3 = {
     type: "t3.show",
     status: textOf14(field(thread, "status")),
     activeRunId: field(thread, "activeRunId") ?? null,
     pendingRequestCount: field(thread, "pendingRequestCount") ?? 0,
     itemCount: field(thread, "itemCount") ?? 0
   };
-  return { key: JSON.stringify(line2), line: line2, said: said2 };
+  return { key: JSON.stringify(line3), line: line3, said: said2 };
 }
 function follower(options) {
   let last = "";
@@ -65620,9 +65933,9 @@ function printEnd(options, ended2, started) {
     const at2 = now2();
     options.print(JSON.stringify({ type: "t3.end", ...end3, at: new Date(at2).toISOString(), ms: Math.max(0, at2 - started) }));
   } else {
-    for (const line2 of lines3(ended2.stdout)) options.print(line2);
+    for (const line3 of lines3(ended2.stdout)) options.print(line3);
   }
-  for (const line2 of lines3(ended2.stderr)) options.print(line2);
+  for (const line3 of lines3(ended2.stderr)) options.print(line3);
   return end3 === null ? null : textOf14(field(end3, "status"));
 }
 var runArgs = ({ cwd, thread, instance, model }) => thread === null ? ["thread", "start", cwd, "-", "--provider", instance, "--model", model, "--wait", "--json"] : ["thread", "send", thread, "-", "--wait", "--json"];
@@ -65664,7 +65977,7 @@ async function watch2(options, run2, tail) {
   const watcher = threadWatcher(options);
   for (; ; ) {
     const ended2 = await Promise.race([done, delay(options.tickMs ?? TICK_MS).then(() => false), watcher.stopped() ? NEVER2 : asked]);
-    for (const line2 of tail()) options.print(line2);
+    for (const line3 of tail()) options.print(line3);
     if (ended2) return;
     await watcher.tick();
   }
@@ -65675,7 +65988,7 @@ async function followT3(options) {
   const tail = transcriptTail(options.transcripts, cwd);
   const refused4 = options.thread === null ? await addProject(cli, cwd) : null;
   if (refused4 !== null) {
-    for (const line2 of [...lines3(refused4.stdout), ...lines3(refused4.stderr)]) options.print(line2);
+    for (const line3 of [...lines3(refused4.stdout), ...lines3(refused4.stderr)]) options.print(line3);
     return refused4.code === 0 ? 1 : refused4.code;
   }
   const run2 = cli(runArgs(options), { cwd, stdin: options.message });
@@ -65778,8 +66091,8 @@ async function lock(file2, { now: now2, sleep: sleep3 }) {
 }
 function reasonOf4(error62, tokens2) {
   const text19 = error62 instanceof Error ? error62.message : String(error62);
-  const line2 = maskTokens(text19.split("\n")[0]?.trim() ?? "", tokens2);
-  const why3 = line2 === "" ? "the app did not say why" : line2;
+  const line3 = maskTokens(text19.split("\n")[0]?.trim() ?? "", tokens2);
+  const why3 = line3 === "" ? "the app did not say why" : line3;
   return why3.length <= MAX_WHY ? why3 : `${why3.slice(0, MAX_WHY - 1)}\u2026`;
 }
 async function keepGithubToken(options) {
@@ -65971,8 +66284,8 @@ var QUIET14 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12
 var SAID_MAX = 200;
 function lastLine3(text19) {
   if (typeof text19 !== "string") return null;
-  const line2 = text19.split(/\r?\n/).map((each) => each.trim()).findLast((each) => each !== "");
-  return line2 === void 0 ? null : line2.slice(0, SAID_MAX);
+  const line3 = text19.split(/\r?\n/).map((each) => each.trim()).findLast((each) => each !== "");
+  return line3 === void 0 ? null : line3.slice(0, SAID_MAX);
 }
 function saidByFailure(error62) {
   return lastLine3(propertyOf(error62, "stderr")) ?? lastLine3(propertyOf(error62, "stdout")) ?? lastLine3(messageOf(error62)) ?? "no output";
@@ -66017,8 +66330,8 @@ function versionOfEntries(entries4) {
     const version3 = parseVersion(entry3.version);
     return version3 === null ? [] : [version3];
   });
-  const ordered = versions.toSorted(compareVersions);
-  return (user.length > 0 ? ordered.at(0) : ordered.at(-1)) ?? null;
+  const ordered2 = versions.toSorted(compareVersions);
+  return (user.length > 0 ? ordered2.at(0) : ordered2.at(-1)) ?? null;
 }
 function readPlugin(exec) {
   let text19;
@@ -66221,13 +66534,13 @@ var section6 = (title, text19) => `## ${title}
 
 ${text19 === null ? "(could not be read)" : text19.trim() === "" ? "(none)" : text19.trimEnd()}
 `;
-function runnerNote({ line: line2, log, start: start4, git: git9 }) {
+function runnerNote({ line: line3, log, start: start4, git: git9 }) {
   const steps = log.split("\n").filter((entry3) => entry3.trim() !== "").slice(-NOTE_STEP_LINES).join("\n");
   const commits = git9(["log", "--oneline", ...start4 === null ? ["-20"] : [`${start4}..HEAD`]]);
   return [
     "# Handoff note, written by the runner",
     "",
-    section6("The job", line2),
+    section6("The job", line3),
     section6(`The last ${String(NOTE_STEP_LINES)} steps`, steps),
     section6("git status --short", git9(["status", "--short"])),
     section6("git log --oneline since the job started", commits),
@@ -66352,9 +66665,9 @@ function streamReader({ agent, log, raw, out, printed: printed4, onLine }) {
   const context = { seen: /* @__PURE__ */ new Set() };
   const decoder = new StringDecoder("utf8");
   let pending = "";
-  const emit = (line2) => {
-    printed4.push(line2);
-    const lines4 = agent.step(line2, context);
+  const emit = (line3) => {
+    printed4.push(line3);
+    const lines4 = agent.step(line3, context);
     if (lines4.length > 0) {
       const text19 = `${lines4.join("\n")}
 `;
@@ -66368,7 +66681,7 @@ function streamReader({ agent, log, raw, out, printed: printed4, onLine }) {
       appendFileSync(raw, data);
       const parts = (pending + decoder.write(data)).split("\n");
       pending = parts.pop() ?? "";
-      for (const line2 of parts) emit(line2);
+      for (const line3 of parts) emit(line3);
     },
     end() {
       pending += decoder.end();
@@ -66428,8 +66741,8 @@ async function runOnce({ cwd, files, out, env, agent, command: command2, watch: 
     reader.end();
   }
 }
-function skillOf(line2) {
-  const checked5 = checkRunnerLine(line2);
+function skillOf(line3) {
+  const checked5 = checkRunnerLine(line3);
   return checked5.ok && checked5.kind === "omni" ? checked5.skill : null;
 }
 function say2(files, out, text19) {
@@ -66500,14 +66813,14 @@ function watchOf(turnover, { cwd, runs: runs3, before: before2, parts }) {
     })
   };
 }
-async function runPart(place, { line: line2, runs: runs3, handoff: handoff2, parts, turnover }) {
+async function runPart(place, { line: line3, runs: runs3, handoff: handoff2, parts, turnover }) {
   const { cwd, files, out, env } = place;
   const at2 = parts.record.parts.length;
   const before2 = runs3.agent.usage({ cwd, lines: [], exit: null });
   const started = { agent: runs3.agent.name, model: runs3.account.model, account: runs3.account.id, from: parts.iso(), to: null, ended: null };
   parts.keep(started, at2);
   const watch4 = watchOf(turnover, { cwd, runs: runs3, before: before2, parts });
-  const command2 = runs3.agent.command({ line: line2, cwd }, runs3.account, handoff2);
+  const command2 = runs3.agent.command({ line: line3, cwd }, runs3.account, handoff2);
   const { code, printed: printed4, called: called2 } = await runOnce({ cwd, files, out, env: runEnv(env, command2), agent: runs3.agent, command: command2, watch: watch4 });
   const ran = { cwd, lines: printed4, exit: code };
   const limit = code === 0 ? null : runs3.agent.limit(ran);
@@ -66515,7 +66828,7 @@ async function runPart(place, { line: line2, runs: runs3, handoff: handoff2, par
   parts.keep(part, at2);
   return { code, limit, called: called2, part, at: at2, lines: printed4, before: before2 };
 }
-var runnersNote = ({ files, cwd }, { line: line2, start: start4, turnover }) => masked(turnover, runnerNote({ line: line2, log: readFileSync124(files.log, "utf8"), start: start4, git: (args) => turnover.git(cwd, args) }));
+var runnersNote = ({ files, cwd }, { line: line3, start: start4, turnover }) => masked(turnover, runnerNote({ line: line3, log: readFileSync124(files.log, "utf8"), start: start4, git: (args) => turnover.git(cwd, args) }));
 function turnOver(place, args) {
   const { files, out } = place;
   const { runs: runs3, ran, parts, limit, changes } = args;
@@ -66530,12 +66843,12 @@ function turnOver(place, args) {
   say2(files, out, `\u21BB account ${runs3.account.id} reached its usage limit, out until ${resetsAt}${guessed ? " (guessed)" : ""}: account ${next2.account.id} takes over`);
   return takenOver(args, next2, LIMIT_WHY, note);
 }
-function outAndNext({ cwd }, { line: line2, runs: runs3, parts, turnover }, given, changes) {
+function outAndNext({ cwd }, { line: line3, runs: runs3, parts, turnover }, given, changes) {
   const at2 = Date.parse(parts.iso());
   const guessed = given === null || !(Date.parse(given) > at2);
   const resetsAt = guessed ? isoOf2(at2 + GUESSED_RESET_MS) : given;
   turnover.book.markOut(runs3.account.id, resetsAt);
-  const next2 = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line2), cwd);
+  const next2 = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line3), cwd);
   return { resetsAt, guessed, next: next2 };
 }
 var takenOver = ({ ran, turnover }, next2, why3, note) => ({
@@ -66553,14 +66866,14 @@ function textAt(path) {
 }
 async function handoffNote(place, args) {
   const { cwd, files, out, env } = place;
-  const { line: line2, runs: runs3, ran, turnover } = args;
+  const { line: line3, runs: runs3, ran, turnover } = args;
   const path = handoffPath(files.log);
   rmSync22(path, { force: true });
   const session2 = runs3.agent.session({ cwd, lines: ran.lines, exit: ran.code });
   let by = "runner";
   if (session2 !== null) {
     say2(files, out, `\u21BB account ${runs3.account.id} writes its handoff note`);
-    const command2 = runs3.agent.resume({ line: line2, cwd }, runs3.account, session2, notePrompt(path));
+    const command2 = runs3.agent.resume({ line: line3, cwd }, runs3.account, session2, notePrompt(path));
     const turn = await runOnce({ cwd, files, out, env: runEnv(env, command2), agent: runs3.agent, command: command2, timeoutMs: turnover.noteTurnMs ?? NOTE_TURN_MS });
     if (turn.code === 0 && textAt(path).trim() !== "") by = "agent";
   }
@@ -66635,15 +66948,15 @@ function opening({ cwd, files, out }, first, turnover, skill) {
 }
 async function runParts(place, first, turnover) {
   writeFileSync61(rawLogPath(place.files.log), "");
-  const line2 = readFileSync124(place.files.line, "utf8").replace(/\n$/, "");
+  const line3 = readFileSync124(place.files.line, "utf8").replace(/\n$/, "");
   const parts = partsOf2(place.files.log, turnover === void 0 ? Date.now : turnover.now);
-  if (turnover === void 0) return (await runPart(place, { line: line2, runs: first, handoff: void 0, parts, turnover })).code;
-  const opened = opening(place, first, turnover, skillOf(line2));
+  if (turnover === void 0) return (await runPart(place, { line: line3, runs: first, handoff: void 0, parts, turnover })).code;
+  const opened = opening(place, first, turnover, skillOf(line3));
   if ("failed" in opened) {
     parts.fail(opened.failed);
     return 1;
   }
-  return carryOn(place, { line: line2, start: startOf(turnover, place.cwd), parts, turnover }, opened.runs);
+  return carryOn(place, { line: line3, start: startOf(turnover, place.cwd), parts, turnover }, opened.runs);
 }
 async function carryOn(place, job2, first) {
   let runs3 = first;
@@ -66691,9 +67004,9 @@ function logTail(log) {
 var REPORT_LINES = 2e3;
 var REPORT_BYTES = 256 * 1024;
 var LINE_CHARS = 600;
-function cutLine(line2) {
-  if (line2.length <= LINE_CHARS) return line2;
-  const cut7 = line2.slice(0, LINE_CHARS);
+function cutLine(line3) {
+  if (line3.length <= LINE_CHARS) return line3;
+  const cut7 = line3.slice(0, LINE_CHARS);
   return /[\uD800-\uDBFF]$/.test(cut7) ? cut7.slice(0, -1) : cut7;
 }
 function linesAfter(log, cursor, { ended: ended2 }) {
@@ -66705,8 +67018,8 @@ function linesAfter(log, cursor, { ended: ended2 }) {
 function reportBatch(lines4) {
   let bytes2 = 2;
   let count10 = 0;
-  for (const line2 of lines4.slice(0, REPORT_LINES)) {
-    bytes2 += Buffer.byteLength(JSON.stringify(line2)) + (count10 > 0 ? 1 : 0);
+  for (const line3 of lines4.slice(0, REPORT_LINES)) {
+    bytes2 += Buffer.byteLength(JSON.stringify(line3)) + (count10 > 0 ? 1 : 0);
     if (bytes2 > REPORT_BYTES) break;
     count10 += 1;
   }
@@ -66718,10 +67031,10 @@ var PR_LINE = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
 function lastPullRequest(log, repo) {
   const link3 = new RegExp(`https://github\\.com/${escape4(repo)}/pull/\\d+(?!\\d)`, "i");
   const lines4 = log.split("\n");
-  const done = lines4.findLastIndex((line2) => DONE_LINE.test(line2));
-  const handedOff = done < 0 ? void 0 : lines4.slice(done + 1).flatMap((line2) => link3.exec(line2)?.[0] ?? [])[0];
-  const opened = lines4.flatMap((line2) => {
-    const found2 = PR_LINE.exec(line2)?.[1];
+  const done = lines4.findLastIndex((line3) => DONE_LINE.test(line3));
+  const handedOff = done < 0 ? void 0 : lines4.slice(done + 1).flatMap((line3) => link3.exec(line3)?.[0] ?? [])[0];
+  const opened = lines4.flatMap((line3) => {
+    const found2 = PR_LINE.exec(line3)?.[1];
     return found2 === void 0 ? [] : link3.exec(found2)?.[0] ?? [];
   });
   return handedOff ?? opened.at(-1) ?? null;
@@ -66748,7 +67061,7 @@ function followUpOf(text19) {
 }
 function bugFixReading(log) {
   const lines4 = log.split("\n");
-  const valuesOf = (line2) => lines4.flatMap((each) => line2.exec(each)?.[1] ?? []);
+  const valuesOf = (line3) => lines4.flatMap((each) => line3.exec(each)?.[1] ?? []);
   const word2 = valuesOf(OUTCOME_LINE).at(-1);
   const fixedBy = valuesOf(FIXED_BY_LINE).filter(isPullRequest).at(-1) ?? null;
   const opened = valuesOf(PR_LINE).filter((link3) => isPullRequest(link3) && link3 !== fixedBy);
@@ -66761,24 +67074,31 @@ function bugFixReading(log) {
   });
   return { outcome: isOutcome(word2) ? word2 : null, fixedBy, prs: [...new Set(opened)].slice(0, PRS_MAX), followUps: followUps.slice(0, FOLLOW_UPS_MAX) };
 }
-var OUTCOMES = { "yolo-fix": "answers", yolo: "held", "pr-care": "ready" };
+var OUTCOMES = { "yolo-fix": "answers", yolo: "held", "pr-care": "ready", review: "review" };
+var FOR_REVIEW_OUTCOMES = { "yolo-fix": "changes", "ultra-yolo-fix": "changes" };
+var HAND_OFF = /^\/omni:([a-z-]+) (\d+)( --for-review)?$/;
 var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
 var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
+function handOffPrd(args) {
+  const match = /^([1-9]\d*)(?: --for-review)?$/.exec(args.trim());
+  return match?.[1] === void 0 ? null : parsePrd(match[1]);
+}
 function runOutcome(log, prd2, skill) {
-  const match = /^\/omni:([a-z-]+) (\d+)$/.exec(lastLine4(log));
-  const outcome2 = match?.[1] !== void 0 && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : void 0;
+  const match = HAND_OFF.exec(lastLine4(log));
+  const table = match?.[3] === void 0 ? OUTCOMES : FOR_REVIEW_OUTCOMES;
+  const outcome2 = match?.[1] !== void 0 && Object.hasOwn(table, match[1]) ? table[match[1]] : void 0;
   if (outcome2 !== void 0 && match?.[2] === String(prd2)) return outcome2;
   if (skill === void 0) return null;
-  return lastAnswer(log).some((line2) => HELD_LINE.test(line2)) ? "held" : "stopped";
+  return lastAnswer(log).some((line3) => HELD_LINE.test(line3)) ? "held" : "stopped";
 }
 var HELD_LINE = /^(?:held: .+|.+ · held(?:, not failed)?(?:: .+)?)$/;
 var ANSWER_DONE = /^Done: /;
 function lastAnswer(log) {
-  const lines4 = log.split("\n").map((line2) => line2.trim().replace(STAMP2, ""));
-  return lines4.slice(lines4.findLastIndex((line2) => ANSWER_DONE.test(line2)) + 1);
+  const lines4 = log.split("\n").map((line3) => line3.trim().replace(STAMP2, ""));
+  return lines4.slice(lines4.findLastIndex((line3) => ANSWER_DONE.test(line3)) + 1);
 }
 function lastLine4(log) {
-  return (log.split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "" && !HOOK_FAILED.test(line2)).at(-1) ?? "").replace(STAMP2, "");
+  return (log.split("\n").map((line3) => line3.trim()).filter((line3) => line3 !== "" && !HOOK_FAILED.test(line3)).at(-1) ?? "").replace(STAMP2, "");
 }
 function fixIssueOf(args) {
   const match = /^(?:#?|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)([1-9]\d*)$/.exec(args.trim());
@@ -66866,7 +67186,7 @@ function candidates(repo, gh3) {
 }
 function heldBy(repo, number5, job2, gh3) {
   const out = gh3(["api", `repos/${repo.slug}/issues/${String(number5)}/comments`, "--paginate", "--jq", "[.[].body]"]);
-  const bodies = out.split("\n").filter((line2) => line2.trim() !== "").flatMap((line2) => BodiesSchema.parse(JSON.parse(line2)));
+  const bodies = out.split("\n").filter((line3) => line3.trim() !== "").flatMap((line3) => BodiesSchema.parse(JSON.parse(line3)));
   return bodies.some((body) => body.includes(repo.statusMarker) && namesJob(body, job2));
 }
 function swap(repo, number5, gh3) {
@@ -67027,8 +67347,8 @@ function readChain(home, job2) {
     return null;
   }
 }
-function chainCarriesOn(line2, chain) {
-  const checked5 = checkRunnerLine(line2);
+function chainCarriesOn(line3, chain) {
+  const checked5 = checkRunnerLine(line3);
   return checked5.ok && checked5.kind === "omni" && RESUMABLE_SKILLS.includes(checked5.skill) && chain.attempt < MAX_ATTEMPTS;
 }
 var lostWords = (words4) => /\bfailed, runner lost\b/.test(words4);
@@ -67208,7 +67528,7 @@ function worktreeJob(name3, repoNames) {
 function originBranches(exec, checkout) {
   try {
     const out = exec("git", ["-C", checkout, "ls-remote", "--heads", "origin"], QUIET17);
-    return new Set(out.split("\n").map((line2) => /\trefs\/heads\/(.+)$/.exec(line2)?.[1]).filter((name3) => name3 !== void 0));
+    return new Set(out.split("\n").map((line3) => /\trefs\/heads\/(.+)$/.exec(line3)?.[1]).filter((name3) => name3 !== void 0));
   } catch {
     return null;
   }
@@ -67275,7 +67595,7 @@ function sweepBranches({ exec, running }, checkout) {
   } catch {
     return 0;
   }
-  const candidates2 = names.map((line2) => line2.split("	")).filter(([name3 = "", upstream2 = ""]) => upstream2 === "" && !running.has(JOB_BRANCH.exec(name3)?.[1] ?? "")).map(([name3 = ""]) => name3).filter((name3) => JOB_BRANCH.test(name3));
+  const candidates2 = names.map((line3) => line3.split("	")).filter(([name3 = "", upstream2 = ""]) => upstream2 === "" && !running.has(JOB_BRANCH.exec(name3)?.[1] ?? "")).map(([name3 = ""]) => name3).filter((name3) => JOB_BRANCH.test(name3));
   if (candidates2.length === 0) return 0;
   const onOrigin = originBranches(exec, checkout);
   if (onOrigin === null) return 0;
@@ -67410,8 +67730,8 @@ function loopOf(options) {
     running: 0,
     jobs: /* @__PURE__ */ new Set(),
     lost: /* @__PURE__ */ new Set(),
-    plugin: pluginKeeper({ exec: options.exec, running: { version: options.version }, bundle: runningBundle(), print: (line2) => {
-      options.print(line2);
+    plugin: pluginKeeper({ exec: options.exec, running: { version: options.version }, bundle: runningBundle(), print: (line3) => {
+      options.print(line3);
     } }),
     limits: options.limits ?? DEFAULT_LIMITS,
     pause: { reason: null, quiet: 0 },
@@ -67588,8 +67908,8 @@ function worktreeOf(loop2, job2) {
   return join162(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
 }
 function placeOf6(loop2, job2) {
-  const line2 = checkRunnerLine(job2.line, job2.allowedSkills);
-  if (!line2.ok) return { status: "failed", reason: `refused: ${line2.reason}` };
+  const line3 = checkRunnerLine(job2.line, job2.allowedSkills);
+  if (!line3.ok) return { status: "failed", reason: `refused: ${line3.reason}` };
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };
   const logs = join162(loop2.home, "logs");
@@ -67600,7 +67920,7 @@ function placeOf6(loop2, job2) {
     line: join162(logs, `job-${job2.id}.line`),
     log: join162(logs, `job-${job2.id}.log`),
     exit: join162(logs, `job-${job2.id}.exit`),
-    skill: line2.kind === "repository" ? line2.skill : null
+    skill: line3.kind === "repository" ? line3.skill : null
   };
 }
 function makeWorktree(loop2, job2, place) {
@@ -67638,7 +67958,7 @@ var unsent = (loop2, save) => !loop2.jobs.has(save.job) && save.lost === null &&
 function keepSaves(loop2, ended2 = null) {
   const running = new Set([...loop2.jobs].filter((id) => id !== ended2));
   const forgotten = keepWithin({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running, now: loop2.now(), budgetBytes: loop2.keepBudgetBytes ?? KEEP_BUDGET_GB * GB2 });
-  for (const line2 of forgotten.map(forgottenLine)) if (line2 !== null) loop2.print(line2);
+  for (const line3 of forgotten.map(forgottenLine)) if (line3 !== null) loop2.print(line3);
 }
 async function cleanUp(loop2, job2, place) {
   const author = job2.github === null ? null : { name: job2.github.login, email: job2.github.email };
@@ -67693,36 +68013,41 @@ ${pointer}
     return false;
   }
 }
-function outcomeOf3(log, line2) {
-  const checked5 = checkRunnerLine(line2);
+var isHandOffSkill = (skill) => skill === "yolo" || skill === "yolo-fix" || skill === "review";
+function outcomeOf3(log, line3) {
+  const checked5 = checkRunnerLine(line3);
   if (!checked5.ok) return null;
   const args = checked5.args.trim();
   if (checked5.skill === "mega-bug-fix") {
     const issue2 = fixIssueOf(args);
     return issue2 === null ? null : fixOutcome(log, issue2);
   }
-  return (checked5.skill === "yolo" || checked5.skill === "yolo-fix") && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked5.skill) : null;
+  if (!isHandOffSkill(checked5.skill)) return null;
+  const prd2 = handOffPrd(args);
+  return prd2 === null ? null : runOutcome(log, prd2, checked5.skill);
 }
 async function withSlices(loop2, job2, place, update2) {
   if (update2.outcome !== "stopped" || loop2.slices === void 0) return update2;
   const checked5 = checkRunnerLine(job2.line);
   if (!checked5.ok || checked5.skill !== "yolo" && checked5.skill !== "yolo-fix") return update2;
+  const prd2 = handOffPrd(checked5.args);
+  if (prd2 === null) return update2;
   try {
-    const count10 = await loop2.slices(parsePrd(checked5.args.trim()), place.worktree);
+    const count10 = await loop2.slices(prd2, place.worktree);
     return count10 === null ? update2 : { ...update2, slicesMerged: count10.merged, slicesTotal: count10.total };
   } catch {
     return update2;
   }
 }
-function bugFixOf(log, line2) {
-  const checked5 = checkRunnerLine(line2);
+function bugFixOf(log, line3) {
+  const checked5 = checkRunnerLine(line3);
   return checked5.ok && (checked5.skill === "bug-fix" || checked5.skill === "mega-bug-fix") ? bugFixReading(log) : null;
 }
 function bugFixFields({ outcome: outcome2, fixedBy, prs, followUps }) {
   return { ...outcome2 === null ? {} : { outcome: outcome2 }, ...fixedBy === null ? {} : { fixedBy }, ...prs.length === 0 ? {} : { prs }, ...followUps.length === 0 ? {} : { followUps } };
 }
-function failedWithPrs(failed5, log, line2) {
-  const reading = bugFixOf(log, line2);
+function failedWithPrs(failed5, log, line3) {
+  const reading = bugFixOf(log, line3);
   return reading === null || reading.prs.length === 0 ? failed5 : { ...failed5, prs: reading.prs };
 }
 function ended(log, exitText, job2, turnedOver2) {
@@ -67777,8 +68102,8 @@ async function watch3(loop2, job2, place, live) {
 }
 function takeAccount(loop2, job2) {
   if (!loop2.accounts.file) return null;
-  const line2 = checkRunnerLine(job2.line, job2.allowedSkills);
-  const skill = line2.ok && line2.kind === "omni" ? line2.skill : null;
+  const line3 = checkRunnerLine(job2.line, job2.allowedSkills);
+  const skill = line3.ok && line3.kind === "omni" ? line3.skill : null;
   const projects = join162(loop2.home, ".claude", "projects");
   const chosen = chooseAccount({
     accounts: loop2.accounts.accounts,
@@ -67877,7 +68202,7 @@ async function releasedAs(loop2, release2, ended2, ran, tokenOf2 = ended2.id) {
   }
   const done = lacking ?? release2({ id: ended2.id, runner: loop2.name, repo: ended2.repo, reason: ended2.reason, ghToken });
   const hide2 = (text19) => ghToken === null ? text19 : maskTokens(text19, jobTokens(loop2.home, tokenOf2));
-  for (const line2 of releaseLines(ended2.id, done)) loop2.print(hide2(line2));
+  for (const line3 of releaseLines(ended2.id, done)) loop2.print(hide2(line3));
   return done;
 }
 function bothReleased(first, second) {
@@ -67906,8 +68231,8 @@ function ranAsApp(loop2, job2) {
 }
 async function releasedLost(loop2, release2, lost) {
   const chain = readChain(loop2.home, lost.job);
-  const line2 = readText4(join162(loop2.home, "logs", `job-${lost.job}.line`)).split("\n")[0] ?? "";
-  const ended2 = { id: lost.job, repo: lost.repo, reason: "runner lost", line: line2 };
+  const line3 = readText4(join162(loop2.home, "logs", `job-${lost.job}.line`)).split("\n")[0] ?? "";
+  const ended2 = { id: lost.job, repo: lost.repo, reason: "runner lost", line: line3 };
   return chain === null ? releasedAs(loop2, release2, ended2, lost.ran) : releaseChain(loop2, release2, ended2, chain, { lost: true, ran: lost.ran });
 }
 async function releaseLost(loop2, lost) {
@@ -68038,8 +68363,8 @@ async function sweeper(loop2) {
       if (checkout !== void 0) saved(loop2, { job: job2, repo, checkout, folder, author: null });
     }
     for (const save of savesIn(loop2.home).filter((kept2) => unsent(loop2, kept2))) await sent(loop2, save);
-    const line2 = sweptLine(sweep2({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running: loop2.jobs, keepLogsDays, now: loop2.now() }));
-    if (line2 !== null) loop2.print(line2);
+    const line3 = sweptLine(sweep2({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running: loop2.jobs, keepLogsDays, now: loop2.now() }));
+    if (line3 !== null) loop2.print(line3);
     keepSaves(loop2);
     for (const job2 of lost) await releaseLost(loop2, job2);
     await loop2.plugin.sweep();
@@ -68140,7 +68465,16 @@ var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
 var PR_LINE2 = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
 var WAITING = /^◌ PRD \d+ · waiting for /;
 var APPROVED = /^✓ PRD \d+ approved /;
-var DONE_WORDS = { answers: "Waiting on answers", held: "Held", ready: "Ready", human: "Need human", stopped: "Stopped mid-way" };
+var DONE_WORDS = {
+  answers: "Waiting on answers",
+  held: "Held",
+  ready: "Ready",
+  human: "Need human",
+  stopped: "Stopped mid-way",
+  // The Reviewer's hand-offs (PRD 2871): the PR waits for the Reviewer, or the Reviewer asked for changes.
+  review: "Waiting on the Reviewer",
+  changes: "Changes asked"
+};
 var failure7 = ({ reason: reason2, exitCode }) => reason2 ?? (exitCode === null ? "no reason given" : `exit code ${String(exitCode)}`);
 function ending(job2, merged) {
   if (job2.status === "cancelled") return "Cancelled";
@@ -68161,11 +68495,11 @@ function readLines(lines4, seen, repo) {
   const prs = [...seen.prs];
   const fresh = [];
   for (const raw of lines4) {
-    const line2 = raw.trim().replace(STAMP3, "");
-    if (WAITING.test(line2)) {
+    const line3 = raw.trim().replace(STAMP3, "");
+    if (WAITING.test(line3)) {
       if (!waiting) waitingStarted = true;
       waiting = true;
-    } else if (APPROVED.test(line2)) {
+    } else if (APPROVED.test(line3)) {
       waiting = false;
     }
     const pr = ownPullRequest(raw, repo);
@@ -68242,7 +68576,7 @@ function signedInAt(io) {
   }
   return { askUrl: askUrl2, repo: slug, root, tokens: tokens2, api: runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch: io.fetch ?? globalThis.fetch }) };
 }
-async function targetOf4(to, repo, reads2) {
+async function targetOf5(to, repo, reads2) {
   if (to === void 0) return { kind: "any" };
   const runners = await reads2.runners(repo);
   const runner2 = runners.find((candidate) => candidate.name === to);
@@ -68252,10 +68586,10 @@ async function targetOf4(to, repo, reads2) {
 }
 async function send4(args, io) {
   const { positional, flags } = parseArgs("runner", args, { values: ["to"] });
-  const [line2] = positional;
-  if (positional.length !== 1 || line2 === void 0 || flags.to === "") throw usageError(SEND_USAGE);
-  const own2 = /^\/([a-z][a-z0-9-]*)(?: |$)/.exec(line2)?.[1];
-  const checked5 = checkRunnerLine(line2, own2 === void 0 ? [] : [own2]);
+  const [line3] = positional;
+  if (positional.length !== 1 || line3 === void 0 || flags.to === "") throw usageError(SEND_USAGE);
+  const own2 = /^\/([a-z][a-z0-9-]*)(?: |$)/.exec(line3)?.[1];
+  const checked5 = checkRunnerLine(line3, own2 === void 0 ? [] : [own2]);
   if (!checked5.ok) {
     println(io.stderr, `omni runner: ${checked5.reason}`);
     return 1;
@@ -68263,14 +68597,14 @@ async function send4(args, io) {
   const at2 = signedInAt(io);
   if (at2 === 1) return 1;
   try {
-    const target3 = await targetOf4(flags.to, at2.repo, at2.api);
+    const target3 = await targetOf5(flags.to, at2.repo, at2.api);
     if (typeof target3 === "string") {
       println(io.stderr, target3);
       return 1;
     }
-    const job2 = await at2.api.send({ line: line2, repo: at2.repo, target: target3 });
+    const job2 = await at2.api.send({ line: line3, repo: at2.repo, target: target3 });
     println(io.stdout, job2.id);
-    const prd2 = prdOfRunnerLine(line2);
+    const prd2 = prdOfRunnerLine(line3);
     if (prd2 !== null) println(io.stdout, `follow it: omni runner follow ${String(prd2)}`);
     return 0;
   } catch (error62) {
@@ -68324,19 +68658,19 @@ async function newLines2(run2, job2) {
   const lines4 = [];
   for (; ; ) {
     const read3 = await run2.at.api.lines(job2, run2.cursor);
-    for (const line2 of read3.lines) {
-      lines4.push(line2.text);
-      run2.cursor = Math.max(run2.cursor, line2.seq);
+    for (const line3 of read3.lines) {
+      lines4.push(line3.text);
+      run2.cursor = Math.max(run2.cursor, line3.seq);
     }
     if (!read3.more || read3.lines.length === 0) return lines4;
   }
 }
-function remember(run2, job2, line2) {
+function remember(run2, job2, line3) {
   const { root } = run2.at;
   ensureLocalDir(root);
   mkdirSync45(join163(root, LOCAL_DIR, "runner-follow"), { recursive: true });
   const at2 = new Date((run2.io.now ?? Date.now)()).toISOString();
-  writeFileSync65(followFile(root, run2.prd), `${JSON.stringify({ prd: Number(run2.prd), runner: job2.runner, line: line2, at: at2 }, null, 2)}
+  writeFileSync65(followFile(root, run2.prd), `${JSON.stringify({ prd: Number(run2.prd), runner: job2.runner, line: line3, at: at2 }, null, 2)}
 `);
 }
 async function jobOf(run2) {
@@ -68360,7 +68694,7 @@ async function read2(run2) {
   const page2 = ended2 ? await pageOf4(run2.prd, run2.at, run2.io.fetch ?? globalThis.fetch) : null;
   const next2 = milestones(run2.seen, { ...job2, repo: run2.at.repo }, lines4, run2.merged, page2);
   run2.seen = next2.seen;
-  for (const line2 of next2.lines) println(run2.io.stdout, line2);
+  for (const line3 of next2.lines) println(run2.io.stdout, line3);
   const last = next2.lines.at(-1);
   if (last !== void 0) remember(run2, job2, last);
   return ended2 ? exitCodeOf(job2) : null;
@@ -68407,7 +68741,7 @@ async function followCommand(args, io) {
 }
 
 // kit/bin/commands/runner.ts
-var USAGE44 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--keep-budget 5] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
+var USAGE45 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--keep-budget 5] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
 var T3_RUN_USAGE = "usage: omni runner t3-run --instance <id> --model <model> [--thread <id>]";
 var ASK_USAGE = "usage: omni runner ask --file <file> --issue <n> --lead <file>";
 var ANSWERS_USAGE = "usage: omni runner answers <job>";
@@ -68454,7 +68788,7 @@ function limitsOf(flags) {
 function readFlags(args, cwd) {
   const { positional, flags } = parseArgs("runner", args, { values: ["name", "repos", "slots", "timeout", "keep-logs", "keep-budget", "max-memory", "min-disk", "max-load"] });
   const { name: name3, repos } = flags;
-  if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE44);
+  if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE45);
   if (!NAME3.test(name3)) throw usageError("omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.");
   const slots = flags.slots === void 0 ? DEFAULT_SLOTS : positiveInt("runner", "--slots", flags.slots);
   if (slots > MAX_SLOTS) throw usageError(`omni runner: --slots must be ${String(MAX_SLOTS)} at most, got "${String(slots)}".`);
@@ -68503,7 +68837,7 @@ async function start2(args, io) {
   }
   if (!script2) throw new Error("omni runner: the omni script that runs a job is unknown");
   const { tokens: tokens2, stop, terminal, home, fetch } = wiring(io);
-  for (const line2 of t3Notes(home, accounts)) println(stdout, line2);
+  for (const line3 of t3Notes(home, accounts)) println(stdout, line3);
   try {
     return await runRunner({
       name: name3,
@@ -68522,8 +68856,8 @@ async function start2(args, io) {
       accounts,
       release: releaser({ exec, checkouts, env: io.env }),
       slices: (prd2, dir) => (io.mergedOf ?? ((n) => boardCount(n, { ...io, cwd: dir })))(prd2),
-      print: (line2) => {
-        println(stdout, line2);
+      print: (line3) => {
+        println(stdout, line3);
       },
       stop: stop.signal,
       keepLogsDays,
@@ -68608,8 +68942,8 @@ async function t3Run(args, io) {
   const instance = t3Instance(t3HomeOf(home), home, flags.instance);
   const message2 = await readAll3(io.stdin ?? process.stdin);
   const stop = io.stop === void 0 ? stopOnSigint() : { signal: io.stop, release: () => void 0 };
-  const print4 = (line2) => {
-    println(io.stdout, line2);
+  const print4 = (line3) => {
+    println(io.stdout, line3);
   };
   try {
     return await followT3({
@@ -68744,8 +69078,8 @@ async function answersOfJob(args, io) {
 }
 function senderOfJob(args, io) {
   if (args.length) throw usageError("usage: omni runner sender");
-  const line2 = senderLine(io.vars.runnerSender);
-  if (line2) println(io.stdout, line2);
+  const line3 = senderLine(io.vars.runnerSender);
+  if (line3) println(io.stdout, line3);
   return 0;
 }
 var SUBCOMMANDS3 = /* @__PURE__ */ new Map([
@@ -68804,10 +69138,10 @@ var DEFAULT_BRANCHES = Object.freeze(ConfigSchema.shape.branches.parse(void 0));
 function fill3(template, values) {
   return template.replace(/\{(topic|slice|item)\}/g, (whole2, key2) => values[key2] ?? whole2);
 }
-function topicOf3(featureBranch, featureTemplate) {
+function topicOf3(featureBranch2, featureTemplate) {
   const [head = "", tail = ""] = featureTemplate.split("{topic}");
-  if (!featureTemplate.includes("{topic}") || !featureBranch.startsWith(head) || !featureBranch.endsWith(tail)) return null;
-  const topic = featureBranch.slice(head.length, featureBranch.length - tail.length);
+  if (!featureTemplate.includes("{topic}") || !featureBranch2.startsWith(head) || !featureBranch2.endsWith(tail)) return null;
+  const topic = featureBranch2.slice(head.length, featureBranch2.length - tail.length);
   return topic || null;
 }
 function reworkSliceId(itemId, branches = DEFAULT_BRANCHES) {
@@ -68815,16 +69149,16 @@ function reworkSliceId(itemId, branches = DEFAULT_BRANCHES) {
   if (!id.success) throw new Error(`branches.rework "${branches.rework}" names no slice for item ${itemId}: a rework's id is lower-case words joined by hyphens.`);
   return id.data;
 }
-function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES) {
-  const topic = topicOf3(featureBranch, branches.feature);
+function reworkBranch(featureBranch2, sliceId, branches = DEFAULT_BRANCHES) {
+  const topic = topicOf3(featureBranch2, branches.feature);
   if (topic === null) {
-    throw new Error(`feature branch "${featureBranch}" does not match branches.feature "${branches.feature}"`);
+    throw new Error(`feature branch "${featureBranch2}" does not match branches.feature "${branches.feature}"`);
   }
   return fill3(branches.slice, { topic, slice: sliceId });
 }
 function deriveRework(entry3, {
   planSlices: planSlices2 = [],
-  featureBranch = null,
+  featureBranch: featureBranch2 = null,
   branches = DEFAULT_BRANCHES,
   planRepository = false
 } = {}) {
@@ -68860,7 +69194,7 @@ function deriveRework(entry3, {
     unknownPlanSlice: planSlice === null,
     wave: 1,
     ...planRepository ? { repo: planSlice?.repo || null } : {},
-    ...featureBranch ? { base: featureBranch, branch: reworkBranch(featureBranch, id, branches) } : {}
+    ...featureBranch2 ? { base: featureBranch2, branch: reworkBranch(featureBranch2, id, branches) } : {}
   };
 }
 function assignWaves(reworks) {
@@ -68878,7 +69212,7 @@ function planRework({
   settledText = "",
   planMarkdown = null,
   prd: prd2,
-  featureBranch,
+  featureBranch: featureBranch2,
   markers,
   branches = DEFAULT_BRANCHES,
   planRepository = false
@@ -68887,20 +69221,20 @@ function planRework({
   const drifted = driftedEntries(settledText, markers);
   const planSlices2 = planMarkdown ? parsePlanSlices(planMarkdown) : [];
   const reworks = assignWaves(
-    drifted.map((entry3) => deriveRework(entry3, { planSlices: planSlices2, featureBranch, branches, planRepository }))
+    drifted.map((entry3) => deriveRework(entry3, { planSlices: planSlices2, featureBranch: featureBranch2, branches, planRepository }))
   );
   return {
     prd: prd2,
-    featureBranch,
+    featureBranch: featureBranch2,
     settledCount,
     reworks,
     opensPullRequest: reworks.length > 0,
     mergesIntoMain: false,
     raisesItems: false,
-    report: reportLines2({ prd: prd2, featureBranch, settledCount, reworks })
+    report: reportLines2({ prd: prd2, featureBranch: featureBranch2, settledCount, reworks })
   };
 }
-function reportLines2({ prd: prd2, featureBranch, settledCount, reworks }) {
+function reportLines2({ prd: prd2, featureBranch: featureBranch2, settledCount, reworks }) {
   const settled2 = `${settledCount} settled item${settledCount === 1 ? "" : "s"}`;
   if (reworks.length === 0) {
     return [
@@ -68910,7 +69244,7 @@ function reportLines2({ prd: prd2, featureBranch, settledCount, reworks }) {
   }
   const lines4 = [
     `${reworks.length} drifted item${reworks.length === 1 ? "" : "s"} of ${settled2} on PRD #${prd2}.`,
-    `One rework slice each, as sub-PRs into \`${featureBranch}\`:`,
+    `One rework slice each, as sub-PRs into \`${featureBranch2}\`:`,
     ""
   ];
   for (const rework2 of reworks) {
@@ -68921,8 +69255,8 @@ function reportLines2({ prd: prd2, featureBranch, settledCount, reworks }) {
   }
   return lines4;
 }
-function closeDriftedEntry(settledText, { id, pullRequest: pullRequest2, markers }) {
-  const reference = (pullRequest2 ?? "").trim();
+function closeDriftedEntry(settledText, { id, pullRequest: pullRequest3, markers }) {
+  const reference = (pullRequest3 ?? "").trim();
   if (!reference) {
     throw new Error(
       `${id}: name the rework sub-pull request that closed it \u2014 a closure nobody can follow is not a closure.`
@@ -68948,7 +69282,7 @@ function closeDriftedEntry(settledText, { id, pullRequest: pullRequest2, markers
   const start4 = lines4.lastIndexOf(open3);
   const end3 = lines4.indexOf(close, start4);
   const closedIndex = lines4.findIndex(
-    (line2, index2) => index2 > start4 && index2 < end3 && line2.startsWith("- Closed: ")
+    (line3, index2) => index2 > start4 && index2 < end3 && line3.startsWith("- Closed: ")
   );
   if (closedIndex === -1) {
     throw new Error(`${id}: this entry carries no "Closed:" line to amend.`);
@@ -68961,7 +69295,7 @@ function reworkPullRequest(entry3) {
 }
 
 // kit/bin/commands/rework.ts
-var USAGE45 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE46 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
@@ -68982,7 +69316,7 @@ function territoryOf(rework2) {
 }
 function printPlan(stdout, result2) {
   if (result2.reworks.length === 0) {
-    for (const line2 of result2.report) println(stdout, line2);
+    for (const line3 of result2.report) println(stdout, line3);
     return;
   }
   println(
@@ -69006,12 +69340,12 @@ function runPlan(args, { ctx, stdout }) {
   const settledText = outboxDir ? readIfExists(ctx, `${outboxDir}/settled.md`) : "";
   const planMarkdown = readIfExists(ctx, planPath);
   const topic = topicFor3(prd2, { ctx });
-  const featureBranch = topic ? fillBranch(ctx.config.branches.feature, { topic }) : null;
+  const featureBranch2 = topic ? fillBranch(ctx.config.branches.feature, { topic }) : null;
   const result2 = planRework({
     settledText,
     planMarkdown,
     prd: prd2,
-    featureBranch,
+    featureBranch: featureBranch2,
     markers: ctx.markers,
     branches: ctx.config.branches,
     // In a plan repository (PRD 563) each rework names the repository its item was raised in.
@@ -69032,21 +69366,21 @@ function runClose(args, { ctx, stdout }) {
   const id = positional[0] ?? "";
   const prd2 = prdArg("rework close", "--prd", flags.prd);
   const pr = prArg("rework close", "--pr", flags.pr);
-  const pullRequest2 = `#${pr}`;
+  const pullRequest3 = `#${pr}`;
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) throw usageError(`omni rework close: PRD ${prd2} has no inbox or shipped folder.`);
   const settledFile = `${outboxDir}/settled.md`;
   const text19 = readIfExists(ctx, settledFile);
   let closedText;
   try {
-    closedText = closeDriftedEntry(text19, { id, pullRequest: pullRequest2, markers: ctx.markers });
+    closedText = closeDriftedEntry(text19, { id, pullRequest: pullRequest3, markers: ctx.markers });
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
   writeFileSync66(join165(ctx.root, settledFile), closedText);
   println(
     stdout,
-    `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
+    `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest3}; ${settledFile} amended. Commit the amendment.`
   );
   return 0;
 }
@@ -69055,7 +69389,7 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE45);
+    throw usageError(USAGE46);
   })
 };
 
@@ -69285,7 +69619,7 @@ function headlineOf(findings2, order2, severity) {
 }
 
 // kit/bin/commands/session.ts
-var USAGE46 = "usage: omni session start | omni session end";
+var USAGE47 = "usage: omni session start | omni session end";
 var CLOSE_LIMIT_MS = 2e3;
 var SYNC_BUDGET_MS = 15e3;
 var SYNC_FRESH_MS = 15 * 6e4;
@@ -69329,7 +69663,7 @@ function printSync(io, budget2) {
     const root = mainCheckout(io.cwd, io.exec);
     if (!root) return;
     loadConfig(root);
-    for (const line2 of syncBlock2(io, root, budget2)) println(io.stdout, line2);
+    for (const line3 of syncBlock2(io, root, budget2)) println(io.stdout, line3);
   } catch {
   }
 }
@@ -69365,17 +69699,17 @@ var session = {
   withoutContext: true,
   async run(args, { tokens: tokens2, home, fetch = globalThis.fetch, now: now2 = Date.now, budgetMs = CONSTITUENTS_BUDGET_MS, syncBudgetMs = SYNC_BUDGET_MS, ...io }) {
     const [verb2, ...rest] = args;
-    if (rest.length > 0) throw usageError(USAGE46);
+    if (rest.length > 0) throw usageError(USAGE47);
     if (verb2 === "start") return start3(io, { tokens: tokens2, home, fetch, now: now2, budgetMs, syncBudgetMs });
     if (verb2 === "end") return end2(io, { tokens: tokens2, home, fetch, now: now2 });
-    throw usageError(USAGE46);
+    throw usageError(USAGE47);
   }
 };
 
 // kit/bin/commands/settle.ts
 init_define_OMNI_BUNDLE();
 import { relative as relative9 } from "node:path";
-var USAGE47 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted] | omni settle <item-id> --prd <key>-<n> (--answer "<text>" | --answer-file <path>) [--verdict agreed|drifted]';
+var USAGE48 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted] | omni settle <item-id> --prd <key>-<n> (--answer "<text>" | --answer-file <path>) [--verdict agreed|drifted]';
 function answerOf5(flags, text19) {
   return {
     text: text19 ?? "",
@@ -69412,7 +69746,7 @@ function settleRequest(args, ctx) {
     values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict", "prd"]
   });
   const [path] = positional;
-  if (positional.length !== 1 || path === void 0) throw usageError(USAGE47);
+  if (positional.length !== 1 || path === void 0) throw usageError(USAGE48);
   const text19 = answerText2(flags, ctx);
   const product2 = productOf2(flags.prd);
   return product2 === null ? { product: product2, file: relative9(ctx.root, inRoot(ctx, path)), answer: answerOf5(flags, text19) } : { product: product2, file: `${product2}/${path}`, answer: productAnswerOf(flags, text19) };
@@ -69440,7 +69774,7 @@ var settle3 = {
 // kit/bin/commands/setup-token.ts
 init_define_OMNI_BUNDLE();
 import { randomBytes as randomBytes3 } from "node:crypto";
-var USAGE48 = "usage: omni setup-token [--name <name>] [--days 30|90|365] [--device | --loopback]";
+var USAGE49 = "usage: omni setup-token [--name <name>] [--days 30|90|365] [--device | --loopback]";
 var DAYS = ["30", "90", "365"];
 var DEFAULT_DAYS = "90";
 var NAME_MAX = 40;
@@ -69561,7 +69895,7 @@ var setupToken = {
     platform: platform2 = process.platform
   }) {
     const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"], booleans: ["device", "loopback"] });
-    if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE48);
+    if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE49);
     const name3 = nameOf2(flags.name, now2());
     const days = daysOf(flags.days);
     const askUrl2 = loadContext(cwd, { exec }).config.ask.url;
@@ -69638,15 +69972,15 @@ var ship = {
 
 // kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
-var USAGE49 = "usage: omni sign trailer|footer";
+var USAGE50 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional } = parseArgs("sign", args);
     const [which = ""] = positional;
-    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE49);
-    const line2 = LINES2[which](ctx.config.signature);
-    if (line2 !== null) println(stdout, line2);
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE50);
+    const line3 = LINES2[which](ctx.config.signature);
+    if (line3 !== null) println(stdout, line3);
     return 0;
   })
 };
@@ -69759,22 +70093,22 @@ function shippedEntry({ prd: prd2, topic }, width) {
 }
 function shippedRow(shipped) {
   const out = [];
-  let line2 = `${stageColumn("shipped")}${shipped.length}: `;
+  let line3 = `${stageColumn("shipped")}${shipped.length}: `;
   let fresh = true;
   for (const entry3 of shipped) {
     if (!fresh) {
-      const joined3 = `${line2}${SEPARATOR3}${shippedEntry(entry3, Infinity)}`;
+      const joined3 = `${line3}${SEPARATOR3}${shippedEntry(entry3, Infinity)}`;
       if (joined3.length <= WIDTH2) {
-        line2 = joined3;
+        line3 = joined3;
         continue;
       }
-      out.push(line2);
-      line2 = UNDER_BAR;
+      out.push(line3);
+      line3 = UNDER_BAR;
     }
-    line2 = `${line2}${shippedEntry(entry3, WIDTH2 - line2.length)}`;
+    line3 = `${line3}${shippedEntry(entry3, WIDTH2 - line3.length)}`;
     fresh = false;
   }
-  out.push(line2);
+  out.push(line3);
   return out;
 }
 function yours({ state, email: email3, rows: inFlight3, shipped }) {
@@ -69787,7 +70121,7 @@ function yours({ state, email: email3, rows: inFlight3, shipped }) {
 function heldLines(held3) {
   return held3.flatMap(({ prd: prd2, topic, lines: lines4 }) => [
     cut6(`${INDENT2}${"held".padEnd(UNDER_BAR.length - INDENT2.length)}#${prd2} ${topic}`, WIDTH2),
-    ...lines4.map((line2) => `${UNDER_BAR}${line2}`)
+    ...lines4.map((line3) => `${UNDER_BAR}${line3}`)
   ]);
 }
 function formatOverview(overview2, { now: now2, followUps }) {
@@ -69808,7 +70142,7 @@ function formatOverview(overview2, { now: now2, followUps }) {
 }
 
 // kit/bin/commands/status.ts
-var USAGE50 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE51 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 async function overview({ ctx, stdout, exec, fetch, gate }) {
   if (fetch) {
     const failure9 = fetchRemote({ ctx, exec });
@@ -69863,7 +70197,7 @@ var status4 = {
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     const ctx = loadContext(cwd, { exec });
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens: tokens2, home, fetch, callMs } });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE50);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE51);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
     return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, stderr, exec, vars, gate: { tokens: tokens2, home, fetch, callMs, now: now2 } });
   }
@@ -69871,7 +70205,7 @@ var status4 = {
 
 // kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
-var USAGE51 = "usage: omni targets [--json]";
+var USAGE52 = "usage: omni targets [--json]";
 async function targetList(ctx, product2, io, note) {
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError("omni targets: no repository slug \u2014 set repo.slug in the config.");
@@ -69889,7 +70223,7 @@ var targets = {
   async run(args, io) {
     const { stdout, stderr, exec, env } = io;
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE51);
+    if (positional.length) throw usageError(USAGE52);
     const ctx = loadContext(io.cwd, { exec });
     const plan2 = ctx.config.plan;
     if (!plan2) {
@@ -69903,7 +70237,7 @@ var targets = {
     }
     const rows2 = flagRoles(readTargets(list6, { ctx, exec, env: githubEnv(ctx, { exec, env }) }));
     if (flags.json) println(stdout, JSON.stringify(rows2, null, 2));
-    else for (const line2 of targetsTable(rows2)) println(stdout, line2);
+    else for (const line3 of targetsTable(rows2)) println(stdout, line3);
     return rows2.every((row) => row.state === "ok") ? 0 : 1;
   }
 };
@@ -69945,7 +70279,7 @@ function formatLink(format, ref2) {
 }
 
 // kit/bin/commands/ref.ts
-var USAGE52 = 'usage: omni ref <issue> --title "<title>" [--repo <owner/name>] [--json]';
+var USAGE53 = 'usage: omni ref <issue> --title "<title>" [--repo <owner/name>] [--json]';
 var CONFIG = ".omni-loop/config.yml";
 var IssueBodySchema = external_exports.object({ body: external_exports.string().nullable() });
 function gh2(args, { ctx, exec, env }) {
@@ -69996,7 +70330,7 @@ function print3(io, format, found2, title, json3) {
 var ref = {
   run: synchronous((args, io) => {
     const { positional, flags } = parseArgs("ref", args, { values: ["title", "repo"], booleans: ["json"] });
-    if (positional.length !== 1 || flags.title === void 0) throw usageError(USAGE52);
+    if (positional.length !== 1 || flags.title === void 0) throw usageError(USAGE53);
     const issue2 = issueArg("ref", "the issue", positional[0]);
     const target3 = flags.repo === void 0 ? null : repoSlug("ref", io.ctx, flags.repo);
     const body = issueBody(issue2, io);
@@ -70027,12 +70361,12 @@ function resolveTier(config3, agent, tier2) {
 }
 
 // kit/bin/commands/tier.ts
-var USAGE53 = "usage: omni tier <deep|build|light> --agent <agent>";
+var USAGE54 = "usage: omni tier <deep|build|light> --agent <agent>";
 var tier = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional, flags } = parseArgs("tier", args, { values: ["agent"] });
     const [name3] = positional;
-    if (positional.length !== 1 || name3 === void 0 || flags.agent === void 0) throw usageError(USAGE53);
+    if (positional.length !== 1 || name3 === void 0 || flags.agent === void 0) throw usageError(USAGE54);
     if (!isTier2(name3)) throw usageError(`omni tier: ${name3} is no tier \u2014 one of ${TIERS.join(", ")}.`);
     const { agent } = flags;
     if (!isOneOf(AGENTS, agent)) throw usageError(`omni tier: ${agent} is no agent the kit knows \u2014 one of ${AGENTS.join(", ")}.`);
@@ -70135,7 +70469,7 @@ async function phase0Of2(repos, ctx, io) {
 }
 
 // kit/bin/commands/product.ts
-var USAGE54 = "usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>\u2026";
+var USAGE55 = "usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>\u2026";
 function failure8(error62, what) {
   if (!(error62 instanceof AskCallError)) return { ok: false, lines: [messageOf(error62)] };
   if (error62.status === null) return { ok: false, lines: [`${what}: the server is unreachable`] };
@@ -70175,7 +70509,7 @@ function verbOf2(args) {
   const { positional, flags } = parseArgs("product", args, { values: ["product"] });
   const [verb2 = "", ...rest] = positional;
   const asked = Object.hasOwn(VERBS4, verb2) ? VERBS4[verb2]?.(rest, flags.product) : null;
-  if (!asked) throw usageError(USAGE54);
+  if (!asked) throw usageError(USAGE55);
   return asked;
 }
 async function said(call, verb2, ctx, io) {
@@ -70197,7 +70531,7 @@ var product = {
     if (!repo) throw usageError(`omni product ${asked.verb}: no repository slug \u2014 set repo.slug in the config.`);
     const call = asked.verb === "import" ? importCall(ctx, repo, asked.product) : whichCall(repo);
     const { ok, lines: lines4 } = await said(call, asked.verb, ctx, io);
-    for (const line2 of [...asked.verb === "which" ? rememberedLines(io) : [], ...lines4]) println(io.stdout, line2);
+    for (const line3 of [...asked.verb === "which" ? rememberedLines(io) : [], ...lines4]) println(io.stdout, line3);
     return ok ? 0 : 1;
   }
 };
@@ -70296,17 +70630,17 @@ function usagePart(fiveHour, now2) {
 function sessionLine({ model, contextPercent, fiveHour, askOn }, { now: now2, color }) {
   return [model, contextPart(contextPercent, { color }), usagePart(fiveHour, now2), askOn ? "ask on" : null].filter(Boolean).join(SEPARATOR4);
 }
-function visibleLength(line2) {
+function visibleLength(line3) {
   let length = 0;
-  for (const [token] of line2.matchAll(TOKEN3)) if (!SGR.test(token)) length += 1;
+  for (const [token] of line3.matchAll(TOKEN3)) if (!SGR.test(token)) length += 1;
   return length;
 }
-function fit3(line2, width) {
-  if (visibleLength(line2) <= width) return line2;
+function fit3(line3, width) {
+  if (visibleLength(line3) <= width) return line3;
   let out = "";
   let shown6 = 0;
   let open3 = false;
-  for (const [token] of line2.matchAll(TOKEN3)) {
+  for (const [token] of line3.matchAll(TOKEN3)) {
     if (SGR.test(token)) {
       out += token;
       open3 = token !== RESET;
@@ -70350,10 +70684,10 @@ function workLine(work, board2, width = Number.POSITIVE_INFINITY, { color = fals
   const draw2 = (topic, names) => [workName2(work, topic), ...workParts(work, board2, names, color)].filter(Boolean).join(SEPARATOR4);
   const full = draw2(work.topic, true);
   if (visibleLength(full) <= width) return full;
-  const line2 = draw2(work.topic, false);
-  const over2 = visibleLength(line2) - width;
+  const line3 = draw2(work.topic, false);
+  const over2 = visibleLength(line3) - width;
   const length = Array.from(work.topic).length;
-  if (over2 <= 0 || length <= TOPIC_FLOOR) return fit3(line2, width);
+  if (over2 <= 0 || length <= TOPIC_FLOOR) return fit3(line3, width);
   return fit3(draw2(cutTo(work.topic, Math.max(TOPIC_FLOOR, length - over2)), false), width);
 }
 function headlineLine2({ headline: headline2, work }, width) {
@@ -70378,11 +70712,11 @@ function withBadge(record2, draw2, width) {
   const dot = SYNC_DOTS[record2.status];
   const text19 = syncText(record2);
   const [first = ""] = text19.split(" ");
-  const line2 = draw2(width);
-  const room = width - visibleLength(`${dot} ${SEPARATOR4}${line2}`);
+  const line3 = draw2(width);
+  const room = width - visibleLength(`${dot} ${SEPARATOR4}${line3}`);
   const length = Array.from(text19).length;
-  if (room >= length) return `${dot} ${text19}${SEPARATOR4}${line2}`;
-  if (room > Array.from(first).length) return `${dot} ${cutTo(text19, room).replace(/ +…$/u, CUT)}${SEPARATOR4}${line2}`;
+  if (room >= length) return `${dot} ${text19}${SEPARATOR4}${line3}`;
+  if (room > Array.from(first).length) return `${dot} ${cutTo(text19, room).replace(/ +…$/u, CUT)}${SEPARATOR4}${line3}`;
   const prefix = `${dot} ${first}${SEPARATOR4}`;
   return `${prefix}${draw2(Math.max(1, width - visibleLength(prefix)))}`;
 }
@@ -70396,7 +70730,7 @@ function renderLines({ input: input2, facts: facts2, terminal, now: now2 }) {
     const draw2 = (columns3) => answer ? secondLine(answer, board2, columns3, { color }) : fit3(NO_PRD_LINE, columns3);
     lines4.push(sync3 ? withBadge(sync3, draw2, width) : draw2(width));
   }
-  return lines4.map((line2) => fit3(line2, width));
+  return lines4.map((line3) => fit3(line3, width));
 }
 
 // kit/lib/statusline/sync-badge.ts
@@ -70642,7 +70976,7 @@ function gitOut(io, args, timeout) {
     return null;
   }
 }
-var linesOf = (text19) => text19.split("\n").map((line2) => line2.trim()).filter(Boolean);
+var linesOf = (text19) => text19.split("\n").map((line3) => line3.trim()).filter(Boolean);
 function isLinked(io) {
   const out = gitOut(io, ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"]);
   const [gitDir, commonDir] = linesOf(out ?? "");
@@ -70662,7 +70996,7 @@ function fetched(io) {
 function behindOf(io, tracking) {
   const out = gitOut(io, ["log", "--format=%ct", `HEAD..${tracking}`]);
   if (out === null) return { notChecked: "git log failed" };
-  const times = linesOf(out).map((line2) => Number.parseInt(line2, 10) * 1e3).filter((time5) => Number.isFinite(time5));
+  const times = linesOf(out).map((line3) => Number.parseInt(line3, 10) * 1e3).filter((time5) => Number.isFinite(time5));
   return { count: times.length, oldestAt: times.length > 0 ? Math.min(...times) : null };
 }
 function changedOf(io) {
@@ -70713,7 +71047,7 @@ function fixOthers({ record: record2, kitRepo, actions }) {
   return openFixes(record2).flatMap((step3) => {
     if (step3 === "kit" && kitRepo) return [KIT_REPO];
     const { done, lines: lines4 } = actions[step3]();
-    return [done ? WORDS2[step3].done : WORDS2[step3].left, ...lines4.map((line2) => `    ${line2}`)];
+    return [done ? WORDS2[step3].done : WORDS2[step3].left, ...lines4.map((line3) => `    ${line3}`)];
   });
 }
 var QUIET19 = (cwd, timeout) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...timeout ? { timeout } : {} });
@@ -70730,9 +71064,9 @@ function gitDo(io, args, timeout) {
     return null;
   } catch (error62) {
     const said2 = [propertyOf(error62, "stderr"), propertyOf(error62, "stdout")].map((text19) => typeof text19 === "string" || text19 instanceof Buffer ? text19.toString() : "");
-    const line2 = said2.join("\n").split("\n").map((text19) => text19.trim()).find(Boolean);
+    const line3 = said2.join("\n").split("\n").map((text19) => text19.trim()).find(Boolean);
     if (propertyOf(error62, "code") === "ETIMEDOUT") return "timed out";
-    return line2 ?? "git failed";
+    return line3 ?? "git failed";
   }
 }
 var counted4 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -70780,7 +71114,7 @@ function fixMain(io) {
   const switched = switchStep(io, facts2);
   const after = switched?.switched ? mainFacts(io) : facts2;
   const forward = isUnchecked(after) ? null : fastForwardStep(io, after);
-  return [switched?.line, forward].filter((line2) => line2 !== void 0 && line2 !== null);
+  return [switched?.line, forward].filter((line3) => line3 !== void 0 && line3 !== null);
 }
 
 // kit/lib/sync/run.ts
@@ -70970,7 +71304,7 @@ var GH_BUDGET_MS2 = 1e4;
 var QUIET20 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function gitLines(exec, cwd, args) {
   try {
-    return exec("git", args, { cwd, ...QUIET20 }).split("\n").map((line2) => line2.trim()).filter(Boolean);
+    return exec("git", args, { cwd, ...QUIET20 }).split("\n").map((line3) => line3.trim()).filter(Boolean);
   } catch {
     return null;
   }
@@ -71246,7 +71580,7 @@ async function runSync(io) {
 }
 
 // kit/bin/commands/sync.ts
-var USAGE55 = "usage: omni sync [--json | --quiet | --background | --fix] [--strict]";
+var USAGE56 = "usage: omni sync [--json | --quiet | --background | --fix] [--strict]";
 var NOT_INSTALLED = "sync: the loop is not installed here";
 var OMNI_BUDGET_MS = 3e5;
 var PLUGIN_BUDGET_MS = 12e4;
@@ -71279,14 +71613,14 @@ function lockFor(root, now2) {
 function modeOf(args) {
   const { positional, flags } = parseArgs("sync", args, { booleans: ["json", "quiet", "background", "fix", "strict"] });
   const modes = ["json", "quiet", "background", "fix"].filter((mode) => flags[mode]);
-  if (positional.length > 0 || modes.length > 1) throw usageError(USAGE55);
+  if (positional.length > 0 || modes.length > 1) throw usageError(USAGE56);
   return { mode: modes[0] ?? "block", strict: flags.strict === true };
 }
 function printed3(record2, mode) {
   if (mode === "json") return [JSON.stringify(record2)];
   return mode === "block" || mode === "fix" ? syncLines(record2) : [];
 }
-var linesOf2 = (text19) => (typeof text19 === "string" || text19 instanceof Buffer ? text19.toString() : "").split("\n").map((line2) => line2.trim()).filter(Boolean);
+var linesOf2 = (text19) => (typeof text19 === "string" || text19 instanceof Buffer ? text19.toString() : "").split("\n").map((line3) => line3.trim()).filter(Boolean);
 function runOmni({ cwd, exec, env, script: script2 }, args) {
   if (!script2) return { done: false, lines: [`run omni ${args.join(" ")} yourself`], out: "" };
   try {
@@ -71309,7 +71643,7 @@ function refreshPage(io) {
 }
 function updatePlugins(exec) {
   const lines4 = [];
-  const done = updatePlugin({ exec, println: (line2) => lines4.push(line2.trim()) });
+  const done = updatePlugin({ exec, println: (line3) => lines4.push(line3.trim()) });
   if (!done) return { done, lines: lines4 };
   try {
     exec("claude", ["plugin", "update", HUD_PLUGIN], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: PLUGIN_BUDGET_MS });
@@ -71347,7 +71681,7 @@ async function runOnce2(ctx, io, { mode, strict }) {
   if (owner === null && mode === "quiet") return 0;
   try {
     const { lines: lines4, record: record2 } = mode === "fix" ? await fixed(ctx, root, io) : { lines: [], record: await runSync({ cwd, root, config: ctx.config, exec, now: now2() }) };
-    for (const line2 of [...lines4, ...printed3(record2, mode)]) println(stdout, line2);
+    for (const line3 of [...lines4, ...printed3(record2, mode)]) println(stdout, line3);
     return strict && record2.status === "red" ? 1 : 0;
   } finally {
     if (owner !== null) releaseSyncLock(root, owner);
@@ -71375,7 +71709,7 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync101, mkdtempSync as mkdtempSync7, readFileSync as readFileSync132, rmSync as rmSync28 } from "node:fs";
 import { tmpdir as tmpdir7 } from "node:os";
 import { join as join170 } from "node:path";
-var USAGE56 = "usage: omni update [--to <version>]";
+var USAGE57 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
   const dir = mkdtempSync7(join170(tmpdir7(), "omni-update-"));
   try {
@@ -71436,13 +71770,13 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE56);
+    if (positional.length) throw usageError(USAGE57);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
     const file2 = bundle === void 0 ? runningBundle() : bundle;
-    const out = (line2) => {
-      println(stdout, line2);
+    const out = (line3) => {
+      println(stdout, line3);
     };
     try {
       if (flags.apply) {
@@ -71475,7 +71809,7 @@ var version2 = {
     if (positional.length) throw usageError("usage: omni version");
     const running = kit ?? runningKit({ exec });
     const latest = running.version ? latestRelease({ home: running.home, exec }) : null;
-    for (const line2 of versionLines({ ...running, latest })) println(stdout, line2);
+    for (const line3 of versionLines({ ...running, latest })) println(stdout, line3);
     return 0;
   })
 };
@@ -71501,14 +71835,14 @@ init_define_OMNI_BUNDLE();
 import { isAbsolute as isAbsolute15, relative as relative10 } from "node:path";
 var HEADS = "refs/heads/";
 function field2(lines4, key2) {
-  const line2 = lines4.find((candidate) => candidate.startsWith(`${key2} `));
-  return line2?.slice(key2.length + 1);
+  const line3 = lines4.find((candidate) => candidate.startsWith(`${key2} `));
+  return line3?.slice(key2.length + 1);
 }
-var flagged = (lines4, key2) => lines4.some((line2) => line2 === key2 || line2.startsWith(`${key2} `));
+var flagged = (lines4, key2) => lines4.some((line3) => line3 === key2 || line3.startsWith(`${key2} `));
 function parseWorktreeList(text19) {
   const out = [];
   for (const block of text19.split(/\n\s*\n/)) {
-    const lines4 = block.split("\n").filter((line2) => line2 !== "");
+    const lines4 = block.split("\n").filter((line3) => line3 !== "");
     const path = field2(lines4, "worktree");
     if (path === void 0) continue;
     const ref2 = field2(lines4, "branch");
@@ -71577,8 +71911,8 @@ function startRun(seams, worktrees2) {
   return { seams, unpushed: heads.length === 0 ? /* @__PURE__ */ new Set() : seams.host.unpushed(heads), cwds: void 0, boards: /* @__PURE__ */ new Map() };
 }
 function gitLine(text19) {
-  const line2 = text19.split("\n").find((candidate) => candidate.trim() !== "") ?? "git refused";
-  return line2.replace(/^(?:error|fatal|warning): /, "").trim();
+  const line3 = text19.split("\n").find((candidate) => candidate.trim() !== "") ?? "git refused";
+  return line3.replace(/^(?:error|fatal|warning): /, "").trim();
 }
 function boardOf2(topic, run2) {
   const prd2 = run2.seams.prdOf(topic);
@@ -71671,8 +72005,8 @@ async function pruneWorktrees2(seams, { prd: prd2, dryRun }) {
   const lines4 = [];
   let total = 0;
   for (const worktree of chosen) {
-    const { line: line2, freed } = await removeIfSafe(worktree, run2, dryRun);
-    lines4.push(line2);
+    const { line: line3, freed } = await removeIfSafe(worktree, run2, dryRun);
+    lines4.push(line3);
     total += freed;
   }
   lines4.push(`${dryRun ? "would free" : "freed"} ${formatSize(total)}`);
@@ -71734,7 +72068,7 @@ function procCwds() {
 function lsofCwds(exec) {
   try {
     const text19 = exec("lsof", ["-a", "-d", "cwd", "-F", "n"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
-    return text19.split("\n").flatMap((line2) => line2.startsWith("n") ? [line2.slice(1)] : []);
+    return text19.split("\n").flatMap((line3) => line3.startsWith("n") ? [line3.slice(1)] : []);
   } catch {
     return null;
   }
@@ -71801,7 +72135,7 @@ function gitHost({ root, remote, exec, cwds }) {
 }
 
 // kit/bin/commands/worktrees.ts
-var USAGE57 = "usage: omni worktrees list [--json] | prune [--prd <n>] [--dry-run] | remove <path> | hint";
+var USAGE58 = "usage: omni worktrees list [--json] | prune [--prd <n>] [--dry-run] | remove <path> | hint";
 var VERBS5 = {
   list(command2, rest) {
     const { positional, flags } = parseArgs(command2, rest, { booleans: ["json"] });
@@ -71822,7 +72156,7 @@ function callOf(args) {
   const [verb2 = "", ...rest] = args;
   const parse14 = Object.hasOwn(VERBS5, verb2) ? VERBS5[verb2] : void 0;
   const call = parse14 === void 0 ? null : parse14(`worktrees ${verb2}`, rest);
-  if (call === null) throw usageError(`omni worktrees: ${USAGE57}`);
+  if (call === null) throw usageError(`omni worktrees: ${USAGE58}`);
   return call;
 }
 function prdOfTopic(ctx) {
@@ -71858,7 +72192,7 @@ async function runCall(call, seams, { stdout, cwd }) {
     if (call.json) println(stdout, JSON.stringify({ worktrees: entries4 }, null, 2));
     else printList(stdout, entries4);
   } else if (call.verb === "prune") {
-    for (const line2 of await pruneWorktrees2(seams, { prd: call.prd, dryRun: call.dryRun })) println(stdout, line2);
+    for (const line3 of await pruneWorktrees2(seams, { prd: call.prd, dryRun: call.dryRun })) println(stdout, line3);
   } else if (call.verb === "remove") {
     println(stdout, await removeWorktree(seams, { path: call.path, cwd }));
   } else {
@@ -71893,10 +72227,10 @@ var bug2 = {
   withoutContext: true,
   run: (args, io) => args[0] === "ci" ? ci(args.slice(1), io) : bug.run(args, io)
 };
-var COMMAND_TABLE = Object.freeze({ config: config2, "before-after": beforeAfter, prd, budget, approval, wait, status: status4, settle: settle3, adopt, replies, answers, comment, ship, harvest, retro, rewind, check: check2, claim: claim3, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, "follow-up": followUp, next, loop, rework, phase0, visual, bug: bug2, concept, mission, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, ref, hold: hold2, sync: sync2, worktrees });
+var COMMAND_TABLE = Object.freeze({ config: config2, "before-after": beforeAfter, prd, budget, approval, wait, status: status4, settle: settle3, adopt, replies, answers, comment, ship, harvest, retro, review, rewind, check: check2, claim: claim3, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, "follow-up": followUp, next, loop, rework, phase0, visual, bug: bug2, concept, mission, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, ref, hold: hold2, sync: sync2, worktrees });
 
 // kit/bin/omni.ts
-var USAGE58 = `usage: omni <command> [args]
+var USAGE59 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -72009,7 +72343,7 @@ async function main(argv, {
   const name3 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command2 = Object.hasOwn(COMMAND_TABLE, name3) ? COMMAND_TABLE[name3] : void 0;
   if (!command2) {
-    stderr.write(USAGE58);
+    stderr.write(USAGE59);
     return 2;
   }
   try {
