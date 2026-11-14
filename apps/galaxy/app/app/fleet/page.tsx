@@ -1,9 +1,13 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { supabaseEnv } from '../../../src/data/supabase-server';
 import { viewer } from '../../../src/data/viewer';
 import { periodOf, type Period } from '../../../src/dashboard/board/period';
 import { demoFleetBoard, loadFleetBoard } from '../../../src/dashboard/fleet/fleet';
 import { FleetScreen, type FleetView } from '../../../src/dashboard/fleet/FleetScreen';
+import { tabOf } from '../../../src/dashboard/fleet/tabs';
+import { loadMissionsTab } from '../../../src/missions/page/missions-tab.live';
+import { MissionsTab } from '../../../src/missions/page/MissionsTab';
 import { BoardLoading } from '../../../src/skeleton/pages';
 import { Streamed } from '../../../src/skeleton/Streamed';
 
@@ -33,19 +37,29 @@ function viewOf(seen: Exclude<Seen, { kind: 'signed-in' }>, asked: string | null
   return seen.kind === 'demo' ? demoFleetBoard(asked, period, now) : { kind: seen.kind };
 }
 
+/** PRD 2842 s7: the Missions tab of a virtual fleet streams in its own block, read as the signed-in person; any other tab, or fleet, has none. */
+function missionsBlock(db: Parameters<typeof loadMissionsTab>[0], view: FleetView, query: Record<string, string | string[] | undefined>): ReactNode {
+  if (view.kind !== 'board' || !view.virtual?.workspace || !view.virtual.names.includes(view.fleet.name) || tabOf(query.tab) !== 'missions') return undefined;
+  return (
+    <Streamed read={loadMissionsTab(db, view.virtual.workspace, view.fleet.name)} skeleton={<p className="fleet-line ask-muted">Loading the missions…</p>}>
+      {(missions) => <MissionsTab view={missions} />}
+    </Streamed>
+  );
+}
+
 export default async function FleetPage({ searchParams }: Props) {
   const query = await searchParams;
   const period = periodOf(one(query.period));
   const asked = one(query.fleet);
   const now = new Date();
-  const screen = (view: FleetView) => (
-    <FleetScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} query={query} />
+  const screen = (view: FleetView, missions?: ReactNode) => (
+    <FleetScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} query={query} missions={missions} />
   );
   const seen = await viewer();
   if (seen.kind !== 'signed-in') return screen(viewOf(seen, asked, period, now));
   return (
     <Streamed read={loadFleetBoard(seen.db, seen.user, asked, period, now)} skeleton={<BoardLoading />}>
-      {screen}
+      {(view) => screen(view, missionsBlock(seen.db, view, query))}
     </Streamed>
   );
 }

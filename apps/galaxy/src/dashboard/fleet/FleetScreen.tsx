@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Notice } from '../../ask/page/Notice';
 import { SwitchAccount } from '../../ask/page/SignInCard';
 import { DashboardSignIn } from '../DashboardSignIn';
@@ -50,6 +51,8 @@ export interface FleetScreenProps {
   supabase: Supabase | null;
   signinError: string | null;
   query: Query;
+  /** The Missions tab's block (PRD 2842 s7), streamed by the page; absent, the tab is not open. */
+  missions?: ReactNode;
 }
 
 function Closed() {
@@ -118,7 +121,7 @@ function TabBody({ tab, view }: { tab: Exclude<FleetTab, 'board'>; view: Extract
   return view.heroes ? <HeroesTab view={view.heroes} /> : <CouldNotLoad />;
 }
 
-export function FleetScreen({ view, supabase, signinError, query }: FleetScreenProps) {
+export function FleetScreen({ view, supabase, signinError, query, missions }: FleetScreenProps) {
   switch (view.kind) {
     case 'closed':
       return <Closed />;
@@ -154,7 +157,7 @@ export function FleetScreen({ view, supabase, signinError, query }: FleetScreenP
             <Place place={view.fleet.place} season={view.board.season.name} />
           </header>
           {virtual && <FleetTabs current={tab} query={query} path={FLEET_PATH} />}
-          {tab === 'board' ? <Board board={view.board} path={FLEET_PATH} query={query} /> : <TabBody tab={tab} view={view} />}
+          {tab === 'board' ? <Board board={view.board} path={FLEET_PATH} query={query} /> : tab === 'missions' && missions ? missions : <TabBody tab={tab} view={view} />}
         </div>
       );
     }
