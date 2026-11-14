@@ -220,8 +220,10 @@ repositories.
   any later change voids it, and the build waits for a new one) is kept: a mission sends a PRD only
   while its approval stands; once an approved file changes, that approval is void, the PRD reads
   `waits on you: approve it again`, and the mission sends it only after a member approves it anew.
-  BL-ASK-1 (an answer a person gave is never changed) is kept: a mission reads answers and approvals
-  and writes none; its own rows are signed by their role, never in a person's name.
+  BL-ASK-1 (an answer a person gave is never changed) is kept: a mission never stores, changes or
+  rewords a person's answer, review or approval; its events only link to them and say that the person
+  answered, approved or merged, and when. A mission's own rows are signed by their role, never in a
+  person's name.
 
 ## Acceptance criteria
 
