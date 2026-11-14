@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { COMMAND_TABLE } from '../../bin/commands/index.ts';
 import { STAGE_ORDER, STAGE_WORDS } from '../status/format.ts';
 import { ENTRIES, PRINCIPLES, SKILL_GROUPS, STAGES } from './entries.ts';
+import { renderEntry } from './render.ts';
 import { isOneOf, propertyOf } from '../narrow.ts';
 import { assertDefined } from '../../test/assert.ts';
 
@@ -107,11 +108,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 70 commands and the 40 skills', () => {
+  it('holds the 70 commands and the 41 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(70);
-    expect(skillFolders()).toHaveLength(40);
+    expect(skillFolders()).toHaveLength(41);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(70);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(40);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(41);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -239,6 +240,25 @@ describe('the help table in this repository', () => {
     expect(prCare.detail).toMatch(/\bfeature PR\b/);
     expect(prCare.detail).toMatch(/\breview\b/);
     expect(prCare.detail).toMatch(/never merges/);
+  });
+
+  it('lists /omni:review for you under Build it, after /omni:pr-care, and omni help review prints it beside the command (PRD 2871)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const review = skills.find((e) => e.name === 'review');
+    assertDefined(review, 'review');
+    expect(review).toMatchObject({ who: 'you', usage: ['/omni:review <n>'], label: '/omni:review <n>', group: 'build' });
+    expect(skills.indexOf(review)).toBe(skills.findIndex((e) => e.name === 'pr-care') + 1);
+    expect(review.when).toMatch(/^Use it when\b/);
+    expect(review.example).toEqual({ type: '/omni:review 2871', result: anyText });
+    const words = review.detail.replace(/\s+/g, ' ');
+    for (const phrase of [/COMMENT/, /five findings/, /verification pass/, /round 2/i, /only on its own pass/, /never approves/, /never merges/, /writes no code/]) {
+      expect(words, String(phrase)).toMatch(phrase);
+    }
+    const config = { paths: { delivery: '.omni-loop/delivery' }, repo: { remote: 'origin', defaultBranch: 'main' } };
+    const help = renderEntry('review', config) ?? '';
+    expect(help).toContain('omni review post <prd>');
+    expect(help).toContain('/omni:review <n>');
+    expect(renderEntry('/omni:review', config)).not.toContain('omni review post');
   });
 
   it('lists /omni:think-big for you, first under Start a change, right before /omni:brainstorm (PRD 686)', () => {
@@ -402,7 +422,7 @@ describe('the help table in this repository', () => {
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
       start: ['brainstorm', 'bug-fix', 'mission', 'roadmap', 'think-big', 'visual-fix'],
-      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
+      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'review', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'tech-review', 'validate-e2e'],
