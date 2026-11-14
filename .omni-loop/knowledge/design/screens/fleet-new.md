@@ -54,4 +54,4 @@ fleet`.
 
 ## Source
 
-/omni:brainstorm, PRD 2842: .omni-loop/delivery/inbox/2842-missions/before-after.html
+/omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
