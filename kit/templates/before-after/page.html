@@ -107,7 +107,7 @@ details > summary { cursor: pointer; color: var(--muted); }
 <!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element
      carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),
      data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,
-     written at that width. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,
+     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,
      and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->
 <div data-section="pixel-perfect" data-state="gap">
 <h4>Pixel perfect</h4>
@@ -178,6 +178,7 @@ details > summary { cursor: pointer; color: var(--muted); }
       caption.appendChild(part);
     });
     caption.appendChild(full);
+    if (width) fit.style.maxWidth = width + 2 + 'px';
     fit.appendChild(screen);
     figure.appendChild(caption);
     figure.appendChild(fit);
