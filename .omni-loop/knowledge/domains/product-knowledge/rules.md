@@ -58,3 +58,27 @@ Enforced by: supabase/checks/knowledge_graphs.sql
 Stated: 2026-10-19
 Decided: @pierrederval, 2026-10-19
 Kept id: moved from product, PRD 2346
+
+## BR-PRODUCTKNOWLEDGE-1
+
+A page or decision record is owned by its owner line, else by the law owners of the repository it is read from, such as the plan repository. A page still on the kit default is owned by the viewed repository's law owners. Only law owners are named, never their delegates.
+
+Serves: P-PRODUCTKNOWLEDGE-1
+Source: .omni-loop/delivery/shipped/2419-knowledge-tree-page/outbox/settled.md, entry s1-01-owners-of-records-and-defaults, PRD #2419
+Enforced by: kit/lib/knowledge-tree/pages.test.ts, apps/galaxy/src/product-knowledge/repositories/repositories-section.test.ts
+Stated: 2026-10-27
+Decided: nobody — adopted when raised (medium), 2026-10-23
+Merged: @pierrederval, 2026-10-27, PR #2510
+Proposed: harvest 2026-10-27
+
+## BR-PRODUCTKNOWLEDGE-2
+
+A product's Repositories section lists only the repositories linked to the product. The plan repository appears only as the level its pages come from, never as a repository of its own unless it is linked too.
+
+Serves: P-PRODUCTKNOWLEDGE-2
+Source: .omni-loop/delivery/shipped/2419-knowledge-tree-page/outbox/settled.md, entry s1-02-which-repositories-get-a-card, PRD #2419
+Enforced by: apps/galaxy/src/product-knowledge/repositories/repositories-section.test.ts, apps/galaxy/src/product-knowledge/repositories/settings-level.test.ts
+Stated: 2026-10-27
+Decided: nobody — adopted when raised (medium), 2026-10-23
+Merged: @pierrederval, 2026-10-27, PR #2510
+Proposed: harvest 2026-10-27
