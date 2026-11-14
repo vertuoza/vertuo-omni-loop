@@ -119,7 +119,7 @@ const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(re
 export const missionKey = (mission: string, prd: PrdNumber, run: number, step: Step = 'build'): string =>
   `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === 'build' ? '' : `:${step}`}`;
 
-const isStep = (text: string): text is Step => (STEPS as readonly string[]).includes(text);
+const isStep = (text: string): text is Step => STEPS.some((step) => step === text);
 
 /** The PRD, run and step a mission key names; null for any other text. */
 export function runOfKey(key: string): { prd: PrdNumber; run: number; step: Step } | null {
