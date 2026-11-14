@@ -55,7 +55,7 @@ As `/omni:wave` step 0, with these differences:
   `repos:` line; otherwise stop in one line, `PRD <prd> is an ordinary PRD: /omni:wave <prd>`.
 - Find the plan PR (the plan repository's feature PR) as `/omni:wave` finds the feature PR. For each
   target, its clone is `<worktrees>/targets/<name>@<prd>` (the PRD's own, as `/omni:ultra-yolo`
-  step 2 makes it), its remote the one `git -C <clone> remote` prints, its default branch
+  step 2 makes it; on a runner, `OMNI_JOB` set, `<worktrees>/targets/job-<id>/<name>`), its remote the one `git -C <clone> remote` prints, its default branch
   `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`, and its target feature
   PR `gh pr list --repo <slug> --head <feature branch> --state open --json number,body`. A target
   with no clone, no feature branch or no target PR is **held**: its slices are left out of the wave,
@@ -148,7 +148,9 @@ the `claimed` status comment there); `claimed-stale` is taken over with `--repo 
 
 ## 3. Dispatch, one agent per slice, all at once
 
-As `/omni:wave` step 3, with this prompt for a target's slice:
+On a runner (`OMNI_JOB` set), start at most `limits.parallelSteps`
+(`node .omni-loop/bin/omni.mjs config limits.parallelSteps`) slice agents at once, the rest as
+those return. As `/omni:wave` step 3, with this prompt for a target's slice:
 
 > Build slice `<id>` of PRD <prd>, on feature branch `<feature branch>` of `<slug>`: follow
 > `/omni:do-work --in-wave --target <repo>`. Its slice branch is already claimed in that target.

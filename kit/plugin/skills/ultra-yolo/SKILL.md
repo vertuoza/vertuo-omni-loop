@@ -283,6 +283,13 @@ each target row, the plan repository's own row excepted:
    clones): `gh repo clone <slug> <path>` when it is missing, `git -C <path> fetch --prune` on every
    run. When `git check-ignore -q <path>` fails, append the path to `info/exclude` under that
    common git folder, never to a committed file.
+
+   **On a runner** (`OMNI_JOB` set), the clone is `<worktrees>/targets/job-<id>/<name>` instead,
+   `<id>` being the value of `OMNI_JOB`: a folder of the job's own, so two jobs never share a clone.
+   Every later mention of `<worktrees>/targets/<name>@<prd>` reads as that path. Off a runner the
+   folder is as above. **A target the token does not reach:** when `gh repo clone` or the fetch of
+   a target fails on a runner, stop the job at this step, push nothing for that target, and end on
+   the line `install the Omni GitHub App on <owner/name>`, naming that repository.
 2. **The default branch** is the target's own:
    `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`. Never
    `repo.defaultBranch`.
@@ -417,7 +424,9 @@ In a detached worktree of the plan feature branch:
 Then release as `/omni:yolo` step 6 does, on the plan PR, with `slices: <merged> / <total> merged`
 across every repository.
 
-**Answer here, when the gate ends red.** `/omni:yolo` step 6's last part, as written, with one
+**Answer here, when the gate ends red.** Skipped when `OMNI_UNATTENDED` is set (a runner job, with
+nobody to answer): offer no "answer here", ask no question, and end red with the plan PR in draft
+and its questions posted, as `/omni:yolo` does. Otherwise `/omni:yolo` step 6's last part, as written, with one
 difference: **Carry on** follows `/omni:ultra-yolo-fix` steps 2 to 7 in this same run, and ends with
 its step 8's hand-off. A re-run of `/omni:ultra-yolo <n>` that reaches a red gate while the plan PR
 already carries a person's answers below its outbox comment carries on the same way, without the
