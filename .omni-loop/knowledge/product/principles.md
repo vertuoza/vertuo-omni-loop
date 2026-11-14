@@ -907,3 +907,12 @@ Why: A rule tagged only with layers no file maps to would otherwise never be sho
 Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-02-what-stays-global, PRD #2346
 Merged: @pierrederval, 2026-10-22, PR #2348
 Proposed: harvest 2026-10-22
+
+## P-PRODUCT-106
+
+The Omni page never opens a pull request for a settings change that every repository's sync would then skip.
+
+Why: A merged change that the sync silently ignores misleads the owner and leaves every repository out of step with what was approved.
+Source: .omni-loop/delivery/shipped/2417-tech-defaults/outbox/settled.md, entry s7-03-edit-whole-page-text, PRD #2417
+Merged: @pierrederval, 2026-10-23, PR #2479
+Proposed: harvest 2026-10-23

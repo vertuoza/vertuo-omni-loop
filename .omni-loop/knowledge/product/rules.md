@@ -778,3 +778,15 @@ Stated: 2026-10-22
 Decided: nobody — adopted when raised (medium), 2026-10-22
 Merged: @pierrederval, 2026-10-22, PR #2348
 Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-143
+
+An owner's edit of a playbook page on the Omni page covers the page's whole text, header included. A text the next sync would not read as a page is refused with the reader's reason, and no pull request is opened.
+
+Serves: P-PRODUCT-106
+Source: .omni-loop/delivery/shipped/2417-tech-defaults/outbox/settled.md, entry s7-03-edit-whole-page-text, PRD #2417
+Enforced by: apps/galaxy/src/omni-settings/omni-settings.proposal.test.ts, apps/galaxy/src/omni-settings/omni-settings.proposal.controller.test.ts
+Stated: 2026-10-23
+Decided: nobody — adopted when raised (medium), 2026-10-23
+Merged: @pierrederval, 2026-10-23, PR #2479
+Proposed: harvest 2026-10-23
