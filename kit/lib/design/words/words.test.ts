@@ -179,3 +179,64 @@ describe('the pass', () => {
     expect(page.screens[0]?.phrases.map((phrase) => phrase.text)).toEqual(['Kept as content here']);
   });
 });
+
+describe('a screen whose markup sits in a template (PRD 2850)', () => {
+  const frame = (screen: string): string =>
+    `<figure><figcaption>Caption words that sit outside the marked screen and never count at all</figcaption><div class="fit">${screen}</div></figure>`;
+  const inTemplate = (body: string, attributes = 'data-screen="quote-list" data-ref="1.A" data-when="today" data-viewport="1280"'): string =>
+    frame(`<div ${attributes}><template>${body}</template></div>`);
+
+  it('reads the words of the template as the words of its screen, as if written in place', () => {
+    const body = '<h1>Quotes</h1><button data-primary>New quote</button><p>Nothing here yet</p>';
+    const inPlace = wordPass(`<div data-screen="quote-list">${body}</div>`, rules());
+    const page = wordPass(inTemplate(body), rules());
+    expect(page.skipped).toBe(false);
+    expect(page.screens).toEqual(inPlace.screens);
+    expect(page.screens[0]?.words).toBe(6);
+  });
+
+  it("never reads a frame's caption, which sits outside the marked element", () => {
+    const page = wordPass(inTemplate('<p>Quotes</p>'), rules({ avoid: ['caption'] }));
+    expect(page.screens[0]?.phrases.map((phrase) => phrase.text)).toEqual(['Quotes']);
+    expect(page.screens[0]?.findings).toEqual([]);
+  });
+
+  it('reports the findings inside the template, a stylesheet and a script apart', () => {
+    const body = '<style>.a{color:red}</style><p>This sentence explains far too much to its reader at rest</p><button data-primary>One</button><button data-primary>Two</button><script>var a = 1;</script>';
+    const [screen] = wordPass(inTemplate(body), rules()).screens;
+    expect(screen?.findings.map((finding) => finding.rule)).toEqual(['two-primaries', 'explains-at-rest']);
+    expect(screen?.phrases.map((phrase) => phrase.text)).toEqual(['This sentence explains far too much to its reader at rest', 'One', 'Two']);
+  });
+
+  it('counts a content mark inside the template apart', () => {
+    const [screen] = wordPass(inTemplate('<p>Top</p><div data-content>three days ago</div>'), rules()).screens;
+    expect(screen?.words).toBe(1);
+    expect(screen?.content).toBe(3);
+  });
+
+  it("leaves a template that is not the screen's own body unread, as before", () => {
+    const [screen] = wordPass('<div data-screen="s"><p>Seen</p><section><template><p>Not a word of ours</p></template></section></div>', rules()).screens;
+    expect(screen?.phrases.map((phrase) => phrase.text)).toEqual(['Seen']);
+  });
+
+  it('skips a page whose only template holds a stylesheet', () => {
+    expect(wordPass('<template id="screen-css"><style>.a{}</style></template><p>Caption</p>', rules())).toEqual({ skipped: true, screens: [] });
+  });
+
+  it('reads each screen of a page apart, template or not', () => {
+    const after = 'data-screen="quote-list" data-ref="1.A" data-when="after" data-viewport="1280"';
+    const page = wordPass(`${inTemplate('<p>Today</p>')}${inTemplate('<p>After words</p>', after)}<div data-screen="plain"><p>Plain</p></div>`, rules());
+    expect(page.screens.map((screen) => [screen.name, screen.words])).toEqual([['quote-list', 1], ['quote-list', 2], ['plain', 1]]);
+  });
+
+  it('keeps parseHtml skipping a template body unless it is asked to read it', () => {
+    const html = '<div><template><p>Inside</p></template></div>';
+    const bodyOf = (root: Element) => {
+      const div = root.children[0];
+      const template = div?.kind === 'element' ? div.children[0] : undefined;
+      return template?.kind === 'element' ? template.children.length : -1;
+    };
+    expect(bodyOf(parseHtml(html))).toBe(0);
+    expect(bodyOf(parseHtml(html, { templates: true }))).toBe(1);
+  });
+});
