@@ -248,6 +248,64 @@ begin
   end if;
 end $$;
 
+-- ── An owner adds and removes a hero; a member, nobody else (PRD 2842 s6) ──
+do $$
+declare
+  v uuid := pg_temp.ws('initech');
+  olga constant text := '00000000-0000-4000-8000-0000000042a1';
+  mo constant text := '00000000-0000-4000-8000-0000000042b1';
+  carl constant text := '00000000-0000-4000-8000-0000000042c1';
+  added public.virtual_heroes;
+  before text;
+begin
+  before := pg_temp.state();
+  -- A member who is no owner, an owner of another workspace and a signed-out call are all refused.
+  perform set_config('request.jwt.claims', json_build_object('sub', mo, 'role', 'authenticated')::text, true);
+  begin
+    perform public.add_virtual_hero(v, 'day-shift', 'reviewer');
+    raise exception 'FAIL: a member who is no owner added a hero';
+  exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claims', json_build_object('sub', carl, 'role', 'authenticated')::text, true);
+  begin
+    perform public.add_virtual_hero(v, 'day-shift', 'reviewer');
+    raise exception 'FAIL: an owner of another workspace added a hero';
+  exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform public.add_virtual_hero(v, 'day-shift', 'reviewer');
+    raise exception 'FAIL: a signed-out call added a hero';
+  exception when insufficient_privilege then null; end;
+  if pg_temp.state() <> before then raise exception 'FAIL: a refused add changed the heroes'; end if;
+
+  -- The owner adds a role the fleet lacks, with its defaults, after the others.
+  perform set_config('request.jwt.claims', json_build_object('sub', olga, 'role', 'authenticated')::text, true);
+  added := public.add_virtual_hero(v, 'day-shift', 'reviewer');
+  if (added.role, added.name, added.skills, added.agent, added.model, added.position) is distinct from ('reviewer', 'Reviewer', '{}'::text[], 'claude', 'opus', 2::smallint) then
+    raise exception 'FAIL: the added hero is %', added;
+  end if;
+  perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''day-shift'', ''reviewer'')', v), 'role', 'Role:');
+  perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''day-shift'', ''designer'')', v), 'role', 'Role:');
+  perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''beaver'', ''qa'')', v), 'fleet', 'Fleet:');
+  perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''nowhere'', ''qa'')', v), 'fleet', 'Fleet:');
+
+  -- Removal: an owner's only, never the last hero, never another workspace's.
+  perform set_config('request.jwt.claims', json_build_object('sub', mo, 'role', 'authenticated')::text, true);
+  begin
+    perform public.remove_virtual_hero(v, added.id);
+    raise exception 'FAIL: a member who is no owner removed a hero';
+  exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claims', json_build_object('sub', olga, 'role', 'authenticated')::text, true);
+  perform pg_temp.refused_for(format('select public.remove_virtual_hero(%L, %L)', v, gen_random_uuid()), 'hero', 'Hero:');
+  perform public.remove_virtual_hero(v, added.id);
+  if exists (select 1 from public.virtual_heroes h where h.id = added.id) then raise exception 'FAIL: a removed hero is still there'; end if;
+  perform public.remove_virtual_hero(v, (select h.id from public.virtual_heroes h where h.fleet = 'day-shift' and h.role = 'qa'));
+  perform pg_temp.refused_for(format('select public.remove_virtual_hero(%L, %L)', v, (select h.id from public.virtual_heroes h where h.fleet = 'day-shift')), 'hero', 'Hero:');
+  if (select count(*) from public.virtual_heroes h where h.fleet = 'day-shift') <> 1 then raise exception 'FAIL: the last hero was removed'; end if;
+  -- A hero comes back after the others, never on a taken position.
+  added := public.add_virtual_hero(v, 'day-shift', 'qa');
+  if added.position <> 1 then raise exception 'FAIL: the hero added again took position %', added.position; end if;
+end $$;
+
 -- ── The cap of 12 active fleets holds for virtual ones ──
 do $$
 declare v uuid := pg_temp.ws('initech');

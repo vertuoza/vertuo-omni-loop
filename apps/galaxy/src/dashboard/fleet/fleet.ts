@@ -11,6 +11,8 @@ import { supabaseReads } from '../board/load';
 import type { Period } from '../board/period';
 import { MASCOTS } from '@omni/design';
 import { virtualFleetsServiceAs } from '../../virtual-fleets/virtual-fleets.live';
+import { heroesServiceAs } from '../../virtual-fleets/heroes/heroes.live';
+import type { HeroesView } from '../../virtual-fleets/heroes/heroes';
 import { fleetOf, loadFleet, type FleetValue } from './load';
 
 // /app/fleet's read (PRD 572), as the signed-in person, in the workspace they joined first, as /app
@@ -28,7 +30,8 @@ export interface VirtualOf {
   names: readonly string[];
 }
 
-export type FleetBoard = { kind: 'no-workspace' } | (FleetValue & { virtual?: VirtualOf });
+/** A virtual fleet's heroes for its Heroes tab: null when they could not be read. */
+export type FleetBoard = { kind: 'no-workspace' } | (FleetValue & { virtual?: VirtualOf; heroes?: HeroesView | null });
 
 /** The keys of the workspace's virtual fleets, or none when they cannot be read. */
 async function virtualNames(db: SupabaseClient<Database>, workspace: string): Promise<string[]> {
@@ -52,7 +55,21 @@ export async function loadFleetBoard(db: SupabaseClient<Database>, user: Pick<Us
   if (!workspace) return { kind: 'no-workspace' };
   const id = workspace.id;
   const [value, names] = await Promise.all([loadFleet(supabaseReads(db, id, once(() => loadGalaxy(db, id, now))), request), virtualNames(db, id)]);
-  return { ...value, virtual: { workspace: id, mascots: MASCOTS, names } };
+  const virtual = { workspace: id, mascots: MASCOTS, names };
+  if (value.kind !== 'board' || !names.includes(value.fleet.name)) return { ...value, virtual };
+  return { ...value, virtual, heroes: await heroesOf(db, id, user.id, value.fleet) };
+}
+
+/** A virtual fleet's heroes and whether the viewer may change them, or null when they cannot be read. */
+async function heroesOf(db: SupabaseClient<Database>, workspace: string, person: string, fleet: { name: string; color: string | null }): Promise<HeroesView | null> {
+  try {
+    const service = heroesServiceAs(db);
+    const [heroes, canEdit] = await Promise.all([service.heroes(workspace, fleet.name), service.owns(workspace, person)]);
+    return { workspace, fleet: fleet.name, color: fleet.color, heroes, canEdit };
+  } catch (error) {
+    console.error(`fleet: the heroes could not be read (${messageOf(error)})`);
+    return null;
+  }
 }
 
 /** The demo's Fleet: the demo world's, seen by the demo's *you*, who plays solo. */
