@@ -280,7 +280,7 @@ begin
   -- The owner adds a role the fleet lacks, with its defaults, after the others.
   perform set_config('request.jwt.claims', json_build_object('sub', olga, 'role', 'authenticated')::text, true);
   added := public.add_virtual_hero(v, 'day-shift', 'reviewer');
-  if (added.role, added.name, added.skills, added.agent, added.model, added.position) is distinct from ('reviewer', 'Reviewer', '{}'::text[], 'claude', 'opus', 2::smallint) then
+  if (added.role, added.name, added.skills, added.agent, added.model, added.position) is distinct from ('reviewer', 'Reviewer', '{review}'::text[], 'claude', 'opus', 2::smallint) then
     raise exception 'FAIL: the added hero is %', added;
   end if;
   perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''day-shift'', ''reviewer'')', v), 'role', 'Role:');

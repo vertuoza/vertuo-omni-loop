@@ -45,7 +45,11 @@ describe('rowOf', () => {
 
   it('writes a role no unattended skill runs as `A person does this today`, with why', () => {
     expect(rowOf(hero('pm', ['pitch', 'plan']))).toMatchObject({ heading: 'PM · agent', alone: false, line: WORDS.person, why: 'Its brainstorm and roadmap need a person.' });
-    expect(rowOf(hero('reviewer', []))).toMatchObject({ skills: [], alone: false, why: 'Its review skill is not built yet.' });
+    expect(rowOf(hero('reviewer', []))).toMatchObject({ skills: [], alone: false, why: 'It has no skill a runner runs alone yet.' });
+  });
+
+  it('writes a Reviewer with its review as an agent that works alone (PRD 2871)', () => {
+    expect(rowOf(hero('reviewer', ['review']))).toMatchObject({ heading: 'Reviewer · agent', skills: ['/omni:review'], alone: true, why: null });
   });
 
   it('reads the hero\'s own skills, not its role\'s: a QA with none does not work alone', () => {

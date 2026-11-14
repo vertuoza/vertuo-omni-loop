@@ -8,12 +8,14 @@
  * preferred agent and model (recorded only: the runner's accounts still decide), and its limits in
  * sentences.
  *
- * `supabase/migrations/20270122090000_virtual_fleets.sql` keeps the same defaults in
- * `virtual_hero_roles()`, which `create_virtual_fleet()` copies onto each hero it makes; the arcade's
- * `virtual-fleets/roles-sql.test.ts` fails when the two differ.
+ * The database keeps the same defaults in `virtual_hero_roles()` (made by
+ * `supabase/migrations/20270122090000_virtual_fleets.sql`, the Reviewer's given its skill by
+ * `20270122120000_reviewer.sql`), which `create_virtual_fleet()` copies onto each hero it makes; the
+ * arcade's `virtual-fleets/roles-sql.test.ts` fails when the two differ.
  *
  * **Works alone** is a rule, not a flag: a role works alone when one of its skills is one a runner runs
- * with nobody at it ({@link UNATTENDED_SKILLS}). Today that is the Engineer and the QA.
+ * with nobody at it ({@link UNATTENDED_SKILLS}). Today that is the Engineer, the QA and, since PRD 2871,
+ * the Reviewer.
  */
 import { z } from 'zod';
 
@@ -24,8 +26,8 @@ export type HeroRole = (typeof HERO_ROLES)[number];
 
 export const HeroRoleSchema = z.enum(HERO_ROLES);
 
-/** The skills a runner runs with nobody at it: the Engineer's build skills, and the QA's proof. */
-const UNATTENDED_SKILLS: readonly string[] = ['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'prove'];
+/** The skills a runner runs with nobody at it: the Engineer's build skills, the QA's proof and the Reviewer's review (PRD 2871). */
+const UNATTENDED_SKILLS: readonly string[] = ['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'prove', 'review'];
 
 /** What a new hero of a role starts with. */
 export interface RoleDefaults {
@@ -54,8 +56,10 @@ export const ROLES: readonly RoleDefaults[] = [
     agent: 'claude', model: 'sonnet', limits: [...EVERY_HERO, 'It reports what it saw; a person decides.'],
   },
   {
-    role: 'reviewer', name: 'Reviewer', skills: [],
-    agent: 'claude', model: 'opus', limits: [...EVERY_HERO, 'It has no skill to run yet.'],
+    role: 'reviewer', name: 'Reviewer', skills: ['review'],
+    agent: 'claude', model: 'opus', limits: [
+      ...EVERY_HERO, 'It never approves on GitHub.', 'It marks ready on its pass only.', 'It raises five findings at most.', 'It reviews two rounds at most.',
+    ],
   },
   {
     role: 'pm', name: 'PM', skills: ['pitch', 'plan'],
@@ -83,7 +87,7 @@ export function worksAlone(skills: readonly string[]): boolean {
 const WHY_NOT_ALONE: Readonly<Record<HeroRole, string | null>> = {
   engineer: null,
   qa: null,
-  reviewer: 'Its review skill is not built yet.',
+  reviewer: null,
   pm: 'Its brainstorm and roadmap need a person.',
   architect: 'Its plan needs a person.',
 };

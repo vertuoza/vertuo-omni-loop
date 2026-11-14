@@ -15,7 +15,19 @@ describe('the roles of a Virtual Hero', () => {
     expect(roleOf('qa').skills).toEqual(['prove', 'bug-fix']);
     expect(roleOf('pm').skills).toEqual(['pitch', 'plan']);
     expect(roleOf('architect').skills).toEqual(['plan']);
-    expect(roleOf('reviewer').skills).toEqual([]);
+    expect(roleOf('reviewer').skills).toEqual(['review']);
+  });
+
+  it('gives the Reviewer its six limits, in the spec\'s words and order (PRD 2871)', () => {
+    expect(roleOf('reviewer').limits).toEqual([
+      'It never merges into the default branch.',
+      'It never answers for a person.',
+      'It never approves on GitHub.',
+      'It marks ready on its pass only.',
+      'It raises five findings at most.',
+      'It reviews two rounds at most.',
+    ]);
+    expect(roleOf('reviewer').model).toBe('opus');
   });
 
   it('names each hero by its role, never a person\'s first name', () => {
@@ -36,13 +48,15 @@ describe('the roles of a Virtual Hero', () => {
     expect(worksAlone(['plan'])).toBe(false);
     expect(worksAlone([])).toBe(false);
     expect(worksAlone(['pitch', 'prove'])).toBe(true);
-    expect(ROLES.filter((r) => worksAlone(r.skills)).map((r) => r.role)).toEqual(['engineer', 'qa']);
+    expect(worksAlone(['review'])).toBe(true);
+    expect(ROLES.filter((r) => worksAlone(r.skills)).map((r) => r.role)).toEqual(['engineer', 'qa', 'reviewer']);
   });
 
   it('says on screen what a role does alone, or that a person does it today, and why', () => {
     expect(roleLine('engineer')).toEqual({ alone: true, line: 'Builds PRDs alone', why: null });
     expect(roleLine('qa')).toEqual({ alone: true, line: 'Proves the work alone', why: null });
-    for (const role of ['reviewer', 'pm', 'architect'] as const) {
+    expect(roleLine('reviewer')).toEqual({ alone: true, line: 'Works alone', why: null });
+    for (const role of ['pm', 'architect'] as const) {
       const line = roleLine(role);
       expect(line.alone).toBe(false);
       expect(line.line).toBe(PERSON_TODAY);
@@ -51,6 +65,8 @@ describe('the roles of a Virtual Hero', () => {
     // A hero whose skills changed reads from its own skills, not its role's defaults.
     expect(roleLine('pm', ['prove']).alone).toBe(true);
     expect(roleLine('engineer', []).line).toBe(PERSON_TODAY);
+    // A Reviewer whose skill a person took away has no review left to run alone.
+    expect(roleLine('reviewer', [])).toEqual({ alone: false, line: PERSON_TODAY, why: 'It has no skill a runner runs alone yet.' });
   });
 
   it('refuses a role it does not know', () => {

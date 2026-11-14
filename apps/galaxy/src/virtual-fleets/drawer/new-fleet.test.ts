@@ -66,7 +66,8 @@ describe('the New virtual fleet drawer', () => {
   it('says for each role whether it works alone, by its role\'s name', () => {
     expect(roleSwitch('engineer')).toEqual({ role: 'engineer', name: 'Engineer', line: 'Builds PRDs alone' });
     expect(roleSwitch('qa').line).toBe('Proves the work alone');
-    for (const role of ['reviewer', 'pm', 'architect'] as const) expect(roleSwitch(role).line).toBe('A person does this today');
+    expect(roleSwitch('reviewer').line).toBe('Works alone');
+    for (const role of ['pm', 'architect'] as const) expect(roleSwitch(role).line).toBe('A person does this today');
   });
 
   it('makes no fleet in the demo, and says so in the foot', async () => {
