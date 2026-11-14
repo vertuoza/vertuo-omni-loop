@@ -23,16 +23,17 @@ function fakeDb(answers: Answer[]) {
   return { db, lines };
 }
 
-const stored = (id: string) => ({ id, query: 'q', mode: 'words', total: 0, hit_ids: [], opened_rank: null, asked_at: '2026-11-12T10:00:00Z' });
+const stored = (id: string) => ({ id, query: 'q', mode: 'words', total: 0, hit_ids: [], opened_rank: null, nearest_distance: null, asked_at: '2026-11-12T10:00:00Z' });
 
 describe('the searches of a product', () => {
   it('are the search_knowledge rows asked since a day, newest first, as the section reads them', async () => {
-    const { db, lines } = fakeDb([{ data: [{ ...stored('a'), hit_ids: ['x'], opened_rank: 1, mode: 'meaning', total: 1 }], error: null }]);
+    const { db, lines } = fakeDb([{ data: [{ ...stored('a'), hit_ids: ['x'], opened_rank: 1, mode: 'meaning', total: 1, nearest_distance: 0.1234 }, stored('b')], error: null }]);
     expect(await searchesOf(db, 'p-1', '2026-08-15T00:00:00Z')).toEqual([
-      { id: 'a', query: 'q', mode: 'meaning', total: 1, hitIds: ['x'], openedRank: 1, askedAt: '2026-11-12T10:00:00Z' },
+      { id: 'a', query: 'q', mode: 'meaning', total: 1, hitIds: ['x'], openedRank: 1, nearestDistance: 0.1234, askedAt: '2026-11-12T10:00:00Z' },
+      { id: 'b', query: 'q', mode: 'words', total: 0, hitIds: [], openedRank: null, nearestDistance: null, askedAt: '2026-11-12T10:00:00Z' },
     ]);
     expect(lines).toEqual([
-      'from("mcp_search_log").select("id, query, mode, total, hit_ids, opened_rank, asked_at").eq("product_id","p-1").eq("tool","search_knowledge")'
+      'from("mcp_search_log").select("id, query, mode, total, hit_ids, opened_rank, nearest_distance, asked_at").eq("product_id","p-1").eq("tool","search_knowledge")'
       + '.gte("asked_at","2026-08-15T00:00:00Z").order("asked_at",{"ascending":false}).range(0,999)',
     ]);
   });

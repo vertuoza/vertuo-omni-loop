@@ -14,6 +14,8 @@ export interface SearchRow {
   hitIds: readonly string[];
   /** The rank (from 1) of the entry a later `get_knowledge` opened, once one did. */
   openedRank: number | null;
+  /** A search by meaning's nearest distance (PRD omni-loop-9 s2): null when none was logged, absent when not read. */
+  nearestDistance?: number | null;
   askedAt: string;
 }
 

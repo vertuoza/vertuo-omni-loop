@@ -15,6 +15,7 @@ const StoredSearch = z.object({
   total: z.number(),
   hit_ids: z.array(z.string()),
   opened_rank: z.number().nullable(),
+  nearest_distance: z.number().nullable(),
   asked_at: z.string(),
 });
 
@@ -22,7 +23,7 @@ const StoredSearch = z.object({
 const PAGE = 1000;
 const MOST_PAGES = 5;
 
-const COLUMNS = 'id, query, mode, total, hit_ids, opened_rank, asked_at';
+const COLUMNS = 'id, query, mode, total, hit_ids, opened_rank, nearest_distance, asked_at';
 
 /** The searches of `product` asked at or after `since` (an ISO time), newest first; null when they cannot be read. */
 export async function searchesOf(db: Pick<SupabaseClient, 'from'>, product: string, since: string): Promise<SearchRow[] | null> {
@@ -35,7 +36,8 @@ export async function searchesOf(db: Pick<SupabaseClient, 'from'>, product: stri
     const parsed = parseRows(StoredSearch, data, 'product-knowledge/search-log.repository: mcp_search_log');
     if (!parsed.ok) return null;
     rows.push(...parsed.value.map((r) => ({
-      id: r.id, query: r.query, mode: r.mode, total: r.total, hitIds: r.hit_ids, openedRank: r.opened_rank, askedAt: r.asked_at,
+      id: r.id, query: r.query, mode: r.mode, total: r.total, hitIds: r.hit_ids, openedRank: r.opened_rank,
+      nearestDistance: r.nearest_distance, askedAt: r.asked_at,
     })));
     if (parsed.value.length < PAGE) break;
   }
