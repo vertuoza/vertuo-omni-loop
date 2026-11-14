@@ -6,11 +6,9 @@ import {
   endOf,
   eventsOf,
   expandScope,
-  lineOf,
   missionKey,
   outcome,
   pick,
-  postedOf,
   prdStates,
   recordedKeys,
   runOfKey,
@@ -20,7 +18,6 @@ import {
   type Mission,
   type PrdFacts,
   type Run,
-  type Step,
 } from './supervisor.ts';
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
@@ -31,39 +28,16 @@ const mission = (over: Partial<Mission> = {}): Mission => ({ id: ID, fleet: 'nig
 const facts = (n: number, over: Partial<PrdFacts> = {}): PrdFacts => ({ prd: p(n), approval: 'standing', stage: 'open', blockers: [], territory: [`apps/area-${String(n)}/`], ...over });
 const attempt = (id: string, over: Partial<Attempt> = {}): Attempt => ({ id, status: 'running', outcome: null, reason: null, prUrl: null, ...over });
 const run = (n: number, k: number, ...attempts: Attempt[]): Run => ({ prd: p(n), run: k, step: 'build', job: attempts[0]?.id ?? `job-${String(n)}-${String(k)}`, attempts });
-/** A job of step `step` of run `k` of PRD `n` (PRD 2871): the Reviewer's round, or the fix after round 1. */
-const stepRun = (n: number, k: number, step: Step, ...attempts: Attempt[]): Run => ({ ...run(n, k, ...attempts), step });
 const ended = (id: string, outcomeWord: string | null, over: Partial<Attempt> = {}) => attempt(id, { status: 'done', outcome: outcomeWord, ...over });
 
 /** The PRDs a run sends, as numbers. */
 const sends = (m: Mission, all: PrdFacts[], runs: Run[] = []) => pick({ mission: m, facts: all, states: prdStates(all, runs) }).map(({ prd, run: k }) => [Number(prd), k]);
-/** The PRDs a run sends, each with its run and its step (PRD 2871). */
-const steps = (m: Mission, all: PrdFacts[], runs: Run[] = []) => pick({ mission: m, facts: all, states: prdStates(all, runs) }).map(({ prd, run: k, step }) => [Number(prd), k, step]);
 
 describe('the mission key: one per PRD and run, never twice', () => {
   it('reads mission:<id>:prd:<n>:run:<k>, and back', () => {
     expect(missionKey(ID, p(2803), 1)).toBe(`mission:${ID}:prd:2803:run:1`);
     expect(runOfKey(`mission:${ID}:prd:2803:run:2`)).toEqual({ prd: 2803, run: 2, step: 'build' });
     expect(runOfKey('mission:nope')).toBeNull();
-  });
-
-  it('keys the Reviewer\'s rounds and the fix after round 1 under the run, and reads them back (PRD 2871)', () => {
-    expect(missionKey(ID, p(2803), 1, 'review:1')).toBe(`mission:${ID}:prd:2803:run:1:review:1`);
-    expect(missionKey(ID, p(2803), 1, 'fix:1')).toBe(`mission:${ID}:prd:2803:run:1:fix:1`);
-    expect(missionKey(ID, p(2803), 2, 'review:2')).toBe(`mission:${ID}:prd:2803:run:2:review:2`);
-    expect(runOfKey(`mission:${ID}:prd:2803:run:1:review:1`)).toEqual({ prd: 2803, run: 1, step: 'review:1' });
-    expect(runOfKey(`mission:${ID}:prd:2803:run:1:fix:1`)).toEqual({ prd: 2803, run: 1, step: 'fix:1' });
-    expect(runOfKey(`mission:${ID}:prd:2803:run:1:review:2`)).toEqual({ prd: 2803, run: 1, step: 'review:2' });
-    // A third round, or a fix after round 2, has no key.
-    expect(runOfKey(`mission:${ID}:prd:2803:run:1:review:3`)).toBeNull();
-    expect(runOfKey(`mission:${ID}:prd:2803:run:1:fix:2`)).toBeNull();
-  });
-
-  it('sends the build for review, the Reviewer, and the fix for review (PRD 2871)', () => {
-    expect(lineOf(p(7), 'build')).toBe('/omni:yolo 7 --for-review');
-    expect(lineOf(p(7), 'review:1')).toBe('/omni:review 7');
-    expect(lineOf(p(7), 'review:2')).toBe('/omni:review 7');
-    expect(lineOf(p(7), 'fix:1')).toBe('/omni:yolo-fix 7 --for-review');
   });
 });
 
@@ -133,126 +107,6 @@ describe('outcome: the spec\'s table, a job\'s end to the mission\'s next step',
     expect(endOf(ended('j', null))).toBe('stopped');
     expect(endOf(attempt('j', { status: 'cancelled' }))).toBe('cancelled');
     expect(endOf(attempt('j', { status: 'failed', reason: 'runner lost' }))).toBe('failed');
-    expect(endOf(ended('j', 'review'))).toBe('review');
-    expect(endOf(ended('j', 'changes'))).toBe('changes');
-  });
-
-  it('maps the Reviewer\'s hand-offs, step by step (PRD 2871)', () => {
-    // A build or a fix shipped for review: the Reviewer's round 1, then its round 2.
-    expect(outcome('review', 1, null, 'build')).toEqual({ next: 'send', step: 'review:1' });
-    expect(outcome('review', 1, null, 'fix:1')).toEqual({ next: 'send', step: 'review:2' });
-    // Changes in round 1 send the fix; in round 2 a person decides.
-    expect(outcome('changes', 1, null, 'review:1')).toEqual({ next: 'send', step: 'fix:1' });
-    expect(outcome('changes', 1, null, 'review:2')).toEqual({ next: 'waits', on: 'decide' });
-    // The Reviewer's pass marked the PR ready: it waits for a merge.
-    expect(outcome('ready', 1, null, 'review:1')).toEqual({ next: 'waits', on: 'merge' });
-    expect(outcome('ready', 2, null, 'review:2')).toEqual({ next: 'waits', on: 'merge' });
-    // A stopped Reviewer is sent again once, then the PRD stops.
-    expect(outcome('stopped', 1, null, 'review:1')).toEqual({ next: 'again' });
-    expect(outcome('stopped', 2, null, 'review:2')).toEqual({ next: 'stops', why: 'it stopped mid-way twice' });
-    // A hand-off no step of it ends on reads as stopped mid-way.
-    expect(outcome('review', 1, null, 'review:1')).toEqual({ next: 'again' });
-    expect(outcome('changes', 2, null, 'build')).toEqual({ next: 'stops', why: 'it stopped mid-way twice' });
-  });
-});
-
-describe('the Reviewer\'s hand-offs: build, review, fix, review, then a person (PRD 2871)', () => {
-  const PR = 'https://github.com/acme/widgets/pull/2817';
-  const state = (all: PrdFacts[], runs: Run[]) => prdStates(all, runs).get(p(1));
-
-  it('sends the build as run 1, before any review', () => {
-    expect(steps(mission(), [facts(1)])).toEqual([[1, 1, 'build']]);
-  });
-
-  it('a build shipped for review sends the Reviewer\'s round 1, under the same run', () => {
-    expect(steps(mission(), [facts(1)], [run(1, 1, ended('a', 'review'))])).toEqual([[1, 1, 'review:1']]);
-  });
-
-  it('changes in round 1 send the fix; the fix shipped for review sends round 2', () => {
-    const built = run(1, 1, ended('a', 'review'));
-    expect(steps(mission(), [facts(1)], [built, stepRun(1, 1, 'review:1', ended('b', 'changes'))])).toEqual([[1, 1, 'fix:1']]);
-    expect(steps(mission(), [facts(1)], [built, stepRun(1, 1, 'review:1', ended('b', 'changes')), stepRun(1, 1, 'fix:1', ended('c', 'review'))])).toEqual([[1, 1, 'review:2']]);
-  });
-
-  it('changes in round 2 make the PRD wait on a person, naming its PR, and nothing more is sent', () => {
-    const runs = [run(1, 1, ended('a', 'review')), stepRun(1, 1, 'review:1', ended('b', 'changes')), stepRun(1, 1, 'fix:1', ended('c', 'review')), stepRun(1, 1, 'review:2', ended('d', 'changes', { prUrl: PR }))];
-    expect(steps(mission(), [facts(1)], runs)).toEqual([]);
-    expect(state([facts(1)], runs)).toEqual({ state: 'waits', on: 'decide', pr: 2817 });
-    const next = conclude({ mission: mission(), facts: [facts(1)], states: prdStates([facts(1)], runs), sent: 0, now: NOW });
-    expect(next).toMatchObject({ status: 'waiting', waitingOn: 'PRD 1: decide the Reviewer\'s findings on PR #2817' });
-    const noLink = [...runs.slice(0, 3), stepRun(1, 1, 'review:2', ended('d', 'changes'))];
-    expect(conclude({ mission: mission(), facts: [facts(1)], states: prdStates([facts(1)], noLink), sent: 0, now: NOW }).waitingOn).toBe('PRD 1: decide the Reviewer\'s findings on its feature PR');
-  });
-
-  it('the PR turning ready after round 2 waits for its merge; the mission never sends round 3', () => {
-    const runs = [run(1, 1, ended('a', 'review')), stepRun(1, 1, 'review:1', ended('b', 'changes')), stepRun(1, 1, 'fix:1', ended('c', 'review')), stepRun(1, 1, 'review:2', ended('d', 'changes'))];
-    expect(state([facts(1, { stage: 'ready' })], runs)).toEqual({ state: 'waits', on: 'merge' });
-    expect(steps(mission(), [facts(1, { stage: 'ready' })], runs)).toEqual([]);
-  });
-
-  it('the Reviewer\'s pass waits for a person to merge', () => {
-    const runs = [run(1, 1, ended('a', 'review')), stepRun(1, 1, 'review:1', ended('b', 'ready'))];
-    expect(state([facts(1)], runs)).toEqual({ state: 'waits', on: 'merge' });
-    expect(steps(mission(), [facts(1)], runs)).toEqual([]);
-  });
-
-  it('a Reviewer still at work holds the PRD running, and counts against the mandate', () => {
-    const runs = [run(1, 1, ended('a', 'review')), stepRun(1, 1, 'review:1', attempt('b'))];
-    expect(state([facts(1)], runs)).toEqual({ state: 'running', run: 1 });
-    expect(steps(mission({ parallel: 1 }), [facts(1), facts(2)], runs)).toEqual([]);
-  });
-
-  it('a stopped Reviewer is sent again once, as run 2 of the same round; a second time the PRD stops', () => {
-    const once = [run(1, 1, ended('a', 'review')), stepRun(1, 1, 'review:1', ended('b', 'stopped'))];
-    expect(steps(mission(), [facts(1)], once)).toEqual([[1, 2, 'review:1']]);
-    const twice = [...once, stepRun(1, 2, 'review:1', ended('c', 'stopped'))];
-    expect(steps(mission(), [facts(1)], twice)).toEqual([]);
-    expect(state([facts(1)], twice)).toEqual({ state: 'stopped', why: 'it stopped mid-way twice' });
-  });
-
-  it('a stopped fix is sent again once, as run 2 of the fix, then its round 2 goes under run 2', () => {
-    const base = [run(1, 1, ended('a', 'review')), stepRun(1, 1, 'review:1', ended('b', 'changes')), stepRun(1, 1, 'fix:1', ended('c', 'held'))];
-    expect(steps(mission(), [facts(1)], base)).toEqual([[1, 2, 'fix:1']]);
-    expect(steps(mission(), [facts(1)], [...base, stepRun(1, 2, 'fix:1', ended('d', 'review'))])).toEqual([[1, 2, 'review:2']]);
-  });
-
-  it('a build sent again after a stop is reviewed under its own run', () => {
-    expect(steps(mission(), [facts(1)], [run(1, 1, ended('a', 'stopped')), run(1, 2, ended('b', 'review'))])).toEqual([[1, 2, 'review:1']]);
-  });
-
-  it('a step after the build never waits on the approval again; a build sent again still does', () => {
-    const voided = facts(1, { approval: 'voided' });
-    expect(steps(mission(), [voided], [run(1, 1, ended('a', 'review'))])).toEqual([[1, 1, 'review:1']]);
-    expect(steps(mission(), [voided], [run(1, 1, ended('a', 'review')), stepRun(1, 1, 'review:1', ended('b', 'stopped'))])).toEqual([[1, 2, 'review:1']]);
-    expect(steps(mission(), [voided], [run(1, 1, ended('a', 'stopped'))])).toEqual([]);
-  });
-
-  it('a failed or cancelled Reviewer is never sent again', () => {
-    const built = run(1, 1, ended('a', 'review'));
-    expect(steps(mission(), [facts(1)], [built, stepRun(1, 1, 'review:1', attempt('b', { status: 'failed', reason: 'GitHub refused the review' }))])).toEqual([]);
-    expect(state([facts(1)], [built, stepRun(1, 1, 'review:1', attempt('b', { status: 'failed', reason: 'GitHub refused the review' }))])).toEqual({ state: 'stopped', why: 'its job failed: GitHub refused the review' });
-    expect(state([facts(1)], [built, stepRun(1, 1, 'review:1', attempt('b', { status: 'cancelled' }))])).toEqual({ state: 'paused' });
-  });
-});
-
-describe('postedOf: the Reviewer\'s count and its review\'s link, from its job\'s log (PRD 2871)', () => {
-  const REVIEW = 'https://github.com/acme/widgets/pull/12#pullrequestreview-99';
-
-  it('reads the posted line: its findings and its link', () => {
-    expect(postedOf(`working\n10:01:02 omni review: posted round 1 (changes, 2 findings) on PR #12: ${REVIEW}\n/omni:yolo-fix 7 --for-review`)).toEqual({ findings: 2, url: REVIEW });
-    expect(postedOf(`omni review: posted round 2 (changes, 1 finding) on PR #12: ${REVIEW}`)).toEqual({ findings: 1, url: REVIEW });
-    expect(postedOf(`omni review: posted round 2 (pass) on PR #12: ${REVIEW}`)).toEqual({ findings: 0, url: REVIEW });
-  });
-
-  it('reads a round already posted: its link, no count', () => {
-    expect(postedOf('omni review: round 1 is already posted on PR #12: https://github.com/acme/widgets/pull/12#pullrequestreview-7. Nothing posted.')).toEqual({ findings: null, url: 'https://github.com/acme/widgets/pull/12#pullrequestreview-7' });
-  });
-
-  it('takes the last posted line, and none from a log without one or with a link that is not GitHub\'s', () => {
-    expect(postedOf(`omni review: posted round 1 (changes, 3 findings) on PR #12: ${REVIEW}\nomni review: posted round 1 (changes, 4 findings) on PR #12: ${REVIEW}`)?.findings).toBe(4);
-    expect(postedOf('')).toBeNull();
-    expect(postedOf('nothing posted here')).toBeNull();
-    expect(postedOf('omni review: posted round 1 (changes, 2 findings) on PR #12: https://evil.example/pull/12')).toEqual({ findings: 2, url: null });
   });
 });
 
@@ -378,82 +232,6 @@ describe('eventsOf: each decision recorded once, signed by its role', () => {
       { kind: 'dispatched', role: 'supervisor', prd: 1, job: 'a', link: null, sentence: 'Sent /omni:yolo 1 --for-review to the night-shift fleet\'s runners (run 1).' },
     ]);
     expect(events({ all: [facts(1)], runs: [run(1, 1, attempt('a', { status: 'queued' }))], toFleet: false })[0]?.sentence).toBe('Sent /omni:yolo 1 --for-review to any runner of the workspace (run 1).');
-  });
-
-  describe('the Reviewer\'s rows (PRD 2871)', () => {
-    const PR = 'https://github.com/acme/widgets/pull/9';
-    const REVIEW = `${PR}#pullrequestreview-41`;
-    const built = run(1, 1, ended('a', 'review', { prUrl: PR }));
-    const seen = (...jobs: string[]) => jobs.flatMap((job) => [{ kind: 'dispatched', prd: 1, job }, { kind: 'job-ended', prd: 1, job }, { kind: 'reviewed', prd: 1, job }]);
-
-    it('records the build shipped for review, then the Reviewer sent, by the supervisor', () => {
-      const list = events({ all: [facts(1)], runs: [built, stepRun(1, 1, 'review:1', attempt('b', { status: 'queued' }))], recorded: [{ kind: 'dispatched', prd: 1, job: 'a' }] });
-      expect(list.map((e) => [e.kind, e.role, e.job, e.link, e.sentence])).toEqual([
-        ['job-ended', 'engineer', 'a', PR, 'Shipped; waits for review.'],
-        ['dispatched', 'supervisor', 'b', null, 'Sent /omni:review 1 to the night-shift fleet\'s runners (run 1, round 1).'],
-      ]);
-    });
-
-    it('records each verdict as reviewed, by the Reviewer, linking its review', () => {
-      const changes = stepRun(1, 1, 'review:1', ended('b', 'changes', { prUrl: PR, posted: { findings: 2, url: REVIEW } }));
-      const fix = stepRun(1, 1, 'fix:1', ended('c', 'review', { prUrl: PR }));
-      const pass = stepRun(1, 1, 'review:2', ended('d', 'ready', { prUrl: PR, posted: { findings: 0, url: REVIEW } }));
-      const list = events({ all: [facts(1)], runs: [built, changes, fix, pass], recorded: seen('a') });
-      expect(list.filter((e) => e.kind !== 'waits').map((e) => [e.kind, e.role, e.job, e.link, e.sentence])).toEqual([
-        ['dispatched', 'supervisor', 'b', null, 'Sent /omni:review 1 to the night-shift fleet\'s runners (run 1, round 1).'],
-        ['reviewed', 'reviewer', 'b', REVIEW, 'Changes asked: 2 findings, round 1/2.'],
-        ['dispatched', 'supervisor', 'c', null, 'Sent /omni:yolo-fix 1 --for-review to the night-shift fleet\'s runners (run 1).'],
-        ['job-ended', 'engineer', 'c', PR, 'Fixed 2 findings; shipped again.'],
-        ['dispatched', 'supervisor', 'd', null, 'Sent /omni:review 1 to the night-shift fleet\'s runners (run 1, round 2).'],
-        ['reviewed', 'reviewer', 'd', REVIEW, 'Passed, round 2 of 2: marked ready.'],
-      ]);
-    });
-
-    it('says the fix fixed the findings when round 1\'s count is unknown, and one finding as one', () => {
-      const fixAfter = (posted: { findings: number | null; url: string | null } | undefined) => {
-        const asked = stepRun(1, 1, 'review:1', ended('b', 'changes', posted === undefined ? {} : { posted }));
-        const fix = stepRun(1, 1, 'fix:1', ended('c', 'review'));
-        return events({ all: [facts(1)], runs: [built, asked, fix], recorded: seen('a', 'b').concat([{ kind: 'dispatched', prd: 1, job: 'c' }]) }).find((e) => e.job === 'c')?.sentence;
-      };
-      expect(fixAfter(undefined)).toBe('Fixed the findings; shipped again.');
-      expect(fixAfter({ findings: 1, url: null })).toBe('Fixed 1 finding; shipped again.');
-      // A fix sent again as run 2 still counts round 1's findings.
-      const again = [built, stepRun(1, 1, 'review:1', ended('b', 'changes', { posted: { findings: 3, url: null } })), stepRun(1, 1, 'fix:1', ended('c', 'stopped')), stepRun(1, 2, 'fix:1', ended('d', 'review'))];
-      expect(events({ all: [facts(1)], runs: again, recorded: seen('a', 'b', 'c').concat([{ kind: 'dispatched', prd: 1, job: 'd' }]) }).find((e) => e.job === 'd')?.sentence).toBe('Fixed 3 findings; shipped again.');
-    });
-
-    it('says one finding as one, and links the PR when the log named no review', () => {
-      const one = stepRun(1, 1, 'review:1', ended('b', 'changes', { prUrl: PR, posted: { findings: 1, url: null } }));
-      expect(events({ all: [facts(1)], runs: [built, one], recorded: seen('a', 'b').filter((e) => e.kind === 'dispatched' || e.job === 'a') }).find((e) => e.kind === 'reviewed')).toMatchObject({ link: PR, sentence: 'Changes asked: 1 finding, round 1/2.' });
-      const unknown = stepRun(1, 1, 'review:1', ended('b', 'changes', { prUrl: PR }));
-      expect(events({ all: [facts(1)], runs: [built, unknown], recorded: seen('a') }).find((e) => e.kind === 'reviewed')?.sentence).toBe('Changes asked, round 1/2.');
-    });
-
-    it('records round 2\'s changes, and the wait on a person', () => {
-      const runs = [built, stepRun(1, 1, 'review:1', ended('b', 'changes')), stepRun(1, 1, 'fix:1', ended('c', 'review')), stepRun(1, 1, 'review:2', ended('d', 'changes', { prUrl: PR, posted: { findings: 3, url: REVIEW } }))];
-      const list = events({ all: [facts(1)], runs, recorded: seen('a', 'b', 'c').concat([{ kind: 'dispatched', prd: 1, job: 'd' }]) });
-      expect(list.map((e) => [e.kind, e.role, e.sentence])).toEqual([
-        ['reviewed', 'reviewer', 'Changes asked: 3 findings, round 2/2.'],
-        ['waits', 'supervisor', 'Waits on a person: PRD 1: decide the Reviewer\'s findings on PR #9'],
-      ]);
-    });
-
-    it('signs a Reviewer job that failed or was lost as the Reviewer\'s', () => {
-      const runs = [built, stepRun(1, 1, 'review:1', attempt('b', { status: 'failed', reason: 'runner lost' }), attempt('b2', { status: 'failed', reason: 'GitHub refused the review' }))];
-      const list = events({ all: [facts(1)], runs, recorded: seen('a').concat([{ kind: 'dispatched', prd: 1, job: 'b' }]) });
-      expect(list.filter((e) => e.kind === 'job-ended').map((e) => [e.role, e.job, e.sentence])).toEqual([
-        ['reviewer', 'b', 'PRD 1\'s runner was lost: its resume carries the work on.'],
-        ['reviewer', 'b2', 'PRD 1\'s job failed: GitHub refused the review.'],
-      ]);
-    });
-
-    it('records each verdict once: a replay finds it', () => {
-      const runs = [built, stepRun(1, 1, 'review:1', ended('b', 'changes', { posted: { findings: 2, url: REVIEW } }))];
-      const first = events({ all: [facts(1)], runs, recorded: seen('a') });
-      expect(first.filter((e) => e.kind === 'reviewed')).toHaveLength(1);
-      const again = events({ all: [facts(1)], runs, recorded: [...seen('a'), ...first.map(({ kind, prd, job }) => ({ kind, prd: prd === null ? null : Number(prd), job }))] });
-      expect(again.filter((e) => e.kind === 'reviewed')).toEqual([]);
-    });
   });
 
   it('records nothing twice: a replayed run finds its events', () => {
