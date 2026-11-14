@@ -961,3 +961,30 @@ Why: Two chains doing the same work waste runners and can write conflicting resu
 Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s7-01-lost-job-offers-no-button-while-resuming, PRD #2809
 Merged: @pierrederval, 2026-11-14, PR #2810
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-112
+
+A mission can begin from a single line; the kit never forces in detail nobody has given yet, nor fills it with a placeholder.
+
+Why: A placeholder sign would pose as a real measure, and demanding one would stop a one-line mission being one line.
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-02-brief-allows-no-measure, PRD #2842
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-113
+
+Updating what a mission works toward never stops, restarts or reassigns the mission; only a person's explicit action changes whether it runs.
+
+Why: People refine a running mission's brief often, and an edit should never silently pause it, hand it to someone else or shift its schedule.
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-04-push-updates-running-brief, PRD #2842
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-114
+
+A mission never retries stopped work on its own; only a person's deliberate action brings a stopped PRD back.
+
+Why: Re-sending failed or cancelled work automatically would spend runs on a guess and override the person who stopped it.
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14

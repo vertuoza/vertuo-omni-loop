@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Became: BR-GAME-1, P-GAME-1
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Small either way: B is one database view and a change of the arcade's read to it
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Stays here: These are default values recorded on each hero that change nothing yet, since the runner's accounts still choose the model. It is a one-off product choice, not a lasting guarantee.
 
 ### The answer, as it was given
 
@@ -176,6 +178,7 @@ A constant: two lists kept equal by a test, kit/lib/virtual-fleet/roles.ts and v
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Became: BR-GAME-2
 
 ### The answer, as it was given
 
@@ -256,6 +259,7 @@ Small: one check in create_virtual_fleet(); a separate limit is one more count i
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off territory choice about where a few wiring lines land; nothing lasting about the product or its architecture to record.
 
 ### The answer, as it was given
 
@@ -336,6 +340,7 @@ Small either way: each is one line, and no other slice of the plan touches these
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-137, P-PRODUCT-112
 
 ### The answer, as it was given
 
@@ -416,6 +421,7 @@ Small: one bound in the kit's schema and one in the database check, and a placeh
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Stays here: A temporary local choice of address awaiting a later page. Nothing lasting to keep, and it runs against P-PRODUCT-48 rather than adding to the knowledge base.
 
 ### The answer, as it was given
 
@@ -494,6 +500,7 @@ Small: the address is one entry in each of two lists, and a page reading a dossi
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-138, P-PRODUCT-113
 
 ### The answer, as it was given
 
@@ -572,6 +579,7 @@ Small: one condition in mission_push() for B, and its check.
 - Raised: 2026-11-14
 - Slice: s6
 - Wave: 2
+- Became: BR-GAME-3, P-GAME-2
 
 ### The answer, as it was given
 
@@ -649,6 +657,7 @@ small
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 3
+- Stays here: A one-off territory choice for this slice; no lasting product guarantee or build decision to record beyond the ledger.
 
 ### The answer, as it was given
 
@@ -727,6 +736,7 @@ A few lines of list and count edits in files outside the slice's folders.
 - Raised: 2026-11-14
 - Slice: s4
 - Wave: 3
+- Became: ADR-0141
 
 ### The answer, as it was given
 
@@ -808,6 +818,7 @@ A constant: if the job should never end, the handler returns later instead of do
 - Raised: 2026-11-14
 - Slice: s4
 - Wave: 3
+- Became: ADR-0142
 
 ### The answer, as it was given
 
@@ -887,6 +898,7 @@ A constant and one more read: following the auto-fix jobs means reading the runn
 - Raised: 2026-11-14
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-139, P-PRODUCT-114
 
 ### The answer, as it was given
 
@@ -964,6 +976,7 @@ A constant in the pure pick, plus Resume (s5) recording a resumed event the supe
 - Raised: 2026-11-14
 - Slice: s4
 - Wave: 3
+- Became: BR-APPROVALS-1, P-APPROVALS-1
 
 ### The answer, as it was given
 
@@ -1041,6 +1054,7 @@ A constant and one read: counting a phase-0 merge means reading the PRD's stage 
 - Raised: 2026-11-14
 - Slice: s5
 - Wave: 4
+- Stays here: A temporary slice-scope choice about which call sites are wired yet; nothing lasting to keep, and a follow-up changes it with one line per site.
 
 ### The answer, as it was given
 
@@ -1119,6 +1133,7 @@ One line at each call site: the stage event route (apps/galaxy/src/stages/event/
 - Raised: 2026-11-14
 - Slice: s7
 - Wave: 5
+- Stays here: A one-prop wiring choice, cheap to undo, with no lasting behaviour or guarantee to keep in the knowledge base.
 
 ### The answer, as it was given
 
@@ -1198,6 +1213,7 @@ One optional prop and one line in FleetScreen; undone by removing them and loadi
 - Raised: 2026-11-14
 - Slice: s8
 - Wave: 6
+- Stays here: A local wiring choice made outside the slice's ground, with a workspace-wide count forced by today's data. It is cheap to change, so it guarantees nothing lasting.
 
 ### The answer, as it was given
 
