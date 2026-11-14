@@ -7,8 +7,8 @@ import { NewFleetView, NewVirtualFleet } from './NewVirtualFleet';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, refresh: () => undefined }) }));
 
-// The New virtual fleet drawer as drawn (PRD 2842 s1, the `fleet-new` screen): its title, then Name, Icon
-// and Heroes in that order, the five switches all on, the foot with Cancel and Create fleet, and each
+// The New virtual fleet drawer as drawn (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen): its title, then Name,
+// Icon and Heroes in that order, the six switches all on, each with its count line, the foot with Cancel and Create fleet, and each
 // state the screen names.
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
@@ -36,11 +36,11 @@ describe('the New virtual fleet drawer', () => {
     expect(icons.filter((m) => m[0].includes('checked')).map((m) => m[1])).toEqual([MASCOTS[0]]);
   });
 
-  it('draws the five roles as switches, all on, each saying whether it works alone today', () => {
+  it('draws the six roles as switches, all on, each with its count line', () => {
     const t = text(view(opened()));
-    expect(t).toContain('Engineer Builds PRDs alone QA Proves the work alone Reviewer A person does this today PM A person does this today Architect A person does this today');
+    expect(t).toContain('Engineer Runs 10 of 13 skills alone QA Runs 2 of 3 skills alone Reviewer A person does this today PM Runs 2 of 7 skills alone Architect Runs 1 of 2 skills alone Designer Runs 1 of 3 skills alone');
     const switches = [...view(opened()).matchAll(/role="switch"[^>]*aria-checked="(true|false)"/g)].map((m) => m[1]);
-    expect(switches).toEqual(['true', 'true', 'true', 'true', 'true']);
+    expect(switches).toEqual(['true', 'true', 'true', 'true', 'true', 'true']);
   });
 
   it('disables Create fleet with no name, or with every switch off', () => {
@@ -50,7 +50,7 @@ describe('the New virtual fleet drawer', () => {
     expect(disabled(view(state))).toBe(false);
     for (const role of state.roles) state = newFleetReducer(state, { type: 'toggle', role });
     expect(disabled(view(state))).toBe(true);
-    expect([...view(state).matchAll(/aria-checked="(true|false)"/g)].map((m) => m[1])).toEqual(['false', 'false', 'false', 'false', 'false']);
+    expect([...view(state).matchAll(/aria-checked="(true|false)"/g)].map((m) => m[1])).toEqual(['false', 'false', 'false', 'false', 'false', 'false']);
   });
 
   it('shows `Name taken: choose another` under the Name field, tied to it', () => {

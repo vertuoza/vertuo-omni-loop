@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
-import { HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
+import { HERO_ROLES, HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import type { EventRow, HeroLine, KeptSave } from './room';
 
@@ -21,7 +21,7 @@ const EventRowSchema = z.object({
   id: z.uuid(),
   mission_id: z.uuid(),
   at: z.string(),
-  role: z.enum(['pm', 'engineer', 'architect', 'qa', 'reviewer', 'supervisor']),
+  role: z.enum([...HERO_ROLES, 'supervisor']),
   actor: z.string().min(1),
   kind: z.string(),
   prd: PrdNumberSchema.nullable(),

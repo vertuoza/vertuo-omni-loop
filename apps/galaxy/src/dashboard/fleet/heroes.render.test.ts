@@ -93,8 +93,8 @@ describe('the Heroes tab', () => {
 
   it('shows each hero\'s sprite, name and role as an agent, skills, agent and model, limits and whether it works alone', () => {
     const t = text(render(HEROES(false)));
-    expect(t).toContain('Engineer · Engineer · agent Works alone /omni:yolo /omni:wave claude · sonnet It never merges into the default branch.');
-    expect(t).toContain('PM · PM · agent A person does this today · Its brainstorm and roadmap need a person. /omni:pitch /omni:plan claude · opus');
+    expect(t).toContain('Engineer · Engineer · agent Runs 2 of 2 skills alone /omni:yolo runs alone /omni:wave runs alone claude · sonnet It never merges into the default branch.');
+    expect(t).toContain('PM · PM · agent Runs 2 of 2 skills alone /omni:pitch runs alone /omni:plan runs alone claude · opus');
     expect(render(HEROES(false)).match(/<svg /g)).toHaveLength(2);
   });
 
@@ -123,7 +123,7 @@ describe('the Heroes tab', () => {
 
   it('offers no Add a hero when the fleet holds every role', () => {
     const all = HEROES(true);
-    all.heroes = (['engineer', 'qa', 'reviewer', 'pm', 'architect'] as const).map((role, i) => ({ ...heroOf(`22222222-2222-4222-8222-22222222220${i}`, 'pm', [], i), role }));
+    all.heroes = (['engineer', 'qa', 'reviewer', 'pm', 'architect', 'designer'] as const).map((role, i) => ({ ...heroOf(`22222222-2222-4222-8222-22222222220${i}`, 'pm', [], i), role }));
     expect(render(all)).not.toContain('Add a hero');
   });
 

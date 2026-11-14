@@ -14,11 +14,11 @@ import {
 import '../../runners/page/need-human.css';
 import './new-fleet.css';
 
-// The New virtual fleet drawer (PRD 2842 s1, the `fleet-new` screen): `+ New virtual fleet` in the Fleet
+// The New virtual fleet drawer (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen): `+ New virtual fleet` in the Fleet
 // section opens it over the right of the page, the page behind dimmed, the whole width under 720 px, as
 // the Runners page's Need human drawer opens. Name first and focused, then Icon (the fleet mascots, the
-// first selected), then Heroes (the five roles, each a yes/no switch, all on, each with one line on
-// whether it works alone today), and the foot, Cancel and Create fleet. Create fleet makes the fleet and
+// first selected), then Heroes (the six roles, each a yes/no switch, all on, each with its count line:
+// `Runs <k> of <n> skills alone`, or `A person does this today`), and the foot, Cancel and Create fleet. Create fleet makes the fleet and
 // lands on it; a refusal is shown under its field, or in the foot. Tab stays inside it, and Escape,
 // Cancel, the close button or the dimmed page close it and give the focus back to the button. It wears
 // the Need human drawer's own frame (src/runners/page/need-human.css); ./new-fleet.css adds its fields.
