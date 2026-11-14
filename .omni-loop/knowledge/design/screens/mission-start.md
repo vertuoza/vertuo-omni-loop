@@ -39,9 +39,14 @@ it. A mission keeps moving on the fleet's runners while the person's laptop is c
 
 ## Open questions
 
+- PRD 2842 makes this tab a list of the fleet's missions (goal, status, `2 of 4 merged · 1 ready`, what a
+  waiting PRD waits on), with Start on a draft and Pause or Resume on the others; a mission's scope
+  is PRDs and/or roadmaps, not one roadmap, and the estimate line is not built.
+
 - Whether the estimate line ships in the first version or waits for enough history.
 - One mission per roadmap: what the tab shows when a roadmap's mission already runs.
 
 ## Source
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
+/omni:brainstorm, PRD 2842: .omni-loop/delivery/inbox/2842-missions/before-after.html

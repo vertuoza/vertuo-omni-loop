@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2842: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+
+.mock{--g:#07061c;--sf:#120f3a;--ink:#f2f4ff;--mu:#8a90d6;--ln:#1a2170;--red:#ff6b86;--grn:#4ee08a;--pl:#ffd84a;--onpl:#07061c;--cy:#5ee7ff;
+background:var(--g);color:var(--ink);border:1px solid var(--ln);border-radius:8px;padding:14px;font:14px/1.55 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif}
+.mock h5{margin:0 0 6px;font-size:15px}.mock .tabs2{display:flex;gap:14px;border-bottom:1px solid var(--ln);margin:0 0 10px;font-size:13px}
+.mock .tabs2 span{padding:4px 0;color:var(--mu)}.mock .tabs2 .on{color:var(--ink);border-bottom:2px solid var(--pl)}
+.mock table{width:100%;border-collapse:collapse;margin:6px 0 0}.mock th{color:var(--mu);font-size:12px;text-transform:none;letter-spacing:0;border-bottom:1px solid var(--ln)}
+.mock td{border-bottom:1px solid var(--ln);font-size:13px}.mock .mut{color:var(--mu);font-size:12px;display:block}.mock a{color:var(--cy)}
+.mock .now{margin:0;padding:0;list-style:none;font-size:13px}.mock .now li{padding:3px 0;border-bottom:1px solid var(--ln)}
+.mock button{background:var(--pl);color:var(--onpl);border:0;border-radius:6px;padding:4px 10px;font:inherit;font-weight:700}
+.mock .ghost{background:transparent;color:var(--ink);border:1px solid var(--ln)}.mock .red{color:var(--red)}.mock .grn{color:var(--grn)}
+.cap{color:var(--muted);font-size:13px;margin:6px 0 0}
+</style>
+</head>
+<body>
+<h1>PRD 2842: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional"><div data-service="galaxy"><h3>galaxy</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare">
+<div><div class="label">Today</div><p>The Fleet page is the fleet's board: who merged what this week. To build a roadmap, a person runs <code>/omni:drive</code> on a laptop and keeps it open; nothing records the goal the PRDs serve.</p></div>
+<div><div class="label">After</div><p>A person states a mission (a goal, how to tell it worked, and its PRDs or roadmaps) and presses Start. The fleet takes the ready PRDs at once, several in parallel when they touch different files, and keeps going with the laptop closed, stopping only for an approval, an answer or a merge. The Missions tab says how far each mission is and what waits on you; the Operation room shows who did what, when, each row signed by its role.</p></div></div></div>
+<div data-section="pixel-perfect" data-state="filled"><h4>Pixel perfect</h4><p>screens: fleet-frame · fleet-room · mission-start</p>
+<div class="compare"><div><div class="label">Today</div><div class="mock" data-screen="fleet-today"><h5>Blue Fleet</h5><p class="mut">Last 7 days</p>
+<table><tr><th>Member</th><th>PRs merged</th><th>PRDs moved</th></tr>
+<tr><td>Irisa</td><td>6</td><td>2</td></tr><tr><td>Paul</td><td>4</td><td>3</td></tr></table>
+<p><button data-primary>30 days</button></p></div></div><div><div class="label">After</div><div class="mock" data-screen="fleet-room"><h5>Blue Fleet</h5>
+<div class="tabs2"><span class="on">Operation room</span><span>Missions</span><span>Seats</span><span>Board</span></div>
+<ul class="now"><li>Engineer · agent: building PRD 2803</li><li>PM: A person does this today</li><li>Architect: A person does this today</li><li>QA: A person does this today</li><li>Reviewer: A person does this today</li></ul>
+<p class="mut">Nothing to clean up</p>
+<table><tr><th>When</th><th>Who</th><th>What</th><th>State</th></tr>
+<tr><td>07:02</td><td>Supervisor · agent</td><td>Sent PRD 2804: its blocker merged</td><td>Running</td></tr>
+<tr><td>06:58</td><td>Irisa</td><td>Merged <a href="#">PR 2817</a></td><td>Merged</td></tr>
+<tr><td>03:40</td><td>Engineer · agent</td><td><a href="#">PR 2817</a> ready for review</td><td>Ready</td></tr>
+<tr><td>01:12</td><td>Supervisor · agent</td><td>Held PRD 2805: shares files</td><td>Waiting</td></tr></table>
+<p><button data-primary>Filter by mission</button></p></div></div></div>
+<p class="cap">The Fleet's Operation room. The board of today stays, as the Board tab. The Reviewer seat reads that a person does it today: its agent is the next PRD.</p>
+<div class="compare"><div><div class="label">Today</div><p class="mut">No missions: a roadmap is driven from a laptop.</p></div><div><div class="label">After</div><div class="mock" data-screen="fleet-missions"><h5>Blue Fleet</h5>
+<div class="tabs2"><span>Operation room</span><span class="on">Missions</span><span>Seats</span><span>Board</span></div>
+<table><tr><th>Mission</th><th>Status</th><th></th></tr>
+<tr><td><span>Every quote paid online</span><span class="mut">2 of 4 merged · 1 ready</span><span class="mut">PRD 2806 waits: approve it</span></td><td>Running</td><td><button class="ghost">Pause</button></td></tr>
+<tr><td><span>Dark mode for quotes</span><span class="mut">1 PRD · not started</span></td><td>Draft</td><td><button data-primary>Start mission</button></td></tr></table></div></div></div>
+<p class="cap">The Missions tab: each mission's goal, status, progress and what it waits on; Start on a draft, Pause and Resume.</p></div></div><div data-service="omni-app"><h3>omni-app</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare"><div><div class="label">Today</div><p>The App runs checks, the retro and the knowledge jobs; nothing drives a roadmap.</p></div><div><div class="label">After</div><p>The App runs each mission: at once on Start, a job's end, a merge or an answer, and every minute otherwise, sending the ready PRDs to the runners and recording every step.</p></div></div></div><div data-section="pixel-perfect" data-state="na"><h4>Pixel perfect</h4><p>N/A — the App has no screen</p></div></div><div data-service="supabase"><h3>supabase</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare"><div><div class="label">Today</div><p>No mission exists.</p></div><div><div class="label">After</div><p>Missions and their events are kept, readable by the workspace's members only; a job a mission sent can never be sent twice.</p></div></div></div><div data-section="pixel-perfect" data-state="na"><h4>Pixel perfect</h4><p>N/A — the database has no screen</p></div></div><div data-service="kit"><h3>kit</h3><div data-section="functional" data-state="filled"><h4>Functional</h4><div class="compare"><div><div class="label">Today</div><p>A person writes PRDs and roadmaps, and drives them from a laptop.</p></div><div><div class="label">After</div><p><code>/omni:mission</code> writes a mission's brief with a person (or in one line with <code>--prd</code>), commits it, and <code>omni mission push</code> puts it on its page.</p></div></div></div><div data-section="pixel-perfect" data-state="na"><h4>Pixel perfect</h4><p>N/A — the CLI prints lines</p></div></div></section><section data-tab="technical"><div data-section="flow" data-state="filled"><h4>Flow</h4><details open><summary>Sequence (source)</summary><pre>
+<span class="line">person ─ /omni:mission ─▶ kit: mission.md + mission.html ─ omni mission push ─▶ galaxy: dossier kind mission + missions row (draft)</span>
+<span class="line">person ─ Start (Missions tab) ─▶ galaxy: status running, background_job_wake(mission) ─▶ supabase</span>
+<span class="line">omni-app (job ledger, lane mission:&lt;id&gt;) ─ reads missions, prd_stages, roadmap_prds, runner_jobs, plans ─▶ supabase</span>
+<span class="line">omni-app ─ insert runner_jobs /omni:yolo &lt;prd&gt; (sent_by_app, mission_key unique) + mission_events ─▶ supabase</span>
+<span class="line">runner ─ claims, builds, reports the end ─▶ galaxy ─ background_job_wake(mission) ─▶ omni-app runs again</span>
+<span class="line">omni-app ─ ends later +1 min ─▶ job ledger</span></pre></details>
+<p class="cap">Drawn as text: no diagram to render.</p></div><div data-section="deploy" data-state="filled"><h4>Deploy order</h4><ol><li>The migration (tables, job columns, dossier kind): nothing reads it yet.</li><li>The arcade (Fleet tabs, missions API, wakes on job end and answers) and the App's mission kind, through the release commit.</li><li>The kit (<code>/omni:mission</code>, <code>omni mission push</code>).</li></ol></div><div data-service="galaxy"><h3>galaxy <span class="badge" data-role>FRONT-END</span></h3><div data-section="db" data-state="na"><h4>Database</h4><p>N/A — through the database functions above</p></div><div data-section="api" data-state="filled"><h4>API / schema</h4><table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>POST /api/missions/&lt;id&gt;/start</code>, <code>/pause</code>, <code>/resume</code></td><td>added</td><td>—</td><td>a member starts, pauses or resumes a mission; Start and Resume wake it</td><td>galaxy</td></tr>
+<tr><td>dossier push, kind <code>mission</code></td><td>added</td><td>—</td><td>creates or updates the mission (draft) from <code>mission.md</code></td><td>galaxy</td></tr>
+<tr><td>runner job report (end)</td><td>changed</td><td>records the end</td><td>also wakes the job's mission</td><td>galaxy</td></tr></table></div><div data-section="behaviour" data-state="filled"><h4>Behaviour</h4><div class="compare"><div><div class="label">Today</div><p>/app/fleet is the fleet's board.</p></div><div><div class="label">After</div><p>/app/fleet opens on the Operation room; the board is its Board tab, unchanged.</p></div></div></div></div><div data-service="omni-app"><h3>omni-app <span class="badge" data-role>BACK-END</span></h3><div data-section="db" data-state="na"><h4>Database</h4><p>N/A — no table of its own</p></div><div data-section="api" data-state="na"><h4>API / schema</h4><p>N/A — no route changes</p></div><div data-section="behaviour" data-state="filled"><h4>Behaviour</h4><p>A new job kind, <code>mission</code>, one lane per mission: checks, picks, sends <code>/omni:yolo</code> under a unique key, records events, ends <code>later</code> a minute on.</p></div></div><div data-service="supabase"><h3>supabase <span class="badge" data-role>DATABASE</span></h3><div data-section="db" data-state="filled"><h4>Database</h4><div class="compare"><div><div class="label">Today</div><pre><span class="line ctx">runner_jobs ( id, line, repo, status, …, resumes, attempt )</span><span class="line ctx">dossiers.kind in (prd, visual, bug, concept, roadmap)</span></pre></div>
+<div><div class="label">After</div><pre><span class="line ctx">runner_jobs ( id, line, repo, status, …, resumes, attempt,</span><span class="line add">  mission_id uuid references missions, mission_key text unique )</span><span class="line add">missions ( id, workspace_id, repo, number, title, goal, measures jsonb,</span><span class="line add">  scope jsonb, mandate jsonb, status, waiting_on, started_by, next_wake_at, … )</span><span class="line add">mission_events ( id, mission_id, at, role, actor, kind, prd, job_id, link, sentence )</span><span class="line del">dossiers.kind in (prd, visual, bug, concept, roadmap)</span><span class="line add">dossiers.kind in (prd, visual, bug, concept, roadmap, mission)</span></pre></div></div>
+<table><tr><th>table</th><th>change</th><th>detail</th></tr><tr><td>missions</td><td>+ added</td><td>members read; service role writes</td></tr><tr><td>mission_events</td><td>+ added</td><td>append only: no update, no delete</td></tr><tr><td>runner_jobs</td><td>+ added</td><td><code>mission_id</code>, <code>mission_key</code> (unique), null for every other job</td></tr><tr><td>dossiers</td><td>~ altered</td><td>kind <code>mission</code>, version kinds <code>mission-record</code>, <code>brief</code></td></tr></table>
+<p class="cap">Breaking rule followed: the kit's default; no change here is breaking.</p></div><div data-section="api" data-state="na"><h4>API / schema</h4><p>N/A — no GraphQL or REST schema</p></div><div data-section="behaviour" data-state="na"><h4>Behaviour</h4><p>N/A — covered by Database</p></div></div><div data-service="kit"><h3>kit <span class="badge" data-role>CLI</span></h3><div data-section="db" data-state="na"><h4>Database</h4><p>N/A — the CLI has no database</p></div><div data-section="api" data-state="filled"><h4>API / schema</h4><table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr><tr><td><code>/omni:mission</code>, <code>omni mission push &lt;n&gt;</code></td><td>added</td><td>—</td><td>the brief's skill and its push</td><td>kit</td></tr></table></div><div data-section="behaviour" data-state="na"><h4>Behaviour</h4><p>N/A — no existing command changes</p></div></div></section><script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>
