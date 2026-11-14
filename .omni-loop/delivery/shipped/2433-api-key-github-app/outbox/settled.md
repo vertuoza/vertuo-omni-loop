@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-22
 - Slice: s1
 - Wave: 1
+- Became: BR-ACCESS-2, P-ACCESS-1
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Small. A follow-up migration drops the table, the trigger and the clause in runn
 - Raised: 2026-10-22
 - Slice: s1
 - Wave: 1
+- Became: N-ACCESS-1
 
 ### The answer, as it was given
 
@@ -175,6 +177,7 @@ Small. One follow-up migration drops the trigger and its function and moves the 
 - Raised: 2026-10-22
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off territory choice about a single test line, with nothing lasting about the product to keep; it belongs in the ledger only.
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ Nothing to undo in the product: it is one line of a test. If s7 edits the same l
 - Raised: 2026-10-22
 - Slice: s2
 - Wave: 1
+- Became: N-ACCESS-2
 
 ### The answer, as it was given
 
@@ -332,6 +336,7 @@ Switching to B is a small change in `kit/lib/runner/runner.ts` and `kit/lib/env/
 - Raised: 2026-10-22
 - Slice: s2
 - Wave: 1
+- Became: N-ACCESS-3
 
 ### The answer, as it was given
 
@@ -410,6 +415,7 @@ Moving to B is a change to the keys `gitConfigVariables` is given in `kit/bin/gi
 - Raised: 2026-10-22
 - Slice: s2
 - Wave: 1
+- Became: N-ACCESS-4
 
 ### The answer, as it was given
 
@@ -488,6 +494,7 @@ Switching to B moves the install into the job's folder and adds a removal step i
 - Raised: 2026-10-22
 - Slice: s2
 - Wave: 1
+- Became: BR-ACCESS-3, P-ACCESS-2
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ Folding into the person's variable is a few lines in `kit/lib/env/read.ts` and `
 - Raised: 2026-10-22
 - Slice: s2
 - Wave: 1
+- Became: N-ACCESS-5
 
 ### The answer, as it was given
 
@@ -642,6 +650,7 @@ Switching to B is one line in `kit/lib/runner/runner.ts`, but every runner start
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 2
+- Became: ADR-0126
 
 ### The answer, as it was given
 
@@ -723,6 +732,7 @@ Small. A different home for the address (an environment variable, or the checkou
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 2
+- Became: BR-ACCESS-4, P-ACCESS-3
 
 ### The answer, as it was given
 
@@ -802,6 +812,7 @@ Small. Letting the machine release instead is one branch; a claim left in place 
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 2
+- Became: BR-ACCESS-5
 
 ### The answer, as it was given
 
@@ -883,6 +894,7 @@ Small. Dropping the ask at release is one call removed; the release then uses wh
 - Raised: 2026-10-22
 - Slice: s3
 - Wave: 2
+- Became: N-ACCESS-6
 
 ### The answer, as it was given
 
@@ -962,6 +974,7 @@ Small. Recording the mark somewhere else is a change in one function and its tes
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 2
+- Became: BR-ACCESS-6, P-ACCESS-4
 
 ### The answer, as it was given
 
@@ -1040,6 +1053,7 @@ Small. Naming the workspace in the request, or adding a database read of a key's
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 2
+- Became: N-ACCESS-7
 
 ### The answer, as it was given
 
@@ -1118,6 +1132,7 @@ Small. Dropping either guard is a few lines of one function and its test; nothin
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 2
+- Stays here: A one-off territory exception to keep an existing test green; the call-sites test itself already guards the lasting behaviour, so nothing new to keep.
 
 ### The answer, as it was given
 
@@ -1198,6 +1213,7 @@ Small. Removing the line puts the test back to red; a later slice that moves or 
 - Raised: 2026-10-22
 - Slice: s7
 - Wave: 3
+- Became: BR-ACCESS-7, P-ACCESS-5
 
 ### The answer, as it was given
 
@@ -1465,6 +1481,7 @@ Small. One function and its grant in s1's migration (still unmerged on the featu
 - Raised: 2026-10-22
 - Slice: s9
 - Wave: 4
+- Stays here: A wording choice for two guide pages; it states nothing the product does or guarantees, and the existing docs test is left unchanged.
 
 ### The answer, as it was given
 

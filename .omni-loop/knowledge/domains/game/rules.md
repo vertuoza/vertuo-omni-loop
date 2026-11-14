@@ -335,3 +335,39 @@ Governs: ^apps/galaxy/src/arcade/duet/run\.
 Stated: 2026-10-21
 Decided: @mart-lej, 2026-10-21
 Kept id: moved from product, PRD 2346
+
+## BR-GAME-1
+
+The arcade's fleet choice never offers a virtual fleet, and the database refuses any player placed in one, whatever a screen shows. Settings and the Fleet section still list virtual fleets.
+
+Serves: P-GAME-1
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s1-01-arcade-leaves-out-virtual-fleets, PRD #2842
+Enforced by: apps/galaxy/src/virtual-fleets/arcade-fleets.test.ts, supabase/checks/virtual_fleets.sql
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## BR-GAME-2
+
+A new virtual fleet is refused when its key is already used by any fleet of the workspace, retired fleets included, so a different spelling of a taken name is refused too. Virtual fleets count toward the same limit of 12 active fleets as players' fleets.
+
+Serves: P-PRODUCT-44
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s1-03-virtual-fleet-name-and-cap, PRD #2842
+Enforced by: supabase/checks/virtual_fleets.sql, apps/galaxy/src/virtual-fleets/virtual-fleets.repository.test.ts, apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## BR-GAME-3
+
+Only an owner of the workspace may add or remove a hero of a virtual fleet. A fleet holds at most one hero per role, and its last hero can never be removed.
+
+Serves: P-GAME-2
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s6-01-s6-hero-edit-outside-territory, PRD #2842
+Enforced by: supabase/checks/virtual_fleets.sql, supabase/migrations/20270122095000_virtual_hero_edit.sql
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14

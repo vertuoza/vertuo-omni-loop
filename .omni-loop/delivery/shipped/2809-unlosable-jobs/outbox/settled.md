@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-13
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-132, P-PRODUCT-107
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant: B is a few lines in `dropKept` (keep the bundle, count its bytes onl
 - Raised: 2026-11-13
 - Slice: s2
 - Wave: 1
+- Became: N-PRODUCT-20
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ A constant: B adds the login and email to the token file the runner already writ
 - Raised: 2026-11-13
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-133, P-PRODUCT-108
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ A constant: B is one branch in `saveJob`. No stored shape changes.
 - Raised: 2026-11-13
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-134, P-PRODUCT-109
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ One condition in the trigger's function, changed by a follow-up migration; no ro
 - Raised: 2026-11-13
 - Slice: s4
 - Wave: 3
+- Became: ADR-0139
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ A constant in the service and one check before the record: no stored shape chang
 - Raised: 2026-11-13
 - Slice: s4
 - Wave: 3
+- Stays here: A sequencing choice between slices of one plan; nothing lasting to keep once s5 wires the call.
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ One call in cleanUp and one in the sweep's pass, in s5 or a follow-up slice; no 
 - Raised: 2026-11-13
 - Slice: s5
 - Wave: 4
+- Stays here: A cheap-to-change implementation choice adopted without approval, with a side effect likely to be fixed; nothing lasting enough for an ADR or rule.
 
 ### The answer, as it was given
 
@@ -564,6 +571,7 @@ A constant: B is one flag in kit/bin/commands/runner.ts and job.ts (or a one-lin
 - Raised: 2026-11-13
 - Slice: s5
 - Wave: 4
+- Became: ADR-0140
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ A paragraph in one guidance file, in a follow-up: no stored shape changes.
 - Raised: 2026-11-13
 - Slice: s5
 - Wave: 4
+- Became: BR-PRODUCT-135, P-PRODUCT-110
 
 ### The answer, as it was given
 
@@ -719,6 +728,7 @@ One condition in runner_claim(), changed by a follow-up migration: no row moves.
 - Raised: 2026-11-13
 - Slice: s7
 - Wave: 5
+- Became: BR-PRODUCT-136, P-PRODUCT-111
 
 ### The answer, as it was given
 

@@ -618,6 +618,166 @@
           "became": "playbook/conventions#naming"
         }
       }
+    },
+    {
+      "run": "day-14",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 2270,
+        "title": "A runner job waiting on answers fixes by itself once they are in",
+        "topic": "fix-when-answered",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/2270-fix-when-answered"
+      },
+      "featurePr": {
+        "number": 2273,
+        "title": "feat: a runner job waiting on answers fixes by itself once they are in (PRD 2270)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2273",
+        "openedAt": "2026-10-20T14:54:28Z",
+        "mergedAt": "2026-10-20T18:45:49Z",
+        "mergeSha": "ad40ff6d223bba17fe3e59c4f3d7aa672fe451be"
+      },
+      "kinds": {
+        "after-merge": {
+          "bugs": [],
+          "checks": {
+            "commit": "ad40ff6",
+            "green": 3,
+            "jobs": [
+              {
+                "conclusion": "failure",
+                "name": "deploy",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39477593465/job/118817466017",
+                "workflow": "supabase"
+              },
+              {
+                "conclusion": "skipped",
+                "name": "check",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39477593465/job/118817467814",
+                "workflow": "supabase"
+              },
+              {
+                "conclusion": "success",
+                "name": "sync",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39477591081/job/118817458090",
+                "workflow": "releases"
+              },
+              {
+                "conclusion": "success",
+                "name": "release",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39477590950/job/118817457881",
+                "workflow": "release"
+              },
+              {
+                "conclusion": "success",
+                "name": "push",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39477591265/job/118817458248",
+                "workflow": "knowledge-graph"
+              }
+            ],
+            "other": 1,
+            "read": true,
+            "red": 1,
+            "status": null,
+            "total": 5
+          },
+          "days": 14,
+          "fixed": 0,
+          "fixes": [],
+          "from": "2026-10-20T18:45:49.000Z",
+          "linked": 0,
+          "prd": 2270,
+          "to": "2026-11-03T18:45:49.000Z",
+          "total": 0,
+          "unread": []
+        }
+      },
+      "findings": [],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": [
+          {
+            "field": "summary",
+            "reason": "it holds a word the rules refuse"
+          },
+          {
+            "field": "findings.territory:s2.whyItMatters",
+            "reason": "it holds a word the rules refuse"
+          }
+        ]
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "The repeated red exposed a cause not yet recorded: strict reader schemas must learn a new returned column alongside the migration, or the live parse check stays red."
+      },
+      "lessons": [
+        {
+          "text": "When a migration adds a column to a row a database function returns, update every strict reader schema that parses that row in the same slice, and run `schemas:verify` locally before pushing.",
+          "findings": [
+            "repeated-red:check"
+          ]
+        }
+      ],
+      "issues": {}
     }
   ]
 }

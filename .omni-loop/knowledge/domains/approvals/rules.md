@@ -59,3 +59,15 @@ Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
 Kept id: moved from product, PRD 2346
+
+## BR-APPROVALS-1
+
+A mission sends a PRD only when its Omni page holds a product approval in force; an approval voided by a later change reads 'approve it again'. A PRD approved only by merging its phase-0 pull request, with no approval on its page, reads 'approve it' and is not sent.
+
+Serves: P-APPROVALS-1
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-04-approval-read-from-the-prd-page, PRD #2842
+Enforced by: apps/galaxy/src/missions/missions.service.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14

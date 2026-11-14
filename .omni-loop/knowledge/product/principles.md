@@ -862,3 +862,129 @@ A job an app sends with an API key stays that app's from start to end: whoever s
 Why: An app that sends work through the API keeps following it without opening the page; a thread that changed owner when a person answered would drop out of the app's sight halfway.
 Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, entry s1-02-resume-stays-the-keys, PRD #2425
 Proposed: write-back 2026-10-23
+
+## P-PRODUCT-98
+
+A stand-in always covers for one named person, so it is never unclear whose place it takes.
+
+Why: A team has many members, so a stand-in for a team would leave unclear whom it replaces and when it should act.
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s1-01-delegate-entry-shape, PRD #1794
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
+
+## P-PRODUCT-99
+
+The waiting list never claims a person was asked about a question before they were actually told.
+
+Why: People rely on the list to know who has really been reached; an overstated escalation hides that nobody was told.
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s3-01-record-keeps-the-sweeps-step, PRD #1794
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
+
+## P-PRODUCT-115
+
+The app only offers a skill to allow when a runner can actually find it and allowing it is possible; it never offers a choice that would be refused.
+
+Why: Showing skills that cannot be found or allowed would invite choices that silently fail or are refused by the database.
+Source: .omni-loop/delivery/shipped/2313-runner-repo-skills/outbox/settled.md, entry s3-02-s3-which-folders-are-skills, PRD #2313
+Merged: @pierrederval, 2026-10-21, PR #2316
+Proposed: harvest 2026-10-22
+
+## P-PRODUCT-104
+
+Adding a way to group the knowledge never hides a law from an agent; a repository that has not adopted the grouping sees every law it saw before.
+
+Why: Agents must keep seeing every law that binds them, whether or not a repository has drawn its map.
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-01-unmapped-governs-applies, PRD #2346
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22
+
+## P-PRODUCT-105
+
+The knowledge shown for a change never leaves a rule unseen merely because the map cannot place it.
+
+Why: A rule tagged only with layers no file maps to would otherwise never be shown, so agents would never be bound by it.
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-02-what-stays-global, PRD #2346
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22
+
+## P-PRODUCT-106
+
+The Omni page never opens a pull request for a settings change that every repository's sync would then skip.
+
+Why: A merged change that the sync silently ignores misleads the owner and leaves every repository out of step with what was approved.
+Source: .omni-loop/delivery/shipped/2417-tech-defaults/outbox/settled.md, entry s7-03-edit-whole-page-text, PRD #2417
+Merged: @pierrederval, 2026-10-23, PR #2479
+Proposed: harvest 2026-10-23
+
+## P-PRODUCT-107
+
+A runner never loses a saved job silently; whatever it removes to stay within its budget is recorded where the person can see it.
+
+Why: A person resuming work must be able to tell lost work from missing work, rather than finding a save gone with no trace.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-01-budget-drops-the-bundle, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-108
+
+A job's unfinished work is never thrown away because saving it failed; what remains is kept and the failure is recorded beside it.
+
+Why: The feature exists so jobs are not lost; deleting the only copy when a save breaks would silently lose work.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-03-failed-save-keeps-folder, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-109
+
+A person's request to stop a job is never undone by the loop's own recovery; nothing restarts work someone asked to stop.
+
+Why: Automatic recovery that overrides a cancel would run work a person chose to stop, wasting resources and breaking their trust in stopping.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s1-02-cancel-asked-not-resumed, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-110
+
+A lost job's saved work is never passed over while the machine holding it can still hand it back; once that machine is gone, the job goes on elsewhere and says what was left behind.
+
+Why: Resuming without the saved work throws it away, while waiting on a vanished machine would stall the job forever.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s5-03-keeper-runner-routing, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-111
+
+The app never offers an action that would queue the same job's work a second time beside a chain already carrying it.
+
+Why: Two chains doing the same work waste runners and can write conflicting results that people then have to untangle.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s7-01-lost-job-offers-no-button-while-resuming, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-112
+
+A mission can begin from a single line; the kit never forces in detail nobody has given yet, nor fills it with a placeholder.
+
+Why: A placeholder sign would pose as a real measure, and demanding one would stop a one-line mission being one line.
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-02-brief-allows-no-measure, PRD #2842
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-113
+
+Updating what a mission works toward never stops, restarts or reassigns the mission; only a person's explicit action changes whether it runs.
+
+Why: People refine a running mission's brief often, and an edit should never silently pause it, hand it to someone else or shift its schedule.
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-04-push-updates-running-brief, PRD #2842
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-114
+
+A mission never retries stopped work on its own; only a person's deliberate action brings a stopped PRD back.
+
+Why: Re-sending failed or cancelled work automatically would spend runs on a guess and override the person who stopped it.
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14

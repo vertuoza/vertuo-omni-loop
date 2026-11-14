@@ -718,3 +718,183 @@ Source: .omni-loop/delivery/shipped/2739-follow-ups/outbox/settled.md, entry s3-
 Enforced by: kit/lib/delivery/ship-review.test.ts
 Stated: 2026-11-12
 Decided: @pierrederval, 2026-11-12, on PR #2740
+
+## BR-PRODUCT-117
+
+In the laws' owner settings, an entry with a stand-in must name one person's login as owner and both names are required; a team may only be a plain owner with no stand-in. The settings are read back exactly as written.
+
+Serves: P-PRODUCT-98
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s1-01-delegate-entry-shape, PRD #1794
+Enforced by: kit/lib/config.test.ts, kit/lib/schema/config.test.ts
+Stated: 2026-10-17
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
+
+## BR-PRODUCT-118
+
+When the outbox check rewrites a pull request's waiting list, it only adds new waiting items at step 0 with nobody asked and drops answered ones. Existing items keep their step, people asked and next due time until the hourly reminder moves them.
+
+Serves: P-PRODUCT-99
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s3-01-record-keeps-the-sweeps-step, PRD #1794
+Enforced by: apps/omni-app/src/escalation/escalation.test.ts, kit/lib/escalation/escalation.test.ts
+Stated: 2026-10-17
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
+
+## BR-PRODUCT-140
+
+A repository's Runner skills block lists a folder only when it holds a skill file whose name is valid and equals the folder's name, and that name is not one of the loop's own skills; any other folder is left out.
+
+Serves: P-PRODUCT-115
+Source: .omni-loop/delivery/shipped/2313-runner-repo-skills/outbox/settled.md, entry s3-02-s3-which-folders-are-skills, PRD #2313
+Enforced by: apps/galaxy/src/repositories/skills.test.ts, apps/galaxy/src/runners/runners.skills.migration.test.ts
+Stated: 2026-10-21
+Decided: nobody — adopted when raised (medium), 2026-10-21
+Merged: @pierrederval, 2026-10-21, PR #2316
+Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-141
+
+In a repository with no knowledge map, the lookup lists exactly the entries it listed before maps existed: a rule whose Governs line names a changed file is listed as applying here, and every other locked law as global, none hidden.
+
+Serves: P-PRODUCT-104
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-01-unmapped-governs-applies, PRD #2346
+Enforced by: kit/lib/knowledge/disclose-lookup.test.ts, kit/bin/kb-graph-lookup.test.ts
+Stated: 2026-10-22
+Decided: nobody — adopted when raised (medium), 2026-10-22
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-142
+
+An entry nothing on the knowledge map can narrow (no Governs line, no mapped domain, no mapped layer) is shown for every change. A decision record shows only when its Domain or Layers meet a changed file; an untagged one is neither listed nor counted as hidden.
+
+Serves: P-PRODUCT-105
+Source: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md, entry s3-02-what-stays-global, PRD #2346
+Enforced by: kit/lib/knowledge/disclose-lookup.test.ts
+Stated: 2026-10-22
+Decided: nobody — adopted when raised (medium), 2026-10-22
+Merged: @pierrederval, 2026-10-22, PR #2348
+Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-143
+
+An owner's edit of a playbook page on the Omni page covers the page's whole text, header included. A text the next sync would not read as a page is refused with the reader's reason, and no pull request is opened.
+
+Serves: P-PRODUCT-106
+Source: .omni-loop/delivery/shipped/2417-tech-defaults/outbox/settled.md, entry s7-03-edit-whole-page-text, PRD #2417
+Enforced by: apps/galaxy/src/omni-settings/omni-settings.proposal.test.ts, apps/galaxy/src/omni-settings/omni-settings.proposal.controller.test.ts
+Stated: 2026-10-23
+Decided: nobody — adopted when raised (medium), 2026-10-23
+Merged: @pierrederval, 2026-10-23, PR #2479
+Proposed: harvest 2026-10-23
+
+## BR-PRODUCT-131
+
+When a provider's own check answers fail for a pull request another one waits on, the waiting pull request stays a draft and one important question is raised naming both pull requests, the same as when the provider is closed without merging.
+
+Serves: P-PRODUCT-5
+Source: .omni-loop/delivery/shipped/2746-hold-consumer/outbox/settled.md, entry s3-04-probe-fail-raises-high-item, PRD #2746
+Enforced by: kit/lib/hold/probe.test.ts, kit/lib/hold/hold.test.ts, kit/test/hold-ready.test.ts
+Stated: 2026-11-13
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-13, PR #2747
+Proposed: harvest 2026-11-13
+
+## BR-PRODUCT-132
+
+When a runner is over its keep budget, the oldest kept save is removed whole, its folder and its bundle, and its manifest records what was lost and why; the manifest stays until its keep date.
+
+Serves: P-PRODUCT-107
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-01-budget-drops-the-bundle, PRD #2809
+Enforced by: kit/lib/runner/sweep.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-133
+
+When the runner's save of a job's unfinished work fails, it keeps the job's folder, its manifest recording that the save failed and why. The folder is still removed at its keep date or when the keep budget is full, like any kept folder.
+
+Serves: P-PRODUCT-108
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-03-failed-save-keeps-folder, PRD #2809
+Enforced by: kit/lib/runner/checkpoint.test.ts, kit/lib/runner/checkpoint.manifest.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-134
+
+A job whose cancel was asked is never resumed, even when its runner is lost before the job stopped; the resume trigger queues nothing for it.
+
+Serves: P-PRODUCT-109
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s1-02-cancel-asked-not-resumed, PRD #2809
+Enforced by: supabase/checks/runner_resume.sql, apps/galaxy/src/runners/runners.resume.migration.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-135
+
+A resumed job whose newest kept local save sits on one runner waits for that runner while it was seen within 90 s and may take the job, even with every slot busy. Once it has been silent longer, any runner takes the job and is told what stayed behind.
+
+Serves: P-PRODUCT-110
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s5-03-keeper-runner-routing, PRD #2809
+Enforced by: supabase/checks/runner_resume.sql, apps/galaxy/src/runners/runners.claim-resume.migration.test.ts, apps/galaxy/src/runners/runners.resume-claim.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-136
+
+While a lost job's automatic resume exists, the Runners page offers no action on the lost job, so its work is never queued twice; the resume keeps its own Cancel, and a job lost 3 times offers Resume, sent as the person who presses it.
+
+Serves: P-PRODUCT-111
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s7-01-lost-job-offers-no-button-while-resuming, PRD #2809
+Enforced by: apps/galaxy/src/runners/page/loss.test.ts, apps/galaxy/src/runners/page/loss.render.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-137
+
+A mission brief holds zero to five signs of success, so a one-line mission with none is a valid brief. The conversation that writes a full mission still asks for at least one.
+
+Serves: P-PRODUCT-112
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-02-brief-allows-no-measure, PRD #2842
+Enforced by: kit/lib/mission/brief.test.ts, supabase/checks/missions.sql
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-138
+
+A push of a changed brief updates a mission's fleet, title, goal, measures, scope and mandate at any time, even while it runs, and never changes whether it runs, who started it or when it next checks; the next check reads the new scope.
+
+Serves: P-PRODUCT-113
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-04-push-updates-running-brief, PRD #2842
+Enforced by: supabase/checks/missions.sql
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-139
+
+A mission never sends a PRD again once it failed, was held twice or had its job cancelled; it comes back only when a person takes it to ready for review, and the mission then waits for its merge. A mission with nothing able to move reads stopped.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
+Enforced by: apps/omni-app/src/missions/supervisor.test.ts, apps/omni-app/src/missions/mission.e2e.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14

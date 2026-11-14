@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-12
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off refactor choice about where a function lives during this step; nothing lasting beyond the existing import-zone and duplication rules.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One small edit outside the listed paths; undone by moving the function back.
 - Raised: 2026-11-12
 - Slice: s2
 - Wave: 1
+- Became: ADR-0132
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Changing it is one follow-up migration that unschedules the job (and, for B, one
 - Raised: 2026-11-12
 - Slice: s3
 - Wave: 2
+- Stays here: A local tooling-config choice for one new function folder, cheap to undo. It sets no lasting product guarantee or architecture worth a record.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ Undoing it is deleting two lines in two settings files; nothing stored changes.
 - Raised: 2026-11-12
 - Slice: s3
 - Wave: 2
+- Became: ADR-0133
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ Going back is one setting and a few lines in the function; nothing stored change
 - Raised: 2026-11-12
 - Slice: s4
 - Wave: 2
+- Became: ADR-0134
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ Changing it is one constant (the run's time budget) in the embed job.
 - Raised: 2026-11-12
 - Slice: s4
 - Wave: 2
+- Became: ADR-0135
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ Including archived products is one filter removed; reading through a database fu
 - Raised: 2026-11-12
 - Slice: s5
 - Wave: 2
+- Stays here: A local, cheaply reversible choice of what one count means. Agents read the first hits, not the count, so there is no lasting guarantee to keep in the knowledge base.
 
 ### The answer, as it was given
 
@@ -563,6 +570,7 @@ B is one threshold constant in the ranking and a test; no stored shape changes.
 - Raised: 2026-11-12
 - Slice: s6
 - Wave: 3
+- Stays here: This applies the existing never#11 line to one fixture and a few guide lines; no listed entry holds it, and there is no new lasting product rule to record.
 
 ### The answer, as it was given
 

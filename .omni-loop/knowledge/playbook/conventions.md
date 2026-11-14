@@ -42,30 +42,31 @@ ADR-0057 records the rule.
 
 New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0102).
 
-- **A new migration takes the next free version.** Supabase keys applied migrations by version, so
-  `supabase/migrations/<version>_<name>.sql` takes a version after the latest one on both the branch
-  and `main`, never one a plan names without checking: two files on one version cannot both apply.
-  Before it reaches production a clash is a rename; after, it is a new migration (PRD 902, s1-01).
+- **A new migration takes the next free version.** `supabase/migrations/<version>_<name>.sql` takes a
+  version after the latest on both the branch and `main`, never one a plan names unchecked: Supabase
+  keys migrations by version, so two on one version cannot both apply. Before production a clash is a
+  rename; after, a new migration (PRD 902, s1-01).
 - **A migration stays the newest until it merges.** `supabase db push` refuses a migration dated
-  before the newest one production applied, so a branch whose migration `main` overtook while it
-  waited is re-dated (`git mv`, then every path naming it) after `main`'s newest, checked again after each
-  merge of `main` and before it is marked ready. The `supabase` workflow's
-  `check` refuses an overtaken migration (`node scripts/migration-order.ts`), and its `deploy`
-  pushes with `--include-all`, so one merged after its check still applies (PRD 1364, #1456).
-- **The database types are generated, never written.** `supabase/database.types.ts` is what
-  `node scripts/supabase-types.ts` writes from a fresh local database (`supabase stop --no-backup`
-  first), with each migration change or re-date; the pre-push hook and
-  the `supabase` workflow check it (retros #1349, #1649, #2207).
-- **A new database check runs in CI.** Each file under `supabase/checks/` is its own named step in
-  the `supabase` workflow's `check` job, added in the pull request that adds the check; a check CI
-  does not run proves nothing (PRD 902, s1-02).
-- **A new returned column lands with its readers.** A migration that adds a column to returned
-  rows extends every parse schema reading them in the same change: they refuse unknown keys
-  and `pnpm schemas:verify` stays red (retro of PRD 2270, #2295).
+  before production's newest, so a branch whose migration `main` overtook is re-dated (`git mv`, then
+  every path naming it) after `main`'s newest, checked again after each merge of `main` and before
+  ready. The `supabase` workflow's `check` refuses an overtaken one (`node scripts/migration-order.ts`);
+  its `deploy` pushes `--include-all`, so one merged after its check still applies (PRD 1364, #1456).
+- **The database types are generated, never written.** `node scripts/supabase-types.ts` writes
+  `supabase/database.types.ts` from a fresh local database (`supabase stop --no-backup` first) on each
+  migration change or re-date; the pre-push hook and the `supabase` workflow check it (retros #1349,
+  #1649, #2207).
+- **A new database check runs in CI.** Each `supabase/checks/` file is its own named step in the
+  `supabase` workflow's `check` job, added with the check: a check CI never runs proves nothing (PRD
+  902, s1-02).
+- **A new returned column lands with its readers.** A migration adding a column to returned rows
+  extends every parse schema reading them in the same change: they refuse unknown keys and
+  `pnpm schemas:verify` stays red (retro of PRD 2270, #2295).
+- **A slice that adds a migration has `supabase/migrations/` in its territory**, so the plan's table
+  shows every slice adding one (retro of PRD 2809, #2839).
 
 ## Formatting
 <!-- slot: formatting · optional · by: invade -->
-No formatter is configured: `pnpm lint` checks correctness, not layout. The file you touch sets the style; keep to it.
+No formatter: `pnpm lint` checks correctness, not layout; keep to the style of the file you touch.
 
 ## Commits
 <!-- slot: commits · optional · by: invade -->

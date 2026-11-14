@@ -43,3 +43,25 @@ Governs: ^kit/lib/launch/launch\., ^kit/bin/commands/now\.ts$, ^kit/bin/now\.tes
 Stated: 2026-10-08
 Decided: nobody — adopted when raised (medium), 2026-10-08
 Merged: @pierrederval, 2026-10-08, PR #1210
+
+## N-PRODUCT-19
+
+A runner job for one of the loop's own skills never loads the repository's tool servers. A repository skill's job loads them only when its worktree declares them, and the runner refuses any line that is neither a fixed skill nor one the owner allowed before a job starts.
+
+Source: .omni-loop/delivery/shipped/2313-runner-repo-skills/outbox/settled.md, entry s2-01-s2-job-tells-skill-by-line, PRD #2313
+Enforced by: kit/lib/runner/job.test.ts, kit/lib/runner/runner.test.ts, kit/lib/runner/line.test.ts
+Stated: 2026-10-21
+Decided: nobody — adopted when raised (medium), 2026-10-21
+Merged: @pierrederval, 2026-10-21, PR #2316
+Proposed: harvest 2026-10-22
+
+## N-PRODUCT-20
+
+A snapshot commit of a job's unfinished edits is authored by the job's app when the runner knows it, and otherwise by the runner's own name with an address that cannot receive mail; it never carries a person's name.
+
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-02-snapshot-author, PRD #2809
+Enforced by: kit/lib/runner/checkpoint.test.ts, kit/lib/runner/sweep.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
