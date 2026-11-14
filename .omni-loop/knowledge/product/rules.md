@@ -718,3 +718,39 @@ Source: .omni-loop/delivery/shipped/2739-follow-ups/outbox/settled.md, entry s3-
 Enforced by: kit/lib/delivery/ship-review.test.ts
 Stated: 2026-11-12
 Decided: @pierrederval, 2026-11-12, on PR #2740
+
+## BR-PRODUCT-137
+
+A mission brief holds zero to five signs of success, so a one-line mission with none is a valid brief. The conversation that writes a full mission still asks for at least one.
+
+Serves: P-PRODUCT-112
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-02-brief-allows-no-measure, PRD #2842
+Enforced by: kit/lib/mission/brief.test.ts, supabase/checks/missions.sql
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-138
+
+A push of a changed brief updates a mission's fleet, title, goal, measures, scope and mandate at any time, even while it runs, and never changes whether it runs, who started it or when it next checks; the next check reads the new scope.
+
+Serves: P-PRODUCT-113
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s2-04-push-updates-running-brief, PRD #2842
+Enforced by: supabase/checks/missions.sql
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-139
+
+A mission never sends a PRD again once it failed, was held twice or had its job cancelled; it comes back only when a person takes it to ready for review, and the mission then waits for its merge. A mission with nothing able to move reads stopped.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
+Enforced by: apps/omni-app/src/missions/supervisor.test.ts, apps/omni-app/src/missions/mission.e2e.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-14, PR #2843
+Proposed: harvest 2026-11-14
