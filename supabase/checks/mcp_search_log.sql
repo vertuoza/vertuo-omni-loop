@@ -5,7 +5,8 @@
 -- A member of a product's workspace reads its rows (L-GDPR-1, BR-PRODUCT-63); a member of another workspace
 -- reads none of them, and anon reads nothing. Only the service role writes: it adds rows and fills the
 -- opened id and rank, nothing else of a row; a row is never filed under a workspace that is not its
--- product's. product_mcp_for_key() answers the served key's id, never the key. mcp_search_log_forget(), run
+-- product's. A search by meaning's nearest distance (PRD omni-loop-9 s2) is written with its row and read with
+-- it, and nobody rewrites it. product_mcp_for_key() answers the served key's id, never the key. mcp_search_log_forget(), run
 -- every night, deletes the rows asked more than 90 days ago and keeps the younger ones (L-GDPR-4).
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
@@ -81,7 +82,8 @@ begin
      or not has_column_privilege('service_role', 'public.mcp_search_log', 'opened_rank', 'update')
      or has_column_privilege('service_role', 'public.mcp_search_log', 'query', 'update')
      or has_column_privilege('service_role', 'public.mcp_search_log', 'hit_ids', 'update')
-     or has_column_privilege('service_role', 'public.mcp_search_log', 'workspace_id', 'update') then
+     or has_column_privilege('service_role', 'public.mcp_search_log', 'workspace_id', 'update')
+     or has_column_privilege('service_role', 'public.mcp_search_log', 'nearest_distance', 'update') then
     raise exception 'FAIL: the service role does not read, add rows and fill the opened rank alone';
   end if;
   if has_function_privilege('anon', 'public.mcp_search_log_forget()', 'execute')
@@ -114,14 +116,15 @@ end $$;
 reset role;
 
 -- ── The service role adds rows ──
+-- A search by meaning keeps its nearest distance (PRD omni-loop-9 s2); a get_knowledge and a words search keep none.
 set local role service_role;
-insert into public.mcp_search_log (product_id, workspace_id, api_key_id, tool, query, filters, mode, total, hit_ids) values
+insert into public.mcp_search_log (product_id, workspace_id, api_key_id, tool, query, filters, mode, total, hit_ids, nearest_distance) values
   ('00000000-0000-4000-8000-0000000006f1', '00000000-0000-4000-8000-000000000610', '00000000-0000-4000-8000-0000000006e1',
-   'search_knowledge', 'can a quote go out empty', '{"kind": "business-law"}', 'meaning', 3, '{BL-QUOTES-1,BL-QUOTES-2,ADR-0067}'),
+   'search_knowledge', 'can a quote go out empty', '{"kind": "business-law"}', 'meaning', 3, '{BL-QUOTES-1,BL-QUOTES-2,ADR-0067}', 0.125),
   ('00000000-0000-4000-8000-0000000006f1', '00000000-0000-4000-8000-000000000610', '00000000-0000-4000-8000-0000000006e1',
-   'get_knowledge', 'BL-QUOTES-2', '{}', null, 1, '{BL-QUOTES-2}'),
+   'get_knowledge', 'BL-QUOTES-2', '{}', null, 1, '{BL-QUOTES-2}', null),
   ('00000000-0000-4000-8000-0000000006f2', '00000000-0000-4000-8000-000000000620', null,
-   'search_knowledge', 'dock ledger', '{}', 'words', 0, '{}');
+   'search_knowledge', 'dock ledger', '{}', 'words', 0, '{}', null);
 -- A row is never filed under a workspace that is not its product's.
 select pg_temp.refused($q$insert into public.mcp_search_log (product_id, workspace_id, tool, query, total)
   values ('00000000-0000-4000-8000-0000000006f2', '00000000-0000-4000-8000-000000000610', 'search_knowledge', 'x', 0)$q$,
@@ -135,12 +138,16 @@ update public.mcp_search_log set opened_id = 'BL-QUOTES-2', opened_rank = 2
 select pg_temp.refused($q$update public.mcp_search_log set opened_rank = 3 where query = 'dock ledger'$q$,
   '23514', 'an opened rank with no opened id');
 select pg_temp.refused($q$update public.mcp_search_log set query = 'rewritten'$q$, '42501', 'the service role rewriting a query');
+select pg_temp.refused($q$update public.mcp_search_log set nearest_distance = 0$q$, '42501', 'the service role rewriting a nearest distance');
 select pg_temp.refused($q$delete from public.mcp_search_log$q$, '42501', 'the service role deleting rows');
 do $$
 begin
   if pg_temp.seen() <> 3 then raise exception 'FAIL: the service role reads % rows, not 3', pg_temp.seen(); end if;
   if (select opened_rank from public.mcp_search_log where query = 'can a quote go out empty') is distinct from 2 then
     raise exception 'FAIL: the opened rank was not filled';
+  end if;
+  if (select nearest_distance from public.mcp_search_log where query = 'can a quote go out empty') is distinct from 0.125::double precision then
+    raise exception 'FAIL: the search by meaning did not keep its nearest distance';
   end if;
 end $$;
 reset role;
@@ -154,12 +161,16 @@ begin
      or exists (select 1 from public.mcp_search_log where workspace_id <> '00000000-0000-4000-8000-000000000610') then
     raise exception 'FAIL: Max, a member of Lantern, does not read Lamp''s two rows alone';
   end if;
+  if (select array_agg(nearest_distance order by tool desc) from public.mcp_search_log) is distinct from array[0.125, null]::double precision[] then
+    raise exception 'FAIL: Max does not read each of Lamp''s rows with its nearest distance';
+  end if;
 end $$;
 select pg_temp.refused($q$insert into public.mcp_search_log (product_id, workspace_id, tool, query, total)
   values ('00000000-0000-4000-8000-0000000006f1', '00000000-0000-4000-8000-000000000610', 'search_knowledge', 'x', 0)$q$,
   '42501', 'a member adding a row');
 select pg_temp.refused($q$update public.mcp_search_log set opened_rank = 1, opened_id = 'BL-QUOTES-1'$q$,
   '42501', 'a member filling an opened rank');
+select pg_temp.refused($q$update public.mcp_search_log set nearest_distance = 0$q$, '42501', 'a member rewriting a nearest distance');
 select pg_temp.refused($q$delete from public.mcp_search_log$q$, '42501', 'a member deleting rows');
 select pg_temp.refused($q$select public.mcp_search_log_forget()$q$, '42501', 'a member forgetting');
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000006a1');

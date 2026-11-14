@@ -38,10 +38,31 @@ describe('the Search section', () => {
     expect(html).toContain('data-region="latest"');
   });
 
-  it('shows each latest question with its mode, total, top hit and opened rank', () => {
-    const html = draw([{ id: 'x', query: 'what is a credit note', mode: 'meaning', total: 2, hitIds: ['credit-note', 'b'], openedRank: 2, askedAt: '2026-11-12T10:00:00Z' }]);
+  it('shows each latest question with its mode, total, top hit, nearest distance and opened rank', () => {
+    const html = draw([{ id: 'x', query: 'what is a credit note', mode: 'meaning', total: 2, hitIds: ['credit-note', 'b'], openedRank: 2, nearestDistance: 0.1234, askedAt: '2026-11-12T10:00:00Z' }]);
     const latest = html.slice(html.indexOf('data-region="latest"'));
-    expect(text(latest)).toContain('what is a credit note meaning 2 credit-note 2 2026-11-12');
+    expect(text(latest)).toContain('Question Mode Total Top hit Nearest distance Opened rank Asked');
+    expect(text(latest)).toContain('what is a credit note meaning 2 credit-note 0.12 2 2026-11-12');
+  });
+
+  it('shows — for a latest question with no nearest distance: a words search, or a row read before it was logged (PRD omni-loop-9 s2)', () => {
+    const html = draw([
+      { id: 'w', query: 'invoice', mode: 'words', total: 1, hitIds: ['a'], openedRank: null, nearestDistance: null, askedAt: '2026-11-12T10:00:00Z' },
+      { id: 'o', query: 'quote', mode: 'meaning', total: 1, hitIds: ['b'], openedRank: null, askedAt: '2026-11-11T10:00:00Z' },
+    ]);
+    const latest = text(html.slice(html.indexOf('data-region="latest"')));
+    expect(latest).toContain('invoice words 1 a — — 2026-11-12');
+    expect(latest).toContain('quote meaning 1 b — — 2026-11-11');
+  });
+
+  it('counts a question nothing was near in the zero-hit rate, and shows its nearest distance (PRD omni-loop-9 s2)', () => {
+    const html = draw([
+      { id: 'far', query: 'pizza delivery refund policy', mode: 'meaning', total: 0, hitIds: [], openedRank: null, nearestDistance: 0.2468, askedAt: '2026-11-12T10:00:00Z' },
+      { id: 'near', query: 'what is a credit note', mode: 'meaning', total: 1, hitIds: ['credit-note'], openedRank: 1, nearestDistance: 0.05, askedAt: '2026-11-12T09:00:00Z' },
+    ]);
+    expect(text(/data-figure="zero-hit"[\s\S]*?<\/div>/.exec(html)?.[0] ?? '')).toContain('Zero-hit rate 50%');
+    const latest = text(html.slice(html.indexOf('data-region="latest"')));
+    expect(latest).toContain('pizza delivery refund policy meaning 0 — 0.25 — 2026-11-12');
   });
 
   it('says so in one line and draws no chart when the log holds no row', () => {
