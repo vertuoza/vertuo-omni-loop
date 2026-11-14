@@ -862,3 +862,21 @@ A job an app sends with an API key stays that app's from start to end: whoever s
 Why: An app that sends work through the API keeps following it without opening the page; a thread that changed owner when a person answered would drop out of the app's sight halfway.
 Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, entry s1-02-resume-stays-the-keys, PRD #2425
 Proposed: write-back 2026-10-23
+
+## P-PRODUCT-98
+
+A stand-in always covers for one named person, so it is never unclear whose place it takes.
+
+Why: A team has many members, so a stand-in for a team would leave unclear whom it replaces and when it should act.
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s1-01-delegate-entry-shape, PRD #1794
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
+
+## P-PRODUCT-99
+
+The waiting list never claims a person was asked about a question before they were actually told.
+
+Why: People rely on the list to know who has really been reached; an overstated escalation hides that nobody was told.
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s3-01-record-keeps-the-sweeps-step, PRD #1794
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17

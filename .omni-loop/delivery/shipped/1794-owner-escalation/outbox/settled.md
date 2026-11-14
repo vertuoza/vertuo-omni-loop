@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-117, P-PRODUCT-98
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Allowing it later is a one-line change to the settings check; nobody's settings 
 - Raised: 2026-10-15
 - Slice: s5
 - Wave: 2
+- Stays here: The separate read was chosen to stay inside the slice's territory and is cheap to fold into the dossier summary later. It is a local build choice, not a lasting product guarantee.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Moving the read into the summary later is a few lines in four files outside this
 - Raised: 2026-10-15
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-118, P-PRODUCT-99
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ Changing it later is a few lines in the record keeper; no stored shape changes, 
 - Raised: 2026-10-15
 - Slice: s4
 - Wave: 3
+- Stays here: A one-off scoping choice about which change carries a test edit; nothing lasting about the product or how it is built.
 
 ### The answer, as it was given
 
