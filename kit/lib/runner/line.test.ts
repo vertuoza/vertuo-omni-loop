@@ -2,7 +2,22 @@
 // repository's own skills (PRD 2313): `/<name> <args>`, when the job's allowed skills name it; the app
 // runs the shared table through both checks (apps/galaxy/src/runners/runners.contract.test.ts).
 import { describe, expect, it } from 'vitest';
-import { checkRunnerLine, LINE_MAX, prdOfRunnerLine, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
+import { checkRunnerLine, LINE_MAX, prdOfRunnerLine, RESUMABLE_SKILLS, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
+
+describe('RESUMABLE_SKILLS (PRD 2809)', () => {
+  it('names the skills that pick up from what GitHub holds, and no other', () => {
+    expect([...RESUMABLE_SKILLS]).toEqual(['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix']);
+  });
+
+  it('is a subset of the skills a runner runs: a resume never runs a line no runner takes', () => {
+    for (const skill of RESUMABLE_SKILLS) expect(RUNNABLE_SKILLS, skill).toContain(skill);
+    expect(new Set(RESUMABLE_SKILLS).size).toBe(RESUMABLE_SKILLS.length);
+  });
+
+  it('cannot be changed at run time', () => {
+    expect(Object.isFrozen(RESUMABLE_SKILLS)).toBe(true);
+  });
+});
 
 describe('checkRunnerLine', () => {
   it('takes every listed skill, with and without arguments', () => {

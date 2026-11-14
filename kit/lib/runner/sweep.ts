@@ -9,10 +9,16 @@
 //
 // `~/logs/runner.log`, any other folder, file or branch is never touched. The line it prints counts
 // what went and the space freed; a sweep that removed nothing prints nothing.
+//
+// A folder kept for its save (PRD 2809, s2, `checkpoint.ts`) is neither swept nor stranded, and neither is its
+// branch: `keepWithin` alone removes it, at its keep date, or the oldest first while the kept saves pass the
+// runner's keep budget, its manifest then saying what was lost. A lost save's manifest goes at its date.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { lstatSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { isKept, KEEP_DAYS, savedText, savePaths, savesIn, sizeOf, sizeText, writeSave } from './checkpoint.ts';
+import type { LocalSave } from './checkpoint.ts';
 
 /** What a sweep removed, and the bytes it freed. */
 export type Swept = { worktrees: number; branches: number; logs: number; bytes: number };
@@ -44,18 +50,6 @@ function namesIn(dir: string): string[] {
   } catch {
     return [];
   }
-}
-
-/** The bytes under `path`, symbolic links counted as themselves and never followed. */
-function sizeOf(path: string): number {
-  let stat;
-  try {
-    stat = lstatSync(path);
-  } catch {
-    return 0;
-  }
-  if (!stat.isDirectory()) return stat.size;
-  return namesIn(path).reduce((total, name) => total + sizeOf(join(path, name)), stat.size);
 }
 
 /** The job id of a `~/wt` folder `<repo>-job-<id>`, `<repo>` one of `repoNames`, or `null`. */
@@ -116,12 +110,13 @@ export function dropJobBranch(exec: ExecText, checkout: string, branch: string):
   return !branchPushed(exec, checkout, branch) && deleteBranch(exec, checkout, branch);
 }
 
-/** A job no slot holds whose worktree is still there: its id and the repository it ran in. */
-export type StrandedJob = { job: string; repo: string };
+/** A job no slot holds whose worktree is still there: its id, the repository it ran in and its folder. */
+export type StrandedJob = { job: string; repo: string; folder: string };
 
 /**
- * The jobs whose `~/wt/<repo>-job-<id>` folder is there while no slot holds them, `<repo>` the name of
- * a checkout held: what a runner that died, or restarted, left. The app marks them lost (#2170).
+ * The jobs whose `~/wt/<repo>-job-<id>` folder is there while no slot holds them and no save keeps it,
+ * `<repo>` the name of a checkout held: what a runner that died, or restarted, left. The app marks them
+ * lost (#2170).
  */
 export function strandedJobs({ home, checkouts, running }: Pick<SweepOptions, 'home' | 'checkouts' | 'running'>): StrandedJob[] {
   const wt = join(home, 'wt');
@@ -129,8 +124,9 @@ export function strandedJobs({ home, checkouts, running }: Pick<SweepOptions, 'h
   for (const name of namesIn(wt)) {
     const repo = [...checkouts.keys()].find((held) => worktreeJob(name, [held.split('/').at(-1) ?? held]) !== null);
     const job = repo === undefined ? null : worktreeJob(name, [repo.split('/').at(-1) ?? repo]);
-    if (repo === undefined || job === null || running.has(job) || !lstatSync(join(wt, name)).isDirectory()) continue;
-    stranded.push({ job, repo });
+    const folder = join(wt, name);
+    if (repo === undefined || job === null || running.has(job) || !lstatSync(folder).isDirectory() || isKept(folder)) continue;
+    stranded.push({ job, repo, folder });
   }
   return stranded;
 }
@@ -144,7 +140,7 @@ function sweepWorktrees({ home, checkouts, running }: SweepOptions): { count: nu
   for (const name of namesIn(wt)) {
     const job = worktreeJob(name, repoNames);
     const path = join(wt, name);
-    if (job === null || running.has(job) || !lstatSync(path).isDirectory()) continue;
+    if (job === null || running.has(job) || !lstatSync(path).isDirectory() || isKept(path)) continue;
     const size = sizeOf(path);
     rmSync(path, { recursive: true, force: true });
     count += 1;
@@ -190,13 +186,15 @@ function sweepLogs({ home, running, keepLogsDays, now }: SweepOptions): { count:
   return { count, bytes };
 }
 
-/** One sweep: worktrees first, so their branches can go, then branches, then logs. */
+/** One sweep: worktrees first, so their branches can go, then branches, then logs. A kept job's branch stays with its folder. */
 export function sweep(options: SweepOptions): Swept {
   const worktrees = sweepWorktrees(options);
+  const kept = savesIn(options.home).filter((save) => save.lost === null).map((save) => save.job);
+  const held = { ...options, running: new Set([...options.running, ...kept]) };
   let branches = 0;
   for (const checkout of options.checkouts.values()) {
     pruneWorktrees(options.exec, checkout);
-    branches += sweepBranches(options, checkout);
+    branches += sweepBranches(held, checkout);
   }
   const logs = sweepLogs(options);
   return { worktrees: worktrees.count, branches, logs: logs.count, bytes: worktrees.bytes + logs.bytes };
@@ -204,18 +202,64 @@ export function sweep(options: SweepOptions): Swept {
 
 const count = (n: number, one: string, many: string): string => `${String(n)} ${n === 1 ? one : many}`;
 
-/** `bytes` read by a person: KB under a megabyte, MB under a gigabyte, else GB with one decimal. */
-function sizeText(bytes: number): string {
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${String(Math.round(kb))} KB`;
-  const mb = kb / 1024;
-  if (mb < 1024) return `${String(Math.round(mb))} MB`;
-  return `${(mb / 1024).toFixed(1)} GB`;
-}
-
 /** The line a sweep prints, or `null` when it removed nothing. */
 export function sweptLine(swept: Swept): string | null {
   if (swept.worktrees + swept.branches + swept.logs === 0) return null;
   const what = [count(swept.worktrees, 'worktree', 'worktrees'), count(swept.branches, 'branch', 'branches'), count(swept.logs, 'log file', 'log files')];
   return `swept: ${what.join(', ')} · ${sizeText(swept.bytes)} freed`;
+}
+
+export type KeepOptions = Pick<SweepOptions, 'home' | 'checkouts' | 'exec' | 'running' | 'now'> & {
+  /** The disk the kept saves may take, folders and bundles together, in bytes. */
+  budgetBytes: number;
+};
+
+/** A save `keepWithin` removed: at its keep date (`expired`), or over the keep budget (`budget`), as its manifest then reads. */
+export type Forgotten = { save: LocalSave; why: 'expired' | 'budget' };
+
+/** Removes a save's folder, the records left stale and its unpushed branch, then its bundle. */
+function dropKept({ exec, checkouts }: KeepOptions, save: LocalSave): void {
+  if (save.lost === null) {
+    rmSync(save.folder, { recursive: true, force: true });
+    const checkout = checkouts.get(save.repo);
+    if (checkout !== undefined) {
+      pruneWorktrees(exec, checkout);
+      dropJobBranch(exec, checkout, `agent/job-${save.job}`);
+    }
+  }
+  if (save.bundle !== null) rmSync(save.bundle, { force: true });
+}
+
+/**
+ * Keeps the runner's saves within their dates and its budget, those of running jobs aside: each save past its
+ * keep date goes whole, its manifest too; then, while the kept ones take more than `budgetBytes`, the oldest
+ * kept folder and its bundle go, and its manifest stays, saying what was lost, until its date.
+ */
+export function keepWithin(options: KeepOptions): Forgotten[] {
+  const { home, running, now, budgetBytes } = options;
+  const forgotten: Forgotten[] = [];
+  const saves = savesIn(home).filter((save) => !running.has(save.job));
+  const expired = (save: LocalSave): boolean => Date.parse(save.keepUntil) <= now;
+  for (const save of saves.filter(expired)) {
+    dropKept(options, save);
+    rmSync(savePaths(save.folder).manifest, { force: true });
+    forgotten.push({ save, why: 'expired' });
+  }
+  const kept = saves.filter((save) => save.lost === null && !expired(save)).sort((a, b) => a.savedAt.localeCompare(b.savedAt));
+  let total = kept.reduce((sum, save) => sum + save.bytes, 0);
+  for (const save of kept) {
+    if (total <= budgetBytes) break;
+    dropKept(options, save);
+    total -= save.bytes;
+    const lost: LocalSave = { ...save, lost: { at: new Date(now).toISOString(), why: `over the keep budget of ${sizeText(budgetBytes)}` } };
+    writeSave(lost);
+    forgotten.push({ save: lost, why: 'budget' });
+  }
+  return forgotten;
+}
+
+/** The line the runner prints for a save it removed, or `null` for the manifest of one already lost. */
+export function forgottenLine({ save, why }: Forgotten): string | null {
+  if (why === 'budget') return `job ${save.job}: its kept save went ${save.lost?.why ?? 'over the keep budget'}: lost ${savedText(save)}`;
+  return save.lost === null ? `job ${save.job}: its kept save went at the end of its ${String(KEEP_DAYS)} days` : null;
 }

@@ -10,7 +10,11 @@
 //   (`refused (<status>)`, a 404 once the routes are gone). The runner stops.
 // A health report's failure, either way, stops nothing: the runner prints one line and carries on.
 // A job report the app answers 409 is not a refusal: the job ended meanwhile (cancelled, or failed as
-// `runner lost`), so the runner stops that job alone, as for a cancel.
+// `runner lost`), so the runner stops that job alone, as for a cancel. The app's words come with it, so the
+// runner tells a lost job, whose resume holds its claims (PRD 2809), from a cancelled one.
+//
+// A resume's claim (PRD 2809, s5) carries its chain and the saves it left (`resume.claim.ts`), and the runner's
+// `checkpoints` calls send a save, record it, and download a portable one, through its signed link alone.
 //
 // A job that runs as the Omni GitHub App (PRD 2433) asks `githubToken` for a fresh installation token
 // before the one it holds runs out; a reply the runner cannot read is a refusal, never a token.
@@ -24,6 +28,9 @@ import type { Fetch, TokenStore } from '../ask/client.ts';
 import { field, jsonObject } from '../ask/schema.ts';
 import type { JsonObject } from '../ask/schema.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
+import type { CheckpointManifest } from './checkpoint.manifest.ts';
+import { ResumeClaimSchema } from './resume.claim.ts';
+import type { ResumeClaim } from './resume.claim.ts';
 import type { Sample } from './health.ts';
 import type { BugFixOutcome, RunOutcome } from './log.ts';
 import type { JobQuestionList } from './questions.ts';
@@ -84,14 +91,21 @@ const JobSchema = z.object({
   allowedSkills: z.array(z.string()).nullish().transform((value) => value ?? []),
   github: GithubGrantSchema.nullish().transform((value) => value ?? null),
   sentByKey: z.string().nullish().transform((value) => value ?? null),
+  // A resume's attempt, chain and saves (PRD 2809, s5): an older app sends none, and one the runner cannot read is
+  // none too, so the job still runs, starting over from what GitHub holds.
+  resume: ResumeClaimSchema.nullish().catch(null).transform((value) => value ?? null),
 });
 
 /** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, the
- * repository's own skills it may run, the GitHub App it runs as and the API key that sent it. */
-export type RunnerJob = z.output<typeof JobSchema>;
+ * repository's own skills it may run, the GitHub App it runs as, the API key that sent it, and, for a resume, its chain
+ * (absent or `null` for any other job). */
+export type RunnerJob = Omit<z.output<typeof JobSchema>, 'resume'> & { resume?: ResumeClaim | null | undefined };
 
 /** What a job update answers: whether a cancel waits. */
 const UpdatedSchema = z.object({ cancel: z.boolean().optional() }).loose();
+
+/** What a job update answers the runner: whether to stop the job, and, when the app refused it as ended (409), the app's words. */
+export type Updated = { cancel: boolean; ended?: string };
 
 /** A job's status as the runner reports it. */
 export type JobUpdate = {
@@ -147,7 +161,8 @@ export type RunnerApi = {
   register(registration: Registration): Promise<{ id: string }>;
   /** The job claimed for `runner`, or `null` when the hold ended with none. */
   next(runner: string, signal?: AbortSignal): Promise<RunnerJob | null>;
-  update(job: string, update: JobUpdate): Promise<{ cancel: boolean }>;
+  /** Sends a job's report: a 409 (the job ended on the app: cancelled, or lost and resumed elsewhere) stops it, with the app's words. */
+  update(job: string, update: JobUpdate): Promise<Updated>;
   /** Sends the machine's health: throws `RunnerUnreachable` or `RunnerRefused` as every call, and the runner only prints it. */
   health(runner: string, report: HealthReport): Promise<void>;
   /**
@@ -155,6 +170,8 @@ export type RunnerApi = {
    * with the runner's own sign-in. Throws `RunnerRefused` with the app's own words, or `RunnerUnreachable`.
    */
   githubToken(job: string): Promise<{ token: string; expiresAt: string }>;
+  /** A job's save (PRD 2809): its upload, its record and a resume's download. None, the runner keeps every save on its disk. */
+  checkpoints?: (CheckpointApi & CheckpointDownload) | undefined;
 };
 
 /** A runner of the workspace, as the terminal reads it (`GET /api/runners?repo=`). */
@@ -307,6 +324,7 @@ function forbidden(response: Response): Response {
 export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
   const { call, json, segment } = transport(wiring);
   return {
+    checkpoints: checkpointApi(wiring),
     async register(registration) {
       const reply = RegisteredSchema.safeParse(await json(await call('POST', '/api/runners/register', { body: registration })));
       if (!reply.success) throw new RunnerRefused('refused (the app answered no runner id)');
@@ -320,7 +338,7 @@ export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
     },
     async update(job, update) {
       const response = await call('POST', `/api/runners/jobs/${segment(job)}`, { body: update, allow: [409] });
-      if (response.status === 409) return { cancel: true };
+      if (response.status === 409) return { cancel: true, ended: refusalWords(409, await json(response)) };
       const reply = UpdatedSchema.safeParse(await json(response));
       return { cancel: reply.success && reply.data.cancel === true };
     },
@@ -360,6 +378,79 @@ export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
       const reply = z.object({ job: z.object({ id: z.union([z.string().min(1), z.number()]).transform(String) }) }).safeParse(await json(response));
       if (!reply.success) throw new RunnerRefused('refused (the app answered no job)');
       return { id: reply.data.job.id };
+    },
+  };
+}
+
+/** A signed link to upload one save's bundle to (PRD 2809, s4): its path in the bucket, the link, and when it stops working. */
+const CheckpointLinkSchema = z.object({
+  path: z.string().min(1),
+  url: z.url({ protocol: /^https?$/ }),
+  expiresAt: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'a date'),
+});
+export type CheckpointLink = z.output<typeof CheckpointLinkSchema>;
+
+/** A save as the app recorded it: its id, its kind and until when it is kept. */
+const RecordedSaveSchema = z.object({ id: z.string().min(1), kind: z.enum(['portable', 'local']), keepUntil: z.string() });
+export type RecordedSave = z.output<typeof RecordedSaveSchema>;
+
+/** What the runner records of a save: a portable one at the path its bundle was uploaded to, or a local one. */
+export type SaveRecord = { kind: 'portable'; path: string; manifest: CheckpointManifest } | { kind: 'local'; manifest: CheckpointManifest };
+
+export type CheckpointApi = {
+  /** A signed upload link for a bundle of `bytes` (`POST /api/runners/jobs/<id>/checkpoint`): throws `RunnerRefused` with the app's words, or `RunnerUnreachable`. */
+  link(job: string, bytes: number): Promise<CheckpointLink>;
+  /** Sends the bundle to the link, with no sign-in: the link is the permission. A storage that refuses throws `RunnerRefused`; one out of reach, `RunnerUnreachable`. */
+  upload(link: CheckpointLink, bundle: Uint8Array<ArrayBuffer>): Promise<void>;
+  /** Records the save's manifest: throws as `link` does. */
+  record(job: string, save: SaveRecord): Promise<RecordedSave>;
+};
+
+/** A resume's fetch of a portable save (PRD 2809, s5). */
+export type CheckpointDownload = {
+  /** The bundle at a signed download link, with no sign-in: the link is the permission. Throws `RunnerRefused` on a refusal, `RunnerUnreachable` out of reach. */
+  download(url: string): Promise<Uint8Array>;
+};
+
+/** How long a bundle's upload, or its download, may take: 100 MB on a slow line. */
+const UPLOAD_MS = 10 * 60_000;
+
+/**
+ * A job's save (PRD 2809, s4): the app's `POST /api/runners/jobs/<job>/checkpoint`, with the runner's sign-in, first for
+ * a signed upload link, then to record the manifest; between them the bundle goes to the link itself, with no
+ * sign-in, so the runner's token never reaches the storage.
+ */
+export function checkpointApi(wiring: Wiring): CheckpointApi & CheckpointDownload {
+  const { call, json, segment } = transport(wiring);
+  const route = (job: string): string => `/api/runners/jobs/${segment(job)}/checkpoint`;
+  /** A call to a signed link of the storage, with no sign-in: its answer once 2xx; a refusal throws `RunnerRefused`, a storage out of reach `RunnerUnreachable`. */
+  const storage = async (url: string, init: RequestInit): Promise<Response> => {
+    let response: Response;
+    try {
+      response = await wiring.fetch(url, { ...init, signal: AbortSignal.timeout(UPLOAD_MS) });
+    } catch (error) {
+      throw new RunnerUnreachable(timedOut(error) ? 'the storage timed out' : 'the storage is unreachable');
+    }
+    if (response.status >= 500) throw new RunnerUnreachable(`the storage answered ${String(response.status)}`);
+    if (!response.ok) throw new RunnerRefused(`the storage refused the bundle (${String(response.status)})`);
+    return response;
+  };
+  return {
+    async download(url) {
+      return new Uint8Array(await (await storage(url, { method: 'GET' })).arrayBuffer());
+    },
+    async link(job, bytes) {
+      const reply = CheckpointLinkSchema.safeParse(await json(await call('POST', route(job), { body: { step: 'link', bytes }, words: true })));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no link)');
+      return reply.data;
+    },
+    async upload(link, bundle) {
+      await storage(link.url, { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'x-upsert': 'false' }, body: bundle });
+    },
+    async record(job, save) {
+      const reply = RecordedSaveSchema.safeParse(await json(await call('POST', route(job), { body: { step: 'record', ...save }, words: true })));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no save)');
+      return reply.data;
     },
   };
 }

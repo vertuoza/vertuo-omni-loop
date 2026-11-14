@@ -91,6 +91,9 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 - **A viewer who is not an owner:** each fleet reads as text, with no picker.
 - **Refresh:** the rows are read again every 5 seconds while the page is open.
 - **A job stopped mid-way** (a `/omni:yolo` or `/omni:yolo-fix` that ended before its hand-off): `Stopped mid-way` in `--ask-red`, never Done, with `<k> / <n> slices merged` under it when known and the claims it released; its one action, Resume, sends the same line again as the person who presses it, and is the page's primary (PRD 2375).
+- **A lost job that resumes** (PRD 2809): `Lost · resuming` in `--ask-red`, in place of `Failed · runner lost`, with `<runner> went silent at <time>` under it, linking its resume. The resume reads `after a loss · job <id>`, then `attempt <k> of 3`, and once started one line of what came back: `Resumed from the <time> save · <n> branches`, `Started over: nothing was unsaved`, or `<n> files stayed on <runner>`.
+- **Lost 3 times** (PRD 2809): in `--ask-red`, the losses' times under it; its one action is Resume, as for a job stopped mid-way.
+- **A runner keeping a local save** (PRD 2809): `Keeps <size> until <day time>` under its name.
 
 ## Words
 
@@ -99,7 +102,7 @@ Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Re
 Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · Omni App · Update the runner's kit · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
-health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged.
+health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged · Lost · resuming · went silent at · attempt · of 3 · after a loss · job · Resumed from the · save · branches · Started over: nothing was unsaved · files stayed on · Lost 3 times · Lost at · Keeps · until.
 
 ## Refusals
 
@@ -131,3 +134,4 @@ health · no tokens left · until · out of tokens · usage limit · since · us
 /omni:brainstorm, PRD 2537: .omni-loop/delivery/shipped/2537-runner-turnover/before-after.html
 /omni:brainstorm, PRD 2482: .omni-loop/delivery/shipped/2482-runner-cannot-run/before-after.html
 /omni:brainstorm, PRD 2573: .omni-loop/delivery/shipped/2573-runner-jobs-as-omni-app/before-after.html
+/omni:brainstorm, PRD 2809: .omni-loop/delivery/shipped/2809-unlosable-jobs/before-after.html

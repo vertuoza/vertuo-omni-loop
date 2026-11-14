@@ -5,7 +5,9 @@
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
 //   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?, parts?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
-//   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running and for 10 minutes after it ends (PRD 2433) → {token, expiresAt}
+//   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running (PRD 2433, PRD 2809) → {token, expiresAt}
+//   POST  /api/runners/jobs/<id>/checkpoint    runner, the job's own, whatever its status (PRD 2809 s4) {step: link, bytes} → {path, url, expiresAt}
+//                                              | {step: record, kind, path?, manifest} → {id, kind, keepUntil}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
 //   GET   /api/runners?repo=<owner/name>   terminal (PRD 2251)                              → {runners: [KitRunner]}
 //   GET   /api/runners/jobs?repo=<owner/name>&prd=<n>  terminal (PRD 2251)                 → {jobs: [PrdJob]}, newest first
@@ -23,12 +25,14 @@
 // sender's fleet, a repository outside the workspace, a fleet set by a non-owner, a runner of someone
 // else, a token on a route that takes a person's session), 404 no such runner or job (or no question
 // on it), 409 a job that has ended (a runner stops it) or a status that goes back, or questions already
-// asked, answered or dismissed, or a GitHub token asked of a job that ended over 10 minutes ago, that
+// asked, answered or dismissed, or a GitHub token asked of a job that has ended, that
 // runs as no App, or whose key's App no longer works (its words say which), 503 no database here
 // (or GitHub could not be reached for a token), 500 the database failed.
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { BUG_FIX_OUTCOMES, PRS_MAX, type BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
+import { CheckpointManifestSchema } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
+import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add', 'rewind-apply'] as const;
@@ -180,20 +184,46 @@ export type GithubGrant = z.infer<typeof GithubGrantSchema>;
  * to the run as OMNI_SENT_BY. `allowedSkills` are the repository's own skills its owner allowed, read
  * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs.
  * `sentByKey` is the name of the API key that sent it, or null (PRD 2433); `github` is the App it runs as,
- * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. */
+ * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. `resume` is
+ * a resume's (PRD 2809, s5): its attempt, the earlier jobs of its chain and the saves they left; absent for any other job. */
 export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
-  sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(),
+  sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(),
 }).refine((job) => checkLine(job.line, job.allowedSkills).ok, { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
-
-/** How long after a job ends its runner may still ask for a fresh token (PRD 2433): its release of the job's
- * claims comes minutes after the end. */
-export const GITHUB_TOKEN_AFTER_END_MS = 10 * 60 * 1000;
 
 /** What `POST /api/runners/jobs/<id>/github-token` answers: a fresh token of the job's App, and when it stops working. */
 export const GithubTokenReplySchema = GithubGrantSchema.pick({ token: true, expiresAt: true });
 export type GithubTokenReply = z.infer<typeof GithubTokenReplySchema>;
+
+/** A job's save (PRD 2809, s4): the manifest the runner sends, read here with the kit's own schema, so both sides read it alike. */
+export { CHECKPOINT_BYTES_MAX, CheckpointManifestSchema, type CheckpointManifest } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
+
+/** What the claim of a resume carries (PRD 2809, s5), read with the kit's own schema: its attempt, its chain, their saves. */
+export type { ResumeClaim, ResumeSave } from 'omni-loop/kit/lib/runner/resume.claim.ts';
+
+/** The longest path of a bundle in the bucket: `<workspace id>/<job id>/<random id>.bundle`. */
+const CHECKPOINT_PATH_MAX = 200;
+
+/**
+ * What `POST /api/runners/jobs/<id>/checkpoint` takes (PRD 2809, s4), from the job's own runner: `link` asks a signed
+ * upload link for a bundle of `bytes`; `record` records the save, `portable` at the path its bundle was uploaded to,
+ * or `local`, kept on the runner.
+ */
+export const CheckpointRequestSchema = z.union([
+  z.strictObject({ step: z.literal('link'), bytes: z.number().int().nonnegative() }),
+  z.strictObject({ step: z.literal('record'), kind: z.literal('portable'), path: z.string().min(1).max(CHECKPOINT_PATH_MAX), manifest: CheckpointManifestSchema }),
+  z.strictObject({ step: z.literal('record'), kind: z.literal('local'), manifest: CheckpointManifestSchema }),
+]);
+export type CheckpointRequest = z.infer<typeof CheckpointRequestSchema>;
+
+/** What a `link` answers: the bundle's path in the bucket, the signed link to put it to, and when that link stops working. */
+export const CheckpointLinkReplySchema = z.object({ path: z.string().min(1).max(CHECKPOINT_PATH_MAX), url: z.url({ protocol: /^https?$/ }), expiresAt: z.string() });
+export type CheckpointLinkReply = z.infer<typeof CheckpointLinkReplySchema>;
+
+/** What a `record` answers: the save's id, its kind, and until when it is kept. */
+export const CheckpointRecordReplySchema = z.object({ id: IdSchema, kind: z.enum(['portable', 'local']), keepUntil: z.string() });
+export type CheckpointRecordReply = z.infer<typeof CheckpointRecordReplySchema>;
 
 /** The statuses a job goes through, in order; the last three end it. */
 const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancelled'] as const;
@@ -414,6 +444,12 @@ const JobSchema = z.object({
   slicesTotal: z.number().int().nullable().optional(),
   /** The job it continues (PRD 2270): a `/omni:yolo-fix` queued once that job's answers were in; null for any other. */
   continues: IdSchema.nullable().optional(),
+  /** The job it resumes, which its runner lost (PRD 2809); null for any other job. */
+  resumes: IdSchema.nullable().optional(),
+  /** Which attempt of its chain it is, 1 to 3 (PRD 2809): 1 for a job someone sent. */
+  attempt: z.number().int().min(1).max(3).optional(),
+  /** Before it, no runner claims it: a resume's wait (PRD 2809); null for any other job. */
+  resumeAfter: z.string().nullable().optional(),
   /** Whom the API key that sent it said it acted for (PRD 2425); null when it said none, and for a person's job. */
   actingFor: z.string().nullable().optional(),
   /** The name of the API key that cancelled it (PRD 2425); null for a job no key cancelled. */
@@ -610,7 +646,11 @@ export const PrdJobsSchema = z.object({ jobs: z.array(PrdJobSchema) });
 
 /** The Runners page's read: the workspace's runners, each with its health and its last hour of samples,
  * its jobs (queued and running first, then the last 50 that ended), and what the viewer may do there. */
-export type Board = { runners: Runner[]; jobs: Job[]; viewer: { id: string; owner: boolean; fleet: string | null } };
+export type Board = { runners: Runner[]; jobs: Job[]; viewer: { id: string; owner: boolean; fleet: string | null }; saves?: BoardSave[] };
+
+/** A job's save as the Runners page reads it (PRD 2809, s7), from its manifest: which job, the runner that made it by name, whether its
+ * bundle is in the bucket or stays on that runner, when it was made, until when a local one is kept, what it takes, and what it holds. */
+export type BoardSave = { job: string; runner: string; kind: 'portable' | 'local'; savedAt: string; keepUntil: string; bytes: number; branches: number; files: number };
 
 /** Why a call was refused, each with its status. */
 export const RUNNER_REFUSALS = { malformed: 400, 'signed-out': 401, forbidden: 403, missing: 404, conflict: 409, unavailable: 503, database: 500 } as const;

@@ -17,8 +17,8 @@
 //   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's (which
 //                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, and
-//                    `search-categorize`, PRD omni-loop-7 s3, and `search-eval-promote` and `search-eval-run`, PRD
-//                    omni-loop-8 s4, ./schedule.ts; the run also added by the embed), and
+//                    `search-categorize`, PRD omni-loop-7 s3, `search-eval-promote` and `search-eval-run`, PRD
+//                    omni-loop-8 s4, and `checkpoints-forget`, PRD 2809 s6, ./schedule.ts; the run also added by the embed), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
 //                    refreshes the four checks' jobs of a product PRD's target pull requests, and the
@@ -63,6 +63,8 @@ import { MAIN_WATCH_KIND, mainWatchHandler } from '../main-watch/main-watch.ts';
 import { mainWatchStore } from '../main-watch/store.ts';
 import { RETRO_KIND, retroFailureHook, retroHandler } from '../retro/retro.ts';
 import { runnerQueue } from '../retro/runner-queue.ts';
+import { checkpointStore } from '../checkpoints/store.ts';
+import { CHECKPOINTS_FORGET_KIND, checkpointsForgetHandler } from './checkpoints-forget.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { embedHandler, EMBED_KIND } from './embed.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
@@ -217,6 +219,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
         ask: galaxyJudge({ url: relevantUrl(galaxyUrl), secret: env.searchCategorize?.secret }),
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
+      [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),

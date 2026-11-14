@@ -11,7 +11,15 @@
 //   again, restarted, finds its claimed and running jobs lost too, however short its silence (#2170).
 //   A job still claimed 10 minutes after its claim, never reported running, ends `runner lost` too, at
 //   the same marks, though its runner checks in: the answer to its `next` never reached it (#2550).
-//   Nothing is retried.
+//   The database resumes a lost job (PRD 2809 s1, supabase/migrations/20270121100000_runner_resume.sql): in the
+//   transaction that ends it, a job of a resumable skill under its third attempt queues one resume, the same line,
+//   repository, sender and target, attempt one more, that no runner claims before its resume_after (1 minute after
+//   the first loss, 5 after the second). The board reads each job's attempt, the job it resumes and its wait.
+//   The claim of a resume (PRD 2809 s5) carries its attempt, the earlier jobs of its chain, oldest first, and the saves
+//   they left whose bundle was not deleted: a portable one with a signed download link of 10 minutes (none when the
+//   storage gave none), a local one with its manifest. runner_claim() hands a resume whose chain's newest local save is
+//   kept by another runner online and able to take it to no runner but that one
+//   (supabase/migrations/20270121110000_runner_claim_resume.sql).
 // - A job's status only goes forward: claimed, running, then done, failed or cancelled. A report on a
 //   job that has ended is refused, and the runner stops it.
 // - Anyone of the workspace sends to any runner, or to a runner with no fleet; only a fleet's players
@@ -77,17 +85,17 @@
 //   installed, lacking a permission, its bot unreadable), or a key that no longer works (BR-PRODUCT-64), ends the
 //   job `failed`, `github app: <why>`: the job is never answered without `github`, and never runs as a person.
 //   `githubToken` mints a fresh token, for the same repositories, for the job's own runner while the job is
-//   claimed or running and for 10 minutes after it ends.
+//   claimed or running, and refuses one that ended, whatever its status (PRD 2809 s3).
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  checkLine, checkLineShape, ENDED_JOBS_SHOWN, GITHUB_TOKEN_AFTER_END_MS, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
-  type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
+  CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
+  type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type BoardSave, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
 import type { AppCredentials, AppInstallation, MintedToken } from '../public-api/keys/github-app';
 import { shouldContinue, unansweredWhy } from './continue';
-import type { AppOfJob, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { AppOfJob, CheckpointRow, CheckpointsRepository, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -158,7 +166,7 @@ const KEY_STOPPED = 'the API key no longer works: it was revoked, or its maker l
 const outsideKey = (repo: string) => `the API key may not reach ${repo}`;
 const NOT_CONFIGURED = 'the Omni App is not configured on this server';
 const MEGA_BUG_FIX = 'mega-bug-fix';
-const TOO_LATE = 'This job ended over 10 minutes ago: it takes no new GitHub token.';
+const ENDED_NO_TOKEN = 'This job has ended: it takes no new GitHub token.';
 
 const failedMint = (why: string, unreachable = false): FailedMint => ({ kind: 'failed', why: why.length <= MAX_WHY ? why : `${why.slice(0, MAX_WHY - 1)}…`, unreachable });
 
@@ -277,14 +285,30 @@ function keyActionFields(row: JobRow, keys: Map<string, string>): Pick<Job, 'act
   return { actingFor: row.acting_for ?? null, cancelledByKey: row.cancelled_by_key ? keys.get(row.cancelled_by_key) ?? null : null };
 }
 
+/** What the page reads of a job's chain (PRD 2809): the job it resumes, its attempt (1 for a job someone sent, and on a database
+ * without the column) and its wait. */
+function resumeFields(row: JobRow): Pick<Job, 'resumes' | 'attempt' | 'resumeAfter'> {
+  return { resumes: row.resumes ?? null, attempt: row.attempt ?? 1, resumeAfter: row.resume_after ?? null };
+}
+
 function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys), ...keyActionFields(row, keys),
     status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null, parts: row.parts ?? null,
-    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
-    claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null,
+    ...resumeFields(row), queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
+}
+
+/** A save as the Runners page reads it (PRD 2809, s7), from its manifest alone: none for a row whose manifest is out of shape. */
+function boardSaveOf(row: CheckpointRow): BoardSave[] {
+  const { manifest } = row;
+  if (manifest === null) return [];
+  return [{
+    job: row.job_id, runner: manifest.runner, kind: row.kind, savedAt: manifest.savedAt, keepUntil: row.keep_until, bytes: row.bytes,
+    branches: manifest.branches.length, files: manifest.branches.reduce((sum, branch) => sum + branch.files, 0),
+  }];
 }
 
 function runnerOf(row: RunnerRow, used: number, now: Date, samples?: RunnerSample[]): Runner {
@@ -490,6 +514,17 @@ const CARRIED_ON = 'This job was carried on already.';
 const relaunchable = (job: Pick<JobRow, 'status' | 'outcome'>): boolean =>
   job.status === 'failed' || job.status === 'cancelled' || (job.status === 'done' && job.outcome === 'stopped');
 
+/** How long the download link of a resume's save works (PRD 2809, s5): the runner fetches every bundle as it starts the job. */
+export const SIGNED_DOWNLOAD_MS = 10 * 60 * 1000;
+/** The most earlier jobs a chain holds: three attempts at most. */
+const CHAIN_MAX = 2;
+
+/** The saves a resume's chain left, and their download links (PRD 2809, s5). */
+export type ResumeSaves = Pick<CheckpointsRepository, 'savesOf' | 'signDownload'>;
+
+/** The saves of a service built without any: a resume carries none. */
+const NO_SAVES: ResumeSaves = { savesOf: () => Promise.resolve([]), signDownload: () => Promise.reject(new Error('no storage here')) };
+
 /** The notifier of a service built without one (PRD 2425 s8): it refuses every link, so none is ever taken that no ping could reach, and pings nothing. */
 const NO_NOTIFIER: Notifier = { check: () => Promise.resolve('cannot be pinged by this server'), ping: () => undefined };
 
@@ -512,8 +547,11 @@ const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<strin
 
 /** `github` is the deployment's Omni App and its means to mint a job's token (PRD 2573); with none, every claimed job fails, the App not
  * configured. `notifier` pings the link of a job a key sent when its status, outcome or questions change (PRD 2425 s8); with none, no
- * link is taken. `products` reads the product repositories a mega bug fix no key sent reaches (PRD 2573); with none, its own alone. */
-export function runnersService(store: RunnersRepository, clock: Clock, github: GithubDeps | null = null, notifier: Notifier = NO_NOTIFIER, products: ProductRepos = NO_PRODUCTS) {
+ * link is taken. `products` reads the product repositories a mega bug fix no key sent reaches (PRD 2573); with none, its own alone.
+ * `saves` reads the saves a resume's chain left and signs their download links (PRD 2809, s5); with none, a resume carries no save. */
+export function runnersService(
+  store: RunnersRepository, clock: Clock, github: GithubDeps | null = null, notifier: Notifier = NO_NOTIFIER, products: ProductRepos = NO_PRODUCTS, saves: ResumeSaves = NO_SAVES,
+) {
   const iso = () => clock.now().toISOString();
   const ago = (ms: number) => new Date(clock.now().getTime() - ms).toISOString();
   /** The Omni App's bot, read once for this service; a read that failed is asked again the next time. */
@@ -712,10 +750,44 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
     const keyName = job.sent_by_key === null ? null : (await store.keyNames(job.workspace_id, [job.sent_by_key])).get(job.sent_by_key) ?? null;
     // Read at claim (PRD 2313): a skill turned off while its job waited is absent, and the runner refuses it.
     const allowedSkills = await store.allowedSkills(job.workspace_id, job.repo);
+    const resume = await resumeClaimOf(job);
     return {
       id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(job.sent_by === null ? null : logins.get(job.sent_by) ?? null, keyName, job.sent_by_app), allowedSkills,
-      sentByKey: keyName, github: granted.grant,
+      sentByKey: keyName, github: granted.grant, ...(resume === null ? {} : { resume }),
     };
+  }
+
+  /** The earlier jobs of a resume's chain, oldest first, the job it resumes last (PRD 2809, s5); none for a job that resumes none. */
+  async function chainOf(job: Pick<JobRow, 'resumes'>): Promise<string[]> {
+    const chain: string[] = [];
+    let earlier = job.resumes ?? null;
+    while (earlier !== null && chain.length < CHAIN_MAX) {
+      chain.unshift(earlier);
+      earlier = (await store.job(earlier))?.resumes ?? null;
+    }
+    return chain;
+  }
+
+  /** One save of a chain as its resume's runner receives it: a portable one with a signed download link of minutes, `null` when
+   * the storage gave none (the runner's note then says it could not come); a local one with its manifest alone. */
+  async function claimedSave(row: CheckpointRow & { manifest: CheckpointManifest }): Promise<ResumeSave> {
+    if (row.kind === 'local' || row.storage_path === null) return { job: row.job_id, kind: 'local', manifest: row.manifest };
+    try {
+      const { url } = await saves.signDownload(row.storage_path, SIGNED_DOWNLOAD_MS / 1000);
+      return { job: row.job_id, kind: 'portable', manifest: row.manifest, url, expiresAt: new Date(clock.now().getTime() + SIGNED_DOWNLOAD_MS).toISOString() };
+    } catch {
+      return { job: row.job_id, kind: 'portable', manifest: row.manifest, url: null, expiresAt: null };
+    }
+  }
+
+  /** What the claim of a resume carries (PRD 2809, s5): its attempt, the earlier jobs of its chain and the saves they left, oldest
+   * first, each bundle not yet deleted; `null` for a job that resumes none. */
+  async function resumeClaimOf(job: JobRow): Promise<ResumeClaim | null> {
+    const chain = await chainOf(job);
+    if (chain.length === 0) return null;
+    const rows = await saves.savesOf(chain);
+    const kept = chain.flatMap((id) => rows.filter((row): row is CheckpointRow & { manifest: CheckpointManifest } => row.job_id === id && row.manifest !== null));
+    return { attempt: Math.min(3, Math.max(2, job.attempt ?? 2)), chain, saves: await Promise.all(kept.map(claimedSave)) };
   }
 
   /** Ends the claimed and running jobs of a runner registering again as `runner lost`: a runner that
@@ -906,17 +978,18 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
     },
 
     /**
-     * A fresh token of the Omni App a job runs as (PRD 2573), for the runner that claimed it: while the job is claimed or
-     * running and for 10 minutes after it ends, since the runner releases the job's claims minutes after the end.
-     * Another runner's owner is refused (403), a later ask is 409, as is a job the App can no longer mint for (its words
-     * say why: the App not configured here, a key that stopped working); GitHub out of reach is 503, for a later try.
+     * A fresh token of the Omni App a job runs as (PRD 2573), for the runner that claimed it, while the job is claimed or
+     * running: the runner releases the job's claims before it reports the end. A job that ended, whatever its status, is
+     * refused (409, PRD 2809 s3): a replaced attempt keeps only the token it holds, which runs out within its hour.
+     * Another runner's owner is refused (403); a job the App can no longer mint for is 409 too (its words say why: the
+     * App not configured here, a key that stopped working); GitHub out of reach is 503, for a later try.
      */
     async githubToken(caller: string, jobId: string): Promise<Served<GithubTokenReply>> {
       const held = await reporting(caller, jobId);
       if (!held.ok) return held;
       const job = await store.job(jobId);
       if (!job) return no('missing', 'No such job.');
-      if (ENDED.includes(job.status) && !(clock.now().getTime() - Date.parse(job.ended_at ?? '') <= GITHUB_TOKEN_AFTER_END_MS)) return no('conflict', TOO_LATE);
+      if (ENDED.includes(job.status)) return no('conflict', ENDED_NO_TOKEN);
       const token = await tokenFor(job);
       if (token.kind === 'failed') return no(token.unreachable ? 'unavailable' : 'conflict', token.why);
       return ok({ token: token.minted.token, expiresAt: token.minted.expiresAt });
@@ -1209,10 +1282,12 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
       const samples = samplesByRunner(await store.samples(runners.map((runner) => runner.id), new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString()));
       // Whether a queued key's job needs its key's GitHub App (PRD 2482): one batched read of who holds an App, never the App's sealed key.
       const needing = await store.jobsNeedingApp(jobs.flatMap((job) => (job.status === 'queued' && job.sent_by_key !== null ? [{ id: job.id, keyId: job.sent_by_key }] : [])));
+      const boardSaves = (await saves.savesOf(jobs.map((job) => job.id))).flatMap(boardSaveOf);
       return ok({
         runners: runners.map((runner) => ({ ...runnerOf(runner, usedBy(active, runner.id), now, samples.get(runner.id) ?? []), githubApp: runner.github_app })),
         jobs: jobs.map((job) => ({ ...jobOf(job, logins, keys), ...(needing.has(job.id) ? { needsApp: true } : {}) })),
         viewer: { id: caller, owner: viewer.owner, fleet: viewer.fleet },
+        saves: boardSaves,
       });
     },
   };
@@ -1283,3 +1358,64 @@ export function continuationsService(store: RunnersRepository, continuations: Co
     },
   };
 }
+
+/** How long a signed upload link works: the storage gives every one 2 hours, which no option shortens (PRD 2809, s4). */
+export const SIGNED_UPLOAD_MS = 2 * 60 * 60 * 1000;
+/** How long a save is kept: its bundle in the bucket, or its folder on its runner (PRD 2809, s4). */
+const CHECKPOINT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+const OVER_CAP = 'This save is over 100 MB: keep it on the runner.';
+const NOT_THIS_JOB = 'The manifest names another job, or another kind of save.';
+
+/**
+ * A job's save (PRD 2809, s4; supabase/migrations/20270121103000_runner_checkpoints.sql): only the owner of the runner
+ * that holds the job, whatever the job's status (a lost job's runner saves it once it is back), gets a signed upload link
+ * to the private bucket, at `<workspace>/<job>/<random id>.bundle`, for a bundle of 100 MB at most, then records the
+ * save: `portable` at its bundle, its bytes the bundle's, kept 7 days; `local`, its bytes what it takes of the runner,
+ * kept until the runner says, 7 days at most. The manifest must name the job and the kind it is recorded as; the
+ * database refuses a bundle that is not in the bucket at a path of the job's own folder, and a local save after a portable one.
+ */
+export function checkpointsService(
+  store: Pick<RunnersRepository, 'job' | 'runner'>, checkpoints: Pick<CheckpointsRepository, 'signUpload' | 'record'>, clock: Pick<Clock, 'now'>, newId: () => string = () => crypto.randomUUID(),
+) {
+  const at = (ms: number) => new Date(clock.now().getTime() + ms).toISOString();
+
+  /** The job and the runner that holds it, when the caller owns that runner; why not otherwise. */
+  async function held(caller: string, jobId: string): Promise<Served<{ job: JobRow; runner: string }>> {
+    const job = await store.job(jobId);
+    if (!job) return no('missing', 'No such job.');
+    const runner = job.runner_id === null ? null : await store.runner(job.runner_id);
+    return runner?.owner === caller ? ok({ job, runner: runner.id }) : no('forbidden', 'This job was claimed by none of your runners.');
+  }
+
+  return {
+    /** A signed upload link for a bundle of `bytes`, for the owner of the job's runner. */
+    async link(caller: string, jobId: string, bytes: number): Promise<Served<CheckpointLinkReply>> {
+      const found = await held(caller, jobId);
+      if (!found.ok) return found;
+      if (bytes > CHECKPOINT_BYTES_MAX) return no('malformed', OVER_CAP);
+      const path = `${found.value.job.workspace_id}/${found.value.job.id}/${newId()}.bundle`;
+      const { url } = await checkpoints.signUpload(path);
+      return ok({ path, url, expiresAt: at(SIGNED_UPLOAD_MS) });
+    },
+
+    /** Records the save the owner of the job's runner sends; the database's refusal in its words. */
+    async record(caller: string, jobId: string, request: Extract<CheckpointRequest, { step: 'record' }>): Promise<Served<CheckpointRecordReply>> {
+      const found = await held(caller, jobId);
+      if (!found.ok) return found;
+      const { manifest } = request;
+      if (manifest.job !== jobId || manifest.kind !== request.kind) return no('malformed', NOT_THIS_JOB);
+      const portable = request.kind === 'portable';
+      const latest = clock.now().getTime() + CHECKPOINT_KEEP_MS;
+      const recorded = await checkpoints.record({
+        job: jobId, runner: found.value.runner, kind: request.kind, manifest,
+        bytes: portable ? manifest.bundleBytes : manifest.bytes,
+        path: portable ? request.path : null,
+        keepUntil: new Date(portable ? latest : Math.min(Date.parse(manifest.keepUntil), latest)).toISOString(),
+      });
+      if (!recorded.ok) return no(recorded.refusal, recorded.error);
+      return ok({ id: recorded.value.id, kind: recorded.value.kind, keepUntil: recorded.value.keep_until });
+    },
+  };
+}
+
+export type CheckpointsService = ReturnType<typeof checkpointsService>;

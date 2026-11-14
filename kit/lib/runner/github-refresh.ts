@@ -10,6 +10,11 @@
 // still due: callers at the same moment mint one token between them, and no past token is lost from the file,
 // which would stop it being masked in what the runner sends. The minute a failed refresh waits is kept in the
 // file too, so the session and the runner wait for the same one.
+//
+// The fence (PRD 2809, s3): the app refuses the refresh of a job that has ended, whatever its status, a job it
+// marked lost and resumed elsewhere included. Such a refusal is a failed refresh like any other: the attempt keeps
+// the token it holds until it expires, within the hour it was minted, and gets no other. Its session is stopped
+// sooner, by the 409 its next report gets (`api.ts`), and its work saved first (`checkpoint.ts`).
 import { closeSync, openSync, rmSync, statSync } from 'node:fs';
 import { maskTokens, noteFailedRefresh, readGithubToken, saveGithubToken } from './github-token.ts';
 import type { GithubToken } from './github-token.ts';

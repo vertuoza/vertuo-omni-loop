@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { JobPartSchema, QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type Question } from './runners.contract';
+import { CheckpointManifestSchema, JobPartSchema, QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type CheckpointManifest, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -82,6 +82,12 @@ const JobRow = z.object({
   slices_total: z.number().int().nullable().catch(null).optional(),
   /** The job this one continues, once its answers were in (PRD 2270); one out of shape reads as none. */
   continues: z.string().nullable().catch(null).optional(),
+  /** The job this one resumes, which its runner lost (PRD 2809); one out of shape reads as none. */
+  resumes: z.string().nullable().catch(null).optional(),
+  /** Which attempt of its chain it is, 1 to 3 (PRD 2809); one out of shape reads as the first. */
+  attempt: z.number().int().min(1).max(3).catch(1).optional(),
+  /** Before it, no runner claims it: a resume's wait (PRD 2809); one out of shape reads as none. */
+  resume_after: z.string().nullable().catch(null).optional(),
   queued_at: z.string(),
   claimed_at: z.string().nullable(),
   running_at: z.string().nullable(),
@@ -91,7 +97,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app, registered_at';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, resumes, attempt, resume_after, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -352,7 +358,8 @@ export function runnersRepository(db: RunnersDb) {
       return parsed(db.from('runner_samples').select(SAMPLE_COLUMNS).in('runner_id', runnerIds).gte('at', since).order('at'), z.array(SampleRow), 'runner_samples');
     },
 
-    /** Ends the claimed and running jobs of every runner silent since before `cutoff`: `runner lost`. */
+    /** Ends the claimed and running jobs of every runner silent since before `cutoff`: `runner lost`. Each one of a resumable
+     * skill queues its resume in the same transaction (runner_jobs_resume_lost, PRD 2809), as every `runner lost` below does. */
     markLost: async (cutoff: string): Promise<number> =>
       parsed(db.rpc('runners_mark_lost', { p_cutoff: cutoff }), z.number(), 'runners_mark_lost()'),
 
@@ -502,3 +509,85 @@ export function continuationsRepository(db: RunnersDb) {
 }
 
 export type ContinuationsRepository = ReturnType<typeof continuationsRepository>;
+
+/** The bucket a job's save goes to (PRD 2809, s4; supabase/migrations/20270121103000_runner_checkpoints.sql). */
+const CHECKPOINTS_BUCKET = 'runner-checkpoints';
+
+/** What the checkpoints' storage needs: the table, the database's function, and the storage to sign links with. */
+export type CheckpointsDb = Pick<SupabaseClient, 'from' | 'rpc' | 'storage'>;
+
+const CHECKPOINT_COLUMNS = 'id, job_id, workspace_id, runner_id, kind, manifest, bytes, storage_path, keep_until, deleted_at';
+
+/** A job's save as runner_checkpoints holds it (PRD 2809, s4). A manifest out of shape reads as none. */
+const CheckpointRowSchema = z.object({
+  id: z.string(),
+  job_id: z.string(),
+  workspace_id: z.string(),
+  runner_id: z.string().nullable(),
+  kind: z.enum(['portable', 'local']),
+  manifest: CheckpointManifestSchema.nullable().catch(null),
+  bytes: z.number(),
+  storage_path: z.string().nullable(),
+  keep_until: z.string(),
+  deleted_at: z.string().nullable(),
+});
+export type CheckpointRow = z.infer<typeof CheckpointRowSchema>;
+
+/** A save to record: its job and the runner that holds it, its kind, its manifest, its bytes, its bundle's path (a portable one only) and until when it is kept. */
+export type CheckpointSave = { job: string; runner: string; kind: 'portable' | 'local'; manifest: CheckpointManifest; bytes: number; path: string | null; keepUntil: string };
+
+/** Why runner_checkpoint_record() refused, in its words: `missing` no job of this runner (P0002), `malformed` a save out of shape or a bundle not uploaded (22023), `conflict` a save already in the bucket (55000). */
+export type Recorded = { ok: true; value: CheckpointRow } | { ok: false; refusal: 'missing' | 'malformed' | 'conflict'; error: string };
+
+const CHECKPOINT_REFUSALS: Partial<Record<string, 'missing' | 'malformed' | 'conflict'>> = { P0002: 'missing', '22023': 'malformed', '55000': 'conflict' };
+
+/** What runner_checkpoint_record() answered: the row, its refusal in its words, anything else thrown, naming the call. */
+async function recordedBy(call: PromiseLike<Raw>): Promise<Recorded> {
+  const { data, error } = await call;
+  if (error) {
+    const refusal = error.code === undefined ? undefined : CHECKPOINT_REFUSALS[error.code];
+    if (refusal) return { ok: false, refusal, error: error.message ?? refusal };
+    throw new Error(`runner_checkpoint_record: ${error.message ?? error.code ?? 'the database refused'}`);
+  }
+  return { ok: true, value: await parsed(Promise.resolve({ data, error: null }), CheckpointRowSchema, 'runner_checkpoint_record') };
+}
+
+/**
+ * The checkpoints' storage (PRD 2809, s4), a port of its own beside the runners': a signed upload link to the private
+ * bucket, and the save recorded through runner_checkpoint_record(), whose refusals are rules of the database, answered
+ * in its words; anything else throws, naming the call.
+ */
+export function checkpointsRepository(db: CheckpointsDb) {
+  return {
+    /** A signed link that uploads one object at `path`, and never replaces one already there; throws when the storage gives none. */
+    signUpload: async (path: string): Promise<{ url: string }> => {
+      const { data, error } = await db.storage.from(CHECKPOINTS_BUCKET).createSignedUploadUrl(path);
+      // The link as it came: nothing parsed it, so an answer with none is refused.
+      const link: { signedUrl: string } | null = data;
+      if (error || !link) throw new Error(`${CHECKPOINTS_BUCKET}: ${error?.message ?? 'no link came back'}`);
+      return { url: link.signedUrl };
+    },
+
+    /** Records the save; the database's refusal in its words. */
+    record: (save: CheckpointSave): Promise<Recorded> => recordedBy(db.rpc('runner_checkpoint_record', {
+      p_job: save.job, p_runner: save.runner, p_kind: save.kind, p_manifest: save.manifest, p_bytes: save.bytes, p_path: save.path ?? undefined, p_keep_until: save.keepUntil,
+    })),
+
+    /** The saves of these jobs whose bundle was not deleted (PRD 2809, s5): what a resume of their chain restores. */
+    savesOf: async (jobs: readonly string[]): Promise<CheckpointRow[]> => {
+      if (jobs.length === 0) return [];
+      return parsed(db.from('runner_checkpoints').select(CHECKPOINT_COLUMNS).in('job_id', [...jobs]).is('deleted_at', null), z.array(CheckpointRowSchema), 'runner_checkpoints');
+    },
+
+    /** A signed link that downloads the object at `path` for `seconds`; throws when the storage gives none. */
+    signDownload: async (path: string, seconds: number): Promise<{ url: string }> => {
+      const { data, error } = await db.storage.from(CHECKPOINTS_BUCKET).createSignedUrl(path, seconds);
+      // The link as it came: nothing parsed it, so an answer with none is refused.
+      const link: { signedUrl: string } | null = data;
+      if (error || !link) throw new Error(`${CHECKPOINTS_BUCKET}: ${error?.message ?? 'no link came back'}`);
+      return { url: link.signedUrl };
+    },
+  };
+}
+
+export type CheckpointsRepository = ReturnType<typeof checkpointsRepository>;

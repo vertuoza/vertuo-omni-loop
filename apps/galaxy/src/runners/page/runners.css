@@ -103,3 +103,5 @@
   .runners-head { display: none; }
   .runners-health { grid-template-columns: 1fr 1fr; }
 }
+.runners-keeps { display: block; font-size: 12px; font-weight: 400; }
+.runners-came { display: block; font-size: 12px; margin-top: 4px; }
