@@ -32,7 +32,9 @@ const FLEETS_SETTINGS_PATH = '/app/settings/fleets';
 const FLEET_LINE = {
   pick: 'Pick a fleet to see its board',
   none: 'This workspace has no fleet yet',
-  virtual: 'Virtual',
+  noneYet: 'No fleet yet.',
+  players: ' for a players’ fleet',
+  virtual: '· virtual',
 } as const;
 
 export type FleetView = { kind: 'closed' } | { kind: 'sign-in' } | FleetBoard;
@@ -55,6 +57,17 @@ function Closed() {
 /** The New virtual fleet button, when the read says where it makes the fleet. */
 function NewFleet({ virtual, primary = false }: { virtual: VirtualOf | undefined; primary?: boolean }) {
   return virtual ? <NewVirtualFleet workspace={virtual.workspace} mascots={virtual.mascots} primary={primary} /> : null;
+}
+
+/** No fleet yet: a virtual fleet is made right here, a players' fleet in Settings › Fleets. */
+function NoFleetYet({ virtual }: { virtual: VirtualOf }) {
+  return (
+    <>
+      <p className="fleet-line">{FLEET_LINE.noneYet}</p>
+      <NewFleet virtual={virtual} primary />
+      <p className="fleet-line ask-muted"><a href={FLEETS_SETTINGS_PATH}>Settings › Fleets</a>{FLEET_LINE.players}</p>
+    </>
+  );
 }
 
 function NoWorkspace({ supabase }: { supabase: Supabase | null }) {
@@ -105,8 +118,9 @@ export function FleetScreen({ view, supabase, signinError, query }: FleetScreenP
       return (
         <div className="dash">
           <h1 className="dash-name">Fleet</h1>
-          <p className="fleet-line">{FLEET_LINE.none}. <a href={FLEETS_SETTINGS_PATH}>Settings › Fleets</a></p>
-          <NewFleet virtual={view.virtual} primary />
+          {view.virtual ? <NoFleetYet virtual={view.virtual} /> : (
+            <p className="fleet-line">{FLEET_LINE.none}. <a href={FLEETS_SETTINGS_PATH}>Settings › Fleets</a></p>
+          )}
         </div>
       );
     case 'pick':

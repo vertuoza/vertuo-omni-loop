@@ -39,18 +39,18 @@ describe('/app/fleet and Virtual Fleets', () => {
 
   it('marks a virtual fleet\'s chip, and only its', () => {
     const t = text(screen(board('night-shift')));
-    expect(t).toContain('Night Shift Virtual');
-    expect(t).not.toContain('BEAVER Virtual');
+    expect(t).toContain('Night Shift · virtual');
+    expect(t).not.toContain('BEAVER · virtual');
   });
 
   it('shows the button on the picker too', () => {
     expect(screen(board(null))).toContain('+ New virtual fleet');
   });
 
-  it('makes it the page\'s main button when the workspace has no fleet yet, under the line that says so', () => {
+  it('makes it the page\'s main button when the workspace has no fleet yet, Settings › Fleets kept for a players\' fleet', () => {
     const html = screen(board(null, []));
     const t = text(html);
-    expect(t).toContain('This workspace has no fleet yet. Settings › Fleets + New virtual fleet');
+    expect(t).toContain('Fleet No fleet yet. + New virtual fleet Settings › Fleets for a players’ fleet');
     expect(html).toContain('<button type="button" class="ask-button vf-open" data-primary="">+ New virtual fleet</button>');
   });
 

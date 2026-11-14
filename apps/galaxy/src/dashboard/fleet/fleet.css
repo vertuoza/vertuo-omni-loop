@@ -27,5 +27,6 @@
    closes the row of chips, at the chips' height, and stands under the no-fleet line. */
 .fleet-virtual { margin-left: 6px; font-size: 13px; font-weight: 400; color: var(--ask-muted); }
 .ask .fleet-picker a[aria-current='page'] .fleet-virtual { color: inherit; }
-.fleet-picker .vf-open { padding: 6px 12px; border-radius: 999px; }
-.dash > .vf-open { margin-top: 12px; }
+.fleet-picker li:has(> .vf-open) { display: flex; }
+.fleet-picker .vf-open { min-height: 100%; padding: 6px 14px; border-radius: 999px; }
+.dash > .vf-open { margin: 12px 0; }

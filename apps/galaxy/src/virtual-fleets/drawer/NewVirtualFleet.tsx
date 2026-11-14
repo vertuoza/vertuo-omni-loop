@@ -123,50 +123,52 @@ export function NewFleetView({ state, mascots, panel, name, dispatch = () => und
           <button type="button" className="need-close" aria-label={WORDS.close} onClick={onClose}>×</button>
         </header>
         <form className="vf-body" onSubmit={(event) => { event.preventDefault(); onCreate?.(); }}>
-          <div className="vf-field">
-            <label className="vf-label" htmlFor={`${id}-name`}>{WORDS.name}</label>
-            <input
-              id={`${id}-name`} ref={name} className="vf-input" type="text" autoComplete="off" maxLength={FLEET_NAME_MAX}
-              placeholder={WORDS.placeholder} value={state.name} aria-invalid={nameError !== null}
-              {...(nameError === null ? {} : { 'aria-describedby': `${id}-name-error` })}
-              onChange={(event) => { dispatch({ type: 'name', value: event.target.value }); }}
-            />
-            <Refused id={`${id}-name-error`} message={nameError} />
-          </div>
-          <fieldset className="vf-field">
-            <legend className="vf-label">{WORDS.icon}</legend>
-            <div className="vf-icons">
-              {mascots.map((mascot) => (
-                <label className="vf-icon" key={mascot} title={mascot}>
-                  <input type="radio" name={`${id}-icon`} value={mascot} checked={state.mascot === mascot} aria-label={mascot} onChange={() => { dispatch({ type: 'mascot', value: mascot }); }} />
-                  <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: decorative(mascotSvg(mascot, NEUTRAL, '', 2)) }} />
-                </label>
-              ))}
+          <div className="vf-fields">
+            <div className="vf-field">
+              <label className="vf-label" htmlFor={`${id}-name`}>{WORDS.name}</label>
+              <input
+                id={`${id}-name`} ref={name} className="vf-input" type="text" autoComplete="off" maxLength={FLEET_NAME_MAX}
+                placeholder={WORDS.placeholder} value={state.name} aria-invalid={nameError !== null}
+                {...(nameError === null ? {} : { 'aria-describedby': `${id}-name-error` })}
+                onChange={(event) => { dispatch({ type: 'name', value: event.target.value }); }}
+              />
+              <Refused id={`${id}-name-error`} message={nameError} />
             </div>
-            <Refused id={`${id}-icon-error`} message={iconError} />
-          </fieldset>
-          <fieldset className="vf-field">
-            <legend className="vf-label">{WORDS.heroes}</legend>
-            <ul className="vf-roles">
-              {HERO_ROLES.map(roleSwitch).map((role) => {
-                const on = state.roles.includes(role.role);
-                return (
-                  <li className="vf-role" key={role.role}>
-                    <span className="vf-role-text">
-                      <span className="vf-role-name" id={`${id}-${role.role}`}>{role.name}</span>
-                      <span className="vf-role-line">{role.line}</span>
-                    </span>
-                    <button
-                      type="button" role="switch" className="vf-switch" aria-checked={on} aria-labelledby={`${id}-${role.role}`}
-                      onClick={() => { dispatch({ type: 'toggle', role: role.role }); }}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-            <Refused id={`${id}-heroes-error`} message={heroesError} />
-          </fieldset>
-          <footer className="need-foot vf-foot">
+            <fieldset className="vf-field">
+              <legend className="vf-label">{WORDS.icon}</legend>
+              <div className="vf-icons">
+                {mascots.map((mascot) => (
+                  <label className="vf-icon" key={mascot} title={mascot}>
+                    <input type="radio" name={`${id}-icon`} value={mascot} checked={state.mascot === mascot} aria-label={mascot} onChange={() => { dispatch({ type: 'mascot', value: mascot }); }} />
+                    <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: decorative(mascotSvg(mascot, NEUTRAL, '', 1)) }} />
+                  </label>
+                ))}
+              </div>
+              <Refused id={`${id}-icon-error`} message={iconError} />
+            </fieldset>
+            <fieldset className="vf-field">
+              <legend className="vf-label">{WORDS.heroes}</legend>
+              <ul className="vf-roles">
+                {HERO_ROLES.map(roleSwitch).map((role) => {
+                  const on = state.roles.includes(role.role);
+                  return (
+                    <li className="vf-role" key={role.role}>
+                      <span className="vf-role-text">
+                        <span className="vf-role-name" id={`${id}-${role.role}`}>{role.name}</span>
+                        <span className="vf-role-line">{role.line}</span>
+                      </span>
+                      <button
+                        type="button" role="switch" className="vf-switch" aria-checked={on} aria-labelledby={`${id}-${role.role}`}
+                        onClick={() => { dispatch({ type: 'toggle', role: role.role }); }}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+              <Refused id={`${id}-heroes-error`} message={heroesError} />
+            </fieldset>
+          </div>
+          <footer className="need-foot">
             {formError !== null && <p className="need-problem" role="alert">{formError}</p>}
             <button type="button" className="ask-button quiet" onClick={onClose}>{WORDS.cancel}</button>
             <button type="submit" className="ask-button" data-primary disabled={!canCreate(state)}>{state.busy ? WORDS.creating : WORDS.create}</button>
