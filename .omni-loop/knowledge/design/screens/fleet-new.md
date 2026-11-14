@@ -25,11 +25,16 @@ fleet`.
 - **Heroes,** the five roles (Engineer, QA, Reviewer, PM, Architect), each a yes/no switch, all on,
   each with one line on whether it works alone today: `Builds PRDs alone`, `Proves the work alone`,
   or `A person does this today`.
+- **Level,** one choice of three, `Reviews with you` selected: `Reviews with you` (`You merge each PRD`),
+  `Own branch` (`You land the mission`), `Works alone` (`Asks you when needed`).
 - **The foot,** `Cancel` and `Create fleet`, the primary; a refusal of the whole form above them.
 
 ## States
 
 - **Opened:** Name empty and focused; every switch on.
+- **Not a workspace owner:** only `Reviews with you` can be chosen; the two others are disabled.
+- **Works alone without a PM, an Architect or a Reviewer:** `Works alone` is disabled until all three
+  switches are on.
 - **Name taken:** `Name taken: choose another` under the field; nothing else moves.
 - **Every switch off, or no name:** Create fleet disabled.
 - **Creating:** the primary reads `Creating…`, disabled.
@@ -41,7 +46,8 @@ fleet`.
 
 - `+ New virtual fleet`, `New virtual fleet`, `Name`, `Icon`, `Heroes`, `Cancel`, `Create fleet`,
   `Creating…`, `Name taken: choose another`, `Builds PRDs alone`, `Proves the work alone`,
-  `A person does this today`, `Virtual`.
+  `A person does this today`, `Virtual`, `Level`, `Reviews with you`, `You merge each PRD`, `Own branch`,
+  `You land the mission`, `Works alone`, `Asks you when needed`.
 
 ## Refusals
 
@@ -51,7 +57,9 @@ fleet`.
 ## Open questions
 
 - Whether the icon list adds agent-like icons beyond the fleet mascots.
+- What a member who is not an owner reads beside the two disabled levels.
 
 ## Source
 
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
+/omni:brainstorm, PRD 2879: .omni-loop/delivery/inbox/2879-fleet-works-alone/before-after.html
