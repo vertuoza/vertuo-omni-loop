@@ -68,4 +68,4 @@ design system.
 
 ## Source
 
-/omni:brainstorm, PRD 2850: .omni-loop/delivery/inbox/2850-pixel-perfect-tab/before-after.html
+/omni:brainstorm, PRD 2850: .omni-loop/delivery/shipped/2850-pixel-perfect-tab/before-after.html
