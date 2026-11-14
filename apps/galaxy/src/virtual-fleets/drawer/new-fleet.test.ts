@@ -73,3 +73,12 @@ describe('the New virtual fleet drawer', () => {
     expect(await demoPort.create({ name: 'X', mascot: 'robot', roles: ['qa'] })).toEqual({ ok: false, field: 'form', message: WORDS.demo });
   });
 });
+
+describe('the New virtual fleet drawer, once the fleet is made (#2866)', () => {
+  it('stops being busy and names where it lands, so the drawer closes on the new fleet instead of staying on Creating…', () => {
+    const busy = newFleetReducer(named('Invincibles'), { type: 'busy' });
+    expect(busy.busy).toBe(true);
+    const made = newFleetReducer(busy, { type: 'made', fleet: 'invincibles' } as never);
+    expect({ busy: made.busy, landing: (made as NewFleetState & { landing?: string | null }).landing }).toEqual({ busy: false, landing: landingOf('invincibles') });
+  });
+});
