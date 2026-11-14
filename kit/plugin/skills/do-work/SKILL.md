@@ -276,7 +276,8 @@ above).
 point runs again.
 
 **Design review.** Only when step 0 read the design flag as `true`; off, skip to the coverage below.
-It starts on its own: no one asks for it. First, the PRD's before/after page (`omni prd` lists it):
+It starts on its own: no one asks for it. First, the PRD's before/after page (`omni prd` lists it;
+its Pixel perfect tab, or, on a page of the older two-tab shape, its Pixel perfect section):
 when it says `Pixel perfect: no screen changes`, the PRD changes no screen, and the slice runs no
 pixel-perfect work (no review, no mockup, no word pass): the section is the one line
 `— Design review: no screen changes (Pixel perfect: no screen changes)`, and the step goes on to the
@@ -293,7 +294,8 @@ The review is `/omni:pixel-perfect review`: follow that skill's step 0, then its
 `reference/review.md`, as written there, never restated here. Give it the PRD and the slice id,
 the slice's territory (every fix stays inside it), the base `<repo.remote>/<feature branch>`, and,
 as its reference picture, the "after" screen of the PRD's before/after page (`omni prd` lists it
-among the files; no page, and the step says so). Its fixes are this slice's code: commit them as
+among the files; no page, and the step says so): on a page of the three-tab shape, the screen's
+reference in the Pixel perfect tab (`2.C`, after), drawn whole at its declared width. Its fixes are this slice's code: commit them as
 reviewable commits (step 2) and run the tests again at **Point `do-work.test`** before going on.
 
 The review reads the same check's `screens:` line (the library screens the diff touches, their

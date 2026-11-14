@@ -259,8 +259,9 @@ the link line, one line telling a reviewer where to look closely:
 ```
 
 The screens are the ones the `screens:` line of the PRD's before/after names, in its Pixel perfect
-part (`quote-list · app-shell`); a before/after that says `Pixel perfect: no screen changes`, or has
-no such part, gives `none`. Design off: no such line.
+tab (`quote-list · app-shell`), or, on a page of the older two-tab shape, in its Pixel perfect
+section: the line is found the same way in both. A before/after that says
+`Pixel perfect: no screen changes`, or has no such tab or section, gives `none`. Design off: no such line.
 
 Tick a slice when its sub-PR merges; tick a scenario when it passes. Without a template, follow the
 top with **Summary**, **Verified** (real commands and their result, or why a check was not run),
