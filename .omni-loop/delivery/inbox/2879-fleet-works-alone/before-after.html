@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="3">
+<title>PRD 2879: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs label small { font-weight: 600; color: var(--muted); }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"],
+#tab-pixel-perfect:checked ~ .tabs label[for="tab-pixel-perfect"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"],
+#tab-pixel-perfect:focus-visible ~ .tabs label[for="tab-pixel-perfect"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"],
+#tab-pixel-perfect:checked ~ [data-tab="pixel-perfect"] { display: block; }
+[data-tab="pixel-perfect"] { max-width: none; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.index[hidden] { display: none; }
+.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }
+.ref[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }
+.shot { margin: 0; min-width: 0; }
+.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }
+.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }
+.when.after { background: var(--add-bg); color: var(--add-fg); }
+.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+.zoom[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.fit.full { overflow: auto; }
+.fit > [data-screen] { transform-origin: 0 0; }
+.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cols h5 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.cols ul { margin: 0; padding-left: 18px; }
+pre.code { margin: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; overflow-x: auto; }
+pre.code span { display: block; white-space: pre; }
+pre.code .add { background: var(--add-bg); color: var(--add-fg); }
+pre.code .del { background: var(--del-bg); color: var(--del-fg); }
+p.note { color: var(--muted); font-size: 13px; }
+@media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>PRD 2879: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<input type="radio" name="tab" id="tab-pixel-perfect" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional</label><label for="tab-technical">Technical</label><label for="tab-pixel-perfect">Pixel perfect<small data-count></small></label></div>
+<section data-tab="functional">
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="cols"><div><h5>Today</h5><ul><li>A mission's mandate says one thing: how many PRDs run at once.</li><li>Every PRD of a mission is built on a branch cut from main, and its pull request goes into main.</li><li>A person runs <code>/omni:mission</code>; nothing lets a person take a PRD out of a mission's work.</li></ul></div><div><h5>After</h5><ul><li>The mandate also carries the level the mission runs at: Reviews with you, Own branch or Works alone. <code>/omni:mission</code> takes it from the fleet and asks nothing.</li><li>At Own branch and above, a mission's PRD is built on a branch cut from the mission's branch.</li><li>A person can drop a PRD from a mission's branch, and overturn a decision the fleet took.</li><li>A new skill lets the fleet's committee approve a PRD or answer a question, at Works alone only.</li></ul></div></div>
+</div>
+</div>
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="cols"><div><h5>Today</h5><ul><li>A Virtual Fleet is a name, an icon and its heroes.</li><li>The Missions tab shows each mission, its progress and every PRD that waits on a person: approve, answer, merge.</li><li>A PRD is approved by a person on its page.</li></ul></div><div><h5>After</h5><ul><li>A Virtual Fleet also has a level, chosen once when it is made. Only a workspace owner raises it.</li><li>The Missions tab shows the level, the mission's branch and its pull request, and under Waiting on you only what the fleet sent back, with why.</li><li>It shows how many decisions the fleet took and how many a person overturned.</li><li>At Works alone, a PRD's page can read Approved by fleet, for that mission.</li></ul></div></div>
+</div>
+</div>
+<div data-service="omni-app">
+<h3>omni-app</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="cols"><div><h5>Today</h5><ul><li>A PRD whose job ends ready waits for a person to merge it into main.</li><li>A PRD blocked by another waits until a person merged the blocker.</li><li>One knowledge pull request is opened per merged PRD.</li></ul></div><div><h5>After</h5><ul><li>At Own branch and above, a ready PRD joins the mission's branch by itself once its checks are green, the Reviewer passed it and no high question is open.</li><li>The PRDs it blocked start at once.</li><li>The mission's branch follows main, and one pull request carries it to main: a person merges it, and main gets one commit per PRD.</li><li>One knowledge pull request is opened per landing, for every PRD it landed.</li><li>At Works alone, the committee's three members vote; anything but three yes, and everything on the list no vote can settle, goes to a person.</li></ul></div></div>
+</div>
+</div>
+<div data-service="database">
+<h3>database</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="cols"><div><h5>Today</h5><ul><li>A fleet has no level.</li><li>A mission's mandate holds one number.</li><li>Nothing records a decision taken by a fleet.</li></ul></div><div><h5>After</h5><ul><li>A fleet has a level, Reviews with you unless an owner raised it.</li><li>A mission's mandate holds its level and two bounds.</li><li>Each decision of a committee is kept: who voted what, what was carried, what went to a person, what a person overturned.</li></ul></div></div>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="na">
+<h4>Flow</h4>
+<p>To settle — diagram not rendered: Mermaid could not be loaded here (this session's network refuses jsDelivr); run <code>omni before-after render 2879</code> where it is reachable.</p><details><summary>The diagram's source</summary><pre class="code">sequenceDiagram
+  participant P as Person
+  participant G as galaxy (Omni page)
+  participant A as omni-app (supervisor)
+  participant R as Runner (fleet)
+  participant H as GitHub
+  P-&gt;&gt;G: Start a mission (level from its fleet)
+  G-&gt;&gt;A: mission started
+  A-&gt;&gt;H: cut mission/&lt;number&gt;-&lt;topic&gt; from main
+  A-&gt;&gt;R: job: build PRD on the mission branch
+  R-&gt;&gt;H: feature PR into the mission branch
+  A-&gt;&gt;R: job: Reviewer reads the PR
+  R-&gt;&gt;H: verdict pass
+  A-&gt;&gt;H: read checks, verdict, open high items
+  A-&gt;&gt;H: squash-merge the PR into the mission branch
+  A-&gt;&gt;H: open or rewrite the mission PR into main
+  Note over A,R: at Works alone: committee jobs approve a PRD or answer a high item, or escalate
+  A-&gt;&gt;G: only what was escalated waits on the person
+  P-&gt;&gt;H: Rebase and merge the mission PR
+  H-&gt;&gt;A: landed
+  A-&gt;&gt;H: one knowledge PR for the landing</pre></details><ul><li>A person starts a mission; it takes its level from its fleet.</li><li>The App cuts the mission's branch from main and sends each PRD's job, built on that branch.</li><li>A PRD's pull request goes into the mission's branch; the Reviewer reads it.</li><li>Green checks, the Reviewer's pass and no open high item: the App squash-merges it and rewrites the mission pull request.</li><li>At Works alone, committee jobs approve a PRD or answer a high item, or send it to a person.</li><li>A person merges the mission pull request with Rebase and merge; the App opens one knowledge pull request for the landing.</li></ul>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ul><li><b>database</b>: one additive migration (the fleet's level, the mandate's shape, the new event kinds, <code>mission_decisions</code>). It reaches production with the merge, before any code reads it.</li><li><b>kit</b>: the brief's fields, <code>branches.mission</code>, the two commands and the committee skill; released by the version commit.</li><li><b>omni-app</b>, then <b>galaxy</b>: each deploys from the release commit. Until a fleet's level is raised, neither does anything new.</li><li>A person, once: allow rebase merges on main.</li></ul>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+N/A — its tables are the database service's, drawn there
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>mission.md</code> › <code>mandate</code></td><td>changed</td><td><code>{parallel}</code></td><td><code>{parallel, level, hardToRevert, ownPrds}</code>, the three new ones optional</td><td>kit</td></tr>
+<tr><td><code>branches.mission</code></td><td>added</td><td>–</td><td><code>mission/{number}-{topic}</code></td><td>kit</td></tr>
+<tr><td><code>omni mission drop &lt;mission&gt; &lt;prd&gt; [--keep]</code></td><td>added</td><td>–</td><td>takes a PRD off the mission's branch</td><td>kit</td></tr>
+<tr><td><code>omni mission overturn &lt;mission&gt; &lt;decision&gt;</code></td><td>added</td><td>–</td><td>a person's decision beside the fleet's</td><td>kit</td></tr>
+<tr><td><code>/omni:mission --level &lt;key&gt;</code></td><td>added</td><td>–</td><td>overrides the fleet's level for one mission</td><td>kit</td></tr>
+<tr><td><code>/omni:committee &lt;n&gt; --approve | --item &lt;id&gt;</code></td><td>added</td><td>–</td><td>the committee's vote, on a runner</td><td>kit</td></tr>
+</table><p>Nothing is removed and nothing required is added: no breaking change.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="cols"><div><h5>Today</h5><ul><li><code>/omni:yolo</code>, <code>/omni:wave</code>, <code>/omni:pr</code> and <code>/omni:pr-care</code> take main as a feature branch's base.</li><li>A hero never merges and never answers for a person.</li></ul></div><div><h5>After</h5><ul><li>They take the base their job names: the mission's branch for a mission at Own branch or above, main otherwise.</li><li>A hero still never merges into main. At Works alone the committee answers in the fleet's own name, never a person's.</li></ul></div></div>
+</div>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+N/A — its tables are the database service's, drawn there
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td>the fleet a member creates or edits</td><td>changed</td><td>name, icon, heroes</td><td>also <code>level</code>, optional, refused above <code>with-you</code> from a member who is not an owner</td><td>galaxy</td></tr>
+<tr><td>the mission the Missions tab reads</td><td>changed</td><td>status, progress, what waits</td><td>also its level, its branch, its mission pull request, its decisions' count and how many were overturned</td><td>galaxy</td></tr>
+<tr><td>runner skills</td><td>changed</td><td>15 skills</td><td>also <code>committee</code>, and <code>brainstorm</code> for a mission's job only</td><td>galaxy</td></tr>
+</table><p>Nothing is removed and nothing required is added: no breaking change.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="cols"><div><h5>Today</h5><ul><li>A mission sends a PRD only when a person approved it.</li></ul></div><div><h5>After</h5><ul><li>At Works alone, a committee's carried approval is in force for that mission; a change to a file it read voids it, as for a person's.</li></ul></div></div>
+</div>
+</div>
+<div data-service="omni-app">
+<h3>omni-app <span class="badge" data-role>BACK-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+N/A — its tables are the database service's, drawn there
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+N/A — it adds no endpoint; it calls GitHub's merge, rebase and pull request APIs
+</div>
+<div data-section="behaviour" data-state="na">
+<h4>Behaviour</h4>
+<div class="cols"><div><h5>Today</h5><ul><li>A ready PRD waits for a person's merge; a merged PRD unblocks the next.</li><li>The knowledge harvest runs for each feature pull request merged into main.</li></ul></div><div><h5>After</h5><ul><li>At Own branch and above, a ready PRD that passes the merge gate joins the mission's branch and unblocks the next.</li><li>The mission's branch is rebased when main moves; a conflict outside generated files changes nothing and waits on a person.</li><li>The harvest runs once for a merged mission pull request.</li><li>A mission at Reviews with you behaves exactly as before.</li></ul></div></div>
+</div>
+</div>
+<div data-service="database">
+<h3>database <span class="badge" data-role>DATABASE</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>To settle — diagram not rendered: Mermaid could not be loaded here (this session's network refuses jsDelivr); run <code>omni before-after render 2879</code> where it is reachable.</p><details><summary>The diagram's source</summary><pre class="code">erDiagram
+  teams ||--o{ missions : &quot;fleet&quot;
+  missions ||--o{ mission_events : has
+  missions ||--o{ mission_decisions : has
+  teams {
+    text kind
+    text level &quot;+ added&quot;
+  }
+  missions {
+    jsonb mandate &quot;~ altered · was parallel only&quot;
+    text status
+  }
+  mission_events {
+    text kind &quot;~ altered · was 9 kinds&quot;
+  }
+  mission_decisions {
+    uuid id &quot;+ added&quot;
+    uuid mission_id &quot;+ added&quot;
+    integer prd &quot;+ added&quot;
+    text kind &quot;+ added&quot;
+    text item &quot;+ added&quot;
+    jsonb verdicts &quot;+ added&quot;
+    text outcome &quot;+ added&quot;
+    text chosen &quot;+ added&quot;
+    text overturned_by &quot;+ added&quot;
+    timestamptz overturned_at &quot;+ added&quot;
+  }</pre></details><div class="cols"><div><h5>Today</h5><pre class="code"><span class="ctx">teams</span>
+<span class="ctx">  kind text</span>
+<span class="ctx"></span>
+<span class="ctx">missions</span>
+<span class="ctx">  mandate jsonb  -- {parallel}</span>
+<span class="ctx"></span>
+<span class="del">-- no table of decisions</span></pre></div><div><h5>After</h5><pre class="code"><span class="ctx">teams</span>
+<span class="ctx">  kind text</span>
+<span class="add">  level text not null default 'with-you'</span>
+<span class="ctx">missions</span>
+<span class="add">  mandate jsonb  -- {parallel, level, hardToRevert, ownPrds}</span>
+<span class="ctx"></span>
+<span class="add">mission_decisions (id, mission_id, prd, kind, item, verdicts,</span>
+<span class="add">                   outcome, chosen, overturned_by, overturned_at)</span></pre></div></div>
+<table><tr><th>table</th><th>change</th><th>detail</th></tr>
+<tr><td><code>teams</code></td><td>column added</td><td><code>level</code>: <code>with-you</code>, <code>own-branch</code> or <code>alone</code>; raised only by a workspace owner</td></tr>
+<tr><td><code>missions</code></td><td>check altered</td><td><code>mandate</code> also accepts <code>level</code>, <code>hardToRevert</code> (0 to 1) and <code>ownPrds</code> (0 to 10); a mandate without them reads as today</td></tr>
+<tr><td><code>mission_events</code></td><td>check altered</td><td><code>kind</code> also accepts <code>prd-joined</code>, <code>branch-rebased</code>, <code>prd-dropped</code>, <code>landed</code>, <code>decided</code>, <code>escalated</code>, <code>overturned</code></td></tr>
+<tr><td><code>mission_decisions</code></td><td>table added</td><td>read by the workspace's members, written by the service only</td></tr>
+</table>
+</div>
+<div data-section="api" data-state="gap">
+<h4>API / schema</h4>
+N/A — no function a caller reads changes its signature
+</div>
+<div data-section="behaviour" data-state="gap">
+<h4>Behaviour</h4>
+N/A — the new checks are described under Database
+</div>
+</div>
+</section>
+<section data-tab="pixel-perfect">
+<nav class="index" aria-label="References" data-index hidden></nav>
+<!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element
+     carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),
+     data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,
+     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,
+     and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: fleet-new · mission-start</p>
+<h5>1 · New virtual fleet: the level is one choice, made once</h5>
+<div data-screen="fleet-new" data-ref="1.A" data-when="today" data-viewport="760"><template><div class="scr-fleet-new"><div class="mock stage"><div class="behind"><div class="chips"><span class="chip on"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#5ee7ff"/><rect x="1" y="2" width="6" height="3" fill="#5ee7ff"/><rect x="0" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="6" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="2" y="5" width="4" height="2" fill="#5ee7ff"/></svg> Blue Fleet ◀</span><span class="chip"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="0" width="4" height="4" fill="#ff6b86"/><rect x="1" y="4" width="1" height="3" fill="#ff6b86"/><rect x="3" y="4" width="1" height="4" fill="#ff6b86"/><rect x="4" y="4" width="1" height="4" fill="#ff6b86"/><rect x="6" y="4" width="1" height="3" fill="#ff6b86"/></svg> Red Fleet</span></div>
+<h5><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#5ee7ff"/><rect x="1" y="2" width="6" height="3" fill="#5ee7ff"/><rect x="0" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="6" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="2" y="5" width="4" height="2" fill="#5ee7ff"/></svg> Blue Fleet</h5><p class="mut">#2 of 5 fleets · Season 3</p>
+<div class="tiles"><div class="tile"><b>14</b><span>PRs merged</span></div><div class="tile"><b>5</b><span>PRDs</span></div><div class="tile"><b>3</b><span>Repositories</span></div><div class="tile"><b>9</b><span>Questions answered</span></div></div>
+<p class="mut">PRs merged per day · 7 days</p><div class="bars"><i style="height:30%"></i><i style="height:60%"></i><i style="height:20%"></i><i style="height:80%"></i><i style="height:50%"></i><i style="height:70%"></i><i style="height:40%"></i></div></div>
+<div class="drawer"><h5>New virtual fleet</h5>
+<div><label class="f">Name</label><div class="input focus"><span class=mut>Night Shift</span></div></div>
+<div><label class="f">Icon</label><div class="icons"><span class="on" title="beaver"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="4" height="3" fill="#4ee08a"/><rect x="3" y="4" width="2" height="1" fill="#4ee08a"/><rect x="1" y="5" width="6" height="3" fill="#4ee08a"/></svg></span><span class="" title="octopus"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="0" width="4" height="4" fill="#8a90d6"/><rect x="1" y="4" width="1" height="3" fill="#8a90d6"/><rect x="3" y="4" width="1" height="4" fill="#8a90d6"/><rect x="4" y="4" width="1" height="4" fill="#8a90d6"/><rect x="6" y="4" width="1" height="3" fill="#8a90d6"/></svg></span><span class="" title="duck"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="3" height="3" fill="#8a90d6"/><rect x="5" y="2" width="2" height="1" fill="#8a90d6"/><rect x="1" y="4" width="5" height="3" fill="#8a90d6"/></svg></span><span class="" title="shark"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#8a90d6"/><rect x="1" y="2" width="6" height="3" fill="#8a90d6"/><rect x="0" y="5" width="2" height="1" fill="#8a90d6"/><rect x="6" y="5" width="2" height="1" fill="#8a90d6"/><rect x="2" y="5" width="4" height="2" fill="#8a90d6"/></svg></span><span class="" title="turtle"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="2" width="4" height="3" fill="#8a90d6"/><rect x="1" y="5" width="6" height="1" fill="#8a90d6"/><rect x="6" y="3" width="2" height="2" fill="#8a90d6"/><rect x="1" y="6" width="1" height="1" fill="#8a90d6"/><rect x="6" y="6" width="1" height="1" fill="#8a90d6"/></svg></span><span class="" title="robot"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="4" height="3" fill="#8a90d6"/><rect x="1" y="4" width="6" height="3" fill="#8a90d6"/><rect x="3" y="0" width="2" height="1" fill="#8a90d6"/><rect x="2" y="7" width="1" height="1" fill="#8a90d6"/><rect x="5" y="7" width="1" height="1" fill="#8a90d6"/></svg></span></div></div>
+<div><label class="f">Heroes</label><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Engineer<span class="mut">Builds PRDs alone</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Engineer"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> QA<span class="mut">Proves the work alone</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="QA"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Reviewer<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Reviewer"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> PM<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="PM"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Architect<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Architect"></span></div></div>
+<div class="foot"><button class="ghost">Cancel</button><button data-primary>Create fleet</button></div></div></div></div></template></div>
+<div data-screen="fleet-new" data-ref="1.A" data-when="after" data-viewport="760"><template><div class="scr-fleet-new"><div class="mock stage" style="min-height:770px"><div class="behind"><div class="chips"><span class="chip on"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#5ee7ff"/><rect x="1" y="2" width="6" height="3" fill="#5ee7ff"/><rect x="0" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="6" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="2" y="5" width="4" height="2" fill="#5ee7ff"/></svg> Blue Fleet ◀</span><span class="chip"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="0" width="4" height="4" fill="#ff6b86"/><rect x="1" y="4" width="1" height="3" fill="#ff6b86"/><rect x="3" y="4" width="1" height="4" fill="#ff6b86"/><rect x="4" y="4" width="1" height="4" fill="#ff6b86"/><rect x="6" y="4" width="1" height="3" fill="#ff6b86"/></svg> Red Fleet</span></div>
+<h5><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#5ee7ff"/><rect x="1" y="2" width="6" height="3" fill="#5ee7ff"/><rect x="0" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="6" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="2" y="5" width="4" height="2" fill="#5ee7ff"/></svg> Blue Fleet</h5><p class="mut">#2 of 5 fleets · Season 3</p>
+<div class="tiles"><div class="tile"><b>14</b><span>PRs merged</span></div><div class="tile"><b>5</b><span>PRDs</span></div><div class="tile"><b>3</b><span>Repositories</span></div><div class="tile"><b>9</b><span>Questions answered</span></div></div>
+<p class="mut">PRs merged per day · 7 days</p><div class="bars"><i style="height:30%"></i><i style="height:60%"></i><i style="height:20%"></i><i style="height:80%"></i><i style="height:50%"></i><i style="height:70%"></i><i style="height:40%"></i></div></div>
+<div class="drawer"><h5>New virtual fleet</h5>
+<div><label class="f">Name</label><div class="input focus"><span class=mut>Night Shift</span></div></div>
+<div><label class="f">Icon</label><div class="icons"><span class="on" title="beaver"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="4" height="3" fill="#4ee08a"/><rect x="3" y="4" width="2" height="1" fill="#4ee08a"/><rect x="1" y="5" width="6" height="3" fill="#4ee08a"/></svg></span><span class="" title="octopus"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="0" width="4" height="4" fill="#8a90d6"/><rect x="1" y="4" width="1" height="3" fill="#8a90d6"/><rect x="3" y="4" width="1" height="4" fill="#8a90d6"/><rect x="4" y="4" width="1" height="4" fill="#8a90d6"/><rect x="6" y="4" width="1" height="3" fill="#8a90d6"/></svg></span><span class="" title="duck"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="3" height="3" fill="#8a90d6"/><rect x="5" y="2" width="2" height="1" fill="#8a90d6"/><rect x="1" y="4" width="5" height="3" fill="#8a90d6"/></svg></span><span class="" title="shark"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#8a90d6"/><rect x="1" y="2" width="6" height="3" fill="#8a90d6"/><rect x="0" y="5" width="2" height="1" fill="#8a90d6"/><rect x="6" y="5" width="2" height="1" fill="#8a90d6"/><rect x="2" y="5" width="4" height="2" fill="#8a90d6"/></svg></span><span class="" title="turtle"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="2" width="4" height="3" fill="#8a90d6"/><rect x="1" y="5" width="6" height="1" fill="#8a90d6"/><rect x="6" y="3" width="2" height="2" fill="#8a90d6"/><rect x="1" y="6" width="1" height="1" fill="#8a90d6"/><rect x="6" y="6" width="1" height="1" fill="#8a90d6"/></svg></span><span class="" title="robot"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="4" height="3" fill="#8a90d6"/><rect x="1" y="4" width="6" height="3" fill="#8a90d6"/><rect x="3" y="0" width="2" height="1" fill="#8a90d6"/><rect x="2" y="7" width="1" height="1" fill="#8a90d6"/><rect x="5" y="7" width="1" height="1" fill="#8a90d6"/></svg></span></div></div>
+<div><label class="f">Heroes</label><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Engineer<span class="mut">Builds PRDs alone</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Engineer"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> QA<span class="mut">Proves the work alone</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="QA"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Reviewer<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Reviewer"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> PM<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="PM"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Architect<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Architect"></span></div></div>
+<div><label class="f">Level</label>
+<div class="role"><span>Reviews with you<span class="mut">You merge each PRD</span></span><span class="rad on" role="radio" aria-checked="true" aria-label="Reviews with you"></span></div>
+<div class="role"><span>Own branch<span class="mut">You land the mission</span></span><span class="rad" role="radio" aria-checked="false" aria-label="Own branch"></span></div>
+<div class="role"><span>Works alone<span class="mut">Asks you when needed</span></span><span class="rad" role="radio" aria-checked="false" aria-label="Works alone"></span></div>
+</div> <div class="foot"><button class="ghost">Cancel</button><button data-primary>Create fleet</button></div></div></div></div></template></div>
+<p class="note">The Level group reuses the drawer's row and label shapes; the radio is the only new control.</p>
+<h5>2 · The fleet's Missions tab: the level, the branch, and only what was escalated</h5>
+<div data-screen="mission-start" data-ref="2.A" data-when="today" data-viewport="1280"><template><div class="scr-mission-start">
+
+<div class="wrap">
+<div class="fleet-head"><span class="mascot" aria-hidden="true"><svg class="px" aria-hidden="true" width="32" height="20" viewBox="0 0 16 10" fill="var(--fleet)"><rect x="13" y="0" width="2" height="1"/><rect x="12" y="1" width="2" height="1"/><rect x="3" y="2" width="7" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="2" y="3" width="11" height="1"/><rect x="1" y="4" width="13" height="1"/><rect x="0" y="5" width="5" height="1"/><rect x="6" y="5" width="8" height="1"/><rect x="0" y="6" width="13" height="1"/><rect x="0" y="7" width="12" height="1"/><rect x="1" y="8" width="10" height="1"/><rect x="3" y="9" width="6" height="1"/><rect x="5" y="5" width="1" height="1" fill="var(--ground)"/></svg></span><div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission running</p></div></div><div class="tabs" role="tablist" aria-label="Fleet"><button type="button" class="tab" role="tab" aria-selected="false">Operation room</button><button type="button" class="tab" role="tab" aria-selected="true">Missions</button><button type="button" class="tab" role="tab" aria-selected="false">Heroes</button><button type="button" class="tab" role="tab" aria-selected="false">Board</button></div><section aria-label="Missions">
+<ul class="mission-list" style="max-width:none">
+<li><span class="name">Every quote can be paid online</span><span class="state go">Running</span><span class="num">2 of 4 merged · 1 ready</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button>
+<ul style="flex-basis:100%;margin:6px 0 0;padding-left:18px"><li style="display:list-item;border:0;padding:0"><a href="#">PRD 2803</a>: merge it</li></ul></li>
+<li><span class="name">Dark mode on site</span><span class="state">Draft</span><span class="num">Not started</span><a href="#">Brief</a><button type="button" class="btn" data-primary>Start</button></li>
+<li><span class="name">One invoice format in every region</span><span class="state">Paused</span><span class="num">1 of 3 merged · 0 ready</span><a href="#">Brief</a><button type="button" class="btn quiet">Resume</button></li>
+</ul></section>
+</div>
+</div></template></div>
+<div data-screen="mission-start" data-ref="2.A" data-when="after" data-viewport="1280"><template><div class="scr-mission-start">
+
+<div class="wrap">
+<div class="fleet-head"><span class="mascot" aria-hidden="true"><svg class="px" aria-hidden="true" width="32" height="20" viewBox="0 0 16 10" fill="var(--fleet)"><rect x="13" y="0" width="2" height="1"/><rect x="12" y="1" width="2" height="1"/><rect x="3" y="2" width="7" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="2" y="3" width="11" height="1"/><rect x="1" y="4" width="13" height="1"/><rect x="0" y="5" width="5" height="1"/><rect x="6" y="5" width="8" height="1"/><rect x="0" y="6" width="13" height="1"/><rect x="0" y="7" width="12" height="1"/><rect x="1" y="8" width="10" height="1"/><rect x="3" y="9" width="6" height="1"/><rect x="5" y="5" width="1" height="1" fill="var(--ground)"/></svg></span><div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission running</p></div></div><div class="tabs" role="tablist" aria-label="Fleet"><button type="button" class="tab" role="tab" aria-selected="false">Operation room</button><button type="button" class="tab" role="tab" aria-selected="true">Missions</button><button type="button" class="tab" role="tab" aria-selected="false">Heroes</button><button type="button" class="tab" role="tab" aria-selected="false">Board</button></div><section aria-label="Missions">
+<p class="fleet-meta level">Level: Works alone · <a href="#">Change</a></p>
+<ul class="mission-list" style="max-width:none">
+<li><span class="name">Every quote can be paid online</span><span class="state go">Waiting on you</span><span class="num">2 of 4 on main · 1 joined</span><span class="num">Works alone</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button>
+<ul style="flex-basis:100%;margin:6px 0 0;padding-left:18px">
+<li style="display:list-item;border:0;padding:0">Branch: 1 PRD · up to date · <a href="#">Mission PR #2901</a></li>
+<li style="display:list-item;border:0;padding:0">Waiting on you: <a href="#">PRD 2803</a>: answer s2-01, a locked law</li>
+<li style="display:list-item;border:0;padding:0">14 decisions by the fleet · 1 overturned</li>
+</ul></li>
+<li><span class="name">Dark mode on site</span><span class="state">Draft</span><span class="num">Not started</span><span class="num">Works alone · <a href="#">Change for this mission</a></span><a href="#">Brief</a><button type="button" class="btn" data-primary>Start</button></li>
+<li><span class="name">One invoice format in every region</span><span class="state">Paused</span><span class="num">1 of 3 merged · 0 ready</span><span class="num">Reviews with you</span><a href="#">Brief</a><button type="button" class="btn quiet">Resume</button></li>
+</ul></section>
+</div>
+</div></template></div>
+<p class="note">Drawn inside the fleet frame, which the Missions tab shares with the fleet's other tabs. Start stays the one primary action.</p>
+
+</div>
+</section>
+<template id="screen-css"><style>
+/* The screens' one stylesheet, written once for the page: the design system's tokens and the library mockups' rules.
+   It reaches every marked screen and nothing else; the page's own rules never reach inside one. */
+@keyframes arrive{from{transform:translateY(-14px);opacity:.25}to{transform:none;opacity:1}}
+.scr-mission-start {
+
+/* Ask's reading tokens, copied by value from packages/design/src/tokens.ts (ASK.omni / light / dark). */
+&{
+  --ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;
+  --ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;
+  --body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --px:"Press Start 2P","Courier New",ui-monospace,monospace;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+&[data-theme="light"]{
+  --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--line-strong:#85819f;
+  --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasma-soft:#efe7ff;--on-plasma:#ffffff;
+  --cyan:#0b6f86;--green:#15703f;--red:#b3122f;--fleet:#1f6fc4;color-scheme:light;
+}
+&[data-theme="dark"]{
+  --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--line-strong:#6d6acc;
+  --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasma-soft:#2a1d66;--on-plasma:#0e0d33;
+  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;color-scheme:dark;
+}
+*{box-sizing:border-box}
+&{background:var(--ground)}
+&{margin:0;background:var(--ground);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased}
+::selection{background:var(--plasma);color:var(--on-plasma)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:4px}
+a{color:var(--cyan);text-underline-offset:3px}
+button{font:inherit;color:inherit}
+*{scrollbar-color:var(--line-strong) var(--sunk)}
+.num,time,.t{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:.86em}
+svg.px{image-rendering:pixelated;shape-rendering:crispEdges;flex:none;display:inline-block;vertical-align:middle}
+
+/* ---------- the page's own explanation (outside every screen) ---------- */
+.strip{border-bottom:1px solid var(--line);background:var(--sunk);padding:14px 24px 16px}
+.strip-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;justify-content:space-between}
+.strip h1{margin:0;font:700 19px/1.3 var(--body)}
+.strip h1 span{color:var(--muted);font-weight:600}
+.strip-nav{display:flex;flex-wrap:wrap;gap:6px}
+.strip-nav button{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 13px/1.4 var(--body);color:var(--muted);cursor:pointer}
+.strip-nav button[aria-current="true"]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.narr{margin:8px 0 0;max-width:78ch;font-size:15px;line-height:1.55;color:var(--muted)}
+.narr b{color:var(--ink)}
+.narr[hidden]{display:none}
+
+/* ---------- app shell (nav/sidebar.css, nav/app-bar.css) ---------- */
+.shell{display:grid;grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto 1fr;min-height:calc(100vh - 90px)}
+.side{grid-row:1/span 2;display:grid;align-content:start;gap:18px;padding:16px;background:var(--surface);border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.wordmark{font:10px/1 var(--px);letter-spacing:.04em;color:var(--plasma)}
+.ws{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.grp-label{margin:0 0 4px;padding:0 10px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.side ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.side-item{display:flex;width:100%;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:1px solid transparent;background:none;font:700 15px/1.3 var(--body);color:var(--ink);text-decoration:none;cursor:pointer;text-align:left}
+.side-item:hover{background:var(--sunk)}
+.side-item[aria-current="page"]{color:var(--plasma);border-color:var(--plasma);background:var(--ground)}
+.side-item svg{color:var(--muted)}
+.side-item[aria-current="page"] svg{color:var(--plasma)}
+.badge{margin-left:auto;min-width:20px;padding:3px 6px;border-radius:999px;font:700 12px/1 var(--body);text-align:center;color:var(--on-plasma);background:var(--plasma)}
+.side-foot{border-top:1px solid var(--line);padding-top:12px;font:500 12px/1.2 var(--mono);color:var(--muted)}
+.bar{grid-column:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong)}
+.tile{display:inline-grid;place-items:center;width:40px;height:40px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--sunk)}
+.trail{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin:0;padding:0;list-style:none;font:600 15px/1.3 var(--body);color:var(--muted)}
+.trail .here{font-size:16px;font-weight:700;color:var(--ink)}
+.bar-end{margin-left:auto;display:flex;align-items:center;gap:12px}
+.switch{display:inline-flex;border:1.5px solid var(--line-strong);border-radius:6px;overflow:hidden}
+.switch button{padding:6px 10px;border:0;background:transparent;color:var(--muted);font:700 13px/1 var(--body);cursor:pointer}
+.switch button[aria-pressed="true"]{background:var(--plasma);color:var(--on-plasma)}
+.avatar{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:50%;background:var(--sunk);font:700 14px/1 var(--body)}
+.main{grid-column:2;padding:24px;min-width:0}
+
+/* ---------- fleet header + tabs ---------- */
+.fleet-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.mascot{display:inline-grid;place-items:center;width:52px;height:44px;border-radius:8px;background:var(--sunk);border:1.5px solid var(--fleet)}
+.fleet-head h2{margin:0;font:700 26px/1.2 var(--body);letter-spacing:-.01em}
+.fleet-meta{margin:0;color:var(--muted);font-size:15px}
+.tabs{display:flex;gap:4px;margin:18px 0 22px;border-bottom:2px solid var(--line-strong);overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;font:700 15px/1.2 var(--body);color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
+
+[data-screen][hidden]{display:none!important}
+h3{margin:0 0 10px;font:700 18px/1.3 var(--body)}
+.section{margin:0 0 28px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--body);cursor:pointer;text-decoration:none;transition:background-color .15s,border-color .15s}
+.btn:hover{border-color:var(--ink)}
+.btn[data-primary]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.btn[data-primary]:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.quiet{background:transparent}
+.link{background:none;border:0;padding:0;color:var(--cyan);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit}
+
+/* waiting strip */
+.yours{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:12px 16px;margin:0 0 22px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
+.yours p{margin:0;font-weight:700}
+.yours .sub{font-weight:400;color:var(--muted);font-size:15px}
+.yours .btn{margin-left:auto}
+
+/* now lines */
+.now{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.now li{display:grid;grid-template-columns:minmax(150px,200px) minmax(130px,170px) minmax(0,1fr) auto;align-items:center;gap:6px 16px;padding:10px 16px;border-top:1px solid var(--line)}
+.now li:first-child{border-top:0}
+.role{display:inline-flex;align-items:center;gap:8px;font-weight:700}
+.role svg{color:var(--ink)}
+.holder{color:var(--muted);font-size:15px}
+.holder b{color:var(--ink);font-weight:600}
+.doing{min-width:0}
+.state{display:inline-block;padding:2px 9px;border-radius:999px;border:1.5px solid var(--line-strong);font:700 12.5px/1.5 var(--body);color:var(--muted);white-space:nowrap}
+.state.go{border-color:var(--green);color:var(--green)}
+.state.you{border-color:var(--plasma);background:var(--plasma);color:var(--on-plasma)}
+.state.warn{border-color:var(--red);color:var(--red)}
+.state.ok{border-color:var(--green);color:var(--green)}
+.state.person{border-style:dashed}
+.filter-me{background:none;border:0;padding:0;cursor:pointer;color:var(--cyan);font:600 14px/1 var(--body);text-decoration:underline;text-underline-offset:3px}
+.clean{margin:10px 2px 0;font-size:15px;color:var(--muted)}
+.clean b{color:var(--ink);font-weight:600}
+
+/* ledger */
+.ledger-head{display:flex;flex-wrap:wrap;align-items:end;gap:10px 24px;margin:0 0 12px}
+.ledger-head h3{margin:0}
+.filters{display:flex;flex-wrap:wrap;gap:10px 22px}
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0;border:0}
+.chips legend{float:left;margin-right:6px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.chip{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 14px/1.4 var(--body);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+table.ledger{width:100%;border-collapse:collapse;font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ledger th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line-strong);background:var(--sunk)}
+.ledger td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+.ledger tr.row:hover td{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
+.ledger td.t{white-space:nowrap;color:var(--muted);font-family:var(--mono);font-size:13.5px;padding-top:12px}
+.ledger td.who{white-space:nowrap}
+.ledger .sig{display:block;font-size:12.5px;color:var(--muted);font-weight:400}
+.ledger tr.ready td{background:color-mix(in srgb,var(--plasma-soft) 80%,transparent)}
+.ready-txt{font-weight:700}
+.open-ready{background:none;border:0;padding:0;text-align:left;font:700 15px/1.45 var(--body);color:var(--ink);cursor:pointer;text-decoration:underline;text-decoration-color:var(--plasma);text-underline-offset:4px}
+.expand{background:none;border:1.5px solid var(--line-strong);border-radius:6px;padding:1px 8px;margin-left:8px;font:600 12.5px/1.4 var(--body);color:var(--ink);cursor:pointer;white-space:nowrap}
+.expand[aria-expanded="true"]{border-color:var(--plasma);color:var(--plasma)}
+tr.detail td{border-top:0;padding-top:0;background:var(--sunk)}
+tr.detail[hidden]{display:none}
+.verdict{display:grid;gap:6px;padding:12px 14px;margin:0 0 4px;border-radius:8px}
+.verdict p{margin:0}
+.verdict ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.verdict .rnd{color:var(--muted);font-size:14px}
+.empty{padding:20px 16px;text-align:left;color:var(--muted)}
+.empty[hidden]{display:none}
+tr.arrive td{animation:arrive 250ms var(--ease) both}
+tr.arrive td{background:var(--plasma-soft)}
+tr.arrive.settled td{background:transparent;transition:background-color 1.6s ease-out}
+
+@media (prefers-reduced-motion:reduce){tr.arrive td{animation:none}tr.arrive.settled td{transition:none}}
+
+/* ready checks */
+.back{display:inline-flex;align-items:center;gap:6px;margin:0 0 14px}
+.checks-head h2{margin:0;font:700 24px/1.25 var(--body)}
+.checks-head .prd{margin:2px 0 0;color:var(--muted)}
+.ready-line{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:14px 0 18px}
+.checks{list-style:none;margin:0 0 18px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.checks li{padding:12px 16px;border-top:1px solid var(--line)}
+.checks li:first-child{border-top:0}
+.check-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.check-row .lbl{font-weight:700;flex:1 1 220px}
+.tick{color:var(--green)}
+.proof{margin:8px 0 2px 32px;padding:8px 12px;border-radius:8px;background:var(--sunk);font-size:15px;color:var(--muted)}
+.proof[hidden]{display:none}
+.proof b{color:var(--ink);font-weight:600}
+.merge-note{max-width:900px;display:grid;gap:2px;padding:12px 16px;margin:0 0 20px;border:1.5px dashed var(--line-strong);border-radius:10px}
+.merge-note p{margin:0}
+.merge-note p+p{color:var(--muted)}
+.signed{margin:0 0 18px;color:var(--muted);font-size:15px}
+
+/* team */
+.seats{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:15px}
+.seats th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--line-strong)}
+.seats td{padding:12px 14px;border-top:1px solid var(--line);vertical-align:top}
+.seats ul{margin:0;padding-left:18px;display:grid;gap:2px}
+.seats select{font:600 14.5px/1.3 var(--body);color:var(--ink);background:var(--sunk);border:1.5px solid var(--line-strong);border-radius:6px;padding:5px 8px;max-width:100%}
+.skill{display:inline-block;margin:0 4px 4px 0;padding:1px 7px;border-radius:5px;background:var(--sunk);border:1px solid var(--line);font:500 13px/1.5 var(--mono);color:var(--ink)}
+.persons{display:grid;gap:8px;max-width:900px;margin:0;padding:0;list-style:none}
+.persons li{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:4px 16px;padding:12px 16px;border:1px solid var(--line);border-radius:10px}
+.persons .why{color:var(--muted)}
+.save-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:16px 0 0}
+.save-row .note{color:var(--muted);font-size:15px}
+
+/* missions */
+.mission-list{list-style:none;margin:0 0 26px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.mission-list li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-top:1px solid var(--line)}
+.mission-list li:first-child{border-top:0}
+.mission-list .name{font-weight:700;flex:1 1 240px}
+.start{max-width:900px;padding:18px 20px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface)}
+.start[hidden],.running[hidden]{display:none}
+.pick{display:grid;gap:8px;margin:0 0 18px;padding:0;border:0}
+.pick legend,.lab{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;padding:0}
+.opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:10px 14px;border:1.5px solid var(--line-strong);border-radius:8px;cursor:pointer}
+.opt:has(input:checked){border-color:var(--plasma);background:var(--plasma-soft)}
+.opt.off{opacity:.6;cursor:not-allowed;border-style:dashed}
+.opt input{accent-color:var(--plasma);margin:0}
+.opt .n{font-weight:700}
+.opt .m{color:var(--muted);font-size:14.5px;margin-left:auto}
+.seat-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;padding:0;list-style:none}
+.seat-chips li{display:inline-flex;align-items:center;gap:7px;padding:4px 11px 4px 8px;border:1.5px solid var(--line-strong);border-radius:999px;font-size:14px;font-weight:600}
+.seat-chips li span{color:var(--muted);font-weight:400}
+.eta{display:grid;gap:0;margin:0 0 18px;padding:10px 14px;border-radius:8px;background:var(--sunk)}
+.eta p{margin:0}
+.eta p+p{color:var(--muted);font-size:15px}
+.running{max-width:900px;padding:18px 20px;border:1.5px solid var(--green);border-radius:12px;background:var(--surface)}
+.running.paused{border-color:var(--line-strong);border-style:dashed}
+.run-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 12px}
+.run-head h3{margin:0}
+.prds{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:0}
+.prds li{display:grid;grid-template-columns:70px 1fr auto;gap:4px 12px;padding:9px 0;border-top:1px solid var(--line);align-items:center}
+.prds li:first-child{border-top:0}
+.prds .id{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.run-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.paused-line{margin:0 0 12px;color:var(--muted)}
+.paused-line[hidden]{display:none}
+
+/* toast (outside every screen) */
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,0);max-width:min(560px,calc(100vw - 32px));padding:10px 16px;border-radius:8px;background:var(--ink);color:var(--ground);font-size:15px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+
+/* ---------- phone ---------- */
+.phone-stage{display:none;padding:24px 16px 40px;justify-content:center}
+&.is-phone .phone-stage{display:flex}
+&.is-phone .shell{display:none}
+.phone{width:393px;max-width:100%;border:10px solid #000;border-radius:38px;overflow:hidden;background:var(--ground);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.phone-scroll{height:760px;max-height:78vh;overflow-y:auto}
+.p-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong);position:sticky;top:0;z-index:2}
+.p-menu{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:6px;background:var(--surface);cursor:pointer}
+.p-trail{font:600 14px/1.3 var(--body);color:var(--muted)}
+.p-trail b{color:var(--ink)}
+.p-main{padding:16px}
+.p-main .fleet-head h2{font-size:21px}
+.p-main .tabs{margin:12px 0 16px}
+.p-main .tab{padding:9px 10px;font-size:14px}
+.p-now{list-style:none;margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.p-now li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
+.p-now li:first-child{border-top:0}
+.p-now .doing{grid-column:1/-1;color:var(--muted);font-size:14.5px}
+.p-yours{display:grid;gap:8px;padding:12px;margin:0 0 16px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
+.p-yours p{margin:0;font-weight:700}
+.p-yours .btn{justify-content:center}
+.p-rows{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.p-rows li{display:grid;gap:3px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
+.p-rows li:first-child{border-top:0}
+.p-rows .meta{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.p-rows .meta .t{font-family:var(--mono)}
+.p-rows .meta .state{margin-left:auto}
+
+/* ---------- desk breakpoints ---------- */
+
+
+/* tour */
+.tourbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:10px}
+.dots{display:flex;gap:6px;margin:0;padding:0;list-style:none}
+.dots button{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line-strong);background:transparent;color:var(--muted);font:700 13px/1 var(--body);cursor:pointer}
+.dots button[aria-current="step"]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.dots button.seen{color:var(--ink)}
+.step-count{font:600 14px/1 var(--body);color:var(--muted)}
+.keys{font-size:13px;color:var(--muted)}
+.purpose{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.purpose code{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+[data-screen]{animation:none}
+.branch{max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:14px 16px;margin:0 0 18px}
+.branch h3{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.writers{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:0}
+.writers li{display:grid;grid-template-columns:64px 1fr auto;gap:4px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.writers li:first-child{border-top:0}
+.writers .t{font-family:var(--mono);font-size:13.5px;color:var(--muted)}
+.writers li.holding{background:var(--plasma-soft);margin:0 -16px;padding:9px 16px}
+.rule-line{margin:0 0 18px;color:var(--muted)}
+.facts{list-style:none;margin:0 0 18px;padding:0;max-width:900px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.facts li{padding:12px 16px;border-left:1px solid var(--line)}
+.facts li:first-child{border-left:0}
+.facts .k{display:block;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.facts .v{font:700 20px/1.3 var(--body);font-variant-numeric:tabular-nums}
+.verdict-card{max-width:900px;border:1.5px solid var(--red);border-radius:10px;background:var(--surface);padding:14px 16px;margin:0 0 18px}
+.verdict-card ol{margin:6px 0 8px;padding-left:22px;display:grid;gap:4px}
+.verdict-card p{margin:0}
+.rounds{display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--muted);font-size:15px}
+.pip{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--line-strong)}
+.pip.used{background:var(--red);border-color:var(--red)}
+.mission-line{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 0 18px;color:var(--muted)}
+.mission-line b{color:var(--ink)}
+
+
+.frame-page{border:2px dashed var(--line-strong);border-radius:12px;padding:40px 24px;color:var(--muted);min-height:260px}
+.frame-page p{margin:0}
+.wrap{padding:24px;max-width:1280px}
+
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
+.note-top{padding:12px 24px;border-bottom:1px solid var(--line);background:var(--sunk);font-size:14px;color:var(--muted);margin:0}
+
+
+}
+
+.scr-fleet-new {
+
+& {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  & {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+& { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+
+.mock{--g:#07061c;--sf:#120f3a;--ink:#f2f4ff;--mu:#8a90d6;--ln:#1a2170;--red:#ff6b86;--grn:#4ee08a;--pl:#ffd84a;--onpl:#07061c;--cy:#5ee7ff;
+background:var(--g);color:var(--ink);border:1px solid var(--ln);border-radius:8px;padding:14px;font:14px/1.55 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif}
+.mock h5{margin:0 0 6px;font-size:15px}.mock .tabs2{display:flex;gap:14px;border-bottom:1px solid var(--ln);margin:0 0 10px;font-size:13px}
+.mock .tabs2 span{padding:4px 0;color:var(--mu)}.mock .tabs2 .on{color:var(--ink);border-bottom:2px solid var(--pl)}
+.mock table{width:100%;border-collapse:collapse;margin:6px 0 0}.mock th{color:var(--mu);font-size:12px;text-transform:none;letter-spacing:0;border-bottom:1px solid var(--ln)}
+.mock td{border-bottom:1px solid var(--ln);font-size:13px}.mock .mut{color:var(--mu);font-size:12px;display:block}.mock a{color:var(--cy)}
+.mock .now{margin:0;padding:0;list-style:none;font-size:13px}.mock .now li{padding:3px 0;border-bottom:1px solid var(--ln)}
+.mock button{background:var(--pl);color:var(--onpl);border:0;border-radius:6px;padding:4px 10px;font:inherit;font-weight:700}
+.mock .ghost{background:transparent;color:var(--ink);border:1px solid var(--ln)}.mock .red{color:var(--red)}.mock .grn{color:var(--grn)}
+.cap{color:var(--muted);font-size:13px;margin:6px 0 0}
+
+.mock .chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.mock .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--ln);border-radius:999px;padding:2px 10px;font-size:13px}
+.mock .chip.on{border-color:var(--ink)}.mock .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}.mock .tile{border:1px solid var(--ln);border-radius:6px;padding:6px}
+.mock .tile b{display:block;font-size:18px}.mock .tile span{color:var(--mu);font-size:11px}.mock .bars{display:flex;align-items:flex-end;gap:3px;height:40px;border-bottom:1px solid var(--ln)}
+.mock .bars i{display:block;width:10px;background:var(--cy);opacity:.7}.mock .new{border:1px dashed var(--pl);color:var(--pl);background:transparent}
+.mock.stage{position:relative;overflow:hidden;min-height:470px;padding:0}.mock.stage .behind{padding:14px;opacity:.35}
+.mock .drawer{position:absolute;top:0;right:0;bottom:0;width:72%;background:var(--sf);border-left:1px solid var(--ln);padding:14px;display:flex;flex-direction:column;gap:10px}
+.mock .drawer h5{font-size:16px}.mock label.f{display:block;font-size:12px;color:var(--mu);margin:0 0 3px}
+.mock .input{border:1px solid var(--ln);border-radius:6px;padding:6px 8px;background:var(--g);color:var(--ink);font-size:14px}.mock .input.focus{border-color:var(--pl)}
+.mock .icons{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.mock .icons span{display:grid;place-items:center;border:1px solid var(--ln);border-radius:6px;height:34px}
+.mock .icons span.on{border:2px solid var(--pl)}.mock .role{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--ln);padding:5px 0;font-size:13px}
+.mock .tog{width:30px;height:16px;border-radius:999px;background:var(--ln);position:relative;flex:none}.mock .tog::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--mu)}
+.mock .tog.on{background:var(--pl)}.mock .tog.on::after{left:16px;background:var(--onpl)}.mock .foot{margin-top:auto;display:flex;gap:8px;justify-content:flex-end}
+.mock .err{color:var(--red);font-size:12px}
+
+}
+
+.scr-fleet-new .mock .rad{width:16px;height:16px;border-radius:50%;border:2px solid var(--ln);flex:none}
+.scr-fleet-new .mock .rad.on{border-color:var(--pl);background:var(--pl);box-shadow:inset 0 0 0 3px var(--sf)}
+.scr-mission-start .level{margin:10px 0 0}
+</style></template>
+<script>
+(function () {
+  var BASE = ':host { all: initial; display: block; }';
+  var tab = document.querySelector('[data-tab="pixel-perfect"]');
+  var sheet = document.getElementById('screen-css');
+  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];
+  var fits = [];
+  function make(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text) node.textContent = text;
+    return node;
+  }
+  function widthOf(screen) {
+    var width = Number(screen.getAttribute('data-viewport'));
+    return width >= 320 && width <= 2560 ? Math.round(width) : 0;
+  }
+  function isolate(screen) {
+    if (!screen.attachShadow || screen.shadowRoot) return;
+    var body = null;
+    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];
+    var root = screen.attachShadow({ mode: 'open' });
+    root.appendChild(make('style', '', BASE));
+    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));
+    if (body) root.appendChild(body.content.cloneNode(true));
+    else while (screen.firstChild) root.appendChild(screen.firstChild);
+    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';
+  }
+  function size(fit) {
+    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;
+    if (!width) return;
+    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }
+    var k = Math.min(1, fit.clientWidth / width);
+    if (!k) return;
+    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';
+    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';
+  }
+  function zoom(figure) {
+    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');
+    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });
+    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';
+    size(fit);
+  }
+  function frame(screen, ref) {
+    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');
+    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);
+    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');
+    button.type = 'button'; full.type = 'button';
+    button.title = 'Open at 100 %';
+    [button, full].forEach(function (each) {
+      each.setAttribute('data-zoom', '');
+      each.setAttribute('aria-pressed', 'false');
+      each.addEventListener('click', function () { zoom(figure); });
+    });
+    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];
+    parts.forEach(function (part, i) {
+      if (i > 0) caption.appendChild(document.createTextNode(' · '));
+      caption.appendChild(part);
+    });
+    caption.appendChild(full);
+    if (width) fit.style.maxWidth = width + 2 + 'px';
+    fit.appendChild(screen);
+    figure.appendChild(caption);
+    figure.appendChild(fit);
+    fits.push(fit);
+    return figure;
+  }
+  function absent(ref) {
+    var figure = make('figure', 'shot none'), caption = make('figcaption');
+    caption.appendChild(make('span', 'ref', ref));
+    caption.appendChild(document.createTextNode(' · '));
+    caption.appendChild(make('span', 'when today', 'Today'));
+    figure.appendChild(caption);
+    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));
+    return figure;
+  }
+  var groups = [], byRef = {};
+  screens.forEach(function (screen) {
+    isolate(screen);
+    var ref = screen.getAttribute('data-ref') || '';
+    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }
+    byRef[ref].screens.push(screen);
+  });
+  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };
+  groups.forEach(function (group) {
+    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';
+    if (id && !document.getElementById(id)) pair.id = id;
+    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));
+    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);
+    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });
+    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));
+    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });
+  });
+  var index = tab && tab.querySelector('[data-index]'), numbers = [];
+  groups.forEach(function (group) {
+    if (!group.ref || !index) return;
+    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }
+    var link = make('a', 'ref', group.ref);
+    link.href = '#s-' + group.ref.replace('.', '-');
+    link.title = group.screens[0].getAttribute('data-screen') || '';
+    index.appendChild(link);
+    var number = group.ref.split('.')[0];
+    if (numbers.indexOf(number) === -1) numbers.push(number);
+  });
+  var count = document.querySelector('[data-count]');
+  if (count && numbers.length > 0) count.textContent = ' · ' + numbers.length;
+  if (typeof ResizeObserver === 'function') {
+    var watch = new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });
+    });
+    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });
+  }
+  function open() {
+    var hash = location.hash;
+    if (hash === '#technical') document.getElementById('tab-technical').checked = true;
+    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {
+      document.getElementById('tab-pixel-perfect').checked = true;
+      fits.forEach(size);
+      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));
+      if (target) target.scrollIntoView();
+    }
+  }
+  fits.forEach(size);
+  window.addEventListener('hashchange', open);
+  open();
+})();
+</script>
+</body>
+</html>
