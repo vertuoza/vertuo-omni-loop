@@ -8,6 +8,8 @@ import { FleetScreen, type FleetView } from '../../../src/dashboard/fleet/FleetS
 import { tabOf } from '../../../src/dashboard/fleet/tabs';
 import { loadMissionsTab } from '../../../src/missions/page/missions-tab.live';
 import { MissionsTab } from '../../../src/missions/page/MissionsTab';
+import { loadRoom } from '../../../src/missions/room/room.live';
+import { RoomTab } from '../../../src/missions/room/RoomTab';
 import { BoardLoading } from '../../../src/skeleton/pages';
 import { Streamed } from '../../../src/skeleton/Streamed';
 
@@ -47,19 +49,30 @@ function missionsBlock(db: Parameters<typeof loadMissionsTab>[0], view: FleetVie
   );
 }
 
+/** PRD 2842 s8: the Operation room (the default tab) of a virtual fleet streams in its own block, read as the signed-in person. */
+function roomBlock(db: Parameters<typeof loadRoom>[0], view: FleetView, query: Record<string, string | string[] | undefined>): ReactNode {
+  if (view.kind !== 'board' || !view.virtual?.workspace || !view.virtual.names.includes(view.fleet.name) || tabOf(query.tab) !== 'room') return undefined;
+  const keep = Object.fromEntries(Object.entries(query).flatMap(([name, value]) => (name === 'role' || name === 'mission' || one(value) === null ? [] : [[name, one(value) ?? '']])));
+  return (
+    <Streamed read={loadRoom(db, view.virtual.workspace, view.fleet.name, view.fleet.color, query)} skeleton={<p className="fleet-line ask-muted">Loading the room…</p>}>
+      {(room) => <RoomTab view={room} keep={keep} />}
+    </Streamed>
+  );
+}
+
 export default async function FleetPage({ searchParams }: Props) {
   const query = await searchParams;
   const period = periodOf(one(query.period));
   const asked = one(query.fleet);
   const now = new Date();
-  const screen = (view: FleetView, missions?: ReactNode) => (
-    <FleetScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} query={query} missions={missions} />
+  const screen = (view: FleetView, missions?: ReactNode, room?: ReactNode) => (
+    <FleetScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} query={query} missions={missions} room={room} />
   );
   const seen = await viewer();
   if (seen.kind !== 'signed-in') return screen(viewOf(seen, asked, period, now));
   return (
     <Streamed read={loadFleetBoard(seen.db, seen.user, asked, period, now)} skeleton={<BoardLoading />}>
-      {(view) => screen(view, missionsBlock(seen.db, view, query))}
+      {(view) => screen(view, missionsBlock(seen.db, view, query), roomBlock(seen.db, view, query))}
     </Streamed>
   );
 }
