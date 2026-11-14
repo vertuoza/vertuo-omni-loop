@@ -30,3 +30,12 @@
 .fleet-picker li:has(> .vf-open) { display: flex; }
 .fleet-picker .vf-open { min-height: 100%; padding: 6px 14px; border-radius: 999px; }
 .dash > .vf-open { margin: 12px 0; }
+/* PRD 2842 s6: a virtual fleet's tabs, Operation room · Missions · Heroes · Board. */
+.fleet-tabs { margin-top: 12px; }
+.fleet-tabs ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ask .fleet-tabs a {
+  display: inline-block; padding: 6px 12px; border: 1px solid var(--ask-line-strong); border-radius: 6px;
+  color: var(--ask-ink); text-decoration: none; font-weight: 700;
+}
+.ask .fleet-tabs a:hover { border-color: var(--ask-plasma); }
+.ask .fleet-tabs a[aria-current='page'] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }

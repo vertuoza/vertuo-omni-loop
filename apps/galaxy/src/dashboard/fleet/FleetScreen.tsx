@@ -9,7 +9,10 @@ import { APP_CALLBACK } from '../sign-in';
 import { Board } from '../board/Board';
 import { hrefWith, type Query } from '../board/links';
 import { NewVirtualFleet } from '../../virtual-fleets/drawer/NewVirtualFleet';
+import { HeroesTab } from '../../virtual-fleets/heroes/HeroesTab';
 import type { FleetBoard, VirtualOf } from './fleet';
+import { FleetTabs } from './FleetTabs';
+import { tabOf, type FleetTab } from './tabs';
 import type { FleetHead } from './load';
 import './fleet.css';
 
@@ -20,6 +23,8 @@ import './fleet.css';
 // workspace. The picker's links keep the rest of the query, so picking a fleet keeps the period.
 // PRD 652: each picker link and the page's header name the fleet as its FleetChip, its mascot in its
 // colour.
+// PRD 2842 s6: on a virtual fleet the page reads tabs, Operation room · Missions · Heroes · Board (`?tab=`), Board
+// being today's board unchanged; an ordinary fleet shows only its board.
 // PRD 2842 s1: `+ New virtual fleet` closes the row of chips, and is the page's main button when the
 // workspace has no fleet yet; it opens the New virtual fleet drawer. A virtual fleet's chip says so.
 
@@ -35,6 +40,7 @@ const FLEET_LINE = {
   noneYet: 'No fleet yet.',
   players: ' for a players’ fleet',
   virtual: '· virtual',
+  soon: 'This tab is not open yet.',
 } as const;
 
 export type FleetView = { kind: 'closed' } | { kind: 'sign-in' } | FleetBoard;
@@ -106,6 +112,12 @@ function Place({ place, season }: { place: FleetHead['place']; season: string })
   return <p className="dash-places">{`#${place.rank} of ${place.of} fleets · ${season}`}</p>;
 }
 
+/** The tab's own screen: Heroes is drawn here, the Operation room and Missions by their own slices. */
+function TabBody({ tab, view }: { tab: Exclude<FleetTab, 'board'>; view: Extract<FleetBoard, { kind: 'board' }> }) {
+  if (tab !== 'heroes') return <p className="fleet-line ask-muted">{FLEET_LINE.soon}</p>;
+  return view.heroes ? <HeroesTab view={view.heroes} /> : <CouldNotLoad />;
+}
+
 export function FleetScreen({ view, supabase, signinError, query }: FleetScreenProps) {
   switch (view.kind) {
     case 'closed':
@@ -132,6 +144,8 @@ export function FleetScreen({ view, supabase, signinError, query }: FleetScreenP
         </div>
       );
     case 'board': {
+      const virtual = view.virtual?.names.includes(view.fleet.name) === true;
+      const tab = virtual ? tabOf(query.tab) : 'board';
       return (
         <div className="dash">
           <Picker fleets={view.fleets} current={view.fleet.name} query={query} virtual={view.virtual} />
@@ -139,7 +153,8 @@ export function FleetScreen({ view, supabase, signinError, query }: FleetScreenP
             <h1 className="dash-name"><FleetChip fleet={view.fleet} link={false} /></h1>
             <Place place={view.fleet.place} season={view.board.season.name} />
           </header>
-          <Board board={view.board} path={FLEET_PATH} query={query} />
+          {virtual && <FleetTabs current={tab} query={query} path={FLEET_PATH} />}
+          {tab === 'board' ? <Board board={view.board} path={FLEET_PATH} query={query} /> : <TabBody tab={tab} view={view} />}
         </div>
       );
     }
