@@ -28,7 +28,7 @@
 //                 a replayed run records nothing twice. The supervisor's own rows are signed `supervisor`, a
 //                 job's end `engineer` (the Engineer hero's work); both by `agent`, never in a person's name.
 //                 An event links to a pull request; it never holds a person's words, a credential or a log line
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { parsePlanSlices, sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
@@ -95,9 +95,10 @@ const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)$/;
 export const missionKey = (mission: string, prd: PrdNumber, run: number): string => `mission:${mission}:prd:${String(prd)}:run:${String(run)}`;
 
 /** The PRD and run a mission key names; null for any other text. */
-export function runOfKey(key: string): { prd: number; run: number } | null {
+export function runOfKey(key: string): { prd: PrdNumber; run: number } | null {
   const match = KEY.exec(key);
-  return match ? { prd: Number(match[2]), run: Number(match[3]) } : null;
+  const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
+  return match && prd.success ? { prd: prd.data, run: Number(match[3]) } : null;
 }
 
 // ── The reads, made plain ────────────────────────────────────────────────────────
@@ -309,13 +310,13 @@ export function conclude({ mission, facts, states, sent, now }: { mission: Missi
 const jobKey = (prefix: string, job: string | null): string[] => (job === null ? [] : [`${prefix}:${job}`]);
 
 /** The keys each kind of event stands for: a run of the same state finds them and records nothing again. */
-const KEYS: Readonly<Partial<Record<string, (prd: string | null, job: string | null) => string[]>>> = {
-  dispatched: (_prd, job) => jobKey('dispatched', job),
-  'job-ended': (_prd, job) => jobKey('end', job),
-  held: (_prd, job) => jobKey('end', job),
-  'prd-ready': (prd, job) => [`ready:${prd ?? 'mission'}`, ...jobKey('end', job)],
-  'prd-merged': (prd) => [`merged:${prd ?? 'mission'}`],
-  stopped: (prd) => (prd === null ? [] : [`stopped:${prd}`]),
+const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string | null) => string[]>>> = {
+  dispatched: (_prdKey, job) => jobKey('dispatched', job),
+  'job-ended': (_prdKey, job) => jobKey('end', job),
+  held: (_prdKey, job) => jobKey('end', job),
+  'prd-ready': (prdKey, job) => [`ready:${prdKey ?? 'mission'}`, ...jobKey('end', job)],
+  'prd-merged': (prdKey) => [`merged:${prdKey ?? 'mission'}`],
+  stopped: (prdKey) => (prdKey === null ? [] : [`stopped:${prdKey}`]),
   delivered: () => ['delivered'],
 };
 

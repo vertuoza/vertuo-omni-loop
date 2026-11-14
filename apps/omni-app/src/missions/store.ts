@@ -200,9 +200,7 @@ export function missionStore(connection: Connection): MissionStore {
       }
       return jobs.flatMap((job) => {
         const key = job.mission_key === null ? null : runOfKey(job.mission_key);
-        const prd = key === null ? null : PrdNumberSchema.safeParse(key.prd);
-        if (key === null || !prd?.success) return [];
-        return [{ prd: prd.data, run: key.run, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+        return key === null ? [] : [{ prd: key.prd, run: key.run, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
       });
     },
 
