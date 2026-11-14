@@ -11,7 +11,7 @@ owner: null
 # Review
 
 Use this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask
-a person.
+a person; and when you review one, for what to look for.
 
 <!-- The workspace's tech default for every repository that writes no review page of its own. The
 `owner:` line names who approves a change to this page; null means the law owners of the settings
@@ -35,3 +35,9 @@ Reply with a reason that names the line below it falls under, and change nothing
 Leave the thread open for a person, and say why, when the comment needs a product decision,
 contradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after
 a fix or a push-back has the last word: the thread goes to a person, never back into the argument.
+
+## Look for
+<!-- slot: look-for · optional -->
+The kit's six come first, in order of harm: correctness, security and data, tests that prove it,
+scope, laws and conventions, design and complexity. Add a list item here for what every repository
+of this workspace also looks for: `omni review look-for` prints the six, then each item added.
