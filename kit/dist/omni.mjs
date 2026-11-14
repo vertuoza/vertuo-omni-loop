@@ -6129,9 +6129,9 @@ var require_lexer = __commonJS({
         }
       }
       *parseQuotedScalar() {
-        const quote = this.charAt(0);
-        let end3 = this.buffer.indexOf(quote, this.pos + 1);
-        if (quote === "'") {
+        const quote2 = this.charAt(0);
+        let end3 = this.buffer.indexOf(quote2, this.pos + 1);
+        if (quote2 === "'") {
           while (end3 !== -1 && this.buffer[end3 + 1] === "'")
             end3 = this.buffer.indexOf("'", end3 + 2);
         } else {
@@ -11476,7 +11476,7 @@ function handleIntersectionResults(result2, left, right) {
   const unrecKeys = /* @__PURE__ */ new Map();
   let unrecIssue;
   const keyIssues = /* @__PURE__ */ new Map();
-  const collect = (iss, side) => {
+  const collect2 = (iss, side) => {
     let keys;
     if (iss.code === "unrecognized_keys" && !iss.path?.length) {
       unrecIssue ?? (unrecIssue = iss);
@@ -11497,11 +11497,11 @@ function handleIntersectionResults(result2, left, right) {
     return true;
   };
   for (const iss of left.issues) {
-    if (!collect(iss, "l"))
+    if (!collect2(iss, "l"))
       result2.issues.push(iss);
   }
   for (const iss of right.issues) {
-    if (!collect(iss, "r"))
+    if (!collect2(iss, "r"))
       result2.issues.push(iss);
   }
   const bothKeys = [...unrecKeys].filter(([, f]) => f.l && f.r).map(([k]) => k);
@@ -30737,7 +30737,7 @@ import { readdirSync as readdirSync6, readFileSync as readFileSync11 } from "nod
 import { join as join14, posix as posix2 } from "node:path";
 import { fileURLToPath } from "node:url";
 var BundledTemplatesSchema = external_exports.record(external_exports.string(), external_exports.string());
-var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse('{"README.md":"<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). A fourth kind, the\\n  domain contract, says in one line how an entity is shaped or moves, and points at the schema or\\n  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are\\n  decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit\'s own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n","before-after/page.html":"<!doctype html>\\n<html lang=\\"en\\">\\n<head>\\n<meta charset=\\"utf-8\\">\\n<meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1\\">\\n<meta name=\\"omni-before-after\\" content=\\"2\\">\\n<title>PRD {{prd}}: before and after</title>\\n<style>\\n:root {\\n  color-scheme: light dark;\\n  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;\\n  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;\\n  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;\\n}\\n@media (prefers-color-scheme: dark) {\\n  :root {\\n    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;\\n    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;\\n    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;\\n  }\\n}\\n* { box-sizing: border-box; }\\nbody { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, \\"Segoe UI\\", sans-serif; }\\nh1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }\\nh1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }\\nh3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }\\n.tab-input { position: absolute; opacity: 0; pointer-events: none; }\\n.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }\\n.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }\\n#tab-functional:checked ~ .tabs label[for=\\"tab-functional\\"],\\n#tab-technical:checked ~ .tabs label[for=\\"tab-technical\\"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }\\n#tab-functional:focus-visible ~ .tabs label[for=\\"tab-functional\\"],\\n#tab-technical:focus-visible ~ .tabs label[for=\\"tab-technical\\"] { outline: 2px solid var(--accent); }\\n[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }\\n#tab-functional:checked ~ [data-tab=\\"functional\\"],\\n#tab-technical:checked ~ [data-tab=\\"technical\\"] { display: block; }\\n[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }\\n[data-section] { margin: 12px 0; }\\n[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n[data-state=\\"na\\"] { color: var(--muted); }\\n[data-state=\\"gap\\"] > h4::after { content: \\" \xB7 to settle\\"; color: var(--warn-fg); }\\n.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }\\n.badge.breaking { background: var(--del-bg); color: var(--del-fg); }\\n.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }\\n.badge.added { background: var(--add-bg); color: var(--add-fg); }\\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\\n@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }\\n.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }\\npre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }\\npre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }\\npre .line { display: block; padding: 0 12px; white-space: pre; }\\n.add { background: var(--add-bg); color: var(--add-fg); }\\n.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }\\n.ctx { color: var(--muted); }\\ntable { width: 100%; border-collapse: collapse; margin: 8px 0; }\\nth, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }\\nth { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n.no-change { color: var(--muted); font-style: italic; }\\n.diagram svg { max-width: 100%; height: auto; }\\ndetails > summary { cursor: pointer; color: var(--muted); }\\n</style>\\n</head>\\n<body>\\n<h1>PRD {{prd}}: before and after</h1>\\n<!-- Every section carries data-state: filled (the design covers it), na (\\"N/A \u2014 one-line reason\\") or gap (\\"To settle \u2014 what is missing\\"). -->\\n<input type=\\"radio\\" name=\\"tab\\" id=\\"tab-functional\\" class=\\"tab-input\\" checked>\\n<input type=\\"radio\\" name=\\"tab\\" id=\\"tab-technical\\" class=\\"tab-input\\">\\n<div class=\\"tabs\\"><label for=\\"tab-functional\\">Functional &amp; design</label><label for=\\"tab-technical\\">Technical</label></div>\\n<section data-tab=\\"functional\\">\\n{{functional}}\\n</section>\\n<section data-tab=\\"technical\\">\\n<div data-section=\\"flow\\" data-state=\\"gap\\">\\n<h4>Flow</h4>\\n<!-- FILL -->\\n</div>\\n<div data-section=\\"deploy\\" data-state=\\"gap\\">\\n<h4>Deploy order</h4>\\n<!-- FILL -->\\n</div>\\n{{technical}}\\n</section>\\n<script>if (location.hash === \'#technical\') document.getElementById(\'tab-technical\').checked = true;</script>\\n</body>\\n</html>\\n","omni-settings/playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n<!-- The workspace\'s tech default for every repository that writes no bug-fixing page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository\'s config. -->\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the\\n   reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`.\\nA regression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n","omni-settings/playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n<!-- The workspace\'s tech default for every repository that writes no definition of done of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository\'s config. -->\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The change does what its spec or issue asks, and nothing it did not ask.\\n- The changed behaviour is proven by a test that failed before the change, or, where no test can\\n  reach it, by the narrowest evidence that was actually run.\\n- The repository\'s full preflight (`omni config commands.preflightFull` names it, else\\n  `commands.preflight`) is green on the last commit pushed; the pull request names any step it\\n  skipped, and why.\\n- The hand-off names every check that ran, and every check skipped with its reason. Nothing is\\n  reported as proven that was not run.\\n- Every decision taken without asking a person is written down for a person to answer.\\n- The pull request body says what changed, how it was verified, its risk, how to roll it back, and\\n  where a reviewer should look closest.\\n- The pull request is green and mergeable, or a comment on it says exactly what is stuck.\\n- No key, token, password or personal data is in a commit, a fixture, a log or the body.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- The playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape, with no unrelated formatting.\\nPrefer a few meaningful commits over one mixed commit that hides unrelated work.\\n","omni-settings/playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n<!-- The workspace\'s tech default for every repository that writes no review page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository\'s config. -->\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\\nproblem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste, or style no linter enforces;\\n- work outside the pull request\'s scope;\\n- a rewrite to another pattern, with no defect named;\\n- what the spec already settles: quote it.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision,\\ncontradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after\\na fix or a push-back has the last word: the thread goes to a person, never back into the argument.\\n","omni-settings/playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n<!-- The workspace\'s tech default for every repository that writes no verification page of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository\'s config. -->\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\nThe preflight is the command `omni config commands.preflight` prints, read from the config, never\\ntyped from memory. It is green before a pull request is opened. It runs the half of the gate a\\nlaptop can run, stops at the first failure, and says what to fix; what only CI can run, it names and\\nleaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun the full preflight (`omni config commands.preflightFull`, else `commands.preflight`) before\\nevery push to an open pull request. A pull request no CI runs on, such as a sub-pull request into a\\nfeature branch, has this as its only grade.\\n\\nA commit hook runs only the checks that need no build, so a green commit is not a green branch: run\\nthe rest yourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- A red CI job is reproduced locally, under its own name, before it is fixed.\\n- A ratchet (a check graded against a recorded baseline: coverage or mutation floors, a suppression\\n  budget, a formatting baseline) only holds or improves. Never lower a floor, skip a test or add a\\n  suppression to turn a check green; raising a budget is its own reviewed change.\\n- A check that only skipped or was cancelled is never green.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Any agent\\n<!-- slot: agents \xB7 optional -->\\n- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.\\n- **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the\\n  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4\\n  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run\\n  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask\\n  nothing: a decision is a high outbox item.\\n- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its\\n  own worktree and sub-PR.\\n- **Models.** No model per subagent? Every slice runs on your terminal\'s model.\\n- **Background.** No background? Run in the foreground within your shell\'s limit, again until done.\\n- **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the\\n  repository holds it all.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No\\n   smoke to run: stop, keep the reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`. A\\nregression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n\\n## Budgets\\n<!-- slot: budgets \xB7 optional -->\\nWhat every agent session reads (the briefing, each form as `omni kb show` prints it, the context\\nfiles) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while\\n`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which\\ntarget grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.\\nOnly when it needs the room, raise its ceiling in the same pull request and file a high outbox item\\nthat says why; a person\'s answer turns it green. A pull request with no PRD cannot raise one.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with the latest 20\\nrecords\' numbers and titles, read from the folder each time: nobody keeps that list by hand;\\n`omni kb show decisions --all` prints every record. Before writing a new record, look the decision\\nup there, or search the folder: it may be settled already. A number belongs to one record; two\\nrecords sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/design.md":"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product\'s screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\"while you\u2019re here\\" changes outside the pull request\'s scope;\\n- a rewrite to the reviewer\'s preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}'));
+var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse("{\"README.md\":\"<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person's\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). A fourth kind, the\\n  domain contract, says in one line how an entity is shaped or moves, and points at the schema or\\n  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are\\n  decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form's file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository's section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit's own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n\",\"before-after/page.html\":\"<!doctype html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<meta name=\\\"omni-before-after\\\" content=\\\"3\\\">\\n<title>PRD {{prd}}: before and after</title>\\n<style>\\n:root {\\n  color-scheme: light dark;\\n  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;\\n  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;\\n  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;\\n}\\n@media (prefers-color-scheme: dark) {\\n  :root {\\n    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;\\n    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;\\n    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;\\n  }\\n}\\n* { box-sizing: border-box; }\\nbody { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, \\\"Segoe UI\\\", sans-serif; }\\nh1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }\\nh1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }\\nh3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }\\n.tab-input { position: absolute; opacity: 0; pointer-events: none; }\\n.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }\\n.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }\\n.tabs label small { font-weight: 600; color: var(--muted); }\\n#tab-functional:checked ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:checked ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:checked ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }\\n#tab-functional:focus-visible ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:focus-visible ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:focus-visible ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { outline: 2px solid var(--accent); }\\n[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }\\n#tab-functional:checked ~ [data-tab=\\\"functional\\\"],\\n#tab-technical:checked ~ [data-tab=\\\"technical\\\"],\\n#tab-pixel-perfect:checked ~ [data-tab=\\\"pixel-perfect\\\"] { display: block; }\\n[data-tab=\\\"pixel-perfect\\\"] { max-width: none; }\\n[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }\\n[data-section] { margin: 12px 0; }\\n[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n[data-state=\\\"na\\\"] { color: var(--muted); }\\n[data-state=\\\"gap\\\"] > h4::after { content: \\\" \xB7 to settle\\\"; color: var(--warn-fg); }\\n.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }\\n.badge.breaking { background: var(--del-bg); color: var(--del-fg); }\\n.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }\\n.badge.added { background: var(--add-bg); color: var(--add-fg); }\\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\\n@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }\\n.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }\\npre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }\\npre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }\\npre .line { display: block; padding: 0 12px; white-space: pre; }\\n.add { background: var(--add-bg); color: var(--add-fg); }\\n.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }\\n.ctx { color: var(--muted); }\\ntable { width: 100%; border-collapse: collapse; margin: 8px 0; }\\nth, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }\\nth { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n.no-change { color: var(--muted); font-style: italic; }\\n.diagram svg { max-width: 100%; height: auto; }\\ndetails > summary { cursor: pointer; color: var(--muted); }\\n.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }\\n.index[hidden] { display: none; }\\n.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }\\n.ref[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }\\n.shot { margin: 0; min-width: 0; }\\n.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }\\n.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }\\n.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }\\n.when.after { background: var(--add-bg); color: var(--add-fg); }\\n.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }\\n.zoom[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }\\n.fit.full { overflow: auto; }\\n.fit > [data-screen] { transform-origin: 0 0; }\\n.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }\\n</style>\\n</head>\\n<body>\\n<h1>PRD {{prd}}: before and after</h1>\\n<!-- Every section carries data-state: filled (the design covers it), na (\\\"N/A \u2014 one-line reason\\\") or gap (\\\"To settle \u2014 what is missing\\\"). -->\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-functional\\\" class=\\\"tab-input\\\" checked>\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-technical\\\" class=\\\"tab-input\\\">\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-pixel-perfect\\\" class=\\\"tab-input\\\">\\n<div class=\\\"tabs\\\"><label for=\\\"tab-functional\\\">Functional</label><label for=\\\"tab-technical\\\">Technical</label><label for=\\\"tab-pixel-perfect\\\">Pixel perfect<small data-count></small></label></div>\\n<section data-tab=\\\"functional\\\">\\n{{functional}}\\n</section>\\n<section data-tab=\\\"technical\\\">\\n<div data-section=\\\"flow\\\" data-state=\\\"gap\\\">\\n<h4>Flow</h4>\\n<!-- FILL -->\\n</div>\\n<div data-section=\\\"deploy\\\" data-state=\\\"gap\\\">\\n<h4>Deploy order</h4>\\n<!-- FILL -->\\n</div>\\n{{technical}}\\n</section>\\n<section data-tab=\\\"pixel-perfect\\\">\\n<nav class=\\\"index\\\" aria-label=\\\"References\\\" data-index hidden></nav>\\n<!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element\\n     carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),\\n     data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,\\n     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,\\n     and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->\\n<div data-section=\\\"pixel-perfect\\\" data-state=\\\"gap\\\">\\n<h4>Pixel perfect</h4>\\n<!-- FILL -->\\n</div>\\n</section>\\n<template id=\\\"screen-css\\\"><style>\\n/* The screens' one stylesheet, written once for the page: the design system's tokens and the library mockups' rules.\\n   It reaches every marked screen and nothing else; the page's own rules never reach inside one. */\\n</style></template>\\n<script>\\n(function () {\\n  var BASE = ':host { all: initial; display: block; }';\\n  var tab = document.querySelector('[data-tab=\\\"pixel-perfect\\\"]');\\n  var sheet = document.getElementById('screen-css');\\n  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];\\n  var fits = [];\\n  function make(tag, cls, text) {\\n    var node = document.createElement(tag);\\n    if (cls) node.className = cls;\\n    if (text) node.textContent = text;\\n    return node;\\n  }\\n  function widthOf(screen) {\\n    var width = Number(screen.getAttribute('data-viewport'));\\n    return width >= 320 && width <= 2560 ? Math.round(width) : 0;\\n  }\\n  function isolate(screen) {\\n    if (!screen.attachShadow || screen.shadowRoot) return;\\n    var body = null;\\n    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];\\n    var root = screen.attachShadow({ mode: 'open' });\\n    root.appendChild(make('style', '', BASE));\\n    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));\\n    if (body) root.appendChild(body.content.cloneNode(true));\\n    else while (screen.firstChild) root.appendChild(screen.firstChild);\\n    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';\\n  }\\n  function size(fit) {\\n    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;\\n    if (!width) return;\\n    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }\\n    var k = Math.min(1, fit.clientWidth / width);\\n    if (!k) return;\\n    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';\\n    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';\\n  }\\n  function zoom(figure) {\\n    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');\\n    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });\\n    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';\\n    size(fit);\\n  }\\n  function frame(screen, ref) {\\n    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');\\n    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);\\n    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');\\n    button.type = 'button'; full.type = 'button';\\n    button.title = 'Open at 100 %';\\n    [button, full].forEach(function (each) {\\n      each.setAttribute('data-zoom', '');\\n      each.setAttribute('aria-pressed', 'false');\\n      each.addEventListener('click', function () { zoom(figure); });\\n    });\\n    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];\\n    parts.forEach(function (part, i) {\\n      if (i > 0) caption.appendChild(document.createTextNode(' \xB7 '));\\n      caption.appendChild(part);\\n    });\\n    caption.appendChild(full);\\n    if (width) fit.style.maxWidth = width + 2 + 'px';\\n    fit.appendChild(screen);\\n    figure.appendChild(caption);\\n    figure.appendChild(fit);\\n    fits.push(fit);\\n    return figure;\\n  }\\n  function absent(ref) {\\n    var figure = make('figure', 'shot none'), caption = make('figcaption');\\n    caption.appendChild(make('span', 'ref', ref));\\n    caption.appendChild(document.createTextNode(' \xB7 '));\\n    caption.appendChild(make('span', 'when today', 'Today'));\\n    figure.appendChild(caption);\\n    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));\\n    return figure;\\n  }\\n  var groups = [], byRef = {};\\n  screens.forEach(function (screen) {\\n    isolate(screen);\\n    var ref = screen.getAttribute('data-ref') || '';\\n    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }\\n    byRef[ref].screens.push(screen);\\n  });\\n  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };\\n  groups.forEach(function (group) {\\n    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';\\n    if (id && !document.getElementById(id)) pair.id = id;\\n    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));\\n    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);\\n    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });\\n    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));\\n    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });\\n  });\\n  var index = tab && tab.querySelector('[data-index]'), numbers = [];\\n  groups.forEach(function (group) {\\n    if (!group.ref || !index) return;\\n    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }\\n    var link = make('a', 'ref', group.ref);\\n    link.href = '#s-' + group.ref.replace('.', '-');\\n    link.title = group.screens[0].getAttribute('data-screen') || '';\\n    index.appendChild(link);\\n    var number = group.ref.split('.')[0];\\n    if (numbers.indexOf(number) === -1) numbers.push(number);\\n  });\\n  var count = document.querySelector('[data-count]');\\n  if (count && numbers.length > 0) count.textContent = ' \xB7 ' + numbers.length;\\n  if (typeof ResizeObserver === 'function') {\\n    var watch = new ResizeObserver(function (entries) {\\n      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });\\n    });\\n    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });\\n  }\\n  function open() {\\n    var hash = location.hash;\\n    if (hash === '#technical') document.getElementById('tab-technical').checked = true;\\n    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {\\n      document.getElementById('tab-pixel-perfect').checked = true;\\n      fits.forEach(size);\\n      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));\\n      if (target) target.scrollIntoView();\\n    }\\n  }\\n  fits.forEach(size);\\n  window.addEventListener('hashchange', open);\\n  open();\\n})();\\n</script>\\n</body>\\n</html>\\n\",\"omni-settings/playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no bug-fixing page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the\\n   reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`.\\nA regression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"omni-settings/playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no definition of done of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The change does what its spec or issue asks, and nothing it did not ask.\\n- The changed behaviour is proven by a test that failed before the change, or, where no test can\\n  reach it, by the narrowest evidence that was actually run.\\n- The repository's full preflight (`omni config commands.preflightFull` names it, else\\n  `commands.preflight`) is green on the last commit pushed; the pull request names any step it\\n  skipped, and why.\\n- The hand-off names every check that ran, and every check skipped with its reason. Nothing is\\n  reported as proven that was not run.\\n- Every decision taken without asking a person is written down for a person to answer.\\n- The pull request body says what changed, how it was verified, its risk, how to roll it back, and\\n  where a reviewer should look closest.\\n- The pull request is green and mergeable, or a comment on it says exactly what is stuck.\\n- No key, token, password or personal data is in a commit, a fixture, a log or the body.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- The playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape, with no unrelated formatting.\\nPrefer a few meaningful commits over one mixed commit that hides unrelated work.\\n\",\"omni-settings/playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n<!-- The workspace's tech default for every repository that writes no review page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\\nproblem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste, or style no linter enforces;\\n- work outside the pull request's scope;\\n- a rewrite to another pattern, with no defect named;\\n- what the spec already settles: quote it.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision,\\ncontradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after\\na fix or a push-back has the last word: the thread goes to a person, never back into the argument.\\n\",\"omni-settings/playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n<!-- The workspace's tech default for every repository that writes no verification page of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\nThe preflight is the command `omni config commands.preflight` prints, read from the config, never\\ntyped from memory. It is green before a pull request is opened. It runs the half of the gate a\\nlaptop can run, stops at the first failure, and says what to fix; what only CI can run, it names and\\nleaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun the full preflight (`omni config commands.preflightFull`, else `commands.preflight`) before\\nevery push to an open pull request. A pull request no CI runs on, such as a sub-pull request into a\\nfeature branch, has this as its only grade.\\n\\nA commit hook runs only the checks that need no build, so a green commit is not a green branch: run\\nthe rest yourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- A red CI job is reproduced locally, under its own name, before it is fixed.\\n- A ratchet (a check graded against a recorded baseline: coverage or mutation floors, a suppression\\n  budget, a formatting baseline) only holds or improves. Never lower a floor, skip a test or add a\\n  suppression to turn a check green; raising a budget is its own reviewed change.\\n- A check that only skipped or was cancelled is never green.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\",\"playbook/architecture.md\":\"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package's name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other's domain code; they meet in exactly one place, the\\n  app's composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file's name says its role.\\n\",\"playbook/briefing.md\":\"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Any agent\\n<!-- slot: agents \xB7 optional -->\\n- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.\\n- **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the\\n  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4\\n  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run\\n  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask\\n  nothing: a decision is a high outbox item.\\n- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its\\n  own worktree and sub-PR.\\n- **Models.** No model per subagent? Every slice runs on your terminal's model.\\n- **Background.** No background? Run in the foreground within your shell's limit, again until done.\\n- **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the\\n  repository holds it all.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n\",\"playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No\\n   smoke to run: stop, keep the reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`. A\\nregression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"playbook/ci.md\":\"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n\\n## Budgets\\n<!-- slot: budgets \xB7 optional -->\\nWhat every agent session reads (the briefing, each form as `omni kb show` prints it, the context\\nfiles) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while\\n`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which\\ntarget grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.\\nOnly when it needs the room, raise its ceiling in the same pull request and file a high outbox item\\nthat says why; a person's answer turns it green. A pull request with no PRD cannot raise one.\\n\",\"playbook/conventions.md\":\"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product's own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n\",\"playbook/decisions.md\":\"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one's status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with the latest 20\\nrecords' numbers and titles, read from the folder each time: nobody keeps that list by hand;\\n`omni kb show decisions --all` prints every record. Before writing a new record, look the decision\\nup there, or search the folder: it may be settled already. A number belongs to one record; two\\nrecords sharing one is a mistake to fix, never a precedent.\\n\",\"playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request's outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n\",\"playbook/design.md\":\"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product's screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n\",\"playbook/glossary.md\":\"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n\",\"playbook/pull-requests.md\":\"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository's pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary's words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\\"revert this pull request\\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n\",\"playbook/releasing.md\":\"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder's number, and `title`. Only the initial release's notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people's names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer's language\\n---\\nInvoices and their reminders are sent in the language set on the customer's record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n\",\"playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\\"while you\u2019re here\\\" changes outside the pull request's scope;\\n- a rewrite to the reviewer's preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n\",\"playbook/setup.md\":\"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n\",\"playbook/testing.md\":\"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n\",\"playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\"}"));
 var FRONT_DOOR_TEMPLATE = "README.md";
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -39729,7 +39729,7 @@ function readStartTag(reader, lt) {
   const after = past(reader.html, ">", end3);
   const element = { kind: "element", tag, attributes, children: [] };
   top(reader).children.push(element);
-  if (RAW.has(tag)) return readRawBody(reader, element, after);
+  if (RAW.has(tag) && !(reader.templates && tag === "template")) return readRawBody(reader, element, after);
   const selfClosing = reader.html[after - 2] === "/";
   if (!VOID.has(tag) && !selfClosing) reader.stack.push(element);
   return after;
@@ -39740,9 +39740,9 @@ function readMarkup(reader, lt) {
   addText(reader, "<");
   return lt + 1;
 }
-function parseHtml(html) {
+function parseHtml(html, { templates = false } = {}) {
   const root = { kind: "element", tag: "#document", attributes: /* @__PURE__ */ new Map(), children: [] };
-  const reader = { html, root, stack: [] };
+  const reader = { html, root, stack: [], templates };
   let at2 = 0;
   while (at2 < html.length) {
     const lt = html.indexOf("<", at2);
@@ -39866,10 +39866,7 @@ async function renderDiagrams({ html, launch }) {
 init_define_OMNI_BUNDLE();
 var MARKS = { prd: "{{prd}}", functional: "{{functional}}", technical: "{{technical}}" };
 var SERVICE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-var FUNCTIONAL_SECTIONS = [
-  ["functional", "Functional"],
-  ["pixel-perfect", "Pixel perfect"]
-];
+var FUNCTIONAL_SECTIONS = [["functional", "Functional"]];
 var TECHNICAL_SECTIONS = [
   ["db", "Database"],
   ["api", "API / schema"],
@@ -44520,14 +44517,51 @@ function productAvoids(root) {
 
 // kit/lib/before-after/grade.ts
 init_define_OMNI_BUNDLE();
-var BEFORE_AFTER_META = { name: "omni-before-after", version: "2" };
-var BEFORE_AFTER_TABS = ["functional", "technical"];
+var META_NAME = "omni-before-after";
+var TABS_OF = {
+  "2": ["functional", "technical"],
+  "3": ["functional", "technical", "pixel-perfect"]
+};
+var isVersion = (content) => content !== void 0 && Object.hasOwn(TABS_OF, content);
+var PIXEL_PERFECT = "pixel-perfect";
+var REFERENCE4 = /^[1-9]\d*\.[A-Z]$/;
+var WIDTH = /^[1-9]\d*$/;
+var WIDTH_MIN = 320;
+var WIDTH_MAX = 2560;
+var SIDES = /* @__PURE__ */ new Set(["today", "after"]);
 var SECTION_STATES = ["filled", "na", "gap"];
 var STATES2 = new Set(SECTION_STATES);
 var FILL = /<!--\s*FILL\s*-->/g;
 var FETCHED = ["src", "srcset", "poster"];
 var REFERENCES = ["href", "xlink:href"];
 var LINKS = /* @__PURE__ */ new Set(["a", "area", "base"]);
+var BLOCKS = /* @__PURE__ */ new Set([
+  "p",
+  "div",
+  "li",
+  "ul",
+  "ol",
+  "section",
+  "nav",
+  "figure",
+  "figcaption",
+  "header",
+  "footer",
+  "main",
+  "article",
+  "aside",
+  "br",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "tr",
+  "table",
+  "pre",
+  "blockquote"
+]);
 function loadsNothing(url2) {
   const value = url2.trim();
   return value === "" || value.startsWith("#") || value.toLowerCase().startsWith("data:");
@@ -44544,27 +44578,55 @@ function loadsOf({ tag, attributes }) {
   if (tag === "object" && data !== void 0 && !loadsNothing(data)) found2.push(named5("data", data));
   return found2;
 }
-var isMeta = ({ tag, attributes }) => tag === "meta" && attributes.get("name") === BEFORE_AFTER_META.name && attributes.get("content") === BEFORE_AFTER_META.version;
+function metaVersion({ tag, attributes }) {
+  const content = attributes.get("content");
+  return tag === "meta" && attributes.get("name") === META_NAME && isVersion(content) ? content : null;
+}
 var isDiagram = ({ tag, attributes }) => tag === "pre" && attributes.get("class")?.split(/\s/).includes("mermaid") === true;
 function noteMarks(element, read3) {
-  if (isMeta(element)) read3.marked = true;
+  read3.version ??= metaVersion(element);
   if (isDiagram(element)) read3.diagrams += 1;
   read3.loads.push(...loadsOf(element));
 }
 var within = ({ attributes }, around2) => ({
   service: attributes.get("data-service") ?? around2.service,
-  tab: attributes.get("data-tab") ?? around2.tab
+  tab: attributes.get("data-tab") ?? around2.tab,
+  section: around2.section
 });
-function noteParts({ attributes }, here, read3) {
-  const tab = attributes.get("data-tab");
+function textOf3(element) {
+  return element.children.map((child) => {
+    if (child.kind === "text") return child.text;
+    return BLOCKS.has(child.tag) ? `
+${textOf3(child)}
+` : textOf3(child);
+  }).join("");
+}
+function noteScreen({ attributes }, here, read3) {
+  const name3 = attributes.get("data-screen");
+  if (name3 === void 0) return;
+  read3.screens.push({
+    name: name3,
+    ref: attributes.get("data-ref") ?? null,
+    when: attributes.get("data-when") ?? null,
+    viewport: attributes.get("data-viewport") ?? null,
+    tab: here.tab,
+    section: here.section
+  });
+}
+function noteParts(element, here, read3) {
+  const tab = element.attributes.get("data-tab");
   if (tab !== void 0) read3.tabs.add(tab);
-  const name3 = attributes.get("data-section");
-  if (name3 !== void 0) read3.sections.push({ name: name3, state: attributes.get("data-state") ?? null, ...here });
+  noteScreen(element, here, read3);
+  const name3 = element.attributes.get("data-section");
+  if (name3 === void 0) return null;
+  read3.sections.push({ name: name3, state: element.attributes.get("data-state") ?? null, service: here.service, tab: here.tab, text: textOf3(element) });
+  return read3.sections.length - 1;
 }
 function walk(element, around2, read3) {
   noteMarks(element, read3);
-  const here = within(element, around2);
-  noteParts(element, here, read3);
+  const outer = within(element, around2);
+  const opened = noteParts(element, outer, read3);
+  const here = opened === null ? outer : { ...outer, section: opened };
   for (const child of element.children) {
     if (child.kind === "element") walk(child, here, read3);
   }
@@ -44576,18 +44638,88 @@ function stateViolation(section7) {
   return `${placeOf2(section7)} has data-state "${section7.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
 }
 var plural3 = (count10, one, many) => `${count10} ${count10 === 1 ? one : many}`;
+var quote = (text18) => `"${text18}"`;
+var screenOf = ({ name: name3, ref: ref2 }) => `screen ${quote(name3)}${ref2 !== null && REFERENCE4.test(ref2) ? ` (${ref2})` : ""}`;
+function marksViolations(screen) {
+  const { ref: ref2, when: when2, viewport } = screen;
+  const found2 = [];
+  if (ref2 === null) found2.push(`${screenOf(screen)} has no data-ref`);
+  else if (!REFERENCE4.test(ref2)) found2.push(`${screenOf(screen)} has data-ref ${quote(ref2)}, not <number>.<letter> as 2.C`);
+  if (when2 === null) found2.push(`${screenOf(screen)} has no data-when (today or after)`);
+  else if (!SIDES.has(when2)) found2.push(`${screenOf(screen)} has data-when ${quote(when2)}, not today or after`);
+  if (viewport === null) found2.push(`${screenOf(screen)} has no data-viewport (a width in CSS pixels, ${WIDTH_MIN} to ${WIDTH_MAX})`);
+  else if (!WIDTH.test(viewport) || Number(viewport) < WIDTH_MIN || Number(viewport) > WIDTH_MAX) {
+    found2.push(`${screenOf(screen)} has data-viewport ${quote(viewport)}, not a whole number of CSS pixels from ${WIDTH_MIN} to ${WIDTH_MAX}`);
+  }
+  return found2;
+}
+function referenced(screens2) {
+  return screens2.flatMap((screen) => screen.ref !== null && REFERENCE4.test(screen.ref) && screen.when !== null && SIDES.has(screen.when) ? [{ screen, ref: screen.ref, when: screen.when }] : []);
+}
+function pairViolations(screens2) {
+  const counts2 = /* @__PURE__ */ new Map();
+  const refs2 = /* @__PURE__ */ new Set();
+  for (const { ref: ref2, when: when2 } of referenced(screens2)) {
+    counts2.set(`${ref2} ${when2}`, (counts2.get(`${ref2} ${when2}`) ?? 0) + 1);
+    refs2.add(ref2);
+  }
+  const twice = [...counts2].filter(([, count10]) => count10 > 1).map(([pair, count10]) => `reference ${pair} is written ${count10} times, not once`);
+  const missing2 = [...refs2].filter((ref2) => !counts2.has(`${ref2} after`)).map((ref2) => `reference ${ref2} has no after`);
+  return [...twice, ...missing2];
+}
+function collect(map2, key2, value) {
+  map2.set(key2, (map2.get(key2) ?? /* @__PURE__ */ new Set()).add(value));
+}
+function numberViolations(screens2) {
+  const namesOf2 = /* @__PURE__ */ new Map();
+  const numbersOf = /* @__PURE__ */ new Map();
+  for (const { screen, ref: ref2 } of referenced(screens2)) {
+    const number5 = ref2.slice(0, ref2.indexOf("."));
+    collect(namesOf2, number5, screen.name);
+    collect(numbersOf, screen.name, number5);
+  }
+  const mixed = [...namesOf2].filter(([, names]) => names.size > 1).map(([number5, names]) => `number ${number5} carries ${[...names].map(quote).join(" and ")}, not one screen`);
+  const spread = [...numbersOf].filter(([, numbers2]) => numbers2.size > 1).map(([name3, numbers2]) => `screen ${quote(name3)} sits under numbers ${[...numbers2].join(" and ")}, not one`);
+  return [...mixed, ...spread];
+}
+function namedScreens(text18) {
+  const line2 = /^\s*screens:(.*)$/im.exec(text18)?.[1] ?? "";
+  return new Set(line2.split("\xB7").map((name3) => name3.trim()).filter((name3) => name3 !== ""));
+}
+function sectionViolations2(read3) {
+  const found2 = [];
+  const own2 = read3.sections.flatMap((section7, index2) => section7.name === PIXEL_PERFECT ? [{ section: section7, index: index2 }] : []);
+  if (own2.length === 0) found2.push(`no ${quote(PIXEL_PERFECT)} section`);
+  else if (own2.length > 1) found2.push(`${own2.length} ${quote(PIXEL_PERFECT)} sections, not one for the page`);
+  for (const { section: section7, index: index2 } of own2) {
+    if (section7.tab !== PIXEL_PERFECT) found2.push(`${placeOf2(section7)} sits outside the ${quote(PIXEL_PERFECT)} tab`);
+    const held3 = read3.screens.filter((screen) => screen.section === index2);
+    if (section7.state === "filled" && held3.length === 0) found2.push(`${placeOf2(section7)} is filled but holds no marked screen (data-screen)`);
+    const named5 = namedScreens(section7.text);
+    for (const name3 of new Set(held3.map((screen) => screen.name))) {
+      if (!named5.has(name3)) found2.push(`${placeOf2(section7)}: its screens: line does not name screen ${quote(name3)}`);
+    }
+  }
+  return found2;
+}
+function screenViolations(read3) {
+  const outside = read3.screens.filter(({ tab }) => tab !== PIXEL_PERFECT).map((screen) => `${screenOf(screen)} sits ${screen.tab === null ? "outside any tab" : `in the ${quote(screen.tab)} tab`}, not the ${quote(PIXEL_PERFECT)} tab`);
+  return [...outside, ...read3.screens.flatMap(marksViolations), ...pairViolations(read3.screens), ...numberViolations(read3.screens)];
+}
 function gradeBeforeAfter({ file: file2, html, prd: prd2 }) {
-  const read3 = { marked: false, tabs: /* @__PURE__ */ new Set(), sections: [], diagrams: 0, loads: [] };
-  walk(parseHtml(html), { service: null, tab: null }, read3);
-  if (!read3.marked) return [];
+  const read3 = { version: null, tabs: /* @__PURE__ */ new Set(), sections: [], screens: [], diagrams: 0, loads: [] };
+  walk(parseHtml(html), { service: null, tab: null, section: null }, read3);
+  if (read3.version === null) return [];
   const violations = [];
-  for (const tab of BEFORE_AFTER_TABS) {
+  for (const tab of TABS_OF[read3.version]) {
     if (!read3.tabs.has(tab)) violations.push(`no "${tab}" tab`);
   }
+  if (read3.version === "3") violations.push(...sectionViolations2(read3));
   for (const section7 of read3.sections) {
     const violation2 = stateViolation(section7);
     if (violation2 !== null) violations.push(violation2);
   }
+  if (read3.version === "3") violations.push(...screenViolations(read3));
   const fills = html.match(FILL)?.length ?? 0;
   if (fills > 0) violations.push(`${plural3(fills, "<!-- FILL --> marker", "<!-- FILL --> markers")} left`);
   if (read3.diagrams > 0) {
@@ -46244,15 +46376,15 @@ function parseScreen(text18, file2) {
     const keys = issue2?.code === "unrecognized_keys" ? `: ${issue2.keys.join(", ")}` : "";
     return fail2(`${issue2?.message ?? "front matter does not read"}${keys}`);
   }
-  const { screen, status: status5, kind: kind2, quote, mock, implements: paths, reads: reads2, routes, supersedes } = read3.data;
+  const { screen, status: status5, kind: kind2, quote: quote2, mock, implements: paths, reads: reads2, routes, supersedes } = read3.data;
   const lockedBy = read3.data["locked-by"];
   const lockedOn = read3.data["locked-on"];
   if (status5 === "locked") {
-    const missing2 = [["locked-by", lockedBy], ["locked-on", lockedOn], ["quote", quote]].flatMap(([field3, value]) => value === null ? [field3] : []);
+    const missing2 = [["locked-by", lockedBy], ["locked-on", lockedOn], ["quote", quote2]].flatMap(([field3, value]) => value === null ? [field3] : []);
     if (missing2.length) return fail2(`a locked screen needs locked-by, locked-on and quote \u2014 missing ${missing2.join(", ")}`);
   }
   const body = readBody3(text18.slice(fence[0].length));
-  return { ok: true, screen: { file: file2, screen, status: status5, kind: kind2, lockedBy, lockedOn, quote, mock, implements: paths, reads: reads2, routes, supersedes, ...body } };
+  return { ok: true, screen: { file: file2, screen, status: status5, kind: kind2, lockedBy, lockedOn, quote: quote2, mock, implements: paths, reads: reads2, routes, supersedes, ...body } };
 }
 function readScreens(dir) {
   let files;
@@ -47110,7 +47242,7 @@ function writeCache(root, { repo, syncedAt, read: read3 }) {
 init_define_OMNI_BUNDLE();
 var USAGE16 = 'usage: omni constituents add --statement "<text>" | --never "<text>" [--product <name>] [--json] | omni constituents edit statement|never#<n> --text "<text>" [--product <name>] [--json]';
 var ENTRY = /^(statement|never#[1-9]\d*)$/;
-var textOf3 = (value) => typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+var textOf4 = (value) => typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 function parsedOf(args) {
   try {
     return parseArgs("constituents", args, { values: ["statement", "never", "text", "product"], booleans: ["json"] });
@@ -47120,7 +47252,7 @@ function parsedOf(args) {
 }
 var SHAPES = ["add statement 0", "add never 0", "edit text 1"];
 function fieldsOf(flags) {
-  const given = ["statement", "never", "text"].map((name3) => [name3, textOf3(flags[name3])]);
+  const given = ["statement", "never", "text"].map((name3) => [name3, textOf4(flags[name3])]);
   return Object.fromEntries(given.filter((pair) => pair[1] !== null));
 }
 function changeOf(args) {
@@ -47129,14 +47261,14 @@ function changeOf(args) {
   const fields = fieldsOf(flags);
   const [entry3] = rest;
   if (!SHAPES.includes(`${verb2} ${Object.keys(fields).join(",")} ${rest.length}`) || entry3 !== void 0 && !ENTRY.test(entry3)) throw usageError(USAGE16);
-  const product2 = textOf3(flags.product);
+  const product2 = textOf4(flags.product);
   const change2 = { action: verb2 === "add" ? "add" : "edit", fields, ...product2 === null ? {} : { product: product2 }, ...entry3 === void 0 ? {} : { entry: entry3 } };
   return { change: change2, json: flags.json === true };
 }
 function successLine(action, reply) {
   const answer = jsonObject(reply);
   if (!answer) return null;
-  const [id, url2] = [textOf3(answer.id), textOf3(answer.url)];
+  const [id, url2] = [textOf4(answer.id), textOf4(answer.url)];
   return answer.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${url2 === null ? "" : ` \xB7 ${url2}`}` : null;
 }
 function refusalLine2(error62, host) {
@@ -48361,10 +48493,10 @@ function countWords(text18) {
   return text18.split(/\s+/).filter((token) => WORD.test(token)).length;
 }
 var isControl = ({ tag, attributes }, primary) => matches(primary, { tag, attributes }) || tag === "button" || tag === "a" && attributes.has("href") || CONTROL_ROLES.has(attributes.get("role") ?? "") || tag === "input" && INPUT_CONTROLS.has((attributes.get("type") ?? "").toLowerCase());
-var isHidden = ({ tag, attributes }) => tag === "head" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
+var isHidden = ({ tag, attributes }) => tag === "head" || tag === "template" || attributes.has("hidden") || attributes.get("aria-hidden") === "true";
 var wordsOf = (count10) => `${count10} ${count10 === 1 ? "word" : "words"}`;
 var squash = (text18) => text18.replace(/\s+/g, " ").trim();
-function textOf4(node3, spaced) {
+function textOf5(node3, spaced) {
   if (node3.kind === "text") return node3.text;
   if (isHidden(node3)) return "";
   const own2 = node3.tag === "input" ? ` ${node3.attributes.get("value") ?? ""} ` : "";
@@ -48372,7 +48504,7 @@ function textOf4(node3, spaced) {
   return node3.children.reduce((text18, child, index2) => {
     const before2 = node3.children[index2 - 1];
     const apart = block || spaced && before2?.kind === "element" && child.kind === "element";
-    return text18 + (index2 > 0 && apart ? " " : "") + textOf4(child, spaced);
+    return text18 + (index2 > 0 && apart ? " " : "") + textOf5(child, spaced);
   }, own2);
 }
 function phraseOf(text18, control) {
@@ -48389,11 +48521,11 @@ var hasRunningText = (element) => element.children.some((child) => child.kind ==
 var runsOn = (child, running) => running && child.kind === "element" && PHRASING.has(child.tag);
 function readContent2(element, walk3, inline) {
   if (!inline) flush(walk3);
-  walk3.content += countWords(textOf4(element, true));
+  walk3.content += countWords(textOf5(element, true));
 }
 function readControl(element, walk3) {
   flush(walk3);
-  walk3.phrases.push(...phraseOf(textOf4(element, true), true));
+  walk3.phrases.push(...phraseOf(textOf5(element, true), true));
 }
 function visitChildren(element, walk3, inline) {
   if (!inline) flush(walk3);
@@ -48407,7 +48539,7 @@ function visitElement(element, walk3, top2, inline) {
     readContent2(element, walk3, inline);
     return;
   }
-  if (matches(walk3.rules.primary, element)) walk3.primaries.push(squash(textOf4(element, true)));
+  if (matches(walk3.rules.primary, element)) walk3.primaries.push(squash(textOf5(element, true)));
   if (isControl(element, walk3.rules.primary)) {
     readControl(element, walk3);
     return;
@@ -48420,7 +48552,7 @@ function visit2(node3, walk3, inline) {
 }
 function readScreen(screen, rules) {
   const walk3 = { rules, phrases: [], primaries: [], run: "", content: 0 };
-  visitElement(screen, walk3, true, false);
+  visitElement({ ...screen, children: screen.children.flatMap((child) => child.kind === "element" && child.tag === "template" ? child.children : [child]) }, walk3, true, false);
   flush(walk3);
   return { phrases: walk3.phrases, primaries: walk3.primaries, content: walk3.content };
 }
@@ -48454,7 +48586,7 @@ function screensUnder(node3, rules) {
   return found2;
 }
 function wordPass(html, rules) {
-  const marked = screensUnder(parseHtml(html), rules);
+  const marked = screensUnder(parseHtml(html, { templates: true }), rules);
   const screens2 = marked.map((screen, index2) => {
     const { phrases, primaries, content } = readScreen(screen, rules);
     return {
@@ -53932,7 +54064,7 @@ function pluginLines({ outcome: outcome2 }, { kitHome: kitHome2 }) {
 
 // kit/lib/init/signin-step.ts
 init_define_OMNI_BUNDLE();
-var textOf5 = (value) => typeof value === "string" ? value : value === null ? null : void 0;
+var textOf6 = (value) => typeof value === "string" ? value : value === null ? null : void 0;
 async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   if (!askUrl2) return { outcome: "unset" };
   const host = credentialsHost(askUrl2);
@@ -53952,7 +54084,7 @@ async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   if (!entry3) return { outcome: "later", host, why: "did not finish" };
   return { outcome: "signed-in", host, email: who(entry3), ...line2 ? { line: line2 } : {} };
 }
-var who = (entry3) => textOf5(entry3.email) ?? textOf5(entry3.login);
+var who = (entry3) => textOf6(entry3.email) ?? textOf6(entry3.login);
 function signInLines({ outcome: outcome2, host, email: email3, line: line2, why: why3 }) {
   if (outcome2 === "signed-in" && line2) return { status: [`  signin  ${line2}`], todo: [] };
   if (outcome2 === "signed-in") return { status: [`  signin  signed in to ${host} as ${email3}`], todo: [] };
@@ -55554,14 +55686,14 @@ var USAGE30 = {
 var REQUIRED3 = { legal: ["code", "statement", "source"], glossary: ["term", "meaning"], domains: ["key", "name", "meaning"] };
 var ADDABLE = { legal: REQUIRED3.legal, glossary: ["term", "meaning", "avoid", "domain"], domains: REQUIRED3.domains };
 var EDITABLE = { legal: ["statement", "source"], glossary: ["meaning", "avoid", "domain"], domains: ["name", "meaning"] };
-var textOf6 = (value) => typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+var textOf7 = (value) => typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 var wordsOf2 = (value) => value.split(",").map((word2) => word2.trim()).filter(Boolean);
 var LISTS = { avoid: "avoid", domain: "domains" };
 function fieldsOf2(names, flags) {
   const given = names.map((name3) => {
     const raw = flags[name3];
     const list6 = LISTS[name3];
-    if (list6 === void 0) return [name3, textOf6(raw)];
+    if (list6 === void 0) return [name3, textOf7(raw)];
     return [list6, typeof raw === "string" ? wordsOf2(raw) : null];
   });
   return Object.fromEntries(given.filter(([, value]) => value !== null));
@@ -55579,10 +55711,10 @@ function changeOf2(kind2, args) {
   const { positional, flags } = parsedOf2(kind2, args);
   const [action, ...rest] = positional;
   if (action !== "add" && action !== "edit") throw usageError(usage2);
-  const entry3 = action === "edit" ? textOf6(rest[0]) : null;
+  const entry3 = action === "edit" ? textOf7(rest[0]) : null;
   const fields = fieldsOf2(action === "add" ? ADDABLE[kind2] : EDITABLE[kind2], flags);
   checkChange(kind2, action, rest.length, entry3, fields);
-  const product2 = textOf6(flags.product);
+  const product2 = textOf7(flags.product);
   const change2 = { kind: kind2, action, ...product2 === null ? {} : { product: product2 }, ...entry3 === null ? {} : { entry: entry3 }, fields };
   return { change: change2, json: flags.json === true };
 }
@@ -55594,7 +55726,7 @@ function checkChange(kind2, action, positionals, entry3, fields) {
 function successLine2(action, reply) {
   const answer = jsonObject(reply);
   if (!answer) return null;
-  const [id, url2, owner] = [textOf6(answer.id), textOf6(answer.url), textOf6(answer.owner)];
+  const [id, url2, owner] = [textOf7(answer.id), textOf7(answer.url), textOf7(answer.owner)];
   const link3 = url2 === null ? "" : ` \xB7 ${url2}`;
   if (answer.done === "proposed") return `proposed \xB7 waits for ${owner === null ? "the section's owner" : `@${owner.replace(/^@/, "")}`}${link3}`;
   return answer.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${link3}` : null;
@@ -56359,7 +56491,7 @@ function requireProofText(text18) {
 function editableFiles(read3) {
   const original = /* @__PURE__ */ new Map();
   const texts = /* @__PURE__ */ new Map();
-  const textOf15 = (path) => {
+  const textOf16 = (path) => {
     if (!texts.has(path)) {
       const text18 = read3(path);
       original.set(path, text18);
@@ -56368,13 +56500,13 @@ function editableFiles(read3) {
     return texts.get(path) ?? null;
   };
   const edit = (path, change2) => {
-    const text18 = textOf15(path);
+    const text18 = textOf16(path);
     const changed = text18 === null ? null : change2(text18);
     if (changed !== null) texts.set(path, changed);
     return changed !== null;
   };
   const writes = () => [...texts].filter((pair) => pair[1] !== null && pair[1] !== original.get(pair[0])).map(([path, text18]) => ({ path, text: text18 }));
-  return { textOf: textOf15, edit, writes };
+  return { textOf: textOf16, edit, writes };
 }
 function applyVerdict(entry3, verdict2, { edit, markers }) {
   const issue2 = verdict2.issue;
@@ -60423,7 +60555,7 @@ async function pageOf2(id, client, repo) {
     return null;
   }
 }
-var textOf7 = (value) => isText6(value) ? value : null;
+var textOf8 = (value) => isText6(value) ? value : null;
 var asJson = ({ id, state, approval: approval3, title, url: url2, product: product2 }) => JSON.stringify({ id, title, state, birthplace: "server", approval: approval3.lines, page: url2, product: product2, laws: approval3.laws ?? null }, null, 2);
 var asLines = ({ id, state, approval: approval3, read: read3, title, url: url2, product: product2 }) => [
   `PRD ${id}${title === null ? "" : ` \u2014 ${title}`}`,
@@ -60451,7 +60583,7 @@ async function lookup2(id, client, io, json3) {
   }
   const state = productPrdState(id, approval3);
   const page2 = approval3.state === "unreachable" ? null : await pageOf2(id, client, repo);
-  const found2 = { id, state: state.state, approval: approval3, read: page2 !== null, title: textOf7(field(page2, "title")), url: textOf7(field(page2, "url") ?? approval3.url), product: textOf7(field(page2, "product")) };
+  const found2 = { id, state: state.state, approval: approval3, read: page2 !== null, title: textOf8(field(page2, "title")), url: textOf8(field(page2, "url") ?? approval3.url), product: textOf8(field(page2, "product")) };
   println(io.stdout, json3 ? asJson(found2) : asLines(found2));
   return 0;
 }
@@ -62604,7 +62736,7 @@ function isHttpUrl(value) {
 var KNOWN_VERDICTS2 = VERDICTS2;
 var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
-function textOf8(item2, at2) {
+function textOf9(item2, at2) {
   const text18 = isRecord9(item2) ? item2.text : void 0;
   const valid = isRecord9(item2) && typeof text18 === "string" && text18.trim() && text18.length <= TEXT_MAX2;
   if (!valid) return refuse4(`${at2}: its text is 1 to ${TEXT_MAX2} characters`);
@@ -62631,7 +62763,7 @@ function extrasOf2(item2, at2, criterion) {
 }
 function criterionOf(item2, index2) {
   const at2 = `criterion ${index2 + 1}`;
-  const { text: text18, sent: sent2 } = textOf8(item2, at2);
+  const { text: text18, sent: sent2 } = textOf9(item2, at2);
   return extrasOf2(sent2, at2, { text: text18, verdict: verdictOf3(sent2, at2) });
 }
 function fileOf2(dir, name3) {
@@ -64607,7 +64739,7 @@ function eventsOf(run2) {
     }
   });
 }
-var textOf9 = (value) => typeof value === "string" ? value : "";
+var textOf10 = (value) => typeof value === "string" ? value : "";
 var numberOf2 = (value) => typeof value === "number" && Number.isFinite(value) ? value : null;
 var count5 = (value) => Math.max(0, Math.trunc(numberOf2(value) ?? 0));
 function isoOf(epoch) {
@@ -64618,12 +64750,12 @@ function isoOf(epoch) {
 function saidBy(event) {
   const content = field(field(event, "message"), "content");
   if (!Array.isArray(content)) return "";
-  return content.map((block) => field(block, "type") === "text" ? textOf9(field(block, "text")) : "").join("\n");
+  return content.map((block) => field(block, "type") === "text" ? textOf10(field(block, "text")) : "").join("\n");
 }
 var rateLimits = (events) => events.filter((event) => kind(event) === "rate_limit_event").map((event) => field(event, "rate_limit_info"));
 function modelOf(events) {
   const init3 = events.find((event) => kind(event) === "system" && field(event, "subtype") === "init");
-  const model = textOf9(field(init3, "model"));
+  const model = textOf10(field(init3, "model"));
   return model === "" ? null : model;
 }
 var accountArgs = (account) => account.model === null ? [] : ["--model", account.model];
@@ -64636,7 +64768,7 @@ function endedOnLimit(events) {
   if (rateLimits(events).some((info) => field(info, "status") === "rejected")) return true;
   return events.some((event) => {
     if (kind(event) === "assistant") return field(event, "error") === "rate_limit" || field(field(event, "message"), "model") === SYNTHETIC && LIMIT_WORDS.test(saidBy(event));
-    return kind(event) === "result" && LIMIT_WORDS.test(textOf9(field(event, "result")));
+    return kind(event) === "result" && LIMIT_WORDS.test(textOf10(field(event, "result")));
   });
 }
 function resetOf(events) {
@@ -64644,7 +64776,7 @@ function resetOf(events) {
   const fromEvent = isoOf(field(rejected, "resetsAt"));
   if (fromEvent !== null) return fromEvent;
   for (const event of [...events].reverse()) {
-    const words4 = kind(event) === "result" ? textOf9(field(event, "result")) : kind(event) === "assistant" ? saidBy(event) : "";
+    const words4 = kind(event) === "result" ? textOf10(field(event, "result")) : kind(event) === "assistant" ? saidBy(event) : "";
     const epoch = LIMIT_EPOCH.exec(words4)?.[1];
     if (epoch !== void 0) return isoOf(Number(epoch));
   }
@@ -64654,8 +64786,8 @@ function usagePressure(events) {
   const info = rateLimits(events).at(-1);
   if (typeof info !== "object" || info === null) return null;
   const utilization = numberOf2(field(info, "utilization"));
-  const status5 = textOf9(field(info, "status"));
-  const window = textOf9(field(info, "rateLimitType"));
+  const status5 = textOf10(field(info, "status"));
+  const window = textOf10(field(info, "rateLimitType"));
   return {
     percent: utilization === null ? null : Math.round(utilization * 100),
     status: status5 === "" ? null : status5,
@@ -64718,8 +64850,8 @@ ${handoff2}
       return { usage: usagePressure(events), context: contextPressure(events) };
     },
     session(run2) {
-      const named5 = eventsOf(run2).find((event) => textOf9(field(event, "session_id")) !== "");
-      return named5 === void 0 ? null : textOf9(field(named5, "session_id"));
+      const named5 = eventsOf(run2).find((event) => textOf10(field(event, "session_id")) !== "");
+      return named5 === void 0 ? null : textOf10(field(named5, "session_id"));
     },
     interrupt() {
       return { kind: "signal", first: "SIGINT", then: "SIGTERM", afterMs: INTERRUPT_GRACE_MS };
@@ -64748,7 +64880,7 @@ var PAIRING_TTL = "5m";
 var PAIRING_LABEL = "omni runner t3-signin";
 var MCP_PROTOCOL = "2025-06-18";
 var INTERRUPT_REASON = "omni runner: a planned handoff";
-var textOf10 = (value) => typeof value === "string" ? value : "";
+var textOf11 = (value) => typeof value === "string" ? value : "";
 function readT3Credential(home, now2 = Date.now) {
   let kept2;
   try {
@@ -64756,9 +64888,9 @@ function readT3Credential(home, now2 = Date.now) {
   } catch {
     return null;
   }
-  const origin = textOf10(field(kept2, "origin"));
-  const token = textOf10(field(kept2, "token"));
-  const expiresAt = textOf10(field(kept2, "expiresAt"));
+  const origin = textOf11(field(kept2, "origin"));
+  const token = textOf11(field(kept2, "token"));
+  const expiresAt = textOf11(field(kept2, "expiresAt"));
   const expires = Date.parse(expiresAt);
   if (origin === "" || token === "" || Number.isNaN(expires) || expires <= now2()) return null;
   return { origin, token, expiresAt };
@@ -64793,7 +64925,7 @@ function pairingCode(exec) {
   }
   let credential = "";
   try {
-    credential = textOf10(field(JSON.parse(printed4), "credential"));
+    credential = textOf11(field(JSON.parse(printed4), "credential"));
   } catch {
     credential = "";
   }
@@ -64806,7 +64938,7 @@ async function register(fetch, origin) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ client_name: CLIENT_NAME, redirect_uris: [REDIRECT_URI] })
   });
-  const clientId = textOf10(field(await bodyOf4(response), "client_id"));
+  const clientId = textOf11(field(await bodyOf4(response), "client_id"));
   if (!response.ok || clientId === "") throw new T3Refused(`T3 refused to register the runner (${String(response.status)})`);
   return clientId;
 }
@@ -64817,10 +64949,10 @@ async function approve(fetch, origin, authorization, code) {
     body: JSON.stringify({ authorization, decision: { _tag: "pairing-code", access: "full-access", code } })
   });
   const body = await bodyOf4(response);
-  if (!response.ok) throw new T3Refused(`T3 refused the sign-in: ${textOf10(field(body, "message")) || String(response.status)}`);
+  if (!response.ok) throw new T3Refused(`T3 refused the sign-in: ${textOf11(field(body, "message")) || String(response.status)}`);
   let back;
   try {
-    back = new URL(textOf10(field(body, "redirectTo")));
+    back = new URL(textOf11(field(body, "redirectTo")));
   } catch {
     throw new T3Refused("T3 answered the sign-in with no address");
   }
@@ -64837,9 +64969,9 @@ async function exchange(fetch, origin, form2) {
     body: new URLSearchParams(form2).toString()
   });
   const body = await bodyOf4(response);
-  const token = textOf10(field(body, "access_token"));
+  const token = textOf11(field(body, "access_token"));
   const seconds4 = field(body, "expires_in");
-  if (!response.ok || token === "" || typeof seconds4 !== "number") throw new T3Refused(`T3 refused the sign-in: ${textOf10(field(body, "error_description")) || String(response.status)}`);
+  if (!response.ok || token === "" || typeof seconds4 !== "number") throw new T3Refused(`T3 refused the sign-in: ${textOf11(field(body, "error_description")) || String(response.status)}`);
   return { token, seconds: seconds4 };
 }
 function keep2(home, kept2) {
@@ -64900,13 +65032,13 @@ async function mcp(fetch, origin, token, session2, message2) {
 }
 function toolResult(rpc) {
   const result2 = field(rpc, "result");
-  if (result2 === void 0) throw new T3Refused(textOf10(field(field(rpc, "error"), "message")) || "T3 answered no result");
+  if (result2 === void 0) throw new T3Refused(textOf11(field(field(rpc, "error"), "message")) || "T3 answered no result");
   if (field(result2, "isError") !== true) return field(result2, "structuredContent");
   const content = field(result2, "content");
-  const said2 = Array.isArray(content) ? textOf10(field(content.find((part) => field(part, "text") !== void 0), "text")) : "";
+  const said2 = Array.isArray(content) ? textOf11(field(content.find((part) => field(part, "text") !== void 0), "text")) : "";
   let message2 = said2;
   try {
-    message2 = textOf10(field(JSON.parse(said2), "message")) || said2;
+    message2 = textOf11(field(JSON.parse(said2), "message")) || said2;
   } catch {
   }
   throw new T3Refused(message2 || "T3 refused the call");
@@ -64916,7 +65048,7 @@ async function t3Interrupt({ origin, token, threadId, fetch }) {
     const opened = await mcp(fetch, origin, token, null, { id: 1, method: "initialize", params: { protocolVersion: MCP_PROTOCOL, capabilities: {}, clientInfo: { name: "omni-runner", version: "1" } } });
     await mcp(fetch, origin, token, opened.session, { method: "notifications/initialized" });
     const called2 = await mcp(fetch, origin, token, opened.session, { id: 2, method: "tools/call", params: { name: "t3_thread_interrupt", arguments: { threadId, reason: INTERRUPT_REASON } } });
-    return { status: textOf10(field(toolResult(called2.rpc), "status")) || "unknown" };
+    return { status: textOf11(field(toolResult(called2.rpc), "status")) || "unknown" };
   } catch (error62) {
     if (error62 instanceof T3Refused) return { refused: error62.message };
     throw error62;
@@ -64938,7 +65070,7 @@ function jsonAt(path) {
     return void 0;
   }
 }
-var textOf11 = (value) => typeof value === "string" ? value.trim() : "";
+var textOf12 = (value) => typeof value === "string" ? value.trim() : "";
 function processAlive(pid) {
   try {
     process.kill(pid, 0);
@@ -64950,7 +65082,7 @@ function processAlive(pid) {
 function t3Origin(t3Home, alive = processAlive) {
   const state = jsonAt(join150(t3Home, "userdata", "server-runtime.json"));
   const pid = field(state, "pid");
-  const origin = textOf11(field(state, "origin"));
+  const origin = textOf12(field(state, "origin"));
   if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0 || origin === "") return null;
   return alive(pid) ? origin : null;
 }
@@ -64964,7 +65096,7 @@ function t3Instance(t3Home, home, id) {
   const configured = typeof instances === "object" && instances !== null && Object.hasOwn(instances, id) ? field(instances, id) : void 0;
   const status5 = jsonAt(join150(t3Home, "caches", `${id}.json`));
   if (configured === void 0 && status5 === void 0) return null;
-  const driver = textOf11(field(configured, "driver")) || id;
+  const driver = textOf12(field(configured, "driver")) || id;
   const claude = driver === CLAUDE_DRIVER;
   return {
     id,
@@ -64972,7 +65104,7 @@ function t3Instance(t3Home, home, id) {
     claude,
     enabled: field(configured, "enabled") !== false && field(status5, "enabled") !== false,
     signedIn: field(field(status5, "auth"), "status") === "authenticated",
-    projects: claude ? join150(claudeFolder(textOf11(field(field(configured, "config"), "homePath")), home), "projects") : null
+    projects: claude ? join150(claudeFolder(textOf12(field(field(configured, "config"), "homePath")), home), "projects") : null
   };
 }
 function t3ClaudeProjects(t3Home, home, ids2) {
@@ -64988,7 +65120,7 @@ var STOP_GRACE_MS = 3e4;
 var LIMIT_WORDS2 = /usage limit (?:was )?reached|rate limit reached|hit your (?:usage )?limit/i;
 var RESETS_IN = /resets in (?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?/;
 var LINE2 = /^\/(omni:)?([a-z][a-z0-9-]*)(?: (.*))?$/s;
-var textOf12 = (value) => typeof value === "string" ? value : "";
+var textOf13 = (value) => typeof value === "string" ? value : "";
 var count6 = (value) => typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
 function eventsOf2(run2) {
   return run2.lines.flatMap((each) => {
@@ -65015,28 +65147,28 @@ function stamped(context, texts) {
 }
 var tookWords = (ms) => ms < 6e4 ? "under a minute" : `${String(Math.round(ms / 6e4))} min`;
 function endLines(event, context) {
-  const status5 = textOf12(field(event, "status"));
+  const status5 = textOf13(field(event, "status"));
   const done = `Done: ${status5 === "completed" ? "ok" : "error"} \xB7 T3 ${status5} \xB7 ${tookWords(count6(field(event, "ms")))}`;
   if (status5 === "completed") {
-    const handOff = stepLine(JSON.stringify({ type: "result", subtype: "success", result: textOf12(field(event, "reply")) }), context).slice(1);
+    const handOff = stepLine(JSON.stringify({ type: "result", subtype: "success", result: textOf13(field(event, "reply")) }), context).slice(1);
     return [...stamped(context, [done]), ...handOff];
   }
   if (status5 === "waiting") return stamped(context, [done, "\u2717 waiting for an answer in T3: a runner job cannot give one, so the job fails"]);
-  const error62 = textOf12(field(event, "error")).split("\n").find((each) => each.trim() !== "");
+  const error62 = textOf13(field(event, "error")).split("\n").find((each) => each.trim() !== "");
   return stamped(context, error62 === void 0 ? [done] : [done, `\u2717 ${error62.trim()}`]);
 }
 function t3Lines(event, context) {
   switch (field(event, "type")) {
     case "t3.thread":
-      return stamped(context, [`T3: thread ${textOf12(field(event, "threadId"))} on ${textOf12(field(event, "instance"))} (${textOf12(field(event, "model"))})`]);
+      return stamped(context, [`T3: thread ${textOf13(field(event, "threadId"))} on ${textOf13(field(event, "instance"))} (${textOf13(field(event, "model"))})`]);
     case "t3.show": {
       const messages2 = field(event, "messages");
-      const said2 = Array.isArray(messages2) ? messages2.map((message2) => textOf12(message2).split("\n").find((each) => each.trim() !== "")?.trim() ?? "").filter((each) => each !== "") : [];
+      const said2 = Array.isArray(messages2) ? messages2.map((message2) => textOf13(message2).split("\n").find((each) => each.trim() !== "")?.trim() ?? "").filter((each) => each !== "") : [];
       return stamped(context, said2.map((each) => `\u203A ${each}`));
     }
     case "t3.interrupt": {
-      const refused4 = textOf12(field(event, "refused"));
-      return stamped(context, [refused4 === "" ? `T3: stop asked (${textOf12(field(event, "status"))})` : `\u2717 T3 could not stop the run: ${refused4}`]);
+      const refused4 = textOf13(field(event, "refused"));
+      return stamped(context, [refused4 === "" ? `T3: stop asked (${textOf13(field(event, "status"))})` : `\u2717 T3 could not stop the run: ${refused4}`]);
     }
     case "t3.end":
       return endLines(event, context);
@@ -65046,7 +65178,7 @@ function t3Lines(event, context) {
 }
 function resetOf2(error62, end3) {
   const wait6 = RESETS_IN.exec(error62);
-  const at2 = Date.parse(textOf12(field(end3, "at")));
+  const at2 = Date.parse(textOf13(field(end3, "at")));
   if (wait6 === null || (wait6[1] ?? wait6[2] ?? wait6[3]) === void 0 || Number.isNaN(at2)) return null;
   const minutes2 = Number(wait6[1] ?? 0) * 24 * 60 + Number(wait6[2] ?? 0) * 60 + Number(wait6[3] ?? 0);
   return new Date(at2 + minutes2 * 6e4).toISOString();
@@ -65056,7 +65188,7 @@ function contextOf3(events) {
   if (last === void 0) return null;
   const usage2 = field(field(last, "message"), "usage");
   const used = ["input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens"].reduce((sum, key2) => sum + count6(field(usage2, key2)), 0);
-  const model = textOf12(field(lastOf(events, "t3.thread"), "model"));
+  const model = textOf13(field(lastOf(events, "t3.thread"), "model"));
   return { used, window: model.endsWith("[1m]") ? WINDOW_1M : WINDOW };
 }
 function instanceInFile(home, id) {
@@ -65121,22 +65253,22 @@ ${handoff2}
       } catch {
         return stepLine(each, context);
       }
-      const type = textOf12(field(event, "type"));
+      const type = textOf13(field(event, "type"));
       return typeof event === "object" && event !== null && type.startsWith("t3.") ? t3Lines(event, context) : stepLine(each, context);
     },
     usage(ran) {
       const thread = lastOf(eventsOf2(ran), "t3.thread");
-      const projects = thread === void 0 ? null : t3Instance(t3Home, home, textOf12(field(thread, "instance")))?.projects ?? null;
+      const projects = thread === void 0 ? null : t3Instance(t3Home, home, textOf13(field(thread, "instance")))?.projects ?? null;
       if (projects === null) return null;
       const tokens2 = tokenSource({ projects, now: now2 }).job(ran.cwd);
-      const model = textOf12(field(thread, "model"));
+      const model = textOf13(field(thread, "model"));
       return tokens2 === null ? null : { tokens: tokens2, model: model === "" ? null : model };
     },
     limit(ran) {
       if (ran.exit === null) return null;
       const end3 = lastOf(eventsOf2(ran), "t3.end");
       if (end3 === void 0 || field(end3, "status") !== "failed") return null;
-      const error62 = textOf12(field(end3, "error"));
+      const error62 = textOf13(field(end3, "error"));
       return LIMIT_WORDS2.test(error62) ? { resetsAt: resetOf2(error62, end3) } : null;
     },
     pressure(ran) {
@@ -65144,7 +65276,7 @@ ${handoff2}
     },
     session(ran) {
       const events = eventsOf2(ran);
-      const thread = textOf12(field(lastOf(events, "t3.thread") ?? lastOf(events, "t3.end"), "threadId"));
+      const thread = textOf13(field(lastOf(events, "t3.thread") ?? lastOf(events, "t3.end"), "threadId"));
       return thread === "" ? null : thread;
     },
     interrupt() {
@@ -65204,7 +65336,7 @@ function t3Cli(env) {
   });
 }
 var TICK_MS = 5e3;
-var textOf13 = (value) => typeof value === "string" ? value : "";
+var textOf14 = (value) => typeof value === "string" ? value : "";
 var lines3 = (text18) => text18.split("\n").map((line2) => line2.trimEnd()).filter((line2) => line2 !== "");
 function objectOf(text18) {
   try {
@@ -65255,17 +65387,17 @@ async function threadOf(cli, cwd) {
     return null;
   }
   if (listed2.code !== 0 || !Array.isArray(threads)) return null;
-  const newest = threads.map((thread) => ({ id: textOf13(field(thread, "threadId")), at: textOf13(field(thread, "createdAt")) })).filter((thread) => thread.id !== "").sort((left, right) => right.at.localeCompare(left.at))[0];
+  const newest = threads.map((thread) => ({ id: textOf14(field(thread, "threadId")), at: textOf14(field(thread, "createdAt")) })).filter((thread) => thread.id !== "").sort((left, right) => right.at.localeCompare(left.at))[0];
   return newest?.id ?? null;
 }
 function stateOf2(shown6) {
   const thread = field(shown6, "thread");
   const messages2 = field(shown6, "messages");
-  const said2 = Array.isArray(messages2) ? messages2.filter((message2) => field(message2, "role") === "assistant").map((message2) => `${textOf13(field(message2, "runId"))}
-${textOf13(field(message2, "text"))}`) : [];
+  const said2 = Array.isArray(messages2) ? messages2.filter((message2) => field(message2, "role") === "assistant").map((message2) => `${textOf14(field(message2, "runId"))}
+${textOf14(field(message2, "text"))}`) : [];
   const line2 = {
     type: "t3.show",
-    status: textOf13(field(thread, "status")),
+    status: textOf14(field(thread, "status")),
     activeRunId: field(thread, "activeRunId") ?? null,
     pendingRequestCount: field(thread, "pendingRequestCount") ?? 0,
     itemCount: field(thread, "itemCount") ?? 0
@@ -65295,14 +65427,14 @@ async function addProject(cli, cwd) {
 function printEnd(options, ended2, started) {
   const now2 = options.now ?? Date.now;
   const end3 = objectOf(ended2.stdout.trim());
-  if (end3 !== null && textOf13(field(end3, "status")) !== "") {
+  if (end3 !== null && textOf14(field(end3, "status")) !== "") {
     const at2 = now2();
     options.print(JSON.stringify({ type: "t3.end", ...end3, at: new Date(at2).toISOString(), ms: Math.max(0, at2 - started) }));
   } else {
     for (const line2 of lines3(ended2.stdout)) options.print(line2);
   }
   for (const line2 of lines3(ended2.stderr)) options.print(line2);
-  return end3 === null ? null : textOf13(field(end3, "status"));
+  return end3 === null ? null : textOf14(field(end3, "status"));
 }
 var runArgs = ({ cwd, thread, instance, model }) => thread === null ? ["thread", "start", cwd, "-", "--provider", instance, "--model", model, "--wait", "--json"] : ["thread", "send", thread, "-", "--wait", "--json"];
 var NEVER2 = new Promise(() => void 0);
@@ -68319,7 +68451,7 @@ function refused3(stderr, words4) {
   println(stderr, `omni runner: ${words4}`);
   return 1;
 }
-function textOf14(cwd, path) {
+function textOf15(cwd, path) {
   try {
     return { text: readFileSync126(resolve21(cwd, path), "utf8") };
   } catch {
@@ -68327,7 +68459,7 @@ function textOf14(cwd, path) {
   }
 }
 function questionsFile(cwd, path) {
-  const file2 = textOf14(cwd, path);
+  const file2 = textOf15(cwd, path);
   if ("refusal" in file2) return file2;
   let json3;
   try {
@@ -68339,7 +68471,7 @@ function questionsFile(cwd, path) {
   return read3.ok ? { questions: read3.value } : { refusal: `${path} does not read: ${read3.field}: ${read3.message}.` };
 }
 function leadFile(cwd, path) {
-  const file2 = textOf14(cwd, path);
+  const file2 = textOf15(cwd, path);
   if ("refusal" in file2) return file2;
   const lead = file2.text.trim();
   return lead === "" ? { refusal: `${path} is empty: the lead says why the fix stopped.` } : { lead };
@@ -69340,7 +69472,7 @@ init_define_OMNI_BUNDLE();
 var MINUTE3 = 60 * 1e3;
 var HOUR3 = 60 * MINUTE3;
 var DAY3 = 24 * HOUR3;
-var WIDTH = 80;
+var WIDTH2 = 80;
 var INDENT2 = "  ";
 var LABEL3 = "  delivered  ";
 var UNDER_BAR = " ".repeat(LABEL3.length);
@@ -69378,7 +69510,7 @@ function counts(values) {
   const out = [];
   for (const part of parts) {
     const joined3 = out.length ? `${out.at(-1)}${GAP}${part}` : null;
-    if (joined3 !== null && joined3.length <= WIDTH) out[out.length - 1] = joined3;
+    if (joined3 !== null && joined3.length <= WIDTH2) out[out.length - 1] = joined3;
     else out.push(`${INDENT2}${part}`);
   }
   return out;
@@ -69393,7 +69525,7 @@ function bar({ bar: { delivered, total, percent, filled: filled2 }, inProgress }
   const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
   for (const part of parts.slice(1)) {
     const joined3 = `${under.at(-1)}, ${part}`;
-    if (joined3.length <= WIDTH) under[under.length - 1] = joined3;
+    if (joined3.length <= WIDTH2) under[under.length - 1] = joined3;
     else {
       under[under.length - 1] = `${at(under, -1, "the line under the bar")},`;
       under.push(`${UNDER_BAR}${part}`);
@@ -69419,7 +69551,7 @@ function rows(entries4) {
   const lines4 = entries4.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing3(row) }));
   const numberWidth = Math.max(...lines4.map(({ number: number5 }) => number5.length)) + NUMBER_GAP.length;
   const wordsWidth = Math.max(...lines4.map(({ words: words4 }) => words4.length));
-  const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
+  const room = WIDTH2 - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
   const topicWidth = Math.min(Math.max(...lines4.map(({ topic }) => topic.length)), Math.max(1, room));
   return lines4.flatMap(({ stage: stage2, number: number5, topic, words: words4 }, index2) => [
     `${stage2}${number5.padEnd(numberWidth)}${cut6(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words4}`,
@@ -69429,7 +69561,7 @@ function rows(entries4) {
 function landingLines(landings) {
   return landings.map(({ landing, landings: count10, name: name3, state, waitsFor }) => {
     const waits3 = waitsFor === null ? "" : `, waits for landing ${waitsFor} to merge`;
-    return cut6(`${UNDER_BAR}landing ${landing}/${count10} ${name3}: ${state}${waits3}`, WIDTH);
+    return cut6(`${UNDER_BAR}landing ${landing}/${count10} ${name3}: ${state}${waits3}`, WIDTH2);
   });
 }
 function shippedEntry({ prd: prd2, topic }, width) {
@@ -69443,14 +69575,14 @@ function shippedRow(shipped) {
   for (const entry3 of shipped) {
     if (!fresh) {
       const joined3 = `${line2}${SEPARATOR3}${shippedEntry(entry3, Infinity)}`;
-      if (joined3.length <= WIDTH) {
+      if (joined3.length <= WIDTH2) {
         line2 = joined3;
         continue;
       }
       out.push(line2);
       line2 = UNDER_BAR;
     }
-    line2 = `${line2}${shippedEntry(entry3, WIDTH - line2.length)}`;
+    line2 = `${line2}${shippedEntry(entry3, WIDTH2 - line2.length)}`;
     fresh = false;
   }
   out.push(line2);
@@ -69459,13 +69591,13 @@ function shippedRow(shipped) {
 function yours({ state, email: email3, rows: inFlight3, shipped }) {
   if (state === "no-email") return [`${INDENT2}set git config user.email to see yours`];
   if (state === "shallow") return [`${INDENT2}this clone is shallow: git fetch --unshallow to see yours`];
-  const heading2 = cut6(`${INDENT2}Yours \xB7 ${email3}`, WIDTH);
+  const heading2 = cut6(`${INDENT2}Yours \xB7 ${email3}`, WIDTH2);
   if (inFlight3.length === 0 && shipped.length === 0) return [heading2, `${INDENT2}none yet`];
   return [heading2, ...inFlight3.length ? rows(inFlight3) : [], ...shipped.length ? shippedRow(shipped) : []];
 }
 function heldLines(held3) {
   return held3.flatMap(({ prd: prd2, topic, lines: lines4 }) => [
-    cut6(`${INDENT2}${"held".padEnd(UNDER_BAR.length - INDENT2.length)}#${prd2} ${topic}`, WIDTH),
+    cut6(`${INDENT2}${"held".padEnd(UNDER_BAR.length - INDENT2.length)}#${prd2} ${topic}`, WIDTH2),
     ...lines4.map((line2) => `${UNDER_BAR}${line2}`)
   ]);
 }
