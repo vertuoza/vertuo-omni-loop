@@ -78,7 +78,14 @@ describe('Pause and Resume', () => {
   it('never overwrites a move that landed between the read and the write', async () => {
     const { db, service } = setup();
     const reader = db.reader(ADA);
-    const stale = { mission: async (id: string) => { const seen = await reader.mission(id); db.missions.set(id, { ...db.missions.get(id)!, status: 'paused' }); return seen; } };
+    const stale = {
+      mission: async (id: string) => {
+        const seen = await reader.mission(id);
+        const row = db.missions.get(id);
+        if (row) db.missions.set(id, { ...row, status: 'paused' });
+        return seen;
+      },
+    };
     expect(await service.move('pause', RUNNING, ADA, stale)).toMatchObject({ ok: false, kind: 'conflict', error: 'Only a running or waiting mission pauses. It has just moved: look again.' });
     expect(db.events).toEqual([]);
   });

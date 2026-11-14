@@ -8,8 +8,7 @@ import { z } from 'zod';
 //   POST /api/missions/<id>/pause    a running or waiting mission goes paused
 //   POST /api/missions/<id>/resume   a paused mission goes running
 
-const MISSION_ACTIONS = ['start', 'pause', 'resume'] as const;
-export type MissionAction = (typeof MISSION_ACTIONS)[number];
+export type MissionAction = 'start' | 'pause' | 'resume';
 
 const MISSION_STATUSES = ['draft', 'running', 'waiting', 'paused', 'delivered', 'stopped'] as const;
 export const MissionStatusSchema = z.enum(MISSION_STATUSES);

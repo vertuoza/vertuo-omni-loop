@@ -73,11 +73,11 @@ export function missionsWriter(db: MissionsDb) {
 
     /** Adds or refreshes the mission's job on the ledger, due at once. */
     async refresh(job: MissionJob): Promise<void> {
-      const { data, error } = await db.rpc('background_job_refresh', {
+      const answer: { data: unknown; error: { message: string } | null } = await db.rpc('background_job_refresh', {
         p_kind: job.kind, p_key: job.key, p_subject: job.subject, p_payload: job.payload, p_delay_seconds: job.delaySeconds, p_lane: job.lane,
       });
-      if (error) throw new Error(`Supabase: could not refresh the mission's job (${error.message})`);
-      Refreshed.parse(data);
+      if (answer.error) throw new Error(`Supabase: could not refresh the mission's job (${answer.error.message})`);
+      Refreshed.parse(answer.data);
     },
   };
 }
