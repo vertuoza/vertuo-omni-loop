@@ -165,6 +165,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-14",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "I make a Virtual Fleet in a drawer, give it a mission and it builds the approved PRDs while I am away.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The five heroes are there by default, though the one-line mission still asks me which fleet.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The Operation room shows each hero and every step it took, signed by role.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing reviews the PRDs before my queue yet; the Reviewer hero still says a person does it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One key per sent job and a test that runs a whole mission on a fake fleet: solid ground.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ~ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
     }
   ]
 }
