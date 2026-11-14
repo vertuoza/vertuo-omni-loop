@@ -1750,6 +1750,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     },
   },
   {
+    name: 'mission',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mission', "/omni:mission --prd <n> '<goal>'"],
+    label: '/omni:mission',
+    summary: 'a goal for a Virtual Fleet, as a brief on its page',
+    detail:
+      'Settles a mission with you, one question at a time: the Virtual Fleet that takes it, its goal, ' +
+      '1 to 5 measures, its scope of PRDs and roadmaps and how many may run at once. It writes the ' +
+      'brief, mission.md and mission.html, under {delivery}/missions/, opens the mission\'s issue and a ' +
+      'docs PR into {defaultBranch}, and sends the brief to its page with omni mission push. Starting ' +
+      'the mission is the button on its page and never waits for the PR. With --prd <n> and a goal it ' +
+      'asks nothing and writes the minimal mission, that PRD as its scope. It writes no code and never ' +
+      'merges.',
+    group: 'start',
+    when: 'Use it when you want a Virtual Fleet to deliver a goal, over one PRD or several, with you answering only where a person is needed.',
+    example: {
+      type: "/omni:mission --prd 2803 'dark mode for quotes on site'",
+      result: "a mission's brief on its page, ready for Start, and a docs PR",
+    },
+  },
+  {
     name: 'plan',
     kind: 'skill',
     who: 'you',
