@@ -9,6 +9,7 @@ import { handleProductMcp, type ProductMcpDeps } from './product-mcp.controller'
 import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema, type SearchLogRow } from './product-mcp.contract';
 import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
+import { MAX_DISTANCE } from './search';
 import { MEANING_BUDGET_MS, type Meaning } from './search-meaning';
 
 // `/api/products/<key>/mcp` (PRD 2707 s3) driven by the SDK's own client over the route's handler, against a
@@ -410,6 +411,36 @@ describe('/api/products/<key>/mcp', () => {
       expect(answer).toMatchObject({ hits: [], total: 0, mode: 'meaning' });
       await w.flush();
       expect(w.rows[0]).toMatchObject({ query: 'pizza delivery refund policy', mode: 'meaning', total: 0, hit_ids: [] });
+      expect(w.rows[0]?.nearest_distance).toBeGreaterThan(MAX_DISTANCE);
+    });
+
+    it('logs the nearest distance of a search by meaning, the smallest among the entries ranked (PRD omni-loop-9 s2)', async () => {
+      const w = await world();
+      await withMeaning(w);
+      // The quote's laws point the same way as the question: one of them is at distance 0, the nearest.
+      await search(w, { query: 'may an offer go out empty? (quote)' });
+      await w.flush();
+      expect(w.rows).toEqual([expect.objectContaining({ mode: 'meaning' })]);
+      expect(w.rows[0]?.nearest_distance).toBeCloseTo(0, 9);
+    });
+
+    it('logs no nearest distance when the search fell back to words', async () => {
+      const w = await world();
+      await withMeaning(w, { embedder: () => Promise.reject(new Error('embed: answered 503')) });
+      await search(w, { query: 'api key' });
+      await w.flush();
+      expect(w.rows).toEqual([expect.objectContaining({ mode: 'words', nearest_distance: null })]);
+    });
+
+    it('answers a search by meaning exactly as before when the log\'s write fails, and says so in one line', async () => {
+      const ok = await world();
+      await withMeaning(ok);
+      const before = await ok.call(LIVE, 'search_knowledge', { query: 'pizza delivery refund policy' });
+      const w = await world({ logFails: true });
+      await withMeaning(w);
+      expect(await w.call(LIVE, 'search_knowledge', { query: 'pizza delivery refund policy' })).toEqual(before);
+      await w.flush();
+      expect(w.logged).toEqual(['product mcp: search log not written: mcp_search_log: the database refused: boom']);
     });
 
     it('still answers an exact id first when the model finds nothing near it', async () => {
@@ -445,6 +476,7 @@ describe('/api/products/<key>/mcp logs each search it answers (PRD omni-loop-6 s
     expect(row).toEqual({
       product_id: 'p-acme', workspace_id: 'w-acme', api_key_id: 'k-live', tool: 'search_knowledge',
       query: 'api key', filters: { kind: 'adr' }, mode: 'words', total: answer.total, hit_ids: answer.hits.map((hit) => hit.id),
+      nearest_distance: null,
     });
     expect(Date.parse(askedAt)).not.toBeNaN();
     expect(answer.hits.length).toBeGreaterThan(0);
@@ -466,6 +498,7 @@ describe('/api/products/<key>/mcp logs each search it answers (PRD omni-loop-6 s
     await w.flush();
     expect(w.rows).toEqual([expect.objectContaining({
       api_key_id: 'k-narrow', query: null, mode: null, filters: { kind: 'business-law', domain: 'quotes', repo: 'acme/widgets' },
+      nearest_distance: null,
     })]);
   });
 
@@ -475,8 +508,8 @@ describe('/api/products/<key>/mcp logs each search it answers (PRD omni-loop-6 s
     await w.call(LIVE, 'get_knowledge', { id: 'widgets/ADR-9999' });
     await w.flush();
     expect(w.rows).toEqual([
-      expect.objectContaining({ tool: 'get_knowledge', query: 'BL-QUOTES-1', filters: {}, mode: null, total: 1, hit_ids: ['BL-QUOTES-1'] }),
-      expect.objectContaining({ tool: 'get_knowledge', query: 'widgets/ADR-9999', filters: {}, mode: null, total: 0, hit_ids: [] }),
+      expect.objectContaining({ tool: 'get_knowledge', query: 'BL-QUOTES-1', filters: {}, mode: null, total: 1, hit_ids: ['BL-QUOTES-1'], nearest_distance: null }),
+      expect.objectContaining({ tool: 'get_knowledge', query: 'widgets/ADR-9999', filters: {}, mode: null, total: 0, hit_ids: [], nearest_distance: null }),
     ]);
   });
 

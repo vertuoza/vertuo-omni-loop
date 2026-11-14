@@ -18,10 +18,11 @@
 //
 // Every call the key check served and the knowledge answered adds one row to the search log (PRD omni-loop-6
 // s1): the product, its workspace, the key's id (never the key), the tool, the query or the id asked, the
-// filters, the mode, the total and the hits' ids in rank order. The row is written after the answer is sent
-// (`later`: Next's after() in production), so the log never slows or changes an answer; a write that fails is
-// one error line, and is dropped. A call refused by the key check, or whose knowledge could not be read, adds
-// no row.
+// filters, the mode, the total, the hits' ids in rank order, and a search by meaning's nearest distance (PRD
+// omni-loop-9 s2; none in words mode, for a listing or a get_knowledge). The row is written after the answer
+// is sent (`later`: Next's after() in production), so the log never slows or changes an answer; a write that
+// fails is one error line, and is dropped. A call refused by the key check, or whose knowledge could not be
+// read, adds no row.
 //
 // A get_knowledge that found its entry then marks the search it follows (PRD omni-loop-6 s2): the latest
 // search_knowledge of the same key and product, asked within the 10 minutes before it, that returned that id and
@@ -55,7 +56,7 @@ export type ProductMcpDeps = {
 };
 
 /** What a tool answers, and the part of its log row the tool alone knows. */
-type Answered = { body: string; isError?: boolean; logged: Pick<SearchLogRow, 'tool' | 'query' | 'filters' | 'mode' | 'total' | 'hit_ids'> };
+type Answered = { body: string; isError?: boolean; logged: Pick<SearchLogRow, 'tool' | 'query' | 'filters' | 'mode' | 'total' | 'hit_ids' | 'nearest_distance'> };
 
 const INSTRUCTIONS = [
   'The knowledge of this product, across every repository of it: its business laws, the decisions behind its architecture (ADRs), its rules and invariants, its Legal entries, its terms and its Never lines.',
@@ -141,6 +142,8 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
         mode: found.mode ?? null,
         total: found.total,
         hit_ids: found.hits.map((hit) => hit.id),
+        // None in words mode or for a listing: only a search by meaning measured one (PRD omni-loop-9 s2).
+        nearest_distance: found.mode === 'meaning' ? found.nearestDistance ?? null : null,
       },
     };
   }));
@@ -154,7 +157,7 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
     annotations: { readOnlyHint: true, openWorldHint: false },
   }, async ({ id }) => answered((read) => {
     const entry = read.entries.find((e) => e.id === id) ?? read.entries.find((e) => e.id.toLowerCase() === id.toLowerCase());
-    const logged = { tool: 'get_knowledge', query: id, filters: {}, mode: null } as const;
+    const logged = { tool: 'get_knowledge', query: id, filters: {}, mode: null, nearest_distance: null } as const;
     if (entry === undefined) return { body: noEntryLine(id, read.product), isError: true, logged: { ...logged, total: 0, hit_ids: [] } };
     return {
       body: JSON.stringify(GetAnswerSchema.parse({ entry, repositories: read.repositories })),
