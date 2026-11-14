@@ -75,7 +75,8 @@ end, when one of its PRDs changes stage, and when an answer is given on one of i
 1. **Check first.** Read its jobs and their outcomes, and each PRD of its scope: approved or not,
    its stage (`prd_stages`), whether its feature PR is ready or merged. A roadmap in scope expands
    into its `roadmap_prds` rows, blockers included.
-2. **Pick.** A PRD may start when it is approved, not merged, every blocker merged, no job of it
+2. **Pick.** A PRD may start when its approval stands (a changed approved file voids it: the PRD
+   waits for a new approval), not merged, every blocker merged, no job of it
    queued or running, and nothing of it waits on a person; and when its plan's territories meet
    none of the running PRDs' (read from the plan on its page with the kit's plan parser; a PRD with
    no plan runs alone). At most `mandate.parallel` run at once.
@@ -215,10 +216,12 @@ repositories.
   - BR-PRODUCT-28, BR-PRODUCT-29, BR-PRODUCT-39, BR-PRODUCT-59, BR-PRODUCT-64, N-PRODUCT-16: printed
     for the database layer; the design keeps each (no membership, ask session, AI key, agent link or
     game ledger row is read or written).
-- **The business laws:** BL-APPROVALS-1 (an approval covers exactly the files the approver read) is
-  kept: a mission sends a PRD only once it is approved, and a PRD whose approved files changed reads
-  drifted and is not sent. BL-ASK-1 (an answer is never changed) is kept: a mission reads answers and
-  writes none, and its own rows are signed by their role, never in a person's name.
+- **The business laws:** BL-APPROVALS-1 (an approval covers exactly the files the approver read;
+  any later change voids it, and the build waits for a new one) is kept: a mission sends a PRD only
+  while its approval stands; once an approved file changes, that approval is void, the PRD reads
+  `waits on you: approve it again`, and the mission sends it only after a member approves it anew.
+  BL-ASK-1 (an answer a person gave is never changed) is kept: a mission reads answers and approvals
+  and writes none; its own rows are signed by their role, never in a person's name.
 
 ## Acceptance criteria
 
