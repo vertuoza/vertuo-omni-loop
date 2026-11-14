@@ -67,7 +67,7 @@ count line. The New virtual fleet drawer shows six yes/no switches, all on, each
 - **The lists.** `ultra-yolo`, `ultra-wave` and `ultra-yolo-fix` join every list of skills a runner
   takes: the app's (`RUNNER_SKILLS`), the kit's (`RUNNABLE_SKILLS`, and `PRD_SKILLS`, so the Runners
   page names the PRD), the database's (`repository_runner_skills`'s fixed list) and the accounts'
-  check. The same migration adds the four skills the database's list lacks today: `retro-apply`,
+  check. A migration of its own (apart from the heroes one) adds them there, with the four skills the database's list lacks today: `retro-apply`,
   `rewind`, `knowledge-add` and `rewind-apply`. A test holds the database's list equal to the app's,
   as one already holds the app's equal to the kit's.
 - **The token.** An ultra job is sent from a plan repository of a product. When it is claimed, its
@@ -97,7 +97,7 @@ count line. The New virtual fleet drawer shows six yes/no switches, all on, each
 | vertuo-omni-loop | code | role `designer` in `HERO_ROLES` | follows `HERO_ROLES` ← kit/lib/virtual-fleet/roles.ts:21 |
 | vertuo-omni-loop | code | `skillMarks()` and `SkillMark` (`alone` \| `person`) in roles.ts | no written convention: follows `roleLine()` ← kit/lib/virtual-fleet/roles.ts:107 |
 | vertuo-omni-loop | code | `spansProduct()` in place of `isMegaBugFix()` | follows `isMegaBugFix` ← apps/galaxy/src/runners/runners.service.ts:198 |
-| vertuo-omni-loop | db | migration `<timestamp>_heroes_every_skill.sql`, newer than every migration on `main` | conventions › A migration stays the newest |
+| vertuo-omni-loop | db | migrations `<timestamp>_runner_ultra_skills.sql` and `<timestamp>_heroes_every_skill.sql`, newer than every migration on `main` | conventions › A migration stays the newest |
 | vertuo-omni-loop | skill | clone folder `<worktrees>/targets/job-<id>/<name>` | follows `<worktrees>/targets/<name>@<prd>` ← kit/plugin/skills/ultra-yolo/SKILL.md:279 |
 
 ## Decisions
