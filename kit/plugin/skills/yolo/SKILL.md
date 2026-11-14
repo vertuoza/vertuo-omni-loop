@@ -366,11 +366,11 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`. When item 2 wrote a
    shipped round, follow `/omni:dossier-push <prd>` from the worktree, so the PRD's User voice tab
    ends on what shipped; whatever it prints, carry on.
-4. **With `--for-review`, stop here:** run neither the point `yolo.ready` nor `gh pr ready`. The
+   **With `--for-review`, stop after this push:** run neither item 4 nor the point `yolo.ready`. The
    feature PR stays a draft, its status comment says `waits for the Reviewer`, and the run goes on
    to item 5 and then step 6, ending on the `review` hand-off of step 7 (the gate green and
    `omni ship` committed and pushed are what the Reviewer's pass relies on to mark it ready).
-   Without `--for-review`: only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it, at **point
+4. Only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it, at **point
    `yolo.ready`**: once the base allows it, run `node .omni-loop/bin/omni.mjs flow show yolo.ready`
    and follow every `before` hook (`{prd}` the PRD, `{pr}` the feature PR), then `gh pr ready`, then
    every `after` hook (**Flow points**). Item 3 has just pushed: run `gh pr ready` as `/omni:pr`'s
@@ -633,7 +633,8 @@ next; it marks the PR ready on its pass.`, and the reply's last line is `/omni:r
 gate or a held run ends as written above, whatever the flag.
 
 The last line of the reply is always the ending's own, alone on it:
-`/omni:pr-care <n>`, `/omni:yolo-fix <n>`, `/omni:yolo <n>` or, for review, `/omni:review <n>`.
+`/omni:pr-care <n>`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`; under `--for-review` with a green gate,
+`/omni:review <n>` instead.
 Everything the next session needs is in the repository and on GitHub, so clearing the session loses
 nothing.
 

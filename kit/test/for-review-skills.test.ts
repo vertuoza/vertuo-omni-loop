@@ -15,16 +15,16 @@ describe('/omni:yolo --for-review', () => {
   });
 
   it('runs neither the yolo.ready point nor gh pr ready under the flag', () => {
-    expect(text).toContain('**With `--for-review`, stop here:** run neither the point `yolo.ready` nor `gh pr ready`.');
+    expect(text).toContain('**With `--for-review`, stop after this push:** run neither item 4 nor the point `yolo.ready`.');
   });
 
   it('ends on the review hand-off, its last line /omni:review <n>', () => {
-    expect(text).toContain("the reply's last line is `/omni:review <n>`");
+    expect(text).toContain('under `--for-review` with a green gate, `/omni:review <n>` instead');
   });
 
   it('marks ready as today without the flag', () => {
     expect(text).toContain('Without `--for-review`, every step is as written below');
-    expect(text).toContain('Without `--for-review`: only now, `gh pr ready <feature PR>`');
+    expect(text).toContain('4. Only now, `gh pr ready <feature PR>`');
   });
 });
 
