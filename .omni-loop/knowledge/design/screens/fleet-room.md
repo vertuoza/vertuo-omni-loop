@@ -58,6 +58,10 @@ an agent is not a person.
 
 ## Open questions
 
+- PRD 2842 builds this tab with the Engineer seat as the one agent: the Reviewer seat reads `A person does this
+  today` until the Reviewer PRD; the ledger's rows are mission events (`Supervisor · agent` for the
+  mission's own decisions).
+
 - "Reviewer" is an avoided word in the glossary today (it points to Approver, a person); the person
   named the seat Reviewer and its glossary entry is part of concept #2800's area
   `room-and-reviewer`. Until then the word pass flags it.
@@ -70,3 +74,4 @@ an agent is not a person.
 ## Source
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
+/omni:brainstorm, PRD 2842: .omni-loop/delivery/inbox/2842-missions/before-after.html

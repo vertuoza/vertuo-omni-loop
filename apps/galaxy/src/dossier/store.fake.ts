@@ -266,7 +266,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const prd = args.p_prd;
     const title = trimmed(args.p_title);
     const kind = args.p_kind ?? 'prd';
-    if (!isOneOf(PUSH_KINDS, kind)) return refused('22023', 'A dossier\'s kind is prd, visual, bug or concept.');
+    // A mission's page is mission_push()'s alone (PRD 2842): dossier_push() takes no mission.
+    if (!isOneOf(PUSH_KINDS, kind) || kind === 'mission') return refused('22023', 'A dossier\'s kind is prd, visual, bug or concept.');
     if (!REPO.test(repo)) return refused('22023', 'A dossier needs its repository as owner/name.');
     if (!isPrdNumber(prd)) return refused('22023', 'A PRD number is a positive whole number.');
     if (!titleFits(title)) return refused('22023', 'A dossier needs a title of 1 to 200 characters.');

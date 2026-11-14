@@ -1,0 +1,56 @@
+/* The New virtual fleet drawer (PRD 2842 s1), as the `fleet-new` screen draws it: the Need human drawer's frame
+   (src/runners/page/need-human.css: over the right of the page, dimmed behind, 560 px and the whole width under
+   720 px), and here its fields: Name, Icon (the mascots as tiles) and Heroes (one switch per role), the foot
+   with Cancel and Create fleet at the bottom.
+   Every colour is a token of src/ask/theme-tokens.ts. */
+
+.vf-open { justify-self: start; }
+
+.vf-title { font-size: 17px; margin: 0; }
+
+.vf-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.vf-fields { flex: 1; min-height: 0; overflow: auto; padding-bottom: 14px; }
+.vf-fields > .vf-field { margin: 14px 16px 0; padding: 0; border: 0; min-width: 0; }
+.vf-label { display: block; padding: 0; margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--ask-muted); }
+.vf-input {
+  width: 100%; padding: 8px 10px; font: inherit; color: var(--ask-ink); background: var(--ask-ground);
+  border: 1.5px solid var(--ask-line-strong); border-radius: 6px;
+}
+.vf-input:focus-visible { outline: 2px solid var(--ask-plasma); outline-offset: 1px; }
+.vf-input[aria-invalid='true'] { border-color: var(--ask-red); }
+.vf-error { margin: 6px 0 0; color: var(--ask-red); font-size: 14px; line-height: 1.4; }
+
+.vf-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+.vf-icon {
+  position: relative; display: grid; place-items: center; height: 44px; overflow: hidden; cursor: pointer;
+  border: 1.5px solid var(--ask-line); border-radius: 6px; background: var(--ask-ground);
+}
+.vf-icon input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.vf-icon svg { display: block; image-rendering: pixelated; }
+.vf-icon:has(input:checked) { border: 2px solid var(--ask-plasma); }
+.vf-icon:has(input:focus-visible) { outline: 2px solid var(--ask-plasma); outline-offset: 2px; }
+
+.vf-roles { list-style: none; margin: 0; padding: 0; display: grid; }
+.vf-role {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--ask-line);
+}
+.vf-role-text { display: grid; min-width: 0; }
+.vf-role-name { font-weight: 700; }
+.vf-role-line { color: var(--ask-muted); font-size: 14px; }
+.vf-switch {
+  position: relative; flex: none; width: 40px; height: 22px; padding: 0; cursor: pointer;
+  border: 1.5px solid var(--ask-line-strong); border-radius: 999px; background: var(--ask-surface);
+}
+.vf-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%;
+  background: var(--ask-muted);
+}
+.vf-switch[aria-checked='true'] { background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.vf-switch[aria-checked='true']::after { left: 19px; background: var(--ask-on-plasma); }
+.vf-switch:focus-visible { outline: 2px solid var(--ask-plasma); outline-offset: 2px; }
+
+
+@media (prefers-reduced-motion: no-preference) {
+  .vf-switch::after { transition: left .12s ease-out; }
+}

@@ -49,9 +49,13 @@ same cards, read-only. It sits inside the app shell, under the Settings tabs.
 
 ## Open questions
 
+- PRD 2842 creates a Virtual Fleet from the Fleet section (`fleet-new`), not here; this page shows a
+  virtual fleet's card, `virtual`, listing its heroes, not players, and is where its colour changes.
+
 - Whether a member of the fleet, not only the owner, may set its board (V1: the owner only).
 - Whether the note shows its time as a relative age or a date.
 
 ## Source
 
 /omni:brainstorm, PRD 2530: .omni-loop/delivery/shipped/2530-fleet-project-board/before-after.html
+/omni:brainstorm, PRD 2842: .omni-loop/delivery/inbox/2842-missions/before-after.html

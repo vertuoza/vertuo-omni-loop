@@ -1159,6 +1159,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'check. --base defaults to {remote}/{defaultBranch}.',
   },
   {
+    name: 'mission',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni mission push <n>'],
+    summary: "send a mission's brief to its page",
+    detail:
+      "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
+      "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
+      'sending nothing, when mission.md does not read through the brief\'s schema (its fleet, goal, ' +
+      '0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the ' +
+      'network or is over the size cap. The page keeps every version and adds one only of a file that ' +
+      'changed; the mission waits in draft until a person starts it. Prints the page\'s link and the ' +
+      'versions added.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',

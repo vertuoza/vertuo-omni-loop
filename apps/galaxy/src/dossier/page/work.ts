@@ -6,10 +6,11 @@
 // another kind's: every list keeps only its own kind's rows. A concept opened on a PRD's or a fix's route
 // is sent to /concepts/<id>; its own page reads the row's kind as it came (`rowKind`), since the store's
 // row type names only the kinds the PRD page shows.
+// Since PRD 2842 a mission's is at /missions/<id>, numbered by its issue as a concept is.
 import { isPushKind, type DossierRow, type PushKind, type WorkKind } from '../store';
 
 /** Each kind's list, and the root of its pages. */
-export const WORK_PATHS: Readonly<Record<PushKind, string>> = { prd: '/prd', visual: '/visual', bug: '/bugs', concept: '/concepts' };
+export const WORK_PATHS: Readonly<Record<PushKind, string>> = { prd: '/prd', visual: '/visual', bug: '/bugs', concept: '/concepts', mission: '/missions' };
 
 /** What a list or a page calls one of its kind. */
 export const WORK_NAMES: Readonly<Record<PushKind, { one: string; many: string; badge: string | null }>> = {
@@ -17,6 +18,7 @@ export const WORK_NAMES: Readonly<Record<PushKind, { one: string; many: string; 
   visual: { one: 'visual update', many: 'Visual Updates', badge: 'Visual' },
   bug: { one: 'bug fix', many: 'Bug Fixes', badge: 'Bug' },
   concept: { one: 'concept', many: 'Concepts', badge: 'Concept' },
+  mission: { one: 'mission', many: 'Missions', badge: 'Mission' },
 };
 
 /** The dossier's kind: a PRD's when the row carries none. */

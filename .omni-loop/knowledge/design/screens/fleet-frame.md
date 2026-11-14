@@ -3,24 +3,26 @@ screen: fleet-frame
 status: draft
 kind: shared
 mock: fleet-frame.html
-implements: []
-reads: []
-routes: []
+implements: [apps/galaxy/src/dashboard/fleet/tabs.ts]
+reads: [apps/galaxy/src/dashboard/fleet/FleetScreen.tsx, apps/galaxy/src/dashboard/fleet/fleet.css]
+routes: [/app/fleet]
 supersedes: null
 ---
 
 ## Purpose
 
 The structure every page of a fleet shares: the fleet's header and its tabs, so a person moves
-between the fleet's room, its missions, its seats and its board without leaving the fleet. It sits
-inside the app shell, under the sidebar's existing Fleet entry.
+between the fleet's room, its missions, its heroes and its board without leaving the fleet. It sits
+inside the app shell, under the sidebar's existing Fleet entry. On a Virtual Fleet only: an ordinary
+fleet shows today's board, unchanged.
 
 ## Regions
 
 - **The header:** the fleet's name, its colour and its mascot, drawn once.
-- **The tabs:** Operation room · Missions · Seats · Board, the current one marked.
-- **The page area:** the tab's own screen (`fleet-room`, `mission-start`, `fleet-seats`, or
-  today's fleet board).
+- **The tabs:** Operation room · Missions · Heroes · Board, the current one marked.
+- **The page area:** the tab's own screen (`fleet-room`, `mission-start`, `fleet-seats` as the Heroes
+  tab, or today's fleet board). The tab is `?tab=room|missions|heroes|board`, the Operation room by
+  default; a tab whose slice is not built yet says `This tab is not open yet.`
 
 ## States
 
@@ -29,7 +31,7 @@ inside the app shell, under the sidebar's existing Fleet entry.
 
 ## Words
 
-- `Operation room`, `Missions`, `Seats`, `Board`.
+- `Operation room`, `Missions`, `Heroes`, `Board`, `This tab is not open yet.`
 
 ## Refusals
 
@@ -46,3 +48,4 @@ inside the app shell, under the sidebar's existing Fleet entry.
 ## Source
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
+/omni:brainstorm, PRD 2842: .omni-loop/delivery/inbox/2842-missions/before-after.html
