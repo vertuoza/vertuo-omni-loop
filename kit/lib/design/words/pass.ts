@@ -9,7 +9,10 @@
 // sibling spans with no running text still reads as separate strings. Inside a control, two sibling
 // elements are joined with a space. Text inside an element the content selector matches
 // (`design.words.content`, by default `[data-content]`) is what the screen shows, not what it wrote:
-// it is counted apart and judged by no rule. It reads structure, never style, and only reports: what
+// it is counted apart and judged by no rule. PRD 2850: a screen may hold its markup in a `<template>`
+// of its own (a page draws it whole, isolated): the words of that body are the screen's, while any
+// other template is out of sight. A frame's caption sits outside the marked element, so it is never
+// read. It reads structure, never style, and only reports: what
 // it finds is fixed in the screen, never silenced.
 //
 //   sentence-on-control  a control whose label holds `sentence` words or more
@@ -68,8 +71,8 @@ const isControl = ({ tag, attributes }: Element, primary: Selector): boolean =>
   matches(primary, { tag, attributes }) || tag === 'button' || (tag === 'a' && attributes.has('href')) || CONTROL_ROLES.has(attributes.get('role') ?? '') ||
   (tag === 'input' && INPUT_CONTROLS.has((attributes.get('type') ?? '').toLowerCase()));
 
-/** Whether an element is out of sight by its own markup: `hidden`, `aria-hidden="true"`, or the page's head. */
-const isHidden = ({ tag, attributes }: Element): boolean => tag === 'head' || attributes.has('hidden') || attributes.get('aria-hidden') === 'true';
+/** Whether an element is out of sight by its own markup: `hidden`, `aria-hidden="true"`, the page's head, or a template. */
+const isHidden = ({ tag, attributes }: Element): boolean => tag === 'head' || tag === 'template' || attributes.has('hidden') || attributes.get('aria-hidden') === 'true';
 
 const wordsOf = (count: number): string => `${count} ${count === 1 ? 'word' : 'words'}`;
 
@@ -161,7 +164,7 @@ function visit(node: Node, walk: Walk, inline: boolean): void {
 /** A screen's phrases and its primary actions, stopping at a nested screen (it is read on its own). */
 function readScreen(screen: Element, rules: WordRules): { phrases: Phrase[]; primaries: string[]; content: number } {
   const walk: Walk = { rules, phrases: [], primaries: [], run: '', content: 0 };
-  visitElement(screen, walk, true, false);
+  visitElement({ ...screen, children: screen.children.flatMap((child) => (child.kind === 'element' && child.tag === 'template' ? child.children : [child])) }, walk, true, false);
   flush(walk);
   return { phrases: walk.phrases, primaries: walk.primaries, content: walk.content };
 }
@@ -218,7 +221,7 @@ function screensUnder(node: Element, rules: WordRules): Element[] {
 
 /** The word pass over one page's HTML. */
 export function wordPass(html: string, rules: WordRules): PageWords {
-  const marked = screensUnder(parseHtml(html), rules);
+  const marked = screensUnder(parseHtml(html, { templates: true }), rules);
   const screens = marked.map((screen, index) => {
     const { phrases, primaries, content } = readScreen(screen, rules);
     return {

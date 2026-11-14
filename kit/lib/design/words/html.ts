@@ -1,8 +1,9 @@
 // PRD 1407, s4: a dependency-free read of an HTML page into a tree of elements and text, enough for
 // the word pass — which reads structure, never style. It is forgiving, as a mockup's markup may be:
 // a stray end tag is dropped, an unclosed element closes with its parent, and the bodies of
-// `<script>`, `<style>`, `<template>` and `<noscript>` are skipped, never read as words. No CSS is
-// read and nothing runs.
+// `<script>`, `<style>`, `<template>` and `<noscript>` are skipped, never read as words. PRD 2850:
+// a caller that asks for `templates` gets a `<template>`'s body read as the children of its element,
+// as a page draws a screen from one. No CSS is read and nothing runs.
 
 /** An element: its tag (lowercased), its attributes (names lowercased) and its children. */
 export type Element = { readonly kind: 'element'; readonly tag: string; readonly attributes: ReadonlyMap<string, string>; readonly children: Node[] };
@@ -43,7 +44,7 @@ function past(html: string, marker: string, from: number): number {
 }
 
 /** The read in progress: the root, and the elements still open, innermost last. */
-type Reader = { readonly html: string; readonly root: Element; readonly stack: Element[] };
+type Reader = { readonly html: string; readonly root: Element; readonly stack: Element[]; readonly templates: boolean };
 
 const top = ({ root, stack }: Reader): Element => stack[stack.length - 1] ?? root;
 
@@ -97,7 +98,7 @@ function readStartTag(reader: Reader, lt: number): number | null {
   const after = past(reader.html, '>', end);
   const element: Element = { kind: 'element', tag, attributes, children: [] };
   top(reader).children.push(element);
-  if (RAW.has(tag)) return readRawBody(reader, element, after);
+  if (RAW.has(tag) && !(reader.templates && tag === 'template')) return readRawBody(reader, element, after);
   const selfClosing = reader.html[after - 2] === '/';
   if (!VOID.has(tag) && !selfClosing) reader.stack.push(element);
   return after;
@@ -111,10 +112,10 @@ function readMarkup(reader: Reader, lt: number): number {
   return lt + 1;
 }
 
-/** The page read into one root element (`#document`) holding everything. */
-export function parseHtml(html: string): Element {
+/** The page read into one root element (`#document`) holding everything; `templates` reads a template's body too. */
+export function parseHtml(html: string, { templates = false }: { readonly templates?: boolean } = {}): Element {
   const root: Element = { kind: 'element', tag: '#document', attributes: new Map(), children: [] };
-  const reader: Reader = { html, root, stack: [] };
+  const reader: Reader = { html, root, stack: [], templates };
   let at = 0;
   while (at < html.length) {
     const lt = html.indexOf('<', at);
