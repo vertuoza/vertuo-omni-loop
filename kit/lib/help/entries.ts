@@ -163,6 +163,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unless the verdict is asked. Needs gh logged in.',
   },
   {
+    name: 'review',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni review post <prd> --file <verdict.json> [--pr <n>] [--json]',
+      'omni review read <prd> [--pr <n>] [--json]',
+      'omni review look-for [--json]',
+    ],
+    summary: "The Reviewer's verdict on PRD n's feature PR: posted once a round, read back by its marker",
+    detail:
+      'post checks a verdict (pass, or 1 to 5 findings, each with its file, line, severity, rule, problem ' +
+      'and fix) and posts it as one COMMENT review on the feature PR, one inline thread per finding; a ' +
+      'verdict it refuses is never posted, and a round the PR already carries is not posted again. read ' +
+      'prints the latest round and verdict, or none. look-for prints what the Reviewer looks for: the kit ' +
+      "default's six items, then each one the repository's review form adds. --repo <owner/name> " +
+      'names another repository. Needs gh logged in.',
+  },
+  {
     name: 'follow-up',
     kind: 'command',
     who: 'skills',
