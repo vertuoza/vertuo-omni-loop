@@ -72,7 +72,12 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   delivered: 'Delivered',
 };
 
-const stateWord = (kind: string): string => STATE_WORDS[kind] ?? kind;
+/** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); any other kind has its fixed word. */
+const stateWord = (kind: string, sentence: string): string =>
+  kind === 'reviewed' ? (sentence.startsWith('Passed') ? 'Passed' : 'Changes') : (STATE_WORDS[kind] ?? kind);
+
+/** What a ledger link is called: a Reviewer's verdict links its GitHub review, any other row its PRD or `Open`. */
+const linkLabel = (kind: string, prd: PrdNumber | null): string => (kind === 'reviewed' ? 'Review' : prd === null ? 'Open' : `PRD ${String(prd)}`);
 
 /** The role's name, as it is signed. */
 export const roleName = (role: EventRole): string => (role === 'supervisor' ? ROOM_WORDS.supervisor : roleOf(role).name);
@@ -155,6 +160,7 @@ export interface LedgerRow {
   sentence: string;
   prd: PrdNumber | null;
   link: string | null;
+  linkLabel: string;
   state: string;
 }
 
@@ -163,7 +169,7 @@ export function ledgerOf(events: readonly EventRow[], filter: Filter): LedgerRow
   return events
     .filter((e) => (filter.role === null || e.role === filter.role) && (filter.mission === null || e.mission === filter.mission))
     .toSorted((a, b) => b.at.localeCompare(a.at))
-    .map((e) => ({ id: e.id, time: timeOf(e.at), role: e.role, by: signedBy(e), sentence: e.sentence, prd: e.prd, link: e.link, state: stateWord(e.kind) }));
+    .map((e) => ({ id: e.id, time: timeOf(e.at), role: e.role, by: signedBy(e), sentence: e.sentence, prd: e.prd, link: e.link, linkLabel: linkLabel(e.kind, e.prd), state: stateWord(e.kind, e.sentence) }));
 }
 
 /** The room as the tab shows it. */

@@ -56,6 +56,27 @@ describe('the ledger', () => {
   });
 });
 
+describe('the Reviewer rows (PRD 2871)', () => {
+  const asked = event({ role: 'reviewer', kind: 'reviewed', at: '2026-11-14T06:40:00Z', link: 'https://github.com/o/r/pull/2817#pullrequestreview-1', sentence: 'Changes asked: 2 findings, round 1/2.' });
+  const passed = event({ role: 'reviewer', kind: 'reviewed', at: '2026-11-14T07:40:00Z', link: 'https://github.com/o/r/pull/2817#pullrequestreview-2', sentence: 'Passed, round 2 of 2: marked ready.' });
+
+  it('signs each verdict Reviewer · agent with its state word and a link to the review', () => {
+    const rows = ledgerOf([asked, passed, event({})], { role: null, mission: null });
+    expect(rows.map((r) => [r.by, r.state, r.linkLabel])).toEqual([['Engineer · agent', 'Sent', 'PRD 2803'], ['Reviewer · agent', 'Passed', 'Review'], ['Reviewer · agent', 'Changes', 'Review']]);
+  });
+
+  it('shows only those rows to the Reviewer filter, and draws the link and the word', () => {
+    const ledger = ledgerOf([asked, event({})], filterOf({ role: 'reviewer' }, [M1]));
+    expect(ledger).toHaveLength(1);
+    const view: RoomView = { fleet: 'night', color: null, now: [], cleanUp: 'Nothing to clean up', missions: [], ledger, filter: { role: 'reviewer', mission: null }, empty: false };
+    const out = renderToStaticMarkup(createElement(RoomTab, { view, keep: {} }));
+    expect(out).toContain('Reviewer · agent');
+    expect(out).toContain('Changes asked: 2 findings, round 1/2.');
+    expect(out).toContain('href="https://github.com/o/r/pull/2817#pullrequestreview-1">Review</a>');
+    expect(out).toContain('>Changes</span>');
+  });
+});
+
 describe('roomService', () => {
   it('reads the heroes, missions, events and saves as one view', async () => {
     const repository = {
