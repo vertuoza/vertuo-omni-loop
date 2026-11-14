@@ -2284,6 +2284,7 @@ export type Database = {
           hit_ids: string[]
           id: string
           mode: string | null
+          nearest_distance: number | null
           opened_id: string | null
           opened_rank: number | null
           product_id: string
@@ -2301,6 +2302,7 @@ export type Database = {
           hit_ids?: string[]
           id?: string
           mode?: string | null
+          nearest_distance?: number | null
           opened_id?: string | null
           opened_rank?: number | null
           product_id: string
@@ -2318,6 +2320,7 @@ export type Database = {
           hit_ids?: string[]
           id?: string
           mode?: string | null
+          nearest_distance?: number | null
           opened_id?: string | null
           opened_rank?: number | null
           product_id?: string

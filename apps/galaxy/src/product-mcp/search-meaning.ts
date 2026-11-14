@@ -30,7 +30,7 @@ export type Meaning = {
   budgetMs?: number;
 };
 
-type Answer = { hits: KnowledgeHit[]; total: number; mode?: SearchMode };
+type Answer = { hits: KnowledgeHit[]; total: number; mode?: SearchMode; nearestDistance?: number };
 
 /** The lower-case hex sha256 of the text's UTF-8 bytes. */
 async function sha256(text: string): Promise<string> {

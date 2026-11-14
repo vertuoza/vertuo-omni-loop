@@ -105,7 +105,8 @@ describe('knowledgeVectorsRepository', () => {
 
   it('asks knowledge_nearest() with the query in pgvector\'s text form, and answers the hashes nearest first', async () => {
     const { db, lines } = fakeDb([{ data: [{ text_sha256: SHA, distance: 0.1 }, { text_sha256: HASH, distance: 0.4 }], error: null }]);
-    expect(await knowledgeVectorsRepository(db).nearest('w-acme', 'gte-small', [HASH, SHA], [1, 0], 2)).toEqual([SHA, HASH]);
+    expect(await knowledgeVectorsRepository(db).nearest('w-acme', 'gte-small', [HASH, SHA], [1, 0], 2))
+      .toEqual([{ hash: SHA, distance: 0.1 }, { hash: HASH, distance: 0.4 }]);
     expect(lines).toEqual([`rpc("knowledge_nearest",{"p_workspace":"w-acme","p_model":"gte-small","p_hashes":["${HASH}","${SHA}"],"p_query":"[1,0]","p_k":2})`]);
   });
 
@@ -119,7 +120,7 @@ describe('searchLogRepository (PRD omni-loop-6 s1)', () => {
   const ROW = {
     product_id: 'p-acme', workspace_id: 'w-acme', api_key_id: 'k-live', tool: 'search_knowledge' as const,
     query: 'api key', filters: { kind: 'adr' }, mode: 'meaning' as const, total: 2, hit_ids: ['api/ADR-0012', 'widgets/ADR-0067'],
-    asked_at: '2026-11-13T10:00:00.000Z',
+    nearest_distance: 0.125, asked_at: '2026-11-13T10:00:00.000Z',
   };
 
   it('adds one row to mcp_search_log, as it is given', async () => {

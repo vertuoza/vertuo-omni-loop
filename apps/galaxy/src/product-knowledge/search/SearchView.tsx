@@ -8,8 +8,9 @@ import {
 
 // The Search section of the Knowledge home, drawn (PRD omni-loop-6 s3): over 7, 30 or 90 days the searches, the
 // zero-hit rate, the words-fallback rate, opened@1 and opened@5; a daily chart; the questions to look at first
-// (no hit, then fell back to words); the latest questions. With no row yet it says so in one line and draws no
-// chart. Drawn from search-stats.ts; SearchSection.tsx reads the rows as the signed-in person.
+// (no hit, then fell back to words); the latest questions, each with its nearest distance (PRD omni-loop-9 s2:
+// two decimals, a dash when none was logged). With no row yet it says so in one line and draws no chart. Drawn
+// from search-stats.ts; SearchSection.tsx reads the rows as the signed-in person.
 
 export const TITLE = 'Search';
 export const LEDE = 'What agents ask this product’s MCP server, and how well it answers. The opened rank is a proxy: an agent can open a wrong entry.';
@@ -80,16 +81,23 @@ function Chart({ days }: { days: readonly Day[] }) {
   );
 }
 
-const heads = (why: boolean): string[] => ['Question', 'Mode', 'Total', 'Top hit', 'Opened rank', ...(why ? ['Why'] : []), 'Asked'];
+/** The questions' columns: `why` the concern of a question to look at, `distance` the nearest distance of a latest one. */
+type Extra = { why: boolean; distance: boolean };
 
-function Questions({ title, id, rows, why }: { title: string; id: string; rows: readonly SearchRow[]; why: boolean }) {
+const heads = ({ why, distance }: Extra): string[] =>
+  ['Question', 'Mode', 'Total', 'Top hit', ...(distance ? ['Nearest distance'] : []), 'Opened rank', ...(why ? ['Why'] : []), 'Asked'];
+
+/** A search by meaning's nearest distance, two decimals; none logged, the dash. */
+const distanceOf = (row: SearchRow): string => (row.nearestDistance === undefined || row.nearestDistance === null ? NONE : row.nearestDistance.toFixed(2));
+
+function Questions({ title, id, rows, why, distance }: { title: string; id: string; rows: readonly SearchRow[] } & Extra) {
   if (rows.length === 0) return null;
   return (
     <div data-region={id}>
       <h3>{title}</h3>
       <div className="kn-scroll">
         <table className="kn-table">
-          <thead><tr>{heads(why).map((head) => <th key={head} scope="col">{head}</th>)}</tr></thead>
+          <thead><tr>{heads({ why, distance }).map((head) => <th key={head} scope="col">{head}</th>)}</tr></thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} data-search={row.id}>
@@ -97,6 +105,7 @@ function Questions({ title, id, rows, why }: { title: string; id: string; rows: 
                 <td>{row.mode ?? NONE}</td>
                 <td>{row.total}</td>
                 <td><code>{topHitOf(row)}</code></td>
+                {distance ? <td data-cell="nearest-distance">{distanceOf(row)}</td> : null}
                 <td>{row.openedRank ?? NONE}</td>
                 {why ? <td>{concernOf(row) ?? NONE}</td> : null}
                 <td>{dayOf(row.askedAt)}</td>
@@ -119,8 +128,8 @@ export function SearchView({ product, rows, days, now }: { product: string; rows
         <>
           <Numbers rows={shown} />
           <Chart days={dailyOf(shown, days, now)} />
-          <Questions title="To look at first" id="look-first" rows={lookFirstOf(shown)} why />
-          <Questions title="Latest questions" id="latest" rows={latestOf(shown)} why={false} />
+          <Questions title="To look at first" id="look-first" rows={lookFirstOf(shown)} why distance={false} />
+          <Questions title="Latest questions" id="latest" rows={latestOf(shown)} why={false} distance />
         </>
       )}
     </Section>

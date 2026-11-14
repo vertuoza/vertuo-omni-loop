@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { KnowledgeEntry } from 'omni-loop/kit/lib/knowledge/entries.ts';
-import { rankByMeaning, searchKnowledge, type Nearness } from './search';
+import { MAX_DISTANCE, rankByMeaning, searchKnowledge, type Nearness } from './search';
 
 // The search (PRD 2707 s3): words, with no model, over a fictional product's entries.
 
@@ -68,7 +68,11 @@ describe('searchKnowledge', () => {
 
 // The meaning ranking (PRD 2728 s5), over fake vectors: each entry's hash is its id, and `nearest` plays
 // knowledge_nearest()'s order.
-const nearness = (nearest: string[]): Nearness => ({ hashOf: (e) => `h:${e.id}`, nearest: nearest.map((id) => `h:${id}`) });
+// An id given as `id@0.3` is that far from the question; a bare id is near (0.1).
+const nearness = (nearest: string[]): Nearness => ({
+  hashOf: (e) => `h:${e.id}`,
+  nearest: nearest.map((spec) => { const [id = '', far] = spec.split('@'); return { hash: `h:${id}`, distance: far === undefined ? 0.1 : Number(far) }; }),
+});
 const MORE: KnowledgeEntry[] = [
   ...ENTRIES,
   entry('BL-QUOTES-2', { kind: 'business-law', domain: 'quotes', title: 'A quote names its payment term.', body: 'A quote names its payment term.' }),
@@ -81,6 +85,28 @@ describe('rankByMeaning', () => {
     expect(answer.mode).toBe('meaning');
     expect(answer.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-2', 'BL-QUOTES-1', 'L-GDPR-2']);
     expect(answer.total).toBe(3);
+  });
+
+  it('drops an entry past MAX_DISTANCE, and answers no hit, with mode meaning, when all are past it', () => {
+    const far = String(MAX_DISTANCE + 0.01);
+    const some = rankByMeaning(MORE, { query: 'can a quote go out without a term' }, nearness(['BL-QUOTES-2', `BL-QUOTES-1@${far}`, `L-GDPR-2@${far}`]));
+    expect(some.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-2']);
+    const none = rankByMeaning(MORE, { query: 'pizza delivery refund policy' }, nearness([`BL-QUOTES-2@${far}`, `BL-QUOTES-1@${far}`]));
+    expect(none).toMatchObject({ hits: [], total: 0, mode: 'meaning', nearestDistance: MAX_DISTANCE + 0.01 });
+    const edge = rankByMeaning(MORE, { query: 'quote term' }, nearness([`BL-QUOTES-2@${String(MAX_DISTANCE)}`]));
+    expect(edge.hits[0]?.id).toBe('BL-QUOTES-2');
+  });
+
+  it('keeps an exact match past MAX_DISTANCE, first, and an unembedded entry only when it shares a word', () => {
+    const far = String(MAX_DISTANCE + 0.2);
+    const exact = rankByMeaning(MORE, { query: 'BL-QUOTES-1' }, nearness([`BL-QUOTES-1@${far}`, `L-GDPR-2@${far}`]));
+    expect(exact.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-1']);
+    const words = rankByMeaning(MORE, { query: 'payment' }, nearness([`L-GDPR-2@${far}`]));
+    expect(words.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-2', 'acme-api/0043-retries']);
+  });
+
+  it('reports the nearest distance among the entries ranked', () => {
+    expect(rankByMeaning(MORE, { query: 'quote' }, nearness(['BL-QUOTES-2@0.12', 'BL-QUOTES-1@0.15'])).nearestDistance).toBe(0.12);
   });
 
   it('puts an exact id, then an exact term, first, whatever the vectors say', () => {

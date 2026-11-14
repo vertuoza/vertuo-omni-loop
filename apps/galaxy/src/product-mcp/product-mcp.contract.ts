@@ -90,6 +90,8 @@ export type SearchLogRow = {
   total: number;
   /** The hits' ids in rank order; for a get_knowledge, the id found. */
   hit_ids: string[];
+  /** A search by meaning's smallest cosine distance among the entries ranked (PRD omni-loop-9 s2); null otherwise. */
+  nearest_distance: number | null;
   /** When the call came in. */
   asked_at: string;
 };
