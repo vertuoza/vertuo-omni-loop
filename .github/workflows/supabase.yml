@@ -138,6 +138,14 @@ jobs:
         # fleet stays its owner's. Members read the heroes, others nothing, nobody signed in writes them,
         # and no player joins a virtual fleet (PRD 2842).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/virtual_fleets.sql
+      - name: Who may push a mission, and who reads it
+        # Any member of a workspace pushes a mission through mission_push(): its page a dossier of kind
+        # mission with its mission.md and mission.html, its row in draft for one of the workspace's
+        # active Virtual Fleets; the same files again add nothing, and a changed brief never moves its
+        # status. A wrong fleet, brief or file is refused naming its field. Members read the missions and
+        # their events, others nothing, nobody signed in writes them; an event is never changed or
+        # deleted; a job's mission_key is unique (PRD 2842).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/missions.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is

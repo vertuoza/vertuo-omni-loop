@@ -83,7 +83,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const bytesOf = (text: string) => new TextEncoder().encode(text).length;
 
 /** Where each kind of dossier is read. */
-const ROUTES: Record<PushKind, string> = { prd: 'prd', visual: 'visual', bug: 'bugs', concept: 'concepts' };
+const ROUTES: Record<PushKind, string> = { prd: 'prd', visual: 'visual', bug: 'bugs', concept: 'concepts', mission: 'missions' };
 
 const linkTo = (request: Request, id: string, kind: PushKind = 'prd') => `${origin(request)}/${ROUTES[kind]}/${id}`;
 
