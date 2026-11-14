@@ -69,8 +69,8 @@ the agent opens, in your repository:
 - **The PRD issue**, titled `PRD: <your title>`, with the `omni:prd` label. Its number is the
   PRD's number: every later step uses it.
 - **A feature branch**, `feat/<topic>`, holding the PRD's folder: `spec.md` (what changes, and
-  why), `plan.md` (how it gets built, in thin slices) and `before-after.html` (the screen today
-  beside the screen after, or the behaviour today beside after).
+  why), `plan.md` (how it gets built, in thin slices) and `before-after.html` (three tabs: Functional,
+  Technical and Pixel perfect, where each screen that changes is drawn whole, today beside after).
 - **The feature pull request**, as a draft, with the `omni:feature` label. It stays a draft for now.
 - **The phase-0 pull request**, with the `omni:phase-0` label: the same folder, and nothing else,
   going into your default branch.
@@ -94,7 +94,10 @@ opens with the `Refs #<n>` line alone.
 - Read `spec.md`: is this what you asked for?
 - Look at `before-after.html`: is the after the one you want? GitHub shows its source, so open it
   from the dossier link when you have one, or download the file from the pull request and open it
-  in your browser.
+  in your browser. Its Pixel perfect tab names each screen by a reference such as `2.C`; the
+  reference names the same state in every later version, so you can ask for a change by it. When
+  the agent had a tool to show you the page privately first, it did so before committing: you
+  answered Iterate or Carry on, and what you approved is what is in the file.
 - Skim `plan.md`: the slices, each with the files it may touch, and the waves they are built in.
 
 Something wrong? Do not merge. Tell the agent what to change, in the same session, and ask it to

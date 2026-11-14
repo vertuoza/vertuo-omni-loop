@@ -414,22 +414,46 @@ mockups use other markers, set `design.words.screen`, `design.words.primary` and
 `/omni:visual-fix` and `/omni:think-big` run it before showing you a mockup and fix what it finds,
 and the review's critique runs it too. A finding is fixed in the screen, never silenced.
 
-## The before/after: a Functional part and a Pixel perfect part
+## The before/after: three tabs
 
-With design craft on, the before/after page `/omni:brainstorm` writes for a PRD has two parts, in
-this order, each under its own heading:
+With design craft on, the before/after page `/omni:brainstorm` writes for a PRD has three tabs, in
+this order:
 
-- **Functional:** what the change does, today beside after: the flow, the data, the exchange.
-  Every PRD has it.
-- **Pixel perfect:** only when the change changes a screen: the marked screens, today beside after,
-  and one line naming the library screens they are, shared screens included
-  (`screens: quote-list · app-shell`). It is the part the review and the word pass read, and the
-  one a reviewer looks at closely.
+- **Functional:** what the change does, today beside after, in product words: the flow, the data,
+  the exchange. It opens first. Every PRD has it.
+- **Technical:** the flow, the deploy order and, per service, the database, the API and the
+  behaviour.
+- **Pixel perfect:** only when the change changes a screen. The marked screens, drawn whole at the
+  width each declares, today beside after, with an index of every reference. Its tab label counts
+  the screens (`Pixel perfect · 3`), and the address `#pixel-perfect` opens it. It is the part the
+  review and the word pass read, and the one a reviewer looks at closely.
 
-A PRD that changes no screen (a database fix, a guard, a doc) has the Functional part alone, and
-says, in place of the second, the one line `Pixel perfect: no screen changes`. Then **no slice
-runs design work for it**: no review, no mockup, no word pass. Each sub-PR's **Design review** is
-the one line `— Design review: no screen changes (Pixel perfect: no screen changes)`.
+A screen has a **reference**: a number for the screen and a letter for its state. `2` is the second
+screen of the page, `2.C` its third state (an error, a confirm step, an empty list). A reference
+names one state of one screen, and it is never renumbered: a state removed in a later version
+leaves a hole, so "change 2.C" means the same thing in every version of the page. A new state takes
+the next free letter, a new screen the next free number. Pressing a frame's reference, or the
+`100 %` control beside it, shows the screen at its real size.
+
+The Pixel perfect tab also holds the line that names the library screens it draws, shared screens
+included (`screens: quote-list · app-shell`).
+
+A PRD that changes no screen (a database fix, a guard, a doc) has the Functional and Technical tabs,
+and its Pixel perfect tab says, in place of the screens, the one line `Pixel perfect: no screen
+changes`. Then **no slice runs design work for it**: no review, no mockup, no word pass. Each
+sub-PR's **Design review** is the one line `— Design review: no screen changes (Pixel perfect: no
+screen changes)`.
+
+### The first look
+
+Before the page is committed, a tool that can publish a page privately to its person (in Claude,
+the Artifact tool) shows it to them first, when the page passes `omni check inbox` and the run is
+attended. The person answers one question, **Iterate** or **Carry on**. On Iterate they say what to
+change, naming a reference when it is about one screen (`2.C: shorten the label`), the agent changes
+the file and the page is shown again. On Carry on the file is committed as it stands, and what
+reaches review is what the person last saw. The private link is stored nowhere: the file in the
+repository is the only copy anyone else reads. With no such tool, or when the run is unattended, there
+is no first look and the page goes straight to the phase-0 pull request.
 
 The feature pull request says where to look, right after its link line:
 
