@@ -232,7 +232,9 @@ repositories.
   default mandate, with no question asked.
 - Start on a draft mission sends `/omni:yolo` for each startable PRD within the same run, and its
   ledger shows `Supervisor · agent` dispatch rows.
-- A PRD is not sent while it is not approved, a blocker is not merged, its plan meets a running PRD's
+- On every run the mission checks each PRD's approval again against its approved files; a PRD is
+  not sent while it has no standing approval (none yet, or voided by a changed file), a blocker is
+  not merged, its plan meets a running PRD's
   territory, or `mandate.parallel` PRDs already run; it is sent on the run after that changes.
 - Two runs of the same mission at once, or a replay, insert one job, never two.
 - Ready leaves the PRD waiting for a person's merge; a merge sends the PRDs it unblocks within a
@@ -243,4 +245,6 @@ repositories.
   status, progress and what each waiting PRD waits on; the Operation room shows five now lines, the
   clean-up line and the ledger, filtered by role and by mission.
 - No mission event or job line holds a credential, and every agent row is signed `· agent`.
+- A mission never stores, changes or rewords a person's answer or approval: its events link to them,
+  and a person's own row carries only that they answered, approved or merged, and when.
 - Every test above runs on a fake fleet and an in-memory database, with no model call.
