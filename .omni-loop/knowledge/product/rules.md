@@ -718,3 +718,63 @@ Source: .omni-loop/delivery/shipped/2739-follow-ups/outbox/settled.md, entry s3-
 Enforced by: kit/lib/delivery/ship-review.test.ts
 Stated: 2026-11-12
 Decided: @pierrederval, 2026-11-12, on PR #2740
+
+## BR-PRODUCT-132
+
+When a runner is over its keep budget, the oldest kept save is removed whole, its folder and its bundle, and its manifest records what was lost and why; the manifest stays until its keep date.
+
+Serves: P-PRODUCT-107
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-01-budget-drops-the-bundle, PRD #2809
+Enforced by: kit/lib/runner/sweep.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-133
+
+When the runner's save of a job's unfinished work fails, it keeps the job's folder, its manifest recording that the save failed and why. The folder is still removed at its keep date or when the keep budget is full, like any kept folder.
+
+Serves: P-PRODUCT-108
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-03-failed-save-keeps-folder, PRD #2809
+Enforced by: kit/lib/runner/checkpoint.test.ts, kit/lib/runner/checkpoint.manifest.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-134
+
+A job whose cancel was asked is never resumed, even when its runner is lost before the job stopped; the resume trigger queues nothing for it.
+
+Serves: P-PRODUCT-109
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s1-02-cancel-asked-not-resumed, PRD #2809
+Enforced by: supabase/checks/runner_resume.sql, apps/galaxy/src/runners/runners.resume.migration.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-135
+
+A resumed job whose newest kept local save sits on one runner waits for that runner while it was seen within 90 s and may take the job, even with every slot busy. Once it has been silent longer, any runner takes the job and is told what stayed behind.
+
+Serves: P-PRODUCT-110
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s5-03-keeper-runner-routing, PRD #2809
+Enforced by: supabase/checks/runner_resume.sql, apps/galaxy/src/runners/runners.claim-resume.migration.test.ts, apps/galaxy/src/runners/runners.resume-claim.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-136
+
+While a lost job's automatic resume exists, the Runners page offers no action on the lost job, so its work is never queued twice; the resume keeps its own Cancel, and a job lost 3 times offers Resume, sent as the person who presses it.
+
+Serves: P-PRODUCT-111
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s7-01-lost-job-offers-no-button-while-resuming, PRD #2809
+Enforced by: apps/galaxy/src/runners/page/loss.test.ts, apps/galaxy/src/runners/page/loss.render.test.ts
+Stated: 2026-11-14
+Decided: nobody — adopted when raised (medium), 2026-11-13
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14

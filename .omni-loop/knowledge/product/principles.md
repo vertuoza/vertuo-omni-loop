@@ -862,3 +862,48 @@ A job an app sends with an API key stays that app's from start to end: whoever s
 Why: An app that sends work through the API keeps following it without opening the page; a thread that changed owner when a person answered would drop out of the app's sight halfway.
 Source: .omni-loop/delivery/shipped/2425-api-key-job-control/outbox/settled.md, entry s1-02-resume-stays-the-keys, PRD #2425
 Proposed: write-back 2026-10-23
+
+## P-PRODUCT-107
+
+A runner never loses a saved job silently; whatever it removes to stay within its budget is recorded where the person can see it.
+
+Why: A person resuming work must be able to tell lost work from missing work, rather than finding a save gone with no trace.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-01-budget-drops-the-bundle, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-108
+
+A job's unfinished work is never thrown away because saving it failed; what remains is kept and the failure is recorded beside it.
+
+Why: The feature exists so jobs are not lost; deleting the only copy when a save breaks would silently lose work.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s2-03-failed-save-keeps-folder, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-109
+
+A person's request to stop a job is never undone by the loop's own recovery; nothing restarts work someone asked to stop.
+
+Why: Automatic recovery that overrides a cancel would run work a person chose to stop, wasting resources and breaking their trust in stopping.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s1-02-cancel-asked-not-resumed, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-110
+
+A lost job's saved work is never passed over while the machine holding it can still hand it back; once that machine is gone, the job goes on elsewhere and says what was left behind.
+
+Why: Resuming without the saved work throws it away, while waiting on a vanished machine would stall the job forever.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s5-03-keeper-runner-routing, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
+
+## P-PRODUCT-111
+
+The app never offers an action that would queue the same job's work a second time beside a chain already carrying it.
+
+Why: Two chains doing the same work waste runners and can write conflicting results that people then have to untangle.
+Source: .omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md, entry s7-01-lost-job-offers-no-button-while-resuming, PRD #2809
+Merged: @pierrederval, 2026-11-14, PR #2810
+Proposed: harvest 2026-11-14
