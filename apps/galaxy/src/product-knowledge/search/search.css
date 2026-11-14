@@ -16,3 +16,6 @@
 .kn-legend [data-key='zero-hit'] { border-left: 10px solid var(--ask-red); padding-left: 6px; }
 .kn-legend [data-key='words'] { border-left: 10px solid var(--ask-ink); padding-left: 6px; }
 [data-region] h3 { margin: 18px 0 4px; font-size: 17px; }
+/* A region is a grid item of its section card: it takes the card's width and may shrink below its table's, so a
+   wide table scrolls inside its own kn-scroll box instead of widening the page (bug 2838). */
+[data-region] { width: 100%; min-width: 0; }
