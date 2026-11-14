@@ -155,8 +155,8 @@ function boundOf(inclusive, exact) {
   return inclusive ? "inclusive" : "exclusive";
 }
 function sizeMessage(words, origin, limit, bound) {
-  const measure = MEASURES.get(origin);
-  return measure === void 0 ? void 0 : SENTENCES[measure](words[measure][bound], limit);
+  const measure2 = MEASURES.get(origin);
+  return measure2 === void 0 ? void 0 : SENTENCES[measure2](words[measure2][bound], limit);
 }
 function invalidType(issue) {
   if (issue.input === void 0) return "Required";
@@ -617,8 +617,8 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
       return storedObject(etag.kept);
     }
     const known = await stored((s) => s.budget(installation, resource));
-    const refused9 = refusal(known, priority, clock());
-    if (refused9) throw refused9;
+    const refused10 = refusal(known, priority, clock());
+    if (refused10) throw refused10;
     const headers = etag.kept ? { ...plainHeaders(rest.headers), "if-none-match": etag.kept.etag } : rest.headers;
     const res = await send(url, headers === void 0 ? rest : { ...rest, headers });
     const answered = clock();
@@ -838,6 +838,8 @@ var SCHEDULES = Object.freeze([
   { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
   { kind: "escalation", periodMinutes: 60, maxTries: 3 },
   { kind: "search-categorize", periodMinutes: 15, maxTries: 3 },
+  { kind: "search-eval-promote", periodMinutes: 1440, maxTries: 3 },
+  { kind: "search-eval-run", periodMinutes: 1440, maxTries: 3 },
   { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 }
 ]);
 
@@ -4585,16 +4587,16 @@ function compare(risky, accounts) {
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
   const accepted = /* @__PURE__ */ new Set();
-  const refused9 = /* @__PURE__ */ new Map();
+  const refused10 = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     const why = refusal2(entry);
     if (why === null) accepted.add(entryKey(entry));
-    else refused9.set(entryKey(entry), why);
+    else refused10.set(entryKey(entry), why);
   }
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change2) => accepted.has(entryKey(change2)));
   const unaccounted = risky.filter((change2) => !accepted.has(entryKey(change2))).map((change2) => {
-    const why = refused9.get(entryKey(change2));
+    const why = refused10.get(entryKey(change2));
     return why === void 0 ? change2 : { ...change2, refused: why };
   });
   const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
@@ -8174,17 +8176,17 @@ function measuredVerdict(bytes, ceiling, unmatchedRaise) {
   if (ceiling !== null && bytes > ceiling) return "over-budget";
   return unmatchedRaise ? "needs-yes" : "green";
 }
-function judge(measure, { base, head, raises }) {
-  const { target: target2 } = measure;
+function judge(measure2, { base, head, raises }) {
+  const { target: target2 } = measure2;
   const ceiling = ceilingOf(head, target2);
   const raised = isRaised(base, target2, ceiling);
   const raise = raised ? matchingRaise(raises, target2, ceiling) : null;
   const shared = { target: target2, ceiling, baseCeiling: ceilingOf(base, target2), raised, raise };
-  if ("error" in measure) return { ...shared, verdict: "neutral", bytes: null, error: measure.error };
-  return { ...shared, verdict: measuredVerdict(measure.bytes, ceiling, raised && raise === null), bytes: measure.bytes, error: null };
+  if ("error" in measure2) return { ...shared, verdict: "neutral", bytes: null, error: measure2.error };
+  return { ...shared, verdict: measuredVerdict(measure2.bytes, ceiling, raised && raise === null), bytes: measure2.bytes, error: null };
 }
 function ratchet(input) {
-  return input.measures.map((measure) => judge(measure, input));
+  return input.measures.map((measure2) => judge(measure2, input));
 }
 function overall(verdicts) {
   if (verdicts.some(({ verdict }) => verdict === "over-budget" || verdict === "needs-yes")) return "red";
@@ -8606,14 +8608,14 @@ function relayFolder({
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw new Error(`PRD ${prd} has no inbox or shipped folder`);
   const moved = [];
-  const refused9 = [];
+  const refused10 = [];
   const taken = settledIds(ctx, outboxDir);
   for (const name of markdownFiles(join44(ctx.root, outboxDir))) taken.add(basename9(name, ".md"));
   for (const name of markdownFiles(dir)) {
     const from = join44(dir, name);
     const reason2 = itemRefusal({ laws, prd, file: `${outboxDir}/${name}`, name, text: readFileSync30(from, "utf8"), taken });
     if (reason2 !== null) {
-      refused9.push({ file: from, reason: reason2 });
+      refused10.push({ file: from, reason: reason2 });
       continue;
     }
     const to = `${outboxDir}/${name}`;
@@ -8628,14 +8630,14 @@ function relayFolder({
     const to = `${outboxDir}/${ACCOUNTS_DIR}/${name}`;
     const reason2 = accountRefusal({ prd, destination: join44(ctx.root, to), name: from, text: readFileSync30(from, "utf8") });
     if (reason2 !== null) {
-      refused9.push({ file: from, reason: reason2 });
+      refused10.push({ file: from, reason: reason2 });
       continue;
     }
     mkdirSync8(join44(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
     move(from, join44(ctx.root, to));
     moved.push({ from, to });
   }
-  return { moved, refused: refused9 };
+  return { moved, refused: refused10 };
 }
 
 // kit/lib/outbox/replies.ts
@@ -9169,14 +9171,14 @@ function serverOutboxStore({ ctx, connect, now }) {
       if (!isFolder(dir)) return null;
       const taken = new Set((await rows(product)).map((row) => row.item));
       const moved = [];
-      const refused9 = [];
+      const refused10 = [];
       for (const name of markdownFiles(dir)) {
         const from = join47(dir, name);
         const text17 = readFileSync33(from, "utf8");
         const id = name.slice(0, -".md".length);
         const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text17, taken });
         if (reason2 !== null) {
-          refused9.push({ file: from, reason: reason2 });
+          refused10.push({ file: from, reason: reason2 });
           continue;
         }
         await put2(product, text17, false);
@@ -9185,9 +9187,9 @@ function serverOutboxStore({ ctx, connect, now }) {
         moved.push({ from, to: refOf(product, id) });
       }
       for (const name of markdownFiles(join47(dir, ACCOUNTS_DIR))) {
-        refused9.push({ file: join47(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
+        refused10.push({ file: join47(dir, ACCOUNTS_DIR, name), reason: `PRD ${product}'s outbox is on the Omni page, which keeps no account yet: it stays here` });
       }
-      return { moved, refused: refused9 };
+      return { moved, refused: refused10 };
     },
     async gate(prd, { labels = [] }) {
       const product = productPrd(prd);
@@ -9622,7 +9624,7 @@ function kept({ spec, reply, claims, constituents, legal, personas }) {
   return { findings, persona };
 }
 var plural3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-function judged2({ claims, constituents, legal, findings, persona, judge: judge3 }) {
+function judged2({ claims, constituents, legal, findings, persona, judge: judge4 }) {
   const claimsRead = claims.length;
   if (findings.length === 0) {
     const read = [
@@ -9631,7 +9633,7 @@ function judged2({ claims, constituents, legal, findings, persona, judge: judge3
       ...legal.length ? [`${legal.length} Legal`] : []
     ].join(", ");
     const reason3 = `canon \u2713 \xB7 ${read} read`;
-    return { name: CANON_GATE, ok: true, neutral: false, reason: reason3, details: [], canon: { state: "green", reason: reason3, claimsRead, findings, persona, judge: judge3 } };
+    return { name: CANON_GATE, ok: true, neutral: false, reason: reason3, details: [], canon: { state: "green", reason: reason3, claimsRead, findings, persona, judge: judge4 } };
   }
   const reason2 = `canon \u2717 ${findings.length}`;
   const values = new Map([
@@ -9643,8 +9645,8 @@ function judged2({ claims, constituents, legal, findings, persona, judge: judge3
     (finding) => `${finding.claims.map((id) => `${id} "${values.get(id)}"`).join(", ")} \u2014 the spec: "${finding.quote}"`
   );
   if (persona) details.push(`${persona.name}: "${persona.line}"`);
-  if (judge3?.decidedBy === "jev") details.push(`judged by Jev (constituent-break, confidence ${judge3.confidence})`);
-  return { name: CANON_GATE, ok: false, neutral: false, title: reason2, reason: reason2, details, canon: { state: "red", reason: reason2, claimsRead, findings, persona, judge: judge3 } };
+  if (judge4?.decidedBy === "jev") details.push(`judged by Jev (constituent-break, confidence ${judge4.confidence})`);
+  return { name: CANON_GATE, ok: false, neutral: false, title: reason2, reason: reason2, details, canon: { state: "red", reason: reason2, claimsRead, findings, persona, judge: judge4 } };
 }
 function liveConstituents(read) {
   if (read?.state !== "ok") return [];
@@ -9688,7 +9690,7 @@ function counted2(findings, broken) {
   return findings.map((f) => ({ ...f, claims: f.claims.filter((id) => !isConstituent(id)) })).filter((f) => f.claims.length > 0);
 }
 var NO_JUDGE2 = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: "no judge here" });
-function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge3 = NO_JUDGE2, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
+function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge4 = NO_JUDGE2, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
   async function modelVerdict({ repo, spec, read }) {
     const { business, claims, constituents, legal, personas, version } = read;
     const key = [repo, createHash2("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
@@ -9715,7 +9717,7 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
       if (verdict.gate) return verdict.gate;
       if (constituents.length === 0) return judged2({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said = await judge3({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      const said = await judge4({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
       if (!said.ok) {
         return neutral(said.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said.reason})` : `judge error: ${said.reason}`);
       }
@@ -9797,10 +9799,10 @@ function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
   const { supabase } = env;
   const readBusiness = supabase ? businessReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
   const readConstituents = supabase ? constituentsReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
-  const judge3 = constituentJudge({ url: judgeUrl(env.galaxyUrl), secret: env.constituentJudge?.secret, fetch: fetch2 });
+  const judge4 = constituentJudge({ url: judgeUrl(env.galaxyUrl), secret: env.constituentJudge?.secret, fetch: fetch2 });
   const openrouter = env.openrouter ? { key: env.openrouter.key, model: CANON_MODEL } : null;
   const ask3 = (request) => askModel({ ...request, openrouter, fetch: fetch2, call: CANON_CALL, title: "omni loop canon" });
-  return createCanon({ readBusiness, readConstituents, judge: judge3, ask: ask3 });
+  return createCanon({ readBusiness, readConstituents, judge: judge4, ask: ask3 });
 }
 
 // apps/omni-app/src/escalation/sweep.ts
@@ -12336,8 +12338,8 @@ async function sayingBudget(where, log2, work) {
   try {
     return await work();
   } catch (error) {
-    const refused9 = budgetRefusal(error);
-    if (refused9) log2(`outbox check of ${where} waits for the GitHub budget: ${refused9.message}`);
+    const refused10 = budgetRefusal(error);
+    if (refused10) log2(`outbox check of ${where} waits for the GitHub budget: ${refused10.message}`);
     throw error;
   }
 }
@@ -12936,8 +12938,8 @@ async function readTarget2({ octokitFor, log: log2 }, { installationId, prdId },
       log2(`server event: ${where} is left out: GitHub answers ${String(status)}, it is gone or the App cannot read it`);
       return GONE_PULL;
     }
-    const refused9 = refusalIn2(error);
-    if (refused9) log2(`server event: ${where} waits for the GitHub budget: ${refused9.message}`);
+    const refused10 = refusalIn2(error);
+    if (refused10) log2(`server event: ${where} waits for the GitHub budget: ${refused10.message}`);
     throw error;
   }
 }
@@ -14015,8 +14017,8 @@ function classificationSchema(summary2) {
       issue(["place"], `place "${reply.place}" is not "${PRODUCT_PLACE}" nor an existing domain \u2014 one of: ${places.join(", ")}`);
     }
     if (reply.kind === "rule") {
-      const refused9 = servesRefusal(reply, principles);
-      if (refused9) issue(["serves"], refused9);
+      const refused10 = servesRefusal(reply, principles);
+      if (refused10) issue(["serves"], refused10);
     }
     if (reply.kind === "covered") {
       const record = reply.covers.match(RECORD_ID);
@@ -15399,24 +15401,24 @@ function proposedProofs(classified, changed) {
   return [...new Set(proposed)].filter((path) => kept3.has(path)).sort();
 }
 var asksWorth = (classified) => classified.some(({ reply }) => reply !== null && "worthALaw" in reply && reply.worthALaw !== void 0);
-async function judged3(judge3, question, asked) {
+async function judged3(judge4, question, asked) {
   try {
-    return await judge3(question, asked);
+    return await judge4(question, asked);
   } catch (error) {
     return { worth: null, reason: `the law judge failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-async function lawAnswers(step, judge3, { questions, repo, prd }) {
+async function lawAnswers(step, judge4, { questions, repo, prd }) {
   const worth = {};
   for (const question of await savedStep(step, "law-questions", LawQuestionsSchema, questions)) {
     const asked = { repo, ref: `PRD ${prd} ${question.id}` };
-    worth[question.id] = (await savedStep(step, `law-worth:${question.id}`, LawJudgementSchema, () => judged3(judge3, question, asked))).worth;
+    worth[question.id] = (await savedStep(step, `law-worth:${question.id}`, LawJudgementSchema, () => judged3(judge4, question, asked))).worth;
   }
   return worth;
 }
-async function worthAnswered(step, { judge: judge3, laws, classified, questions, repo, prd }) {
+async function worthAnswered(step, { judge: judge4, laws, classified, questions, repo, prd }) {
   const replies = laws ? classified : withoutWorth(classified);
-  const worth = judge3 && asksWorth(replies) ? await lawAnswers(step, judge3, { questions: () => questions(replies), repo, prd }) : {};
+  const worth = judge4 && asksWorth(replies) ? await lawAnswers(step, judge4, { questions: () => questions(replies), repo, prd }) : {};
   return replies.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
 }
 async function writeWithLaws(step, { write: write2, open }) {
@@ -17417,11 +17419,11 @@ var afterMerge = Object.freeze({
   },
   describe(facts) {
     if (!facts) return null;
-    const refused9 = (read) => facts.unread.find((entry) => entry.read === read);
-    const lines2 = [...bugLines(facts, refused9("bugs")), ...megaLine(facts)];
+    const refused10 = (read) => facts.unread.find((entry) => entry.read === read);
+    const lines2 = [...bugLines(facts, refused10("bugs")), ...megaLine(facts)];
     const fixUrl = new Map(facts.fixes.map((fix) => [fix.number, fix.url]));
     for (const bug of facts.bugs) lines2.push(bugLine(bug, fixUrl));
-    const fixesUnread = refused9("fixes");
+    const fixesUnread = refused10("fixes");
     if (fixesUnread) lines2.push(`- The pull requests merged after the merge were not read (GitHub answered ${fixesUnread.status}), so no fix is counted.`);
     lines2.push(...checkLines(facts.checks));
     for (const entry of facts.unread.filter((item) => item.read === "jobs")) {
@@ -20282,7 +20284,7 @@ function checkpointsForgetHandler({
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z79 } from "zod";
+import { z as z80 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -20421,13 +20423,147 @@ function knowledgeEntries(sources) {
   return all.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
+// apps/omni-app/src/jobs/search-eval-run.ts
+import { z as z79 } from "zod";
+
+// kit/lib/knowledge/search-eval.ts
+var MISS_TOP = 5;
+function bestRank(ranked2, right) {
+  const at4 = ranked2.findIndex((id) => right.has(id));
+  return at4 < 0 ? null : at4 + 1;
+}
+function recallAt(ranked2, right, k) {
+  const found = new Set(ranked2.slice(0, k).filter((id) => right.has(id)));
+  return found.size / right.size;
+}
+function measure(group2) {
+  const sums = { top1: 0, top5: 0, recall5: 0, recall10: 0, mrr: 0 };
+  for (const q of group2) {
+    const right = new Set(q.right);
+    const rank = bestRank(q.ranked, right);
+    if (rank === 1) sums.top1 += 1;
+    if (rank !== null && rank <= 5) sums.top5 += 1;
+    sums.recall5 += recallAt(q.ranked, right, 5);
+    sums.recall10 += recallAt(q.ranked, right, 10);
+    if (rank !== null) sums.mrr += 1 / rank;
+  }
+  const n = group2.length;
+  const mean = (sum) => n === 0 ? 0 : sum / n;
+  return { questions: n, top1: mean(sums.top1), top5: mean(sums.top5), recall5: mean(sums.recall5), recall10: mean(sums.recall10), mrr: mean(sums.mrr) };
+}
+function scoreSearches(outcomes) {
+  const counted3 = outcomes.filter((o) => o.right.length > 0);
+  const categories = [...new Set(counted3.map((o) => o.category))];
+  const misses = [];
+  for (const q of counted3) {
+    const right = new Set(q.right);
+    const rank = bestRank(q.ranked, right);
+    if (rank === null || rank > MISS_TOP) {
+      misses.push({ ...q.id === void 0 ? {} : { id: q.id }, category: q.category, rank, first: q.ranked.slice(0, MISS_TOP), right: [...right] });
+    }
+  }
+  return {
+    overall: measure(counted3),
+    byCategory: categories.map((category) => ({ category, measures: measure(counted3.filter((o) => o.category === category)) })),
+    misses,
+    skipped: outcomes.length - counted3.length
+  };
+}
+
+// apps/omni-app/src/jobs/search-eval-run.ts
+var SEARCH_EVAL_RUN_KIND = "search-eval-run";
+var BUDGET_MS = 15e4;
+var AGAIN_MS = 6e4;
+var PARALLEL = 4;
+var NO_CATEGORY = "other";
+var FIRST = 5;
+var PayloadSchema2 = z79.object({ slot: z79.string().min(1).max(80), productId: z79.string().min(1).optional() });
+function searchEvalRunJob({ productId, slot }) {
+  return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
+}
+function ranksOf(ranked2, right) {
+  return right.map((id) => ranked2.indexOf(id) + 1).filter((rank) => rank > 0).sort((a, b) => a - b);
+}
+async function outcomesOf2(search, questions) {
+  const outcomes = [];
+  for (let at4 = 0; at4 < questions.length; at4 += PARALLEL) {
+    const batch = await Promise.all(
+      questions.slice(at4, at4 + PARALLEL).map(async (q) => {
+        const category = q.category ?? NO_CATEGORY;
+        if (q.right.length === 0) return { id: q.id, category, ranked: [], right: [] };
+        const ranked2 = await search({ workspaceId: q.workspaceId, productId: q.productId, question: q.question }).catch(() => null);
+        return ranked2 === null ? null : { id: q.id, category, ranked: ranked2, right: q.right };
+      })
+    );
+    for (const outcome2 of batch) {
+      if (outcome2 === null) return null;
+      outcomes.push(outcome2);
+    }
+  }
+  return outcomes;
+}
+async function runProduct({ store, search, productId, trigger, slot }) {
+  const outcomes = await outcomesOf2(search, await store.questions(productId));
+  if (outcomes === null) return "failed";
+  const scores = scoreSearches(outcomes);
+  if (scores.overall.questions === 0) return "empty";
+  const kept3 = await store.record({
+    productId,
+    trigger,
+    slot,
+    measures: {
+      overall: scores.overall,
+      categories: Object.fromEntries(scores.byCategory.map(({ category, measures }) => [category, measures])),
+      misses: scores.misses,
+      skipped: scores.skipped
+    },
+    questions: outcomes.filter((outcome2) => outcome2.right.length > 0).map((outcome2) => ({ questionId: outcome2.id ?? null, category: outcome2.category, ranks: ranksOf(outcome2.ranked, outcome2.right), first: outcome2.ranked.slice(0, FIRST) }))
+  });
+  return kept3 === null ? "empty" : "kept";
+}
+function searchEvalRunHandler({
+  store,
+  search,
+  clock = Date.now,
+  budgetMs = BUDGET_MS,
+  log: log2 = noteTo("search-eval-run")
+}) {
+  return async (job) => {
+    const { slot, productId } = payloadOf2(job.payload);
+    const trigger = productId === void 0 ? "daily" : "embed";
+    const products = productId === void 0 ? await store.evalProducts() : [productId];
+    const start = clock();
+    let recorded = 0;
+    let failed3 = 0;
+    for (const id of products) {
+      if (clock() - start >= budgetMs) {
+        log2(`search eval run: ${String(recorded)} of ${String(products.length)} products run, out of time: again in a minute`);
+        return { outcome: "later", at: new Date(clock() + AGAIN_MS), progress: { recorded } };
+      }
+      if (await store.recorded(id, trigger, slot)) continue;
+      const ended = await runProduct({ store, search, productId: id, trigger, slot });
+      if (ended === "failed") failed3 += 1;
+      else if (ended === "kept") recorded += 1;
+    }
+    log2(`search eval run: ${trigger} ${slot.slice(0, 10)}: ${String(recorded)} runs kept in ${String(products.length)} products, ${String(failed3)} not run`);
+    if (failed3 > 0) throw new Error(`search eval run: a search failed in ${String(failed3)} of ${String(products.length)} products`);
+    return { outcome: "done" };
+  };
+}
+function payloadOf2(raw) {
+  const parsed3 = PayloadSchema2.safeParse(raw);
+  if (parsed3.success) return parsed3.data;
+  const [issue] = parsed3.error.issues;
+  throw new Error(`The search eval run job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed3.error.message}`);
+}
+
 // apps/omni-app/src/jobs/embed.ts
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
-var AGAIN_MS = 6e4;
-var EmbedPayloadSchema = z79.object({
-  repository: z79.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z79.string().regex(/^[0-9a-f]{40}$/)
+var AGAIN_MS2 = 6e4;
+var EmbedPayloadSchema = z80.object({
+  repository: z80.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z80.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -20455,21 +20591,35 @@ function textsByHash(entries) {
   }
   return texts;
 }
+async function addEvalRuns(evalRuns, repository, sha, workspaces, log2) {
+  try {
+    let added = 0;
+    for (const productId of await evalRuns.products(repository, workspaces)) {
+      if (await evalRuns.add(searchEvalRunJob({ productId, slot: sha }))) added += 1;
+    }
+    return added;
+  } catch (error) {
+    log2(`knowledge embed: the eval runs were not added: ${error instanceof Error ? error.message.split("\n")[0] ?? "" : "unknown"}`);
+    return 0;
+  }
+}
 function embedHandler({
   store,
   embed,
+  evalRuns,
   clock = Date.now,
   budgetMs = EMBED_BUDGET_MS,
   log: log2 = noteTo("knowledge-embed")
 }) {
   return async (job) => {
-    const { repository, sha } = payloadOf2(job.payload);
+    const { repository, sha } = payloadOf3(job.payload);
     const what = `${repository}@${sha.slice(0, 7)}`;
     const packs = await store.sources(repository, sha);
     if (packs.length === 0) return { outcome: "skipped", reason: "no workspace keeps its pack" };
     const start = clock();
     let embedded = 0;
     let texts = 0;
+    const stored = /* @__PURE__ */ new Set();
     for (const pack2 of packs) {
       const byHash = textsByHash(packEntries(repository, pack2));
       texts += byHash.size;
@@ -20477,19 +20627,21 @@ function embedHandler({
       for (let at4 = 0; at4 < missing.length; at4 += EMBED_BATCH) {
         if (clock() - start >= budgetMs) {
           log2(`knowledge embed: ${what} embedded ${String(embedded)} texts, out of time: again in a minute`);
-          return { outcome: "later", at: new Date(clock() + AGAIN_MS), progress: { embedded } };
+          return { outcome: "later", at: new Date(clock() + AGAIN_MS2), progress: { embedded } };
         }
         const hashes = missing.slice(at4, at4 + EMBED_BATCH);
         const vectors = await embed(hashes.map((hash) => byHash.get(hash) ?? ""));
         await store.put(pack2.workspace, EMBED_MODEL, hashes.map((sha2562, i) => ({ sha256: sha2562, vector: vectors[i] ?? [] })));
         embedded += hashes.length;
+        stored.add(pack2.workspace);
       }
     }
-    log2(`knowledge embed: ${what} embedded ${String(embedded)} of ${String(texts)} texts in ${String(packs.length)} workspaces`);
+    const runs = evalRuns && stored.size > 0 ? await addEvalRuns(evalRuns, repository, sha, [...stored], log2) : 0;
+    log2(`knowledge embed: ${what} embedded ${String(embedded)} of ${String(texts)} texts in ${String(packs.length)} workspaces${evalRuns ? `, ${String(runs)} eval runs added` : ""}`);
     return { outcome: "done" };
   };
 }
-function payloadOf2(raw) {
+function payloadOf3(raw) {
   const parsed3 = EmbedPayloadSchema.safeParse(raw);
   if (parsed3.success) return parsed3.data;
   const [issue] = parsed3.error.issues;
@@ -20497,7 +20649,7 @@ function payloadOf2(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z81 } from "zod";
+import { z as z82 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash6 } from "node:crypto";
@@ -20532,12 +20684,12 @@ function packFiles(read) {
 import { mkdtempSync as mkdtempSync13, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync17, statSync as statSync16 } from "node:fs";
 import { tmpdir as tmpdir13 } from "node:os";
 import { join as join69 } from "node:path";
-import { z as z80 } from "zod";
-var PullFileSchema = z80.looseObject({ filename: z80.string().min(1), previous_filename: z80.string().nullish() });
+import { z as z81 } from "zod";
+var PullFileSchema = z81.looseObject({ filename: z81.string().min(1), previous_filename: z81.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z80.array(PullFileSchema).parse(data);
+    return z81.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -20617,12 +20769,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z81.object({
-  installationId: z81.number(),
-  owner: z81.string().min(1),
-  repo: z81.string().min(1),
-  sha: z81.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z81.string().min(1),
+var PackPayloadSchema = z82.object({
+  installationId: z82.number(),
+  owner: z82.string().min(1),
+  repo: z82.string().min(1),
+  sha: z82.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z82.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packHandler({
@@ -20632,7 +20784,7 @@ function packHandler({
   log: log2 = noteTo("knowledge-pack")
 }) {
   return async (job) => {
-    const payload = payloadOf3(job.payload);
+    const payload = payloadOf4(job.payload);
     const { installationId, owner, repo } = payload;
     const repository = `${owner}/${repo}`;
     const what = labelOf(repository, payload);
@@ -20650,7 +20802,7 @@ function packHandler({
     return { outcome: "done" };
   };
 }
-function payloadOf3(raw) {
+function payloadOf4(raw) {
   const parsed3 = PackPayloadSchema.safeParse(raw);
   if (parsed3.success) return parsed3.data;
   const [issue] = parsed3.error.issues;
@@ -20708,8 +20860,8 @@ function place(nearest, threshold = SIMILARITY) {
 var SEARCH_CATEGORIZE_KIND = "search-categorize";
 var MAX_SEARCHES = 200;
 var CATEGORY_MAX = 80;
-var BUDGET_MS = 15e4;
-var AGAIN_MS2 = 6e4;
+var BUDGET_MS2 = 15e4;
+var AGAIN_MS3 = 6e4;
 async function groupSearch(store, search, vector, threshold) {
   const placement = place(await store.nearest(search.productId, EMBED_MODEL, vector), threshold);
   if (placement.kind === "join") {
@@ -20731,7 +20883,7 @@ function searchCategorizeHandler({
   threshold = SIMILARITY,
   limit = MAX_SEARCHES,
   clock = Date.now,
-  budgetMs = BUDGET_MS,
+  budgetMs = BUDGET_MS2,
   log: log2 = noteTo("search-categorize")
 }) {
   return async () => {
@@ -20744,7 +20896,7 @@ function searchCategorizeHandler({
     for (let at4 = 0; at4 < searches.length; at4 += EMBED_BATCH) {
       if (clock() - start >= budgetMs) {
         log2(`search categorize: ${String(grouped)} of ${String(searches.length)} searches grouped, out of time: again in a minute`);
-        return { outcome: "later", at: new Date(clock() + AGAIN_MS2), progress: { grouped } };
+        return { outcome: "later", at: new Date(clock() + AGAIN_MS3), progress: { grouped } };
       }
       const batch = searches.slice(at4, at4 + EMBED_BATCH);
       const vectors = await embed(batch.map((search) => search.question));
@@ -20764,9 +20916,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z82 } from "zod";
+import { z as z83 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z82.looseObject({ category: z82.string().nullable() });
+var ReplySchema2 = z83.looseObject({ category: z83.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -20789,10 +20941,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z83 } from "zod";
-var UngroupedRowSchema = z83.object({ id: z83.string().min(1), product_id: z83.string().min(1), workspace_id: z83.string().min(1), query: z83.string().min(1) });
-var NearestRowSchema = z83.object({ group_id: z83.string().min(1), cosine: z83.number() });
-var GroupIdSchema = z83.object({ id: z83.string().min(1) });
+import { z as z84 } from "zod";
+var UngroupedRowSchema = z84.object({ id: z84.string().min(1), product_id: z84.string().min(1), workspace_id: z84.string().min(1), query: z84.string().min(1) });
+var NearestRowSchema = z84.object({ group_id: z84.string().min(1), cosine: z84.number() });
+var GroupIdSchema = z84.object({ id: z84.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -20810,7 +20962,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z83.array(NearestRowSchema).parse(data);
+      const [row] = z84.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -20826,6 +20978,232 @@ function searchStore(connection) {
       const { error } = await db.from("mcp_search_log").update({ category }).eq("id", searchId);
       if (error) throw refused8(error);
     }
+  };
+}
+
+// apps/omni-app/src/search-eval/galaxy.ts
+import { z as z85 } from "zod";
+var TIMEOUT_MS3 = 2e4;
+var RELEVANT_MAX = 20;
+var VerdictsSchema = z85.looseObject({
+  verdicts: z85.array(z85.looseObject({ entryId: z85.string().min(1), relevant: z85.boolean().nullable(), confidence: z85.number().min(0).max(1).nullable().optional() }))
+});
+var SearchSchema2 = z85.looseObject({ ids: z85.array(z85.string().min(1)) });
+var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
+var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
+var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
+async function signedPost2({ name, url, secret, body, post: post2, timeoutMs }) {
+  const text17 = JSON.stringify(body);
+  const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, text17) };
+  let response;
+  try {
+    response = await post2(url, { method: "POST", body: text17, headers, signal: AbortSignal.timeout(timeoutMs) });
+  } catch {
+    throw new Error(`${name}: galaxy could not be reached`);
+  }
+  if (!response.ok) throw new Error(`${name}: galaxy answered ${String(response.status)}`);
+  return response.json().catch(() => null);
+}
+function galaxyJudge({ url, secret, fetch: post2 = fetch, timeoutMs = TIMEOUT_MS3 }) {
+  return async ({ workspaceId, productId, question, entryIds }) => {
+    if (!secret) return null;
+    if (entryIds.length === 0) return [];
+    if (entryIds.length > RELEVANT_MAX) throw new Error(`relevant: at most ${String(RELEVANT_MAX)} entries a call`);
+    const reply = VerdictsSchema.safeParse(await signedPost2({ name: "relevant", url, secret, body: { workspaceId, productId, question, entryIds }, post: post2, timeoutMs }));
+    if (!reply.success) throw new Error("relevant: galaxy answered out of shape");
+    return reply.data.verdicts.map((v) => ({ entryId: v.entryId, relevant: v.relevant, confidence: v.confidence ?? 0 }));
+  };
+}
+function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIMEOUT_MS3 }) {
+  return async ({ workspaceId, productId, question }) => {
+    if (!secret) return null;
+    const reply = SearchSchema2.safeParse(await signedPost2({ name: "eval-search", url, secret, body: { workspaceId, productId, question }, post: post2, timeoutMs }));
+    if (!reply.success) throw new Error("eval-search: galaxy answered out of shape");
+    return reply.data.ids;
+  };
+}
+
+// apps/omni-app/src/search-eval/store.ts
+import { z as z86 } from "zod";
+var PAGE3 = 1e3;
+var CHUNK = 50;
+var LogRowSchema = z86.object({ group_id: z86.string().min(1), product_id: z86.string().min(1), workspace_id: z86.string().min(1), category: z86.string().nullable() });
+var GroupRowSchema = z86.object({ group_id: z86.string().min(1) });
+var QuestionTextSchema = z86.object({ question: z86.string() });
+var OpenedRowSchema = z86.object({ opened_id: z86.string().min(1) });
+var ProductRowSchema3 = z86.object({ product_id: z86.string().min(1) });
+var HolderRowSchema5 = z86.object({ product_id: z86.string().min(1) });
+var LiveProductSchema = z86.object({ id: z86.string().min(1) });
+var QuestionRowSchema = z86.object({ id: z86.string().min(1), product_id: z86.string().min(1), workspace_id: z86.string().min(1), question: z86.string(), category: z86.string().nullable() });
+var AnswerRowSchema = z86.object({ question_id: z86.string().min(1), entry_id: z86.string().min(1) });
+var RunRowSchema = z86.object({ id: z86.string().min(1) });
+function refused9(error) {
+  return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+}
+async function paged2(schema, page) {
+  const rows = [];
+  let start = 0;
+  let size = PAGE3;
+  while (size === PAGE3) {
+    const batch = rowsOf(schema, await page(start, start + PAGE3 - 1));
+    rows.push(...batch);
+    size = batch.length;
+    start += PAGE3;
+  }
+  return rows;
+}
+var chunks = (items, size) => Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, (i + 1) * size));
+function searchEvalStore(connection) {
+  const db = serviceDb(connection);
+  async function liveQuestionProducts() {
+    const rows = await paged2(ProductRowSchema3, (from, to) => db.from("search_eval_questions").select("product_id").is("removed_at", null).order("id").range(from, to));
+    return [...new Set(rows.map((row) => row.product_id))];
+  }
+  return {
+    searches: async (sinceIso) => {
+      const rows = await paged2(LogRowSchema, (from, to) => db.from("mcp_search_log").select("group_id, product_id, workspace_id, category").eq("tool", "search_knowledge").not("group_id", "is", null).gte("asked_at", sinceIso).order("asked_at").order("id").range(from, to));
+      return rows.map((row) => ({ groupId: row.group_id, productId: row.product_id, workspaceId: row.workspace_id, category: row.category }));
+    },
+    joined: async () => {
+      const rows = await paged2(GroupRowSchema, (from, to) => db.from("search_eval_questions").select("group_id").not("group_id", "is", null).order("id").range(from, to));
+      return new Set(rows.map((row) => row.group_id));
+    },
+    promote: async ({ productId, groupId, category }) => {
+      const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
+      if (error) throw refused9(error);
+      return z86.string().min(1).nullable().parse(data);
+    },
+    questionOf: async (questionId) => {
+      const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
+      return row?.question ?? null;
+    },
+    opened: async (groupId) => {
+      const rows = rowsOf(OpenedRowSchema, await db.from("mcp_search_log").select("opened_id").eq("group_id", groupId).not("opened_id", "is", null).order("asked_at").limit(200));
+      return [...new Set(rows.map((row) => row.opened_id))];
+    },
+    answerJev: async ({ questionId, entryId, relevant, confidence }) => {
+      const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant, p_confidence: confidence });
+      if (error) throw refused9(error);
+      return z86.boolean().parse(data);
+    },
+    evalProducts: async (filter) => {
+      const withQuestions = await liveQuestionProducts();
+      if (!filter || withQuestions.length === 0 || filter.workspaces.length === 0) return filter ? [] : withQuestions;
+      const holders = await paged2(HolderRowSchema5, (from, to) => db.from("product_repositories").select("product_id").eq("repository", filter.repository).in("workspace_id", [...filter.workspaces]).order("product_id").range(from, to));
+      const held = withQuestions.filter((id) => holders.some((holder) => holder.product_id === id));
+      const live = [];
+      for (const ids of chunks(held, CHUNK)) live.push(...rowsOf(LiveProductSchema, await db.from("products").select("id").in("id", ids).is("archived_at", null)).map((row) => row.id));
+      return live;
+    },
+    questions: async (productId) => {
+      const questions = await paged2(QuestionRowSchema, (from, to) => db.from("search_eval_questions").select("id, product_id, workspace_id, question, category").eq("product_id", productId).is("removed_at", null).order("added_at").order("id").range(from, to));
+      const right = /* @__PURE__ */ new Map();
+      for (const ids of chunks(questions.map((q) => q.id), CHUNK)) {
+        const answers = await paged2(AnswerRowSchema, (from, to) => db.from("search_eval_answers").select("question_id, entry_id").in("question_id", ids).eq("relevant", true).order("question_id").order("entry_id").range(from, to));
+        for (const { question_id, entry_id } of answers) right.set(question_id, [...right.get(question_id) ?? [], entry_id]);
+      }
+      return questions.map((q) => ({ id: q.id, productId: q.product_id, workspaceId: q.workspace_id, question: q.question, category: q.category, right: right.get(q.id) ?? [] }));
+    },
+    recorded: async (productId, trigger, slot) => {
+      const rows = rowsOf(RunRowSchema, await db.from("search_eval_runs").select("id").eq("product_id", productId).eq("trigger", trigger).eq("slot", slot).limit(1));
+      return rows.length > 0;
+    },
+    record: async ({ productId, trigger, slot, measures, questions }) => {
+      const { data, error } = await db.rpc("search_eval_run_record", {
+        p_product: productId,
+        p_trigger: trigger,
+        p_slot: slot,
+        p_measures: measures,
+        p_questions: questions
+      });
+      if (error) throw refused9(error);
+      return z86.string().min(1).nullable().parse(data);
+    }
+  };
+}
+
+// apps/omni-app/src/search-eval/promote.ts
+var TOP_GROUPS = 5;
+var WINDOW_DAYS = 30;
+function countGroups(searches) {
+  const byGroup = /* @__PURE__ */ new Map();
+  for (const { groupId, productId, workspaceId, category } of searches) {
+    const group2 = byGroup.get(groupId) ?? { productId, workspaceId, count: 0, categories: /* @__PURE__ */ new Map() };
+    group2.count += 1;
+    if (category !== null) group2.categories.set(category, (group2.categories.get(category) ?? 0) + 1);
+    byGroup.set(groupId, group2);
+  }
+  const counts = [];
+  for (const [groupId, { productId, workspaceId, count: count2, categories }] of byGroup) {
+    const best = [...categories].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+    if (best) counts.push({ groupId, productId, workspaceId, category: best[0], count: count2 });
+  }
+  return counts;
+}
+function pickGroups(counts, joined2, top2 = TOP_GROUPS) {
+  const buckets = /* @__PURE__ */ new Map();
+  for (const group2 of counts) {
+    const key = `${group2.productId}\0${group2.category}`;
+    buckets.set(key, [...buckets.get(key) ?? [], group2]);
+  }
+  const picked = [];
+  for (const bucket of buckets.values()) {
+    const ranked2 = [...bucket].sort((a, b) => b.count - a.count || a.groupId.localeCompare(b.groupId));
+    picked.push(...ranked2.slice(0, top2).filter((group2) => !joined2.has(group2.groupId)));
+  }
+  return picked.sort((a, b) => a.productId.localeCompare(b.productId) || a.category.localeCompare(b.category) || b.count - a.count || a.groupId.localeCompare(b.groupId));
+}
+
+// apps/omni-app/src/jobs/search-eval-promote.ts
+var SEARCH_EVAL_PROMOTE_KIND = "search-eval-promote";
+var HITS = 10;
+var BUDGET_MS3 = 15e4;
+var AGAIN_MS4 = 6e4;
+var DAY_MS5 = 864e5;
+async function judge3({ store, search, ask: ask3, group: group2, questionId }) {
+  const question = await store.questionOf(questionId);
+  if (question === null) return null;
+  const hits = await search({ workspaceId: group2.workspaceId, productId: group2.productId, question }) ?? [];
+  const entries = [.../* @__PURE__ */ new Set([...hits.slice(0, HITS), ...await store.opened(group2.groupId)])];
+  let kept3 = 0;
+  for (let at4 = 0; at4 < entries.length; at4 += RELEVANT_MAX) {
+    const verdicts = await ask3({ workspaceId: group2.workspaceId, productId: group2.productId, question, entryIds: entries.slice(at4, at4 + RELEVANT_MAX) });
+    for (const verdict of verdicts ?? []) {
+      if (verdict.relevant === null) continue;
+      if (await store.answerJev({ questionId, entryId: verdict.entryId, relevant: verdict.relevant, confidence: verdict.confidence })) kept3 += 1;
+    }
+  }
+  return kept3;
+}
+function searchEvalPromoteHandler({
+  store,
+  search,
+  ask: ask3,
+  top: top2 = TOP_GROUPS,
+  days = WINDOW_DAYS,
+  clock = Date.now,
+  budgetMs = BUDGET_MS3,
+  log: log2 = noteTo("search-eval-promote")
+}) {
+  return async () => {
+    const start = clock();
+    const since = new Date(start - days * DAY_MS5).toISOString();
+    const picks = pickGroups(countGroups(await store.searches(since)), await store.joined(), top2);
+    const counters = { promoted: 0, judged: 0, unjudged: 0 };
+    for (const group2 of picks) {
+      if (clock() - start >= budgetMs) {
+        log2(`search eval promote: ${String(counters.promoted)} questions promoted, out of time: again in a minute`);
+        return { outcome: "later", at: new Date(clock() + AGAIN_MS4), progress: { promoted: counters.promoted } };
+      }
+      const questionId = await store.promote({ productId: group2.productId, groupId: group2.groupId, category: group2.category });
+      if (questionId === null) continue;
+      counters.promoted += 1;
+      const kept3 = await judge3({ store, search, ask: ask3, group: group2, questionId }).catch(() => null);
+      if (kept3 === null) counters.unjudged += 1;
+      else counters.judged += kept3;
+    }
+    log2(`search eval promote: ${String(picks.length)} groups picked, ${String(counters.promoted)} questions promoted, ${String(counters.judged)} answers kept, ${String(counters.unjudged)} questions left unjudged`);
+    return { outcome: "done" };
   };
 }
 
@@ -20877,10 +21255,16 @@ function liveWorkers(env, octokitFor) {
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret })
   });
   const ledger = jobLedger(supabase);
+  const evalStore = searchEvalStore(supabase);
+  const evalSearch = galaxyEvalSearcher({ url: evalSearchUrl(galaxyUrl), secret: env.searchCategorize?.secret });
   return {
     handlers: {
       [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase), addJob: ledger.add }),
-      [EMBED_KIND]: embedHandler({ store: knowledgeEmbedStore(supabase), embed: embedClient(supabase) }),
+      [EMBED_KIND]: embedHandler({
+        store: knowledgeEmbedStore(supabase),
+        embed: embedClient(supabase),
+        evalRuns: { products: (repository, workspaces) => evalStore.evalProducts({ repository, workspaces }), add: ledger.add }
+      }),
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
       [SEARCH_CATEGORIZE_KIND]: searchCategorizeHandler({
@@ -20888,6 +21272,12 @@ function liveWorkers(env, octokitFor) {
         embed: embedClient(supabase),
         categorize: galaxyCategorizer({ url: categorizeUrl(galaxyUrl), secret: env.searchCategorize?.secret })
       }),
+      [SEARCH_EVAL_PROMOTE_KIND]: searchEvalPromoteHandler({
+        store: evalStore,
+        search: evalSearch,
+        ask: galaxyJudge({ url: relevantUrl(galaxyUrl), secret: env.searchCategorize?.secret })
+      }),
+      [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),

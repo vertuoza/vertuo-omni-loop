@@ -6,7 +6,7 @@ import { clock } from './parts';
 // silent, when, and which attempt comes next; the resume says it came after a loss and what came back; a chain that lost
 // its third attempt reads Lost 3 times, each loss listed. Times are UTC, as the rest of the page gives them.
 
-/** The reasons a runner lost a job: the three the database resumes (supabase/migrations/20270120100000_runner_resume.sql). */
+/** The reasons a runner lost a job: the three the database resumes (supabase/migrations/20270121100000_runner_resume.sql). */
 const LOST_REASONS: readonly string[] = ['runner lost', 'the worktree could not be made', 'the tmux session could not be started'];
 
 /** The attempts a chain has, the third being the last. */

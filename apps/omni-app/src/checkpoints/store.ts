@@ -15,7 +15,7 @@ import { z } from 'zod';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 
-/** The private bucket a runner's bundles live in (supabase/migrations/20270120103000_runner_checkpoints.sql). */
+/** The private bucket a runner's bundles live in (supabase/migrations/20270121103000_runner_checkpoints.sql). */
 const CHECKPOINT_BUCKET = 'runner-checkpoints';
 
 /** A save whose bundle is in the bucket: its row, its job, the bundle's path and when it was made and must go. */

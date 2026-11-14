@@ -689,7 +689,7 @@ Keep A, or choose B: a busy keeper does not hold the resume, which then goes to 
 
 ## What I did meanwhile
 
-runner_claim() in supabase/migrations/20270120110000_runner_claim_resume.sql skips, for every runner but the keeper, a resume whose chain's newest local save (not deleted, still kept) is kept by a runner seen in the last 90 s, of the workspace, an App runner, holding the job's repository and its target. Free slots are not read; supabase/checks/runner_resume.sql proves the online, offline and expired cases.
+runner_claim() in supabase/migrations/20270121110000_runner_claim_resume.sql skips, for every runner but the keeper, a resume whose chain's newest local save (not deleted, still kept) is kept by a runner seen in the last 90 s, of the workspace, an App runner, holding the job's repository and its target. Free slots are not read; supabase/checks/runner_resume.sql proves the online, offline and expired cases.
 
 ## What it costs to change later
 
@@ -952,7 +952,7 @@ Add the step below to .github/workflows/supabase.yml (or grant the Omni App the 
 
 ## What I did meanwhile
 
-The migration supabase/migrations/20270120103000_runner_checkpoints.sql, supabase/checks/runner_checkpoints.sql, the regenerated types, the route, the service and the kit's client are pushed on feat/unlosable-jobs--s4. The check ran green against a fresh local stack with every migration applied, and red against a record function with its runner guard removed (box-1 recorded the save of a job box-3 holds). runner_resume.sql and rls_membership_once.sql ran green beside it. The workflow step is the only part not pushed.
+The migration supabase/migrations/20270121103000_runner_checkpoints.sql, supabase/checks/runner_checkpoints.sql, the regenerated types, the route, the service and the kit's client are pushed on feat/unlosable-jobs--s4. The check ran green against a fresh local stack with every migration applied, and red against a record function with its runner guard removed (box-1 recorded the save of a job box-3 holds). runner_resume.sql and rls_membership_once.sql ran green beside it. The workflow step is the only part not pushed.
 
 ## What it costs to change later
 

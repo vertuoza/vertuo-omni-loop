@@ -11,7 +11,7 @@
 //   again, restarted, finds its claimed and running jobs lost too, however short its silence (#2170).
 //   A job still claimed 10 minutes after its claim, never reported running, ends `runner lost` too, at
 //   the same marks, though its runner checks in: the answer to its `next` never reached it (#2550).
-//   The database resumes a lost job (PRD 2809 s1, supabase/migrations/20270120100000_runner_resume.sql): in the
+//   The database resumes a lost job (PRD 2809 s1, supabase/migrations/20270121100000_runner_resume.sql): in the
 //   transaction that ends it, a job of a resumable skill under its third attempt queues one resume, the same line,
 //   repository, sender and target, attempt one more, that no runner claims before its resume_after (1 minute after
 //   the first loss, 5 after the second). The board reads each job's attempt, the job it resumes and its wait.
@@ -19,7 +19,7 @@
 //   they left whose bundle was not deleted: a portable one with a signed download link of 10 minutes (none when the
 //   storage gave none), a local one with its manifest. runner_claim() hands a resume whose chain's newest local save is
 //   kept by another runner online and able to take it to no runner but that one
-//   (supabase/migrations/20270120110000_runner_claim_resume.sql).
+//   (supabase/migrations/20270121110000_runner_claim_resume.sql).
 // - A job's status only goes forward: claimed, running, then done, failed or cancelled. A report on a
 //   job that has ended is refused, and the runner stops it.
 // - Anyone of the workspace sends to any runner, or to a runner with no fleet; only a fleet's players
@@ -1367,7 +1367,7 @@ const OVER_CAP = 'This save is over 100 MB: keep it on the runner.';
 const NOT_THIS_JOB = 'The manifest names another job, or another kind of save.';
 
 /**
- * A job's save (PRD 2809, s4; supabase/migrations/20270120103000_runner_checkpoints.sql): only the owner of the runner
+ * A job's save (PRD 2809, s4; supabase/migrations/20270121103000_runner_checkpoints.sql): only the owner of the runner
  * that holds the job, whatever the job's status (a lost job's runner saves it once it is back), gets a signed upload link
  * to the private bucket, at `<workspace>/<job>/<random id>.bundle`, for a bundle of 100 MB at most, then records the
  * save: `portable` at its bundle, its bytes the bundle's, kept 7 days; `local`, its bytes what it takes of the runner,

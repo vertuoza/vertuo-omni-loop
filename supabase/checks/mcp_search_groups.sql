@@ -118,7 +118,8 @@ end $$;
 -- ── search-category is a Jev decision, beside the seven ──
 do $$
 begin
-  if public.jev_decision_names() is distinct from array['question-category', 'outbox-risk', 'bug-risk',
+  -- The seven and search-category, in that order; a later decision (search-relevant, PRD omni-loop-8) follows.
+  if (public.jev_decision_names())[1:8] is distinct from array['question-category', 'outbox-risk', 'bug-risk',
        'unknown-worth-asking', 'constituent-break', 'hitl-category', 'law-worth', 'search-category'] then
     raise exception 'FAIL: jev_decision_names() answers %, not the seven and search-category', public.jev_decision_names();
   end if;

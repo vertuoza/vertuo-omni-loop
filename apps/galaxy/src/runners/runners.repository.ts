@@ -510,7 +510,7 @@ export function continuationsRepository(db: RunnersDb) {
 
 export type ContinuationsRepository = ReturnType<typeof continuationsRepository>;
 
-/** The bucket a job's save goes to (PRD 2809, s4; supabase/migrations/20270120103000_runner_checkpoints.sql). */
+/** The bucket a job's save goes to (PRD 2809, s4; supabase/migrations/20270121103000_runner_checkpoints.sql). */
 const CHECKPOINTS_BUCKET = 'runner-checkpoints';
 
 /** What the checkpoints' storage needs: the table, the database's function, and the storage to sign links with. */

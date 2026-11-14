@@ -211,6 +211,8 @@ var SCHEDULES = Object.freeze([
   { kind: "pr-stats", periodMinutes: 15, maxTries: 3 },
   { kind: "escalation", periodMinutes: 60, maxTries: 3 },
   { kind: "search-categorize", periodMinutes: 15, maxTries: 3 },
+  { kind: "search-eval-promote", periodMinutes: 1440, maxTries: 3 },
+  { kind: "search-eval-run", periodMinutes: 1440, maxTries: 3 },
   { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 }
 ]);
 

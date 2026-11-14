@@ -7,7 +7,7 @@ import { EMBED_BATCH, EMBED_DIMENSIONS } from 'omni-loop/kit/lib/knowledge/embed
 import type { Embedder } from '../knowledge-embed/embedder.ts';
 import type { EmbedStore, ProductRows, VectorRow, WorkspacePack } from '../knowledge-embed/store.ts';
 import { EMBED_KIND, embedHandler, embedJob, packEntries, textHash, textsByHash } from './embed.ts';
-import type { ClaimedJob, Finish, JobLedger } from './ledger.ts';
+import type { ClaimedJob, Finish, JobLedger, NewJob } from './ledger.ts';
 import { liveWorkers } from './pr-checks.ts';
 import { runDue } from './worker.ts';
 
@@ -136,6 +136,75 @@ describe('packEntries and textsByHash', () => {
   });
 });
 
+describe('embedHandler — the eval runs it adds (PRD omni-loop-8 s4)', () => {
+  const packs = [
+    { workspace: 'w-1', files: FILES, products: [product()] },
+    { workspace: 'w-2', files: FILES, products: [] },
+  ];
+
+  function evalRuns(products: Record<string, string[]>) {
+    const asked: { repository: string; workspaces: string[] }[] = [];
+    const added: NewJob[] = [];
+    return {
+      asked,
+      added,
+      evalRuns: {
+        products: (repository: string, workspaces: readonly string[]) => {
+          asked.push({ repository, workspaces: [...workspaces] });
+          return Promise.resolve(workspaces.flatMap((w) => products[w] ?? []));
+        },
+        add: (newJob: NewJob) => {
+          added.push(newJob);
+          return Promise.resolve(true);
+        },
+      },
+    };
+  }
+
+  it('adds one search-eval-run job for each product of each workspace that stored vectors, keyed by product and commit', async () => {
+    const { store } = memoryStore(packs);
+    const runs = evalRuns({ 'w-1': ['p-1', 'p-2'], 'w-2': ['p-3'] });
+    const lines: string[] = [];
+    await embedHandler({ store, embed: fakeEmbedder().embed, evalRuns: runs.evalRuns, log: (line) => lines.push(line) })(job());
+    expect(runs.asked).toEqual([{ repository: REPO, workspaces: ['w-1', 'w-2'] }]);
+    expect(runs.added).toEqual(['p-1', 'p-2', 'p-3'].map((p) => ({ kind: 'search-eval-run', key: `${p}@${SHA}`, subject: p, payload: { productId: p, slot: SHA }, lane: 'search-eval-run', maxTries: 3 })));
+    expect(lines).toEqual([`knowledge embed: ${REPO}@ccccccc embedded 7 of 7 texts in 2 workspaces, 3 eval runs added`]);
+  });
+
+  it('adds none when it stored no vector, a second run of the pack included', async () => {
+    const { store } = memoryStore(packs);
+    const runs = evalRuns({ 'w-1': ['p-1'] });
+    const handler = embedHandler({ store, embed: fakeEmbedder().embed, evalRuns: runs.evalRuns });
+    await handler(job());
+    runs.added.length = 0;
+    runs.asked.length = 0;
+    await handler(job());
+    expect(runs.asked).toEqual([]);
+    expect(runs.added).toEqual([]);
+  });
+
+  it('names only the workspaces that stored vectors', async () => {
+    const { store, kept } = memoryStore(packs);
+    const first = fakeEmbedder();
+    await embedHandler({ store, embed: first.embed })(job());
+    // w-2 loses its vectors: only it stores new ones on the next run
+    kept.delete('w-2');
+    const runs = evalRuns({ 'w-1': ['p-1'], 'w-2': ['p-3'] });
+    await embedHandler({ store, embed: fakeEmbedder().embed, evalRuns: runs.evalRuns })(job());
+    expect(runs.asked).toEqual([{ repository: REPO, workspaces: ['w-2'] }]);
+    expect(runs.added.map((added) => added.subject)).toEqual(['p-3']);
+  });
+
+  it('never fails the embed when the runs cannot be added: the vectors are kept, one line says so', async () => {
+    const { store, puts } = memoryStore(packs);
+    const lines: string[] = [];
+    const evalRuns = { products: () => Promise.reject(new Error('the database refused: permission denied (42501)')), add: () => Promise.resolve(true) };
+    expect(await embedHandler({ store, embed: fakeEmbedder().embed, evalRuns, log: (line) => lines.push(line) })(job())).toEqual({ outcome: 'done' });
+    expect(puts).toHaveLength(2);
+    expect(lines[0]).toBe('knowledge embed: the eval runs were not added: the database refused: permission denied (42501)');
+  });
+});
+
 describe('embedHandler', () => {
   it('embeds every text of the pack once, in each workspace that keeps it, then nothing on a second run', async () => {
     const packs = [
@@ -227,5 +296,7 @@ describe('embedHandler', () => {
   it('has a handler in the worker every runner of the ledger runs', () => {
     const { handlers } = liveWorkers({ supabase: { url: 'https://db.example', key: 'service-key' } }, () => Promise.reject(new Error('unused')));
     expect(typeof handlers[EMBED_KIND]).toBe('function');
+    expect(typeof handlers['search-eval-promote']).toBe('function');
+    expect(typeof handlers['search-eval-run']).toBe('function');
   });
 });

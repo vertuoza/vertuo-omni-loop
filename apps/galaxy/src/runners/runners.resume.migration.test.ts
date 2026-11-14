@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { RESUMABLE_SKILLS, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
-const MIGRATION = read('supabase/migrations/20270120100000_runner_resume.sql');
+const MIGRATION = read('supabase/migrations/20270121100000_runner_resume.sql');
 const CODE = MIGRATION.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 const TYPES = read('supabase/database.types.ts');
 

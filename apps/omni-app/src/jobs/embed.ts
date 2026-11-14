@@ -26,6 +26,7 @@ import type { Embedder } from '../knowledge-embed/embedder.ts';
 import type { EmbedStore, WorkspacePack } from '../knowledge-embed/store.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { NewJob } from './ledger.ts';
+import { searchEvalRunJob } from './search-eval-run.ts';
 import type { JobHandler, JobResult } from './worker.ts';
 
 export const EMBED_KIND = 'knowledge-embed';
@@ -74,16 +75,39 @@ export function textsByHash(entries: readonly KnowledgeEntry[]): Map<string, str
   return texts;
 }
 
+/** The eval runs a `knowledge-embed` job adds (PRD omni-loop-8 s4). */
+export type EvalRuns = {
+  products: (repository: string, workspaces: readonly string[]) => Promise<string[]>;
+  add: (job: NewJob) => Promise<boolean>;
+};
+
+/** Adds the eval run of each product of the workspaces that stored new vectors; how many jobs were new. Never throws. */
+async function addEvalRuns(evalRuns: EvalRuns, repository: string, sha: string, workspaces: readonly string[], log: (line: string) => void): Promise<number> {
+  try {
+    let added = 0;
+    for (const productId of await evalRuns.products(repository, workspaces)) {
+      if (await evalRuns.add(searchEvalRunJob({ productId, slot: sha }))) added += 1;
+    }
+    return added;
+  } catch (error) {
+    log(`knowledge embed: the eval runs were not added: ${error instanceof Error ? error.message.split('\n')[0] ?? '' : 'unknown'}`);
+    return 0;
+  }
+}
+
 /** The handler of the `knowledge-embed` kind: `store` is the vectors' database, `embed` the model. */
 export function embedHandler({
   store,
   embed,
+  evalRuns,
   clock = Date.now,
   budgetMs = EMBED_BUDGET_MS,
   log = noteTo('knowledge-embed'),
 }: {
   store: EmbedStore;
   embed: Embedder;
+  /** What adds the eval runs: the products of a pack's workspaces that hold its repository and have a set, and the ledger's add. */
+  evalRuns?: EvalRuns;
   clock?: () => number;
   budgetMs?: number;
   log?: (line: string) => void;
@@ -97,6 +121,7 @@ export function embedHandler({
     const start = clock();
     let embedded = 0;
     let texts = 0;
+    const stored = new Set<string>();
     for (const pack of packs) {
       const byHash = textsByHash(packEntries(repository, pack));
       texts += byHash.size;
@@ -110,9 +135,11 @@ export function embedHandler({
         const vectors = await embed(hashes.map((hash) => byHash.get(hash) ?? ''));
         await store.put(pack.workspace, EMBED_MODEL, hashes.map((sha256, i) => ({ sha256, vector: vectors[i] ?? [] })));
         embedded += hashes.length;
+        stored.add(pack.workspace);
       }
     }
-    log(`knowledge embed: ${what} embedded ${String(embedded)} of ${String(texts)} texts in ${String(packs.length)} workspaces`);
+    const runs = evalRuns && stored.size > 0 ? await addEvalRuns(evalRuns, repository, sha, [...stored], log) : 0;
+    log(`knowledge embed: ${what} embedded ${String(embedded)} of ${String(texts)} texts in ${String(packs.length)} workspaces${evalRuns ? `, ${String(runs)} eval runs added` : ''}`);
     return { outcome: 'done' };
   };
 }

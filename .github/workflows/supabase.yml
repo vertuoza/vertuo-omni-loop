@@ -506,6 +506,12 @@ jobs:
         # `search-category` is a Jev decision; the nightly forget deletes a group none of whose searches is
         # left (PRD omni-loop-7).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mcp_search_groups.sql
+      - name: Who reads and corrects a product's eval set, and that a person's answer wins
+        # A member of the product's workspace reads its eval questions, answers and runs, another workspace's
+        # member and anon none; a member adds or removes a question and sets a person's answer only through
+        # functions that record their login; only the service role promotes, adds Jev's answers and records
+        # runs; Jev's answer never overwrites a person's (PRD omni-loop-8 s1).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/search_eval.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

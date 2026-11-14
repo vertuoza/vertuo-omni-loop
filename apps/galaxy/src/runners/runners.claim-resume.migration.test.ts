@@ -8,8 +8,8 @@ import { LOST_AFTER_MS } from './runners.contract';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
 const flat = (sql: string) => sql.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
-const CODE = flat(read('supabase/migrations/20270120110000_runner_claim_resume.sql'));
-const BEFORE = flat(read('supabase/migrations/20270120100000_runner_resume.sql'));
+const CODE = flat(read('supabase/migrations/20270121110000_runner_claim_resume.sql'));
+const BEFORE = flat(read('supabase/migrations/20270121100000_runner_resume.sql'));
 
 /** The body of `runner_claim` in `code`, from its `create … function` to its closing `$$;`. */
 function claim(code: string): string {

@@ -17,7 +17,8 @@
 //   the worker       the handlers and failure hooks of every kind the ledger holds, the knowledge pack's (which
 //                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, and
-//                    `search-categorize`, PRD omni-loop-7 s3, and `checkpoints-forget`, PRD 2809 s6, ./schedule.ts), and
+//                    `search-categorize`, PRD omni-loop-7 s3, `search-eval-promote` and `search-eval-run`, PRD
+//                    omni-loop-8 s4, and `checkpoints-forget`, PRD 2809 s6, ./schedule.ts; the run also added by the embed), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
 //                    refreshes the four checks' jobs of a product PRD's target pull requests, and the
@@ -70,6 +71,10 @@ import { packHandler, PACK_KIND } from './pack.ts';
 import { searchCategorizeHandler, SEARCH_CATEGORIZE_KIND } from './search-categorize.ts';
 import { categorizeUrl, galaxyCategorizer } from '../search-categorize/galaxy.ts';
 import { searchStore } from '../search-categorize/store.ts';
+import { evalSearchUrl, galaxyEvalSearcher, galaxyJudge, relevantUrl } from '../search-eval/galaxy.ts';
+import { searchEvalStore } from '../search-eval/store.ts';
+import { searchEvalPromoteHandler, SEARCH_EVAL_PROMOTE_KIND } from './search-eval-promote.ts';
+import { searchEvalRunHandler, SEARCH_EVAL_RUN_KIND } from './search-eval-run.ts';
 import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from './payloads.ts';
 import type { FailureHook, JobHandler } from './worker.ts';
 
@@ -191,10 +196,16 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
     laws: businessLawsJudge({ url: businessLawsJudgeUrl(galaxyUrl), secret: env.businessLawsJudge?.secret }),
   });
   const ledger = jobLedger(supabase);
+  const evalStore = searchEvalStore(supabase);
+  const evalSearch = galaxyEvalSearcher({ url: evalSearchUrl(galaxyUrl), secret: env.searchCategorize?.secret });
   return {
     handlers: {
       [PACK_KIND]: packHandler({ octokitFor, store: knowledgePackStore(supabase), addJob: ledger.add }),
-      [EMBED_KIND]: embedHandler({ store: knowledgeEmbedStore(supabase), embed: embedClient(supabase) }),
+      [EMBED_KIND]: embedHandler({
+        store: knowledgeEmbedStore(supabase),
+        embed: embedClient(supabase),
+        evalRuns: { products: (repository, workspaces) => evalStore.evalProducts({ repository, workspaces }), add: ledger.add },
+      }),
       ...checks.handlers,
       [PR_STATS_KIND]: prStatsHandler({ octokitFor, supabase }),
       [SEARCH_CATEGORIZE_KIND]: searchCategorizeHandler({
@@ -202,6 +213,12 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
         embed: embedClient(supabase),
         categorize: galaxyCategorizer({ url: categorizeUrl(galaxyUrl), secret: env.searchCategorize?.secret }),
       }),
+      [SEARCH_EVAL_PROMOTE_KIND]: searchEvalPromoteHandler({
+        store: evalStore,
+        search: evalSearch,
+        ask: galaxyJudge({ url: relevantUrl(galaxyUrl), secret: env.searchCategorize?.secret }),
+      }),
+      [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
