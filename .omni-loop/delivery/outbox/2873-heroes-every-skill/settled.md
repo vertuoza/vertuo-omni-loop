@@ -314,3 +314,312 @@ A constant: one sentence of the guide.
 ```
 
 <!-- /omni-outbox-settled: s1-05-guide-runner-lines -->
+
+<!-- omni-outbox-settled: s3-01-reviewer-limit -->
+
+## s3-01-reviewer-limit — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-reviewer-limit
+prd: 2873
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 2
+---
+
+## The question, in plain words
+
+Now that the Reviewer lists a review skill, what should its third limit say in place of the old line that it has no skill to run yet?
+
+## The decision, in plain words
+
+A new Reviewer starts with the line that it never approves a pull request, the same shape as the PM and the Architect. Reviewers made before keep the limits they have, as the spec asks.
+
+## The intro, for fun
+
+The Reviewer finally got a skill, so its old excuse no longer holds.
+
+## The punchline, for fun
+
+It can look at your pull request, but the approval stays yours.
+
+## The options, in plain words
+
+A. Never approves a pull request, as the PM never approves a PRD (built).
+B. Keep the old line that it has no skill to run yet.
+C. Drop the third limit: the Reviewer keeps only the two every hero has.
+
+## What I had to decide
+
+Keep the new line, or pick other words for the Reviewer's third limit; reviewers already made keep theirs either way.
+
+## What I did meanwhile
+
+Built A: kit/lib/virtual-fleet/roles.ts and virtual_hero_roles() in the s3 migration give a new Reviewer `It never approves a pull request.`; the migration leaves every stored hero's limits as they are.
+
+## What it costs to change later
+
+A constant: one sentence in roles.ts and in the migration's list, which a test holds equal. Stored heroes are not touched.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the Designer's limits but not the Reviewer's; the old line `It has no skill to run yet.` became untrue once the Reviewer lists tech-review.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-reviewer-limit -->
+
+<!-- omni-outbox-settled: s3-02-fleet-render-test -->
+
+## s3-02-fleet-render-test — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-fleet-render-test
+prd: 2873
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 2
+---
+
+## The question, in plain words
+
+May this slice change a test of the Fleet page that sits outside its ground, when that test still expects the old words on the Heroes tab?
+
+## The decision, in plain words
+
+Yes, the least it takes: two of that test's checks now expect the count line, each skill's mark and the sixth role. The new checks of every role's skills sit in a test file of the slice's own.
+
+## The intro, for fun
+
+An old test was still waiting for words this PRD retires.
+
+## The punchline, for fun
+
+It got two lines of news and kept everything else it knew.
+
+## The options, in plain words
+
+A. Edit the two checks in place (built).
+B. Move every Heroes tab check from the Fleet page's test into the slice's own test file.
+
+## What I had to decide
+
+Keep the two edited checks, or move the Heroes tab's checks out of the Fleet page's test into the slice's own file.
+
+## What I did meanwhile
+
+Built A: apps/galaxy/src/dashboard/fleet/heroes.render.test.ts has two checks updated (the Engineer and PM lines, and the roles that fill a fleet); apps/galaxy/src/virtual-fleets/heroes/heroes.render.test.ts holds the new checks.
+
+## What it costs to change later
+
+A constant: two test lines, no product code outside the slice's ground.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for s3 names apps/galaxy/src/virtual-fleets/ but not the Fleet page's test of the Heroes tab, which would fail otherwise.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-fleet-render-test -->
+
+<!-- omni-outbox-settled: s3-03-count-line-one-skill -->
+
+## s3-03-count-line-one-skill — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-count-line-one-skill
+prd: 2873
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 2
+---
+
+## The question, in plain words
+
+When a hero lists a single skill and it runs alone, should its count line say one skill or one skills?
+
+## The decision, in plain words
+
+It says skill for one and skills for more, so it reads as plain English. No role lists a single skill today, so every hero on screen reads as the spec writes it.
+
+## The intro, for fun
+
+A hero with one skill would have read like a typo.
+
+## The punchline, for fun
+
+One skill, one word, no extra letter.
+
+## The options, in plain words
+
+A. Skill for one, skills for more (built).
+B. Always skills, as the spec's pattern reads.
+
+## What I had to decide
+
+Keep the singular for one skill, or always write skills as the spec's pattern does.
+
+## What I did meanwhile
+
+Built A: roleLine() in kit/lib/virtual-fleet/roles.ts writes `Runs 1 of 1 skill alone` for a hero that lists one skill, and `Runs <k> of <n> skills alone` otherwise.
+
+## What it costs to change later
+
+A constant: one condition in roleLine() and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec writes the line as `Runs <k> of <n> skills alone` and gives no case of a single skill.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-count-line-one-skill -->
+
+<!-- omni-outbox-settled: s3-04-virtual-fleet-proofs -->
+
+## s3-04-virtual-fleet-proofs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: BR-GAME-2
+- Raised: 2026-11-14
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-04-virtual-fleet-proofs
+prd: 2873
+slice: s3
+rank: medium
+bears-on: BR-GAME-2
+raised: 2026-11-14
+wave: 2
+---
+
+## The question, in plain words
+
+The checks that prove three rules of virtual fleets had to follow the sixth role: is it right that they now count six heroes and name the Designer, with every rule still checked as before?
+
+## The decision, in plain words
+
+Yes: the checks now make a fleet of six heroes, expect the Engineer's full list of skills and use a made-up role where they used the Designer as the unknown one. What each rule asks is checked exactly as before.
+
+## The intro, for fun
+
+The rules about virtual fleets did not change, but the fleets got one more seat.
+
+## The punchline, for fun
+
+Same referee, same rules, one more player on the bench.
+
+## The options, in plain words
+
+A. Keep the checks as updated for six roles (built).
+B. Leave the Designer out of the checks and keep the old counts, proving the sixth role elsewhere.
+
+## What I had to decide
+
+Approve the updated checks, or ask for the old counts back with the Designer left out of the checks.
+
+## What I did meanwhile
+
+Built A: supabase/checks/virtual_fleets.sql (BR-GAME-1, BR-GAME-2, BR-GAME-3) and apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts (BR-GAME-2) follow the six roles; the name, cap, owner-only, one-hero-per-role, last-hero and no-player checks are unchanged. The check also runs the s3 migration again and proves the rewrite of stored heroes.
+
+## What it costs to change later
+
+A constant: the counts and role lists in two test files.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The three rules are proposed, not locked; the coverage guard still names their proofs as a law change, which only a person's answer clears.
+
+```
+
+<!-- /omni-outbox-settled: s3-04-virtual-fleet-proofs -->
