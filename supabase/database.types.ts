@@ -5468,6 +5468,29 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      add_virtual_hero: {
+        Args: { p_fleet: string; p_role: string; p_workspace: string }
+        Returns: {
+          agent: string
+          created_at: string
+          fleet: string
+          id: string
+          limits: string[]
+          model: string
+          name: string
+          position: number
+          role: string
+          skills: string[]
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "virtual_heroes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       agent_link_workspace: { Args: { p_hash: string }; Returns: string }
       agent_question_answer: {
         Args: {
@@ -8089,6 +8112,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      remove_virtual_hero: {
+        Args: { p_hero: string; p_workspace: string }
+        Returns: undefined
       }
       repo_workspace: {
         Args: { person: string; repo: string }
