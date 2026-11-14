@@ -23,3 +23,9 @@
 .fleet-head .dash-name { margin: 0; }
 .fleet-head .fleet-chip { --chip-size: 32px; white-space: normal; overflow-wrap: anywhere; }
 .fleet-line { margin: 0; overflow-wrap: anywhere; }
+/* PRD 2842 s1: a virtual fleet's chip says so, in a small muted word after its label; `+ New virtual fleet`
+   closes the row of chips, at the chips' height, and stands under the no-fleet line. */
+.fleet-virtual { margin-left: 6px; font-size: 13px; font-weight: 400; color: var(--ask-muted); }
+.ask .fleet-picker a[aria-current='page'] .fleet-virtual { color: inherit; }
+.fleet-picker .vf-open { padding: 6px 12px; border-radius: 999px; }
+.dash > .vf-open { margin-top: 12px; }
