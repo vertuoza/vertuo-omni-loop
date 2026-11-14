@@ -59,7 +59,7 @@ describe('writeSettingsCopy — the round trip from a settings checkout to the t
 
     const review = resolveForm('review', { ctx, template: formTemplate('review') });
     expect(review.problems).toEqual([]);
-    expect(review.sections.map(({ slot, label }) => `${slot ?? ''} ${label}`)).toEqual(['fix [omni settings]', 'push-back [omni settings]', 'ask [omni settings]']);
+    expect(review.sections.map(({ slot, label }) => `${slot ?? ''} ${label}`)).toEqual(['fix [omni settings]', 'push-back [omni settings]', 'ask [omni settings]', 'look-for [omni settings]']);
     expect(review.sections[0]?.text).toMatch(/^Fix the comment, commit, and reply with the commit, when it names a bug/);
   });
 
@@ -153,13 +153,13 @@ describe('omni kb show — a form the repository does not write reads the Omni s
     const { code, out, err } = await omni(root, ['kb', 'show', 'review']);
     expect(err).toBe('');
     expect(code).toBe(0);
-    expect(out.match(/^## .*$/gm)).toEqual(['## Fix  [omni settings]', '## Push back  [omni settings]', '## Ask  [omni settings]']);
+    expect(out.match(/^## .*$/gm)).toEqual(['## Fix  [omni settings]', '## Push back  [omni settings]', '## Ask  [omni settings]', '## Look for  [omni settings]']);
     expect(out).toContain('## Fix  [omni settings]\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\n');
   });
 
   it('prints exactly what it prints today with no copy, and with a copy that does not set the form', async () => {
     const today = await omni(makeRepo({ git: true, files: CONFIG }).root, ['kb', 'show', 'review']);
-    expect(today.out.match(/^## .*$/gm)).toEqual(['## Fix  [kit default]', '## Push back  [kit default]', '## Ask  [kit default]']);
+    expect(today.out.match(/^## .*$/gm)).toEqual(['## Fix  [kit default]', '## Push back  [kit default]', '## Ask  [kit default]', '## Look for  [kit default]']);
     const { root } = makeRepo({ git: true, files: CONFIG });
     writeSettingsCopy({ root, files: [{ form: 'testing', text: testingPage('Settings: never sleep.') }], source: SOURCE });
     expect(await omni(root, ['kb', 'show', 'review'])).toEqual(today);
@@ -174,7 +174,7 @@ describe('omni kb show — a form the repository does not write reads the Omni s
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/knowledge/playbook/review.md': own } });
     writeSettingsCopy({ root, files: curatedDefault(), source: SOURCE });
     const { out } = await omni(root, ['kb', 'show', 'review']);
-    expect(out.match(/^## .*$/gm)).toEqual(['## Fix  [repo]', '## Push back  [omni settings]', '## Ask  [omni settings]']);
+    expect(out.match(/^## .*$/gm)).toEqual(['## Fix  [repo]', '## Push back  [omni settings]', '## Ask  [omni settings]', '## Look for  [omni settings]']);
     expect(out).toContain('## Fix  [repo]\nOurs: fix every bug.\n');
   });
 });
