@@ -13,7 +13,8 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined
 vi.mock('./eval/eval-actions', () => ({ addEvalQuestion: () => undefined, removeEvalQuestion: () => undefined, setEvalAnswer: () => undefined }));
 
 // The Search section at phone width (bug 2838). A section card (`ask-card`) is a grid, and a grid item is never
-// narrower than its content unless its rule sets `min-width: 0`. A wide table scrolls inside its `kn-scroll` box only
+// narrower than its content unless its rule sets `min-width: 0`, nor as wide as the card under the card's
+// `justify-items: start` unless it sets `width: 100%`. A wide table scrolls inside its `kn-scroll` box only
 // when every element between that box and the card may shrink: the box itself is a scroll container, so it may, but
 // a plain wrapper (the overview's question regions, the Eval view's misses) took the table's full width, and at
 // 390 px the overview grew to 681 px and the Eval view to 665 px.
@@ -26,9 +27,10 @@ const CSS = [
   '../../products/products.css', '../../product-home/product-home.css', '../../ask/ask.css',
 ].map(sheet).join('\n');
 
-/** The lone selectors (one class, or one attribute) whose rule sets `min-width: 0`. */
+/** The lone selectors (one class, or one attribute) whose rule sets `width: 100%` and `min-width: 0`: the item takes
+ * its card's width (a card sets `justify-items: start`, which would size it to its table) and may shrink below it. */
 const shrinking = [...CSS.matchAll(/([^{}]+)\{([^}]*)\}/g)]
-  .filter(([, , body]) => /(^|[;\s])min-width:\s*0(px)?\s*(;|$)/.test(body ?? ''))
+  .filter(([, , body = '']) => /(^|[;\s])min-width:\s*0(px)?\s*(;|$)/.test(body) && /(^|[;\s])width:\s*100%\s*(;|$)/.test(body))
   .flatMap(([, selectors]) => (selectors ?? '').split(',').map((s) => s.trim()))
   .filter((s) => /^(\.[\w-]+|\[[\w-]+(=['"]?[\w-]+['"]?)?\])$/.test(s));
 
