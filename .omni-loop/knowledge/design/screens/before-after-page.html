@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>before-after-page (draft, PRD 2850)</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+
+/* PRD 2850: the frames of this page's own screens. A screen is written 1040 px wide and scaled to its column. */
+.cap { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 14px 0 4px; }
+.cap .ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
+.cap .when { font-weight: 600; }
+.note { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.fit > [data-screen] { width: 1040px; transform-origin: 0 0; padding: 24px 24px 28px; }
+.m-h1 { font-size: 22px; font-weight: 700; margin: 0 0 16px; }
+.m-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.m-tabs span { padding: 8px 14px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.m-tabs .on { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+.m-tabs .new { background: var(--add-bg); color: var(--add-fg); border-radius: 6px 6px 0 0; }
+.m-svc { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; }
+.m-svc-h { font-size: 16px; font-weight: 700; margin: 12px 0 6px; }
+.m-h4 { font-size: 13px; margin: 12px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+.m-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.m-lab { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.m-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--panel); }
+.m-card b { display: block; margin-bottom: 4px; }
+.m-btn { display: inline-block; margin-top: 8px; padding: 3px 12px; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; font-size: 13px; }
+.m-index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 6px; }
+.m-index a, .m-ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; text-decoration: none; }
+.m-cap { display: flex; gap: 8px; font-size: 12px; color: var(--muted); margin: 12px 0 4px; align-items: baseline; }
+.m-frame { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: grid; grid-template-columns: 132px 1fr; min-height: 232px; }
+.m-side { background: var(--panel); border-right: 1px solid var(--line); padding: 12px; font-size: 12px; }
+.m-side div { padding: 4px 6px; border-radius: 4px; color: var(--muted); }
+.m-side .on { background: var(--info-bg); color: var(--info-fg); font-weight: 600; }
+.m-main { padding: 12px 16px; font-size: 12px; }
+.m-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.m-bar b { font-size: 15px; }
+.m-row { display: grid; grid-template-columns: 2fr 1fr 1fr; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.m-row.h { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+.m-err { margin: 8px 0; padding: 6px 10px; border-radius: 6px; background: var(--del-bg); color: var(--del-fg); }
+.m-quiet { color: var(--muted); }
+.turn { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel); font-size: 14px; }
+.turn p { margin: 0 0 6px; } .turn p:last-child { margin: 0; }
+.turn .who { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.fit { max-width: 1040px; margin: 0 auto 20px; } .fit > [data-screen] { transform: none; } body > h1, body > .note { max-width: 1040px; margin-left: auto; margin-right: auto; }</style>
+</head>
+<body>
+<h1>The before/after page (draft, PRD 2850)</h1>
+<p class="note">The page opened: Functional (1.A after)</p><div class="fit"><div data-screen="before-after-page"><div class="m-h1">PRD 7: before and after</div><div class="m-tabs"><span class="on">Functional</span><span class="">Technical</span><span class="new">Pixel perfect · 2</span></div><div class="m-svc"><div class="m-svc-h">app</div><div class="m-h4">Functional</div><div class="m-two"><div><div class="m-lab">Today</div>A failed send says nothing.</div><div><div class="m-lab">After</div>A failed send says why.</div></div></div></div></div><p class="note">The Pixel perfect tab, filled (1.B after)</p><div class="fit"><div data-screen="before-after-page"><div class="m-h1">PRD 7: before and after</div><div class="m-tabs"><span class="">Functional</span><span class="">Technical</span><span class="on">Pixel perfect · 2</span></div><div class="m-index"><span class="m-quiet">Screens</span><a href="#pp">1.A</a><a href="#pp">1.B</a><a href="#pp">2.A</a></div><div class="m-quiet">screens: quote-list · quote-editor · app-shell</div><div class="m-two"><div><div class="m-cap"><span class="m-ref">1.B</span><span>quote-list · Today · 1280</span></div><div class="m-frame"><div class="m-side"><div>Dashboard</div><div class="on">Quotes</div><div>Clients</div><div>Settings</div></div><div class="m-main"><div class="m-bar"><b>Quotes</b><span class="m-btn" style="margin:0">New quote</span></div><div class="m-row h"><span>Quote</span><span>Status</span><span>Total</span></div><div class="m-row"><span>Roof repair, Leuven</span><span>Sent</span><span>4 200 €</span></div><div class="m-row"><span>Bathroom, Ghent</span><span>Draft</span><span>9 850 €</span></div><div class="m-row"><span>Heating, Namur</span><span>Accepted</span><span>12 400 €</span></div></div></div></div><div><div class="m-cap"><span class="m-ref">1.B</span><span>quote-list · After · 1280</span></div><div class="m-frame"><div class="m-side"><div>Dashboard</div><div class="on">Quotes</div><div>Clients</div><div>Settings</div></div><div class="m-main"><div class="m-bar"><b>Quotes</b><span class="m-btn" style="margin:0">New quote</span></div><div class="m-err">The quote was not sent.</div><div class="m-row h"><span>Quote</span><span>Status</span><span>Total</span></div><div class="m-row"><span>Roof repair, Leuven</span><span>Sent</span><span>4 200 €</span></div><div class="m-row"><span>Bathroom, Ghent</span><span>Draft</span><span>9 850 €</span></div><div class="m-row"><span>Heating, Namur</span><span>Accepted</span><span>12 400 €</span></div></div></div></div></div></div></div><p class="note">The Pixel perfect tab of a PRD that changes no screen (1.C after)</p><div class="fit"><div data-screen="before-after-page"><div class="m-h1">PRD 7: before and after</div><div class="m-tabs"><span class="">Functional</span><span class="">Technical</span><span class="on">Pixel perfect</span></div><div class="m-quiet">Pixel perfect: no screen changes</div></div></div>
+</body>
+</html>
