@@ -12,7 +12,7 @@
 //
 // By meaning (rankByMeaning), once knowledge_nearest() has ranked the entries' vectors against the query's:
 // 1. exact matches: an entry whose id, or a term whose word, equals the query (case and accents ignored);
-// 2. the entries holding a vector, nearest first;
+// 2. the entries holding a vector no farther than MAX_DISTANCE, nearest first (the rest is dropped);
 // 3. the entries holding none yet (a pack minutes old), by their word match, as the word search ranks them.
 // With no vector at all among the entries, the answer is the word search's, with `mode: "words"`.
 import { HIT_CAP, type KnowledgeHit, type KnowledgeKind, type SearchMode } from './product-mcp.contract';
@@ -96,8 +96,16 @@ export function searchKnowledge(entries: readonly KnowledgeEntry[], query: Knowl
   return answerOf(words.length === 0 ? [...kept].sort(byId) : byWords(kept, words), words);
 }
 
-/** What knowledge_nearest() said of the entries: each one's hash, and the hashes holding a vector, nearest first. */
-export type Nearness = { hashOf: (entry: KnowledgeEntry) => string; nearest: readonly string[] };
+/** What knowledge_nearest() said of the entries: each one's hash, and the hashes holding a vector, nearest first, with their cosine distance. */
+export type Nearness = { hashOf: (entry: KnowledgeEntry) => string; nearest: readonly { hash: string; distance: number }[] };
+
+/**
+ * How far an entry may be from the question, by cosine distance, to be a hit by meaning. Measured once on gte-small,
+ * the model every product uses (PRD omni-loop-9 s1; the table of measures is in its pull request): the entries a
+ * real question opened were at most 0.172 from it, the nearest entry of a question the knowledge cannot answer
+ * at least 0.193. Rollback is this constant.
+ */
+export const MAX_DISTANCE = 0.19;
 
 /** Whether the entry is named exactly by `query`: its id, or a term's word. */
 function isExact(entry: KnowledgeEntry, query: string): boolean {
@@ -110,19 +118,21 @@ function isExact(entry: KnowledgeEntry, query: string): boolean {
  * vector by words; `mode: "words"` and the word search's answer when no entry holds a vector. A query with no
  * word answers the listing, with no mode.
  */
-export function rankByMeaning(entries: readonly KnowledgeEntry[], query: KnowledgeQuery, { hashOf, nearest }: Nearness): Answer & { mode?: SearchMode } {
+export function rankByMeaning(entries: readonly KnowledgeEntry[], query: KnowledgeQuery, { hashOf, nearest }: Nearness): Answer & { mode?: SearchMode; nearestDistance?: number } {
   const words = wordsOf(query.query);
   if (words.length === 0) return searchKnowledge(entries, query);
   const kept = filtered(entries, query);
-  const place = new Map(nearest.map((hash, at) => [hash, at] as const));
-  const placeOf = (entry: KnowledgeEntry): number | undefined => place.get(hashOf(entry));
+  const place = new Map(nearest.map(({ hash, distance }, at) => [hash, { at, distance }] as const));
+  const placeOf = (entry: KnowledgeEntry): number | undefined => place.get(hashOf(entry))?.at;
+  const distanceOf = (entry: KnowledgeEntry): number => place.get(hashOf(entry))?.distance ?? Infinity;
   if (!kept.some((entry) => placeOf(entry) !== undefined)) return { ...searchKnowledge(entries, query), mode: 'words' };
+  const closest = Math.min(...kept.map(distanceOf));
   const exact = kept.filter((entry) => isExact(entry, query.query ?? '')).sort(byId);
   const rest = kept.filter((entry) => !exact.includes(entry));
   const near = rest.flatMap((entry) => {
     const at = placeOf(entry);
     return at === undefined ? [] : [{ entry, at }];
-  }).sort((a, b) => a.at - b.at || byId(a.entry, b.entry)).map(({ entry }) => entry);
+  }).filter(({ entry }) => distanceOf(entry) <= MAX_DISTANCE).sort((a, b) => a.at - b.at || byId(a.entry, b.entry)).map(({ entry }) => entry);
   const unembedded = byWords(rest.filter((entry) => placeOf(entry) === undefined), words);
-  return { ...answerOf([...exact, ...near, ...unembedded], words), mode: 'meaning' };
+  return { ...answerOf([...exact, ...near, ...unembedded], words), mode: 'meaning', nearestDistance: closest };
 }

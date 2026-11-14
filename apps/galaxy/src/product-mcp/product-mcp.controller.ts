@@ -121,7 +121,7 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
       + 'comes first, then the entries nearest in meaning. `mode` says how it ranked: "meaning", or "words" when only the '
       + 'word search could answer. Filter by kind, domain or repository; with no query it lists the entries that match the '
       + 'filters, in id order. At most 20 hits, the best first, and `total` says how many were ranked. Read an entry whole '
-      + 'with get_knowledge, and cite the ids you rely on, like BL-QUOTES-1 or vertuo-omni-loop/ADR-0067.',
+      + 'with get_knowledge. No hit means the knowledge holds no answer to the question: say so rather than citing an unrelated entry. Cite the ids you rely on, like BL-QUOTES-1 or vertuo-omni-loop/ADR-0067.',
     inputSchema: {
       query: z.string().max(300).optional().describe('A question or plain words, like "can a quote be sent without a payment term". Leave it out to list.'),
       kind: z.enum(KNOWLEDGE_KINDS).optional().describe('Only entries of this kind.'),

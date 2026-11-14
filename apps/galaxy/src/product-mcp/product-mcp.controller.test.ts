@@ -166,6 +166,7 @@ describe('/api/products/<key>/mcp', () => {
     await client.close();
     expect(tools.map((t) => t.name).sort()).toEqual(['get_knowledge', 'search_knowledge']);
     expect(tools.every((t) => t.annotations?.readOnlyHint === true)).toBe(true);
+    expect(tools.find((t) => t.name === 'search_knowledge')?.description).toContain('No hit means the knowledge holds no answer to the question');
     expect(instructions).toMatch(/search_knowledge/);
     expect(instructions).toMatch(/get_knowledge/);
     expect(instructions).toMatch(/[Cc]ite the ids/);
@@ -335,7 +336,7 @@ describe('/api/products/<key>/mcp', () => {
             store.workspaces.push(workspace);
             const ranked = hashes.flatMap((h) => { const v = held.get(h); return v ? [{ h, d: 1 - cosine(v, [...query]) }] : []; })
               .sort((a, b) => a.d - b.d || (a.h < b.h ? -1 : 1));
-            return Promise.resolve(ranked.slice(0, k).map(({ h }) => h));
+            return Promise.resolve(ranked.slice(0, k).map(({ h, d }) => ({ hash: h, distance: d })));
           },
         },
         ...(budgetMs === undefined ? {} : { budgetMs }),
@@ -398,8 +399,24 @@ describe('/api/products/<key>/mcp', () => {
       expect(store.embedded.join('\n')).not.toMatch(/Owner:/);
       // The Legal entry now has a vector and ranks by meaning; the ADR, a pack's, waits for the job, by words.
       const ids = answer.hits.map((hit) => hit.id);
-      expect(ids.indexOf('L-GDPR-2')).toBeLessThan(ids.length - 1);
+      expect(ids).toContain('L-GDPR-2');
       expect(ids).not.toContain('api/ADR-0012');
+    });
+
+    it('answers no hit, total 0, mode meaning, when no entry is near the question (PRD omni-loop-9 s1)', async () => {
+      const w = await world();
+      await withMeaning(w, { embedder: (texts) => Promise.resolve(texts.map(() => [1, -1, -1])) });
+      const answer = await search(w, { query: 'pizza delivery refund policy' });
+      expect(answer).toMatchObject({ hits: [], total: 0, mode: 'meaning' });
+      await w.flush();
+      expect(w.rows[0]).toMatchObject({ query: 'pizza delivery refund policy', mode: 'meaning', total: 0, hit_ids: [] });
+    });
+
+    it('still answers an exact id first when the model finds nothing near it', async () => {
+      const w = await world();
+      await withMeaning(w, { embedder: (texts) => Promise.resolve(texts.map(() => [1, -1, -1])) });
+      const answer = await search(w, { query: 'BL-QUOTES-1' });
+      expect(answer.hits.map((hit) => hit.id)).toEqual(['BL-QUOTES-1']);
     });
 
     it('with no query, lists as today, with no mode', async () => {

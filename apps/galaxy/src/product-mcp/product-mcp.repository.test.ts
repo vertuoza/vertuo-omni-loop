@@ -105,7 +105,8 @@ describe('knowledgeVectorsRepository', () => {
 
   it('asks knowledge_nearest() with the query in pgvector\'s text form, and answers the hashes nearest first', async () => {
     const { db, lines } = fakeDb([{ data: [{ text_sha256: SHA, distance: 0.1 }, { text_sha256: HASH, distance: 0.4 }], error: null }]);
-    expect(await knowledgeVectorsRepository(db).nearest('w-acme', 'gte-small', [HASH, SHA], [1, 0], 2)).toEqual([SHA, HASH]);
+    expect(await knowledgeVectorsRepository(db).nearest('w-acme', 'gte-small', [HASH, SHA], [1, 0], 2))
+      .toEqual([{ hash: SHA, distance: 0.1 }, { hash: HASH, distance: 0.4 }]);
     expect(lines).toEqual([`rpc("knowledge_nearest",{"p_workspace":"w-acme","p_model":"gte-small","p_hashes":["${HASH}","${SHA}"],"p_query":"[1,0]","p_k":2})`]);
   });
 
