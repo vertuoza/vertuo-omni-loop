@@ -9,11 +9,11 @@ const NEW = { name: 'Night Shift', mascot: 'robot', roles: ['engineer' as const]
 
 function fetchAnswering(status: number, body: unknown) {
   const sent: { url: string; init: RequestInit | undefined }[] = [];
-  const fetch = (url: string | URL | Request, init?: RequestInit) => {
-    sent.push({ url: String(url), init });
+  const fetch: typeof globalThis.fetch = (url, init) => {
+    sent.push({ url: typeof url === 'string' ? url : url instanceof URL ? url.href : url.url, init });
     return Promise.resolve(new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }));
   };
-  return { fetch: fetch as typeof globalThis.fetch, sent };
+  return { fetch, sent };
 }
 
 describe('the virtual fleets client', () => {
@@ -22,7 +22,8 @@ describe('the virtual fleets client', () => {
     expect(await httpVirtualFleetsPort(WORKSPACE, fetch).create(NEW)).toEqual({ ok: true, fleet: { name: 'night-shift', label: 'Night Shift', color: '#4fb0ff', mascot: 'robot' } });
     expect(sent[0]?.url).toBe('/api/virtual-fleets');
     expect(sent[0]?.init?.method).toBe('POST');
-    expect(JSON.parse(String(sent[0]?.init?.body))).toEqual({ workspace: WORKSPACE, ...NEW });
+    const body = sent[0]?.init?.body;
+    expect(JSON.parse(typeof body === 'string' ? body : '')).toEqual({ workspace: WORKSPACE, ...NEW });
   });
 
   it('answers a refusal\'s words and field, the foot\'s when it names none', async () => {

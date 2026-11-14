@@ -55,7 +55,7 @@ describe('/app/fleet and Virtual Fleets', () => {
   });
 
   it('shows no button when the read does not say where to make the fleet', () => {
-    const { virtual: _, ...bare } = board(null, []);
+    const bare: FleetView = fleetOf({ ...READ, galaxy: { ...READ.galaxy, teams: [] } }, { asked: null, viewerId: 'u-ada', period: '7d', now: NOW });
     expect(screen(bare)).not.toContain('New virtual fleet');
   });
 
