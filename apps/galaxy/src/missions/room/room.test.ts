@@ -18,7 +18,8 @@ const hero = (role: HeroLine['role'], skills: string[]): HeroLine => ({ id: `${r
 const event = (over: Partial<EventRow>): EventRow => ({
   id: crypto.randomUUID(), mission: M1, at: '2026-11-14T09:12:00Z', role: 'engineer', actor: 'agent', kind: 'dispatched', prd: parsePrd(2803), job: JOB, link: null, sentence: 'Sent PRD 2803.', ...over,
 });
-const HEROES = [hero('engineer', ['yolo']), hero('reviewer', ['review'])];
+// A PM runs no skill alone (since PRD 2871 the Reviewer's review does): the seat a person still holds.
+const HEROES = [hero('engineer', ['yolo']), hero('pm', ['plan'])];
 
 describe('nowLines', () => {
   it('reads what a working hero does, Idle when it is not, and that a person does what no agent can', () => {

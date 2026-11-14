@@ -6,7 +6,8 @@
 // The milestones, in the order they can happen: `queued`; `claimed by <runner>`; `waiting for
 // approval` (while the lines show `omni wait approval` waiting); each `PR: <link>` the job writes of its own repository;
 // `<k>/<total> slices merged` when the count goes up; then the ending, with the PRD page link:
-// `Waiting on answers`, `Held`, `Ready`, `Need human` (PRD 2255), `Stopped mid-way · <k> / <n> slices merged`
+// `Waiting on answers`, `Held`, `Ready`, `Need human` (PRD 2255), `Waiting on the Reviewer` and `Changes asked`
+// (PRD 2871), `Stopped mid-way · <k> / <n> slices merged`
 // and the line to send again (PRD 2375) or `Done` (PRD 2223's outcome), `Failed: <reason>`,
 // `Cancelled` or `Runner lost`.
 
@@ -16,7 +17,7 @@ export type FollowJob = {
   /** The job's repository, as `owner/name`: only a pull request of it is the job's (bug 2567). */
   repo: string;
   runner: string | null;
-  outcome: 'answers' | 'held' | 'ready' | 'human' | 'stopped' | null;
+  outcome: 'answers' | 'held' | 'ready' | 'human' | 'stopped' | 'review' | 'changes' | null;
   reason: string | null;
   exitCode: number | null;
   /** The line the job ran, which a stopped job's ending gives to send again (PRD 2375). */
@@ -41,7 +42,11 @@ const WAITING = /^◌ PRD \d+ · waiting for /;
 const APPROVED = /^✓ PRD \d+ approved /;
 
 /** The ending's words: the same on the page, in the skills' hand-offs and in the terminal. */
-const DONE_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human', stopped: 'Stopped mid-way' } as const;
+const DONE_WORDS = {
+  answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human', stopped: 'Stopped mid-way',
+  // The Reviewer's hand-offs (PRD 2871): the PR waits for the Reviewer, or the Reviewer asked for changes.
+  review: 'Waiting on the Reviewer', changes: 'Changes asked',
+} as const;
 
 /** Why a failed job failed, in words: its reason, else its exit code. */
 const failure = ({ reason, exitCode }: FollowJob): string => reason ?? (exitCode === null ? 'no reason given' : `exit code ${String(exitCode)}`);

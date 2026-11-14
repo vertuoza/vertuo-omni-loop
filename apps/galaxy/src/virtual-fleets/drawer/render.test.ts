@@ -38,7 +38,7 @@ describe('the New virtual fleet drawer', () => {
 
   it('draws the five roles as switches, all on, each saying whether it works alone today', () => {
     const t = text(view(opened()));
-    expect(t).toContain('Engineer Builds PRDs alone QA Proves the work alone Reviewer A person does this today PM A person does this today Architect A person does this today');
+    expect(t).toContain('Engineer Builds PRDs alone QA Proves the work alone Reviewer Works alone PM A person does this today Architect A person does this today');
     const switches = [...view(opened()).matchAll(/role="switch"[^>]*aria-checked="(true|false)"/g)].map((m) => m[1]);
     expect(switches).toEqual(['true', 'true', 'true', 'true', 'true']);
   });
