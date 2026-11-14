@@ -143,7 +143,7 @@ describe('a fake fleet delivers a two-roadmap mission (PRD 2842 s9)', () => {
     // Every job was sent by the app, once per key, and a Held PRD was sent no more than twice.
     expect(new Set(fake.jobs().map((job) => job.key)).size).toBe(fake.jobs().length);
     expect(lines()).toHaveLength(5);
-    expect(fake.events().every((event) => event.actor === 'agent')).toBe(true);
+    expect(fake.events().map((event) => event.actor)).toEqual(fake.events().map(() => 'agent'));
   });
 
   it('never sends the overlapping PRD while the PRD it shares ground with runs', async () => {
