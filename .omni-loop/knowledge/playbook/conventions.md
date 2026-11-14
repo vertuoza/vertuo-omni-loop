@@ -62,6 +62,9 @@ New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0
 - **A new returned column lands with its readers.** A migration that adds a column to returned
   rows extends every parse schema reading them in the same change: they refuse unknown keys
   and `pnpm schemas:verify` stays red (retro of PRD 2270, #2295).
+- **A slice that adds a migration lists the migrations folder in its territory.** The plan puts
+  `supabase/migrations/` in the territory of each slice that will add one, so the new file is
+  expected and every slice adding one is visible from the plan's table (retro of PRD 2809, #2839).
 
 ## Formatting
 <!-- slot: formatting · optional · by: invade -->

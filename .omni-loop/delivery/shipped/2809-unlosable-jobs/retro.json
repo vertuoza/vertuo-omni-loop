@@ -982,6 +982,11 @@
           "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2839",
           "state": "open"
         }
+      },
+      "outcomes": {
+        "territory:s1": {
+          "became": "playbook/conventions#naming"
+        }
       }
     }
   ]

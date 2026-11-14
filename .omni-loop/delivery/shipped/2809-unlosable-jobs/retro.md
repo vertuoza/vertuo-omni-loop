@@ -28,6 +28,7 @@ The delivery of runner jobs that keep their work went through several slices, an
 - **Proposed lesson:** When a slice will add a migration, the plan lists the migrations folder in that slice's territory, so the file is expected and every slice adding one is visible from the plan's table.
 - **Kept:** No knowledge entry or earlier lesson asks the plan to put the migrations folder in the territory of each slice that adds a migration, and three slices hit this gap.
 - **Evidence:** [#2812](https://github.com/vertuoza/vertuo-omni-loop/pull/2812/files)
+- **Became:** `playbook/conventions#naming`
 
 ### F3 · A second slice added a migration outside its territory — `territory:s4`
 
