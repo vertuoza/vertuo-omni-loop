@@ -41,6 +41,11 @@ nobody at it.
 
 ## Open questions
 
+- PRD 2842 makes this the **Heroes** tab of a Virtual Fleet: one row per Virtual Hero (sprite in the
+  fleet's colour, name, role, skills, preferred agent and model, limits, and `Works alone` or `A
+  person does this today` with why), `Add a hero` its primary action; the tab is named Heroes, not
+  Seats.
+
 - Who may change a seat's holder (the workspace owner only, or the fleet's members).
 - Whether QA may write the branch: the person said QA may fix a bug itself; the F-E Developer and
   B-E DEv personas want one writer per branch. The concept lets QA hold the branch while it fixes,
@@ -49,3 +54,4 @@ nobody at it.
 ## Source
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
+/omni:brainstorm, PRD 2842: .omni-loop/delivery/inbox/2842-missions/before-after.html

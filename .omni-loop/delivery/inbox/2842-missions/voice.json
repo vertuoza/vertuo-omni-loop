@@ -4,16 +4,58 @@
       "stage": "design",
       "date": "2026-11-14",
       "personas": [
-        { "name": "Paul - Product Manager", "stance": "enthusiastic", "score": 5, "reaction": "I state the goal once over two roadmaps, press Start, and the fleet keeps going with my laptop shut.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "Another skill and another page before anything gets built. For a quick win I just want to hand over a PRD and go.", "citations": ["persona:Irisa"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "A goal with measures and a ledger signed by role is something I can hold every team to.", "citations": ["persona:Lead Engineer"] },
-        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "More PRDs in parallel means more PRs in my queue; at least ready still waits for a person's merge.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Plain code, no model call to wait, and a key that never sends a job twice: that I can debug.", "citations": ["persona:B-E DEv"] }
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "I state the goal once over two roadmaps, press Start, and the fleet keeps going with my laptop shut.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Another skill and another page before anything gets built. For a quick win I just want to hand over a PRD and go.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A goal with measures and a ledger signed by role is something I can hold every team to.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "More PRDs in parallel means more PRs in my queue; at least ready still waits for a person's merge.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Plain code, no model call to wait, and a key that never sends a job twice: that I can debug.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
       ],
       "objection": {
         "persona": "Irisa",
         "text": "Another skill and another page before anything gets built. For a quick win I just want to hand over a PRD and go.",
-        "citations": ["persona:Irisa"],
+        "citations": [
+          "persona:Irisa"
+        ],
         "settled": "accepted"
       },
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~ · persona:Irisa ✗"
@@ -22,11 +64,104 @@
       "stage": "spec",
       "date": "2026-11-14",
       "personas": [
-        { "name": "Paul - Product Manager", "stance": "enthusiastic", "score": 5, "reaction": "Start sends the ready PRDs at once and the Missions tab tells me what waits on me.", "citations": ["persona:Paul - Product Manager"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "One line with --prd and my quick win is on the fleet; the brief can wait.", "citations": ["persona:Irisa"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "No first names, every row a real record, filtered by seat: the room I can trust.", "citations": ["persona:Lead Engineer"] },
-        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "Two PRDs at once by default is fine, but nothing reviews them before my queue until the Reviewer PRD.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Overlapping plans never run together and a held PRD is sent again once only.", "citations": ["persona:B-E DEv"] }
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "Start sends the ready PRDs at once and the Missions tab tells me what waits on me.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One line with --prd and my quick win is on the fleet; the brief can wait.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "No first names, every row a real record, filtered by seat: the room I can trust.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Two PRDs at once by default is fine, but nothing reviews them before my queue until the Reviewer PRD.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Overlapping plans never run together and a held PRD is sent again once only.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
+    },
+    {
+      "stage": "rework-1",
+      "date": "2026-11-14",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "I create a Virtual Fleet with its five heroes once, then every mission I write goes to it.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The default team is there from the start, so my one-line mission still just works.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The Heroes tab says plainly which agents work alone today and which still need one of us.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A Reviewer hero that a person does today is honest, but my queue still waits for its own PRD.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The fleet's own runners, never the arcade's player list, and no hero on the ledger: clean lines.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"

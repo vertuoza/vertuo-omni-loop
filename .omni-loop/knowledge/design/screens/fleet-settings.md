@@ -49,9 +49,14 @@ same cards, read-only. It sits inside the app shell, under the Settings tabs.
 
 ## Open questions
 
+- PRD 2842 adds **New virtual fleet** for the owner: name, colour and mascot as for any fleet, and the
+  default team of five Virtual Heroes (PM, Engineer, Architect, QA, Reviewer), each removable, with
+  Add a hero; a virtual fleet's card reads `virtual` and lists its heroes, not players.
+
 - Whether a member of the fleet, not only the owner, may set its board (V1: the owner only).
 - Whether the note shows its time as a relative age or a date.
 
 ## Source
 
 /omni:brainstorm, PRD 2530: .omni-loop/delivery/shipped/2530-fleet-project-board/before-after.html
+/omni:brainstorm, PRD 2842: .omni-loop/delivery/inbox/2842-missions/before-after.html

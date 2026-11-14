@@ -18,7 +18,7 @@ inside the app shell, under the sidebar's existing Fleet entry.
 ## Regions
 
 - **The header:** the fleet's name, its colour and its mascot, drawn once.
-- **The tabs:** Operation room · Missions · Seats · Board, the current one marked.
+- **The tabs:** Operation room · Missions · Heroes · Board, the current one marked.
 - **The page area:** the tab's own screen (`fleet-room`, `mission-start`, `fleet-seats`, or
   today's fleet board).
 
@@ -29,7 +29,7 @@ inside the app shell, under the sidebar's existing Fleet entry.
 
 ## Words
 
-- `Operation room`, `Missions`, `Seats`, `Board`.
+- `Operation room`, `Missions`, `Heroes`, `Board`.
 
 ## Refusals
 
