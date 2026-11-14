@@ -2813,7 +2813,9 @@ function foldersLayout(root, paths) {
     outbox: `${base}/outbox`,
     shipped: `${base}/shipped`,
     archive: `${base}/archive`,
-    concepts: `${base}/inbox/concepts`
+    concepts: `${base}/inbox/concepts`,
+    // PRD 2842: a mission's folder, `<nnnn>-<slug>/`, numbered by its issue as a concept's is.
+    missions: `${base}/missions`
   };
   const folders = (dir) => prdFoldersIn(join7(root, dir));
   function find(dir, prd) {
