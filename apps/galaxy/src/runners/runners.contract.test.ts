@@ -34,6 +34,13 @@ describe('the line check', () => {
     expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
   });
 
+  it('lets the ultra skills through, and reads the PRD they name (PRD 2873)', () => {
+    for (const skill of ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']) {
+      expect(checkLine(`/omni:${skill} 12`)).toEqual({ ok: true, kind: 'omni', skill, args: '12' });
+      expect(linePrd(`/omni:${skill} 12`)).toBe(12);
+    }
+  });
+
   it('lets /omni:mega-bug-fix through with a plan repository issue’s URL', () => {
     expect(checkLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612')).toEqual({ ok: true, kind: 'omni', skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
