@@ -1,0 +1,993 @@
+{
+  "prd": 2809,
+  "runs": [
+    {
+      "run": "merge",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 2809,
+        "title": "Runner jobs that never lose work",
+        "topic": "unlosable-jobs",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/2809-unlosable-jobs"
+      },
+      "featurePr": {
+        "number": 2810,
+        "title": "feat(runners): runner jobs that never lose work",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2810",
+        "openedAt": "2026-11-13T13:57:50Z",
+        "mergedAt": "2026-11-14T09:12:38Z",
+        "mergeSha": "af6ad33c5d57a2869c30ef8e2d4757fd2f22351d"
+      },
+      "kinds": {
+        "timeline": {
+          "featurePr": {
+            "number": 2810,
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2810",
+            "openedAt": "2026-11-13T13:57:50Z",
+            "readyAt": "2026-11-14T06:51:05Z",
+            "mergedAt": "2026-11-14T09:12:38Z",
+            "minutes": 1155
+          },
+          "slices": [
+            {
+              "slice": "s1",
+              "pr": 2812,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2812",
+              "openedAt": "2026-11-13T14:08:19Z",
+              "mergedAt": "2026-11-13T16:12:08Z",
+              "closedAt": "2026-11-13T16:12:08Z",
+              "minutes": 124,
+              "plannedWave": 1,
+              "mergedWave": 1
+            },
+            {
+              "slice": "s2",
+              "pr": 2813,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2813",
+              "openedAt": "2026-11-13T14:08:23Z",
+              "mergedAt": "2026-11-13T14:51:33Z",
+              "closedAt": "2026-11-13T14:51:33Z",
+              "minutes": 43,
+              "plannedWave": 1,
+              "mergedWave": 1
+            },
+            {
+              "slice": "s3",
+              "pr": 2822,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2822",
+              "openedAt": "2026-11-13T16:32:23Z",
+              "mergedAt": "2026-11-13T17:00:27Z",
+              "closedAt": "2026-11-13T17:00:27Z",
+              "minutes": 28,
+              "plannedWave": 2,
+              "mergedWave": 2
+            },
+            {
+              "slice": "s4",
+              "pr": 2823,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2823",
+              "openedAt": "2026-11-13T17:02:29Z",
+              "mergedAt": "2026-11-13T18:06:46Z",
+              "closedAt": "2026-11-13T18:06:46Z",
+              "minutes": 64,
+              "plannedWave": 3,
+              "mergedWave": 3
+            },
+            {
+              "slice": "s5",
+              "pr": 2826,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2826",
+              "openedAt": "2026-11-13T18:26:29Z",
+              "mergedAt": "2026-11-13T19:20:44Z",
+              "closedAt": "2026-11-13T19:20:44Z",
+              "minutes": 54,
+              "plannedWave": 4,
+              "mergedWave": 4
+            },
+            {
+              "slice": "s6",
+              "pr": 2827,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2827",
+              "openedAt": "2026-11-13T18:26:54Z",
+              "mergedAt": "2026-11-13T19:21:49Z",
+              "closedAt": "2026-11-13T19:21:49Z",
+              "minutes": 55,
+              "plannedWave": 4,
+              "mergedWave": 4
+            },
+            {
+              "slice": "s7",
+              "pr": 2832,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2832",
+              "openedAt": "2026-11-13T19:42:57Z",
+              "mergedAt": "2026-11-13T20:14:07Z",
+              "closedAt": "2026-11-13T20:14:07Z",
+              "minutes": 31,
+              "plannedWave": 5,
+              "mergedWave": 5
+            },
+            {
+              "slice": "s8",
+              "pr": 2833,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2833",
+              "openedAt": "2026-11-13T19:43:23Z",
+              "mergedAt": "2026-11-13T20:14:31Z",
+              "closedAt": "2026-11-13T20:14:31Z",
+              "minutes": 31,
+              "plannedWave": 5,
+              "mergedWave": 5
+            }
+          ],
+          "sliceCount": 8,
+          "waves": {
+            "planned": 5,
+            "merged": 5
+          },
+          "medianMinutes": 49,
+          "slowFactor": 3
+        },
+        "delivery": {
+          "decisions": {
+            "file": ".omni-loop/delivery/shipped/2809-unlosable-jobs/outbox/settled.md",
+            "raised": 13,
+            "adopted": 10,
+            "agreed": 3,
+            "drifted": 0,
+            "reworked": 0,
+            "byRank": {
+              "human-action": 2,
+              "high": 1,
+              "medium": 10
+            },
+            "drifts": []
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "territory": {
+            "reason": null,
+            "sharedGround": [
+              "apps/galaxy/src/runners/runners.",
+              ".github/workflows/supabase.yml",
+              "supabase/database.types.ts",
+              "supabase/checks/runner_resume.sql",
+              "kit/lib/runner/checkpoint.",
+              "kit/lib/runner/runner.",
+              "kit/lib/runner/api.",
+              "kit/lib/runner/resume."
+            ],
+            "counts": {
+              "graded": 8,
+              "breaches": 3,
+              "shared": 0,
+              "unread": 0,
+              "unplanned": 0
+            },
+            "pulls": [
+              {
+                "slice": "s1",
+                "pr": 2812,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2812",
+                "status": "graded",
+                "files": 15,
+                "breaches": [
+                  "supabase/migrations/20270120100000_runner_resume.sql"
+                ],
+                "shared": []
+              },
+              {
+                "slice": "s2",
+                "pr": 2813,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2813",
+                "status": "graded",
+                "files": 10,
+                "breaches": [],
+                "shared": []
+              },
+              {
+                "slice": "s3",
+                "pr": 2822,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2822",
+                "status": "graded",
+                "files": 7,
+                "breaches": [],
+                "shared": []
+              },
+              {
+                "slice": "s4",
+                "pr": 2823,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2823",
+                "status": "graded",
+                "files": 21,
+                "breaches": [
+                  "supabase/migrations/20270120103000_runner_checkpoints.sql"
+                ],
+                "shared": []
+              },
+              {
+                "slice": "s5",
+                "pr": 2826,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2826",
+                "status": "graded",
+                "files": 22,
+                "breaches": [
+                  "supabase/migrations/20270120110000_runner_claim_resume.sql"
+                ],
+                "shared": []
+              },
+              {
+                "slice": "s6",
+                "pr": 2827,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2827",
+                "status": "graded",
+                "files": 8,
+                "breaches": [],
+                "shared": []
+              },
+              {
+                "slice": "s7",
+                "pr": 2832,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2832",
+                "status": "graded",
+                "files": 12,
+                "breaches": [],
+                "shared": []
+              },
+              {
+                "slice": "s8",
+                "pr": 2833,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2833",
+                "status": "graded",
+                "files": 1,
+                "breaches": [],
+                "shared": []
+              }
+            ]
+          },
+          "friction": {
+            "label": "omni:needs-fix",
+            "counts": {
+              "stuck": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "commentsUnread": 0,
+              "eventsUnread": 0
+            },
+            "slices": [
+              {
+                "slice": "s1",
+                "prs": [
+                  2812
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              },
+              {
+                "slice": "s2",
+                "prs": [
+                  2813
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              },
+              {
+                "slice": "s3",
+                "prs": [
+                  2822
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              },
+              {
+                "slice": "s4",
+                "prs": [
+                  2823
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              },
+              {
+                "slice": "s5",
+                "prs": [
+                  2826
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              },
+              {
+                "slice": "s6",
+                "prs": [
+                  2827
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              },
+              {
+                "slice": "s7",
+                "prs": [
+                  2832
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              },
+              {
+                "slice": "s8",
+                "prs": [
+                  2833
+                ],
+                "claims": 1,
+                "stuck": [],
+                "needsFix": []
+              }
+            ]
+          },
+          "review": {
+            "counts": {
+              "pulls": 9,
+              "reviews": 0,
+              "reviewsByPeople": 0,
+              "reviewsByBots": 0,
+              "threads": 0,
+              "threadsByPeople": 0,
+              "threadsByBots": 0,
+              "red": 0,
+              "unresolved": 0,
+              "reviewsUnread": 0,
+              "threadsUnread": 0
+            },
+            "pulls": [
+              {
+                "pr": 2810,
+                "slice": null,
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2810",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2812,
+                "slice": "s1",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2812",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2813,
+                "slice": "s2",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2813",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2822,
+                "slice": "s3",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2822",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2823,
+                "slice": "s4",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2823",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2826,
+                "slice": "s5",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2826",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2827,
+                "slice": "s6",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2827",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2832,
+                "slice": "s7",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2832",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              },
+              {
+                "pr": 2833,
+                "slice": "s8",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2833",
+                "reviews": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "threads": {
+                  "people": 0,
+                  "bots": 0
+                },
+                "red": [],
+                "unresolved": []
+              }
+            ]
+          }
+        },
+        "ci": {
+          "slices": [
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "s5",
+            "s6",
+            "s7",
+            "s8"
+          ],
+          "unread": [],
+          "totals": {
+            "runs": 140,
+            "red": 3,
+            "checks": 5,
+            "commits": 26,
+            "slices": 8
+          },
+          "checks": [
+            {
+              "check": "check",
+              "runs": 15,
+              "red": 3,
+              "redCommits": [
+                "80a4422",
+                "11410f2",
+                "76d2f41"
+              ],
+              "redSlices": [
+                "s1"
+              ],
+              "redThenGreen": []
+            },
+            {
+              "check": "gitleaks",
+              "runs": 34,
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": []
+            },
+            {
+              "check": "open-source",
+              "runs": 34,
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": []
+            },
+            {
+              "check": "quick",
+              "runs": 28,
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": []
+            },
+            {
+              "check": "settle",
+              "runs": 29,
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": []
+            }
+          ],
+          "redRuns": [
+            {
+              "id": 131954991992,
+              "check": "check",
+              "slice": "s1",
+              "commit": "80a4422",
+              "attempt": 1,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/43445864632/job/131954991992",
+              "reporter": null,
+              "tests": [],
+              "counts": null,
+              "log": "read",
+              "excerpt": "Applying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nApplying migration 20261221090000_arcade_duet_obstacle_scores.sql...\nApplying migration 20261222090000_repository_runner_skills.sql...\nApplying migration 20261223090000_runner_jobs_sent_by_app.sql...\nApplying migration 20261224090000_canonical_roles.sql...\nApplying migration 20261225090000_runner_stopped.sql...\nApplying migration 20261226090000_waits.sql...\nApplying migration 20261227090000_prd_milestones.sql...\nApplying migration 20261228090000_api_key_github_apps.sql...\nApplying migration 20261229090000_api_key_job_control.sql...\nApplying migration 20261230090000_main_watch.sql...\nApplying migration 20261231090000_dossier_light_reads.sql...\nApplying migration 20270101090000_bug_fix_follow_ups.sql...\nApplying migration 20270102090000_fleet_project_board.sql...\nApplying migration 20270103090000_settings_repository.sql...\nApplying migration 20270104090000_rewind_outcome.sql...\nApplying migration 20270105090000_runner_report_health.sql...\nApplying migration 20270106090000_runner_job_parts.sql...\nApplying migration 20270107090000_runner_claim_omni_app.sql...\nApplying migration 20270108090000_runner_registration.sql...\nApplying migration 20270109090000_product_domains.sql...\nApplying migration 20270110090000_ideas_outside_the_workspace.sql...\nApplying migration 20270110093000_tech_approval.sql...\nApplying migration 20270110100000_approval_email_default.sql...\nApplying migration 20270111090000_business_law_home.sql...\nApplying migration 20270112090000_business_law_verdicts.sql...\nApplying migration 20270113090000_background_jobs.sql...\nApplying migration 20270114090000_pr_check_jobs.sql...\nApplying migration 20270115090000_product_mcp.sql...\nApplying migration 20270116090000_background_job_later.sql...\nApplying migration 20270117090000_background_job_steps.sql...\nApplying migration 20270118090000_knowledge_vectors.sql...\nApplying migration 20270119090000_mcp_search_log.sql...\nApplying migration 20270120090000_runner_resume.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v3.1.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5542) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.18.0 is available)\n\nDone in 4.6s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 24\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n(node:5573) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nFound in cache @ /opt/hostedtoolcache/node/24.22.2/x64\n##[group]Environment details\nnode: v24.22.2\nnpm: 11.19.1\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n(node:5573) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 46137344 of 306007474 (15.1%), 44.0 MBs/sec\nReceived 184549376 of 306007474 (60.3%), 88.0 MBs/sec\nReceived 301813170 of 306007474 (98.6%), 95.9 MBs/sec\nReceived 306007474 of 306007474 (100.0%), 96.5 MBs/sec\nCache Size: ~292 MB (306007474 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/bb759525-9952-404b-b960-0bf0dcb4b82c/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nsupabase/migrations/20270120090000_runner_resume.sql is dated at or before 20270120090000_open_personas.sql, the newest on origin/main: re-date it after 20270120090000\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.56.0\nTemporarily overriding HOME='/home/runner/work/_temp/91f4d380-4f0c-42a5-8cf4-d0de693a615f' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "id": 131979744695,
+              "check": "check",
+              "slice": "s1",
+              "commit": "11410f2",
+              "attempt": 1,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/43452982186/job/131979744695",
+              "reporter": null,
+              "tests": [],
+              "counts": null,
+              "log": "read",
+              "excerpt": "Applying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nApplying migration 20261221090000_arcade_duet_obstacle_scores.sql...\nApplying migration 20261222090000_repository_runner_skills.sql...\nApplying migration 20261223090000_runner_jobs_sent_by_app.sql...\nApplying migration 20261224090000_canonical_roles.sql...\nApplying migration 20261225090000_runner_stopped.sql...\nApplying migration 20261226090000_waits.sql...\nApplying migration 20261227090000_prd_milestones.sql...\nApplying migration 20261228090000_api_key_github_apps.sql...\nApplying migration 20261229090000_api_key_job_control.sql...\nApplying migration 20261230090000_main_watch.sql...\nApplying migration 20261231090000_dossier_light_reads.sql...\nApplying migration 20270101090000_bug_fix_follow_ups.sql...\nApplying migration 20270102090000_fleet_project_board.sql...\nApplying migration 20270103090000_settings_repository.sql...\nApplying migration 20270104090000_rewind_outcome.sql...\nApplying migration 20270105090000_runner_report_health.sql...\nApplying migration 20270106090000_runner_job_parts.sql...\nApplying migration 20270107090000_runner_claim_omni_app.sql...\nApplying migration 20270108090000_runner_registration.sql...\nApplying migration 20270109090000_product_domains.sql...\nApplying migration 20270110090000_ideas_outside_the_workspace.sql...\nApplying migration 20270110093000_tech_approval.sql...\nApplying migration 20270110100000_approval_email_default.sql...\nApplying migration 20270111090000_business_law_home.sql...\nApplying migration 20270112090000_business_law_verdicts.sql...\nApplying migration 20270113090000_background_jobs.sql...\nApplying migration 20270114090000_pr_check_jobs.sql...\nApplying migration 20270115090000_product_mcp.sql...\nApplying migration 20270116090000_background_job_later.sql...\nApplying migration 20270117090000_background_job_steps.sql...\nApplying migration 20270118090000_knowledge_vectors.sql...\nApplying migration 20270119090000_mcp_search_log.sql...\nApplying migration 20270120090000_runner_resume.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v3.1.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5559) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.18.0 is available)\n\nDone in 5.5s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 24\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/24.22.2/x64\n(node:5612) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v24.22.2\nnpm: 11.19.1\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n(node:5612) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 268435456 of 306007474 (87.7%), 253.0 MBs/sec\nReceived 306007474 of 306007474 (100.0%), 241.6 MBs/sec\nCache Size: ~292 MB (306007474 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/6850aed4-5187-48b4-85df-16cdb2c1a498/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nsupabase/migrations/20270120090000_runner_resume.sql is dated at or before 20270120090000_open_personas.sql, the newest on origin/main: re-date it after 20270120090000\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.56.0\nTemporarily overriding HOME='/home/runner/work/_temp/939176ee-98fa-47a0-aee4-2f89f813983d' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "id": 131984691142,
+              "check": "check",
+              "slice": "s1",
+              "commit": "76d2f41",
+              "attempt": 1,
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/43454428312/job/131984691142",
+              "reporter": null,
+              "tests": [],
+              "counts": null,
+              "log": "read",
+              "excerpt": "76b324f24cfb: Download complete\n5736866015f8: Download complete\n61c321d9f410: Download complete\n00981fef6de8: Download complete\n36a353320488: Download complete\n264aff2833b7: Download complete\n0eb861f233e4: Download complete\nbe454d00abf2: Download complete\n44136fa355b3: Already exists\n08a83ce17425: Download complete\nf53a344a92f3: Download complete\nd7e873383d31: Download complete\n0a85b149f5b7: Download complete\nd7e873383d31: Pull complete\n00981fef6de8: Pull complete\n264aff2833b7: Pull complete\n76b324f24cfb: Pull complete\n61c321d9f410: Pull complete\n36a353320488: Pull complete\n0a85b149f5b7: Pull complete\n5736866015f8: Pull complete\nbe454d00abf2: Pull complete\nf53a344a92f3: Pull complete\n6fd202ee6889: Pull complete\n39732d1dd9ac: Pull complete\n0eb861f233e4: Pull complete\nDigest: sha256:105a2584129c9600aebed6f5ac49ca4371c92b996ecd1af7179750333e9e2120\nStatus: Downloaded newer image for public.ecr.aws/supabase/storage-api:v1.72.1\npublic.ecr.aws/supabase/storage-api:v1.72.1\nSeeding globals from roles.sql...\nApplying migration 20260925080000_galaxy_ledger.sql...\nApplying migration 20260925120000_galaxy_grants.sql...\nApplying migration 20260925150000_fleets_and_players.sql...\nApplying migration 20260925170000_github_to_play.sql...\nApplying migration 20260926090000_ask_sessions.sql...\nApplying migration 20260926100000_ask_cli_codes.sql...\nApplying migration 20260926120000_workspaces.sql...\nApplying migration 20260926160000_vertuoza_sectors.sql...\nApplying migration 20260926170000_game_room.sql...\nApplying migration 20260926180000_arcade_scores.sql...\nApplying migration 20260927090000_ask_context.sql...\nApplying migration 20260927100000_ask_workspace.sql...\nApplying migration 20260927110000_ask_category.sql...\nApplying migration 20260927120000_ask_shares.sql...\nApplying migration 20260928090000_dossiers.sql...\nApplying migration 20260928100000_dossier_rounds.sql...\nApplying migration 20260928110000_dossier_list.sql...\nApplying migration 20260929090000_releases.sql...\nApplying migration 20260929100000_contributions.sql...\nApplying migration 20261001090000_github_sign_up.sql...\nApplying migration 20261001100000_drop_join_domain.sql...\nApplying migration 20261003090000_own_fleets.sql...\nApplying migration 20261004090000_workspace_gate.sql...\nApplying migration 20261005090000_outbox_sends.sql...\nApplying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nApplying migration 20261221090000_arcade_duet_obstacle_scores.sql...\nApplying migration 20261222090000_repository_runner_skills.sql...\nApplying migration 20261223090000_runner_jobs_sent_by_app.sql...\nApplying migration 20261224090000_canonical_roles.sql...\nApplying migration 20261225090000_runner_stopped.sql...\nApplying migration 20261226090000_waits.sql...\nApplying migration 20261227090000_prd_milestones.sql...\nApplying migration 20261228090000_api_key_github_apps.sql...\nApplying migration 20261229090000_api_key_job_control.sql...\nApplying migration 20261230090000_main_watch.sql...\nApplying migration 20261231090000_dossier_light_reads.sql...\nApplying migration 20270101090000_bug_fix_follow_ups.sql...\nApplying migration 20270102090000_fleet_project_board.sql...\nApplying migration 20270103090000_settings_repository.sql...\nApplying migration 20270104090000_rewind_outcome.sql...\nApplying migration 20270105090000_runner_report_health.sql...\nApplying migration 20270106090000_runner_job_parts.sql...\nApplying migration 20270107090000_runner_claim_omni_app.sql...\nApplying migration 20270108090000_runner_registration.sql...\nApplying migration 20270109090000_product_domains.sql...\nApplying migration 20270110090000_ideas_outside_the_workspace.sql...\nApplying migration 20270110093000_tech_approval.sql...\nApplying migration 20270110100000_approval_email_default.sql...\nApplying migration 20270111090000_business_law_home.sql...\nApplying migration 20270112090000_business_law_verdicts.sql...\nApplying migration 20270113090000_background_jobs.sql...\nApplying migration 20270114090000_pr_check_jobs.sql...\nApplying migration 20270115090000_product_mcp.sql...\nApplying migration 20270116090000_background_job_later.sql...\nApplying migration 20270117090000_background_job_steps.sql...\nApplying migration 20270118090000_knowledge_vectors.sql...\nApplying migration 20270119090000_mcp_search_log.sql...\nApplying migration 20270120090000_mcp_search_groups.sql...\nApplying migration 20270120090000_open_personas.sql...\nStopping containers...\nERROR: duplicate key value violates unique constraint \"schema_migrations_pkey\" (SQLSTATE 23505)\nKey (version)=(20270120090000) already exists.\nAt statement: 20\nINSERT INTO supabase_migrations.schema_migrations(version, name, statements) VALUES($1, $2, $3)\nTry rerunning the command with --debug to troubleshoot the error.\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.56.1\nTemporarily overriding HOME='/home/runner/work/_temp/47f3e133-12ce-4a5e-8fd2-b21ae3a5dca9' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            }
+          ],
+          "tests": []
+        },
+        "churn": {
+          "pulls": 9,
+          "commits": 37,
+          "added": 6121,
+          "finalAdded": 5739,
+          "churn": 389,
+          "files": [
+            {
+              "path": "supabase/migrations/20270120103000_runner_checkpoints.sql",
+              "commits": 1,
+              "added": 143,
+              "finalAdded": 0,
+              "churn": 143,
+              "percent": null
+            },
+            {
+              "path": "supabase/migrations/20270120100000_runner_resume.sql",
+              "commits": 2,
+              "added": 123,
+              "finalAdded": 0,
+              "churn": 123,
+              "percent": null
+            },
+            {
+              "path": "supabase/migrations/20270120110000_runner_claim_resume.sql",
+              "commits": 1,
+              "added": 81,
+              "finalAdded": 0,
+              "churn": 81,
+              "percent": null
+            },
+            {
+              "path": "kit/lib/runner/api.ts",
+              "commits": 3,
+              "added": 112,
+              "finalAdded": 96,
+              "churn": 16,
+              "percent": 17
+            },
+            {
+              "path": "kit/lib/runner/runner.ts",
+              "commits": 2,
+              "added": 205,
+              "finalAdded": 194,
+              "churn": 11,
+              "percent": 6
+            },
+            {
+              "path": "apps/galaxy/src/runners/runners.service.ts",
+              "commits": 6,
+              "added": 157,
+              "finalAdded": 152,
+              "churn": 5,
+              "percent": 3
+            },
+            {
+              "path": "apps/galaxy/src/runners/runners.repository.ts",
+              "commits": 3,
+              "added": 94,
+              "finalAdded": 92,
+              "churn": 2,
+              "percent": 2
+            },
+            {
+              "path": "kit/lib/runner/checkpoint.test.ts",
+              "commits": 3,
+              "added": 357,
+              "finalAdded": 355,
+              "churn": 2,
+              "percent": 1
+            },
+            {
+              "path": "apps/galaxy/src/runners/runners.checkpoints.test.ts",
+              "commits": 2,
+              "added": 197,
+              "finalAdded": 196,
+              "churn": 1,
+              "percent": 1
+            },
+            {
+              "path": "apps/galaxy/src/runners/runners.repository.checkpoints.test.ts",
+              "commits": 2,
+              "added": 127,
+              "finalAdded": 126,
+              "churn": 1,
+              "percent": 1
+            },
+            {
+              "path": "apps/galaxy/src/runners/runners.resume.migration.test.ts",
+              "commits": 2,
+              "added": 109,
+              "finalAdded": 108,
+              "churn": 1,
+              "percent": 1
+            },
+            {
+              "path": "apps/omni-app/src/checkpoints/store.test.ts",
+              "commits": 2,
+              "added": 100,
+              "finalAdded": 99,
+              "churn": 1,
+              "percent": 1
+            },
+            {
+              "path": "kit/lib/runner/checkpoint.manifest.ts",
+              "commits": 2,
+              "added": 89,
+              "finalAdded": 88,
+              "churn": 1,
+              "percent": 1
+            },
+            {
+              "path": "supabase/checks/runner_resume.sql",
+              "commits": 2,
+              "added": 331,
+              "finalAdded": 330,
+              "churn": 1,
+              "percent": 0
+            }
+          ],
+          "ranges": [
+            {
+              "path": "apps/galaxy/src/runners/runners.service.ts",
+              "from": 91,
+              "to": 91,
+              "commits": [
+                "067eda1",
+                "ae98ed0",
+                "a36f7f8"
+              ],
+              "slices": [
+                "s3",
+                "s4",
+                "s5"
+              ]
+            }
+          ],
+          "leftOut": {
+            "generated": [],
+            "lockfile": [],
+            "delivery": [
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s1-01-resume-check-in-ci.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s1-02-cancel-asked-not-resumed.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s2-01-budget-drops-the-bundle.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s2-02-snapshot-author.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s2-03-failed-save-keeps-folder.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s4-01-checkpoints-check-in-ci.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s4-02-upload-link-two-hours.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s4-03-send-save-wired-by-s5.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s5-01-resume-note-in-the-prompt.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s5-02-chain-holds-claims-on-the-runner.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s5-03-keeper-runner-routing.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s5-04-checkpoint-rule-in-the-note.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/s7-01-lost-job-offers-no-button-while-resuming.md",
+              ".omni-loop/delivery/outbox/2809-unlosable-jobs/settled.md"
+            ]
+          },
+          "noPatch": [],
+          "unread": {
+            "pulls": [],
+            "commits": []
+          },
+          "notCounted": []
+        }
+      },
+      "findings": [
+        {
+          "id": "repeated-red:check",
+          "kind": "repeated-red",
+          "title": "Check check was red again and again",
+          "happened": "The check `check` was red on 3 commits in 1 slice (s1): 3 of its 15 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.",
+          "evidence": [
+            {
+              "label": "check on 80a4422 in s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/43445864632/job/131954991992",
+              "excerpt": "Applying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nApplying migration 20261221090000_arcade_duet_obstacle_scores.sql...\nApplying migration 20261222090000_repository_runner_skills.sql...\nApplying migration 20261223090000_runner_jobs_sent_by_app.sql...\nApplying migration 20261224090000_canonical_roles.sql...\nApplying migration 20261225090000_runner_stopped.sql...\nApplying migration 20261226090000_waits.sql...\nApplying migration 20261227090000_prd_milestones.sql...\nApplying migration 20261228090000_api_key_github_apps.sql...\nApplying migration 20261229090000_api_key_job_control.sql...\nApplying migration 20261230090000_main_watch.sql...\nApplying migration 20261231090000_dossier_light_reads.sql...\nApplying migration 20270101090000_bug_fix_follow_ups.sql...\nApplying migration 20270102090000_fleet_project_board.sql...\nApplying migration 20270103090000_settings_repository.sql...\nApplying migration 20270104090000_rewind_outcome.sql...\nApplying migration 20270105090000_runner_report_health.sql...\nApplying migration 20270106090000_runner_job_parts.sql...\nApplying migration 20270107090000_runner_claim_omni_app.sql...\nApplying migration 20270108090000_runner_registration.sql...\nApplying migration 20270109090000_product_domains.sql...\nApplying migration 20270110090000_ideas_outside_the_workspace.sql...\nApplying migration 20270110093000_tech_approval.sql...\nApplying migration 20270110100000_approval_email_default.sql...\nApplying migration 20270111090000_business_law_home.sql...\nApplying migration 20270112090000_business_law_verdicts.sql...\nApplying migration 20270113090000_background_jobs.sql...\nApplying migration 20270114090000_pr_check_jobs.sql...\nApplying migration 20270115090000_product_mcp.sql...\nApplying migration 20270116090000_background_job_later.sql...\nApplying migration 20270117090000_background_job_steps.sql...\nApplying migration 20270118090000_knowledge_vectors.sql...\nApplying migration 20270119090000_mcp_search_log.sql...\nApplying migration 20270120090000_runner_resume.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v3.1.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5542) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.18.0 is available)\n\nDone in 4.6s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 24\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\n(node:5573) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nFound in cache @ /opt/hostedtoolcache/node/24.22.2/x64\n##[group]Environment details\nnode: v24.22.2\nnpm: 11.19.1\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n(node:5573) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 46137344 of 306007474 (15.1%), 44.0 MBs/sec\nReceived 184549376 of 306007474 (60.3%), 88.0 MBs/sec\nReceived 301813170 of 306007474 (98.6%), 95.9 MBs/sec\nReceived 306007474 of 306007474 (100.0%), 96.5 MBs/sec\nCache Size: ~292 MB (306007474 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/bb759525-9952-404b-b960-0bf0dcb4b82c/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nsupabase/migrations/20270120090000_runner_resume.sql is dated at or before 20270120090000_open_personas.sql, the newest on origin/main: re-date it after 20270120090000\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.56.0\nTemporarily overriding HOME='/home/runner/work/_temp/91f4d380-4f0c-42a5-8cf4-d0de693a615f' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on 11410f2 in s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/43452982186/job/131979744695",
+              "excerpt": "Applying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nApplying migration 20261221090000_arcade_duet_obstacle_scores.sql...\nApplying migration 20261222090000_repository_runner_skills.sql...\nApplying migration 20261223090000_runner_jobs_sent_by_app.sql...\nApplying migration 20261224090000_canonical_roles.sql...\nApplying migration 20261225090000_runner_stopped.sql...\nApplying migration 20261226090000_waits.sql...\nApplying migration 20261227090000_prd_milestones.sql...\nApplying migration 20261228090000_api_key_github_apps.sql...\nApplying migration 20261229090000_api_key_job_control.sql...\nApplying migration 20261230090000_main_watch.sql...\nApplying migration 20261231090000_dossier_light_reads.sql...\nApplying migration 20270101090000_bug_fix_follow_ups.sql...\nApplying migration 20270102090000_fleet_project_board.sql...\nApplying migration 20270103090000_settings_repository.sql...\nApplying migration 20270104090000_rewind_outcome.sql...\nApplying migration 20270105090000_runner_report_health.sql...\nApplying migration 20270106090000_runner_job_parts.sql...\nApplying migration 20270107090000_runner_claim_omni_app.sql...\nApplying migration 20270108090000_runner_registration.sql...\nApplying migration 20270109090000_product_domains.sql...\nApplying migration 20270110090000_ideas_outside_the_workspace.sql...\nApplying migration 20270110093000_tech_approval.sql...\nApplying migration 20270110100000_approval_email_default.sql...\nApplying migration 20270111090000_business_law_home.sql...\nApplying migration 20270112090000_business_law_verdicts.sql...\nApplying migration 20270113090000_background_jobs.sql...\nApplying migration 20270114090000_pr_check_jobs.sql...\nApplying migration 20270115090000_product_mcp.sql...\nApplying migration 20270116090000_background_job_later.sql...\nApplying migration 20270117090000_background_job_steps.sql...\nApplying migration 20270118090000_knowledge_vectors.sql...\nApplying migration 20270119090000_mcp_search_log.sql...\nApplying migration 20270120090000_runner_resume.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nA new version of Supabase CLI is available: v3.1.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5559) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.18.0 is available)\n\nDone in 5.5s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 24\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/24.22.2/x64\n(node:5612) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v24.22.2\nnpm: 11.19.1\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n(node:5612) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 268435456 of 306007474 (87.7%), 253.0 MBs/sec\nReceived 306007474 of 306007474 (100.0%), 241.6 MBs/sec\nCache Size: ~292 MB (306007474 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/6850aed4-5187-48b4-85df-16cdb2c1a498/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-549e51063508fff12f6ae88295fddb2c0e53e916118f176373cfa58f04586116\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nsupabase/migrations/20270120090000_runner_resume.sql is dated at or before 20270120090000_open_personas.sql, the newest on origin/main: re-date it after 20270120090000\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.56.0\nTemporarily overriding HOME='/home/runner/work/_temp/939176ee-98fa-47a0-aee4-2f89f813983d' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on 76d2f41 in s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/43454428312/job/131984691142",
+              "excerpt": "76b324f24cfb: Download complete\n5736866015f8: Download complete\n61c321d9f410: Download complete\n00981fef6de8: Download complete\n36a353320488: Download complete\n264aff2833b7: Download complete\n0eb861f233e4: Download complete\nbe454d00abf2: Download complete\n44136fa355b3: Already exists\n08a83ce17425: Download complete\nf53a344a92f3: Download complete\nd7e873383d31: Download complete\n0a85b149f5b7: Download complete\nd7e873383d31: Pull complete\n00981fef6de8: Pull complete\n264aff2833b7: Pull complete\n76b324f24cfb: Pull complete\n61c321d9f410: Pull complete\n36a353320488: Pull complete\n0a85b149f5b7: Pull complete\n5736866015f8: Pull complete\nbe454d00abf2: Pull complete\nf53a344a92f3: Pull complete\n6fd202ee6889: Pull complete\n39732d1dd9ac: Pull complete\n0eb861f233e4: Pull complete\nDigest: sha256:105a2584129c9600aebed6f5ac49ca4371c92b996ecd1af7179750333e9e2120\nStatus: Downloaded newer image for public.ecr.aws/supabase/storage-api:v1.72.1\npublic.ecr.aws/supabase/storage-api:v1.72.1\nSeeding globals from roles.sql...\nApplying migration 20260925080000_galaxy_ledger.sql...\nApplying migration 20260925120000_galaxy_grants.sql...\nApplying migration 20260925150000_fleets_and_players.sql...\nApplying migration 20260925170000_github_to_play.sql...\nApplying migration 20260926090000_ask_sessions.sql...\nApplying migration 20260926100000_ask_cli_codes.sql...\nApplying migration 20260926120000_workspaces.sql...\nApplying migration 20260926160000_vertuoza_sectors.sql...\nApplying migration 20260926170000_game_room.sql...\nApplying migration 20260926180000_arcade_scores.sql...\nApplying migration 20260927090000_ask_context.sql...\nApplying migration 20260927100000_ask_workspace.sql...\nApplying migration 20260927110000_ask_category.sql...\nApplying migration 20260927120000_ask_shares.sql...\nApplying migration 20260928090000_dossiers.sql...\nApplying migration 20260928100000_dossier_rounds.sql...\nApplying migration 20260928110000_dossier_list.sql...\nApplying migration 20260929090000_releases.sql...\nApplying migration 20260929100000_contributions.sql...\nApplying migration 20261001090000_github_sign_up.sql...\nApplying migration 20261001100000_drop_join_domain.sql...\nApplying migration 20261003090000_own_fleets.sql...\nApplying migration 20261004090000_workspace_gate.sql...\nApplying migration 20261005090000_outbox_sends.sql...\nApplying migration 20261006090000_more_mascots.sql...\nApplying migration 20261007090000_contribution_stages.sql...\nApplying migration 20261007100000_dashboard_reads.sql...\nApplying migration 20261008090000_repositories.sql...\nApplying migration 20261009090000_prd_stages.sql...\nApplying migration 20261010090000_ask_attachments.sql...\nApplying migration 20261011090000_fix_dossiers.sql...\nApplying migration 20261012090000_prd_outbox.sql...\nApplying migration 20261012100000_dossier_list_workspace.sql...\nApplying migration 20261012110000_rls_once_and_indexes.sql...\nApplying migration 20261013090000_roster_hero.sql...\nApplying migration 20261014090000_fix_facts.sql...\nApplying migration 20261015090000_loop_health.sql...\nApplying migration 20261016090000_points_every_repo.sql...\nApplying migration 20261018090000_ask_round_lead.sql...\nApplying migration 20261019090000_business_store.sql...\nApplying migration 20261020090000_working_pings.sql...\nApplying migration 20261021090000_business_evidence.sql...\nApplying migration 20261022090000_personas.sql...\nApplying migration 20261023090000_proof_runs.sql...\nApplying migration 20261024090000_customer_voice.sql...\nApplying migration 20261025090000_business_to_check_answers.sql...\nApplying migration 20261026090000_jev_decisions.sql...\nApplying migration 20261027090000_never_lines.sql...\nApplying migration 20261028090000_agent_tokens.sql...\nApplying migration 20261028100000_agent_questions.sql...\nApplying migration 20261028110000_unknown_worth_asking.sql...\nApplying migration 20261029090000_constituents.sql...\nApplying migration 20261030090000_github_budget.sql...\nApplying migration 20261031090000_dossier_github.sql...\nApplying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nApplying migration 20261221090000_arcade_duet_obstacle_scores.sql...\nApplying migration 20261222090000_repository_runner_skills.sql...\nApplying migration 20261223090000_runner_jobs_sent_by_app.sql...\nApplying migration 20261224090000_canonical_roles.sql...\nApplying migration 20261225090000_runner_stopped.sql...\nApplying migration 20261226090000_waits.sql...\nApplying migration 20261227090000_prd_milestones.sql...\nApplying migration 20261228090000_api_key_github_apps.sql...\nApplying migration 20261229090000_api_key_job_control.sql...\nApplying migration 20261230090000_main_watch.sql...\nApplying migration 20261231090000_dossier_light_reads.sql...\nApplying migration 20270101090000_bug_fix_follow_ups.sql...\nApplying migration 20270102090000_fleet_project_board.sql...\nApplying migration 20270103090000_settings_repository.sql...\nApplying migration 20270104090000_rewind_outcome.sql...\nApplying migration 20270105090000_runner_report_health.sql...\nApplying migration 20270106090000_runner_job_parts.sql...\nApplying migration 20270107090000_runner_claim_omni_app.sql...\nApplying migration 20270108090000_runner_registration.sql...\nApplying migration 20270109090000_product_domains.sql...\nApplying migration 20270110090000_ideas_outside_the_workspace.sql...\nApplying migration 20270110093000_tech_approval.sql...\nApplying migration 20270110100000_approval_email_default.sql...\nApplying migration 20270111090000_business_law_home.sql...\nApplying migration 20270112090000_business_law_verdicts.sql...\nApplying migration 20270113090000_background_jobs.sql...\nApplying migration 20270114090000_pr_check_jobs.sql...\nApplying migration 20270115090000_product_mcp.sql...\nApplying migration 20270116090000_background_job_later.sql...\nApplying migration 20270117090000_background_job_steps.sql...\nApplying migration 20270118090000_knowledge_vectors.sql...\nApplying migration 20270119090000_mcp_search_log.sql...\nApplying migration 20270120090000_mcp_search_groups.sql...\nApplying migration 20270120090000_open_personas.sql...\nStopping containers...\nERROR: duplicate key value violates unique constraint \"schema_migrations_pkey\" (SQLSTATE 23505)\nKey (version)=(20270120090000) already exists.\nAt statement: 20\nINSERT INTO supabase_migrations.schema_migrations(version, name, statements) VALUES($1, $2, $3)\nTry rerunning the command with --debug to troubleshoot the error.\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.56.1\nTemporarily overriding HOME='/home/runner/work/_temp/47f3e133-12ce-4a5e-8fd2-b21ae3a5dca9' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            }
+          ],
+          "source": "ci",
+          "ref": "F1"
+        },
+        {
+          "id": "territory:s1",
+          "kind": "territory",
+          "title": "Slice s1 changed files outside its territory",
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `supabase/migrations/20270120100000_runner_resume.sql`.",
+          "evidence": [
+            {
+              "label": "#2812",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2812/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F2"
+        },
+        {
+          "id": "territory:s4",
+          "kind": "territory",
+          "title": "Slice s4 changed files outside its territory",
+          "happened": "Slice s4 changed 1 path outside its territory and off the plan’s shared ground: `supabase/migrations/20270120103000_runner_checkpoints.sql`.",
+          "evidence": [
+            {
+              "label": "#2823",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2823/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F3"
+        },
+        {
+          "id": "territory:s5",
+          "kind": "territory",
+          "title": "Slice s5 changed files outside its territory",
+          "happened": "Slice s5 changed 1 path outside its territory and off the plan’s shared ground: `supabase/migrations/20270120110000_runner_claim_resume.sql`.",
+          "evidence": [
+            {
+              "label": "#2826",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2826/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F4"
+        },
+        {
+          "id": "churn:supabase/migrations/20270120103000_runner_checkpoints.sql",
+          "kind": "churn",
+          "title": "Much of `supabase/migrations/20270120103000_runner_checkpoints.sql` was written, then rewritten",
+          "happened": "`supabase/migrations/20270120103000_runner_checkpoints.sql` had 143 lines added across 1 commits, none of them in the final diff: 143 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "637d957 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/637d957ec558f1cdbb152f19a7d2dc0cc08d4fe5"
+            }
+          ],
+          "source": "churn",
+          "ref": "F5"
+        },
+        {
+          "id": "churn:supabase/migrations/20270120100000_runner_resume.sql",
+          "kind": "churn",
+          "title": "Much of `supabase/migrations/20270120100000_runner_resume.sql` was written, then rewritten",
+          "happened": "`supabase/migrations/20270120100000_runner_resume.sql` had 123 lines added across 2 commits, none of them in the final diff: 123 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "2828b22 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/2828b221364ece7cdc5de67e1357887ab9b7ad6d"
+            },
+            {
+              "label": "76d2f41 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/76d2f41fad8728b77ad47e703bcdb96df1756b4b"
+            }
+          ],
+          "source": "churn",
+          "ref": "F6"
+        },
+        {
+          "id": "churn:supabase/migrations/20270120110000_runner_claim_resume.sql",
+          "kind": "churn",
+          "title": "Much of `supabase/migrations/20270120110000_runner_claim_resume.sql` was written, then rewritten",
+          "happened": "`supabase/migrations/20270120110000_runner_claim_resume.sql` had 81 lines added across 1 commits, none of them in the final diff: 81 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "a36f7f8 (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a36f7f81c327d269a84b1ba5f277264353362225"
+            }
+          ],
+          "source": "churn",
+          "ref": "F7"
+        },
+        {
+          "id": "churn:apps/galaxy/src/runners/runners.service.ts:91-91",
+          "kind": "churn",
+          "title": "Lines 91-91 of `apps/galaxy/src/runners/runners.service.ts` were rewritten again and again",
+          "happened": "Lines 91-91 of `apps/galaxy/src/runners/runners.service.ts`, as merged, were written and rewritten in 3 commits, in s3, s4 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "evidence": [
+            {
+              "label": "067eda1 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/067eda1140b7c47d73c10f12682a3e742304c8bd"
+            },
+            {
+              "label": "ae98ed0 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/ae98ed0c949dbc808c67caa8839e92b5fa1e98f4"
+            },
+            {
+              "label": "a36f7f8 (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a36f7f81c327d269a84b1ba5f277264353362225"
+            },
+            {
+              "label": "`apps/galaxy/src/runners/runners.service.ts` lines 91-91, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/a5409ac769d0225e69c694583c2da10756f565e6/apps/galaxy/src/runners/runners.service.ts#L91-L91"
+            }
+          ],
+          "source": "churn",
+          "ref": "F8"
+        }
+      ],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "One new delivery lesson emerged: plans must place the migrations folder in the territory of each slice that adds a migration, a gap three slices hit that no existing entry covers."
+      },
+      "lessons": [
+        {
+          "text": "When a slice will add a migration, the plan lists the migrations folder in that slice's territory, so the new file is expected and every slice that adds one is visible from the plan's table.",
+          "findings": [
+            "territory:s1",
+            "territory:s4",
+            "territory:s5"
+          ]
+        }
+      ],
+      "issues": {
+        "territory:s1": {
+          "number": 2839,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2839",
+          "state": "open"
+        }
+      },
+      "outcomes": {
+        "territory:s1": {
+          "became": "playbook/conventions#naming"
+        }
+      }
+    }
+  ]
+}
