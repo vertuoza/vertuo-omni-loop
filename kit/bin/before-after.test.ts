@@ -27,14 +27,18 @@ async function omni(root: string, argv: readonly string[]) {
 }
 
 describe('omni before-after new', () => {
-  it('writes the two-tab page into the inbox folder, names it and exits 0', async () => {
+  it('writes the version 3 page into the inbox folder, names it and exits 0 (PRD 2850)', async () => {
     const { root } = repo();
     const result = await omni(root, ['before-after', 'new', '2239', '--services', 'kit,galaxy']);
     expect(result).toEqual({ code: 0, out: `wrote ${PAGE}\n`, err: '' });
     const html = readFileSync(join(root, PAGE), 'utf8');
-    expect(html).toContain('<meta name="omni-before-after" content="2">');
+    expect(html).toContain('<meta name="omni-before-after" content="3">');
+    const tabs = [...html.matchAll(/<section data-tab="([^"]+)">/g)].map((match) => match[1]);
+    expect(tabs).toEqual(['functional', 'technical', 'pixel-perfect']);
     expect(html.match(/data-service="kit"/g)).toHaveLength(2);
     expect(html.match(/data-service="galaxy"/g)).toHaveLength(2);
+    expect(html.match(/data-section="pixel-perfect"/g)).toHaveLength(1);
+    expect(html.slice(html.indexOf('<section data-tab="pixel-perfect">'))).toContain('data-section="pixel-perfect"');
     expect(html).toContain(FILL);
   });
 
@@ -43,13 +47,20 @@ describe('omni before-after new', () => {
       [`${DIR}/spec.md`]: '---\nprd: 2239\ntitle: Two tabs\nblocked-by: none\nspec: file\n---\n\n# Two tabs\n',
     });
     await omni(root, ['before-after', 'new', '2239', '--services', 'kit']);
-    const raw = await omni(root, ['check', 'inbox']);
-    expect(raw.code).toBe(1);
-    expect(raw.err + raw.out).toContain('before-after.html: 8 <!-- FILL --> markers left');
+    // flow, deploy and pixel perfect; for the one service: functional, db, api, behaviour and its role badge
+    expect(readFileSync(join(root, PAGE), 'utf8').split(FILL)).toHaveLength(8 + 1);
     writeFileSync(join(root, PAGE), readFileSync(join(root, PAGE), 'utf8').replaceAll(FILL, 'N/A — nothing changes'));
     const filled = await omni(root, ['check', 'inbox']);
     expect(filled.err + filled.out).not.toContain('before-after.html');
     expect(filled.code).toBe(0);
+  });
+
+  it('writes a page render leaves alone: it holds no diagram until one is written', async () => {
+    const { root } = repo();
+    await omni(root, ['before-after', 'new', '2239', '--services', 'kit']);
+    const written = readFileSync(join(root, PAGE), 'utf8');
+    expect(await omni(root, ['before-after', 'render', '2239'])).toEqual({ code: 0, out: 'no diagrams to render\n', err: '' });
+    expect(readFileSync(join(root, PAGE), 'utf8')).toBe(written);
   });
 
   it('refuses a PRD with no inbox folder, writing nothing, with one line and exit 1', async () => {

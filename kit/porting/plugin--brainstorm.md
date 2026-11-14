@@ -348,3 +348,32 @@ Not a re-port: kit-local prose. Step 8 gains **The Tech Approval question**, ask
 is pushed, only under `phase 0: server`; step 10's ◆ hand-off names who the PRD waits on and
 `/omni:tech-review <n>` when it was requested. The proof and e2e questions stay in step 1. Tested in
 `kit/test/brainstorm-tech-approval.test.ts`.
+
+## PRD 2850, slice s4 — three tabs, whole numbered screens, the first look
+
+Not a re-port: kit-local prose. Step 5 writes the page of version 3, which `omni before-after new`
+now writes (slice s1) and `omni check inbox` grades by nine rules (slice s2):
+
+- **Three tabs** in place of two: Functional, Technical, Pixel perfect. The Pixel perfect section is
+  one for the page, in its own tab, never one per service; "Functional & design" is now "Functional".
+- **Whole screens** at the width each declares, inside the shared screens the library lists, from the
+  library mockup; the agent writes only the marked screens, each with its markup in a `<template>`
+  child, since the template builds the frames, captions, scaling, index and count. The screens' one
+  stylesheet is written once; fonts sit in the page's own `<style>`.
+- **The marks and the references:** `data-ref`, `data-when` and `data-viewport` beside `data-screen`
+  and `data-primary`; a reference is fixed once written and never renumbered, a new state takes the
+  next free letter. The word pass reads the words inside a screen's template (slice s3).
+- **The first look** (new, after the grader and before the commit): with a tool that publishes a page
+  privately to its person (in Claude: the Artifact tool), attended, and a graded page, one page and
+  one link, **Iterate** or **Carry on**, the read-back, the grader run again on the export, the link
+  stored nowhere. Otherwise the step is skipped in silence.
+- **"Never publish it as a claude.ai artifact"** becomes "never publish it as the copy others
+  read": the earlier note ("Unchanged: step 5's rule that the page is never a claude.ai artifact",
+  PRD #216 above) no longer holds.
+- **Rework** keeps a version 2 page, or one with no meta, in its shape unless the person asks for the
+  new one, and shows the page first either way.
+
+### Tests
+
+`kit/test/before-after-skills.test.ts`, `kit/test/design-skills.test.ts`; the skill stays neutral to
+the agent (`kit/test/agent-neutral.test.ts`, unchanged).

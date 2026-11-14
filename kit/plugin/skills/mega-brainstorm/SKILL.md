@@ -210,12 +210,24 @@ for an architectural design, the same written-spec review), with two additions:
 
 ## 6. The before/after page
 
-As `/omni:brainstorm` step 5, one page in its two tabs, written through
+As `/omni:brainstorm` step 5, one page in its three tabs (Functional, Technical, Pixel perfect),
+written through
 `node .omni-loop/bin/omni.mjs before-after new <n> --services <repo>,<repo>…`, `render`, the word
 pass and `omni check inbox`, in that order. Each repository the design touches is one **service**,
 headed by its name and role, and `--services` lists them in the order the plan builds them. Each
-repository's blocks carry their own today beside after, in both tabs, every section in one of the
-three states of step 5.
+repository's blocks carry their own today beside after, in the Functional and Technical tabs, every
+section in one of the three states of step 5.
+The Pixel perfect tab is one section for the whole page, never one per repository: it draws whole
+screens at their declared width inside their shared screens, with the marks and references of
+`/omni:brainstorm` step 5 (`data-ref`, `data-when`, `data-viewport`, a reference never
+renumbered), grouped by repository, a heading before each group, the numbers running across the
+page (repository A's screens `1`, `2`, repository B's `3`, never restarting at `1`). Then
+**The first look** of `/omni:brainstorm` step 5, as written there: after the grader and before the
+commit of step 7, only with a tool that publishes a page privately to its person (in Claude: the
+Artifact tool), attended, and a graded page; one page and one link, Iterate or Carry on, the
+read-back, the grader run again on the export, the link stored nowhere. With no such tool, or with
+`OMNI_UNATTENDED` set, the step reads as a run with no first look. Never publish the page as the
+copy others read.
 Each repository's technical sections carry its contract blocks (**The contract blocks** there): one block per
 kind its `Contract:` line of step 5 names, today beside after, headed `Contract: <kind> — <repository>`
 and marked `data-contract="<kind>"`, in that repository's block of the Technical tab, never below the screens. A

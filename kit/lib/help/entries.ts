@@ -481,16 +481,18 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     kind: 'command',
     who: 'skills',
     usage: ['omni before-after new <n> --services <name>,<name>… [--force]', 'omni before-after render <n>'],
-    summary: "writes a PRD's before/after page in two tabs, and draws its diagrams",
+    summary: "writes a PRD's before/after page in three tabs, and draws its diagrams",
     detail:
       'The verbs /omni:brainstorm runs. new writes before-after.html into PRD n\'s inbox folder from the ' +
-      "kit's skeleton: the Functional & design tab first and open, the Technical tab second, one block " +
-      'per named service in each, every section a <!-- FILL --> to replace with filled, na or gap. It ' +
+      "kit's skeleton: three tabs, Functional first and open, Technical second, and Pixel perfect third, " +
+      'where the marked screens are drawn whole, each at its declared width, with an index of their ' +
+      'references. One block per named service in Functional and in Technical, and one Pixel perfect ' +
+      'section for the page; every section a <!-- FILL --> to replace with filled, na or gap. It ' +
       'refuses, writing nothing, a PRD with no inbox folder, a page already there unless --force, and ' +
       'a missing or empty --services, each with one line and exit 1. render replaces each ' +
       '<pre class="mermaid"> of the page with the SVG Mermaid draws for it, inline, in a headless ' +
       'Chromium from the repository\'s Playwright; it prints one line per diagram and refuses, with the ' +
-      'install line, when no browser starts. omni check inbox grades a page of this shape: both tabs, ' +
+      'install line, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
       'a valid state on every section, no FILL marker, no diagram left unrendered, no external resource.',
   },
   {

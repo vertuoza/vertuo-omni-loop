@@ -16,8 +16,9 @@
  *    (`ctx.layout.knowledgeRoot`) — whatever `laws.source` says — names a real domain folder.
  * 5. The sibling `before-after.html`, when present, stays at or under the configured size cap
  *    (`ctx.config.limits.beforeAfterMaxBytes`); when its head carries
- *    `<meta name="omni-before-after" content="2">` (PRD 2239), it also keeps the two-tab page's rules
- *    (`../before-after/grade.ts`). A page without the meta is graded on its size alone.
+ *    `<meta name="omni-before-after" content="2">` (PRD 2239), it also keeps the two-tab page's rules,
+ *    and with `content="3"` (PRD 2850) the three-tab page's, the nine rules of the screens
+ *    included (`../before-after/grade.ts`). A page without either meta is graded on its size alone.
  * 6. The sibling `voice.json`, when present, reads as the voice record (PRD 822, `../voice/voice.ts`):
  *    each refusal names the file, the round and the field.
  * 7. Every roadmap under the inbox's `roadmaps/` passes `omni roadmap check` (PRD 1162,
@@ -133,7 +134,7 @@ export function beforeAfterViolation(
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
 
-/** The two-tab page's violations of one before-after.html (PRD 2239), each naming the file: none when it is absent. */
+/** The two- or three-tab page's violations of one before-after.html (PRD 2239, 2850), each naming the file: none when it is absent. */
 function pageViolations(file: string, folder: string, ctx: Ctx): string[] {
   if (!existsSync(join(ctx.root, file))) return [];
   return gradeBeforeAfter({ file, html: readRepoFile(ctx, file), prd: parseFolderName(folder)?.prd ?? null });
