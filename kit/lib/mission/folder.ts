@@ -26,14 +26,10 @@ export type MissionRead = { ok: true; folder: MissionFolder } | { ok: false; dir
 
 /** The folder of mission `mission` under `root`, `<nnnn>-<slug>`, or null when there is none. */
 function folderOf(checkout: string, root: string, mission: IssueNumber): string | null {
-  const absolute = join(checkout, root);
-  if (!existsSync(absolute)) return null;
-  const prefix = `${String(mission).padStart(4, '0')}-`;
-  const name = readdirSync(absolute, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length)
-    .map((entry) => entry.name)
-    .sort()[0];
-  return name ? `${root}/${name}` : null;
+  if (!existsSync(join(checkout, root))) return null;
+  const named = new RegExp(`^0*${String(mission)}-.`);
+  const [first] = readdirSync(join(checkout, root), { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() && named.test(entry.name) ? [entry.name] : [])).sort();
+  return first === undefined ? null : `${root}/${first}`;
 }
 
 /** Mission `mission`'s folder read, or every fault that refuses it; null when it has no folder. */
@@ -46,7 +42,7 @@ export function readMissionFolder(ctx: { root: string; layout: Layout }, mission
   };
   const record = read(MISSION_RECORD);
   const page = read(MISSION_PAGE);
-  const errors = [MISSION_RECORD, MISSION_PAGE].filter((name, index) => [record, page][index] === null).map((name) => `${dir} has no ${name}.`);
+  const errors = [[MISSION_RECORD, record], [MISSION_PAGE, page]].flatMap(([name, content]) => (content === null ? [`${dir} has no ${name}.`] : []));
   const parsed = record === null ? null : parseBrief(record);
   if (parsed && !parsed.ok) errors.push(...parsed.errors.map((error) => `${dir}/${MISSION_RECORD}: ${error}`));
   if (parsed?.ok && parsed.brief.mission !== mission) {

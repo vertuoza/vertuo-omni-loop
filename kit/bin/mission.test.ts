@@ -17,7 +17,7 @@ const RECORD = [
 ].join('\n');
 const PAGE = '<!doctype html>\n<title>Every quote can be paid online</title>\n<a href="https://github.com/acme/widgets/issues/2850">the issue</a>\n';
 
-const config = ({ enabled = true }: { enabled?: boolean } = {}) =>
+const config = ({ enabled = true }: { enabled?: boolean | undefined } = {}) =>
   `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${BASE}\ndossier:\n  enabled: ${enabled}\n`;
 
 const signedIn = (): { read: (host: string) => Tokens | null; write: () => void } => {
