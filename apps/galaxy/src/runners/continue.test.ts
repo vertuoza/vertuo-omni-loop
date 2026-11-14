@@ -96,6 +96,12 @@ describe('prdOfLine', () => {
     expect(prdOfLine('/omni:pitch 2270 --for customers')).toBe(2270);
   });
 
+  it('reads the PRD an ultra skill names first, so the Runners page names the PRD of an ultra job (PRD 2873)', () => {
+    expect(prdOfLine('/omni:ultra-yolo 2270')).toBe(2270);
+    expect(prdOfLine('/omni:ultra-wave 2270 2')).toBe(2270);
+    expect(prdOfLine('/omni:ultra-yolo-fix 2270')).toBe(2270);
+  });
+
   it('reads none from a fix\'s line, a product PRD\'s, a line with no number, or a line off the list', () => {
     expect(prdOfLine('/omni:bug-fix 2270')).toBeNull();
     expect(prdOfLine('/validate-prd 2270')).toBeNull();

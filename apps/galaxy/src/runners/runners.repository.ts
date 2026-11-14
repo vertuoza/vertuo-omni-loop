@@ -250,6 +250,17 @@ const AppOfJobRow = z.object({
 }).nullable();
 export type AppOfJob = NonNullable<z.infer<typeof AppOfJobRow>>;
 
+/** What the ultra skills read of the workspace's products (PRD 2873): each live product's plan repository (null when it names none),
+ * the repositories each product names (product_repositories) and the repositories the workspace still lists, every name `owner/name`. */
+export type ProductPlanReads = {
+  products: { id: string; plan_repository: string | null }[];
+  links: { product_id: string; repository: string }[];
+  repositories: string[];
+};
+const PlanProductRows = z.array(z.object({ id: z.string(), plan_repository: z.string().nullable() }));
+const ProductLinkRows = z.array(z.object({ product_id: z.string(), repository: z.string() }));
+const ListedRows = z.array(z.object({ full_name: z.string() }));
+
 const MemberRow = z.object({ role: z.string() }).nullable();
 const PlayerRow = z.object({ team: z.string().nullable(), github_login: z.string().nullable() }).nullable();
 const PlacementRow = z.object({ workspace_id: z.string().nullable(), refusal: z.string().nullable() });
@@ -318,6 +329,17 @@ export function runnersRepository(db: RunnersDb) {
     /** Records that the key's App minted a token now (api_key_github_app_minted(), service role only). */
     appMinted: async (keyId: string): Promise<void> => {
       await parsed(db.rpc('api_key_github_app_minted', { p_key: keyId }), z.unknown(), 'api_key_github_app_minted()');
+    },
+
+    /** The workspace's live products as the ultra skills read them (PRD 2873): their plan repositories and repositories, and the
+     * repositories the workspace still lists. Three reads, whatever the number of products. */
+    productPlans: async (workspaceId: string): Promise<ProductPlanReads> => {
+      const [products, links, listed] = await Promise.all([
+        parsed(db.from('products').select('id, plan_repository').eq('workspace_id', workspaceId).is('archived_at', null), PlanProductRows, 'products'),
+        parsed(db.from('product_repositories').select('product_id, repository').eq('workspace_id', workspaceId), ProductLinkRows, 'product_repositories'),
+        parsed(db.from('repositories').select('full_name').eq('workspace_id', workspaceId).is('removed_at', null), ListedRows, 'repositories'),
+      ]);
+      return { products, links, repositories: listed.map((row) => row.full_name) };
     },
 
     runner: async (id: string): Promise<RunnerRow | null> =>

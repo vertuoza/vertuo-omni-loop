@@ -66,8 +66,9 @@ describe('set_repository_runner_skill()', () => {
   it('holds the runners\' fixed list, the contract\'s and the kit\'s, so a fixed skill\'s name is never allowed', () => {
     const fixed = /fixed text\[\] := array\[([^\]]*)\]/.exec(fn)?.[1] ?? '';
     // retro-apply (PRD 2338), rewind and knowledge-add (PRD 2410) and rewind-apply (PRD 2498) joined the
-    // list after this migration shipped; a later migration adds them to the database's.
-    const addedLater: readonly string[] = ['retro-apply', 'rewind', 'knowledge-add', 'rewind-apply'];
+    // list after this migration shipped, and the ultra skills (PRD 2873) after them; 20270122120000_runner_ultra_skills.sql
+    // adds them to the database's, which runners.ultra-skills.migration.test.ts holds equal to the app's.
+    const addedLater: readonly string[] = ['retro-apply', 'rewind', 'knowledge-add', 'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix'];
     expect(fixed.split(',').map((name) => name.trim().replace(/^'|'$/g, ''))).toEqual(RUNNER_SKILLS.filter((skill) => !addedLater.includes(skill)));
   });
 

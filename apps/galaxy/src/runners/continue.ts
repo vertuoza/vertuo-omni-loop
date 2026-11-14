@@ -40,7 +40,7 @@ export type ContinueInput<J extends JobSeen> = {
 export type ContinueDecision<J extends JobSeen> = { continue: true; job: J } | { continue: false; why: string };
 
 /** The skills whose line names a PRD by its number first; a fix's skills take a bug, not a PRD. */
-const PRD_SKILLS: ReadonlySet<RunnerSkill> = new Set<RunnerSkill>(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'plan', 'pitch', 'prove']);
+const PRD_SKILLS: ReadonlySet<RunnerSkill> = new Set<RunnerSkill>(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'plan', 'pitch', 'prove', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']);
 
 const ACTIVE: ReadonlySet<JobSeen['status']> = new Set<JobSeen['status']>(['queued', 'claimed', 'running']);
 
