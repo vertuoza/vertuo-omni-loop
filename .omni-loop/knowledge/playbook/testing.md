@@ -28,7 +28,7 @@ Use this page when adding, changing, or choosing tests.
 | everything | `pnpm test` (runs `vitest run` over the whole workspace) |
 | one file | `pnpm vitest run kit/lib/config.test.ts` |
 | mutation, the changed core files | `pnpm mutation:changed [--base <ref>]` (the default base is the merge-base with `origin/main`) |
-| mutation, the whole delivery core | `pnpm mutation`, then `pnpm mutation:score` (about 70 minutes on a laptop: the nightly runs it) |
+| mutation, the whole delivery core | `pnpm mutation`, then `pnpm mutation:score` (~70 minutes on a laptop: the nightly runs it) |
 
 **Mutation testing** (PRD 1072, ADR-0059) proves the tests catch bugs, not only run lines: Stryker changes
 the delivery core's code (`kit/lib/outbox/`, `kit/lib/policy/`, `kit/lib/inbox/`, `kit/lib/env/`,
@@ -73,10 +73,9 @@ A test outside them never runs.
 - A floor in `mutation/floor.json` never goes down, and no module leaves it:
   `scripts/mutation-floor.test.ts` refuses either against `origin/main`'s copy. Raising one to a
   module's new score, rounded down, is an ordinary edit.
-- A test credential is never written whole: it is built at runtime (`'ghp_' + 'a'.repeat(36)`), and a
-  change that adds one runs `gitleaks git --config .gitleaks.toml --log-opts=origin/<base>..HEAD .`
-  before its first push, since CI scans every commit and a later one never clears a fake (retro of
-  PRD 2433, #2469).
+- A test credential is never written whole but built at runtime (`'ghp_' + 'a'.repeat(36)`); a change
+  adding one runs `gitleaks git --config .gitleaks.toml --log-opts=origin/<base>..HEAD .` before its
+  first push: CI scans every commit, and a later one never clears a fake (retro of PRD 2433, #2469).
 
 ## Test data
 <!-- slot: data · optional -->
