@@ -446,12 +446,12 @@ screen changes)`.
 
 ### The first look
 
-Before the page is committed, a tool that can publish a page privately to its person (in Claude,
+Before the page is committed, a tool that can publish a page only its person can open (in Claude,
 the Artifact tool) shows it to them first, when the page passes `omni check inbox` and the run is
 attended. The person answers one question, **Iterate** or **Carry on**. On Iterate they say what to
 change, naming a reference when it is about one screen (`2.C: shorten the label`), the agent changes
 the file and the page is shown again. On Carry on the file is committed as it stands, and what
-reaches review is what the person last saw. The private link is stored nowhere: the file in the
+reaches review is what the person last saw. That page's link is stored nowhere: the file in the
 repository is the only copy anyone else reads. With no such tool, or when the run is unattended, there
 is no first look and the page goes straight to the phase-0 pull request.
 

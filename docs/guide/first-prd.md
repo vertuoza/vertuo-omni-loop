@@ -96,7 +96,7 @@ opens with the `Refs #<n>` line alone.
   from the dossier link when you have one, or download the file from the pull request and open it
   in your browser. Its Pixel perfect tab names each screen by a reference such as `2.C`; the
   reference names the same state in every later version, so you can ask for a change by it. When
-  the agent had a tool to show you the page privately first, it did so before committing: you
+  the agent had a tool to show the page to you alone first, it did so before committing: you
   answered Iterate or Carry on, and what you approved is what is in the file.
 - Skim `plan.md`: the slices, each with the files it may touch, and the waves they are built in.
 
