@@ -3,8 +3,8 @@ screen: fleet-new
 status: draft
 kind: page
 mock: fleet-new.html
-implements: []
-reads: []
+implements: [apps/galaxy/src/virtual-fleets/drawer/NewVirtualFleet.tsx, apps/galaxy/src/virtual-fleets/drawer/new-fleet.ts, apps/galaxy/src/virtual-fleets/drawer/new-fleet.css]
+reads: [apps/galaxy/src/runners/page/need-human.css, apps/galaxy/src/virtual-fleets/virtual-fleets.contract.ts, kit/lib/virtual-fleet/roles.ts, apps/galaxy/src/dashboard/fleet/FleetScreen.tsx]
 routes: [/app/fleet]
 supersedes: null
 ---
@@ -21,23 +21,27 @@ fleet`.
 - **The drawer,** on the right, 560 px, the whole width on a phone (the Need human drawer's
   pattern): its title, `New virtual fleet`.
 - **Name,** first and focused, its placeholder an example name.
-- **Icon,** the fleet mascots as tiles, the first selected.
+- **Icon,** the fleet mascots as tiles, in the library's order, the first (the beaver) selected.
 - **Heroes,** the five roles (Engineer, QA, Reviewer, PM, Architect), each a yes/no switch, all on,
-  each with one line on whether it works alone today.
-- **The foot,** `Cancel` and `Create fleet`, the primary.
+  each with one line on whether it works alone today: `Builds PRDs alone`, `Proves the work alone`,
+  or `A person does this today`.
+- **The foot,** `Cancel` and `Create fleet`, the primary; a refusal of the whole form above them.
 
 ## States
 
 - **Opened:** Name empty and focused; every switch on.
 - **Name taken:** `Name taken: choose another` under the field; nothing else moves.
-- **Every switch off:** Create fleet disabled.
-- **Created:** the drawer closes on the new fleet's Operation room, its chip selected and marked
-  virtual.
+- **Every switch off, or no name:** Create fleet disabled.
+- **Creating:** the primary reads `Creating…`, disabled.
+- **Refused for the form:** the cap of 12 active fleets, or a failure, above the foot's buttons.
+- **Created:** the drawer closes on the new fleet in the Fleet section, its chip selected and marked
+  `Virtual` (its Operation room once the Fleet's tabs exist, PRD 2842 s6).
 
 ## Words
 
-- `New virtual fleet`, `Name`, `Icon`, `Heroes`, `Cancel`, `Create fleet`, `Name taken: choose
-  another`, `A person does this today`.
+- `+ New virtual fleet`, `New virtual fleet`, `Name`, `Icon`, `Heroes`, `Cancel`, `Create fleet`,
+  `Creating…`, `Name taken: choose another`, `Builds PRDs alone`, `Proves the work alone`,
+  `A person does this today`, `Virtual`.
 
 ## Refusals
 

@@ -4982,6 +4982,7 @@ export type Database = {
         Row: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -4996,6 +4997,7 @@ export type Database = {
         Insert: {
           color: string
           home?: string | null
+          kind?: string
           label: string
           mascot?: string | null
           motto?: string
@@ -5010,6 +5012,7 @@ export type Database = {
         Update: {
           color?: string
           home?: string | null
+          kind?: string
           label?: string
           mascot?: string | null
           motto?: string
@@ -5034,6 +5037,66 @@ export type Database = {
             columns: ["workspace_id", "home"]
             isOneToOne: false
             referencedRelation: "sectors"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
+      virtual_heroes: {
+        Row: {
+          agent: string
+          created_at: string
+          fleet: string
+          id: string
+          limits: string[]
+          model: string
+          name: string
+          position: number
+          role: string
+          skills: string[]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          agent: string
+          created_at?: string
+          fleet: string
+          id?: string
+          limits?: string[]
+          model: string
+          name: string
+          position: number
+          role: string
+          skills?: string[]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          agent?: string
+          created_at?: string
+          fleet?: string
+          id?: string
+          limits?: string[]
+          model?: string
+          name?: string
+          position?: number
+          role?: string
+          skills?: string[]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_heroes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtual_heroes_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["workspace_id", "name"]
           },
         ]
@@ -6235,6 +6298,36 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
+          label: string
+          mascot: string | null
+          motto: string
+          name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
+          retired_at: string | null
+          sort: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "teams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_virtual_fleet: {
+        Args: {
+          p_mascot: string
+          p_name: string
+          p_roles: string[]
+          p_workspace: string
+        }
+        Returns: {
+          color: string
+          home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -7874,6 +7967,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -7897,6 +7991,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -8326,6 +8421,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -8577,6 +8673,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -8598,6 +8695,8 @@ export type Database = {
       valid_hero: { Args: { h: Json }; Returns: boolean }
       valid_persona_avatar: { Args: { p_avatar: Json }; Returns: boolean }
       valid_theme: { Args: { t: Json }; Returns: boolean }
+      virtual_fleet_colors: { Args: never; Returns: string[] }
+      virtual_hero_roles: { Args: never; Returns: Json }
       working_ping: {
         Args: {
           p_claude_session_id: string

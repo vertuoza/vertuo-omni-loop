@@ -35,9 +35,12 @@ const fleetsFrom = (rows: TeamRow[]): FleetRow[] => rows
 
 const TEAM_COLUMNS = 'name, home, label, color, motto, mascot, sort, retired_at';
 
-/** Every fleet of the workspace, retired ones included (history still names them). */
-export async function loadFleets(db: SupabaseClient<Database>, workspace: string): Promise<FleetRow[]> {
-  const { data, error } = await db.from('teams').select(TEAM_COLUMNS).eq('workspace_id', workspace);
+/** Every fleet of the workspace, retired ones included (history still names them). With `players`, only
+ * the fleets a player may fly in: a Virtual Fleet's members are agents (PRD 2842), so the arcade never
+ * offers one. */
+export async function loadFleets(db: SupabaseClient<Database>, workspace: string, { players = false }: { players?: boolean } = {}): Promise<FleetRow[]> {
+  const all = db.from('teams').select(TEAM_COLUMNS).eq('workspace_id', workspace);
+  const { data, error } = await (players ? all.neq('kind', 'virtual') : all);
   if (error) throw new Error(`Supabase: could not read the fleets (${error.message})`);
   return fleetsFrom(listOf(data));
 }
