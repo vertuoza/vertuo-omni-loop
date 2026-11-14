@@ -36,14 +36,6 @@ describe('checkRunnerLine', () => {
       .toEqual({ ok: true, kind: 'omni', skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
 
-  it('takes the ultra skills, which build a PRD across a product\'s repositories (PRD 2873)', () => {
-    for (const skill of ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']) {
-      expect(RUNNABLE_SKILLS, skill).toContain(skill);
-      expect(checkRunnerLine(`/omni:${skill} 12`)).toEqual({ ok: true, kind: 'omni', skill, args: '12' });
-      expect(checkRunnerLine(`/${skill} 12`, [skill])).toEqual({ ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` });
-    }
-  });
-
   it('refuses an unlisted skill, a conversational one and /omni:drive', () => {
     for (const skill of ['brainstorm', 'think-big', 'drive', 'ask', 'unknown']) {
       expect(checkRunnerLine(`/omni:${skill} 1`)).toEqual({ ok: false, reason: `/omni:${skill} does not run on a runner` });
@@ -105,13 +97,6 @@ describe('prdOfRunnerLine (#2592)', () => {
     expect(prdOfRunnerLine('/omni:pr-care 2537 --once')).toBe(2537);
     expect(prdOfRunnerLine('/omni:do-work 2270 s1')).toBe(2270);
     for (const skill of ['yolo-fix', 'wave', 'plan', 'pitch', 'prove']) expect(prdOfRunnerLine(`/omni:${skill} 7`), skill).toBe(7);
-  });
-
-  it('reads the PRD an ultra skill names first (PRD 2873)', () => {
-    expect(prdOfRunnerLine('/omni:ultra-yolo 12')).toBe(12);
-    expect(prdOfRunnerLine('/omni:ultra-wave 12 3')).toBe(12);
-    expect(prdOfRunnerLine('/omni:ultra-yolo-fix 12')).toBe(12);
-    expect(prdOfRunnerLine('/omni:ultra-yolo mobile-12')).toBeNull();
   });
 
   it('reads none from a skill that takes no PRD, a line with no number first, or a line no runner runs', () => {
