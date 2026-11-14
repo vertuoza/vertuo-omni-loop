@@ -356,11 +356,11 @@ const endEvent = (prd: PrdNumber, run: number, last: Attempt, end: JobEnd): NewE
 });
 
 /** What each run says: its dispatch, each runner lost along the way, and its end. */
-function runEvents(runs: readonly Run[], where: string): NewEvent[] {
+function runEvents(runs: readonly Run[], where: string, skill: string): NewEvent[] {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
-    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: `Sent /omni:yolo ${String(one.prd)} to ${where} (run ${String(one.run)}).` };
+    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: `Sent /omni:${skill} ${String(one.prd)} to ${where} (run ${String(one.run)}).` };
     return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one.run, lost, 'lost')), ...(last && end !== null ? [endEvent(one.prd, one.run, last, end)] : [])];
   });
 }
@@ -402,6 +402,7 @@ export function eventsOf({
   runs,
   next,
   toFleet,
+  skill = 'yolo',
   recorded,
 }: {
   mission: Mission;
@@ -410,11 +411,12 @@ export function eventsOf({
   runs: readonly Run[];
   next: Concluded;
   toFleet: boolean;
+  skill?: 'yolo' | 'ultra-yolo';
   recorded: ReadonlySet<string>;
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
-  const all = [...runEvents(runs, where), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [...runEvents(runs, where, skill), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf(event);
     if (own.some((key) => keys.has(key))) return [];
