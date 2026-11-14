@@ -634,3 +634,395 @@ small
 ```
 
 <!-- /omni-outbox-settled: s6-01-s6-hero-edit-outside-territory -->
+
+<!-- omni-outbox-settled: s3-01-s3-help-guide-ground -->
+
+## s3-01-s3-help-guide-ground — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-s3-help-guide-ground
+prd: 2842
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 3
+---
+
+## The question, in plain words
+
+The mission skill needed a few edits just outside its slice's listed folders so the help list, the docs guide and their tests stay green. Is that fine?
+
+## The decision, in plain words
+
+I added the mission skill to the help list, gave the guide its Missions page in the sidebar order, and updated the counts in the tests that check those lists, because those tests fail otherwise.
+
+## The intro, for fun
+
+A new skill walked into the help list and asked for a chair.
+
+## The punchline, for fun
+
+The tests counted the chairs and insisted on one more.
+
+## The options, in plain words
+
+A. A. Keep the edits as built: the lists and tests name the new skill and page.
+B. B. Move the list edits into a slice that owns the help list and the guide, and ship the skill alone.
+
+## What I had to decide
+
+Edited kit/lib/help/entries.ts (a mission entry in the Start group), docs/guide/meta.json, and the counts and orders in kit/lib/help/entries.test.ts, apps/galaxy/src/docs/guide.test.ts, docs.test.ts and skills.test.ts. Also chose the docs branch shape mission/<nnnn>-<slug> (no config key names one) and made the fleet's key the one question the one-line form asks, since no omni command lists a workspace's Virtual Fleets yet.
+
+## What I did meanwhile
+
+Nothing waits on this: the slice builds, and a different answer undoes the edits.
+
+## What it costs to change later
+
+A few lines of list and count edits in files outside the slice's folders.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the plan's help territory meant the help list (kit/lib/help/entries.ts) rather than the help skill folder (author)
+- Whether a fleet-listing command should exist for the skill to read the only fleet (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-s3-help-guide-ground -->
+
+<!-- omni-outbox-settled: s4-01-start-and-wakes-refresh-the-mission -->
+
+## s4-01-start-and-wakes-refresh-the-mission — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-start-and-wakes-refresh-the-mission
+prd: 2842
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 3
+---
+
+## The question, in plain words
+
+How does a mission that went quiet start checking again, once a person resumes it, a job of it ends or one of its PRDs moves on?
+
+## The decision, in plain words
+
+A mission checks every minute while it runs or waits, and goes quiet once it is delivered, stopped, or paused with nothing still running. Whatever wakes it (Start, Resume, a job's end, a stage change, an answer) puts its check back in line, rather than only bringing forward a check already waiting.
+
+## The intro, for fun
+
+A mission that naps needs an alarm clock that also works when it was unplugged.
+
+## The punchline, for fun
+
+So every alarm here also plugs it back in.
+
+## The options, in plain words
+
+A. Every wake refreshes the mission's job, which ends once there is nothing to watch (built).
+B. The mission's job never ends: it checks every minute, delivered, stopped and paused included, and a bare wake is enough.
+C. Start and Resume refresh it; the other wakes only bring a queued check forward, and a quiet mission waits for a person.
+
+## What I had to decide
+
+Whether every wake of a mission adds or requeues its job on the ledger (background_job_refresh, kind mission, key and lane mission:<id>, due at once), as built and as s5 must call it, or whether the mission's job should stay queued for ever so a bare background_job_wake is enough.
+
+Decided by: Jev (hardToRevert 0.42) · agent said false
+
+## What I did meanwhile
+
+Built the job to end done when nothing is left to watch, and to end later a minute on while the mission runs or waits, or is paused with a job still running. Exported missionJob(id, repo) with the exact kind, key, subject, lane and payload s5 refreshes. To stay under the ledger's cap of 20 laters in a row, a run refreshes its own job every 15 laters, which resets the count at the price of one extra run reading the same state.
+
+## What it costs to change later
+
+A constant: if the job should never end, the handler returns later instead of done in two places, and s5 may then call background_job_wake alone. No stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says each wake calls background_job_wake, which only brings forward a queued job; a job that ended is not queued, so a bare wake would do nothing.
+- (author) Whether a paused mission should keep a check every minute to record job ends was left open: built to keep checking only while a job of it still runs.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-start-and-wakes-refresh-the-mission -->
+
+<!-- omni-outbox-settled: s4-02-answered-prd-carries-on-by-its-stage -->
+
+## s4-02-answered-prd-carries-on-by-its-stage — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-answered-prd-carries-on-by-its-stage
+prd: 2842
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 3
+---
+
+## The question, in plain words
+
+When a PRD of a mission waits for a person to answer its questions, how does the mission tell it was answered and the work carried on?
+
+## The decision, in plain words
+
+The mission does not follow the fix the page runs once a person answers, and never sends that PRD again itself. It keeps the PRD waiting on answers until the PRD reads ready for review, then waits for its merge.
+
+## The intro, for fun
+
+The mission asked a question and then stared at the door.
+
+## The punchline, for fun
+
+It only looks up when the PRD walks in ready.
+
+## The options, in plain words
+
+A. The PRD carries on by its stage: ready, then merged (built).
+B. The mission also follows the auto-fix jobs of the PRD, and stops the PRD, saying why, when one fails.
+
+## What I had to decide
+
+Whether a PRD waiting on answers is seen moving on only through its stage (ready, then merged), as built, or whether the mission should also follow the runner jobs the page's auto-fix sends for it, and react to their ends as it does to its own.
+
+Decided by: Jev (hardToRevert 0.40) · agent said false
+
+## What I did meanwhile
+
+Built the PRD's state from its stage first: a PRD at outbox reads waiting for a merge, shipped or retro reads merged, whatever the mission's own runs said. A job of the mission that ended on answers keeps the PRD waiting on answers until then. A done job with no outcome is read as stopped mid-way, as the Runners page reads it.
+
+## What it costs to change later
+
+A constant and one more read: following the auto-fix jobs means reading the runner jobs of the PRD's line beside the mission's own, and mapping their ends with the same table. No stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) If the auto-fix stops or fails, the mission keeps reading waiting on answers, and only a person sees the fix's own end on the Runners page.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-answered-prd-carries-on-by-its-stage -->
+
+<!-- omni-outbox-settled: s4-03-a-stopped-prd-comes-back-by-hand -->
+
+## s4-03-a-stopped-prd-comes-back-by-hand — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-a-stopped-prd-comes-back-by-hand
+prd: 2842
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 3
+---
+
+## The question, in plain words
+
+Once a PRD of a mission stops (it failed, was held twice, or its job was cancelled), how does it come back into the mission?
+
+## The decision, in plain words
+
+The mission never sends a stopped or cancelled PRD again: it comes back only when a person takes it to ready for review by hand, and the mission then waits for its merge. A mission left with nothing able to move reads stopped, and says so in those words.
+
+## The intro, for fun
+
+A PRD tripped twice, and the mission decided not to push it a third time.
+
+## The punchline, for fun
+
+A person can still carry it over the line, and the mission cheers from there.
+
+## The options, in plain words
+
+A. A stopped PRD comes back only by hand, through its stage (built).
+B. Resume also sends each stopped PRD again, once more.
+
+## What I had to decide
+
+Whether a stopped PRD comes back only through its stage, as built, or whether a person's Resume of the mission should also clear the stopped PRDs so the mission sends them again, one more run each.
+
+## What I did meanwhile
+
+Built the stop as final for the mission's own sends, the PRD's stage winning over it. The stopped mission's waiting line names each stopped PRD with why, then 'Take it to ready by hand and the mission carries on.'
+
+## What it costs to change later
+
+A constant in the pure pick, plus Resume (s5) recording a resumed event the supervisor reads as a fresh start: no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a stopped mission says why and how to resume, but not whether Resume retries what stopped.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-a-stopped-prd-comes-back-by-hand -->
+
+<!-- omni-outbox-settled: s4-04-approval-read-from-the-prd-page -->
+
+## s4-04-approval-read-from-the-prd-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-14
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-14
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-approval-read-from-the-prd-page
+prd: 2842
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-14
+wave: 3
+---
+
+## The question, in plain words
+
+Where does a mission read whether a PRD's approval still stands, before it sends it?
+
+## The decision, in plain words
+
+From the PRD's page on Omni only: the latest product approval there, and whether a later change voided it, which reads 'approve it again'. A PRD approved only by merging its first pull request, with no approval recorded on its page, reads 'approve it' and is not sent.
+
+## The intro, for fun
+
+The mission checks the stamp on the PRD before it lets it board.
+
+## The punchline, for fun
+
+No stamp on the page, no boarding, however nice the ticket looks.
+
+## The options, in plain words
+
+A. Only the approval in force on the PRD's page counts (built).
+B. A merged phase-0 pull request counts too, when the page holds no approval.
+
+## What I had to decide
+
+Whether the approval in force on the PRD's page is the only proof a mission accepts, as built, or whether a PRD approved by merging its phase-0 pull request should count too.
+
+## What I did meanwhile
+
+Built the read on the approvals of the PRD's page (the product kind, latest first) and the voids a push left on it; the tech approval is not read apart, since a product approval is refused until it is given. A mission's scope is this repository's PRDs, whose phase 0 here is on the server.
+
+## What it costs to change later
+
+A constant and one read: counting a phase-0 merge means reading the PRD's stage past inbox as approved too. No stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether every repository a mission may run in records its approvals on the page was not checked: a repository whose phase 0 is a merged pull request would see its PRDs wait on approval for ever.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-approval-read-from-the-prd-page -->
