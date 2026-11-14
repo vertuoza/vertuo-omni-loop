@@ -82,6 +82,8 @@ const JobRow = z.object({
   slices_total: z.number().int().nullable().catch(null).optional(),
   /** The job this one continues, once its answers were in (PRD 2270); one out of shape reads as none. */
   continues: z.string().nullable().catch(null).optional(),
+  /** The mission that sent it (PRD 2842); one out of shape reads as none. */
+  mission_id: z.string().nullable().catch(null).optional(),
   /** The job this one resumes, which its runner lost (PRD 2809); one out of shape reads as none. */
   resumes: z.string().nullable().catch(null).optional(),
   /** Which attempt of its chain it is, 1 to 3 (PRD 2809); one out of shape reads as the first. */
@@ -97,7 +99,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app, registered_at';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, resumes, attempt, resume_after, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, mission_id, continues, resumes, attempt, resume_after, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */

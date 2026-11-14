@@ -1,0 +1,30 @@
+/* The Missions tab of a Virtual Fleet (PRD 2842 s7), as the `mission-start` screen draws it: one row per
+   mission, its words at the left, its one button at the right. At 393 px the row stacks. Every colour is a
+   token of src/ask/theme-tokens.ts. */
+
+.missions { display: grid; gap: 14px; margin-top: 14px; min-width: 0; }
+.missions-empty { margin: 0; }
+.missions-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mission {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start;
+  padding: 12px 14px; background: var(--ask-surface); border: 1px solid var(--ask-line); border-radius: 10px;
+}
+.mission-body { min-width: 0; display: grid; gap: 6px; }
+.mission-body p { margin: 0; overflow-wrap: anywhere; }
+.mission-goal { margin: 0; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+.mission-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.mission-state {
+  display: inline-block; padding: 1px 9px; border: 1.5px solid var(--ask-line-strong); border-radius: 999px;
+  font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.mission-state[data-status='running'], .mission-state[data-status='delivered'] { border-color: var(--ask-green); color: var(--ask-green); }
+.mission-state[data-status='waiting'] { border-color: var(--ask-plasma); }
+.mission-state[data-status='stopped'] { border-color: var(--ask-red); color: var(--ask-red); }
+.mission-progress { font-variant-numeric: tabular-nums; }
+.mission-waits { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 15px; }
+.mission-problem { color: var(--ask-red); font-size: 14px; line-height: 1.4; }
+
+@media (max-width: 719px) {
+  .mission { grid-template-columns: minmax(0, 1fr); }
+  .mission-action { justify-self: start; }
+}

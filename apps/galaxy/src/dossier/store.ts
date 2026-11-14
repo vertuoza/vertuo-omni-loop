@@ -8,12 +8,17 @@
 // and the number (supabase/migrations/20261011090000_fix_dossiers.sql), each kind taking its own versions.
 // Since PRD 1272 a concept is a kind too (supabase/migrations/20261119090000_concept_dossiers.sql),
 // numbered by its issue, with its record, its vision tour, a board per round and its debate.
+// Since PRD 2842 a mission is a kind too (supabase/migrations/20270122093000_missions.sql), numbered by its
+// issue, with its mission.md and its mission.html: its push goes to mission_push(), which also keeps the
+// mission's row, its brief read from mission.md with the kit's schema.
 // Since PRD 1548 a product PRD (`mobile-12`) is a dossier keyed by its product and its number, with no
 // home repository (supabase/migrations/20261203100000_product_prd_ids.sql): dossier_push() creates or
 // pushes to one by its product's key, and dossier_approval() finds one by it, as every RPC does.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseBrief } from 'omni-loop/kit/lib/mission/brief.ts';
+import type { Brief } from 'omni-loop/kit/lib/mission/brief.ts';
 import { type Outcome, StoreError } from '../data/store-error';
 
 /** The three artifacts of a PRD's folder, in the order a push sends them. */
@@ -35,14 +40,18 @@ export type WorkKind = (typeof WORK_KINDS)[number];
  * concept.md, its vision tour, a board per round and its debate. */
 const CONCEPT_ARTIFACT_KINDS = ['concept-record', 'vision', 'board', 'debate'] as const;
 
-/** Every kind of version a push may send: the pages' kinds and, since PRD 1272, a concept's four. The
- * pages learn a concept's with its own pages. */
-export const PUSHED_ARTIFACT_KINDS = [...ARTIFACT_KINDS, ...CONCEPT_ARTIFACT_KINDS] as const;
+/** A mission's versions (PRD 2842, supabase/migrations/20270122093000_missions.sql): its mission.md and
+ * its mission.html. */
+const MISSION_ARTIFACT_KINDS = ['mission-record', 'brief'] as const;
+
+/** Every kind of version a push may send: the pages' kinds and, since PRD 1272, a concept's four; since
+ * PRD 2842, a mission's two. The pages learn a concept's and a mission's with their own pages. */
+export const PUSHED_ARTIFACT_KINDS = [...ARTIFACT_KINDS, ...CONCEPT_ARTIFACT_KINDS, ...MISSION_ARTIFACT_KINDS] as const;
 export type PushedArtifactKind = (typeof PUSHED_ARTIFACT_KINDS)[number];
 
 /** Every kind of dossier a push or a lookup may name: the pages' kinds and, since PRD 1272, a concept,
- * numbered by its issue and never a draft. */
-export const PUSH_KINDS = [...WORK_KINDS, 'concept'] as const;
+ * numbered by its issue and never a draft; since PRD 2842, a mission, numbered the same way. */
+export const PUSH_KINDS = [...WORK_KINDS, 'concept', 'mission'] as const;
 export type PushKind = (typeof PUSH_KINDS)[number];
 
 /** The kinds a PRD's page watches (its change check): its three artifacts and, since PRD 822, its voice. */
@@ -55,6 +64,7 @@ export const KIND_ARTIFACTS: Readonly<Record<PushKind, readonly PushedArtifactKi
   visual: ['before-after', 'variations'],
   bug: ['bug-record'],
   concept: CONCEPT_ARTIFACT_KINDS,
+  mission: MISSION_ARTIFACT_KINDS,
 };
 
 /** The kinds a push may send more than once, a round each, oldest first. */
@@ -128,8 +138,10 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
       return { id };
     },
 
-    /** Sends a PRD folder's artifacts; the dossier they went to and which versions were added. */
+    /** Sends a PRD folder's artifacts; the dossier they went to and which versions were added. A mission's
+     * goes to mission_push() (PRD 2842), its brief read from its mission.md. */
     async push({ repo, prd, kind = 'prd', title, draftId, artifacts, product = null }: DossierPush): Promise<DossierPushed> {
+      if (kind === 'mission') return pushMission(db, { repo, mission: prd, title, artifacts });
       // A PRD's push names no kind, as before PRD 627: the function reads a missing one as prd. It names
       // a product only when one was sent (PRD 1364): the function reads a missing one as none.
       const pushed = settle<Partial<Omit<DossierPushed, 'product'>> & { product?: unknown }>('push the dossier', await db.rpc('dossier_push', {
@@ -153,6 +165,31 @@ export function dossierStore(db: Pick<SupabaseClient, 'rpc'>) {
       return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [], product: productOf(pushed.product), prdId: pushed.prdId };
     },
   };
+}
+
+/** The brief's fields as mission_push() takes them, from the push's mission.md, or the refusal that names
+ * what is wrong: no mission.md, one the kit's schema refuses, or one naming another mission. */
+function briefOf(mission: IssueNumber, artifacts: readonly DossierArtifact[]): Omit<Brief, 'mission' | 'title'> {
+  const record = artifacts.find((artifact) => artifact.kind === 'mission-record');
+  const refuse = (reason: string) => new DossierStoreError('push the mission', '22023', reason);
+  if (!record) throw refuse('A mission push carries its mission.md, as mission-record.');
+  const parsed = parseBrief(record.content);
+  if (!parsed.ok) throw refuse(`mission.md does not read: ${parsed.errors.join(' ')}`);
+  if (parsed.brief.mission !== mission) throw refuse(`mission.md is mission #${parsed.brief.mission}, not #${mission}.`);
+  const { fleet, goal, measures, scope, mandate } = parsed.brief;
+  return { fleet, goal, measures, scope, mandate };
+}
+
+/** PRD 2842: a mission's page and its row, through mission_push(); the page's id and which versions were added. */
+async function pushMission(
+  db: Pick<SupabaseClient, 'rpc'>, { repo, mission, title, artifacts }: { repo: string; mission: IssueNumber; title: string; artifacts: DossierArtifact[] },
+): Promise<DossierPushed> {
+  const brief = briefOf(mission, artifacts);
+  const pushed = settle<Partial<Omit<DossierPushed, 'product'>>>('push the mission', await db.rpc('mission_push', {
+    p_repo: repo, p_mission: mission, p_title: title, p_brief: brief, p_artifacts: artifacts,
+  }));
+  if (!pushed || typeof pushed.id !== 'string') throw new DossierStoreError('push the mission', undefined, 'no mission came back');
+  return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [], product: null };
 }
 
 /** A push to a product PRD (PRD 1548): its product's key, its number (null: the next, created), the
