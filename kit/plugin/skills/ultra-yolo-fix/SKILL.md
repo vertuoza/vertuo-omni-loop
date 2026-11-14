@@ -30,6 +30,12 @@ signed. A command that prints nothing means signing is off here: add nothing.
 A PRD number, in a plan repository, whose plan PR carries replies to its outbox comment, or whose
 ledger holds drifted entries. Re-running is safe, as for `/omni:yolo-fix`.
 
+**`--for-review`** (PRD 2871), as `/omni:yolo-fix --for-review`: step 3 also reads and judges the
+Reviewer's open threads on the plan PR (**The Reviewer's threads** of `/omni:yolo-fix` step 3, in the
+plan repository, each thread fixed, pushed back or asked, with `omni care reply`); step 7 ships as
+written, then leaves the plan PR a **draft** in place of marking it ready, and step 8 ends on
+`/omni:yolo` §7's **For review**, its last line `/omni:review <n>`. Without it, nothing changes.
+
 ## Step 0
 
 Given a product PRD's id (`<key>-<n>`, as `mobile-12`), follow **From a product** below from here
@@ -133,7 +139,8 @@ number in its target; the commit message names each as `<slug>#<sub-PR>`.
 its setup then its preflight, push, the body, its target PR ready and its CI followed until green or stuck), then
 the one gate in the plan repository. The release note is rewritten as `/omni:yolo-fix` step 7 says
 when a merged rework changed what the PRD does. The plan PR is marked ready only on a green gate,
-after `omni ship` is committed and pushed, and after every target PR is ready with green CI.
+after `omni ship` is committed and pushed, and after every target PR is ready with green CI. Under
+`--for-review` it is never marked ready here: it stays a draft for the Reviewer.
 
 ## 8. Hand off
 

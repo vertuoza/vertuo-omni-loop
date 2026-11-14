@@ -36,8 +36,14 @@ With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the step run
 
 ## Input
 
-A PRD number. Re-running is safe: the board is rebuilt from GitHub every time, `/omni:wave` resumes
-what a previous run left, and every step below checks before it acts.
+A PRD number, and optionally `--for-review` (PRD 2871), which a mission's supervisor sends so the
+Reviewer reads the branch before a person does. Re-running is safe: the board is rebuilt from GitHub
+every time, `/omni:wave` resumes what a previous run left, and every step below checks before it acts.
+
+**`--for-review`** changes one thing: step 5 runs everything up to and including `omni ship`
+(committed and pushed), then leaves the feature PR a **draft** and ends with the hand-off `review`
+(the PR waits for the Reviewer) in place of marking it ready. Without `--for-review`, every step is
+as written below and the feature PR is marked ready as today.
 
 ## Step 0
 
@@ -360,7 +366,11 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`. When item 2 wrote a
    shipped round, follow `/omni:dossier-push <prd>` from the worktree, so the PRD's User voice tab
    ends on what shipped; whatever it prints, carry on.
-4. Only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it, at **point
+4. **With `--for-review`, stop here:** run neither the point `yolo.ready` nor `gh pr ready`. The
+   feature PR stays a draft, its status comment says `waits for the Reviewer`, and the run goes on
+   to item 5 and then step 6, ending on the `review` hand-off of step 7 (the gate green and
+   `omni ship` committed and pushed are what the Reviewer's pass relies on to mark it ready).
+   Without `--for-review`: only now, `gh pr ready <feature PR>`, once a stacked feature PR's base allows it, at **point
    `yolo.ready`**: once the base allows it, run `node .omni-loop/bin/omni.mjs flow show yolo.ready`
    and follow every `before` hook (`{prd}` the PRD, `{pr}` the feature PR), then `gh pr ready`, then
    every `after` hook (**Flow points**). Item 3 has just pushed: run `gh pr ready` as `/omni:pr`'s
@@ -617,8 +627,13 @@ that stayed red.
 
 The PR that holds it is the stuck sub-PR when there is one, the feature PR otherwise.
 
+**For review** (`--for-review`, gate green, `omni ship` committed and pushed): the feature PR is
+left a draft for the Reviewer. Its **What is next?** is one line, `The Reviewer reads the branch
+next; it marks the PR ready on its pass.`, and the reply's last line is `/omni:review <n>`. A red
+gate or a held run ends as written above, whatever the flag.
+
 The last line of the reply is always the ending's own, alone on it:
-`/omni:pr-care <n>`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`.
+`/omni:pr-care <n>`, `/omni:yolo-fix <n>`, `/omni:yolo <n>` or, for review, `/omni:review <n>`.
 Everything the next session needs is in the repository and on GitHub, so clearing the session loses
 nothing.
 
@@ -635,7 +650,7 @@ keeps its one line: nothing was built, so there is nothing to hand off.
   `/omni:wave`; a person merges the feature PR.
 - **Never add `labels.outboxGo`.** It is a person's override, not this skill's way out.
 - **Never mark the feature PR ready while the gate is red**, and never before `omni ship` is
-  committed and pushed.
+  committed and pushed. With `--for-review` never mark it ready at all: the Reviewer's pass does.
 - **Never run a wave on a feature branch behind the default branch** (the board's `base.behind`
   `true`): meet it first (step 1).
 - **Never mark a stacked feature PR ready while the PR of its base is open**, and never meet a base
